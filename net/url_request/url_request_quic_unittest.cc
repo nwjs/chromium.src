@@ -90,9 +90,9 @@ class URLRequestQuicTest : public TestWithTaskEnvironment,
       : force_quic_(force_quic),
         context_builder_(CreateTestURLRequestContextBuilder()) {
     if (happy_eyeballs_v3_enabled()) {
-      feature_list_.InitAndEnableFeature(features::kHappyEyeballsV3);
+      AddScopedFeatureList().InitAndEnableFeature(features::kHappyEyeballsV3);
     } else {
-      feature_list_.InitAndDisableFeature(features::kHappyEyeballsV3);
+      AddScopedFeatureList().InitAndDisableFeature(features::kHappyEyeballsV3);
     }
 
     QuicEnableVersion(version());
@@ -189,7 +189,7 @@ class URLRequestQuicTest : public TestWithTaskEnvironment,
         quic::QuicCryptoServerConfig::ConfigOptions(),
         quic::ParsedQuicVersionVector{version}, &memory_cache_backend_);
     int rv =
-        server_->Listen(net::IPEndPoint(net::IPAddress::IPv4AllZeros(), 0));
+        server_->Listen(net::IPEndPoint(net::IPAddress::IPv4Localhost(), 0));
     EXPECT_GE(rv, 0) << "Quic server fails to start";
   }
 
@@ -210,7 +210,6 @@ class URLRequestQuicTest : public TestWithTaskEnvironment,
   }
 
   const bool force_quic_;
-  base::test::ScopedFeatureList feature_list_;
 
   std::unique_ptr<QuicSimpleServer> server_;
   quic::QuicMemoryCacheBackend memory_cache_backend_;
@@ -511,6 +510,7 @@ TEST_P(URLRequestQuicTest, DelayedResponseStart) {
   LoadTimingInfo timing_info;
   request->GetLoadTimingInfo(&timing_info);
   EXPECT_EQ(OK, delegate.request_status());
+  EXPECT_EQ(kHelloBodyValue, delegate.data_received());
   EXPECT_GE((timing_info.receive_headers_start - timing_info.request_start),
             delay);
   EXPECT_GE(timing_info.receive_non_informational_headers_start,

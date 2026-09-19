@@ -32,6 +32,7 @@
 #include <memory>
 
 #include "base/functional/callback_helpers.h"
+#include "base/memory/raw_ptr.h"
 #include "cc/animation/animation_host.h"
 #include "cc/animation/animation_timeline.h"
 #include "cc/base/features.h"
@@ -367,7 +368,7 @@ class PagePopupChromeClient final : public EmptyChromeClient {
         delta, granularity, scrollable_area_element_id, injected_type);
   }
 
-  WebPagePopupImpl* popup_;
+  raw_ptr<WebPagePopupImpl, UnprotectedInRelease | DanglingUntriaged> popup_;
 };
 
 // WebPagePopupImpl ----------------------------------------------------------
@@ -451,8 +452,10 @@ WebPagePopupImpl::WebPagePopupImpl(
   }
 
   // TODO(https://crbug.com/1355751) Initialize `storage_key`.
-  frame->Init(/*opener=*/nullptr, DocumentToken(), /*policy_container=*/nullptr,
-              StorageKey(), /*document_ukm_source_id=*/ukm::kInvalidSourceId,
+  frame->Init(/*opener=*/nullptr, DocumentToken(),
+              /*initiator_state_token=*/base::UnguessableToken::Create(),
+              /*policy_container=*/nullptr, StorageKey(),
+              /*document_ukm_source_id=*/ukm::kInvalidSourceId,
               /*creator_base_url=*/NullUrl());
   frame->View()->SetParentVisible(true);
   frame->View()->SetSelfVisible(true);

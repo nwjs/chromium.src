@@ -16,8 +16,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
-import android.content.ClipData;
-import android.content.ClipboardManager;
 import android.content.Context;
 import android.graphics.Color;
 import android.text.Selection;
@@ -30,7 +28,6 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.ContextUtils;
@@ -44,31 +41,36 @@ import org.chromium.chrome.browser.search_engines.settings.SearchEngineSettings;
 import org.chromium.chrome.browser.search_engines.settings.SiteSearchSettings;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
+import org.chromium.components.omnibox.AutocompleteInput;
+import org.chromium.components.omnibox.AutocompleteInput.DisplayState;
 import org.chromium.components.omnibox.OmniboxFeatureList;
+import org.chromium.components.omnibox.OmniboxFocusReason;
 import org.chromium.components.omnibox.OmniboxUrlEmphasizer;
 import org.chromium.components.omnibox.OmniboxUrlEmphasizer.UrlEmphasisColorSpan;
 import org.chromium.components.omnibox.TextSelection;
+import org.chromium.ui.base.Clipboard;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyObservable.PropertyObserver;
 import org.chromium.url.GURL;
 
 /** Unit tests for {@link UrlBarMediator}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class UrlBarMediatorUnitTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Mock private Clipboard mClipboard;
     @Mock private PropertyObserver mPropertyObserver;
     @Mock private SettingsNavigation mSettingsNavigation;
     @Mock private UrlBarDelegate mUrlBarDelegate;
-    Context mContext;
-    PropertyModel mModel;
-    UrlBarMediator mMediator;
-    UrlBarDelegate mDelegate;
+    private Context mContext;
+    private PropertyModel mModel;
+    private UrlBarMediator mMediator;
+    private UrlBarDelegate mDelegate;
 
     @Before
     public void setUp() {
         OmniboxResourceProvider.setUrlBarPrimaryTextColorForTesting(Color.LTGRAY);
         OmniboxResourceProvider.setUrlBarHintTextColorForTesting(Color.LTGRAY);
+        Clipboard.setInstanceForTesting(mClipboard);
         mContext = ContextUtils.getApplicationContext();
         mModel = new PropertyModel(UrlBarProperties.ALL_KEYS);
         mMediator =
@@ -325,19 +327,16 @@ public class UrlBarMediatorUnitTest {
 
     @Test
     public void pasteTextValidation() {
-        ClipboardManager clipboard =
-                (ClipboardManager)
-                        RuntimeEnvironment.application.getSystemService(Context.CLIPBOARD_SERVICE);
-        clipboard.setPrimaryClip(null);
+        doReturn(null).when(mClipboard).getCoercedText();
         assertNull(mMediator.getTextToPaste());
 
-        clipboard.setPrimaryClip(ClipData.newPlainText("", ""));
+        doReturn("").when(mClipboard).getCoercedText();
         assertEquals("", mMediator.getTextToPaste());
 
-        clipboard.setPrimaryClip(ClipData.newPlainText("", "test"));
+        doReturn("test").when(mClipboard).getCoercedText();
         assertEquals("test", mMediator.getTextToPaste());
 
-        clipboard.setPrimaryClip(ClipData.newPlainText("", "    test     "));
+        doReturn("    test     ").when(mClipboard).getCoercedText();
         assertEquals("test", mMediator.getTextToPaste());
     }
 
@@ -509,8 +508,9 @@ public class UrlBarMediatorUnitTest {
     }
 
     @Test
+    @Config(qualifiers = "sw600dp")
     @EnableFeatures(OmniboxFeatureList.OMNIBOX_SITE_SEARCH)
-    public void testManageSearchEnginesCallback_featureEnabled() {
+    public void testManageSearchEnginesCallback_tablet_featureEnabled() {
         SettingsNavigationFactory.setInstanceForTesting(mSettingsNavigation);
 
         Runnable callback = mModel.get(UrlBarProperties.MANAGE_SEARCH_ENGINES_CALLBACK);
@@ -521,8 +521,9 @@ public class UrlBarMediatorUnitTest {
     }
 
     @Test
+    @Config(qualifiers = "sw600dp")
     @DisableFeatures(OmniboxFeatureList.OMNIBOX_SITE_SEARCH)
-    public void testManageSearchEnginesCallback_featureDisabled() {
+    public void testManageSearchEnginesCallback_tablet_featureDisabled() {
         SettingsNavigationFactory.setInstanceForTesting(mSettingsNavigation);
 
         Runnable callback = mModel.get(UrlBarProperties.MANAGE_SEARCH_ENGINES_CALLBACK);
@@ -530,6 +531,12 @@ public class UrlBarMediatorUnitTest {
 
         callback.run();
         verify(mSettingsNavigation).startSettings(eq(mContext), eq(SearchEngineSettings.class));
+    }
+
+    @Test
+    public void testManageSearchEnginesCallback_phone() {
+        Runnable callback = mModel.get(UrlBarProperties.MANAGE_SEARCH_ENGINES_CALLBACK);
+        assertNull(callback);
     }
 
     @Test
@@ -562,6 +569,93 @@ public class UrlBarMediatorUnitTest {
         // Typing does NOT update mUrlBarData when not in input session.
         mModel.get(UrlBarProperties.TEXT_CHANGE_LISTENER).onResult("after session");
         assertEquals("", mMediator.getUrlBarData().displayText.toString());
+    }
+
+    @Test
+    public void onTextChanged_synchronizesSelectionInInputSession() {
+        var sessionState = new FuseboxSessionState();
+        UrlBarData initialData = UrlBarData.forNonUrlText("initial");
+        doReturn(initialData).when(mDelegate).getUrlBarDataForCurrentInput();
+
+        mMediator.beginInput(sessionState);
+
+        // Simulate typing and moving cursor to selection (1, 1).
+        TextSelection newSelection = new TextSelection(1, 1);
+        sessionState.getAutocompleteInput().setUserText("typed", newSelection);
+        mModel.get(UrlBarProperties.TEXT_CHANGE_LISTENER).onResult("typed");
+
+        // Subsequent setUrlBarData with matching text and selection should be deduplicated.
+        assertFalse(
+                mMediator.setUrlBarData(
+                        UrlBarData.forNonUrlText("typed"),
+                        ScrollType.SCROLL_TO_BEGINNING,
+                        newSelection));
+    }
+
+    @Test
+    public void onTextChanged_synchronizesSelectionUpdatedByListener() {
+        var sessionState = new FuseboxSessionState();
+        UrlBarData initialData = UrlBarData.forNonUrlText("initial");
+        doReturn(initialData).when(mDelegate).getUrlBarDataForCurrentInput();
+
+        TextSelection typedSelection = new TextSelection(5, 5);
+        mMediator =
+                new UrlBarMediator(
+                        ContextUtils.getApplicationContext(),
+                        mModel,
+                        text ->
+                                sessionState
+                                        .getAutocompleteInput()
+                                        .setUserText(text, typedSelection),
+                        /* richTextChangeListener= */ null,
+                        /* keyDownListener= */ null);
+        mModel.set(UrlBarProperties.DELEGATE, mDelegate);
+        mMediator.beginInput(sessionState);
+
+        // User types "hello", which triggers textChangeListener to update AutocompleteInput
+        // selection.
+        mModel.get(UrlBarProperties.TEXT_CHANGE_LISTENER).onResult("hello");
+
+        // setUrlBarData with matching text and selection should be deduplicated.
+        assertFalse(
+                mMediator.setUrlBarData(
+                        UrlBarData.forNonUrlText("hello"),
+                        ScrollType.SCROLL_TO_BEGINNING,
+                        typedSelection));
+    }
+
+    @Test
+    public void onTextChanged_synchronizesRangeSelection() {
+        var sessionState = new FuseboxSessionState();
+        UrlBarData initialData = UrlBarData.forNonUrlText("initial");
+        doReturn(initialData).when(mDelegate).getUrlBarDataForCurrentInput();
+
+        TextSelection rangeSelection = new TextSelection(2, 5);
+        mMediator =
+                new UrlBarMediator(
+                        ContextUtils.getApplicationContext(),
+                        mModel,
+                        text ->
+                                sessionState
+                                        .getAutocompleteInput()
+                                        .setUserText(text, rangeSelection),
+                        /* richTextChangeListener= */ null,
+                        /* keyDownListener= */ null);
+        mModel.set(UrlBarProperties.DELEGATE, mDelegate);
+        mMediator.beginInput(sessionState);
+
+        mModel.get(UrlBarProperties.TEXT_CHANGE_LISTENER).onResult("selected");
+
+        assertFalse(
+                mMediator.setUrlBarData(
+                        UrlBarData.forNonUrlText("selected"),
+                        ScrollType.SCROLL_TO_BEGINNING,
+                        rangeSelection));
+        assertTrue(
+                mMediator.setUrlBarData(
+                        UrlBarData.forNonUrlText("selected"),
+                        ScrollType.SCROLL_TO_BEGINNING,
+                        new TextSelection(0, 0)));
     }
 
     @Test
@@ -604,6 +698,58 @@ public class UrlBarMediatorUnitTest {
         assertFalse(
                 mMediator.setUrlBarData(
                         empty2, UrlBar.ScrollType.SCROLL_TO_TLD, TextSelection.SELECT_END));
+    }
+
+    @Test
+    public void endInput_clearsSessionBeforeResettingText() {
+        var session = new FuseboxSessionState();
+        var input = new AutocompleteInput(OmniboxFocusReason.DEFAULT_WITH_HARDWARE_KEYBOARD);
+        input.setUserText("typed text", TextSelection.SELECT_END);
+        session.applyAutocompleteInput(input);
+
+        doReturn(UrlBarData.forNonUrlText("typed text"))
+                .when(mDelegate)
+                .getUrlBarDataForCurrentInput();
+        mModel.set(UrlBarProperties.DELEGATE, mDelegate);
+
+        mMediator.beginInput(session);
+        assertTrue(mMediator.isInInputSession());
+
+        mMediator.endInput();
+        assertFalse(mMediator.isInInputSession());
+    }
+
+    @Test
+    public void testAllowMultilineInput_drivenByDisplayState() {
+        assertFalse(mModel.get(UrlBarProperties.ALLOW_MULTILINE_INPUT));
+
+        var session = new FuseboxSessionState();
+        var input = session.getAutocompleteInput();
+        doReturn(UrlBarData.EMPTY).when(mDelegate).getUrlBarDataForCurrentInput();
+
+        mMediator.beginInput(session);
+        assertFalse(mModel.get(UrlBarProperties.ALLOW_MULTILINE_INPUT));
+
+        input.setDisplayState(DisplayState.DRAFTING);
+        assertFalse(mModel.get(UrlBarProperties.ALLOW_MULTILINE_INPUT));
+
+        input.setDisplayState(DisplayState.DRAFTING_NO_FOCUS);
+        assertFalse(mModel.get(UrlBarProperties.ALLOW_MULTILINE_INPUT));
+
+        input.setDisplayState(DisplayState.WEBSITE);
+        assertFalse(mModel.get(UrlBarProperties.ALLOW_MULTILINE_INPUT));
+
+        input.setDisplayState(DisplayState.SUGGESTIONS);
+        assertTrue(mModel.get(UrlBarProperties.ALLOW_MULTILINE_INPUT));
+
+        input.setDisplayState(DisplayState.DRAFTING_NO_FOCUS);
+        assertFalse(mModel.get(UrlBarProperties.ALLOW_MULTILINE_INPUT));
+
+        mMediator.endInput();
+        assertFalse(mModel.get(UrlBarProperties.ALLOW_MULTILINE_INPUT));
+
+        input.setDisplayState(DisplayState.SUGGESTIONS);
+        assertFalse(mModel.get(UrlBarProperties.ALLOW_MULTILINE_INPUT));
     }
 
     private static SpannableStringBuilder spannable(String text) {

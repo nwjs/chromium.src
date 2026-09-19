@@ -301,16 +301,6 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
       base::FeatureList::IsEnabled(ntp_features::kNtpGoogleLogo26);
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
   source->AddBoolean("useGoogleLogo26", use_google_logo_26);
-  source->AddBoolean(
-      "middleSlotPromoEnabled",
-      base::FeatureList::IsEnabled(ntp_features::kNtpMiddleSlotPromo) &&
-          profile->GetPrefs()->GetBoolean(prefs::kNtpPromoVisible));
-  source->AddBoolean(
-      "middleSlotPromoDismissalEnabled",
-      base::FeatureList::IsEnabled(ntp_features::kNtpMiddleSlotPromoDismissal));
-  source->AddBoolean(
-      "modulesDragAndDropEnabled",
-      base::FeatureList::IsEnabled(ntp_features::kNtpModulesDragAndDrop));
   source->AddBoolean("modulesLoadEnabled", base::FeatureList::IsEnabled(
                                                ntp_features::kNtpModulesLoad));
   source->AddInteger("modulesLoadTimeout",
@@ -631,8 +621,6 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
       {"modulesTabGroupsZeroStateText",
        IDS_NTP_MODULES_TAB_GROUPS_ZERO_STATE_TEXT},
 
-      // Middle slot promo.
-      {"undoDismissPromoButtonToast", IDS_NTP_UNDO_DISMISS_PROMO_BUTTON_TOAST},
       {"mobilePromoDescription", IDS_NTP_MOBILE_PROMO_DESCRIPTION},
       {"mobilePromoHeader", IDS_NTP_MOBILE_PROMO_HEADER},
       {"mobilePromoQrCode", IDS_NTP_MOBILE_PROMO_QR_CODE_LABEL},
@@ -682,6 +670,9 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
   source->AddString("composeboxImageFileTypes", image_mime_types);
   source->AddBoolean("lensSendRawFileMediaTypesEnabled",
                      lens::features::IsLensSendRawFileMediaTypesEnabled());
+  source->AddBoolean("lensBypassCompressionForC2pa",
+                     base::FeatureList::IsEnabled(
+                         lens::features::kLensBypassCompressionForC2pa));
   const std::string attachment_mime_types =
       composebox_config.attachment_upload().mime_types_allowed();
   source->AddString("composeboxAttachmentFileTypes", attachment_mime_types);
@@ -700,11 +691,10 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
       "searchboxShowComposeEntrypoint",
       (aim_eligible || ntp_composebox::IsNtpComposeboxEnabled(profile)));
 
-  source->AddBoolean(
-      "ntpRealboxDynamicAiModeButton",
-      ntp_realbox::IsNtpRealboxNextEnabled(profile) &&
-          base::FeatureList::IsEnabled(
-              ntp_realbox::kNtpRealboxDynamicAiModeButton));
+  source->AddBoolean("ntpRealboxDynamicAiModeButton",
+                     ntp_realbox::IsNtpRealboxNextEnabled(profile) &&
+                         base::FeatureList::IsEnabled(
+                             ntp_realbox::kNtpRealboxDynamicAiModeButton));
 
   if (ntp_realbox::IsNtpRealboxNextEnabled(profile)) {
     if (base::FeatureList::IsEnabled(
@@ -760,7 +750,6 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
   source->AddBoolean("composeboxShowImageSuggest",
                      ntp_composebox::kShowComposeboxImageSuggestions.Get());
 
-
   source->AddBoolean("composeboxSmartComposeEnabled",
                      ntp_composebox::kShowSmartCompose.Get());
 
@@ -808,6 +797,9 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
   source->AddBoolean(
       "ntpSmallActionChipsEnabled",
       base::FeatureList::IsEnabled(ntp_features::kNtpScaledActionChipsSmall));
+  // TODO(crbug.com/548681676): Remove once TutorialId proto rolls from server.
+  source->AddBoolean("scaledActionChipsInTestMode",
+                     ntp_features::kNtpScaledActionChipsSmallInTestMode.Get());
 
   // User education browser promos.
   int browser_promo_limit = 0;
@@ -1187,9 +1179,9 @@ void NewTabPageUI::BindInterface(
   auto* aim_service = AimEligibilityServiceFactory::GetForProfile(profile_);
   bool aim_eligible = aim_service && aim_service->IsAimEligible();
 
-  if (!aim_eligible &&
-      !ntp_composebox::IsNtpComposeboxEnabled(profile_) &&
-      !SearchboxHandler::GetVoiceSearchCoherenceAnySearchboxExperimentEnabled()) {
+  if (!aim_eligible && !ntp_composebox::IsNtpComposeboxEnabled(profile_) &&
+      !SearchboxHandler::
+          GetVoiceSearchCoherenceAnySearchboxExperimentEnabled()) {
     return;
   }
   if (composebox_page_factory_receiver_.is_bound()) {

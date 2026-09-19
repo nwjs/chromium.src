@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/collaboration_messaging_observer.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_interactive_test_mixin.h"
 #include "chrome/browser/ui/views/tabs/groups/recent_activity_bubble_dialog_view.h"
@@ -68,26 +69,27 @@ class CollaborationMessagingPageActionControllerBrowserTest
   ~CollaborationMessagingPageActionControllerBrowserTest() override = default;
 
  protected:
-  tabs::TabInterface* GetTabInterface(Browser* target_browser, int index) {
-    return target_browser->tab_strip_model()->GetTabAtIndex(index);
+  tabs::TabInterface* GetTabInterface(BrowserWindowInterface* target_browser,
+                                      int index) {
+    return target_browser->GetTabStripModel()->GetTabAtIndex(index);
   }
 
   CollaborationMessagingPageActionController* GetControllerAtIndex(
-      Browser* target_browser,
+      BrowserWindowInterface* target_browser,
       int index) {
     return CollaborationMessagingPageActionController::From(
         GetTabInterface(target_browser, index));
   }
 
   tab_groups::CollaborationMessagingTabData* GetTabDataAtIndex(
-      Browser* target_browser,
+      BrowserWindowInterface* target_browser,
       int index) {
     return tab_groups::CollaborationMessagingTabData::From(
         GetTabInterface(target_browser, index));
   }
 
   RecentActivityBubbleCoordinator* GetBubbleCoordinator(
-      Browser* target_browser) {
+      BrowserWindowInterface* target_browser) {
     return RecentActivityBubbleCoordinator::From(target_browser);
   }
 
@@ -106,15 +108,15 @@ class CollaborationMessagingPageActionControllerBrowserTest
 
 IN_PROC_BROWSER_TEST_F(CollaborationMessagingPageActionControllerBrowserTest,
                        ShowsBubbleView) {
-  ASSERT_TRUE(browser()->tab_strip_model()->SupportsTabGroups());
+  ASSERT_TRUE(browser()->GetTabStripModel()->SupportsTabGroups());
 
-  TabStripModel* model = browser()->tab_strip_model();
+  TabStripModel* model = browser()->GetTabStripModel();
   tab_groups::TabGroupId group = model->AddToNewGroup({0});
 
   EXPECT_EQ(1, model->count());
   EXPECT_EQ(1u, model->group_model()->GetTabGroup(group)->ListTabs().length());
 
-  auto* tab = browser()->tab_strip_model()->GetActiveTab();
+  auto* tab = browser()->GetTabStripModel()->GetActiveTab();
   auto message =
       CreateChipMessage("User", tab_groups::CollaborationEvent::TAB_ADDED, tab);
 

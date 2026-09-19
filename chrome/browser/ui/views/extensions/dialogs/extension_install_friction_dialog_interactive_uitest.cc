@@ -2,11 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ui/extensions/extension_install_friction_dialog.h"
+
 #include "base/functional/callback_helpers.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
-#include "chrome/browser/ui/extensions/extensions_dialogs.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "content/public/test/browser_test.h"
 #include "ui/views/controls/styled_label.h"
@@ -23,7 +25,7 @@ class ExtensionInstallFrictionDialogUITest : public InteractiveBrowserTest {
   auto ShowExtensionInstallFrictionDialog() {
     return Do([&]() {
       extensions::ShowExtensionInstallFrictionDialog(
-          browser()->tab_strip_model()->GetActiveWebContents(),
+          browser()->GetTabStripModel()->GetActiveWebContents(),
           base::DoNothing());
     });
   }
@@ -74,7 +76,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionInstallFrictionDialogUITest,
 
       // Close the tab where the dialog is opened.
       Do([&]() {
-        browser()->tab_strip_model()->CloseWebContentsAt(
+        browser()->GetTabStripModel()->CloseWebContentsAt(
             first_tab_index, TabCloseTypes::CLOSE_NONE);
       }),
 

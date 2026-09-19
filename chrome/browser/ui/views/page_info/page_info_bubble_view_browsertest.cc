@@ -42,8 +42,7 @@
 #include "chrome/browser/ui/views/controls/rich_hover_button.h"
 #include "chrome/browser/ui/views/file_system_access/file_system_access_test_utils.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-#include "chrome/browser/ui/views/location_bar/location_icon_view.h"
+#include "chrome/browser/ui/views/location_bar/location_icon_test_accessor.h"
 #include "chrome/browser/ui/views/page_info/page_info_cookies_content_view.h"
 #include "chrome/browser/ui/views/page_info/page_info_permission_content_view.h"
 #include "chrome/browser/ui/views/page_info/page_info_view_factory.h"
@@ -53,7 +52,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
-#include "chrome/test/base/chrome_test_utils.h"
+#include "chrome/test/base/chrome_test_path_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chromeos/constants/pref_names.h"
@@ -131,13 +130,8 @@ void PerformMouseClickOnView(views::View* view) {
 }
 
 // Clicks the location icon to open the page info bubble.
-void OpenPageInfoBubble(Browser* browser) {
-  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
-  LocationIconView* location_icon_view =
-      browser_view->toolbar()->location_bar_view()->location_icon_view();
-  ASSERT_TRUE(location_icon_view);
-  ui::test::TestEvent event;
-  location_icon_view->ShowBubble(event);
+void OpenPageInfoBubble(BrowserWindowInterface* browser) {
+  LocationIconTestAccessor(browser).ShowBubble();
   views::BubbleDialogDelegateView* page_info =
       PageInfoBubbleView::GetPageInfoBubbleForTesting();
   EXPECT_NE(nullptr, page_info);
@@ -170,7 +164,8 @@ void ClickAndWaitForSettingsPageToOpen(views::View* site_settings_button) {
 
 // Returns the URL of the new tab that's opened on clicking the "Site settings"
 // button from Page Info.
-const GURL OpenSiteSettingsForUrl(Browser* browser, const GURL& url) {
+const GURL OpenSiteSettingsForUrl(BrowserWindowInterface* browser,
+                                  const GURL& url) {
   EXPECT_TRUE(ui_test_utils::NavigateToURL(browser, url));
   OpenPageInfoBubble(browser);
   // Get site settings button.
@@ -178,12 +173,12 @@ const GURL OpenSiteSettingsForUrl(Browser* browser, const GURL& url) {
       PageInfoViewFactory::VIEW_ID_PAGE_INFO_LINK_OR_BUTTON_SITE_SETTINGS);
   ClickAndWaitForSettingsPageToOpen(site_settings_button);
 
-  return browser->tab_strip_model()
+  return browser->GetTabStripModel()
       ->GetActiveWebContents()
       ->GetLastCommittedURL();
 }
 
-void AddHintForTesting(Browser* browser,
+void AddHintForTesting(BrowserWindowInterface* browser,
                        const GURL& url,
                        page_info::proto::SiteInfo site_info) {
   optimization_guide::OptimizationMetadata optimization_metadata;
@@ -263,7 +258,7 @@ class PageInfoBubbleViewBrowserTest : public InProcessBrowserTest {
   }
 
   content::WebContents* web_contents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   net::EmbeddedTestServer* bad_https_server() { return &bad_https_server_; }
@@ -694,7 +689,7 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
           std::vector<base::FilePath>{test_file}));
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   FileSystemAccessPermissionRequestManager::FromWebContents(web_contents)
       ->set_auto_response_for_test(permissions::PermissionAction::GRANTED);
@@ -777,7 +772,7 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
       chrome::GetSettingsUrl(chrome::kFileSystemSettingsSubpage), kParamRequest,
       origin_string);
   content::WebContents* updated_web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   EXPECT_EQ(link_destination, updated_web_contents->GetVisibleURL().spec());
   EXPECT_TRUE(base::DeleteFile(test_file));
 }
@@ -1162,7 +1157,7 @@ class PageInfoBubbleViewAboutThisSiteBrowserTest : public InProcessBrowserTest {
   }
 
   content::WebContents* web_contents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   void TriggerSafeBrowsingWarning() {

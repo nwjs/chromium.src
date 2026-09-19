@@ -23,7 +23,6 @@
 #include "components/optimization_guide/core/model_execution/model_broker_client.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features_controller.h"
 #include "components/optimization_guide/core/model_execution/on_device_capability.h"
-#include "components/optimization_guide/core/model_execution/on_device_model_adaptation_loader.h"
 #include "components/optimization_guide/core/model_execution/remote_model_executor.h"
 #include "components/optimization_guide/proto/hints.pb.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
@@ -144,6 +143,12 @@ class OptimizationGuideKeyedService
       const google::protobuf::MessageLite& request_metadata,
       const optimization_guide::ModelExecutionOptions& options,
       optimization_guide::OptimizationGuideModelExecutionResultCallback
+          callback) override;
+  std::unique_ptr<optimization_guide::RemoteModelExecutionSession>
+  StartStreamingSession(
+      optimization_guide::ModelBasedCapabilityKey feature,
+      const optimization_guide::StreamingModelExecutionOptions& options,
+      optimization_guide::OptimizationGuideModelExecutionStreamingCallback
           callback) override;
 
   // optimization_guide::OnDeviceCapability

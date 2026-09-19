@@ -4,6 +4,8 @@
 
 #include "chrome/browser/dictation/dictation_keyed_service.h"
 
+#include <optional>
+
 #include "base/check.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -75,6 +77,26 @@ tabs::TabInterface* GetTabFromTargetId(
   return nullptr;
 }
 
+std::optional<DictationUrlCategory> GetUrlCategoryFromTargetId(
+    const content::GlobalDOMNodeId& target_id) {
+  content::RenderFrameHost* rfh = target_id.document.AsRenderFrameHostIfValid();
+  if (!rfh) {
+    return std::nullopt;
+  }
+
+  content::WebContents* web_contents =
+      content::WebContents::FromRenderFrameHost(rfh);
+  if (!web_contents) {
+    return std::nullopt;
+  }
+
+  if (glic::IsGlicGuest(web_contents) || glic::IsGlicWebUI(web_contents)) {
+    return DictationUrlCategory::kGlic;
+  }
+
+  return DictationUrlCategory::kWeb;
+}
+
 }  // namespace
 
 // static
@@ -141,6 +163,17 @@ std::unique_ptr<SessionUi> DictationKeyedService::CreateUi(
   return std::make_unique<SessionUiImpl>(*tab, controller);
 }
 
+base::CallbackListSubscription
+DictationKeyedService::AddDictationTabChangedCallback(
+    base::RepeatingCallback<void(tabs::TabInterface*)> callback) {
+  callback.Run(GetActiveDictationTab());
+  return dictation_tab_changed_callbacks_.Add(std::move(callback));
+}
+
+tabs::TabInterface* DictationKeyedService::GetActiveDictationTab() const {
+  return session_ ? session_->tab_.get() : nullptr;
+}
+
 void DictationKeyedService::StartSession(
     tabs::TabInterface& tab,
     const TargetDetails& target_details,
@@ -155,8 +188,13 @@ void DictationKeyedService::StartSession(
   }
 
   RecordDictationSessionStartSource(entry_point);
+  if (std::optional<DictationUrlCategory> url_category =
+          GetUrlCategoryFromTargetId(target_details.target_id)) {
+    RecordDictationSessionUrlCategory(*url_category);
+  }
 
   session_.emplace(*this, tab);
+  dictation_tab_changed_callbacks_.Notify(&tab);
 
   session_->controller_.ResetUi();
 
@@ -184,6 +222,7 @@ void DictationKeyedService::StartSessionForTesting(  // IN-TEST
 
 void DictationKeyedService::EndSession() {
   session_.reset();
+  dictation_tab_changed_callbacks_.Notify(nullptr);
 }
 
 bool DictationKeyedService::ShouldShowContextMenuItem() const {
@@ -204,7 +243,8 @@ void DictationKeyedService::TriggerSession(
   } else {
     // Always stop existing stream before starting a new one.
     if (session_->controller_.attached_stream_provider()) {
-      session_->controller_.EndDictationStream();
+      session_->controller_.EndDictationStream(
+          DictationStreamEndTrigger::kNewSessionTriggered);
     }
 
     tabs::TabInterface* old_tab = session_->tab_.get();
@@ -214,6 +254,7 @@ void DictationKeyedService::TriggerSession(
       VT_LOG(profile_) << "Moving session to new tab: " << tab;
       session_->tab_ = tab->GetWeakPtr();
       session_->controller_.ResetUi();
+      dictation_tab_changed_callbacks_.Notify(tab);
     }
 
     VT_LOG(profile_) << "Starting in existing session";
@@ -262,7 +303,8 @@ void DictationKeyedService::ToggleHotkeyHandler() {
     bool tab_changed = (active_tab != old_tab);
 
     if (!tab_changed && session_->controller_.attached_stream_provider()) {
-      session_->controller_.EndDictationStream();
+      session_->controller_.EndDictationStream(
+          DictationStreamEndTrigger::kHotkeyToggle);
       return;
     }
   }

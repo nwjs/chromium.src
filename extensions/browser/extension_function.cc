@@ -47,7 +47,6 @@
 #include "extensions/browser/service_worker/service_worker_keepalive.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_api.h"
-#include "extensions/common/extension_features.h"
 #include "extensions/common/mojom/renderer.mojom.h"
 #include "third_party/blink/public/mojom/devtools/inspector_issue.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_object.mojom-forward.h"
@@ -626,9 +625,6 @@ bool ExtensionFunction::ShouldKeepWorkerAliveIndefinitely() {
 }
 
 const base::ListValue& ExtensionFunction::GetOriginalArgs() const {
-  CHECK(base::FeatureList::IsEnabled(
-      extensions_features::kAvoidCloneArgsOnExtensionFunctionDispatch));
-
   if (original_args_.has_value()) {
     // Return `original_args_`, which were copied from `args_` on the first call
     // to GetMutableArgs().
@@ -734,12 +730,8 @@ void ExtensionFunction::SetTransferredBlobs(
 
 base::ListValue& ExtensionFunction::GetMutableArgs() {
   DCHECK(args_);
-  if (!original_args_.has_value() &&
-      base::FeatureList::IsEnabled(
-          extensions_features::kAvoidCloneArgsOnExtensionFunctionDispatch)) {
-    // Preserve original args before allowing modification of `args_`. Not
-    // needed when `kAvoidCloneArgsOnExtensionFunctionDispatch` is disabled
-    // since GetOriginalArgs() is disallowed in that configuration.
+  if (!original_args_.has_value()) {
+    // Preserve original args before allowing modification of `args_`.
     original_args_ = args_->Clone();
   }
   return *args_;

@@ -8,14 +8,15 @@ source_set("isolated_mode") {
   sources = [
     "isolated_mode_features.cc",
     "isolated_mode_features.h",
+    "isolated_mode_settings_service.cc",
+    "isolated_mode_settings_service.h",
     "prefs.cc",
     "prefs.h",
-    "settings.cc",
-    "settings.h",
   ]
 
   deps = [
     "//base",
+    "//components/keyed_service/core",
     "//components/prefs",
     "//components/version_info",
   ]
@@ -23,7 +24,7 @@ source_set("isolated_mode") {
 
 source_set("unit_tests") {
   testonly = true
-  sources = [ "settings_unittest.cc" ]
+  sources = [ "isolated_mode_settings_service_unittest.cc" ]
   deps = [
     ":isolated_mode",
     "//base",

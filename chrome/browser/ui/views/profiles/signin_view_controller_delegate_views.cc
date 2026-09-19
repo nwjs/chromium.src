@@ -493,7 +493,7 @@ SigninViewControllerDelegateViews::CreateDialogWebView(
 void SigninViewControllerDelegateViews::DisplayModal() {
   DCHECK(!modal_signin_widget_);
   content::WebContents* host_web_contents =
-      browser_->tab_strip_model()->GetActiveWebContents();
+      browser_->GetTabStripModel()->GetActiveWebContents();
 
   // Avoid displaying the sign-in modal view if there are no active web
   // contents. This happens if the user closes the browser window before this
@@ -719,7 +719,8 @@ SigninViewControllerDelegate::CreateManagedUserNoticeDelegate(
   bool allow_closing_by_pressing_escape =
       !create_param->is_device_signals_disclaimer;
 
-  std::u16string email = base::UTF8ToUTF16(create_param->account_info.email);
+  std::u16string email =
+      base::UTF8ToUTF16(create_param->account_info.GetEmail());
   auto web_view = SigninViewControllerDelegateViews::
       CreateManagedUserNoticeConfirmationWebView(browser,
                                                  std::move(create_param));

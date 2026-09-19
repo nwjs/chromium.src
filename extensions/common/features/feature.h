@@ -5,11 +5,18 @@
 #ifndef EXTENSIONS_COMMON_FEATURES_FEATURE_H_
 #define EXTENSIONS_COMMON_FEATURES_FEATURE_H_
 
+#include <stddef.h>
+
+#include <functional>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
+#include "base/compiler_specific.h"
+#include "base/memory/raw_ptr_exclusion.h"
 #include "extensions/common/context_data.h"
 #include "extensions/common/hashed_extension_id.h"
 #include "extensions/common/manifest.h"
@@ -23,6 +30,73 @@ namespace extensions {
 inline constexpr int kUnspecifiedContextId = -1;
 
 class Extension;
+
+// A retained pointer to immutable descriptor data. Its consteval constructor
+// enforces static storage and compile-time-readable contents.
+template <typename T>
+class StaticFeatureData {
+ public:
+  template <typename U>
+    requires std::is_same_v<U, const T>
+  explicit consteval StaticFeatureData(U& data) : data_(&data) {
+    // Read the complete descriptor during constant evaluation to reject
+    // statically stored data whose contents are dynamically initialized.
+    [[maybe_unused]] T validated_data = data;
+  }
+
+  constexpr const T* get() const { return data_; }
+
+ private:
+  // Safe because construction requires static storage.
+  RAW_PTR_EXCLUSION const T* data_;
+};
+
+template <typename T>
+StaticFeatureData(T&) -> StaticFeatureData<std::remove_const_t<T>>;
+
+// A pointer to a static NUL-terminated string. Half the size of a
+// std::string_view, which matters because a handful of features set these
+// fields but every feature pays for them; the length is recovered by scanning
+// on the cold paths that read them.
+//
+// The consteval constructor's attribute reads a character out of the array,
+// which requires the contents, not just the address, to be compile-time
+// constant. A bare const char* is the same size but would accept a mutable or
+// dynamically initialized global.
+class StaticCString {
+ public:
+  // Absent by default; nullptr is the sentinel, so no std::optional is needed.
+  constexpr StaticCString() = default;
+
+  template <size_t N>
+  explicit consteval StaticCString(const char (&string)[N])
+      ENABLE_IF_ATTR(string[N - 1u] == '\0', "requires a NUL-terminated string")
+      : data_(string) {}
+
+  constexpr bool has_value() const { return data_ != nullptr; }
+
+  // Stops at an embedded NUL. The attribute above only constrains the final
+  // byte, so a literal containing one still compiles.
+  constexpr std::string_view string_view() const {
+    return data_ ? std::string_view(data_) : std::string_view();
+  }
+
+ private:
+  // Safe because construction requires static storage.
+  RAW_PTR_EXCLUSION const char* data_ = nullptr;
+};
+
+// Immutable identity shared by every feature. Generated descriptors initialize
+// this with designated initializers, so the member order must match
+// FEATURE_DATA_FIELD_ORDER in tools/json_schema_compiler/feature_compiler.py.
+struct FeatureData {
+  std::string_view name;
+  // Set by a handful of features, so these hold only a pointer rather than
+  // pay for a length in every descriptor. Both are read on cold paths.
+  StaticCString alias;
+  StaticCString source;
+  bool no_parent = false;
+};
 
 // Represents a single feature accessible to an extension developer, such as a
 // top-level manifest key, a permission, or a programmatic API. A feature can
@@ -84,7 +158,7 @@ class Feature {
 
   // Mapping Feature::name() to override function.
   using FeatureDelegatedAvailabilityCheckMap =
-      std::map<std::string, DelegatedAvailabilityCheckHandler>;
+      std::map<std::string, DelegatedAvailabilityCheckHandler, std::less<>>;
 
   // Container for AvailabilityResult that also exposes a user-visible error
   // message in cases where the feature is not available.
@@ -99,7 +173,7 @@ class Feature {
     bool is_available() const {
       return result_ == AvailabilityResult::kIsAvailable;
     }
-    const std::string& message() const { return message_; }
+    const std::string& message() const LIFETIME_BOUND { return message_; }
 
    private:
     friend class SimpleFeature;
@@ -109,18 +183,14 @@ class Feature {
     const std::string message_;
   };
 
-  Feature();
   virtual ~Feature();
 
-  const std::string& name() const { return name_; }
-  // Note that this arg is passed as a string_view to avoid a lot of bloat from
-  // inlined std::string code.
-  void set_name(std::string_view name);
-  const std::string& alias() const { return alias_; }
-  void set_alias(std::string_view alias);
-  const std::string& source() const { return source_; }
-  void set_source(std::string_view source);
-  bool no_parent() const { return no_parent_; }
+  std::string_view name() const { return feature_data_->name; }
+  std::string_view alias() const { return feature_data_->alias.string_view(); }
+  std::string_view source() const {
+    return feature_data_->source.string_view();
+  }
+  bool no_parent() const { return feature_data_->no_parent; }
 
   // Gets the platform the code is currently running on.
   static Platform GetCurrentPlatform();
@@ -208,6 +278,8 @@ class Feature {
   friend class SimpleFeature;
   friend class ComplexFeature;
 
+  explicit Feature(const FeatureData* feature_data);
+
   // These parameters should be kept in sync with
   // DelegatedAvailabilityCheckHandler.
   virtual Availability IsAvailableToContextImpl(
@@ -222,10 +294,9 @@ class Feature {
   // Gets whether a feature availability override handler has been set.
   virtual bool HasDelegatedAvailabilityCheckHandler() const = 0;
 
-  std::string name_;
-  std::string alias_;
-  std::string source_;
-  bool no_parent_;
+  // Immutable configuration, owned by whoever constructed this feature. For
+  // generated features this is static storage; tests own their own copy.
+  RAW_PTR_EXCLUSION const FeatureData* feature_data_;
 };
 
 }  // namespace extensions

@@ -83,6 +83,9 @@ class TestVariationsSeedStore : public VariationsSeedStore {
       : VariationsSeedStore(
             local_state,
             std::move(initial_seed),
+            /*signature_verification_enabled_on_load=*/
+            signature_verification_needed,
+            /*signature_verification_enabled_on_receive=*/
             signature_verification_needed,
             std::make_unique<VariationsSafeSeedStore>(local_state,
                                                       seed_file_dir,
@@ -419,7 +422,7 @@ class SeedStoreGroupTestBase : public ::testing::Test {
     temp_seed_file_path_ = temp_dir_.GetPath().Append(kSeedFilename);
 
     VariationsSeedStore::RegisterPrefs(prefs_.registry());
-    SetUpSeedFileTrial(std::string(field_trial_group));
+    SetUpSeedFileTrial(field_trial_group);
 
     const std::string_view seed_data_field = seed_fields_prefs.seed;
     std::string histogram_suffix =

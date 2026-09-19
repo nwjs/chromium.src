@@ -7,8 +7,10 @@
 #include <string>
 
 #include "base/check.h"
+#include "base/feature_list.h"
 #include "base/notreached.h"
 #include "base/values.h"
+#include "chrome/browser/devtools/features.h"
 #include "chrome/browser/policy/developer_tools_policy_checker.h"
 #include "chrome/browser/policy/developer_tools_policy_checker_factory.h"
 #include "chrome/browser/policy/developer_tools_policy_handler.h"
@@ -85,6 +87,18 @@ bool IsRestrictedExtension(const extensions::Extension* extension,
 
 bool IsInspectionAllowed(Profile* profile,
                          content::DevToolsAgentHost* agent_host) {
+  if (base::FeatureList::IsEnabled(features::kDevToolsTargetLevelEvaluation)) {
+    GURL target_url = agent_host->GetURL();
+    if (!IsInspectionAllowed(profile, target_url)) {
+      return false;
+    }
+
+    if (content::WebContents* web_contents = agent_host->GetWebContents()) {
+      return IsInspectionAllowed(profile, web_contents);
+    }
+    return true;
+  }
+
   if (content::WebContents* web_contents = agent_host->GetWebContents()) {
     return IsInspectionAllowed(profile, web_contents);
   }
@@ -98,26 +112,41 @@ bool IsInspectionAllowed(Profile* profile, content::WebContents* web_contents) {
         profile, static_cast<const extensions::Extension*>(nullptr));
   }
 
-  policy::DeveloperToolsPolicyChecker* checker =
-      policy::DeveloperToolsPolicyCheckerFactory::GetForBrowserContext(profile);
-  if (checker) {
+  if (base::FeatureList::IsEnabled(features::kDevToolsTargetLevelEvaluation)) {
     if (content::RenderFrameHost* main_frame =
             web_contents->GetPrimaryMainFrame()) {
-      bool is_blocked = false;
-      main_frame->ForEachRenderFrameHost([&](content::RenderFrameHost* frame) {
-        if (frame->GetLastCommittedURL().is_empty() ||
-            frame->GetLastCommittedURL().SchemeIs(url::kAboutScheme)) {
-          return;
-        }
-        auto frame_availability = checker->GetDevToolsAvailabilityForUrl(
-            frame->GetLastCommittedURL());
-        if (frame_availability == policy::DeveloperToolsPolicyChecker::
-                                      DevToolsAvailability::kDisallowed) {
-          is_blocked = true;
-        }
-      });
-      if (is_blocked) {
+      if (!IsInspectionAllowed(profile, main_frame->GetLastCommittedURL())) {
         return false;
+      }
+    }
+  } else {
+    policy::DeveloperToolsPolicyChecker* checker =
+        policy::DeveloperToolsPolicyCheckerFactory::GetForBrowserContext(
+            profile);
+    if (checker) {
+      if (content::RenderFrameHost* main_frame =
+              web_contents->GetPrimaryMainFrame()) {
+        using FrameIterationAction =
+            content::RenderFrameHost::FrameIterationAction;
+        bool is_blocked = false;
+        main_frame->ForEachRenderFrameHostWithAction(
+            [&](content::RenderFrameHost* frame) {
+              if (frame->GetLastCommittedURL().is_empty() ||
+                  frame->GetLastCommittedURL().SchemeIs(url::kAboutScheme)) {
+                return FrameIterationAction::kContinue;
+              }
+              auto frame_availability = checker->GetDevToolsAvailabilityForUrl(
+                  frame->GetLastCommittedURL());
+              if (frame_availability == policy::DeveloperToolsPolicyChecker::
+                                            DevToolsAvailability::kDisallowed) {
+                is_blocked = true;
+                return FrameIterationAction::kStop;
+              }
+              return FrameIterationAction::kContinue;
+            });
+        if (is_blocked) {
+          return false;
+        }
       }
     }
   }
@@ -147,6 +176,8 @@ bool IsInspectionAllowed(Profile* profile, content::WebContents* web_contents) {
   }
 #endif
 
+  policy::DeveloperToolsPolicyChecker* checker =
+      policy::DeveloperToolsPolicyCheckerFactory::GetForBrowserContext(profile);
   if (checker) {
     auto url_availability =
         checker->GetDevToolsAvailabilityForUrl(web_contents->GetURL());

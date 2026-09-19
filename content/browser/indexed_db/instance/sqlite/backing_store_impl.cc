@@ -205,8 +205,7 @@ BackingStoreImpl::GetDatabaseNamesAndVersions() {
         return;
       }
       std::ignore =
-          LOG_RESULT(DatabaseConnection::Open(/*name=*/{}, path, *this,
-                                              /*erase_if_zygotic=*/true),
+          LOG_RESULT(DatabaseConnection::Open(/*name=*/{}, path, *this),
                      "IndexedDB.SQLite.OpenToReadMetadataResult",
                      in_memory() ? ".InMemory" : ".OnDisk")
               .transform([&](std::unique_ptr<DatabaseConnection> connection) {
@@ -341,7 +340,7 @@ void BackingStoreImpl::OnCleanupComplete(const std::u16string& name,
 
 Status BackingStoreImpl::MigrateFrom(BackingStore& source) {
   CHECK(!in_memory());
-  DCHECK(GetDatabaseNamesAndVersions()->empty());
+  CHECK(GetDatabaseNamesAndVersions()->empty(), base::NotFatalUntil::M158);
 
   ASSIGN_OR_RETURN(
       std::vector<blink::mojom::IDBNameAndVersionPtr> names_and_versions,

@@ -35,86 +35,26 @@
 #include "third_party/blink/renderer/platform/graphics/canvas_image_provider.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/canvas_utils.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
-#include "third_party/blink/renderer/platform/graphics/memory_managed_paint_recorder.h"
 #include "third_party/blink/renderer/platform/instrumentation/canvas_memory_dump_provider.h"
 #include "third_party/skia/include/core/SkAlphaType.h"
 
 namespace blink {
 
-namespace {
-
-scoped_refptr<gpu::ClientSharedImage> CreateClientSharedImage(
-    viz::SharedImageFormat format,
-    gfx::Size size,
-    const gfx::ColorSpace& color_space,
-    SkAlphaType alpha_type,
-    WebGraphicsContext3DProviderWrapper* context_provider_wrapper) {
-  auto* sii =
-      context_provider_wrapper->ContextProvider().SharedImageInterface();
-  // The SharedImages created by this provider serve as a means of
-  // import/export between VideoFrames/canvas and WebGPU, e.g.:
-  // * Import from VideoFrames into WebGPU via CreateExternalTexture() (the
-  //   WebGPU textures will then be read by clients)
-  // * Export from WebGPU into a static bitmap image via
-  //   GpuCanvasContext::{PaintRenderingResultsToSnapshot, GetImage}() (the
-  //   export happens via the WebGPU interface)
-  // Hence, both WEBGPU_READ and WEBGPU_WRITE usage are needed here.
-  // Additionally, these SharedImages are both read and written by the
-  // raster interface (both occur, for example, when copying canvas
-  // resources between canvases) and can be put into
-  // AcceleratedStaticBitmapImages (via Bitmap()) that are then copied into
-  // GL textures by WebGL (via
-  // AcceleratedStaticBitmapImage::CopyToTexture()).
-  gpu::SharedImageUsageSet shared_image_usage_flags =
-      gpu::SHARED_IMAGE_USAGE_WEBGPU_READ |
-      gpu::SHARED_IMAGE_USAGE_WEBGPU_WRITE |
-      gpu::SHARED_IMAGE_USAGE_RASTER_READ |
-      gpu::SHARED_IMAGE_USAGE_RASTER_WRITE | gpu::SHARED_IMAGE_USAGE_GLES2_READ;
-
-  return sii->CreateSharedImage(
-      {format, size, color_space, kTopLeft_GrSurfaceOrigin, alpha_type,
-       shared_image_usage_flags, "CanvasResourceRaster"},
-      gpu::kNullSurfaceHandle);
-}
-
-}  // namespace
-
-
-
 WebGpuSharedImageWrapper::WebGpuSharedImageWrapper(
-    gfx::Size size,
-    viz::SharedImageFormat format,
-    SkAlphaType alpha_type,
-    const gfx::ColorSpace& color_space,
+    scoped_refptr<gpu::ClientSharedImage> shared_image,
     base::WeakPtr<WebGraphicsContext3DProviderWrapper> context_provider_wrapper)
-    : recorder_for_external_draws_(
-          std::make_unique<MemoryManagedPaintRecorder>(size,
-                                                       /*client=*/nullptr)),
-      shared_image_(CreateClientSharedImage(format,
-                                            size,
-                                            color_space,
-                                            alpha_type,
-                                            context_provider_wrapper.get())),
+    : shared_image_(std::move(shared_image)),
       context_provider_wrapper_(std::move(context_provider_wrapper)) {
-  // Graphite can handle a large buffer size.
-  if (context_provider_wrapper_->ContextProvider()
-          .GetGpuFeatureInfo()
-          .status_values[gpu::GPU_FEATURE_TYPE_SKIA_GRAPHITE] ==
-      gpu::kGpuFeatureStatusEnabled) {
-    recorder_for_external_draws_->DisableLineDrawingAsPaths();
-  }
-
   CHECK(shared_image_);
   WaitSyncToken(shared_image_->creation_sync_token());
-  release_sync_token_ = shared_image_->creation_sync_token();
 }
 
 WebGpuSharedImageWrapper::~WebGpuSharedImageWrapper() = default;
 
 void WebGpuSharedImageWrapper::WaitSyncToken(const gpu::SyncToken& sync_token) {
   if (sync_token.HasData()) {
-    acquire_sync_token_ = sync_token;
-    shared_image_->UpdateDestructionSyncToken(acquire_sync_token_);
+    sync_token_ = sync_token;
+    shared_image_->UpdateDestructionSyncToken(sync_token_);
   }
 }
 

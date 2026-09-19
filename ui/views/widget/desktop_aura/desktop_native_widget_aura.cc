@@ -212,6 +212,9 @@ class DesktopNativeWidgetTopLevelHandler : public aura::WindowObserver {
     // the Widget::SetBounds function.
     if (top_level_widget_ && window == child_window_) {
       top_level_widget_->SetBounds(window->GetBoundsInScreen());
+    } else if (top_level_widget_ &&
+               window == top_level_widget_->GetNativeView()) {
+      child_window_->SetBounds(gfx::Rect(new_bounds.size()));
     }
   }
 
@@ -1262,6 +1265,19 @@ bool DesktopNativeWidgetAura::IsMoveLoopSupported() const {
   return desktop_window_tree_host_
              ? desktop_window_tree_host_->IsMoveLoopSupported()
              : true;
+}
+
+void DesktopNativeWidgetAura::PrepareForMoveLoop(
+    Widget::MoveLoopSource source) {
+  if (desktop_window_tree_host_) {
+    desktop_window_tree_host_->PrepareForMoveLoop(source);
+  }
+}
+
+void DesktopNativeWidgetAura::SetBypassWindowManager(bool bypass) {
+  if (desktop_window_tree_host_) {
+    desktop_window_tree_host_->SetBypassWindowManager(bypass);
+  }
 }
 
 Widget::MoveLoopResult DesktopNativeWidgetAura::RunMoveLoop(

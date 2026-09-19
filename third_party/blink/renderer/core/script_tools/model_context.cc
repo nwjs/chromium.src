@@ -460,6 +460,9 @@ ScriptPromise<IDLUndefined> ModelContext::registerTool(
     CHECK(tool->annotations()->hasUntrustedContentHint());
     script_tool->annotations->untrusted_content =
         tool->annotations()->untrustedContentHint();
+    CHECK(tool->annotations()->hasConsequentialHint());
+    script_tool->annotations->consequential =
+        tool->annotations()->consequentialHint();
   }
 
   auto* tool_data = MakeGarbageCollected<ToolData>(
@@ -507,6 +510,7 @@ std::optional<ScriptToolDeclaration> ModelContext::GetScriptToolDeclaration(
   if (script_tool.annotations) {
     declaration.read_only = script_tool.annotations->read_only;
     declaration.untrusted_content = script_tool.annotations->untrusted_content;
+    declaration.consequential = script_tool.annotations->consequential;
   }
   return declaration;
 }
@@ -581,7 +585,7 @@ bool ModelContext::CancelTool(const base::UnguessableToken& invocation_id) {
   // It's possible for `invocation_id` to not match any pending execution, for
   // example, if the tool execution finishes before a tool caller's signal to
   // cancel execution comes in.
-  auto it = pending_executions_.find(String(invocation_id.ToString()));
+  auto it = pending_executions_.find(invocation_id);
   if (it == pending_executions_.end()) {
     return false;
   }
@@ -612,15 +616,14 @@ bool ModelContext::CancelTool(const base::UnguessableToken& invocation_id) {
     // synchronously run the `HTMLFormMcpTool::done_callback_`, which handles
     // removing the execution from `pending_executions_`.
     tool_it->value->DeclarativeTool()->CancelTool();
-    CHECK(!pending_executions_.Contains(String(invocation_id.ToString())));
+    CHECK(!pending_executions_.Contains(invocation_id));
   } else {
     // For imperative tools, we cannot forcefully reject the Promise that the
     // tool returned. Instead, we remove the pending execution, manually run its
     // callback to notify the browser of cancellation, and abort the signal that
     // the tool execution function is observing. When the tool's returned
     // Promise eventually settles, it will be safely ignored.
-    auto pending_execution =
-        pending_executions_.Take(String(invocation_id.ToString()));
+    auto pending_execution = pending_executions_.Take(invocation_id);
     CHECK(pending_execution.abort_controller);
     CHECK(pending_execution.callback);
 
@@ -706,11 +709,10 @@ void ModelContext::ExecuteDeclarativeTool(
         MakeGarbageCollected<ScriptToolContext>(invocation_id));
   }
 
-  pending_executions_.insert(String(invocation_id.ToString()),
+  pending_executions_.insert(invocation_id,
                              PendingExecution{
                                  .tool_name = tool->ToolName(),
                                  .callback = std::move(tool_executed_cb),
-                                 .invocation_id = invocation_id,
                                  .abort_controller = abort_controller,
                              });
 
@@ -734,8 +736,7 @@ void ModelContext::ExecuteDeclarativeTool(
               probe::WebMCPToolFailed(document, result.error(), invocation_id,
                                       /*exception=*/std::nullopt);
             }
-            auto it = model_context->pending_executions_.find(
-                String(invocation_id.ToString()));
+            auto it = model_context->pending_executions_.find(invocation_id);
             if (it != model_context->pending_executions_.end()) {
               std::move(it->value.callback).Run(result);
               model_context->pending_executions_.erase(it);
@@ -794,14 +795,12 @@ bool ModelContext::ExecuteV8Tool(V8ToolExecuteCallback* tool_function,
     result = maybe_result.FromJust();
   }
 
-  pending_executions_.insert(
-      String(invocation_id.ToString()),
-      PendingExecution{
-          .tool_name = name,
-          .callback = std::move(tool_executed_cb),
-          .invocation_id = invocation_id,
-          .abort_controller = abort_controller,
-      });
+  pending_executions_.insert(invocation_id,
+                             PendingExecution{
+                                 .tool_name = name,
+                                 .callback = std::move(tool_executed_cb),
+                                 .abort_controller = abort_controller,
+                             });
 
   result.Then(script_state,
               MakeGarbageCollected<ToolFunctionFinishedCallback>(
@@ -857,8 +856,7 @@ void ModelContext::RegisterDeclarativeTool(
 void ModelContext::OnToolExecuted(
     const base::UnguessableToken& invocation_id,
     base::expected<String, std::pair<ScriptValue, ScriptState*>> result) {
-  auto pending_execution =
-      pending_executions_.Take(String(invocation_id.ToString()));
+  auto pending_execution = pending_executions_.Take(invocation_id);
   if (pending_execution.callback.is_null()) {
     return;
   }
@@ -1049,6 +1047,7 @@ void ModelContext::OnGetScriptToolsCompleted(
       auto* annotations = ToolAnnotations::Create();
       annotations->setReadOnlyHint(t->annotations->read_only);
       annotations->setUntrustedContentHint(t->annotations->untrusted_content);
+      annotations->setConsequentialHint(t->annotations->consequential);
       result->setAnnotations(annotations);
     }
 

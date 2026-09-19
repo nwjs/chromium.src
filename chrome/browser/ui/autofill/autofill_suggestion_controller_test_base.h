@@ -25,7 +25,7 @@
 #include "components/autofill/core/browser/ui/autofill_external_delegate.h"
 #include "components/autofill/core/browser/ui/autofill_suggestion_delegate.h"
 #include "components/autofill/core/browser/ui/tabbed_pane_enums.h"
-#include "components/autofill/core/common/autofill_test_utils.h"
+#include "components/autofill/core/common/autofill_test_util.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_renderer_host.h"
@@ -105,13 +105,17 @@ class AutofillSuggestionControllerTestBase
             base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
   ~AutofillSuggestionControllerTestBase() override = default;
 
+  TestingProfile::TestingFactories GetTestingFactories() const override {
+    return {TestingProfile::TestingFactory(
+        PersonalDataManagerFactory::GetInstance(),
+        base::BindRepeating([](content::BrowserContext* context)
+                                -> std::unique_ptr<KeyedService> {
+          return std::make_unique<TestPersonalDataManager>();
+        }))};
+  }
+
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
-    PersonalDataManagerFactory::GetInstance()->SetTestingFactory(
-        profile(), base::BindRepeating([](content::BrowserContext* context)
-                                           -> std::unique_ptr<KeyedService> {
-          return std::make_unique<TestPersonalDataManager>();
-        }));
     NavigateAndCommit(GURL("https://foo.com/"));
     FocusWebContentsOnMainFrame();
     ASSERT_TRUE(web_contents()->GetFocusedFrame());

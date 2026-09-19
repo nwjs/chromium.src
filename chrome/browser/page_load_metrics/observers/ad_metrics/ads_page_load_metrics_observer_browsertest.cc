@@ -22,7 +22,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/subresource_filter/subresource_filter_browser_test_harness.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
@@ -125,18 +125,14 @@ class AdsPageLoadMetricsObserverBrowserTest
   std::unique_ptr<page_load_metrics::PageLoadMetricsTestWaiter>
   CreatePageLoadMetricsTestWaiter() {
     content::WebContents* web_contents =
-        browser()->tab_strip_model()->GetActiveWebContents();
+        browser()->GetTabStripModel()->GetActiveWebContents();
     return std::make_unique<page_load_metrics::PageLoadMetricsTestWaiter>(
         web_contents);
   }
 
-  void SetUp() override {
-    std::vector<base::test::FeatureRef> enabled = {
-        subresource_filter::kAdTagging};
-    std::vector<base::test::FeatureRef> disabled = {};
-
-    scoped_feature_list_.InitWithFeatures(enabled, disabled);
-    subresource_filter::SubresourceFilterBrowserTest::SetUp();
+  base::flat_set<base::test::FeatureRef> GetSubresourceFilterEnabledFeatures()
+      const override {
+    return {subresource_filter::kAdTagging};
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -156,9 +152,6 @@ class AdsPageLoadMetricsObserverBrowserTest
     // Ensure browser is active so that the expected dimensions are correct.
     ui_test_utils::BrowserActivationWaiter(browser()).WaitForActivation();
   }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Test that an embedded ad is same origin.
@@ -266,7 +259,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
   waiter->Wait();
 
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   int scrollbar_width =
       EvalJs(web_contents,
@@ -344,7 +337,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   page_load_metrics::AddTextAndWaitForFirstContentfulPaint(web_contents,
                                                            waiter.get());
@@ -403,7 +396,7 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   page_load_metrics::AddTextAndWaitForFirstContentfulPaint(web_contents,
                                                            waiter.get());
@@ -471,7 +464,7 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   page_load_metrics::AddTextAndWaitForFirstContentfulPaint(web_contents,
                                                            waiter.get());
@@ -556,12 +549,12 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   page_load_metrics::AddTextAndWaitForFirstContentfulPaint(web_contents,
                                                            waiter.get());
 
-  int original_tab_index = browser()->tab_strip_model()->active_index();
+  int original_tab_index = browser()->GetTabStripModel()->active_index();
 
   // Open a new tab, which backgrounds the original web_contents.
   ui_test_utils::NavigateToURLWithDisposition(
@@ -593,7 +586,7 @@ IN_PROC_BROWSER_TEST_F(
   // Switch back to the original tab. This should trigger the renderer to detect
   // the ad and report its geometry.
   waiter->SetMainFrameAdRectsExpectation();
-  browser()->tab_strip_model()->ActivateTabAt(original_tab_index);
+  browser()->GetTabStripModel()->ActivateTabAt(original_tab_index);
   waiter->Wait();
 
   // Wait for 0.5 seconds to allow time for ad density to accumulate now that
@@ -638,7 +631,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   page_load_metrics::AddTextAndWaitForFirstContentfulPaint(web_contents,
                                                            waiter.get());
@@ -672,7 +665,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
   EXPECT_TRUE(ExecJs(web_contents, create_image_script));
   waiter->Wait();
 
-  int original_tab_index = browser()->tab_strip_model()->active_index();
+  int original_tab_index = browser()->GetTabStripModel()->active_index();
 
   // Open a new tab, which backgrounds the original web_contents.
   ui_test_utils::NavigateToURLWithDisposition(
@@ -709,7 +702,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
   // Switch back to the original tab, and wait for the removal event (a new,
   // empty rectangle).
   waiter->SetMainFrameAdRectsExpectation();
-  browser()->tab_strip_model()->ActivateTabAt(original_tab_index);
+  browser()->GetTabStripModel()->ActivateTabAt(original_tab_index);
   waiter->Wait();
   EXPECT_TRUE(waiter->DidObserveMainFrameAdRect(gfx::Rect(0, 0, 0, 0)));
 
@@ -763,7 +756,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
   ukm::TestAutoSetUkmRecorder ukm_recorder;
   auto waiter = CreatePageLoadMetricsTestWaiter();
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   // Evaluate the height and width of the page as the browser_test can
   // vary the dimensions.
@@ -782,7 +775,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
       embedded_test_server()->GetURL(
           "a.com", "/ads_observer/blank_with_adiframe_writer.html")));
   waiter->Wait();
-  web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
 
   page_load_metrics::AddTextAndWaitForFirstContentfulPaint(web_contents,
                                                            waiter.get());
@@ -866,7 +859,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
   ukm::TestAutoSetUkmRecorder ukm_recorder;
   auto waiter = CreatePageLoadMetricsTestWaiter();
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   int document_height =
       EvalJs(web_contents, "document.body.scrollHeight").ExtractInt();
@@ -884,7 +877,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
       embedded_test_server()->GetURL(
           "a.com", "/ads_observer/blank_with_adiframe_writer.html")));
   waiter->Wait();
-  web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
 
   page_load_metrics::AddTextAndWaitForFirstContentfulPaint(web_contents,
                                                            waiter.get());
@@ -1253,7 +1246,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
       browser(), embedded_test_server()->GetURL(
                      "foo.com", "/ad_tagging/frame_factory.html")));
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   // Create a second frame that will not receive activation.
   EXPECT_TRUE(content::ExecJs(web_contents,
@@ -1308,7 +1301,7 @@ IN_PROC_BROWSER_TEST_F(
       browser(), embedded_test_server()->GetURL(
                      "foo.com", "/ad_tagging/frame_factory.html")));
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   // Create two same-origin ad frames.
   EXPECT_TRUE(content::ExecJs(web_contents,
@@ -1360,14 +1353,14 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
   // that the histogram will be recorded when the previous page is unloaded.
   // TODO(https://crbug.com/40189815): Investigate if this needs further fix.
   browser()
-      ->tab_strip_model()
+      ->GetTabStripModel()
       ->GetActiveWebContents()
       ->GetController()
       .GetBackForwardCache()
       .DisableForTesting(content::BackForwardCache::TEST_REQUIRES_NO_CACHING);
 
   content::DOMMessageQueue msg_queue(
-      browser()->tab_strip_model()->GetActiveWebContents());
+      browser()->GetTabStripModel()->GetActiveWebContents());
 
   ukm::TestAutoSetUkmRecorder ukm_recorder;
   auto waiter = CreatePageLoadMetricsTestWaiter();
@@ -1583,7 +1576,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest, FramePixelSize) {
       browser(), embedded_test_server()->GetURL(
                      "/ads_observer/blank_with_adiframe_writer.html")));
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   std::map<std::pair<int, int>, int> expected_dimension_counts;
   std::map<std::pair<int, int>, int> expected_bucketed_dimension_counts;
   expected_dimension_counts[std::make_pair(100, 100)] = 1;
@@ -1642,7 +1635,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
       browser(), embedded_test_server()->GetURL(
                      "/ads_observer/blank_with_adiframe_writer.html")));
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   // Create a 4x4 iframe. The threshold for visibility is an area of 25 pixels
   // or more.
@@ -1701,7 +1694,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
       browser(),
       embedded_test_server()->GetURL("/ad_tagging/frame_factory.html")));
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   // Create a second frame that will not receive activation.
   EXPECT_TRUE(content::ExecJs(
@@ -1737,7 +1730,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
                        SameDomainFrameCreatedByAdScript_NotRecorddedAsAd) {
   base::HistogramTester histogram_tester;
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   auto waiter = CreatePageLoadMetricsTestWaiter();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
@@ -1803,7 +1796,7 @@ IN_PROC_BROWSER_TEST_F(
        subresource_filter::testing::CreateAllowlistSuffixRule("xel.png")});
   base::HistogramTester histogram_tester;
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   auto waiter = CreatePageLoadMetricsTestWaiter();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
@@ -1860,8 +1853,13 @@ class AdsPageLoadMetricsObserverResourceBrowserTest
         switches::kEnableExperimentalWebPlatformFeatures);
   }
 
+  void TearDown() override {
+    scoped_feature_list_.Reset();
+    subresource_filter::SubresourceFilterBrowserTest::TearDown();
+  }
+
   void CloseAllTabs() {
-    TabStripModel* tab_strip_model = browser()->tab_strip_model();
+    TabStripModel* tab_strip_model = browser()->GetTabStripModel();
     content::WebContentsDestroyedWatcher destroyed_watcher(
         tab_strip_model->GetActiveWebContents());
     tab_strip_model->CloseAllTabs();
@@ -1895,7 +1893,7 @@ class AdsPageLoadMetricsObserverResourceBrowserTest
       bool will_block) {
     // Create a frame for the large resource.
     content::WebContents* web_contents =
-        browser()->tab_strip_model()->GetActiveWebContents();
+        browser()->GetTabStripModel()->GetActiveWebContents();
     EXPECT_TRUE(ExecJs(web_contents,
                        "createAdFrame('/ads_observer/"
                        "ad_with_incomplete_resource.html', '');"));
@@ -1923,7 +1921,7 @@ class AdsPageLoadMetricsObserverResourceBrowserTest
   std::unique_ptr<page_load_metrics::AdsPageLoadMetricsTestWaiter>
   CreateAdsPageLoadMetricsTestWaiter() {
     content::WebContents* web_contents =
-        browser()->tab_strip_model()->GetActiveWebContents();
+        browser()->GetTabStripModel()->GetActiveWebContents();
     return std::make_unique<page_load_metrics::AdsPageLoadMetricsTestWaiter>(
         web_contents);
   }
@@ -1953,7 +1951,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverResourceBrowserTest,
   auto waiter = CreateAdsPageLoadMetricsTestWaiter();
 
   content::WebContents* contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(), embedded_test_server()->GetURL(
                      "foo.com", "/ad_tagging/frame_factory.html")));
@@ -1974,7 +1972,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverResourceBrowserTest,
   auto waiter = CreateAdsPageLoadMetricsTestWaiter();
 
   content::WebContents* contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(), embedded_test_server()->GetURL(
                      "foo.com", "/ad_tagging/frame_factory.html")));
@@ -2173,7 +2171,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverResourceBrowserTest,
 
   // Make the response large enough so that normal editing to the resource files
   // won't interfere with the test expectations.
-  const base::ByteSize response_size = base::KiBU(64);
+  const base::ByteSize response_size = base::KiB(64);
 
   // Ad resource will not finish loading but should be reported to metrics.
   incomplete_resource_response->WaitForRequest();
@@ -2231,7 +2229,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverResourceBrowserTest,
   // Create a navigation observer that will watch for the intervention to
   // navigate the frame.
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   auto waiter = CreateAdsPageLoadMetricsTestWaiter();
   GURL url = embedded_test_server()->GetURL(
@@ -2296,7 +2294,7 @@ IN_PROC_BROWSER_TEST_F(
           "a.com", "/ads_observer/ad_with_incomplete_resource.html")));
 
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   content::DOMMessageQueue message_queue(web_contents);
 
@@ -2350,7 +2348,7 @@ IN_PROC_BROWSER_TEST_F(
           "a.com", "/ads_observer/blank_with_adiframe_writer.html")));
 
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   GURL redirect_to_url = embedded_test_server()->GetURL(
       "c.com", "/ads_observer/doc_with_incomplete_resource.html");
@@ -2439,7 +2437,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverResourceBrowserTest,
   // Create a navigation observer that will watch for the intervention to
   // navigate the frame.
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   content::TestNavigationObserver child_observer(web_contents, 2);
   content::TestNavigationObserver error_observer(web_contents,
                                                  net::ERR_BLOCKED_BY_CLIENT);
@@ -2496,7 +2494,7 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverResourceBrowserTest,
   // Create a navigation observer that will watch for the intervention to
   // navigate the frame.
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   content::TestNavigationObserver error_observer(web_contents,
                                                  net::ERR_BLOCKED_BY_CLIENT);
 
@@ -2730,9 +2728,9 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverResourceBrowserTest,
           true /*relative_url_is_prefix*/);
   ASSERT_TRUE(embedded_test_server()->Start());
 
-  Browser* incognito_browser = CreateIncognitoBrowser();
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowser();
   content::WebContents* web_contents =
-      incognito_browser->tab_strip_model()->GetActiveWebContents();
+      incognito_browser->GetTabStripModel()->GetActiveWebContents();
 
   // Create a navigation observer that will watch for the intervention to
   // navigate the frame.
@@ -2800,7 +2798,7 @@ IN_PROC_BROWSER_TEST_P(AdsPageLoadMetricsObserverRecordedUKMMetricsTest,
   auto waiter = CreateAdsPageLoadMetricsTestWaiter();
 
   content::WebContents* contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   GURL url = embedded_test_server()->GetURL("foo.com",
                                             "/ad_tagging/frame_factory.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
@@ -3076,27 +3074,18 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
 class AdsPageLoadMetricsObserverPrerenderingBrowserTest
     : public AdsPageLoadMetricsObserverBrowserTest {
  public:
-  AdsPageLoadMetricsObserverPrerenderingBrowserTest() = default;
+  AdsPageLoadMetricsObserverPrerenderingBrowserTest()
+      : prerender_helper_(base::BindRepeating(
+            &AdsPageLoadMetricsObserverPrerenderingBrowserTest::web_contents,
+            base::Unretained(this))) {}
   ~AdsPageLoadMetricsObserverPrerenderingBrowserTest() override = default;
 
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    AdsPageLoadMetricsObserverBrowserTest::SetUpCommandLine(command_line);
-
-    // |prerender_helper_| has a ScopedFeatureList so we needed to delay its
-    // creation until now because AdsPageLoadMetricsObserverBrowserTest also
-    // uses a ScopedFeatureList and initialization order matters.
-    prerender_helper_ = std::make_unique<content::test::PrerenderTestHelper>(
-        base::BindRepeating(
-            &AdsPageLoadMetricsObserverPrerenderingBrowserTest::web_contents,
-            base::Unretained(this)));
-  }
-
   content::test::PrerenderTestHelper& prerender_helper() {
-    return *prerender_helper_;
+    return prerender_helper_;
   }
 
  private:
-  std::unique_ptr<content::test::PrerenderTestHelper> prerender_helper_;
+  content::test::PrerenderTestHelper prerender_helper_;
 };
 
 // Test that prerendering doesn't have metrics by AdsPageLoadMetricsObserver.

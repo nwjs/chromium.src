@@ -40,7 +40,7 @@
 #include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/data_quality/autofill_data_util.h"
-#include "components/autofill/core/browser/field_type_utils.h"
+#include "components/autofill/core/browser/field_type_util.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
@@ -862,6 +862,13 @@ std::vector<CreditCard> GetTouchToFillCardsToSuggest(
     const AutofillClient& client,
     const FormFieldData& trigger_field,
     FieldType trigger_field_type) {
+  // Do not suggest credit cards if the payments data category is blocked by
+  // enterprise policy for the current website.
+  if (client.IsAutofillTypeBlockedByPolicy(
+          client.GetLastCommittedPrimaryMainFrameURL(),
+          AutofillClient::AutofillPolicyDataCategory::kPayments)) {
+    return {};
+  }
   // TouchToFill actually has a trigger field which must be classified in some
   // way, but we intentionally fetch suggestions irrelevant of them.
   std::vector<CreditCard> cards_to_suggest = GetOrderedCardsToSuggest(
@@ -987,8 +994,8 @@ std::vector<Suggestion> GetCreditCardSuggestionsForTouchToFill(
           IsCardNumberFieldEmpty(form_structure));
     }
     manager.GetCreditCardFormEventLogger().OnBnplSuggestionShown(
-        /*suggestion_contains_pay_later_tab_entry=*/base::FeatureList::
-            IsEnabled(features::kAutofillEnablePayNowPayLaterTabs));
+        /*pay_later_tab_shown=*/base::FeatureList::IsEnabled(
+            features::kAutofillEnablePayNowPayLaterTabs));
     manager.client()
         .GetPersonalDataManager()
         .payments_data_manager()
@@ -1088,6 +1095,7 @@ bool IsCreditCardFooterSuggestion(
     case SuggestionType::kAtMemoryGenericError:
     case SuggestionType::kAtMemoryInactivityNudge:
     case SuggestionType::kAtMemoryNoConnection:
+    case SuggestionType::kAtMemoryOpenGemini:
     case SuggestionType::kAtMemorySearchAffordance:
     case SuggestionType::kAtMemorySearchResult:
     case SuggestionType::kAtMemorySourceAttribution:
@@ -1096,6 +1104,7 @@ bool IsCreditCardFooterSuggestion(
     case SuggestionType::kAutofillAiOtherOrders:
     case SuggestionType::kAutofillAiOtherShipments:
     case SuggestionType::kAutofillAiPrivateInferenceNotice:
+    case SuggestionType::kAutofillAiSourceAttribution:
     case SuggestionType::kBackupPasswordEntry:
     case SuggestionType::kBnplEntry:
     case SuggestionType::kComposeDisable:
@@ -1128,9 +1137,7 @@ bool IsCreditCardFooterSuggestion(
     case SuggestionType::kManageLoyaltyCard:
     case SuggestionType::kManageEnhancedAutofill:
     case SuggestionType::kMerchantPromoCodeEntry:
-    case SuggestionType::kMixedFormMessage:
     case SuggestionType::kOneTimePasswordEntry:
-    case SuggestionType::kOpenGemini:
     case SuggestionType::kPasswordEntry:
     case SuggestionType::kPasswordFieldByFieldFilling:
     case SuggestionType::kPendingStateSignin:

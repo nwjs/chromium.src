@@ -52,6 +52,9 @@
 #include "chrome/browser/ui/views/location_bar/webui_location_bar.h"
 #include "chrome/browser/ui/views/profiles/profile_menu_coordinator.h"
 #include "chrome/browser/ui/views/toolbar/app_menu_control.h"
+#include "chrome/browser/ui/views/toolbar/webui_home_control.h"
+#include "chrome/browser/ui/views/toolbar/webui_overflow_button.h"
+#include "chrome/browser/ui/views/toolbar/webui_performance_intervention_control.h"
 #include "chrome/browser/ui/views/toolbar/webui_split_tabs_control.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_extensions_container_wrapper.h"
 #include "chrome/browser/ui/waap/initial_web_ui_manager.h"
@@ -68,6 +71,7 @@
 #include "chrome/common/webui_url_constants.h"
 #include "components/ukm/content/source_url_recorder.h"
 #include "components/user_education/common/user_education_class_properties.h"
+#include "components/viz/common/features.h"
 #include "components/zoom/zoom_controller.h"
 #include "content/public/browser/browser_accessibility_state.h"
 #include "content/public/browser/context_menu_params.h"
@@ -297,12 +301,23 @@ class WebUIToolbarInternalWebView : public views::WebView {
     return true;
   }
 
+  void OnBlur() override {
+    views::WebView::OnBlur();
+    webui_toolbar_web_view_->OnBlur();
+  }
+
   std::optional<GURL> ConsumeDroppedUrl(const gfx::PointF& point) {
     std::optional<GURL> url;
-    if (cached_dragged_file_position_.has_value() &&
-        point == *cached_dragged_file_position_ &&
+    if (GetLocalBounds().Contains(gfx::ToRoundedPoint(point)) &&
+        cached_dragged_file_position_.has_value() &&
         cached_dragged_file_path_.has_value()) {
-      url = net::FilePathToFileURL(*cached_dragged_file_path_);
+      // Allow 1.0f DIP tolerance to account for floating-point differences.
+      constexpr float kMaxAllowedDelta = 1.0f;
+      const gfx::Vector2dF delta = *cached_dragged_file_position_ - point;
+      if (std::abs(delta.x()) <= kMaxAllowedDelta &&
+          std::abs(delta.y()) <= kMaxAllowedDelta) {
+        url = net::FilePathToFileURL(*cached_dragged_file_path_);
+      }
     }
     cached_dragged_file_path_.reset();
     cached_dragged_file_position_.reset();
@@ -344,6 +359,7 @@ WebUIToolbarWebView::WebUIToolbarWebView(
       back_control_(this, BackForwardButton::Direction::kBack),
       forward_control_(this, BackForwardButton::Direction::kForward),
       pinned_toolbar_actions_(this),
+      overflow_button_(this, &pinned_toolbar_actions_),
       clock_(base::DefaultTickClock::GetInstance()),
       touch_ui_subscription_(ui::TouchUiController::Get()->RegisterCallback(
           base::BindRepeating(&WebUIToolbarWebView::OnTouchUiChanged,
@@ -373,10 +389,11 @@ WebUIToolbarWebView::WebUIToolbarWebView(
               /*text=*/std::u16string(),
               /*tooltip=*/std::u16string(),
               toolbar_ui_api::mojom::SecurityChipAccessibilityState::New(
+                  /*role=*/toolbar_ui_api::mojom::SecurityChipRole::kButton,
                   /*label=*/std::u16string(),
                   /*description=*/std::u16string()),
               /*is_clickable=*/false, /*is_text_dangerous=*/false,
-              /*is_visible=*/true),
+              /*is_visible=*/true, /*is_context_menu_visible=*/false),
           /*activity_indicators=*/
           std::vector<toolbar_ui_api::mojom::ContentSettingImageStatePtr>(),
           /*permission_dashboard=*/nullptr);
@@ -458,9 +475,22 @@ WebUIToolbarWebView::WebUIToolbarWebView(
 }
 
 WebUIToolbarWebView::~WebUIToolbarWebView() {
+  DestroyWebContents();
+}
+
+void WebUIToolbarWebView::DestroyWebContents() {
+  if (auto* ui = GetWebUIToolbarUI()) {
+    ui->DependenciesDestroying();
+  }
   if (web_contents()) {
     web_contents()->RemoveUserData(
         WebUIToolbarUIDependencyProviderUserData::UserDataKey());
+  }
+  if (web_view_) {
+    // Resetting the WebContents in the child WebView immediately destroys the
+    // owned WebContents unique_ptr and terminates its renderer process before
+    // browser-side IPC services disconnect.
+    web_view_->SetWebContents(nullptr);
   }
 }
 
@@ -559,24 +589,19 @@ void WebUIToolbarWebView::PreferredSizeChanged() {
   View::PreferredSizeChanged();
 }
 
+void WebUIToolbarWebView::OnBlur() {
+  View::OnBlur();
+  if (location_bar_) {
+    location_bar_->OnBlur();
+  }
+}
+
 void WebUIToolbarWebView::HandleContextMenu(
     toolbar_ui_api::mojom::ContextMenuType menu_type,
     const gfx::RectF& bounds_in_css_pixels,
     ui::mojom::MenuSourceType source) {
-  CHECK(web_view_);
-  // The coordinates are in CSS pixels relative the viewport origin. We need
-  // to multiply by the page scaling factor to convert them to DIPs before we
-  // can use them as the bounding rectangle relative to the viewport origin to
-  // show the menu.
-  double page_zoom_scale = blink::ZoomLevelToZoomFactor(
-      zoom::ZoomController::GetZoomLevelForWebContents(
-          web_view_->web_contents()));
-  gfx::Rect screen_rect = gfx::ToEnclosingRect(
-      gfx::ScaleRect(bounds_in_css_pixels, page_zoom_scale));
-
-  // Add the offset of the WebView's top-left corner in screen coordinates to
-  // convert the relative rect to an absolute screen rect.
-  screen_rect.Offset(GetBoundsInScreen().origin().OffsetFromOrigin());
+  gfx::Rect screen_rect =
+      ConvertBoundsFromCssPixelsToScreenCoords(bounds_in_css_pixels);
 
   switch (menu_type) {
     case toolbar_ui_api::mojom::ContextMenuType::kBack:
@@ -652,6 +677,17 @@ void WebUIToolbarWebView::HandleContextMenu(
   }
 }
 
+void WebUIToolbarWebView::ShowOverflowMenu(
+    std::vector<toolbar_ui_api::mojom::OverflowMenuItemPtr> controls,
+    const gfx::RectF& bounds_in_css_pixels,
+    ui::mojom::MenuSourceType source,
+    toolbar_ui_api::mojom::ToolbarUIService::ShowOverflowMenuCallback
+        callback) {
+  overflow_button_.ShowOverflowMenu(
+      controls, ConvertBoundsFromCssPixelsToScreenCoords(bounds_in_css_pixels),
+      source, std::move(callback));
+}
+
 void WebUIToolbarWebView::ShowContentSettingsBubble(
     ::toolbar_ui_api::mojom::ContentSettingImageType type,
     bool is_pointer_interaction,
@@ -674,6 +710,21 @@ void WebUIToolbarWebView::OnContentSettingImagePointerDown(
   if (location_bar_) {
     location_bar_->content_setting_image_control()
         .OnContentSettingImagePointerDown(type);
+  }
+}
+
+void WebUIToolbarWebView::OnContentSettingImageAnimationEnded(
+    ::toolbar_ui_api::mojom::ContentSettingImageType type) {
+  if (location_bar_) {
+    location_bar_->content_setting_image_control()
+        .OnContentSettingImageAnimationEnded(type);
+  }
+}
+
+void WebUIToolbarWebView::OnPageActionPointerDown(
+    ::toolbar_ui_api::mojom::PageActionId action_id) {
+  if (location_bar_) {
+    location_bar_->page_action_control().OnPageActionPointerDown(action_id);
   }
 }
 
@@ -952,6 +1003,10 @@ CommandUpdater* WebUIToolbarWebView::GetCommandUpdater() {
   return browser_->GetFeatures().browser_command_controller();
 }
 
+OmniboxController* WebUIToolbarWebView::GetOmniboxController() {
+  return location_bar_ ? location_bar_->GetOmniboxController() : nullptr;
+}
+
 toolbar_ui_api::mojom::NavigationControlsStatePtr
 WebUIToolbarWebView::GetNavigationControlsState() {
   return last_queued_state_.Clone();
@@ -1150,6 +1205,11 @@ void WebUIToolbarWebView::OverflowButtonClicked(
   } else if (identifier == kToolbarHomeButtonElementId) {
     browser_controls_adapter_->NavigateHome(WindowOpenDisposition::CURRENT_TAB);
     return;
+  } else if (identifier == kToolbarSplitTabsToolbarButtonElementId) {
+    // TODO(crbug.com/491791965): Implement this. The main complexity is that if
+    // the current tab is already split, rather than trying to split the current
+    // tab, we should show the split tab menu.
+    return;
   }
   NOTREACHED();
 }
@@ -1274,10 +1334,15 @@ void WebUIToolbarWebView::SetSurfaceSyncDeadline(
   if (auto* rwhv = web_view_->web_contents()->GetRenderWidgetHostView()) {
     rwhv->SetForceSpecifiedDeadline(deadline_in_frames);
   }
-  if (auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser_)) {
-    if (auto* active_contents = browser_view->GetActiveWebContents()) {
-      if (auto* main_rwhv = active_contents->GetRenderWidgetHostView()) {
-        main_rwhv->SetForceSpecifiedDeadline(deadline_in_frames);
+  // When per-dependency deadlines are enabled, the toolbar and active tab
+  // surfaces have independent deadlines. We do not need to impose the
+  // toolbar's deadline on the active web contents tab.
+  if (!features::UsePerDependencyDeadlines()) {
+    if (auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser_)) {
+      if (auto* active_contents = browser_view->GetActiveWebContents()) {
+        if (auto* main_rwhv = active_contents->GetRenderWidgetHostView()) {
+          main_rwhv->SetForceSpecifiedDeadline(deadline_in_frames);
+        }
       }
     }
   }
@@ -1446,9 +1511,10 @@ void WebUIToolbarWebView::OnLocationBarFocusWithinChanged(bool focused) {
 }
 
 void WebUIToolbarWebView::OnLhsChipMousePressed(
-    toolbar_ui_api::mojom::LhsChipIdentifier identifier) {
+    toolbar_ui_api::mojom::LhsChipIdentifier identifier,
+    bool is_middle_click) {
   if (location_bar_) {
-    location_bar_->OnLhsChipMousePressed(identifier);
+    location_bar_->OnLhsChipMousePressed(identifier, is_middle_click);
   }
 }
 
@@ -1836,6 +1902,25 @@ bool WebUIToolbarWebView::RuleEnabledPredicate(
     return button_overflow_info.is_forward_button_overflowed ||
            button_overflow_info.is_home_button_overflowed;
   }
+}
+
+gfx::Rect WebUIToolbarWebView::ConvertBoundsFromCssPixelsToScreenCoords(
+    const gfx::RectF& bounds_in_css_pixels) const {
+  CHECK(web_view_);
+  // The coordinates are in CSS pixels relative the viewport origin. We need
+  // to multiply by the page scaling factor to convert them to DIPs before we
+  // can use them as the bounding rectangle relative to the viewport origin to
+  // show the menu.
+  double page_zoom_scale = blink::ZoomLevelToZoomFactor(
+      zoom::ZoomController::GetZoomLevelForWebContents(
+          web_view_->web_contents()));
+  gfx::Rect screen_rect = gfx::ToEnclosingRect(
+      gfx::ScaleRect(bounds_in_css_pixels, page_zoom_scale));
+
+  // Add the offset of the WebView's top-left corner in screen coordinates to
+  // convert the relative rect to an absolute screen rect.
+  screen_rect.Offset(GetBoundsInScreen().origin().OffsetFromOrigin());
+  return screen_rect;
 }
 
 BEGIN_METADATA(WebUIToolbarWebView)

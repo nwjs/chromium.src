@@ -111,7 +111,7 @@ class FullscreenControlViewTest : public InProcessBrowserTest {
 
  protected:
   FullscreenControlHost* GetFullscreenControlHost() {
-    return browser()->GetFeatures().fullscreen_control_host();
+    return FullscreenControlHost::From(browser());
   }
 
   FullscreenControlView* GetFullscreenControlView() {
@@ -137,7 +137,7 @@ class FullscreenControlViewTest : public InProcessBrowserTest {
   }
 
   content::WebContents* GetActiveWebContents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   bool IsPopupCreated() { return GetFullscreenControlHost()->IsPopupCreated(); }
@@ -256,8 +256,8 @@ IN_PROC_BROWSER_TEST_F(FullscreenControlViewTest, MouseExitFullscreen) {
 }
 
 // TODO(https://crbug.com/374539762): Deflake and re-enable on Windows.
-// TODO(crbug.com/524685085): Flaky on ASAN.
-#if BUILDFLAG(IS_WIN) || defined(ADDRESS_SANITIZER)
+// TODO(crbug.com/524685085): Flaky on Linux and ASAN.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || defined(ADDRESS_SANITIZER)
 #define MAYBE_MouseExitFullscreen_TimeoutAndRetrigger \
   DISABLED_MouseExitFullscreen_TimeoutAndRetrigger
 #else

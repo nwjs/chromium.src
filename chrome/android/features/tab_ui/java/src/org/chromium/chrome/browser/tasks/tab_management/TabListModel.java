@@ -87,9 +87,9 @@ public class TabListModel extends ModelList {
             int ARCHIVED_TAB_GROUP = 3;
         }
 
-        /** This corresponds to {@link CardProperties.ModelType}*/
-        public static final PropertyModel.ReadableIntPropertyKey CARD_TYPE =
-                new PropertyModel.ReadableIntPropertyKey();
+        /** This corresponds to {@link CardProperties.ModelType} */
+        public static final PropertyModel.WritableIntDefPropertyKey<ModelType> CARD_TYPE =
+                new PropertyModel.WritableIntDefPropertyKey<>(ModelType.TAB);
 
         public static final PropertyModel.WritableFloatPropertyKey CARD_ALPHA =
                 new PropertyModel.WritableFloatPropertyKey();
@@ -162,6 +162,20 @@ public class TabListModel extends ModelList {
                     && tabGroupId.equals(model.get(TAB_GROUP_HEADER_ID))) {
                 return i;
             }
+        }
+        return TabModel.INVALID_TAB_INDEX;
+    }
+
+    /**
+     * Finds the index of a given {@link PropertyModel} in the model list.
+     *
+     * @param model The {@link PropertyModel} to search for.
+     * @return The index within the model list or {@link TabModel#INVALID_TAB_INDEX}.
+     */
+    public int indexFromModel(@Nullable PropertyModel model) {
+        if (model == null) return TabModel.INVALID_TAB_INDEX;
+        for (int i = 0; i < size(); i++) {
+            if (get(i).model == model) return i;
         }
         return TabModel.INVALID_TAB_INDEX;
     }

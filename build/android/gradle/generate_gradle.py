@@ -82,6 +82,15 @@ _DEFAULT_TARGETS = [
     '//tools/android/errorprone_plugin:errorprone_plugin_java',
 ]
 
+# Priority order for canonical browser resource srcjars in the _all module.
+_PREFERRED_COMPILE_RESOURCES_TARGETS = (
+    '//clank/java:chrome_apk',
+    '//chrome/android:chrome_apk',
+    '//chrome/android:chrome_public_apk',
+    '//chrome/android:monochrome_public_apk',
+    '//chrome/android:monochrome_apk',
+)
+
 
 def _TemplatePath(name):
     return os.path.join(_FILE_DIR, '{}.jinja'.format(name))
@@ -121,22 +130,73 @@ def _ReadJson(path):
         return json.load(f)
 
 
-def _IsUsefulSrcJar(srcjar_path):
+def _FindCanonicalCompileResources(entries):
+    """Finds a single canonical __compile_resources.srcjar for the _all module.
+
+    In --all mode, all targets are merged into a single Gradle module. Every APK
+    target generates its own __compile_resources.srcjar containing
+    gen.base_module.R and org.chromium.chrome.R. Extracting multiple resource
+    srcjars would create hundreds of duplicate class definitions on the shared
+    classpath and cause indexing conflicts. We pick a single canonical browser
+    APK target whose resource jar covers the superset of browser resources.
+    """
+    all_entries = []
+    for e in entries:
+        all_entries.append(e)
+        all_entries.extend(e.android_test_entries)
+
+    entry_map = {e.GnTarget(): e for e in all_entries}
+    for target in _PREFERRED_COMPILE_RESOURCES_TARGETS:
+        if target in entry_map:
+            for s in entry_map[target].Params().get('bundled_srcjars', []):
+                if s.endswith('__compile_resources.srcjar'):
+                    return {s}
+
+    # Fall back to the first available APK target if none of the preferred
+    # browser targets exist (for example on custom or downstream trees).
+    for e in all_entries:
+        for s in e.Params().get('bundled_srcjars', []):
+            if s.endswith('__compile_resources.srcjar'):
+                return {s}
+
+    return set()
+
+
+def _FindEntryCompileResources(entry):
+    """Finds the __compile_resources.srcjar owned by this entry, if any.
+
+    Used for targeted runs (--targets) and --split-projects, where each root
+    target lives in its own isolated Gradle project and should index its own
+    resource definitions (such as content_shell_apk or system_webview_apk).
+    """
+    return {
+        s
+        for s in entry.Params().get('bundled_srcjars', [])
+        if s.endswith('__compile_resources.srcjar')
+    }
+
+
+def _IsUsefulSrcJar(srcjar_path, canonical_compile_resources=None):
     """Filters out bundled srcjars that would cause duplicate types or stubs.
 
     Mirrors build/android/generate_vscode_project.py:_IsUsefulSrcJar and
     build/android/chromiumide_api.py:_is_useful_source_jar.
     """
-    return not srcjar_path.endswith(
+    if srcjar_path.endswith(
         (
             '_placeholder.srcjar',
             '__build_config_srcjar.srcjar',
             '__native_libraries.srcjar',
             '__product_config_srcjar.srcjar',
-            '__compile_resources.srcjar',
             '__assetres.srcjar',
         )
-    )
+    ):
+        return False
+    if srcjar_path.endswith('__compile_resources.srcjar'):
+        if canonical_compile_resources is not None:
+            return srcjar_path in canonical_compile_resources
+        return False
+    return True
 
 
 @functools.lru_cache
@@ -297,11 +357,12 @@ class _ProjectEntry:
             self._java_files = java_files
         return self._java_files
 
-    def BundledSrcjars(self):
+    def BundledSrcjars(self, canonical_compile_resources=None):
         return [
             s
             for s in self.Params().get('bundled_srcjars', [])
-            if s.startswith('gen/') and _IsUsefulSrcJar(s)
+            if s.startswith('gen/')
+            and _IsUsefulSrcJar(s, canonical_compile_resources)
         ]
 
     def PrebuiltJars(self):
@@ -347,9 +408,6 @@ class _ProjectContextGenerator:
         self.use_gradle_process_resources = use_gradle_process_resources
         self.jinja_processor = jinja_processor
         self.split_projects = split_projects
-        self.processed_java_dirs = set()
-        self.processed_prebuilts = set()
-        self.processed_res_dirs = set()
 
     def _GenJniLibs(self, root_entry):
         libraries = []
@@ -408,11 +466,15 @@ class _ProjectContextGenerator:
     def EntryOutputDir(self, entry):
         return os.path.join(self.project_dir, entry.GradleSubdir())
 
-    def GeneratedInputs(self, root_entry):
+    def GeneratedInputs(self, root_entry, canonical_compile_resources=None):
+        if canonical_compile_resources is None:
+            canonical_compile_resources = _FindEntryCompileResources(root_entry)
         generated_inputs = set()
         for entry in self._GetEntries(root_entry):
             generated_inputs.update(entry.PrebuiltJars())
-            generated_inputs.update(entry.BundledSrcjars())
+            generated_inputs.update(
+                entry.BundledSrcjars(canonical_compile_resources)
+            )
         return generated_inputs
 
     def GenerateManifest(self, root_entry):
@@ -424,15 +486,15 @@ class _ProjectContextGenerator:
     def Generate(self, root_entry):
         # TODO(agrieve): Add an option to use interface jars and see if that speeds
         # things up at all.
+        canonical_compile_resources = _FindEntryCompileResources(root_entry)
         variables = {}
         java_dirs, excludes = self._GenJavaDirs(root_entry)
         entries = self._GetEntries(root_entry)
         for e in entries:
-            for s in e.BundledSrcjars():
+            for s in e.BundledSrcjars(canonical_compile_resources):
                 extracted = _ExtractBundledSrcJar(s)
                 if extracted:
                     java_dirs.append(extracted)
-        self.processed_java_dirs.update(java_dirs)
         java_dirs.sort()
         variables['java_dirs'] = self._Relativize(root_entry, java_dirs)
         variables['java_excludes'] = excludes
@@ -440,7 +502,6 @@ class _ProjectContextGenerator:
             root_entry, set(self._GenJniLibs(root_entry))
         )
         prebuilts = set(p for e in entries for p in e.PrebuiltJars())
-        self.processed_prebuilts.update(prebuilts)
         variables['prebuilts'] = self._Relativize(root_entry, prebuilts)
         res_sources_files = _RebasePath(
             set(p for e in entries for p in e.ResSources())
@@ -451,9 +512,6 @@ class _ProjectContextGenerator:
         res_dirs = resource_utils.DeduceResourceDirsFromFileList(
             res_sources, validate=False
         )
-        # Do not add generated resources for the all module since it creates many
-        # duplicates, and currently resources are only used for editing.
-        self.processed_res_dirs.update(res_dirs)
         variables['res_dirs'] = self._Relativize(root_entry, res_dirs)
         if self.split_projects:
             deps = root_entry.RecursiveLibraryDeps()
@@ -683,21 +741,30 @@ def _GenerateGradleProperties(sdk_version=None):
     return '\n'.join(lines)
 
 
+def _ParseSdkVersion(version):
+    try:
+        # Convert float versions like "36.1" to integers for AGP compatibility.
+        return int(float(version))
+    except (ValueError, TypeError):
+        return version
+
+
 def _GenerateBaseVars(generator, build_vars):
     variables = {}
     # Avoid pre-release SDKs since Studio might not know how to download them.
-    sdk_version = build_vars['android_sdk_platform_version']
-    try:
-        # Convert float versions like "36.1" to integers for AGP compatibility.
-        sdk_version = int(float(sdk_version))
-    except ValueError:
-        pass
+    sdk_version = _ParseSdkVersion(build_vars['android_sdk_platform_version'])
     variables['compile_sdk_version'] = 'android-%s' % sdk_version
-    target_sdk_version = sdk_version
-    if str(target_sdk_version).isalpha():
-        target_sdk_version = '"{}"'.format(target_sdk_version)
-    variables['target_sdk_version'] = target_sdk_version
-    variables['min_sdk_version'] = build_vars['default_min_sdk_version']
+    if isinstance(sdk_version, int):
+        variables['target_sdk_version'] = sdk_version
+    else:
+        variables['target_sdk_preview'] = sdk_version
+
+    min_sdk_version = _ParseSdkVersion(build_vars['default_min_sdk_version'])
+    if isinstance(min_sdk_version, int):
+        variables['min_sdk_version'] = min_sdk_version
+    else:
+        variables['min_sdk_preview'] = min_sdk_version
+
     variables['use_gradle_process_resources'] = (
         generator.use_gradle_process_resources
     )
@@ -800,7 +867,12 @@ def _GetNative(relative_func, target_names):
 
 
 def _GenerateModuleAll(
-    gradle_output_dir, generator, build_vars, jinja_processor, native_targets
+    gradle_output_dir,
+    generator,
+    build_vars,
+    jinja_processor,
+    native_targets,
+    entries,
 ):
     """Returns the data for a pseudo build.gradle of all dirs.
 
@@ -809,9 +881,40 @@ def _GenerateModuleAll(
     target_type = 'android_apk'
     variables['target_name'] = _MODULE_ALL
     variables['template_type'] = target_type
-    java_dirs = sorted(generator.processed_java_dirs)
-    prebuilts = sorted(generator.processed_prebuilts)
-    res_dirs = sorted(generator.processed_res_dirs)
+
+    all_unique_entries = set(entries)
+    for e in entries:
+        all_unique_entries.update(e.RecursiveLibraryDeps())
+        for t in e.android_test_entries:
+            all_unique_entries.add(t)
+            all_unique_entries.update(t.RecursiveLibraryDeps())
+
+    all_java_files = set()
+    for e in all_unique_entries:
+        all_java_files.update(e.JavaFiles())
+
+    canonical_compile_resources = _FindCanonicalCompileResources(entries)
+    computed_dirs = _ComputeJavaSourceDirs(_RebasePath(all_java_files))
+    java_dirs = set(computed_dirs.keys())
+    for e in all_unique_entries:
+        for s in e.BundledSrcjars(canonical_compile_resources):
+            extracted = _ExtractBundledSrcJar(s)
+            if extracted:
+                java_dirs.add(extracted)
+
+    prebuilts = set(p for e in all_unique_entries for p in e.PrebuiltJars())
+
+    all_res_sources = set(
+        p for e in all_unique_entries for p in _RebasePath(e.ResSources())
+    )
+    res_sources = []
+    for r in all_res_sources:
+        res_sources.extend(build_utils.ReadSourcesList(r))
+    res_dirs = set(
+        resource_utils.DeduceResourceDirsFromFileList(
+            res_sources, validate=False
+        )
+    )
 
     def Relativize(paths):
         return _RebasePath(paths, os.path.join(gradle_output_dir, _MODULE_ALL))
@@ -821,9 +924,9 @@ def _GenerateModuleAll(
     # source files for editing and navigation.
     variables['main'] = {
         'android_manifest': Relativize(_DEFAULT_ANDROID_MANIFEST_PATH),
-        'java_dirs': Relativize(java_dirs),
-        'prebuilts': Relativize(prebuilts),
-        'res_dirs': Relativize(res_dirs),
+        'java_dirs': Relativize(sorted(java_dirs)),
+        'prebuilts': Relativize(sorted(prebuilts)),
+        'res_dirs': Relativize(sorted(res_dirs)),
     }
     if native_targets:
         variables['native'] = _GetNative(
@@ -1081,13 +1184,20 @@ def main():
     entries = [e for e in _CombineTestEntries(main_entries) if e.IsValid()]
     logging.warning('Generating for %d targets.', len(entries))
 
+    canonical_compile_resources = (
+        _FindCanonicalCompileResources(entries) if args.all else None
+    )
     generated_inputs = set()
     for entry in entries:
         entries_to_gen = [entry]
         entries_to_gen.extend(entry.android_test_entries)
         for entry_to_gen in entries_to_gen:
             # Build all paths references by .gradle that exist within output_dir.
-            generated_inputs.update(generator.GeneratedInputs(entry_to_gen))
+            generated_inputs.update(
+                generator.GeneratedInputs(
+                    entry_to_gen, canonical_compile_resources
+                )
+            )
     if generated_inputs:
         # Skip targets outside the output_dir since those are not generated.
         targets = [
@@ -1107,6 +1217,7 @@ def main():
             build_vars,
             jinja_processor,
             args.native_targets,
+            entries,
         )
     else:
         for entry in entries:

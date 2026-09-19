@@ -81,6 +81,9 @@ AudioProcessorHandler::AudioProcessorHandler(
   // One and only one is defined.
   CHECK(deliver_processed_audio_callback_.is_null() !=
         (voice_isolation_handler_ == nullptr));
+  // Voice isolation handler must be provided if and only if voice isolation is
+  // enabled in settings.
+  CHECK_EQ(voice_isolation_handler_ != nullptr, settings.voice_isolation);
   if (aecdump_recording_manager_) {
     aecdump_recording_manager->RegisterAecdumpSource(this);
   }
@@ -183,6 +186,19 @@ void AudioProcessorHandler::SetPreferredNumCaptureChannels(
                                 std::memory_order_release);
 }
 
+void AudioProcessorHandler::SetVoiceIsolation(bool enabled) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(owning_sequence_);
+  if (!voice_isolation_handler_) {
+    // Voice isolation cannot be enabled if it is not available (i.e. was not
+    // requested initially).
+    if (enabled) {
+      receiver_.ReportBadMessage("Voice isolation cannot be enabled.");
+    }
+    return;
+  }
+  voice_isolation_handler_->SetVoiceIsolation(enabled);
+}
+
 void AudioProcessorHandler::StartAecdump(base::File aecdump_file) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(owning_sequence_);
   audio_processor_->OnStartDump(std::move(aecdump_file));
@@ -197,6 +213,7 @@ void AudioProcessorHandler::OnAudioProcessorOutput(
     const media::AudioBus& audio_bus,
     base::TimeTicks audio_capture_time,
     std::optional<double> new_volume) {
+  TRACE_EVENT("audio", "AudioProcessorHandler::OnAudioProcessorOutput");
   // Retrieve and reset the accumulated glitch info to ensure it is attached
   // to the processed frame.
   const media::AudioGlitchInfo glitch_info =

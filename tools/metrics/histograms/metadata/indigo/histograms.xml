@@ -22,6 +22,53 @@ chromium-metrics-reviews@google.com.
 
 <histograms>
 
+<histogram name="Indigo.Discovery.EligibilityCheck.Latency" units="ms"
+    expires_after="2027-05-13">
+  <owner>baranerf@google.com</owner>
+  <owner>jbroman@chromium.org</owner>
+  <owner>adithyas@chromium.org</owner>
+  <summary>
+    Time taken from triggering the action to receiving the combined eligibility
+    result (local + remote). Monitors performance of the eligibility check flow,
+    which involves network calls for remote status.
+  </summary>
+</histogram>
+
+<histogram name="Indigo.Discovery.EligibilityCheck.RequestLatency" units="ms"
+    expires_after="2027-05-13">
+  <owner>baranerf@google.com</owner>
+  <owner>jbroman@chromium.org</owner>
+  <owner>adithyas@chromium.org</owner>
+  <summary>
+    Measures how long the network request takes for the remote eligibility
+    check. Monitors the performance of the network call.
+  </summary>
+</histogram>
+
+<histogram name="Indigo.Discovery.MetadataKeywordHeuristic" enum="Boolean"
+    expires_after="2027-05-13">
+  <owner>baranerf@google.com</owner>
+  <owner>jbroman@chromium.org</owner>
+  <owner>adithyas@chromium.org</owner>
+  <summary>
+    Records the decision returned by keyword heuristics. Helps track how often
+    pages are identified as eligible for Indigo by the heuristics.
+  </summary>
+</histogram>
+
+<histogram name="Indigo.Discovery.OptimizationGuideDecision"
+    enum="OptimizationGuideOptimizationGuideDecision"
+    expires_after="2027-05-13">
+  <owner>baranerf@google.com</owner>
+  <owner>jbroman@chromium.org</owner>
+  <owner>adithyas@chromium.org</owner>
+  <summary>
+    Records the decision returned by the Optimization Guide for the current
+    page. Helps track how often pages are identified as eligible for Indigo by
+    the server-side hints.
+  </summary>
+</histogram>
+
 <histogram name="Indigo.ImageReplacement.TotalDuration" units="ms"
     expires_after="2027-05-13">
   <owner>baranerf@google.com</owner>
@@ -67,6 +114,18 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Indigo.Transformation.IsCacheHit" enum="BooleanCacheHit"
+    expires_after="2027-05-13">
+  <owner>jbroman@chromium.org</owner>
+  <owner>adithyas@chromium.org</owner>
+  <owner>baranerf@google.com</owner>
+  <summary>
+    Records whether an Indigo transformation was served from the in-memory
+    page-scoped image cache (hit) or required a new generation RPC (miss).
+    Recorded on successful image replacement.
+  </summary>
+</histogram>
+
 <histogram name="Indigo.Transformation.Result"
     enum="IndigoTransformationResult" expires_after="2027-05-13">
   <owner>jbroman@chromium.org</owner>
@@ -81,6 +140,17 @@ chromium-metrics-reviews@google.com.
     entry point is typically hidden for users who are known to be ineligible;
     therefore, low counts in failure buckets should not be misinterpreted as
     indicating that most users are eligible.
+  </summary>
+</histogram>
+
+<histogram name="Indigo.Transformation.TriggerSource"
+    enum="IndigoTransformationTriggerSource" expires_after="2027-05-13">
+  <owner>jbroman@chromium.org</owner>
+  <owner>adithyas@chromium.org</owner>
+  <owner>baranerf@google.com</owner>
+  <summary>
+    Records the trigger source of a transformation event. This tracks which UI
+    surface or action initiated the transformation request.
   </summary>
 </histogram>
 

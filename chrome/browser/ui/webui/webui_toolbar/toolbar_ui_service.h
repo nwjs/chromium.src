@@ -37,12 +37,21 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
         toolbar_ui_api::mojom::ContextMenuType menu_type,
         const gfx::RectF& bounds_in_css_pixels,
         ui::mojom::MenuSourceType source) = 0;
+    virtual void ShowOverflowMenu(
+        std::vector<toolbar_ui_api::mojom::OverflowMenuItemPtr> controls,
+        const gfx::RectF& bounds_in_css_pixels,
+        ui::mojom::MenuSourceType source,
+        ShowOverflowMenuCallback callback) = 0;
     virtual void ShowContentSettingsBubble(
         ::toolbar_ui_api::mojom::ContentSettingImageType type,
         bool is_pointer_interaction,
         ShowContentSettingsBubbleCallback callback) = 0;
     virtual void OnContentSettingImagePointerDown(
         ::toolbar_ui_api::mojom::ContentSettingImageType type) = 0;
+    virtual void OnContentSettingImageAnimationEnded(
+        ::toolbar_ui_api::mojom::ContentSettingImageType type) = 0;
+    virtual void OnPageActionPointerDown(
+        ::toolbar_ui_api::mojom::PageActionId action_id) = 0;
     virtual void OnPageActionClick(
         ::toolbar_ui_api::mojom::PageActionId action_id,
         ::toolbar_ui_api::mojom::PageActionTrigger trigger,
@@ -65,7 +74,8 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
     virtual void MoveExtensionActionBy(const std::string& extension_id,
                                        int32_t delta) = 0;
     virtual void OnLhsChipMousePressed(
-        toolbar_ui_api::mojom::LhsChipIdentifier identifier) = 0;
+        toolbar_ui_api::mojom::LhsChipIdentifier identifier,
+        bool is_middle_click) = 0;
     virtual void OnLhsChipClicked(
         toolbar_ui_api::mojom::LhsChipIdentifier identifier,
         bool is_mouse_interaction) = 0;
@@ -126,6 +136,11 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
   void ShowContextMenu(toolbar_ui_api::mojom::ContextMenuType menu_type,
                        const gfx::RectF& bounds_in_css_pixels,
                        ui::mojom::MenuSourceType source) override;
+  void ShowOverflowMenu(
+      std::vector<toolbar_ui_api::mojom::OverflowMenuItemPtr> controls,
+      const gfx::RectF& bounds_in_css_pixels,
+      ui::mojom::MenuSourceType source,
+      ShowOverflowMenuCallback callback) override;
   void OnOmniboxAction(toolbar_ui_api::mojom::OmniboxActionPtr action,
                        OnOmniboxActionCallback callback) override;
   void OnPageInitialized() override;
@@ -135,6 +150,10 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
       ShowContentSettingsBubbleCallback callback) override;
   void OnContentSettingImagePointerDown(
       ::toolbar_ui_api::mojom::ContentSettingImageType type) override;
+  void OnContentSettingImageAnimationEnded(
+      ::toolbar_ui_api::mojom::ContentSettingImageType type) override;
+  void OnPageActionPointerDown(
+      ::toolbar_ui_api::mojom::PageActionId action_id) override;
   void OnPageActionClick(::toolbar_ui_api::mojom::PageActionId action_id,
                          ::toolbar_ui_api::mojom::PageActionTrigger trigger,
                          OnPageActionClickCallback callback) override;
@@ -155,7 +174,8 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
   void MoveExtensionActionBy(const std::string& extension_id,
                              int32_t delta) override;
   void OnLhsChipMousePressed(
-      toolbar_ui_api::mojom::LhsChipIdentifier identifier) override;
+      toolbar_ui_api::mojom::LhsChipIdentifier identifier,
+      bool is_middle_click) override;
   void OnLhsChipClicked(toolbar_ui_api::mojom::LhsChipIdentifier identifier,
                         bool is_mouse_interaction) override;
   void OnLhsChipPointerEntered(

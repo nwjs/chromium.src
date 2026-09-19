@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ui/views/extensions/extensions_toolbar_desktop.h"
+
 #include <optional>
 #include <string>
 
@@ -24,10 +26,10 @@
 #include "chrome/browser/extensions/extension_uninstall_dialog.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/extensions/extension_install_ui.h"
 #include "chrome/browser/ui/extensions/extension_post_install_dialog.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
@@ -36,7 +38,6 @@
 #include "chrome/browser/ui/views/extensions/extensions_menu_coordinator.h"
 #include "chrome/browser/ui/views/extensions/extensions_request_access_button.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_button.h"
-#include "chrome/browser/ui/views/extensions/extensions_toolbar_desktop.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_interactive_uitest.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
@@ -573,7 +574,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopUITest,
     ASSERT_TRUE(observer.WaitForExtensionLoaded());
   }
 
-  Browser* incognito_browser = CreateIncognitoBrowser();
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowser();
 
   views::test::WaitForAnimatingLayoutManager(GetExtensionsToolbarDesktop());
   views::test::WaitForAnimatingLayoutManager(
@@ -661,7 +662,8 @@ IN_PROC_BROWSER_TEST_F(IncognitoExtensionsToolbarDesktopUITest,
       LoadTestExtension("extensions/api_test/browser_action_with_icon",
                         /*allow_incognito=*/true);
   ASSERT_TRUE(extension);
-  Browser* second_browser = CreateBrowser(profile()->GetOriginalProfile());
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(profile()->GetOriginalProfile());
   EXPECT_FALSE(second_browser->GetProfile()->IsOffTheRecord());
 
   CloseBrowserSynchronously(browser());
@@ -799,7 +801,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionsToolbarRuntimeHostPermissionsBrowserTest,
   injection_listener.set_extension_id(extension()->id());
 
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   extensions::ExtensionActionRunner* runner =
       extensions::ExtensionActionRunner::GetForWebContents(web_contents);
   extensions::PermissionsManager* permissions_manager =
@@ -919,7 +921,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionsToolbarRuntimeHostPermissionsBrowserTest,
 
   GURL url = embedded_test_server()->GetURL("example.com", "/title1.html");
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   extensions::ExtensionActionRunner* runner =
       extensions::ExtensionActionRunner::GetForWebContents(web_contents);
   extensions::BlockedActionWaiter blocked_action_waiter(runner);
@@ -977,7 +979,7 @@ class ExtensionsToolbarDesktopFeatureUITest
   void SetUpOnMainThread() override {
     ExtensionsToolbarDesktopUITest::SetUpOnMainThread();
     ASSERT_TRUE(embedded_test_server()->Start());
-    web_contents_ = browser()->tab_strip_model()->GetActiveWebContents();
+    web_contents_ = browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   void NavigateToUrl(const GURL& url) {
@@ -1069,7 +1071,7 @@ IN_PROC_BROWSER_TEST_P(
   NavigateToUrl(url);
 
   // Add site access requests for extensions A and B.
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
   AddHostAccessRequest(*extensionA, web_contents);
   AddHostAccessRequest(*extensionB, web_contents);
   WaitForAnimation();
@@ -1195,7 +1197,7 @@ IN_PROC_BROWSER_TEST_F(
   NavigateToUrl(url);
 
   // Add site access requests for extensions A and B.
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
   AddHostAccessRequest(*extensionA, web_contents);
   AddHostAccessRequest(*extensionB, web_contents);
   WaitForAnimation();
@@ -1269,7 +1271,7 @@ IN_PROC_BROWSER_TEST_F(
   GURL url = embedded_test_server()->GetURL("example.com", "/title1.html");
   NavigateToUrl(url);
   AddHostAccessRequest(*extension,
-                       browser()->tab_strip_model()->GetActiveWebContents());
+                       browser()->GetTabStripModel()->GetActiveWebContents());
   WaitForAnimation();
 
   // Verify request access button is visible because extension added a site
@@ -1313,7 +1315,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopFeatureUITest,
 
   // Add site access request for extension A. This should make the request
   // access button visible.
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
   AddHostAccessRequest(*extensionA, web_contents);
 
   // Verify order of visible items in container:
@@ -1550,8 +1552,8 @@ IN_PROC_BROWSER_TEST_P(ExtensionsToolbarDesktopFeatureRolloutInteractiveTest,
         extensions::TriggerPostInstallDialog(
             browser()->GetProfile(), extension, SkBitmap(),
             base::BindOnce(
-                [](Browser* b) {
-                  return b->tab_strip_model()->GetActiveWebContents();
+                [](BrowserWindowInterface* b) {
+                  return b->GetTabStripModel()->GetActiveWebContents();
                 },
                 browser()));
       }),
@@ -1683,7 +1685,7 @@ class ExtensionsToolbarDesktopFeatureInteractiveTest
   void AddHostAccessRequest(int tab_index,
                             const extensions::Extension& extension) {
     content::WebContents* web_contents =
-        browser()->tab_strip_model()->GetWebContentsAt(tab_index);
+        browser()->GetTabStripModel()->GetWebContentsAt(tab_index);
     CHECK(web_contents);
     int tab_id = extensions::ExtensionTabUtil::GetTabId(web_contents);
     permissions_manager_->AddHostAccessRequest(web_contents, tab_id, extension);
@@ -1693,7 +1695,7 @@ class ExtensionsToolbarDesktopFeatureInteractiveTest
   void RemoveHostAccessRequest(int tab_index,
                                const extensions::Extension& extension) {
     content::WebContents* web_contents =
-        browser()->tab_strip_model()->GetWebContentsAt(tab_index);
+        browser()->GetTabStripModel()->GetWebContentsAt(tab_index);
     CHECK(web_contents);
     int tab_id = extensions::ExtensionTabUtil::GetTabId(web_contents);
     permissions_manager_->RemoveHostAccessRequest(tab_id, extension.id());

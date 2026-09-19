@@ -137,7 +137,7 @@ const char* g_vfs_name_override = nullptr;
 // range of a few million if that is possible".
 // https://www.sqlite.org/limits.html
 base::ByteSize GetMaxBlobSize() {
-  return g_max_blob_size_override.value_or(base::MiBU(5));
+  return g_max_blob_size_override.value_or(base::MiB(5));
 }
 
 // For a given path, extracts the blob ID if the path matches the pattern for
@@ -361,7 +361,7 @@ bool TryVacuum(sql::Database& db,
     LogVacuumEvent(VacuumEvent::kCheckpointFailed);
     return false;
   }
-  bool success = db.Execute("VACUUM");
+  bool success = db.Vacuum();
   LogVacuumEvent(success ? VacuumEvent::kSucceeded : VacuumEvent::kFailed);
   return success;
 }
@@ -998,8 +998,7 @@ class IndexCursorImpl : public BackingStoreCursorImpl {
 StatusOr<std::unique_ptr<DatabaseConnection>> DatabaseConnection::Open(
     std::optional<std::u16string_view> name,
     base::FilePath path,
-    BackingStoreImpl& backing_store,
-    bool erase_if_zygotic) {
+    BackingStoreImpl& backing_store) {
   auto connection =
       base::WrapUnique(new DatabaseConnection(path, backing_store));
   Status s = connection->Init(name);
@@ -1025,11 +1024,6 @@ StatusOr<std::unique_ptr<DatabaseConnection>> DatabaseConnection::Open(
       connection->data_loss_info_ = std::move(loss);
       s.Log("IndexedDB.SQLite.OpenRetryResult");
     }
-  }
-  if (s.ok() && erase_if_zygotic && connection->IsZygotic()) {
-    s = Status::Corruption(
-        "Database was zygotic on open, indicating prior unclean shutdown");
-    connection->marked_for_permanent_deletion_ = true;
   }
   if (!s.ok()) {
     std::move(*connection).GetCleanupTask().Run(/*force_closing=*/false);
@@ -1179,7 +1173,11 @@ base::OnceCallback<void(bool)> DatabaseConnection::GetCleanupTask() && {
   if (!in_memory()) {
     // When the database never finished initializing, it will be zygotic. This
     // could happen if version change transaction was aborted/rolled back. In
-    // this case the newly created database should be deleted.
+    // this case the newly created database should be deleted. On the other
+    // hand, if `Init` fails to read the metadata due to an error, `IsZygotic()`
+    // will be true, but we don't want to immediately delete the database,
+    // instead attempting recovery or just re-opening if the error was
+    // transient.
     should_delete_db =
         marked_for_permanent_deletion_ || (IsZygotic() && !had_sql_error);
 
@@ -1352,6 +1350,13 @@ Status DatabaseConnection::Init(std::optional<std::u16string_view> name) {
   if (name && (metadata_.name != *name)) {
     return Fatal(Status::Corruption("Database name mismatch"),
                  SpecificEvent::kDatabaseNameMismatch);
+  }
+
+  if ((!is_new_db &&
+       metadata_.version == blink::IndexedDBDatabaseMetadata::NO_VERSION) ||
+      metadata_.version < blink::IndexedDBDatabaseMetadata::NO_VERSION) {
+    return Fatal(Status::Corruption("Database IDB version is invalid"),
+                 SpecificEvent::kDatabaseIdbVersionInvalid);
   }
 
   // There should be no active blobs in this database at this point, so we can
@@ -2885,7 +2890,8 @@ base::FilePath DatabaseConnection::GetLegacyBlobDirectory() const {
 base::FilePath DatabaseConnection::GetBlobFilePath(int64_t blob_id) const {
   base::FilePath path = GetLegacyBlobDirectory().AppendASCII(
       absl::StrFormat("%" PRIx64, blob_id));
-  DCHECK_EQ(blob_id, GetBlobIdFromLegacyFilePath(path).value_or(-1));
+  CHECK_EQ(blob_id, GetBlobIdFromLegacyFilePath(path).value_or(-1),
+           base::NotFatalUntil::M158);
   return path;
 }
 

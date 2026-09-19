@@ -16,7 +16,6 @@
 namespace content {
 
 class BrowserContext;
-class WebContents;
 
 // Allows embedders to control certain aspects of |PrefetchService|.
 class CONTENT_EXPORT PrefetchServiceDelegate {
@@ -58,7 +57,8 @@ class CONTENT_EXPORT PrefetchServiceDelegate {
   virtual bool DisableDecoysBasedOnUserSettings() = 0;
 
   // Get the state of the user's preloading settings.
-  virtual PreloadingEligibility IsSomePreloadingEnabled() = 0;
+  virtual PreloadingEligibility IsSomePreloadingEnabled(
+      bool should_ignore_saver_modes) = 0;
   virtual bool IsExtendedPreloadingEnabled() = 0;
   virtual bool IsPreloadingPrefEnabled() = 0;
   virtual bool IsDataSaverEnabled() = 0;
@@ -70,8 +70,6 @@ class CONTENT_EXPORT PrefetchServiceDelegate {
   // Determines whether a referring origin is reasonably trusted to proceed
   // without delay when processing cross-site prefetches.
   virtual bool IsContaminationExempt(const url::Origin& referring_origin) = 0;
-
-  virtual void OnPrefetchLikely(WebContents* web_contents) = 0;
 
   virtual void SetAcceptLanguageHeader(std::string accept_language_header) = 0;
 };

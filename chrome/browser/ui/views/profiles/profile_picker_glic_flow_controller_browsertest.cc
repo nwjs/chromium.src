@@ -14,7 +14,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_test_util.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/profiles/profile_picker_view_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/profile_destruction_waiter.h"
@@ -54,7 +54,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerGlicFlowControllerBrowserTest,
   Profile* new_profile =
       &profiles::testing::CreateProfileSync(profile_manager, new_profile_path);
   ProfileDestructionWaiter profile_destruction_waiter(new_profile);
-  Browser* new_browser = CreateBrowser(new_profile);
+  BrowserWindowInterface* new_browser = CreateBrowser(new_profile);
   CloseBrowserSynchronously(new_browser);
   profile_destruction_waiter.Wait();
 

@@ -36,7 +36,7 @@
 #import "ios/chrome/browser/composebox/ui/composebox_input_item_view.h"
 #import "ios/chrome/browser/composebox/ui/composebox_input_plate_mutator.h"
 #import "ios/chrome/browser/composebox/ui/composebox_input_plate_view_controller_delegate.h"
-#import "ios/chrome/browser/composebox/ui/composebox_strings.h"
+#import "ios/chrome/browser/composebox/ui/composebox_ui_config.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_input_state.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_util.h"
 #import "ios/chrome/browser/drag_and_drop/model/drag_item_util.h"
@@ -266,11 +266,18 @@ UIImage* SendButtonImage(BOOL highlighted,
   /// The constraint for the leading edge of the tabs accordion.
   NSLayoutConstraint* _tabsAccordionLeadingConstraint;
 
+  /// The constraint for the trailing edge of the tabs accordion when collapsed.
+  NSLayoutConstraint* _tabsAccordionTrailingConstraint;
+
   /// The constraint pinning the container's trailing to the accordion.
   NSLayoutConstraint* _containerTrailingToAccordionConstraint;
 
   /// The constraint pinning the container's trailing to the plus button.
   NSLayoutConstraint* _containerTrailingToPlusButtonConstraint;
+
+  /// Whether a tab attachment animation is pending completion of accordion
+  /// loading.
+  BOOL _pendingTabAttachmentAnimation;
 
   /// All items attached to the composebox query context
   /// (including media, files, and tab attachments). Serves as the single source
@@ -394,34 +401,52 @@ UIImage* SendButtonImage(BOOL highlighted,
     return;
   }
 
+  if (_tabsAccordionStackView.isLoading) {
+    _pendingTabAttachmentAnimation = YES;
+    return;
+  }
+
+  _pendingTabAttachmentAnimation = NO;
+
   _plusButtonContainer.backgroundColor =
       [UIColor colorNamed:kSecondaryBackgroundColor];
 
   if (_tabsAccordionStackView.arrangedSubviews.count > 0) {
+    // Delay the slide animation asynchronously because UIView animation delays
+    // execute constraint updates synchronously at setup time.
     __weak __typeof(self) weakSelf = self;
-    [UIView animateKeyframesWithDuration:kTabAttachmentAnimationDuration
-        delay:kTabAttachmentAnimationDelay
-        options:0
-        animations:^{
-          // Fades out the favicons.
-          [UIView addKeyframeWithRelativeStartTime:0.0
-                                  relativeDuration:
-                                      kTabAttachmentFadeOutRelativeDuration
-                                        animations:^{
-                                          [weakSelf fadeOutTabsAccordion];
-                                        }];
-          // Slides the tabs accordion view.
-          [UIView addKeyframeWithRelativeStartTime:0.0
-                                  relativeDuration:
-                                      kTabAttachmentSlideRelativeDuration
-                                        animations:^{
-                                          [weakSelf slideTabsAccordion];
-                                        }];
-        }
-        completion:^(BOOL finished) {
-          [weakSelf handleTabAttachmentAnimationCompletion];
-        }];
+    base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE, base::BindOnce(^{
+          [weakSelf runTabAttachmentSlideAnimation];
+        }),
+        base::Seconds(kTabAttachmentAnimationDelay));
   }
+}
+
+- (void)runTabAttachmentSlideAnimation {
+  __weak __typeof(self) weakSelf = self;
+  [UIView animateKeyframesWithDuration:kTabAttachmentAnimationDuration
+      delay:0.0
+      options:0
+      animations:^{
+        // Fades out the favicons.
+        [UIView addKeyframeWithRelativeStartTime:0.0
+                                relativeDuration:
+                                    kTabAttachmentFadeOutRelativeDuration
+                                      animations:^{
+                                        [weakSelf fadeOutTabsAccordion];
+                                      }];
+        // Slides the tabs accordion view.
+        [UIView
+            addKeyframeWithRelativeStartTime:0.0
+                            relativeDuration:kTabAttachmentSlideRelativeDuration
+                                  animations:^{
+                                    [weakSelf slideTabsAccordion];
+                                  }];
+      }
+      completion:^(BOOL finished) {
+        [weakSelf handleTabAttachmentAnimationCompletion];
+      }];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -489,6 +514,10 @@ UIImage* SendButtonImage(BOOL highlighted,
 
 - (void)showMultimodalMenu {
   [_plusButton performPrimaryAction];
+}
+
+- (void)dismissContextMenu {
+  [_plusButton.contextMenuInteraction dismissMenu];
 }
 
 #pragma mark - ComposeboxInputItemCellDelegate
@@ -715,12 +744,12 @@ UIImage* SendButtonImage(BOOL highlighted,
 
 - (void)setUIInputState:(ComposeboxUIInputState*)state {
   BOOL activeToolChanged = (_state.activeTool != state.activeTool);
-  BOOL stringsChanged = (_state.strings != state.strings);
+  BOOL uiConfigChanged = (_state.uiConfig != state.uiConfig);
 
   _state = state;
 
   // Trigger updates conditionally
-  if (activeToolChanged || stringsChanged) {
+  if (activeToolChanged || uiConfigChanged) {
     [self updatePlaceholderText];
   }
 
@@ -735,7 +764,7 @@ UIImage* SendButtonImage(BOOL highlighted,
     }
   }
 
-  if (stringsChanged) {
+  if (uiConfigChanged) {
     [self updateCreateImageTitle];
   }
 
@@ -1153,7 +1182,7 @@ UIImage* SendButtonImage(BOOL highlighted,
 /// Updates the placeholder text based on the current operating mode of the
 /// composebox.
 - (void)updatePlaceholderText {
-  [_editView setCustomPlaceholderText:[_state.strings
+  [_editView setCustomPlaceholderText:[_state.uiConfig
                                           hintTextForTool:_state.activeTool]];
 }
 
@@ -1217,7 +1246,7 @@ UIImage* SendButtonImage(BOOL highlighted,
   UIImage* icon = SymbolWithPointSize(SymbolMagnifyingglassSpark,
                                       kAIMButtonSymbolPointSize);
 
-  NSString* title = [_state.strings chipLabelForTool:ComposeboxMode::kAIM];
+  NSString* title = [_state.uiConfig chipLabelForTool:ComposeboxMode::kAIM];
   button.configuration = [self modeIndicatorButtonConfigWithTitle:title
                                                             image:icon];
 
@@ -1287,6 +1316,8 @@ UIImage* SendButtonImage(BOOL highlighted,
 
   _tabsAccordionLeadingConstraint = [_tabsAccordionStackView.leadingAnchor
       constraintEqualToAnchor:_plusButton.trailingAnchor];
+  _tabsAccordionTrailingConstraint = [_tabsAccordionStackView.trailingAnchor
+      constraintEqualToAnchor:_plusButton.trailingAnchor];
   _containerTrailingToAccordionConstraint = [container.trailingAnchor
       constraintEqualToAnchor:_tabsAccordionStackView.trailingAnchor
                      constant:kPlusButtonContainerTrailingPadding];
@@ -1345,13 +1376,25 @@ UIImage* SendButtonImage(BOOL highlighted,
   _tabsAccordionStackView.hidden = !hasTabs;
   if (hasTabs) {
     _containerTrailingToPlusButtonConstraint.active = NO;
+    _tabsAccordionTrailingConstraint.active = NO;
+    _tabsAccordionLeadingConstraint.constant = 0.0;
+    _tabsAccordionLeadingConstraint.active = YES;
     _containerTrailingToAccordionConstraint.constant =
         kPlusButtonContainerTrailingPadding;
-    _tabsAccordionLeadingConstraint.constant = 0.0;
     _containerTrailingToAccordionConstraint.active = YES;
   } else {
     _containerTrailingToAccordionConstraint.active = NO;
+    _tabsAccordionLeadingConstraint.active = NO;
+    _tabsAccordionTrailingConstraint.active = YES;
     _containerTrailingToPlusButtonConstraint.active = YES;
+  }
+
+  // Force UIKit to complete the current layout pass synchronously to ensure
+  // loaded favicon subviews are displayed before scheduling animations.
+  if (!isLoading && _pendingTabAttachmentAnimation) {
+    [self.view setNeedsLayout];
+    [self.view layoutIfNeeded];
+    [self performTabAttachmentAnimationIfNeeded];
   }
 }
 
@@ -1589,9 +1632,8 @@ UIImage* SendButtonImage(BOOL highlighted,
       kComposeboxSelectTabsActionAccessibilityIdentifier;
 
   UIAction* aimAction = [self
-      actionWithTitle:[_state.strings menuLabelForTool:ComposeboxMode::kAIM]
-                image:SymbolWithPointSize(SymbolMagnifyingglassSpark,
-                                          kSymbolActionPointSize)
+      actionWithTitle:[_state.uiConfig menuLabelForTool:ComposeboxMode::kAIM]
+                image:[_state.uiConfig iconForTool:ComposeboxMode::kAIM]
                hidden:[_state isToolHidden:ComposeboxMode::kAIM]
              disabled:NO
              selected:_state.activeTool == ComposeboxMode::kAIM
@@ -1602,9 +1644,10 @@ UIImage* SendButtonImage(BOOL highlighted,
       kComposeboxAIMActionAccessibilityIdentifier;
 
   UIAction* createImageAction = [self
-      actionWithTitle:[_state.strings
+      actionWithTitle:[_state.uiConfig
                           menuLabelForTool:ComposeboxMode::kImageGeneration]
-                image:GetBananaIcon(kSymbolActionPointSize)
+                image:[_state.uiConfig
+                          iconForTool:ComposeboxMode::kImageGeneration]
                hidden:[_state isToolHidden:ComposeboxMode::kImageGeneration]
              disabled:[_state isToolDisabled:ComposeboxMode::kImageGeneration]
              selected:_state.activeTool == ComposeboxMode::kImageGeneration
@@ -1615,9 +1658,8 @@ UIImage* SendButtonImage(BOOL highlighted,
       kComposeboxImageGenerationActionAccessibilityIdentifier;
 
   UIAction* canvasAction = [self
-      actionWithTitle:[_state.strings menuLabelForTool:ComposeboxMode::kCanvas]
-                image:SymbolWithPointSize(SymbolDocumentBadgeSpark,
-                                          kSymbolActionPointSize)
+      actionWithTitle:[_state.uiConfig menuLabelForTool:ComposeboxMode::kCanvas]
+                image:[_state.uiConfig iconForTool:ComposeboxMode::kCanvas]
                hidden:[_state isToolHidden:ComposeboxMode::kCanvas]
              disabled:[_state isToolDisabled:ComposeboxMode::kCanvas]
              selected:_state.activeTool == ComposeboxMode::kCanvas
@@ -1625,17 +1667,16 @@ UIImage* SendButtonImage(BOOL highlighted,
                 [weakSelf handleCanvasTappedFromToolMenu];
               }];
 
-  UIAction* deepSearchAction =
-      [self actionWithTitle:[_state.strings
-                                menuLabelForTool:ComposeboxMode::kDeepSearch]
-                      image:SymbolWithPointSize(SymbolDeepSearch,
-                                                kSymbolActionPointSize)
-                     hidden:[_state isToolHidden:ComposeboxMode::kDeepSearch]
-                   disabled:[_state isToolDisabled:ComposeboxMode::kDeepSearch]
-                   selected:_state.activeTool == ComposeboxMode::kDeepSearch
-                    handler:^{
-                      [weakSelf handleDeepSearchTappedFromToolMenu];
-                    }];
+  UIAction* deepSearchAction = [self
+      actionWithTitle:[_state.uiConfig
+                          menuLabelForTool:ComposeboxMode::kDeepSearch]
+                image:[_state.uiConfig iconForTool:ComposeboxMode::kDeepSearch]
+               hidden:[_state isToolHidden:ComposeboxMode::kDeepSearch]
+             disabled:[_state isToolDisabled:ComposeboxMode::kDeepSearch]
+             selected:_state.activeTool == ComposeboxMode::kDeepSearch
+              handler:^{
+                [weakSelf handleDeepSearchTappedFromToolMenu];
+              }];
 
   NSMutableArray<UIMenuElement*>* attachmentMenuElements =
       [[NSMutableArray alloc] init];
@@ -1670,7 +1711,7 @@ UIImage* SendButtonImage(BOOL highlighted,
                                          options:UIMenuOptionsDisplayInline
                                         children:attachmentMenuElements];
 
-  NSString* toolsSectionTitle = [_state.strings toolsSectionHeader];
+  NSString* toolsSectionTitle = [_state.uiConfig toolsSectionHeader];
   UIMenu* modeMenu = [UIMenu
       menuWithTitle:toolsSectionTitle
               image:nil
@@ -1688,9 +1729,10 @@ UIImage* SendButtonImage(BOOL highlighted,
         ![_state isModelHidden:ComposeboxModelOption::kAuto];
     // Note: When possible, this is meant to be replaced by 'Auto'.
     UIAction* regularModelOption = [self
-        actionWithTitle:[_state.strings
+        actionWithTitle:[_state.uiConfig
                             menuLabelForModel:ComposeboxModelOption::kRegular]
-                  image:SymbolWithPointSize(SymbolAcute, kSymbolActionPointSize)
+                  image:[_state.uiConfig
+                            iconForModel:ComposeboxModelOption::kRegular]
                  hidden:regularHidden
                disabled:[_state isModelDisabled:ComposeboxModelOption::kRegular]
                selected:_state.activeModel == ComposeboxModelOption::kRegular
@@ -1700,10 +1742,10 @@ UIImage* SendButtonImage(BOOL highlighted,
                 }];
 
     UIAction* autoModelOption = [self
-        actionWithTitle:[_state.strings
+        actionWithTitle:[_state.uiConfig
                             menuLabelForModel:ComposeboxModelOption::kAuto]
-                  image:SymbolWithPointSize(SymbolSyncEnabled,
-                                            kSymbolActionPointSize)
+                  image:[_state.uiConfig
+                            iconForModel:ComposeboxModelOption::kAuto]
                  hidden:[_state isModelHidden:ComposeboxModelOption::kAuto]
                disabled:[_state isModelDisabled:ComposeboxModelOption::kAuto]
                selected:_state.activeModel == ComposeboxModelOption::kAuto
@@ -1713,9 +1755,10 @@ UIImage* SendButtonImage(BOOL highlighted,
                 }];
 
     UIAction* thinkingModelOption = [self
-        actionWithTitle:[_state.strings
+        actionWithTitle:[_state.uiConfig
                             menuLabelForModel:ComposeboxModelOption::kThinking]
-                  image:SymbolWithPointSize(SymbolClock, kSymbolActionPointSize)
+                  image:[_state.uiConfig
+                            iconForModel:ComposeboxModelOption::kThinking]
                  hidden:[_state isModelHidden:ComposeboxModelOption::kThinking]
                disabled:[_state
                             isModelDisabled:ComposeboxModelOption::kThinking]
@@ -1727,9 +1770,10 @@ UIImage* SendButtonImage(BOOL highlighted,
 
     UIAction* thinkingModelNoGenUIOption = [self
         actionWithTitle:
-            [_state.strings
+            [_state.uiConfig
                 menuLabelForModel:ComposeboxModelOption::kThinkingNoGenUI]
-                  image:SymbolWithPointSize(SymbolClock, kSymbolActionPointSize)
+                  image:[_state.uiConfig iconForModel:ComposeboxModelOption::
+                                                          kThinkingNoGenUI]
                  hidden:[_state isModelHidden:ComposeboxModelOption::
                                                   kThinkingNoGenUI]
                disabled:[_state isModelDisabled:ComposeboxModelOption::
@@ -1742,9 +1786,10 @@ UIImage* SendButtonImage(BOOL highlighted,
                 }];
 
     UIAction* flashModelOption = [self
-        actionWithTitle:[_state.strings
+        actionWithTitle:[_state.uiConfig
                             menuLabelForModel:ComposeboxModelOption::kFlash]
-                  image:SymbolWithPointSize(SymbolBolt, kSymbolActionPointSize)
+                  image:[_state.uiConfig
+                            iconForModel:ComposeboxModelOption::kFlash]
                  hidden:[_state isModelHidden:ComposeboxModelOption::kFlash]
                disabled:[_state isModelDisabled:ComposeboxModelOption::kFlash]
                selected:_state.activeModel == ComposeboxModelOption::kFlash
@@ -1753,7 +1798,7 @@ UIImage* SendButtonImage(BOOL highlighted,
                                 ComposeboxModelOption::kFlash];
                 }];
 
-    NSString* modelPickerTitle = [_state.strings modelSectionHeader];
+    NSString* modelPickerTitle = [_state.uiConfig modelSectionHeader];
     UIMenu* modelPickerMenu =
         [UIMenu menuWithTitle:modelPickerTitle
                         image:nil
@@ -2086,15 +2131,20 @@ UIImage* SendButtonImage(BOOL highlighted,
   button.layer.borderWidth = 0;
 
   NSString* title =
-      [_state.strings chipLabelForTool:ComposeboxMode::kImageGeneration];
+      [_state.uiConfig chipLabelForTool:ComposeboxMode::kImageGeneration];
   UIButtonConfiguration* config = [self
       modeIndicatorButtonConfigWithTitle:title
-                                   image:GetBananaIcon(kSymbolActionPointSize)];
+                                   image:[_state.uiConfig
+                                             iconForTool:ComposeboxMode::
+                                                             kImageGeneration]];
   config.contentInsets = kImageGenerationButtonInsets;
   config.background.backgroundColor =
       [_theme toolButtonBackgroundColorWithActiveState:YES];
   config.baseForegroundColor = [_theme toolButtonTextColorWithActiveState:YES];
   button.tintColor = [_theme toolButtonTextColorWithActiveState:YES];
+
+  button.accessibilityLabel = [_state.uiConfig
+      removeToolAccessibilityLabelForTool:ComposeboxMode::kImageGeneration];
 
   button.configuration = config;
   [self setupXMarkInButton:button];
@@ -2107,7 +2157,7 @@ UIImage* SendButtonImage(BOOL highlighted,
   UIButtonConfiguration* config = _imageGenerationButton.configuration;
 
   NSString* createImageTitle =
-      [_state.strings chipLabelForTool:ComposeboxMode::kImageGeneration];
+      [_state.uiConfig chipLabelForTool:ComposeboxMode::kImageGeneration];
   UIFont* font = [UIFont systemFontOfSize:kAIMButtonFontSize
                                    weight:UIFontWeightMedium];
   NSDictionary* attributes = @{NSFontAttributeName : font};
@@ -2117,6 +2167,8 @@ UIImage* SendButtonImage(BOOL highlighted,
                                       attributes:attributes];
 
   _imageGenerationButton.configuration = config;
+  _imageGenerationButton.accessibilityLabel = [_state.uiConfig
+      removeToolAccessibilityLabelForTool:ComposeboxMode::kImageGeneration];
 }
 
 
@@ -2132,7 +2184,7 @@ UIImage* SendButtonImage(BOOL highlighted,
       forControlEvents:UIControlEventTouchUpInside];
   button.layer.borderWidth = 0;
 
-  NSString* title = [_state.strings chipLabelForTool:ComposeboxMode::kCanvas];
+  NSString* title = [_state.uiConfig chipLabelForTool:ComposeboxMode::kCanvas];
   UIButtonConfiguration* config =
       [self modeIndicatorButtonConfigWithTitle:title
                                          image:SymbolWithPointSize(
@@ -2146,6 +2198,9 @@ UIImage* SendButtonImage(BOOL highlighted,
       [_theme toolButtonBackgroundColorWithActiveState:YES];
   config.baseForegroundColor = [_theme toolButtonTextColorWithActiveState:YES];
   button.tintColor = [_theme toolButtonTextColorWithActiveState:YES];
+
+  button.accessibilityLabel = [_state.uiConfig
+      removeToolAccessibilityLabelForTool:ComposeboxMode::kCanvas];
 
   button.configuration = config;
 
@@ -2172,7 +2227,7 @@ UIImage* SendButtonImage(BOOL highlighted,
   button.layer.borderWidth = 0;
 
   NSString* title =
-      [_state.strings chipLabelForTool:ComposeboxMode::kDeepSearch];
+      [_state.uiConfig chipLabelForTool:ComposeboxMode::kDeepSearch];
   UIButtonConfiguration* config =
       [self modeIndicatorButtonConfigWithTitle:title
                                          image:SymbolWithPointSize(
@@ -2186,6 +2241,9 @@ UIImage* SendButtonImage(BOOL highlighted,
       [_theme toolButtonBackgroundColorWithActiveState:YES];
   config.baseForegroundColor = [_theme toolButtonTextColorWithActiveState:YES];
   button.tintColor = [_theme toolButtonTextColorWithActiveState:YES];
+
+  button.accessibilityLabel = [_state.uiConfig
+      removeToolAccessibilityLabelForTool:ComposeboxMode::kDeepSearch];
 
   button.configuration = config;
 
@@ -2525,9 +2583,10 @@ UIImage* SendButtonImage(BOOL highlighted,
 
 /// Slides the tabs accordion stack view layout.
 - (void)slideTabsAccordion {
-  _tabsAccordionLeadingConstraint.constant =
-      -_tabsAccordionStackView.frame.size.width;
-  _containerTrailingToAccordionConstraint.constant = 0.0;
+  _containerTrailingToAccordionConstraint.active = NO;
+  _tabsAccordionLeadingConstraint.active = NO;
+  _tabsAccordionTrailingConstraint.active = YES;
+  _containerTrailingToPlusButtonConstraint.active = YES;
   [self.view layoutIfNeeded];
 }
 

@@ -38,10 +38,9 @@ import org.chromium.ui.util.ColorUtils;
 
 /** Tests for {@link StripLayoutTab}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE, qualifiers = "sw600dp")
+@Config(qualifiers = "sw600dp")
 public class StripLayoutTabTest {
 
-    private static final String TAG = "StripLayoutTabTest";
     private static final float DIVIDER_FOLIO_LIGHT_OPACITY = 0.2f;
     private static final float TAB_WIDTH = 150f;
 
@@ -280,23 +279,23 @@ public class StripLayoutTabTest {
 
         assertTrue(
                 "Indicator should be shown when media recording is active",
-                tab.shouldShowIndicator());
+                tab.shouldShowAlertIndicator());
         assertEquals(
                 "Should return recording dot icon res",
                 R.drawable.radio_button_checked_24dp,
-                tab.getIndicatorRes());
+                tab.getAlertIndicatorRes());
         assertEquals(
                 "Should return null overlay res when recording",
                 Resources.ID_NULL,
-                tab.getIndicatorOverlayRes());
+                tab.getAlertIndicatorOverlayRes());
         assertEquals(
                 "Should return recording media color for tint",
                 mContext.getColor(R.color.tab_recording_media_color),
-                tab.getIndicatorTint());
+                tab.getAlertIndicatorTint());
         assertEquals(
                 "Should return default 16dp width for recording indicator",
-                StripLayoutTab.MEDIA_INDICATOR_WIDTH,
-                tab.getMediaIndicatorWidth(),
+                StripLayoutTab.ALERT_INDICATOR_WIDTH,
+                tab.getAlertIndicatorWidth(),
                 0.0f);
     }
 
@@ -307,23 +306,23 @@ public class StripLayoutTabTest {
 
         assertTrue(
                 "Indicator should be shown when actor accessing is active",
-                tab.shouldShowIndicator());
+                tab.shouldShowAlertIndicator());
         assertEquals(
-                "Should return spark 14dp icon for actor accessing",
-                R.drawable.ic_arrow_selector_spark_14dp,
-                tab.getIndicatorRes());
+                "Should return spark icon for actor accessing",
+                R.drawable.ic_arrow_selector_spark_24dp,
+                tab.getAlertIndicatorRes());
         assertEquals(
                 "Should return spinner overlay for actor accessing",
                 R.drawable.tab_indicator_spinner,
-                tab.getIndicatorOverlayRes());
+                tab.getAlertIndicatorOverlayRes());
         assertEquals(
                 "Should return primary color tint for actor accessing",
                 SemanticColorUtils.getColorPrimary(mContext),
-                tab.getIndicatorTint());
+                tab.getAlertIndicatorTint());
         assertEquals(
                 "Should return 14dp width for dynamic actuation indicator",
                 StripLayoutTab.DYNAMIC_GLIC_ACTUATION_INDICATOR_WIDTH,
-                tab.getMediaIndicatorWidth(),
+                tab.getAlertIndicatorWidth(),
                 0.0f);
     }
 
@@ -340,7 +339,7 @@ public class StripLayoutTabTest {
                         null,
                         incognito,
                         false,
-                        /* alertState= */ null);
+                        TabAlert.NONE);
         tab.setWidth(TAB_WIDTH);
         return tab;
     }

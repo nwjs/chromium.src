@@ -48,11 +48,17 @@ std::unique_ptr<net::test_server::HttpResponse> HandleSearchRequest(
   auto response = std::make_unique<net::test_server::BasicHttpResponse>();
   response->set_code(net::HTTP_OK);
   response->set_content_type("text/html");
-  response->set_content("<html><body>"
-                        "<h1>Fake AIM Page</h1>"
-                        "<p>This is a simulated AIM search results page.</p>"
-                        "<a href=\"/pony.html\" id=\"my_link\" "
-                        "target=\"_blank\">link</a></body></html>");
+  response->set_content(
+      "<html><body>"
+      "<h1>Fake AIM Page</h1>"
+      "<p>This is a simulated AIM search results page.</p>"
+      "<script>"
+      "  "
+      "window.webkit.messageHandlers.AimCobrowseMessageHandler.postMessage({'"
+      "message': 'CgA='});"
+      "</script>"
+      "<a href=\"/pony.html\" id=\"my_link\" "
+      "target=\"_blank\">link</a></body></html>");
   return response;
 }
 
@@ -139,6 +145,11 @@ id<GREYMatcher> CloseButton() {
   GURL _defaultURL;
 }
 
+- (GURL)simulatedAimURLForQuery:(const std::string&)query {
+  std::string relativeURL = "/search?udm=50&mtid=dummy_server_id&q=" + query;
+  return self.testServer->GetURL("localhost", relativeURL);
+}
+
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config = [super appConfigurationForTestCase];
   // Enable features needed for composebox.
@@ -150,6 +161,7 @@ id<GREYMatcher> CloseButton() {
   config.features_disabled.push_back(omnibox::kAimServerEligibilityEnabled);
   config.features_disabled.push_back(kAssistantAimMinimizedState);
   config.features_disabled.push_back(kComposeboxServerSideState);
+  config.features_disabled.push_back(kPreventCobrowseOnAimSrpTap);
   // TODO(crbug.com/536079613): Re-enable kAppBarHideInFullscreen once these
   // tests are updated to support it.
   config.features_disabled.push_back(kAppBarHideInFullscreen);
@@ -187,11 +199,20 @@ id<GREYMatcher> CloseButton() {
       [[EarlGrey selectElementWithMatcher:CloseButton()]
           performAction:grey_tap()];
     }
+    // Also explicitly clear the session active map preference in case the
+    // UI tap failed or the async preference write didn't complete.
+    [ChromeEarlGrey clearUserPrefWithName:"ios.cobrowse.session_active_map"];
+    [ChromeEarlGrey commitPendingUserPrefsWrite];
     [ComposeboxAppInterface setAllToolsEnabled:NO];
     [ComposeboxAppInterface setFuseboxEligible:NO];
     [ComposeboxAppInterface setTabUploadAutoSucceed:NO];
   }];
   [super setUp];
+  // Clear the pref at the beginning of the test as well to ensure a clean
+  // slate, especially for tests that immediately relaunch the app.
+  [ChromeEarlGrey clearUserPrefWithName:"ios.cobrowse.session_active_map"];
+  [ChromeEarlGrey commitPendingUserPrefsWrite];
+
   ResetMakeHomeSurfaceOpenImmediately();
   [ComposeboxAppInterface enableAllTools];
   self.testServer->ServeFilesFromSourceDirectory(
@@ -475,8 +496,7 @@ id<GREYMatcher> CloseButton() {
   // 2. Navigate the main browser to a simulated AIM URL.
   // The assistant will hide because AIM URLs themselves cannot show the
   // assistant.
-  [ChromeEarlGrey loadURL:self.testServer->GetURL(
-                              "localhost", "/search?udm=50&q=HelloWorld")];
+  [ChromeEarlGrey loadURL:[self simulatedAimURLForQuery:"HelloWorld"]];
   [ChromeEarlGrey waitForPageToFinishLoading];
 
   [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:CloseButton()];
@@ -617,8 +637,7 @@ id<GREYMatcher> CloseButton() {
 
   // Edit full URL using the test server with localhost hostname to satisfy
   // the IsAimURL check and allow it to load locally.
-  GURL editedURL =
-      self.testServer->GetURL("localhost", "/search?udm=50&q=editedquery");
+  GURL editedURL = [self simulatedAimURLForQuery:"editedquery"];
   NSString* editedURLString = base::SysUTF8ToNSString(editedURL.spec());
   [[EarlGrey
       selectElementWithMatcher:
@@ -680,14 +699,12 @@ id<GREYMatcher> CloseButton() {
   }
 
   // 1. Navigate to fake aim page A.
-  [ChromeEarlGrey
-      loadURL:self.testServer->GetURL("localhost", "/search?udm=50&q=pageA")];
+  [ChromeEarlGrey loadURL:[self simulatedAimURLForQuery:"pageA"]];
   [ChromeEarlGrey waitForPageToFinishLoading];
 
   // 2. Open a new tab and navigate to a fake aim page B.
   [ChromeEarlGrey openNewTab];
-  [ChromeEarlGrey
-      loadURL:self.testServer->GetURL("localhost", "/search?udm=50&q=pageB")];
+  [ChromeEarlGrey loadURL:[self simulatedAimURLForQuery:"pageB"]];
   [ChromeEarlGrey waitForPageToFinishLoading];
 
   // 3. Open cobrowse by tapping on a link in fake aim page B.
@@ -706,8 +723,7 @@ id<GREYMatcher> CloseButton() {
   [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:CloseButton()];
 
   // 5. Query a new thing in this fake AIM webpage A.
-  [ChromeEarlGrey loadURL:self.testServer->GetURL(
-                              "localhost", "/search?udm=50&q=pageA_updated")];
+  [ChromeEarlGrey loadURL:[self simulatedAimURLForQuery:"pageA_updated"]];
   [ChromeEarlGrey waitForPageToFinishLoading];
 
   // 6. Go back to a tab that is not an AIM page.
@@ -808,8 +824,7 @@ id<GREYMatcher> CloseButton() {
   }
 
   // 1. Setup a specific context by navigating to a simulated AIM URL.
-  [ChromeEarlGrey loadURL:self.testServer->GetURL(
-                              "localhost", "/search?udm=50&q=persisted_query")];
+  [ChromeEarlGrey loadURL:[self simulatedAimURLForQuery:"persisted_query"]];
   [ChromeEarlGrey waitForPageToFinishLoading];
 
   // 2. Open cobrowse by tapping on a link in the fake aim page.
@@ -864,13 +879,20 @@ id<GREYMatcher> CloseButton() {
         @"Skipped when kComposeboxServerSideState is enabled.");
   }
 
-  // 1. Start a cobrowse session on a normal URL.
-  OpenCoBrowse(_defaultURL);
+  // 1. Setup a specific context by navigating to a simulated AIM URL.
+  [ChromeEarlGrey loadURL:[self simulatedAimURLForQuery:"persisted_query"]];
+  [ChromeEarlGrey waitForPageToFinishLoading];
+
+  // 2. Open cobrowse by tapping on a link in the fake aim page.
+  // This opens a new non-AIM tab (pony.html), which will display the sheet.
+  [ChromeEarlGrey tapWebStateElementWithID:@"my_link"];
+  [ChromeEarlGrey waitForMainTabCount:2];
+
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:CloseButton()];
 
   MakeHomeSurfaceOpenImmediately();
 
-  // 2. Cold start the app. This simulates returning to the app after it was
+  // 3. Cold start the app. This simulates returning to the app after it was
   // force-closed, which natively triggers the Start Surface NTP to open,
   // preserving the cobrowse session on the background tab.
   [ChromeEarlGrey saveSessionImmediately];
@@ -1264,6 +1286,62 @@ id<GREYMatcher> CloseButton() {
 
   [[EarlGrey selectElementWithMatcher:CloseButton()]
       assertWithMatcher:grey_sufficientlyVisible()];
+}
+
+// Tests that when a new tab is opened from an eligible AIM page while no
+// session is active, and the prevent flag is enabled, the assistant is NOT
+// shown.
+- (void)testNewTabFromAimSRPDoesNotTriggerCobrowseWhenFlagEnabled {
+  if ([ComposeboxAppInterface isServerSideStateEnabled]) {
+    EARL_GREY_TEST_SKIPPED(
+        @"Skipped when kComposeboxServerSideState is enabled.");
+  }
+  AppLaunchConfiguration config = [self appConfigurationForTestCase];
+  // Remove from disabled list to allow enabling it.
+  std::erase(config.features_disabled, kPreventCobrowseOnAimSrpTap);
+  config.features_enabled.push_back(kPreventCobrowseOnAimSrpTap);
+  // Use CleanShutdown so that the preference cleared in setUp is
+  // synchronously flushed to disk before the app relaunches.
+  config.relaunch_policy = ForceRelaunchByCleanShutdown;
+  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
+
+  // Navigate the main browser to a simulated AIM URL.
+  [ChromeEarlGrey loadURL:self.testServer->GetURL(
+                              "localhost", "/search?udm=50&q=HelloWorld")];
+  [ChromeEarlGrey waitForPageToFinishLoading];
+
+  // Tap a link on the simulated AIM page that opens in a new tab.
+  [ChromeEarlGrey tapWebStateElementWithID:@"my_link"];
+
+  // Wait for the new tab to open.
+  [ChromeEarlGrey waitForMainTabCount:2];
+  [ChromeEarlGrey waitForPageToFinishLoading];
+
+  // Verify the assistant is NOT visible.
+  [[EarlGrey selectElementWithMatcher:CloseButton()]
+      assertWithMatcher:grey_nil()];
+}
+
+// Tests that Co-browse cannot be opened in incognito tabs.
+- (void)testIncognitoDoesNotOpenCobrowse {
+  if ([ComposeboxAppInterface isServerSideStateEnabled]) {
+    EARL_GREY_TEST_SKIPPED(
+        @"Skipped when kComposeboxServerSideState is enabled.");
+  }
+
+  [ChromeEarlGrey openNewIncognitoTab];
+
+  OpenCoBrowse(_defaultURL);
+
+  // Verify the assistant is NOT visible.
+  [[EarlGrey selectElementWithMatcher:CloseButton()]
+      assertWithMatcher:grey_nil()];
+
+  // Verify the tab navigated away from the current page.
+  [ChromeEarlGrey waitForPageToFinishLoading];
+  GREYAssertNotEqual(
+      [ChromeEarlGrey webStateVisibleURL], _defaultURL,
+      @"Tab should have navigated away instead of staying on the current page");
 }
 
 @end

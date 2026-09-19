@@ -21,7 +21,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/extensions/extensions_menu_button.h"
@@ -297,14 +297,15 @@ IN_PROC_BROWSER_TEST_F(ExtensionsMenuViewBrowserTest,
                        PinnedExtensionAppearsInAnotherWindow) {
   const extensions::ExtensionId extension_id =
       InstallExtension("Test Name")->id();
-  const auto is_action_visible_on_toolbar = [&extension_id](Browser* browser) {
-    return BrowserView::GetBrowserViewForBrowser(browser)
-        ->toolbar()
-        ->extensions_container()
-        ->IsActionVisibleOnToolbar(extension_id);
-  };
+  const auto is_action_visible_on_toolbar =
+      [&extension_id](BrowserWindowInterface* browser) {
+        return BrowserView::GetBrowserViewForBrowser(browser)
+            ->toolbar()
+            ->extensions_container()
+            ->IsActionVisibleOnToolbar(extension_id);
+      };
 
-  Browser* browser2 = CreateBrowser(profile());
+  BrowserWindowInterface* browser2 = CreateBrowser(profile());
   views::test::ReduceAnimationDuration(
       BrowserView::GetBrowserViewForBrowser(browser2)
           ->toolbar()
@@ -324,7 +325,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsMenuViewBrowserTest,
   // Window that was already open gets the pinned extension.
   EXPECT_TRUE(is_action_visible_on_toolbar(browser2));
 
-  Browser* browser3 = CreateBrowser(profile());
+  BrowserWindowInterface* browser3 = CreateBrowser(profile());
   views::test::ReduceAnimationDuration(
       BrowserView::GetBrowserViewForBrowser(browser3)
           ->toolbar()

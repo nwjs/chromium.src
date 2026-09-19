@@ -27,7 +27,6 @@
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_LOADER_FETCH_MEMORY_CACHE_H_
 
 #include "base/gtest_prod_util.h"
-#include "base/memory/memory_pressure_listener.h"
 #include "base/memory_coordinator/memory_consumer.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
@@ -37,7 +36,6 @@
 #include "third_party/blink/renderer/platform/heap/forward.h"
 #include "third_party/blink/renderer/platform/heap/prefinalizer.h"
 #include "third_party/blink/renderer/platform/instrumentation/memory_coordinator/memory_consumer_registration.h"
-#include "third_party/blink/renderer/platform/instrumentation/memory_pressure_listener.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/memory_cache_dump_provider.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
@@ -74,7 +72,6 @@ class MemoryCacheEntry final : public GarbageCollected<MemoryCacheEntry> {
 // stylesheets, etc.
 class PLATFORM_EXPORT MemoryCache final : public GarbageCollected<MemoryCache>,
                                           public MemoryCacheDumpClient,
-                                          public base::MemoryPressureListener,
                                           public base::MemoryConsumer {
   USING_PRE_FINALIZER(MemoryCache, Dispose);
 
@@ -131,9 +128,9 @@ class PLATFORM_EXPORT MemoryCache final : public GarbageCollected<MemoryCache>,
   // Do not use this method outside test purposes.
   // A resourfe URL is not enough to do a correct MemoryCache lookup, and
   // relying on the method would likely yield wrong results.
-  Resource* ResourceForURLForTesting(const KURL&) const;
+  Resource* ResourceForURLForTesting(const KURL&);
 
-  Resource* ResourceForURL(const KURL&, const String& cache_identifier) const;
+  Resource* ResourceForURL(const KURL&, const String& cache_identifier);
   HeapVector<Member<Resource>> ResourcesForURL(const KURL&) const;
 
   void Add(Resource*);
@@ -165,15 +162,8 @@ class PLATFORM_EXPORT MemoryCache final : public GarbageCollected<MemoryCache>,
 
   void SaveStrongReference(Resource* resource);
 
-  // Save a data URI resource as a strong reference to prevent GC across
-  // navigations. Data URIs are immutable so caching is always safe.
-  void SaveDataURIStrongReference(Resource* resource);
-
   // Take memory usage snapshot for tracing.
   bool OnMemoryDump(WebMemoryDumpLevelOfDetail, WebProcessMemoryDump*) override;
-
-  // base::MemoryPressureListener:
-  void OnMemoryPressure(base::MemoryPressureLevel) override;
 
   // base::MemoryConsumer:
   void OnReleaseMemory() override;
@@ -213,6 +203,9 @@ class PLATFORM_EXPORT MemoryCache final : public GarbageCollected<MemoryCache>,
   void PruneTieredStrongReferences();
 
   void PruneStrongReferences();
+  void AddOrTouchDataURIStrongReference(Resource*);
+  void PruneDataURIStrongReferences();
+  void RemoveDataURIStrongReference(Resource*);
   void ClearStrongReferences();
   void ClearDataURIStrongReferences();
 
@@ -222,8 +215,6 @@ class PLATFORM_EXPORT MemoryCache final : public GarbageCollected<MemoryCache>,
   double CalculateResourceValue(const Resource* resource) const;
   size_t GetStrongReferencesTotalSize() const;
   size_t GetTargetStrongReferencesMaxSize() const;
-
-  MemoryPressureListenerRegistration memory_pressure_listener_registration_;
 
   MemoryConsumerRegistration memory_consumer_registration_;
 
@@ -275,6 +266,22 @@ class PLATFORM_EXPORT MemoryCache final : public GarbageCollected<MemoryCache>,
                            EvictsOldestWhenOverCapacity);
   FRIEND_TEST_ALL_PREFIXES(MemoryCacheDataURIEvictionTest,
                            LRUTouchPreventsEviction);
+  FRIEND_TEST_ALL_PREFIXES(MemoryCacheDataURIEvictionTest,
+                           SizeGrowthEvictsOldest);
+  FRIEND_TEST_ALL_PREFIXES(MemoryCacheDataURIEvictionTest,
+                           OversizedResourceIsNotRetained);
+  FRIEND_TEST_ALL_PREFIXES(MemoryCacheDataURIEvictionTest,
+                           SizeDecreaseUpdatesTotal);
+  FRIEND_TEST_ALL_PREFIXES(MemoryCacheDataURIEvictionTest,
+                           RemoveAfterSizeChange);
+  FRIEND_TEST_ALL_PREFIXES(MemoryCacheDataURIEvictionTest,
+                           ReplaceAfterSizeChange);
+  FRIEND_TEST_ALL_PREFIXES(MemoryCacheDataURIEvictionTest,
+                           OversizedResourcePreservesExistingEntries);
+  FRIEND_TEST_ALL_PREFIXES(MemoryCacheDataURIEvictionTest,
+                           GrowthBeyondBudgetIsNotRetained);
+  FRIEND_TEST_ALL_PREFIXES(MemoryCacheDataURIEvictionTest,
+                           GrowthBeyondBudgetPreservesEntriesThatFit);
 };
 
 // Sets the global cache, used to swap in a test instance. Saves the old

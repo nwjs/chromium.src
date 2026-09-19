@@ -415,12 +415,12 @@ public class ClearBrowsingDataFragment extends ChromeBaseSettingsFragment
         RecordHistogram.recordEnumeratedHistogram(
                 "History.ClearBrowsingData.UserDeletedCookieOrCacheFromDialog",
                 choice,
-                CookieOrCacheDeletionChoice.MAX_VALUE);
+                CookieOrCacheDeletionChoice.MAX_VALUE + 1);
 
         RecordHistogram.recordEnumeratedHistogram(
                 "Privacy.DeleteBrowsingData.Action",
                 DeleteBrowsingDataAction.CLEAR_BROWSING_DATA_DIALOG,
-                DeleteBrowsingDataAction.MAX_VALUE);
+                DeleteBrowsingDataAction.MAX_VALUE + 1);
 
         Object spinnerSelection =
                 ((SpinnerPreference) findPreference(PREF_TIME_RANGE)).getSelectedOption();
@@ -931,6 +931,7 @@ public class ClearBrowsingDataFragment extends ChromeBaseSettingsFragment
                         ((SnackbarManager.SnackbarManageable) getActivity()).getSnackbarManager(),
                         SignoutReason.USER_CLICKED_SIGNOUT_FROM_CLEAR_BROWSING_DATA_PAGE,
                         /* showConfirmDialog= */ true,
+                        /* offerDataDeletionChoice= */ false,
                         CallbackUtils.emptyRunnable());
     }
 

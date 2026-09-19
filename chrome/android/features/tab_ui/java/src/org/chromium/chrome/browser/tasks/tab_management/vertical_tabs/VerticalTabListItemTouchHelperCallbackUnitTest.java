@@ -13,8 +13,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -43,6 +45,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowSystemClock;
 
 import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -64,13 +67,13 @@ import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
 import org.chromium.ui.recyclerview.widget.ItemTouchHelper2;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.function.Supplier;
 
 /** Unit tests for {@link VerticalTabListItemTouchHelperCallback}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(
-        manifest = Config.NONE,
         instrumentedPackages = {
             "androidx.recyclerview.widget.RecyclerView" // required to mock final.
         })
@@ -364,6 +367,33 @@ public class VerticalTabListItemTouchHelperCallbackUnitTest {
 
         when(mTabModel.getTabById(1)).thenReturn(mTab1);
         when(mTabModel.getTabById(2)).thenReturn(mTab2);
+        when(mTabModel.getRelatedTabList(1)).thenReturn(List.of(mTab1, mTab2));
+        when(mTabModel.getRelatedTabList(2)).thenReturn(List.of(mTab1, mTab2));
+
+        when(mTabModel.indexOf(mTab2)).thenReturn(5);
+        when(mTabModel.findFirstNonPinnedTabIndex()).thenReturn(0);
+
+        assertTrue(mCallback.onMove(mRecyclerView, mViewHolder, mTargetViewHolder));
+
+        verify(mTabModel).moveTab(1, 5);
+    }
+
+    @Test
+    @SmallTest
+    public void testOnMove_SolitaryChildTab() {
+        // Solitary child tab (group of 1) should move as a group via moveRelatedTabs.
+        mPropertyModel.set(TabProperties.TAB_ID, 1);
+        Token groupId = new Token(1L, 2L);
+        mPropertyModel.set(TabProperties.TAB_GROUP_ID, groupId);
+        mTargetPropertyModel.set(TabProperties.TAB_ID, 2);
+
+        when(mTab1.getIsPinned()).thenReturn(false);
+        when(mTab2.getIsPinned()).thenReturn(false);
+
+        when(mTab1.getTabGroupId()).thenReturn(groupId);
+
+        when(mTabModel.getTabById(1)).thenReturn(mTab1);
+        when(mTabModel.getTabById(2)).thenReturn(mTab2);
         when(mTabModel.getRelatedTabList(1)).thenReturn(List.of(mTab1));
         when(mTabModel.getRelatedTabList(2)).thenReturn(List.of(mTab2));
 
@@ -372,7 +402,7 @@ public class VerticalTabListItemTouchHelperCallbackUnitTest {
 
         assertTrue(mCallback.onMove(mRecyclerView, mViewHolder, mTargetViewHolder));
 
-        verify(mTabModel).moveTab(1, 5);
+        verify(mTabModel).moveRelatedTabs(1, 5);
     }
 
     @Test
@@ -471,12 +501,12 @@ public class VerticalTabListItemTouchHelperCallbackUnitTest {
                 TabListModel.AnimationStatus.SELECTED_CARD_ZOOM_IN,
                 mPropertyModel.get(TabListModel.CardProperties.CARD_ANIMATION_STATUS));
         assertEquals(0.8f, mPropertyModel.get(TabListModel.CardProperties.CARD_ALPHA), 0.01f);
-        verify(mTabModel).setIndex(0, TabSelectionType.FROM_USER);
+        verify(mTabModel).setIndex(0, TabSelectionType.FROM_DRAG);
     }
 
     @Test
     @SmallTest
-    @EnableFeatures({ChromeFeatureList.ANDROID_VERTICAL_TABS + ":multi_select/true"})
+    @EnableFeatures({ChromeFeatureList.ANDROID_VERTICAL_TABS})
     public void testOnSelectedChanged_Drag_ClearsMultiSelection() {
         when(mViewHolder.getBindingAdapterPosition()).thenReturn(0);
 
@@ -628,7 +658,7 @@ public class VerticalTabListItemTouchHelperCallbackUnitTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({ChromeFeatureList.ANDROID_VERTICAL_TABS + ":multi_select/true"})
+    @EnableFeatures({ChromeFeatureList.ANDROID_VERTICAL_TABS})
     public void testCreateMouseDragDetector_ActionDownSelectsTab_ClearsMultiSelection() {
         RecyclerView.OnItemTouchListener listener =
                 mCallback.createMouseDragDetector(mItemTouchHelper);
@@ -658,6 +688,9 @@ public class VerticalTabListItemTouchHelperCallbackUnitTest {
         RecyclerView.OnItemTouchListener listener =
                 mCallback.createMouseDragDetector(mItemTouchHelper);
 
+        Runnable dragStartCallback = Mockito.mock(Runnable.class);
+        mCallback.setOnDragStartCallback(dragStartCallback);
+
         // 1. ACTION_DOWN.
         MotionEvent downEvent = createMouseEvent(MotionEvent.ACTION_DOWN, 10f, 10f);
         when(mRecyclerView.findChildViewUnder(10f, 10f)).thenReturn(mChildView);
@@ -676,9 +709,52 @@ public class VerticalTabListItemTouchHelperCallbackUnitTest {
 
         assertFalse(listener.onInterceptTouchEvent(mRecyclerView, moveEvent));
         verify(mItemTouchHelper).startDrag(mViewHolder);
+        verify(dragStartCallback).run();
 
         downEvent.recycle();
         moveEvent.recycle();
+    }
+
+    @Test
+    @SmallTest
+    public void testOnChildDraw_TriggersDragStartCallbackOnDisplacement() {
+        Runnable dragStartCallback = Mockito.mock(Runnable.class);
+        mCallback.setOnDragStartCallback(dragStartCallback);
+        mCallback.setTabGridItemLongPressOrchestratorForTesting(mOrchestrator);
+
+        // Displacement within threshold (e.g. 1dp <= threshold).
+        mCallback.onChildDraw(
+                mCanvas,
+                mRecyclerView,
+                mViewHolder,
+                /* dX= */ 1f,
+                /* dY= */ 1f,
+                ItemTouchHelper.ACTION_STATE_DRAG,
+                /* isCurrentlyActive= */ true);
+        verify(dragStartCallback, never()).run();
+
+        // Displacement exceeding threshold (> cancel threshold).
+        float largeDisplacement = mCallback.getLongPressDpCancelThresholdForTesting() + 5f;
+        mCallback.onChildDraw(
+                mCanvas,
+                mRecyclerView,
+                mViewHolder,
+                /* dX= */ 0f,
+                /* dY= */ largeDisplacement,
+                ItemTouchHelper.ACTION_STATE_DRAG,
+                /* isCurrentlyActive= */ true);
+        verify(dragStartCallback).run();
+
+        // Subsequent onChildDraw calls should not re-trigger the callback (one-shot latch).
+        mCallback.onChildDraw(
+                mCanvas,
+                mRecyclerView,
+                mViewHolder,
+                /* dX= */ 0f,
+                /* dY= */ largeDisplacement + 10f,
+                ItemTouchHelper.ACTION_STATE_DRAG,
+                /* isCurrentlyActive= */ true);
+        verify(dragStartCallback, times(1)).run();
     }
 
     @Test
@@ -1769,6 +1845,129 @@ public class VerticalTabListItemTouchHelperCallbackUnitTest {
 
     @Test
     @SmallTest
+    public void testDragDropTimeToUngroup_RecordedWhenUngroupedAfterGroup() {
+        var timeToUngroupWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.VerticalTabs.DragDropTimeToUngroup");
+
+        // 1. Group Tab 1.
+        mPropertyModel.set(TabProperties.TAB_ID, 1);
+        mPropertyModel.set(TabProperties.TAB_GROUP_ID, null);
+        when(mViewHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB);
+        mTargetPropertyModel.set(TabProperties.TAB_ID, 2);
+        Token destGroupId = new Token(1L, 2L);
+        mTargetPropertyModel.set(TabProperties.TAB_GROUP_HEADER_ID, destGroupId);
+        when(mTargetViewHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB_GROUP);
+        when(mTabModel.getTabById(1)).thenReturn(mTab1);
+        when(mTabModel.getTabById(2)).thenReturn(mTab2);
+        when(mTabModel.indexOf(mTab1)).thenReturn(0);
+        when(mViewHolder.getBindingAdapterPosition()).thenReturn(0);
+        when(mTargetViewHolder.getBindingAdapterPosition()).thenReturn(1);
+
+        mCallback.onSelectedChanged(mViewHolder, ItemTouchHelper.ACTION_STATE_DRAG);
+        mCallback.onMove(mRecyclerView, mViewHolder, mTargetViewHolder);
+        when(mTab1.getTabGroupId()).thenReturn(destGroupId);
+        mCallback.clearView(mRecyclerView, mViewHolder);
+
+        // 2. Ungroup Tab 1.
+        mPropertyModel.set(TabProperties.TAB_GROUP_ID, destGroupId);
+        when(mTab1.getId()).thenReturn(1);
+        when(mTab2.getId()).thenReturn(2);
+        when(mTab2.getTabGroupId()).thenReturn(destGroupId);
+        when(mTabModel.indexOf(mTab1)).thenReturn(1);
+        when(mTabModel.getRelatedTabList(1)).thenReturn(List.of(mTab1, mTab2));
+        when(mViewHolder.itemView.getHeight()).thenReturn(100);
+        when(mViewHolder.itemView.getTop()).thenReturn(200);
+
+        mCallback.onSelectedChanged(mViewHolder, ItemTouchHelper.ACTION_STATE_DRAG);
+        assertTrue(mCallback.hasDragEscapedBounds(mRecyclerView, mViewHolder, 0, 140, 0, -10));
+        when(mTab1.getTabGroupId()).thenReturn(null);
+        mCallback.clearView(mRecyclerView, mViewHolder);
+
+        timeToUngroupWatcher.assertExpected();
+    }
+
+    @Test
+    @SmallTest
+    public void testDragDropTimeToUngroup_NotRecordedWhenUngroupedWithoutPriorGroup() {
+        var timeToUngroupWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Android.VerticalTabs.DragDropTimeToUngroup")
+                        .build();
+
+        when(mViewHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB);
+        Token groupId = new Token(1L, 2L);
+        mPropertyModel.set(TabProperties.TAB_GROUP_ID, groupId);
+        mPropertyModel.set(TabProperties.TAB_ID, 1);
+        when(mTab1.getId()).thenReturn(1);
+        when(mTab2.getId()).thenReturn(2);
+        when(mTab1.getTabGroupId()).thenReturn(groupId);
+        when(mTab2.getTabGroupId()).thenReturn(groupId);
+        when(mTabModel.getTabById(1)).thenReturn(mTab1);
+        when(mTabModel.indexOf(mTab1)).thenReturn(1);
+        when(mTabModel.getRelatedTabList(1)).thenReturn(List.of(mTab1, mTab2));
+        when(mViewHolder.itemView.getHeight()).thenReturn(100);
+        when(mViewHolder.itemView.getTop()).thenReturn(200);
+
+        mCallback.onSelectedChanged(mViewHolder, ItemTouchHelper.ACTION_STATE_DRAG);
+        assertTrue(mCallback.hasDragEscapedBounds(mRecyclerView, mViewHolder, 0, 140, 0, -10));
+        when(mTab1.getTabGroupId()).thenReturn(null);
+        mCallback.clearView(mRecyclerView, mViewHolder);
+
+        timeToUngroupWatcher.assertExpected();
+    }
+
+    @Test
+    @SmallTest
+    @Config(shadows = {ShadowSystemClock.class})
+    public void testDragDropTimeToUngroup_ExpiredAfter3Minutes_NotRecorded() {
+        var timeToUngroupWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Android.VerticalTabs.DragDropTimeToUngroup")
+                        .build();
+
+        // 1. Group Tab 1.
+        mPropertyModel.set(TabProperties.TAB_ID, 1);
+        mPropertyModel.set(TabProperties.TAB_GROUP_ID, null);
+        when(mViewHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB);
+        mTargetPropertyModel.set(TabProperties.TAB_ID, 2);
+        Token destGroupId = new Token(1L, 2L);
+        mTargetPropertyModel.set(TabProperties.TAB_GROUP_HEADER_ID, destGroupId);
+        when(mTargetViewHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB_GROUP);
+        when(mTabModel.getTabById(1)).thenReturn(mTab1);
+        when(mTabModel.getTabById(2)).thenReturn(mTab2);
+        when(mTabModel.indexOf(mTab1)).thenReturn(0);
+        when(mViewHolder.getBindingAdapterPosition()).thenReturn(0);
+        when(mTargetViewHolder.getBindingAdapterPosition()).thenReturn(1);
+
+        mCallback.onSelectedChanged(mViewHolder, ItemTouchHelper.ACTION_STATE_DRAG);
+        mCallback.onMove(mRecyclerView, mViewHolder, mTargetViewHolder);
+        when(mTab1.getTabGroupId()).thenReturn(destGroupId);
+        mCallback.clearView(mRecyclerView, mViewHolder);
+
+        // Advance clock past 3 minutes (e.g. 4 minutes).
+        ShadowSystemClock.advanceBy(Duration.ofMinutes(4));
+
+        // 2. Ungroup Tab 1.
+        mPropertyModel.set(TabProperties.TAB_GROUP_ID, destGroupId);
+        when(mTab1.getId()).thenReturn(1);
+        when(mTab2.getId()).thenReturn(2);
+        when(mTab2.getTabGroupId()).thenReturn(destGroupId);
+        when(mTabModel.indexOf(mTab1)).thenReturn(1);
+        when(mTabModel.getRelatedTabList(1)).thenReturn(List.of(mTab1, mTab2));
+        when(mViewHolder.itemView.getHeight()).thenReturn(100);
+        when(mViewHolder.itemView.getTop()).thenReturn(200);
+
+        mCallback.onSelectedChanged(mViewHolder, ItemTouchHelper.ACTION_STATE_DRAG);
+        assertTrue(mCallback.hasDragEscapedBounds(mRecyclerView, mViewHolder, 0, 140, 0, -10));
+        when(mTab1.getTabGroupId()).thenReturn(null);
+        mCallback.clearView(mRecyclerView, mViewHolder);
+
+        timeToUngroupWatcher.assertExpected();
+    }
+
+    @Test
+    @SmallTest
     public void testDragDropResult_DraggedOut() {
         var histogramWatcher =
                 HistogramWatcher.newSingleRecordWatcher(
@@ -1928,8 +2127,8 @@ public class VerticalTabListItemTouchHelperCallbackUnitTest {
         RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(100, 200);
         params.topMargin = 10;
         params.bottomMargin = 20;
-        params.leftMargin = 5;
-        params.rightMargin = 5;
+        params.setMarginStart(5);
+        params.setMarginEnd(8);
         realView.setLayoutParams(params);
         realView.setAlpha(1.0f);
 
@@ -1950,6 +2149,8 @@ public class VerticalTabListItemTouchHelperCallbackUnitTest {
         assertEquals(0, collapsedParams.height);
         assertEquals(0, collapsedParams.topMargin);
         assertEquals(0, collapsedParams.bottomMargin);
+        assertEquals(0, collapsedParams.getMarginStart());
+        assertEquals(0, collapsedParams.getMarginEnd());
 
         // Restore dragged item immediately
         mCallback.restoreDraggedItem(/* isOSNewWindowDrop= */ false);
@@ -1962,6 +2163,8 @@ public class VerticalTabListItemTouchHelperCallbackUnitTest {
         assertEquals(200, restoredParams.height);
         assertEquals(10, restoredParams.topMargin);
         assertEquals(20, restoredParams.bottomMargin);
+        assertEquals(5, restoredParams.getMarginStart());
+        assertEquals(8, restoredParams.getMarginEnd());
     }
 
     @Test
@@ -1995,6 +2198,65 @@ public class VerticalTabListItemTouchHelperCallbackUnitTest {
 
     @Test
     @SmallTest
+    public void testRestoreDraggedItem_OSNewWindowDrop_DetachedBeforeDelay_CancelsRestoration() {
+        android.widget.FrameLayout parent =
+                new android.widget.FrameLayout(ApplicationProvider.getApplicationContext());
+        View realView = new View(ApplicationProvider.getApplicationContext());
+        RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(100, 200);
+        realView.setLayoutParams(params);
+        parent.addView(realView);
+
+        SimpleRecyclerViewAdapter.ViewHolder realHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(realView, null));
+        realHolder.model = mPropertyModel;
+
+        mCallback.collapseDraggedItem(realHolder);
+        assertTrue(mCallback.isDraggedItemCollapsed());
+
+        // Restore with OS new window drop (delayed)
+        mCallback.restoreDraggedItem(/* isOSNewWindowDrop= */ true);
+        assertFalse(mCallback.isDraggedItemCollapsed());
+        assertEquals(View.GONE, realView.getVisibility());
+        assertNotNull(mCallback.mDelayedExternalItemRestorationRunnable);
+
+        // When tab is removed upon reparenting, RecyclerView detaches the view.
+        parent.removeView(realView);
+        mCallback
+                .getDelayedExternalItemRestorationDetachListenerForTesting()
+                .onViewDetachedFromWindow(realView);
+
+        // Delayed runnable should be cancelled and null.
+        assertNull(mCallback.mDelayedExternalItemRestorationRunnable);
+        // The view must be restored to VISIBLE and original dimensions before recycling.
+        assertEquals(View.VISIBLE, realView.getVisibility());
+        assertEquals(100, realView.getLayoutParams().width);
+        assertEquals(200, realView.getLayoutParams().height);
+    }
+
+    @Test
+    @SmallTest
+    public void testCancelDelayedExternalItemRestoration() {
+        View realView = new View(ApplicationProvider.getApplicationContext());
+        RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(100, 200);
+        realView.setLayoutParams(params);
+        SimpleRecyclerViewAdapter.ViewHolder realHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(realView, null));
+        realHolder.model = mPropertyModel;
+
+        mCallback.collapseDraggedItem(realHolder);
+        mCallback.restoreDraggedItem(/* isOSNewWindowDrop= */ true);
+        assertNotNull(mCallback.mDelayedExternalItemRestorationRunnable);
+
+        mCallback.cancelDelayedExternalItemRestoration();
+
+        assertNull(mCallback.mDelayedExternalItemRestorationRunnable);
+        assertEquals(View.VISIBLE, realView.getVisibility());
+        assertEquals(100, realView.getLayoutParams().width);
+        assertEquals(200, realView.getLayoutParams().height);
+    }
+
+    @Test
+    @SmallTest
     public void testOnExternalDragItemRebound_WhenCollapsed() {
         View realView = new View(ApplicationProvider.getApplicationContext());
         RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(100, 200);
@@ -2011,6 +2273,7 @@ public class VerticalTabListItemTouchHelperCallbackUnitTest {
         newItemView.setLayoutParams(newParams);
         SimpleRecyclerViewAdapter.ViewHolder newHolder =
                 spy(new SimpleRecyclerViewAdapter.ViewHolder(newItemView, null));
+        newHolder.model = mPropertyModel;
 
         mCallback.onExternalDragItemRebound(realHolder, newHolder);
 
@@ -2020,6 +2283,14 @@ public class VerticalTabListItemTouchHelperCallbackUnitTest {
                 (RecyclerView.LayoutParams) newItemView.getLayoutParams();
         assertEquals(0, reboundParams.width);
         assertEquals(0, reboundParams.height);
+
+        // Verify that upon re-entering the tabstrip, the rebound ViewHolder is properly restored
+        mCallback.restoreDraggedItem(/* isOSNewWindowDrop= */ false);
+        assertFalse(mCallback.isDraggedItemCollapsed());
+        assertEquals(View.VISIBLE, newItemView.getVisibility());
+        assertEquals(1.0f, newItemView.getAlpha(), 0.0f);
+        assertEquals(100, newItemView.getLayoutParams().width);
+        assertEquals(200, newItemView.getLayoutParams().height);
     }
 
     @Test
@@ -2060,5 +2331,778 @@ public class VerticalTabListItemTouchHelperCallbackUnitTest {
         assertEquals(View.VISIBLE, realView.getVisibility());
         assertEquals(100, realView.getLayoutParams().width);
         assertEquals(200, realView.getLayoutParams().height);
+    }
+
+    @Test
+    @SmallTest
+    public void testRestoreDraggedItem_OSNewWindowDrop_Detached_RestoresViewProperties() {
+        View realView = new View(ApplicationProvider.getApplicationContext());
+        RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(100, 200);
+        realView.setLayoutParams(params);
+        realView.setAlpha(1.0f);
+        SimpleRecyclerViewAdapter.ViewHolder realHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(realView, null));
+        realHolder.model = mPropertyModel;
+
+        when(mRecyclerView.getChildCount()).thenReturn(1);
+        when(mRecyclerView.getChildAt(0)).thenReturn(realView);
+        when(mRecyclerView.getChildViewHolder(realView)).thenReturn(realHolder);
+
+        // 1. Collapse the item
+        mCallback.collapseDraggedItem(realHolder);
+        assertEquals(View.GONE, realView.getVisibility());
+        assertEquals(0f, realView.getAlpha(), 0.0f);
+        assertEquals(0, realView.getLayoutParams().width);
+        assertEquals(0, realView.getLayoutParams().height);
+
+        // 2. Schedule delayed restoration for OS new window drop
+        mCallback.restoreDraggedItem(/* isOSNewWindowDrop= */ true);
+
+        // 3. Tab is removed from TabModel -> view is detached from window before delay completes
+        View.OnAttachStateChangeListener detachListener =
+                mCallback.getDelayedExternalItemRestorationDetachListenerForTesting();
+        detachListener.onViewDetachedFromWindow(realView);
+
+        // 4. Verify the detached view is immediately restored so it enters RecycledViewPool cleanly
+        assertEquals(View.VISIBLE, realView.getVisibility());
+        assertEquals(1.0f, realView.getAlpha(), 0.0f);
+        assertEquals(100, realView.getLayoutParams().width);
+        assertEquals(200, realView.getLayoutParams().height);
+    }
+
+    private SimpleRecyclerViewAdapter.ViewHolder createGroupHeaderViewHolder(
+            int tabId, Token groupId, int width, int height) {
+        View view = new View(ApplicationProvider.getApplicationContext());
+        view.setLayoutParams(new RecyclerView.LayoutParams(width, height));
+        view.setAlpha(1.0f);
+        PropertyModel model =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, tabId)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, groupId)
+                        .build();
+        SimpleRecyclerViewAdapter.ViewHolder holder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(view, null));
+        when(holder.getItemViewType()).thenReturn(TabProperties.UiType.TAB_GROUP);
+        holder.model = model;
+        return holder;
+    }
+
+    private SimpleRecyclerViewAdapter.ViewHolder createGroupChildViewHolder(
+            int tabId, Token groupId, int width, int height) {
+        View view = new View(ApplicationProvider.getApplicationContext());
+        view.setLayoutParams(new RecyclerView.LayoutParams(width, height));
+        view.setAlpha(1.0f);
+        PropertyModel model =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, tabId)
+                        .with(TabProperties.TAB_GROUP_ID, groupId)
+                        .build();
+        SimpleRecyclerViewAdapter.ViewHolder holder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(view, null));
+        when(holder.getItemViewType()).thenReturn(TabProperties.UiType.TAB);
+        holder.model = model;
+        return holder;
+    }
+
+    private void mockRecyclerViewChildren(RecyclerView.ViewHolder... holders) {
+        when(mRecyclerView.getChildCount()).thenReturn(holders.length);
+        for (int i = 0; i < holders.length; i++) {
+            when(mRecyclerView.getChildAt(i)).thenReturn(holders[i].itemView);
+            when(mRecyclerView.getChildViewHolder(holders[i].itemView)).thenReturn(holders[i]);
+        }
+    }
+
+    @Test
+    @SmallTest
+    public void testCollapseAndRestoreDraggedItem_TabGroup_CollapsesAndRestoresAllGroupViews() {
+        Token groupId = new Token(10L, 20L);
+        SimpleRecyclerViewAdapter.ViewHolder headerHolder =
+                createGroupHeaderViewHolder(1, groupId, 100, 50);
+        SimpleRecyclerViewAdapter.ViewHolder childHolder1 =
+                createGroupChildViewHolder(2, groupId, 100, 60);
+        SimpleRecyclerViewAdapter.ViewHolder childHolder2 =
+                createGroupChildViewHolder(3, groupId, 100, 60);
+        mockRecyclerViewChildren(headerHolder, childHolder1, childHolder2);
+
+        // 1. Collapse the dragged tab group
+        mCallback.collapseDraggedItem(headerHolder);
+        assertTrue(mCallback.isDraggedItemCollapsed());
+
+        // Header and all children must be collapsed to 0px and GONE
+        assertEquals(View.GONE, headerHolder.itemView.getVisibility());
+        assertEquals(0f, headerHolder.itemView.getAlpha(), 0.0f);
+        assertEquals(0, headerHolder.itemView.getLayoutParams().width);
+        assertEquals(0, headerHolder.itemView.getLayoutParams().height);
+
+        assertEquals(View.GONE, childHolder1.itemView.getVisibility());
+        assertEquals(0f, childHolder1.itemView.getAlpha(), 0.0f);
+        assertEquals(0, childHolder1.itemView.getLayoutParams().width);
+        assertEquals(0, childHolder1.itemView.getLayoutParams().height);
+
+        assertEquals(View.GONE, childHolder2.itemView.getVisibility());
+        assertEquals(0f, childHolder2.itemView.getAlpha(), 0.0f);
+        assertEquals(0, childHolder2.itemView.getLayoutParams().width);
+        assertEquals(0, childHolder2.itemView.getLayoutParams().height);
+
+        // 2. Restore dragged tab group (e.g. re-entering originating window)
+        mCallback.restoreDraggedItem(/* isOSNewWindowDrop= */ false);
+        assertFalse(mCallback.isDraggedItemCollapsed());
+
+        // Header and all children must be restored to VISIBLE and original dimensions
+        assertEquals(View.VISIBLE, headerHolder.itemView.getVisibility());
+        assertEquals(1.0f, headerHolder.itemView.getAlpha(), 0.0f);
+        assertEquals(100, headerHolder.itemView.getLayoutParams().width);
+        assertEquals(50, headerHolder.itemView.getLayoutParams().height);
+
+        assertEquals(View.VISIBLE, childHolder1.itemView.getVisibility());
+        assertEquals(1.0f, childHolder1.itemView.getAlpha(), 0.0f);
+        assertEquals(100, childHolder1.itemView.getLayoutParams().width);
+        assertEquals(60, childHolder1.itemView.getLayoutParams().height);
+
+        assertEquals(View.VISIBLE, childHolder2.itemView.getVisibility());
+        assertEquals(1.0f, childHolder2.itemView.getAlpha(), 0.0f);
+        assertEquals(100, childHolder2.itemView.getLayoutParams().width);
+        assertEquals(60, childHolder2.itemView.getLayoutParams().height);
+    }
+
+    @Test
+    @SmallTest
+    public void testCollapseDraggedItem_TabGroup_ClearsOverlayAndResetsTranslations() {
+        Token groupId = new Token(10L, 20L);
+
+        View headerView = new View(ApplicationProvider.getApplicationContext());
+        headerView.setLayoutParams(new RecyclerView.LayoutParams(100, 50));
+        PropertyModel headerModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, 1)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, groupId)
+                        .build();
+        SimpleRecyclerViewAdapter.ViewHolder headerHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(headerView, null));
+        when(headerHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB_GROUP);
+        headerHolder.model = headerModel;
+
+        View childView = new View(ApplicationProvider.getApplicationContext());
+        childView.setLayoutParams(new RecyclerView.LayoutParams(100, 60));
+        childView.setTranslationY(75f);
+        childView.setTranslationZ(10f);
+        PropertyModel childModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, 2)
+                        .with(TabProperties.TAB_GROUP_ID, groupId)
+                        .build();
+        SimpleRecyclerViewAdapter.ViewHolder childHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(childView, null));
+        when(childHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB);
+        childHolder.model = childModel;
+
+        when(mRecyclerView.getChildCount()).thenReturn(2);
+        when(mRecyclerView.getChildAt(0)).thenReturn(headerView);
+        when(mRecyclerView.getChildAt(1)).thenReturn(childView);
+        when(mRecyclerView.getChildViewHolder(headerView)).thenReturn(headerHolder);
+        when(mRecyclerView.getChildViewHolder(childView)).thenReturn(childHolder);
+
+        // Collapse dragged tab group
+        mCallback.collapseDraggedItem(headerHolder);
+
+        // Child translation must be reset to 0f and overlay cleared
+        assertEquals(0f, childView.getTranslationY(), 0.0f);
+        assertEquals(0f, childView.getTranslationZ(), 0.0f);
+        verify(mViewGroupOverlay, never()).add(childView);
+    }
+
+    @Test
+    @SmallTest
+    public void testOnChildDraw_WhenCollapsed_DoesNotTranslateOrAddChildrenToOverlay() {
+        Token groupId = new Token(10L, 20L);
+
+        View headerView = new View(ApplicationProvider.getApplicationContext());
+        headerView.setLayoutParams(new RecyclerView.LayoutParams(100, 50));
+        PropertyModel headerModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, 1)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, groupId)
+                        .build();
+        SimpleRecyclerViewAdapter.ViewHolder headerHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(headerView, null));
+        when(headerHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB_GROUP);
+        headerHolder.model = headerModel;
+
+        View childView = new View(ApplicationProvider.getApplicationContext());
+        childView.setLayoutParams(new RecyclerView.LayoutParams(100, 60));
+        PropertyModel childModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, 2)
+                        .with(TabProperties.TAB_GROUP_ID, groupId)
+                        .build();
+        SimpleRecyclerViewAdapter.ViewHolder childHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(childView, null));
+        when(childHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB);
+        childHolder.model = childModel;
+
+        when(mRecyclerView.getChildCount()).thenReturn(2);
+        when(mRecyclerView.getChildAt(0)).thenReturn(headerView);
+        when(mRecyclerView.getChildAt(1)).thenReturn(childView);
+        when(mRecyclerView.getChildViewHolder(headerView)).thenReturn(headerHolder);
+        when(mRecyclerView.getChildViewHolder(childView)).thenReturn(childHolder);
+
+        // Collapse dragged tab group
+        mCallback.collapseDraggedItem(headerHolder);
+        assertTrue(mCallback.isDraggedItemCollapsed());
+
+        // Subsequent onChildDraw while collapsed must not alter child translations or add to
+        // overlay
+        mCallback.onChildDraw(
+                mCanvas,
+                mRecyclerView,
+                headerHolder,
+                /* dX= */ 0f,
+                /* dY= */ 200f,
+                ItemTouchHelper.ACTION_STATE_DRAG,
+                /* isCurrentlyActive= */ true);
+
+        assertEquals(0f, childView.getTranslationY(), 0.0f);
+        verify(mViewGroupOverlay, never()).add(childView);
+        assertEquals(View.GONE, childView.getVisibility());
+        assertEquals(0f, childView.getAlpha(), 0.0f);
+    }
+
+    @Test
+    @SmallTest
+    public void
+            testOnExternalDragItemRebound_CollapsedGroupChild_RestoresOldHolderAndCollapsesNewHolder() {
+        Token groupId = new Token(10L, 20L);
+
+        View headerView = new View(ApplicationProvider.getApplicationContext());
+        headerView.setLayoutParams(new RecyclerView.LayoutParams(100, 50));
+        PropertyModel headerModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, 1)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, groupId)
+                        .build();
+        SimpleRecyclerViewAdapter.ViewHolder headerHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(headerView, null));
+        when(headerHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB_GROUP);
+        headerHolder.model = headerModel;
+
+        View childView = new View(ApplicationProvider.getApplicationContext());
+        childView.setLayoutParams(new RecyclerView.LayoutParams(100, 60));
+        PropertyModel childModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, 2)
+                        .with(TabProperties.TAB_GROUP_ID, groupId)
+                        .build();
+        SimpleRecyclerViewAdapter.ViewHolder childHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(childView, null));
+        when(childHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB);
+        childHolder.model = childModel;
+
+        when(mRecyclerView.getChildCount()).thenReturn(2);
+        when(mRecyclerView.getChildAt(0)).thenReturn(headerView);
+        when(mRecyclerView.getChildAt(1)).thenReturn(childView);
+        when(mRecyclerView.getChildViewHolder(headerView)).thenReturn(headerHolder);
+        when(mRecyclerView.getChildViewHolder(childView)).thenReturn(childHolder);
+
+        // Collapse the dragged tab group
+        mCallback.collapseDraggedItem(headerHolder);
+        assertTrue(mCallback.isDraggedItemCollapsed());
+
+        // Rebound childHolder to a new ViewHolder representing the same group child tab
+        View newChildView = new View(ApplicationProvider.getApplicationContext());
+        newChildView.setLayoutParams(new RecyclerView.LayoutParams(100, 60));
+        SimpleRecyclerViewAdapter.ViewHolder newChildHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(newChildView, null));
+        when(newChildHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB);
+        newChildHolder.model = childModel;
+
+        mCallback.onExternalDragItemRebound(childHolder, newChildHolder);
+
+        // old childHolder must be restored to VISIBLE and original dimensions
+        assertEquals(View.VISIBLE, childView.getVisibility());
+        assertEquals(1.0f, childView.getAlpha(), 0.0f);
+        assertEquals(100, childView.getLayoutParams().width);
+        assertEquals(60, childView.getLayoutParams().height);
+
+        // newChildHolder must be collapsed to GONE and 0px
+        assertEquals(View.GONE, newChildView.getVisibility());
+        assertEquals(0f, newChildView.getAlpha(), 0.0f);
+        assertEquals(0, newChildView.getLayoutParams().width);
+        assertEquals(0, newChildView.getLayoutParams().height);
+    }
+
+    @Test
+    @SmallTest
+    public void
+            testOnExternalDragItemRebound_CollapsedGroupChild_ReboundToUnrelatedTab_RestoresOldHolder() {
+        Token groupId = new Token(10L, 20L);
+
+        View headerView = new View(ApplicationProvider.getApplicationContext());
+        headerView.setLayoutParams(new RecyclerView.LayoutParams(100, 50));
+        PropertyModel headerModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, 1)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, groupId)
+                        .build();
+        SimpleRecyclerViewAdapter.ViewHolder headerHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(headerView, null));
+        when(headerHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB_GROUP);
+        headerHolder.model = headerModel;
+
+        View childView = new View(ApplicationProvider.getApplicationContext());
+        childView.setLayoutParams(new RecyclerView.LayoutParams(100, 60));
+        PropertyModel childModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, 2)
+                        .with(TabProperties.TAB_GROUP_ID, groupId)
+                        .build();
+        SimpleRecyclerViewAdapter.ViewHolder childHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(childView, null));
+        when(childHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB);
+        childHolder.model = childModel;
+
+        when(mRecyclerView.getChildCount()).thenReturn(2);
+        when(mRecyclerView.getChildAt(0)).thenReturn(headerView);
+        when(mRecyclerView.getChildAt(1)).thenReturn(childView);
+        when(mRecyclerView.getChildViewHolder(headerView)).thenReturn(headerHolder);
+        when(mRecyclerView.getChildViewHolder(childView)).thenReturn(childHolder);
+
+        // Collapse the dragged tab group
+        mCallback.collapseDraggedItem(headerHolder);
+        assertTrue(mCallback.isDraggedItemCollapsed());
+
+        // Rebound childHolder to an unrelated tab (different tab ID, no group)
+        PropertyModel unrelatedModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, 99)
+                        .build();
+        View unrelatedView = new View(ApplicationProvider.getApplicationContext());
+        unrelatedView.setLayoutParams(new RecyclerView.LayoutParams(100, 70));
+        SimpleRecyclerViewAdapter.ViewHolder unrelatedHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(unrelatedView, null));
+        when(unrelatedHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB);
+        unrelatedHolder.model = unrelatedModel;
+
+        mCallback.onExternalDragItemRebound(childHolder, unrelatedHolder);
+
+        // Old childHolder must be restored because it's no longer the collapsed drag item
+        assertEquals(View.VISIBLE, childView.getVisibility());
+        assertEquals(1.0f, childView.getAlpha(), 0.0f);
+        assertEquals(100, childView.getLayoutParams().width);
+        assertEquals(60, childView.getLayoutParams().height);
+
+        // Unrelated holder should not be collapsed
+        assertEquals(View.VISIBLE, unrelatedView.getVisibility());
+        assertEquals(100, unrelatedView.getLayoutParams().width);
+        assertEquals(70, unrelatedView.getLayoutParams().height);
+    }
+
+    @Test
+    @SmallTest
+    public void testCollapseAndRestore_TabGroup_MultipleCycles() {
+        Token groupId = new Token(10L, 20L);
+
+        View headerView = new View(ApplicationProvider.getApplicationContext());
+        headerView.setLayoutParams(new RecyclerView.LayoutParams(100, 50));
+        PropertyModel headerModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, 1)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, groupId)
+                        .build();
+        SimpleRecyclerViewAdapter.ViewHolder headerHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(headerView, null));
+        when(headerHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB_GROUP);
+        headerHolder.model = headerModel;
+
+        View childView = new View(ApplicationProvider.getApplicationContext());
+        childView.setLayoutParams(new RecyclerView.LayoutParams(100, 60));
+        PropertyModel childModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, 2)
+                        .with(TabProperties.TAB_GROUP_ID, groupId)
+                        .build();
+        SimpleRecyclerViewAdapter.ViewHolder childHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(childView, null));
+        when(childHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB);
+        childHolder.model = childModel;
+
+        when(mRecyclerView.getChildCount()).thenReturn(2);
+        when(mRecyclerView.getChildAt(0)).thenReturn(headerView);
+        when(mRecyclerView.getChildAt(1)).thenReturn(childView);
+        when(mRecyclerView.getChildViewHolder(headerView)).thenReturn(headerHolder);
+        when(mRecyclerView.getChildViewHolder(childView)).thenReturn(childHolder);
+
+        // Cycle 1: Drag Exit (Collapse) -> Drag Enter (Restore)
+        mCallback.collapseDraggedItem(headerHolder);
+        assertTrue(mCallback.isDraggedItemCollapsed());
+        assertEquals(View.GONE, headerView.getVisibility());
+        assertEquals(View.GONE, childView.getVisibility());
+
+        mCallback.restoreDraggedItem(/* isOSNewWindowDrop= */ false);
+        assertFalse(mCallback.isDraggedItemCollapsed());
+        assertEquals(View.VISIBLE, headerView.getVisibility());
+        assertEquals(View.VISIBLE, childView.getVisibility());
+        assertEquals(50, headerView.getLayoutParams().height);
+        assertEquals(60, childView.getLayoutParams().height);
+
+        // Cycle 2: Secondary Drag Exit (null holder lookup) -> Drag Enter (Restore)
+        mCallback.collapseDraggedItem(null);
+        assertTrue(mCallback.isDraggedItemCollapsed());
+        assertEquals(View.GONE, headerView.getVisibility());
+        assertEquals(View.GONE, childView.getVisibility());
+
+        mCallback.restoreDraggedItem(/* isOSNewWindowDrop= */ false);
+        assertFalse(mCallback.isDraggedItemCollapsed());
+        assertEquals(View.VISIBLE, headerView.getVisibility());
+        assertEquals(View.VISIBLE, childView.getVisibility());
+        assertEquals(50, headerView.getLayoutParams().height);
+        assertEquals(60, childView.getLayoutParams().height);
+    }
+
+    @Test
+    @SmallTest
+    public void testRestoreDraggedItem_OSNewWindowDrop_ChildDetached_RestoresAllGroupViews() {
+        Token groupId = new Token(10L, 20L);
+
+        View headerView = new View(ApplicationProvider.getApplicationContext());
+        headerView.setLayoutParams(new RecyclerView.LayoutParams(100, 50));
+        PropertyModel headerModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, 1)
+                        .with(TabProperties.TAB_GROUP_HEADER_ID, groupId)
+                        .build();
+        SimpleRecyclerViewAdapter.ViewHolder headerHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(headerView, null));
+        when(headerHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB_GROUP);
+        headerHolder.model = headerModel;
+
+        View childView = new View(ApplicationProvider.getApplicationContext());
+        childView.setLayoutParams(new RecyclerView.LayoutParams(100, 60));
+        PropertyModel childModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, 2)
+                        .with(TabProperties.TAB_GROUP_ID, groupId)
+                        .build();
+        SimpleRecyclerViewAdapter.ViewHolder childHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(childView, null));
+        when(childHolder.getItemViewType()).thenReturn(TabProperties.UiType.TAB);
+        childHolder.model = childModel;
+
+        when(mRecyclerView.getChildCount()).thenReturn(2);
+        when(mRecyclerView.getChildAt(0)).thenReturn(headerView);
+        when(mRecyclerView.getChildAt(1)).thenReturn(childView);
+        when(mRecyclerView.getChildViewHolder(headerView)).thenReturn(headerHolder);
+        when(mRecyclerView.getChildViewHolder(childView)).thenReturn(childHolder);
+
+        // 1. Collapse the dragged tab group
+        mCallback.collapseDraggedItem(headerHolder);
+        assertTrue(mCallback.isDraggedItemCollapsed());
+
+        // 2. Schedule delayed restoration for OS new window drop
+        mCallback.restoreDraggedItem(/* isOSNewWindowDrop= */ true);
+        assertFalse(mCallback.isDraggedItemCollapsed());
+        assertEquals(View.GONE, headerView.getVisibility());
+        assertEquals(View.GONE, childView.getVisibility());
+
+        // 3. Child view is detached upon tab reparenting before delay completes
+        View.OnAttachStateChangeListener detachListener =
+                mCallback.getDelayedExternalItemRestorationDetachListenerForTesting();
+        detachListener.onViewDetachedFromWindow(childView);
+
+        // 4. Verify all group views are immediately restored to clean state for RecycledViewPool
+        assertEquals(View.VISIBLE, headerView.getVisibility());
+        assertEquals(1.0f, headerView.getAlpha(), 0.0f);
+        assertEquals(100, headerView.getLayoutParams().width);
+        assertEquals(50, headerView.getLayoutParams().height);
+
+        assertEquals(View.VISIBLE, childView.getVisibility());
+        assertEquals(1.0f, childView.getAlpha(), 0.0f);
+        assertEquals(100, childView.getLayoutParams().width);
+        assertEquals(60, childView.getLayoutParams().height);
+    }
+
+    @Test
+    @SmallTest
+    public void testCollapseAndRestoreDraggedItem_PinnedTab_RestoresVisibilityAndDimensions() {
+        View pinnedView = new View(ApplicationProvider.getApplicationContext());
+        pinnedView.setId(R.id.pinned_tab_item_container);
+        pinnedView.setLayoutParams(new RecyclerView.LayoutParams(42, 32));
+        pinnedView.setAlpha(1.0f);
+
+        PropertyModel pinnedModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, 1)
+                        .with(TabProperties.IS_PINNED, true)
+                        .build();
+        SimpleRecyclerViewAdapter.ViewHolder pinnedHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(pinnedView, null));
+        pinnedHolder.model = pinnedModel;
+
+        when(mRecyclerView.getChildCount()).thenReturn(1);
+        when(mRecyclerView.getChildAt(0)).thenReturn(pinnedView);
+        when(mRecyclerView.getChildViewHolder(pinnedView)).thenReturn(pinnedHolder);
+
+        // 1. Collapse pinned tab
+        mCallback.collapseDraggedItem(pinnedHolder);
+        assertTrue(mCallback.isDraggedItemCollapsed());
+        assertEquals(View.GONE, pinnedView.getVisibility());
+        assertEquals(0f, pinnedView.getAlpha(), 0.0f);
+        assertEquals(0, pinnedView.getLayoutParams().width);
+        assertEquals(0, pinnedView.getLayoutParams().height);
+
+        // 2. Restore pinned tab (e.g. re-entering originating window)
+        mCallback.restoreDraggedItem(/* isOSNewWindowDrop= */ false);
+        assertFalse(mCallback.isDraggedItemCollapsed());
+        assertEquals(View.VISIBLE, pinnedView.getVisibility());
+        assertEquals(1.0f, pinnedView.getAlpha(), 0.0f);
+        assertEquals(42, pinnedView.getLayoutParams().width);
+        assertEquals(32, pinnedView.getLayoutParams().height);
+    }
+
+    @Test
+    @SmallTest
+    public void testRestoreDraggedItem_HiddenPinnedPlaceholder_RemainsGone() {
+        View placeholderView = new View(ApplicationProvider.getApplicationContext());
+        placeholderView.setId(R.id.hidden_pinned_tab);
+        placeholderView.setLayoutParams(new RecyclerView.LayoutParams(0, 0));
+        placeholderView.setVisibility(View.GONE);
+
+        PropertyModel placeholderModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(
+                                TabListModel.CardProperties.CARD_TYPE,
+                                TabListModel.CardProperties.ModelType.TAB)
+                        .with(TabProperties.TAB_ID, 1)
+                        .with(TabProperties.IS_PINNED, true)
+                        .build();
+        SimpleRecyclerViewAdapter.ViewHolder placeholderHolder =
+                spy(new SimpleRecyclerViewAdapter.ViewHolder(placeholderView, null));
+        placeholderHolder.model = placeholderModel;
+
+        when(mRecyclerView.getChildCount()).thenReturn(1);
+        when(mRecyclerView.getChildAt(0)).thenReturn(placeholderView);
+        when(mRecyclerView.getChildViewHolder(placeholderView)).thenReturn(placeholderHolder);
+
+        mCallback.collapseDraggedItem(placeholderHolder);
+        mCallback.restoreDraggedItem(/* isOSNewWindowDrop= */ false);
+
+        // Placeholder in regular tab list should remain GONE
+        assertEquals(View.GONE, placeholderView.getVisibility());
+    }
+
+    @Test
+    @SmallTest
+    public void testChooseDropTarget_WhenCollapsed_ReturnsNull() {
+        RecyclerView.ViewHolder selected =
+                createGroupHeaderViewHolder(1, new Token(1L, 2L), 100, 50);
+        RecyclerView.ViewHolder target = createGroupChildViewHolder(2, null, 100, 50);
+        List<RecyclerView.ViewHolder> targets = List.of(target);
+
+        mCallback.collapseDraggedItem(selected);
+        assertTrue(mCallback.isDraggedItemCollapsed());
+
+        assertNull(mCallback.chooseDropTarget(selected, targets, /* curX= */ 0, /* curY= */ 100));
+    }
+
+    @Test
+    @SmallTest
+    public void testChooseDropTarget_WhenHeightOrWidthZero_ReturnsNull() {
+        RecyclerView.ViewHolder selected = createGroupHeaderViewHolder(1, new Token(1L, 2L), 0, 0);
+        RecyclerView.ViewHolder target = createGroupChildViewHolder(2, null, 100, 50);
+        List<RecyclerView.ViewHolder> targets = List.of(target);
+
+        assertNull(mCallback.chooseDropTarget(selected, targets, /* curX= */ 0, /* curY= */ 100));
+    }
+
+    @Test
+    @SmallTest
+    public void testHasDragEscapedBounds_WhenCollapsed_ReturnsFalse() {
+        SimpleRecyclerViewAdapter.ViewHolder childHolder =
+                createGroupChildViewHolder(2, new Token(1L, 2L), 100, 60);
+
+        mCallback.collapseDraggedItem(childHolder);
+        assertTrue(mCallback.isDraggedItemCollapsed());
+
+        assertFalse(
+                mCallback.hasDragEscapedBounds(
+                        mRecyclerView,
+                        childHolder,
+                        /* x= */ 0,
+                        /* y= */ 500,
+                        /* dx= */ 0f,
+                        /* dy= */ 100f));
+    }
+
+    @Test
+    @SmallTest
+    public void testRestoreDraggedItem_AfterRebind_RestoresLiveViewsInRecyclerView() {
+        Token groupId = new Token(10L, 20L);
+        SimpleRecyclerViewAdapter.ViewHolder headerHolder =
+                createGroupHeaderViewHolder(1, groupId, 100, 50);
+        SimpleRecyclerViewAdapter.ViewHolder childHolder =
+                createGroupChildViewHolder(2, groupId, 100, 60);
+        mockRecyclerViewChildren(headerHolder, childHolder);
+
+        // 1. Collapse
+        mCallback.collapseDraggedItem(headerHolder);
+        assertTrue(mCallback.isDraggedItemCollapsed());
+
+        // 2. Simulate RecyclerView rebind creating new ViewHolders for the same group
+        SimpleRecyclerViewAdapter.ViewHolder reboundHeader =
+                createGroupHeaderViewHolder(1, groupId, 0, 0);
+        SimpleRecyclerViewAdapter.ViewHolder reboundChild =
+                createGroupChildViewHolder(2, groupId, 0, 0);
+        reboundHeader.itemView.setVisibility(View.GONE);
+        reboundChild.itemView.setVisibility(View.GONE);
+        mockRecyclerViewChildren(reboundHeader, reboundChild);
+
+        // 3. Restore
+        mCallback.restoreDraggedItem(/* isOSNewWindowDrop= */ false);
+        assertFalse(mCallback.isDraggedItemCollapsed());
+
+        // Both live rebound views must be restored to VISIBLE with non-zero dimensions
+        assertEquals(View.VISIBLE, reboundHeader.itemView.getVisibility());
+        assertEquals(1.0f, reboundHeader.itemView.getAlpha(), 0.0f);
+        assertEquals(100, reboundHeader.itemView.getLayoutParams().width);
+        assertEquals(50, reboundHeader.itemView.getLayoutParams().height);
+
+        assertEquals(View.VISIBLE, reboundChild.itemView.getVisibility());
+        assertEquals(1.0f, reboundChild.itemView.getAlpha(), 0.0f);
+        assertEquals(100, reboundChild.itemView.getLayoutParams().width);
+        assertEquals(60, reboundChild.itemView.getLayoutParams().height);
+    }
+
+    @Test
+    @SmallTest
+    public void
+            testCollapseDraggedItem_TabGroup_OffscreenChildrenAttachedDuringDrag_AreCollapsed() {
+        Token groupId = new Token(10L, 20L);
+        SimpleRecyclerViewAdapter.ViewHolder headerHolder =
+                createGroupHeaderViewHolder(1, groupId, 100, 50);
+        mockRecyclerViewChildren(headerHolder);
+
+        // 1. Collapse the dragged tab group
+        mCallback.collapseDraggedItem(headerHolder);
+        assertTrue(mCallback.isDraggedItemCollapsed());
+
+        assertEquals(View.GONE, headerHolder.itemView.getVisibility());
+        assertEquals(0, headerHolder.itemView.getLayoutParams().height);
+
+        // 2. An off-screen child tab attaches to RecyclerView during layout/drag
+        SimpleRecyclerViewAdapter.ViewHolder childHolder1 =
+                createGroupChildViewHolder(2, groupId, 100, 60);
+        when(mRecyclerView.getChildViewHolder(childHolder1.itemView)).thenReturn(childHolder1);
+
+        RecyclerView.OnChildAttachStateChangeListener attachListener =
+                mCallback.getOnChildAttachStateChangeListenerForTesting();
+        assertNotNull(attachListener);
+        attachListener.onChildViewAttachedToWindow(childHolder1.itemView);
+
+        // Child must be immediately collapsed to 0px, alpha 0, and GONE
+        assertEquals(View.GONE, childHolder1.itemView.getVisibility());
+        assertEquals(0f, childHolder1.itemView.getAlpha(), 0.0f);
+        assertEquals(0, childHolder1.itemView.getLayoutParams().width);
+        assertEquals(0, childHolder1.itemView.getLayoutParams().height);
+
+        // 3. Restore dragged tab group on re-entry
+        mockRecyclerViewChildren(headerHolder, childHolder1);
+        mCallback.restoreDraggedItem(/* isOSNewWindowDrop= */ false);
+        assertFalse(mCallback.isDraggedItemCollapsed());
+
+        assertEquals(View.VISIBLE, childHolder1.itemView.getVisibility());
+        assertEquals(1.0f, childHolder1.itemView.getAlpha(), 0.0f);
+        assertEquals(100, childHolder1.itemView.getLayoutParams().width);
+        assertEquals(60, childHolder1.itemView.getLayoutParams().height);
+    }
+
+    @Test
+    @SmallTest
+    public void testCollapseDraggedItem_TabGroup_UnrelatedTabAttachedDuringDrag_IsNotCollapsed() {
+        Token groupId = new Token(10L, 20L);
+        SimpleRecyclerViewAdapter.ViewHolder headerHolder =
+                createGroupHeaderViewHolder(1, groupId, 100, 50);
+        mockRecyclerViewChildren(headerHolder);
+
+        mCallback.collapseDraggedItem(headerHolder);
+        assertTrue(mCallback.isDraggedItemCollapsed());
+
+        // Unrelated tab attaches
+        SimpleRecyclerViewAdapter.ViewHolder unrelatedHolder =
+                createGroupChildViewHolder(99, new Token(30L, 40L), 100, 60);
+        when(mRecyclerView.getChildViewHolder(unrelatedHolder.itemView))
+                .thenReturn(unrelatedHolder);
+
+        RecyclerView.OnChildAttachStateChangeListener attachListener =
+                mCallback.getOnChildAttachStateChangeListenerForTesting();
+        attachListener.onChildViewAttachedToWindow(unrelatedHolder.itemView);
+
+        // Unrelated tab must NOT be collapsed
+        assertEquals(View.VISIBLE, unrelatedHolder.itemView.getVisibility());
+        assertEquals(1.0f, unrelatedHolder.itemView.getAlpha(), 0.0f);
+        assertEquals(100, unrelatedHolder.itemView.getLayoutParams().width);
+        assertEquals(60, unrelatedHolder.itemView.getLayoutParams().height);
+    }
+
+    @Test
+    @SmallTest
+    public void testCollapseViewHolder_EndsRunningItemAnimations() {
+        RecyclerView.ItemAnimator itemAnimator = mock(RecyclerView.ItemAnimator.class);
+        when(mRecyclerView.getItemAnimator()).thenReturn(itemAnimator);
+
+        Token groupId = new Token(10L, 20L);
+        SimpleRecyclerViewAdapter.ViewHolder headerHolder =
+                createGroupHeaderViewHolder(1, groupId, 100, 50);
+        mockRecyclerViewChildren(headerHolder);
+
+        mCallback.collapseDraggedItem(headerHolder);
+
+        verify(itemAnimator).endAnimation(headerHolder);
     }
 }

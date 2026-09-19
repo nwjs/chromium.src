@@ -239,6 +239,7 @@ source_set("impl") {
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/extensions",
       "//chrome/browser/ui/navigator",
+      "//chrome/browser/ui/omnibox/omnibox_everywhere",
       "//chrome/browser/ui/startup/focus",
       "//chrome/browser/ui/tabs",
       "//chrome/browser/ui/tabs:tab_group",
@@ -343,6 +344,7 @@ source_set("impl") {
     ]
     deps += [
       "//chrome/browser/ui/startup/default_browser_prompt",
+      "//chrome/browser/ui/views/profiles:profile_picker_utils",
       "//chrome/browser/ui/web_applications",
     ]
   }
@@ -401,6 +403,7 @@ if (!is_android) {
         "//chrome/browser/first_run",
         "//chrome/browser/profiles:profile",
         "//chrome/browser/profiles:profile_util",
+        "//chrome/browser/ui/browser_window",
         "//chrome/common:constants",
         "//chrome/common:non_code_constants",
         "//chrome/test:test_support_ui",
@@ -465,7 +468,10 @@ if (!is_android) {
   source_set("browser_tests") {
     testonly = true
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
-    sources = [ "startup_browser_creator_browsertest.cc" ]
+    sources = [
+      "oscryptasync_availability_infobar_browsertest.cc",
+      "startup_browser_creator_browsertest.cc",
+    ]
     deps = [
       ":startup",
       "//base",
@@ -473,10 +479,12 @@ if (!is_android) {
       "//base/version_info",
       "//build:buildflag_header_h",
       "//chrome/app:command_ids",
+      "//chrome/app:generated_resources",
       "//chrome/browser:browser_process",
       "//chrome/browser:buildflags",
       "//chrome/browser:chrome_browser_main",
       "//chrome/browser/extensions",
+      "//chrome/browser/infobars",
       "//chrome/browser/lifetime",
       "//chrome/browser/prefs:util",
       "//chrome/browser/profiles",
@@ -487,6 +495,7 @@ if (!is_android) {
       "//chrome/browser/search",
       "//chrome/browser/sessions",
       "//chrome/browser/signin:signin_promo",
+      "//chrome/browser/ui:browser_init_state",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/profiles",
@@ -528,6 +537,7 @@ if (!is_android) {
       "//testing/gtest",
       "//third_party/abseil-cpp:absl",
       "//third_party/blink/public/common:headers",
+      "//ui/base",
       "//ui/views",
       "//ui/views/controls/webview",
       "//url",

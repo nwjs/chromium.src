@@ -115,7 +115,7 @@ class SetDisjunctionPermission : public APIPermission {
 
     for (const base::Value& item_value : value->GetList()) {
       PermissionDataType data;
-      if (data.FromValue(&item_value)) {
+      if (data.FromValue(item_value)) {
         data_set_.insert(data);
       } else {
         std::string unknown_permission =
@@ -137,7 +137,7 @@ class SetDisjunctionPermission : public APIPermission {
   std::unique_ptr<base::Value> ToValue() const override {
     base::ListValue list;
     for (const auto& item : data_set_) {
-      list.Append(base::Value::FromUniquePtrValue(item.ToValue()));
+      list.Append(item.ToValue());
     }
     return std::make_unique<base::Value>(std::move(list));
   }

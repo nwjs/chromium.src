@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ui/webui/on_device_internals/on_device_internals_ui.h"
 
-#include "chrome/browser/optimization_guide/model_execution/optimization_guide_global_state.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -12,18 +11,11 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/on_device_internals_resources.h"
 #include "chrome/grit/on_device_internals_resources_map.h"
-#include "components/optimization_guide/core/optimization_guide_features.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "ui/webui/webui_util.h"
 
 namespace on_device_internals {
-
-bool OnDeviceInternalsUIConfig::IsWebUIEnabled(
-    content::BrowserContext* browser_context) {
-  return base::FeatureList::IsEnabled(
-      optimization_guide::features::kOptimizationGuideOnDeviceModel);
-}
 
 OnDeviceInternalsUI::OnDeviceInternalsUI(content::WebUI* web_ui)
     : MojoWebUIController(web_ui) {
@@ -33,9 +25,6 @@ OnDeviceInternalsUI::OnDeviceInternalsUI(content::WebUI* web_ui)
   webui::SetupWebUIDataSource(source, kOnDeviceInternalsResources,
                               IDR_ON_DEVICE_INTERNALS_ON_DEVICE_INTERNALS_HTML);
 
-  source->AddBoolean("isManifestBrokerEnabled",
-                     base::FeatureList::IsEnabled(
-                         optimization_guide::kOptimizationGuideManifestBroker));
   source->AddBoolean("useChromeOSModelService",
                      BUILDFLAG(USE_CHROMEOS_MODEL_SERVICE));
 }

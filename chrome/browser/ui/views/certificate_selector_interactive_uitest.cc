@@ -9,7 +9,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -90,12 +89,12 @@ class CertificateSelectorTest : public InProcessBrowserTest {
 
   void SetUpOnMainThread() override {
     ASSERT_TRUE(content::WaitForLoadStop(
-        browser()->tab_strip_model()->GetActiveWebContents()));
+        browser()->GetTabStripModel()->GetActiveWebContents()));
 
     selector_ = new TestCertificateSelector(
         net::FakeClientCertIdentityListFromCertificateList(
             {client_1_, client_2_}),
-        browser()->tab_strip_model()->GetActiveWebContents());
+        browser()->GetTabStripModel()->GetActiveWebContents());
     selector_->Init();
     selector_->Show();
   }
@@ -119,14 +118,14 @@ IN_PROC_BROWSER_TEST_F(CertificateSelectorTest, GetRowText) {
   EXPECT_EQ(u"B CA", model->GetText(0, IDS_CERT_SELECTOR_ISSUER_COLUMN));
   EXPECT_EQ(std::u16string(),
             model->GetText(0, IDS_CERT_SELECTOR_PROVIDER_COLUMN));
-  EXPECT_EQ(u"1000", model->GetText(0, IDS_CERT_SELECTOR_SERIAL_COLUMN));
+  EXPECT_EQ(u"2003", model->GetText(0, IDS_CERT_SELECTOR_SERIAL_COLUMN));
 
   EXPECT_EQ(u"Client Cert D",
             model->GetText(1, IDS_CERT_SELECTOR_SUBJECT_COLUMN));
   EXPECT_EQ(u"E CA", model->GetText(1, IDS_CERT_SELECTOR_ISSUER_COLUMN));
   EXPECT_EQ(std::u16string(),
             model->GetText(1, IDS_CERT_SELECTOR_PROVIDER_COLUMN));
-  EXPECT_EQ(u"1002", model->GetText(1, IDS_CERT_SELECTOR_SERIAL_COLUMN));
+  EXPECT_EQ(u"2004", model->GetText(1, IDS_CERT_SELECTOR_SERIAL_COLUMN));
 }
 
 IN_PROC_BROWSER_TEST_F(CertificateSelectorTest, GetSelectedCert) {

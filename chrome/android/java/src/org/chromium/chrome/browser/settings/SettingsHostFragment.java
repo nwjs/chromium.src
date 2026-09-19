@@ -24,6 +24,7 @@ import androidx.fragment.app.FragmentManager;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 
+import org.chromium.base.Callback;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.SupplierUtils;
@@ -31,11 +32,13 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeBaseAppCompatActivity;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.settings.PreferenceUpdateObserver;
+import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -58,6 +61,10 @@ public class SettingsHostFragment extends Fragment
     private @Nullable FragmentDependencyProvider mDependencyProvider;
     private @Nullable SettingsContainmentHelper mContainmentHelper;
     private @Nullable WideDisplayPaddingApplier mWideDisplayPaddingApplier;
+    private @Nullable SettingsNavigation mSettingsNavigation;
+    private @Nullable String mInitialUrl;
+    private @Nullable Bundle mSavedInstanceState;
+    private @Nullable Callback<Bundle> mSaveInstanceStateCallback;
     private int mPendingPopBackCount;
 
     /** Public constructor needed for Fragment re-instantiation. */
@@ -155,7 +162,7 @@ public class SettingsHostFragment extends Fragment
     public void onAttach(Context context) {
         // Ensure child fragments inherit the same Chromium Settings theme used by SettingsActivity.
         // For example, this ensures the left column category labels are styled correctly.
-        mThemedContext = new ContextThemeWrapper(context, R.style.Theme_Chromium_Settings);
+        mThemedContext = new ContextThemeWrapper(context, R.style.ThemeOverlay_Chromium_Settings);
         super.onAttach(mThemedContext);
 
         mContainmentHelper = new SettingsContainmentHelper(mThemedContext, this);
@@ -246,6 +253,33 @@ public class SettingsHostFragment extends Fragment
     }
 
     @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mSavedInstanceState = savedInstanceState;
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        // Save per-tab settings state (e.g. search coordinator, title updater, breadcrumbs) in
+        // this host fragment's bundle so multiple settings tabs don't collide in the Activity's
+        // shared saved instance state during Activity recreation (such as theme changes).
+        if (mSaveInstanceStateCallback != null) {
+            mSaveInstanceStateCallback.onResult(outState);
+        }
+    }
+
+    /** Returns the saved instance state bundle for this fragment. */
+    public @Nullable Bundle getSavedInstanceState() {
+        return mSavedInstanceState;
+    }
+
+    /** Sets the callback invoked when this host fragment saves its instance state. */
+    public void setSaveInstanceStateCallback(@Nullable Callback<Bundle> callback) {
+        mSaveInstanceStateCallback = callback;
+    }
+
+    @Override
     public View onCreateView(
             LayoutInflater inflater,
             @Nullable ViewGroup container,
@@ -264,7 +298,30 @@ public class SettingsHostFragment extends Fragment
             getChildFragmentManager()
                     .beginTransaction()
                     .add(CONTAINER_ID, initialFragment)
-                    .commitAllowingStateLoss();
+                    .commitNowAllowingStateLoss();
+        }
+    }
+
+    /** Sets the initial settings URL for tab-based navigation. */
+    public void setInitialUrl(@Nullable String initialUrl) {
+        mInitialUrl = initialUrl;
+    }
+
+    /** Returns the initial settings URL for tab-based navigation. */
+    public @Nullable String getInitialUrl() {
+        return mInitialUrl;
+    }
+
+    /**
+     * Clears stored initial URL once consumed or superseded by explicit in-tab URL navigation,
+     * ensuring subsequent resets to the root chrome://settings page load default Account fragment
+     * instead of reusing an old subpage URL.
+     */
+    public void clearInitialUrl() {
+        mInitialUrl = null;
+        Fragment activeFragment = getActiveFragment();
+        if (activeFragment instanceof MultiColumnSettings multiColumnSettings) {
+            multiColumnSettings.setInitialUrl(null);
         }
     }
 
@@ -280,17 +337,47 @@ public class SettingsHostFragment extends Fragment
         if (intent != null) {
             multiColumnSettings.setPendingFragmentIntent(intent);
         }
+        if (mInitialUrl != null) {
+            multiColumnSettings.setInitialUrl(mInitialUrl);
+            mInitialUrl = null;
+        }
         return multiColumnSettings;
+    }
+
+    /** Sets the tab-scoped {@link SettingsNavigation} delegate for this host fragment. */
+    public void setSettingsNavigation(@Nullable SettingsNavigation settingsNavigation) {
+        mSettingsNavigation = settingsNavigation;
+    }
+
+    /** Returns the tab-scoped {@link SettingsNavigation} delegate bound to this host fragment. */
+    public @Nullable SettingsNavigation getSettingsNavigation() {
+        return mSettingsNavigation;
     }
 
     @Override
     public boolean onPreferenceStartFragment(
             PreferenceFragmentCompat caller, Preference preference) {
-        String fragmentClass = preference.getFragment();
-        if (fragmentClass == null) return false;
+        String fragmentClassName = preference.getFragment();
+        if (fragmentClassName == null) return false;
+
+        // When SettingsInTab URL navigation is enabled, delegate subfragment launches through
+        // the tab-scoped SettingsNavigation instance bound to this fragment. This translates
+        // the target fragment into a canonical URL and loads it via Tab.loadUrl(), pushing a
+        // new NavigationEntry to WebContents history, updating the Omnibox URL, and
+        // integrating with browser Back/Forward navigation stack.
+        if (ChromeFeatureList.sSettingsInTabUrlNav.isEnabled() && mSettingsNavigation != null) {
+            try {
+                var fragmentClass = Class.forName(fragmentClassName).asSubclass(Fragment.class);
+                mSettingsNavigation.startSettings(
+                        requireContext(), fragmentClass, preference.getExtras());
+                return true;
+            } catch (ClassNotFoundException e) {
+                // Fall back to direct showFragment if class loading fails.
+            }
+        }
 
         Fragment fragment =
-                Fragment.instantiate(requireContext(), fragmentClass, preference.getExtras());
+                Fragment.instantiate(requireContext(), fragmentClassName, preference.getExtras());
         return showFragment(fragment, /* addToBackStack= */ true, /* tag= */ null);
     }
 
@@ -328,8 +415,9 @@ public class SettingsHostFragment extends Fragment
         for (Fragment f : fragmentActivity.getSupportFragmentManager().getFragments()) {
             if (f instanceof SettingsHostFragment settingsHostFragment
                     && settingsHostFragment.isAttachedToActivity()) {
-                if (settingsHostFragment.getView() != null
-                        && settingsHostFragment.getView().isShown()) {
+                if (activity instanceof SettingsActivityInterface
+                        || (settingsHostFragment.getView() != null
+                                && settingsHostFragment.getView().isShown())) {
                     return settingsHostFragment;
                 }
             }
@@ -387,6 +475,12 @@ public class SettingsHostFragment extends Fragment
     public @Nullable Fragment getMainFragment() {
         Fragment activeFragment = getActiveFragment();
         if (activeFragment instanceof MultiColumnSettings multiColumnSettings) {
+            // In single-column mode when the detail pane is closed, the user is viewing the
+            // top-level MainSettings header rather than the detail pane. Return MainSettings
+            // instead of a possibly-stale detail fragment.
+            if (!multiColumnSettings.isTwoColumn() && !multiColumnSettings.isLayoutOpen()) {
+                return multiColumnSettings.getMainSettings();
+            }
             return multiColumnSettings
                     .getChildFragmentManager()
                     .findFragmentById(R.id.preferences_detail);

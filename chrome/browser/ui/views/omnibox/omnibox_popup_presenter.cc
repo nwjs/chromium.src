@@ -51,7 +51,8 @@ bool OmniboxPopupPresenter::ShouldHideForInitialLayout() const {
 
 void OmniboxPopupPresenter::Hide() {
   OmniboxPopupPresenterBase::Hide();
-  if (!base::FeatureList::IsEnabled(
+  if (ShouldApplyHeightWorkarounds() &&
+      !base::FeatureList::IsEnabled(
           omnibox::kOmniboxWebUIDeferShowUntilVisualStateReady)) {
     // Reset the cached height to force a layout update when the popup is
     // reshown. This prevents the popup from temporarily using a stale size
@@ -92,7 +93,24 @@ OmniboxPopupPresenter::ShouldDeferUntilVisualStateReady() const {
       omnibox::kOmniboxWebUIDeferShowUntilVisualStateReadyTimeoutMs.Get());
 }
 
+bool OmniboxPopupPresenter::ShouldDebounceResize() const {
+  return base::FeatureList::IsEnabled(omnibox::kOmniboxWebUIDebounceResize);
+}
+
+bool OmniboxPopupPresenter::ShouldApplyHeightWorkarounds() const {
+  return base::FeatureList::IsEnabled(omnibox::kOmniboxWebUIHeightWorkarounds);
+}
+
 bool OmniboxPopupPresenter::ShouldDetachWebContentsOnHide() const {
   return base::FeatureList::IsEnabled(
       omnibox::kOmniboxWebUIDetachWebContentsOnHide);
+}
+
+bool OmniboxPopupPresenter::ShouldEvictOnHide() const {
+  return base::FeatureList::IsEnabled(omnibox::kOmniboxWebUIEvictOnHide);
+}
+
+bool OmniboxPopupPresenter::ShouldSizeWebViewToPreferredHeight() const {
+  return base::FeatureList::IsEnabled(
+      omnibox::kOmniboxWebUISizeWebViewToPreferredHeight);
 }

@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/i18n/rtl.h"
+#include "base/i18n/test/scoped_rtl_for_testing.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -20,6 +21,7 @@
 #include "ui/views/test/ax_event_counter.h"
 #include "ui/views/test/test_views.h"
 #include "ui/views/test/views_test_base.h"
+#include "ui/views/test/views_test_utils.h"
 #include "ui/views/widget/widget.h"
 
 using base::ASCIIToUTF16;
@@ -94,6 +96,15 @@ TEST_F(TabbedPaneTest, ScrollingEnabled) {
   ASSERT_NE(tabbed_pane_horizontal->GetScrollView(), nullptr);
   EXPECT_THAT(tabbed_pane_horizontal->GetScrollView(),
               testing::A<ScrollView*>());
+}
+
+TEST_F(TabbedPaneTest, IncludeHiddenViewsInLayoutProperty) {
+  auto tabbed_pane = std::make_unique<TabbedPane>();
+  EXPECT_TRUE(tabbed_pane->GetIncludeHiddenViewsInLayout());
+  tabbed_pane->SetIncludeHiddenViewsInLayout(false);
+  EXPECT_FALSE(tabbed_pane->GetIncludeHiddenViewsInLayout());
+  tabbed_pane->SetIncludeHiddenViewsInLayout(true);
+  EXPECT_TRUE(tabbed_pane->GetIncludeHiddenViewsInLayout());
 }
 
 // Tests the preferred size and layout when tabs are aligned vertically..
@@ -275,7 +286,7 @@ TEST_F(TabbedPaneWithWidgetTest, ArrowKeyBindings) {
 
 TEST_F(TabbedPaneWithWidgetTest, ArrowKeyBindingsWithRTL) {
   // Add several tabs; only the first should be selected automatically.
-  base::i18n::SetRTLForTesting(true);
+  base::i18n::ScopedRTLForTesting scoped_rtl(true);
   EXPECT_TRUE(base::i18n::IsRTL());
   for (size_t i = 0; i < 3; ++i) {
     tabbed_pane_->AddTab(DefaultTabTitle(), std::make_unique<View>());
@@ -307,8 +318,6 @@ TEST_F(TabbedPaneWithWidgetTest, ArrowKeyBindingsWithRTL) {
   // Right arrow again should wrap to tab 0:
   SendKeyPressToSelectedTab(ui::VKEY_RIGHT);
   EXPECT_EQ(0u, tabbed_pane_->GetSelectedTabIndex());
-
-  base::i18n::SetRTLForTesting(false);
 }
 
 // Use TabbedPane::HandleAccessibleAction() to select tabs and make sure their
@@ -509,6 +518,29 @@ TEST_F(TabbedPaneWithWidgetTest, AccessibleSelected) {
   GetTabAt(0)->SetSelected(true);
   GetTabAt(0)->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_TRUE(data.GetBoolAttribute(ax::mojom::BoolAttribute::kSelected));
+}
+
+TEST_F(TabbedPaneWithWidgetTest, InactiveTabsNotLaidOutOnResize) {
+  tabbed_pane_->SetIncludeHiddenViewsInLayout(false);
+  View* child1 = tabbed_pane_->AddTab(
+      u"tab1", std::make_unique<StaticSizedView>(gfx::Size(100, 100)));
+  View* child2 = tabbed_pane_->AddTab(
+      u"tab2", std::make_unique<StaticSizedView>(gfx::Size(100, 100)));
+  tabbed_pane_->SelectTabAt(0);
+
+  widget_->SetBounds(gfx::Rect(0, 0, 400, 400));
+  tabbed_pane_->SetBounds(0, 0, 400, 400);
+  RunPendingMessages();
+
+  EXPECT_EQ(400, child1->bounds().width());
+  // Non-visible child2 should not be laid out or given updated bounds during
+  // resize when IncludeHiddenViewsInLayout is false.
+  EXPECT_EQ(0, child2->bounds().width());
+
+  // Selecting tab2 should now layout child2 to match the container bounds.
+  tabbed_pane_->SelectTabAt(1);
+  RunScheduledLayout(tabbed_pane_);
+  EXPECT_EQ(400, child2->bounds().width());
 }
 
 }  // namespace views::test

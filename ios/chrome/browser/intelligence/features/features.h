@@ -249,6 +249,12 @@ base::TimeDelta GetActorPageStabilityWindowDuration();
 // Based on the Desktop equivalent at
 // https://source.chromium.org/chromium/chromium/src/+/main:chrome/common/chrome_features.cc;l=422;drc=9c4f58fb857251ee67e9d98abcfcacef0500e51d.
 base::TimeDelta GetActorPageStabilityLcpDelay();
+// The amount of time to wait for Autofill to finish parsing and predicting form
+// fields on the page.
+//
+// Based on the Desktop equivalent at
+// https://source.chromium.org/chromium/chromium/src/+/main:chrome/common/chrome_features.cc;l=428;drc=9c4f58fb857251ee67e9d98abcfcacef0500e51d.
+base::TimeDelta GetActorPageStabilityAutofillPredictionsTimeout();
 
 // Returns true if the specified tool is disabled via the "DisabledTools"
 // feature parameter of the `kActorTools` feature.
@@ -283,6 +289,11 @@ PageActionMenuIconVariations GetPageActionMenuIcon();
 // Feature flag for enabling Gemini backend migration.
 BASE_DECLARE_FEATURE(kGeminiBackendMigration);
 bool IsGeminiBackendMigrationEnabled();
+
+// Feature flag for enabling Project Aureus (quota enforcement and usage
+// limits).
+BASE_DECLARE_FEATURE(kGeminiAureus);
+bool IsGeminiAureusEnabled();
 
 // Feature flag for enabling Gemini actor.
 BASE_DECLARE_FEATURE(kGeminiActor);
@@ -387,6 +398,14 @@ extern const char kGeminiContextualSuggestionsCuesAllowGpuExecutionParam[];
 // Returns true if GPU / Neural Engine execution is allowed for Gemini
 // contextual suggestions cues.
 bool IsGeminiContextualSuggestionsCuesAllowGpuExecutionEnabled();
+
+// Feature parameter for using Title and URL only (matching Desktop) for
+// category classification.
+extern const char kGeminiContextualSuggestionsCuesTitleAndUrlOnlyParam[];
+
+// Returns true if category classification should only use Title and URL
+// instead of extracting APC and generating passages.
+bool IsGeminiContextualSuggestionsCuesTitleAndUrlOnlyEnabled();
 
 #pragma mark - Debugging Features
 
@@ -519,5 +538,22 @@ BASE_DECLARE_FEATURE(kPageContextAutofillOtpRedactions);
 
 // Returns true if `kPageContextAutofillOtpRedactions` is enabled.
 bool IsPageContextAutofillOtpRedactionsEnabled();
+
+// Controls whether blacked out bounding boxes for password fields are applied
+// to the screenshot in `PageContext`. Matches Blink's
+// `kGlicScreenshotPasswordRedaction` behavior.
+// Note: When enabled, this feature enforces screenshot password redactions on
+// `PageContext` extractions that use rich extraction, overriding any local
+// `PageContextWrapperConfig` setting. It has no effect on light extractions.
+BASE_DECLARE_FEATURE(kPageContextScreenshotPasswordRedaction);
+
+// Returns true if `kPageContextScreenshotPasswordRedaction` is enabled.
+bool IsPageContextScreenshotPasswordRedactionEnabled();
+
+// When enabled, the "Get insights with Gemini chip" is disabled.
+BASE_DECLARE_FEATURE(kGeminiInsightsChipAblation);
+
+// Returns true if the `GeminiInsightsChipAblation` feature is enabled.
+bool IsGeminiInsightsChipAblationEnabled();
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_FEATURES_FEATURES_H_

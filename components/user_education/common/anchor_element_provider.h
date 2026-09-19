@@ -11,6 +11,13 @@
 
 namespace user_education {
 
+// Optional method that filters a set of potential `elements` to choose and
+// return the anchor element, or null if none of the inputs is appropriate.
+// This method can return an element different from the input list, or null
+// if no valid element is found.
+using AnchorElementFilter = base::RepeatingCallback<ui::TrackedElement*(
+    const ui::ElementTracker::ElementList& elements)>;
+
 // Abstract interface for an object that can locate and return a
 // `ui::TrackedElement`.
 class AnchorElementProvider {
@@ -22,6 +29,7 @@ class AnchorElementProvider {
   // For rotating promos, specify `index`.
   virtual ui::TrackedElement* GetAnchorElement(
       ui::ElementContext default_context,
+      AnchorElementFilter default_filter,
       std::optional<int> index) const = 0;
 
   // Gets the next valid index for a rotating promo.
@@ -38,13 +46,6 @@ class AnchorElementProviderCommon : public AnchorElementProvider {
       AnchorElementProviderCommon&&) noexcept;
   ~AnchorElementProviderCommon() override;
 
-  // Optional method that filters a set of potential `elements` to choose and
-  // return the anchor element, or null if none of the inputs is appropriate.
-  // This method can return an element different from the input list, or null
-  // if no valid element is found.
-  using AnchorElementFilter = base::RepeatingCallback<ui::TrackedElement*(
-      const ui::ElementTracker::ElementList& elements)>;
-
   ui::ElementIdentifier anchor_element_id() const { return anchor_element_id_; }
   bool in_any_context() const { return in_any_context_; }
   const AnchorElementFilter& anchor_element_filter() const {
@@ -53,6 +54,7 @@ class AnchorElementProviderCommon : public AnchorElementProvider {
 
   // AnchorElementProvider:
   ui::TrackedElement* GetAnchorElement(ui::ElementContext context,
+                                       AnchorElementFilter default_filter,
                                        std::optional<int> index) const override;
   int GetNextValidIndex(int starting_index) const override;
 

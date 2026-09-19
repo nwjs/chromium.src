@@ -569,7 +569,6 @@ enum class SpeedPreferenceIncompatibilityReason {
   kTypeNotSupported,
   kLengthNotSupported,
   kManifestBrokerDisabled,
-  kLiteRTBackendDisabled,
 };
 
 base::expected<void, SpeedPreferenceIncompatibilityReason>
@@ -579,11 +578,6 @@ IsSpeedPreferenceCompatible(
           optimization_guide::kOptimizationGuideManifestBroker)) {
     return base::unexpected(
         SpeedPreferenceIncompatibilityReason::kManifestBrokerDisabled);
-  }
-  if (!base::FeatureList::IsEnabled(
-          on_device_model::features::kOnDeviceModelLitertLmBackend)) {
-    return base::unexpected(
-        SpeedPreferenceIncompatibilityReason::kLiteRTBackendDisabled);
   }
 
   auto supported_langs =
@@ -1707,11 +1701,12 @@ void AIManager::OnSessionCreated(
   }
 
   mojo::PendingRemote<ContextBoundObjectReceiverInterface> pending_remote;
+  const uint32_t context_window = GetInputContextLimit(options);
   context_bound_object_set_.AddContextBoundObject(
       std::make_unique<ContextBoundObjectType>(
           context_bound_object_set_, std::move(session), std::move(options),
           pending_remote.InitWithNewPipeAndPassReceiver()));
-  client_remote->OnResult(std::move(pending_remote));
+  client_remote->OnResult(std::move(pending_remote), context_window);
 }
 
 template <typename ContextBoundObjectType,
@@ -1729,12 +1724,12 @@ void AIManager::OnGotExecutionInputSizeInTokens(
         blink::mojom::AIManagerCreateClientError::kUnableToCalculateTokenSize);
     return;
   }
-  uint32_t context_window_size = GetInputContextLimit(options);
-  if (result.value() > context_window_size) {
+  const uint32_t context_window = GetInputContextLimit(options);
+  if (result.value() > context_window) {
     on_device_ai::SendClientRemoteError(
         client_remote,
         blink::mojom::AIManagerCreateClientError::kInitialInputTooLarge,
-        blink::mojom::QuotaErrorInfo::New(result.value(), context_window_size));
+        blink::mojom::QuotaErrorInfo::New(result.value(), context_window));
     return;
   }
   mojo::PendingRemote<ContextBoundObjectReceiverInterface> pending_remote;
@@ -1742,7 +1737,7 @@ void AIManager::OnGotExecutionInputSizeInTokens(
       std::make_unique<ContextBoundObjectType>(
           context_bound_object_set_, std::move(session), std::move(options),
           pending_remote.InitWithNewPipeAndPassReceiver()));
-  client_remote->OnResult(std::move(pending_remote));
+  client_remote->OnResult(std::move(pending_remote), context_window);
 }
 
 void AIManager::MaybeTryEagerInit() {

@@ -17,6 +17,7 @@
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/extension_ui_util.h"
 #include "chrome/browser/ui/extensions/extensions_toolbar_view_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
 #include "chrome/browser/ui/views/extensions/browser_action_drag_data.h"
 #include "chrome/browser/ui/views/extensions/extension_view_utils.h"
@@ -317,14 +318,15 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopBrowserTest,
 IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopBrowserTest,
                        PinnedExtensionAppearsInAnotherWindow) {
   const std::string& extension_id = InstallExtension("Extension")->id();
-  const auto is_action_visible_on_toolbar = [&extension_id](Browser* browser) {
-    return BrowserView::GetBrowserViewForBrowser(browser)
-        ->toolbar()
-        ->extensions_container()
-        ->IsActionVisibleOnToolbar(extension_id);
-  };
+  const auto is_action_visible_on_toolbar =
+      [&extension_id](BrowserWindowInterface* browser) {
+        return BrowserView::GetBrowserViewForBrowser(browser)
+            ->toolbar()
+            ->extensions_container()
+            ->IsActionVisibleOnToolbar(extension_id);
+      };
 
-  Browser* browser2 = CreateBrowser(profile());
+  BrowserWindowInterface* browser2 = CreateBrowser(profile());
 
   // Verify extension is unpinned in both windows.
   EXPECT_FALSE(is_action_visible_on_toolbar(browser()));
@@ -339,7 +341,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopBrowserTest,
   EXPECT_TRUE(is_action_visible_on_toolbar(browser()));
   EXPECT_TRUE(is_action_visible_on_toolbar(browser2));
 
-  Browser* browser3 = CreateBrowser(profile());
+  BrowserWindowInterface* browser3 = CreateBrowser(profile());
 
   // Brand-new window also gets the pinned extension.
   EXPECT_TRUE(is_action_visible_on_toolbar(browser3));
@@ -770,7 +772,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopBrowserTest,
   // Navigate to a site and verify request access button is not visible, since
   // no extension has added a request.
   NavigateAndCommit(GURL("http://www.example.com"));
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
   EXPECT_FALSE(IsRequestAccessButtonVisible());
 
   // Add site access requests for both extensions and verify they are visible
@@ -788,8 +790,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopBrowserTest,
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kDescription),
             request_access_button()->GetRenderedTooltipText(gfx::Point()));
 
-  RemoveHostAccessRequest(*extension_B,
-                          browser()->tab_strip_model()->GetActiveWebContents());
+  RemoveHostAccessRequest(
+      *extension_B, browser()->GetTabStripModel()->GetActiveWebContents());
 
   data = ui::AXNodeData();
   request_access_button()->GetViewAccessibility().GetAccessibleNodeData(&data);
@@ -816,16 +818,18 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopBrowserTest,
   // contents. Verify request access button is hidden.
   URLPattern filter(extensions::Extension::kValidHostPermissionSchemes,
                     "http://www.other.com/*");
-  AddHostAccessRequest(
-      *extension, browser()->tab_strip_model()->GetActiveWebContents(), filter);
+  AddHostAccessRequest(*extension,
+                       browser()->GetTabStripModel()->GetActiveWebContents(),
+                       filter);
   EXPECT_FALSE(IsRequestAccessButtonVisible());
 
   // Add a site access request with filter that matches the current web
   // contents. Verify extension is visible on the request access button.
   filter = URLPattern(extensions::Extension::kValidHostPermissionSchemes,
                       "http://www.example.com/*");
-  AddHostAccessRequest(
-      *extension, browser()->tab_strip_model()->GetActiveWebContents(), filter);
+  AddHostAccessRequest(*extension,
+                       browser()->GetTabStripModel()->GetActiveWebContents(),
+                       filter);
   EXPECT_TRUE(IsRequestAccessButtonVisible());
   EXPECT_THAT(request_access_button()->GetExtensionIdsForTesting(),
               testing::ElementsAre(extension->id()));
@@ -835,8 +839,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopBrowserTest,
   // removed).
   filter = URLPattern(extensions::Extension::kValidHostPermissionSchemes,
                       "http://www.other.com/*");
-  AddHostAccessRequest(
-      *extension, browser()->tab_strip_model()->GetActiveWebContents(), filter);
+  AddHostAccessRequest(*extension,
+                       browser()->GetTabStripModel()->GetActiveWebContents(),
+                       filter);
   EXPECT_FALSE(IsRequestAccessButtonVisible());
 }
 
@@ -854,7 +859,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopBrowserTest,
   // Navigate to a site and verify request access button is not visible, since
   // no extension has added a request.
   NavigateAndCommit(GURL("http://www.example.com"));
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
   EXPECT_FALSE(IsRequestAccessButtonVisible());
 
   // Add site access requests for both extensions and verify they are visible
@@ -884,7 +889,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopBrowserTest,
 
   NavigateAndCommit(GURL("http://www.a.com"));
   AddHostAccessRequest(*extension,
-                       browser()->tab_strip_model()->GetActiveWebContents());
+                       browser()->GetTabStripModel()->GetActiveWebContents());
 
   EXPECT_TRUE(IsRequestAccessButtonVisible());
   EXPECT_THAT(request_access_button()->GetExtensionIdsForTesting(),
@@ -925,8 +930,9 @@ IN_PROC_BROWSER_TEST_F(
   // current web contents. Verify request access button is hidden.
   URLPattern filter(extensions::Extension::kValidHostPermissionSchemes,
                     "*://*/title2.html*");
-  AddHostAccessRequest(
-      *extension, browser()->tab_strip_model()->GetActiveWebContents(), filter);
+  AddHostAccessRequest(*extension,
+                       browser()->GetTabStripModel()->GetActiveWebContents(),
+                       filter);
   EXPECT_FALSE(IsRequestAccessButtonVisible());
 
   // Navigate to a same-origin site that matches the filter. Verify extension is
@@ -941,8 +947,9 @@ IN_PROC_BROWSER_TEST_F(
   // hidden.
   filter = URLPattern(extensions::Extension::kValidHostPermissionSchemes,
                       "http://www.other.com/title2.html");
-  AddHostAccessRequest(
-      *extension, browser()->tab_strip_model()->GetActiveWebContents(), filter);
+  AddHostAccessRequest(*extension,
+                       browser()->GetTabStripModel()->GetActiveWebContents(),
+                       filter);
   EXPECT_FALSE(IsRequestAccessButtonVisible());
 
   // Navigate to a cross-origin site that matches the filters. Since it's a
@@ -969,7 +976,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopBrowserTest,
   auto url_origin =
       web_contents()->GetPrimaryMainFrame()->GetLastCommittedOrigin();
   AddHostAccessRequest(*extension,
-                       browser()->tab_strip_model()->GetActiveWebContents());
+                       browser()->GetTabStripModel()->GetActiveWebContents());
 
   // A site has "customize by extensions" site setting by default,
   ASSERT_EQ(GetUserSiteSetting(url),
@@ -1026,7 +1033,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopBrowserTest,
   // requests for both.
   const GURL url("http://www.example.com");
   NavigateAndCommit(url);
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
   AddHostAccessRequest(*extension_a, web_contents);
   AddHostAccessRequest(*extension_b, web_contents);
 
@@ -1078,7 +1085,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopBrowserTest,
   // requests for both.
   const GURL url("http://www.example.com");
   NavigateAndCommit(url);
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
   AddHostAccessRequest(*extension_a, web_contents);
   AddHostAccessRequest(*extension_b, web_contents);
 
@@ -1117,7 +1124,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopBrowserTest,
       embedded_test_server()->GetURL("example.com", "/title1.html");
   NavigateAndCommit(url);
   AddHostAccessRequest(*extension,
-                       browser()->tab_strip_model()->GetActiveWebContents());
+                       browser()->GetTabStripModel()->GetActiveWebContents());
   LayoutContainerIfNecessary();
 
   constexpr char kActivatedUserAction[] =
@@ -1189,7 +1196,7 @@ IN_PROC_BROWSER_TEST_F(
   LayoutContainerIfNecessary();
 
   // Add site access requests for extension A and B.
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
   AddHostAccessRequest(*extension_A, web_contents);
   AddHostAccessRequest(*extension_B, web_contents);
   LayoutContainerIfNecessary();

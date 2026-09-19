@@ -9,17 +9,20 @@
 #include <optional>
 #include <utility>
 
+#include "base/functional/bind.h"
 #include "base/i18n/rtl.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/trace_event/common/trace_event_common.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/animation/browser_animation_controller.h"
+#include "chrome/browser/ui/animation/browser_animation_types.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/animations/side_panel_animations.h"
 #include "chrome/browser/ui/views/animations/tab_strip_animations.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/frame/custom_corners.h"
@@ -35,6 +38,7 @@
 #include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_animation_content_view.h"
 #include "chrome/browser/ui/views/tabs/organizer/layout_constants.h"
 #include "chrome/browser/ui/views/tabs/organizer/organizer_panel_utils.h"
 #include "chrome/browser/ui/views/tabs/organizer/organizer_panel_view.h"
@@ -42,9 +46,11 @@
 #include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/outsets.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/controls/separator.h"
+#include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
 
@@ -69,6 +75,10 @@ constexpr float kMaxContentsHeightSidePanelFraction = 2.f / 3.f;
 // This is a percentage, with 0.0 meaning no change to the outline, and 1.0
 // meaning the outline disappears completely.
 constexpr double kVerticalTabStripOutlineFadeOnHover = 0.5;
+
+// The opacity of the vertical tab strip background when the glass frame is
+// enabled and expand-on-hover is active.
+constexpr double kGlassExpandOnHoverOpacity = 0.95;
 
 // Increases the leading or trailing exclusion padding to `minimum`.
 void IncreasePaddingToMinimum(BrowserLayoutParams& params, int minimum) {
@@ -163,6 +173,20 @@ struct BrowserViewTabbedLayoutImpl::SeparatorInfo {
   bool side_panel_top_padding = false;
 };
 
+// Describes how to transform the side panel animation content during
+// tab transition.
+struct BrowserViewTabbedLayoutImpl::SidePanelContentAnimation {
+  // True if the side panel is animating in the first part of the animation
+  // (opening the content height side panel and fading in the scrim view).
+  bool is_animating_first_part = true;
+
+  // The opacity of the scrim view.
+  double scrim_opacity = 0.0;
+
+  // The horizontal translation offset (in pixels) for the layer transform.
+  double translation_x = 0.0;
+};
+
 // Data computed during layout which is discarded afterwards.
 // Members are presented in the order they're computed.
 struct BrowserViewTabbedLayoutImpl::TransientLayoutData {
@@ -178,6 +202,7 @@ struct BrowserViewTabbedLayoutImpl::TransientLayoutData {
   HorizontalLayout horizontal_layout;
   VerticalTabStripAnimation vertical_tab_strip_animation;
   SeparatorInfo separator_info;
+  SidePanelContentAnimation side_panel_content_animation;
 };
 
 BrowserViewTabbedLayoutImpl::BrowserViewTabbedLayoutImpl(
@@ -233,6 +258,48 @@ BrowserViewTabbedLayoutImpl::CalculateSeparatorInfo() const {
   }
 
   return info;
+}
+
+BrowserViewTabbedLayoutImpl::SidePanelContentAnimation
+BrowserViewTabbedLayoutImpl::CalculateSidePanelContentAnimation() const {
+  SidePanelContentAnimation anim_info;
+
+  SidePanelAnimationContentView* const anim_content =
+      views().side_panel_animation_content;
+  if (!IsParentedToAndVisible(anim_content, views().browser_view) ||
+      !anim_content->layer()) {
+    return anim_info;
+  }
+
+  auto* const controller = delegate().GetAnimationController();
+
+  anim_info.scrim_opacity =
+      controller
+          ->GetCurrentValue(SidePanelAnimations::kSidePanel,
+                            SidePanelAnimations::kContentScrimOpacity)
+          .value_or(0.0);
+
+  const std::optional<double> panel_width = controller->GetCurrentValue(
+      SidePanelAnimations::kSidePanel, SidePanelAnimations::kPanelWidth);
+  anim_info.is_animating_first_part = !panel_width || *panel_width == 0.0;
+
+  const auto offset = controller->GetCurrentValue(
+      SidePanelAnimations::kSidePanel,
+      SidePanelAnimations::kContentTransitionOffset);
+  if (!offset) {
+    return anim_info;
+  }
+
+  double translation_x = *offset;
+  const SidePanel* const side_panel = views().side_panel;
+  const bool side_panel_leading =
+      side_panel && (side_panel->IsRightAligned() == base::i18n::IsRTL());
+  if (!side_panel_leading) {
+    translation_x = -translation_x;
+  }
+  anim_info.translation_x = translation_x;
+
+  return anim_info;
 }
 
 // Inset the leading edge of the tabstrip by the size of the swoop of the
@@ -528,13 +595,6 @@ BrowserViewTabbedLayoutImpl::CalculateVerticalTabStripAnimation() {
   animation.bottom_corner = *controller->GetCurrentValue(
       TabStripAnimations::kVerticalTabStrip, TabStripAnimations::kBottomCorner);
 
-  // If the bottom corner is being suppressed for performance reasons, prevent
-  // an exterior corner.
-  if (in_glass_mode() && !is_fullscreen(layout_data_->window_state) &&
-      !features::kGlassRoundContentCorner.Get()) {
-    animation.bottom_corner = std::min(0.0, animation.bottom_corner);
-  }
-
   return animation;
 }
 
@@ -786,7 +846,7 @@ BrowserViewTabbedLayoutImpl::CalculateProposedLayout(
     layout.AddChild(
         views().vertical_tab_strip_background_blur_backdrop,
         vertical_tab_strip_bounds,
-        in_glass_mode() && features::kGlassExpandOnHoverOpacity.Get() < 1.0 &&
+        in_glass_mode() && features::kGlassExpandOnHoverEnabled.Get() &&
             layout_data_->vertical_tab_strip_animation.expand_on_hover_width >
                 0.0f);
   }
@@ -1154,8 +1214,7 @@ BrowserViewTabbedLayoutImpl::CalculateProposedLayout(
   if (in_glass_mode()) {
     gfx::RoundedCornersF content_corners;
     if (layout_data_->tab_strip_type == TabStripType::kVertical &&
-        !is_fullscreen(layout_data_->window_state) &&
-        features::kGlassRoundContentCorner.Get()) {
+        !is_fullscreen(layout_data_->window_state)) {
       // Note that this will set a lower leading corner on the multi contents
       // view even if there's a shadow box, but since the curve is effectively
       // the same this will not produce a visual bug.
@@ -1241,6 +1300,30 @@ BrowserViewTabbedLayoutImpl::CalculateProposedLayout(
     }
     views().vertical_tab_strip_region_view->SetTransitionButtonOpacity(
         transition_button_opacity);
+  }
+
+  if (IsParentedTo(views().side_panel_content_transition_scrim,
+                   views().browser_view)) {
+    const bool is_scrim_visible =
+        layout_data_->side_panel_content_animation.scrim_opacity > 0.0;
+    gfx::Rect scrim_bounds;
+    if (is_scrim_visible) {
+      int scrim_top = params.visual_client_area.y();
+      if (!horizontal_layout.force_top_container_to_top &&
+          IsParentedTo(views().top_container, views().browser_view)) {
+        // The top container was already laid out, so we can use its top edge.
+        scrim_top =
+            layout.GetBoundsFor(views().top_container, views().browser_view)
+                ->y();
+      }
+
+      scrim_bounds =
+          gfx::Rect(unclipped_contents_region.x(), scrim_top,
+                    unclipped_contents_region.width(),
+                    browser_params.visual_client_area.bottom() - scrim_top);
+    }
+    layout.AddChild(views().side_panel_content_transition_scrim, scrim_bounds,
+                    is_scrim_visible);
   }
 
   return layout;
@@ -1391,6 +1474,8 @@ void BrowserViewTabbedLayoutImpl::DoPreLayoutComputations(
   layout_data_->vertical_tab_strip_animation =
       CalculateVerticalTabStripAnimation();
   layout_data_->separator_info = CalculateSeparatorInfo();
+  layout_data_->side_panel_content_animation =
+      CalculateSidePanelContentAnimation();
 }
 
 void BrowserViewTabbedLayoutImpl::DoPostLayoutVisualAdjustments(
@@ -1427,8 +1512,10 @@ void BrowserViewTabbedLayoutImpl::DoPostLayoutVisualAdjustments(
       // visible fade. This isn't perfect, but hopefully with glass
       // expand-on-hover it will improve.
       auto vertical_tabs_background_color = frame_color;
-      static const double expand_on_hover_opacity =
-          features::kGlassExpandOnHoverOpacity.Get();
+      const double expand_on_hover_opacity =
+          features::kGlassExpandOnHoverEnabled.Get()
+              ? kGlassExpandOnHoverOpacity
+              : 1.0;
       vertical_tabs_background_color.opacity = static_cast<float>(
           (1.0 - animation.expand_on_hover_opacity) * frame_color.opacity +
           animation.expand_on_hover_opacity * expand_on_hover_opacity);
@@ -1650,6 +1737,36 @@ void BrowserViewTabbedLayoutImpl::DoPostLayoutVisualAdjustments(
     }
     toolbar_background->SetCornerColor(frame_color);
     top_container_background->SetCornerColor(frame_color);
+  }
+
+  views().side_panel_content_transition_scrim->layer()->SetOpacity(
+      layout_data_->side_panel_content_animation.scrim_opacity);
+
+  // Animate the tab content horizontally to create the
+  // illusion of the tab content sliding into the side panel.
+  SidePanelAnimationContentView* const anim_content =
+      views().side_panel_animation_content;
+  if (IsParentedToAndVisible(anim_content, views().browser_view)) {
+    anim_content->UpdateHorizontalTranslation(
+        layout_data_->side_panel_content_animation.translation_x);
+
+    // Clip the animation layer to prevent it from running into the
+    // vertical tab strip.
+    const gfx::Rect allowed_bounds = views().multi_contents_view->bounds();
+    const gfx::Rect transformed_bounds =
+        anim_content->bounds() +
+        gfx::Vector2d(layout_data_->side_panel_content_animation.translation_x,
+                      0);
+    const gfx::Rect visible_bounds =
+        gfx::IntersectRects(transformed_bounds, allowed_bounds);
+    if (visible_bounds != transformed_bounds &&
+        layout_data_->side_panel_content_animation.is_animating_first_part) {
+      const gfx::Rect local_clip =
+          visible_bounds - transformed_bounds.OffsetFromOrigin();
+      anim_content->ClipBounds(local_clip);
+    } else {
+      anim_content->ClipBounds(gfx::Rect());
+    }
   }
 
   // Clip the side panel so it doesn't run off the edge of the browser or into

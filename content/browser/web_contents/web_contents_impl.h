@@ -691,7 +691,8 @@ class CONTENT_EXPORT WebContentsImpl
   void SetV8CompileHints(base::ReadOnlySharedMemoryRegion data) override;
   void SetTabSwitchStartTime(base::TimeTicks start_time,
                              bool destination_is_loaded,
-                             bool had_saved_frame_at_start) override;
+                             bool had_saved_frame_at_start,
+                             bool destination_is_frozen) override;
   WindowOpenDisposition GetOriginalWindowOpenDisposition() const override;
 
   // Implementation of PageNavigator.
@@ -768,6 +769,7 @@ class CONTENT_EXPORT WebContentsImpl
                        const GURL& url) override;
   bool IsNeverComposited() override;
   ui::AXMode GetAccessibilityMode() override;
+  void NotifyAccessibilityParentChanged() override;
   // Broadcasts the mode change to all frames.
   void ResetAccessibility() override;
   void AXTreeIDForMainFrameHasChanged() override;
@@ -1044,7 +1046,8 @@ class CONTENT_EXPORT WebContentsImpl
       scoped_refptr<PreloadPipelineInfo> preload_pipeline_info,
       base::WeakPtr<PreloadingAttempt> attempt,
       PreloadingHoldbackStatus holdback_status_override,
-      std::optional<base::TimeDelta> ttl) override;
+      std::optional<base::TimeDelta> ttl,
+      bool should_ignore_saver_modes) override;
   std::unique_ptr<PrerenderHandle> StartPrerendering(
       const GURL& prerendering_url,
       PreloadingTriggerType trigger_type,
@@ -1237,6 +1240,7 @@ class CONTENT_EXPORT WebContentsImpl
   ui::mojom::WindowShowState GetWindowShowState() override;
   DevicePostureProviderImpl* GetDevicePostureProvider() override;
   bool GetResizable() override;
+  bool GetIsAlwaysOnTop() override;
   void LostPointerLock(RenderWidgetHostImpl* render_widget_host) override;
   bool IsPointerLockSandboxedForWidget(
       RenderWidgetHostImpl* render_widget_host) override;
@@ -1527,7 +1531,7 @@ class CONTENT_EXPORT WebContentsImpl
   // Called when a file selection is to be done.
   void RunFileChooser(
       base::WeakPtr<FileChooserImpl> file_chooser,
-      RenderFrameHost* render_frame_host,
+      RenderFrameHostImpl* render_frame_host,
       scoped_refptr<FileChooserImpl::FileSelectListenerImpl> listener,
       const blink::mojom::FileChooserParams& params);
 
@@ -1583,10 +1587,15 @@ class CONTENT_EXPORT WebContentsImpl
                                const GURL& scope,
                                AllowServiceWorkerResult allowed);
 
+  // Returns true if a dialog that should defer navigations is open. Callbacks
+  // passed to NotifyOnJavaScriptDialogDismiss(), which can be used to resume
+  // any deferred navigations, will be posted after this becomes false.
   bool JavaScriptDialogDefersNavigations() {
     return javascript_dialog_dismiss_notifier_.get();
   }
 
+  // Adds a callback that will be posted to the UI thread when all Javascript
+  // dialogs that should defer navigations are dismissed.
   void NotifyOnJavaScriptDialogDismiss(base::OnceClosure callback);
 
   bool has_persistent_video() { return has_persistent_video_; }
@@ -1717,6 +1726,8 @@ class CONTENT_EXPORT WebContentsImpl
   FRIEND_TEST_ALL_PREFIXES(WebContentsImplTest, CaptureHoldsWakeLock);
   FRIEND_TEST_ALL_PREFIXES(WebContentsImplTest,
                            OnColorProviderChangedNoOpDuringDestruction);
+  FRIEND_TEST_ALL_PREFIXES(WebContentsImplTest,
+                           ColorRelatedStateChangesCoalesced);
   FRIEND_TEST_ALL_PREFIXES(WebContentsImplTest,
                            OnNativeThemeUpdatedNoOpDuringDestruction);
   FRIEND_TEST_ALL_PREFIXES(WebContentsImplTest, NoJSMessageOnInterstitials);
@@ -2177,6 +2188,7 @@ class CONTENT_EXPORT WebContentsImpl
   // `NativeTheme` or `ColorProviderSource` are updated. Updates color maps
   // and/or calls `NotifyPreferencesChanged()` as needed.
   void HandleColorRelatedStateChanges();
+  void ScheduleColorRelatedStateChanges();
 
   // implements SlowWebPreferenceCacheObserver
   void OnSlowWebPreferenceChanged() override;
@@ -2918,6 +2930,8 @@ class CONTENT_EXPORT WebContentsImpl
   void EmitTracingSlice(const std::string& name);
 
   bool opt_out_frame_eviction_ = false;
+
+  bool color_related_state_change_scheduled_ = false;
 
   base::WeakPtrFactory<WebContentsImpl> loading_weak_factory_{this};
   base::WeakPtrFactory<WebContentsImpl> weak_factory_{this};

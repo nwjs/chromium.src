@@ -75,9 +75,9 @@
 #include "ui/views/window/window_shape.h"
 #include "url/gurl.h"
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "extensions/common/constants.h"
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 namespace {
 
@@ -320,7 +320,8 @@ DocumentPipFrameView::DocumentPipFrameView(DocumentPipHost* host)
   // label. The gap from the chip is the chip's right margin.
   auto window_title = std::make_unique<views::Label>(
       std::u16string(), views::style::CONTEXT_LABEL,
-      views::style::STYLE_PRIMARY);
+      views::style::STYLE_PRIMARY,
+      gfx::DirectionalityMode::DIRECTIONALITY_AS_URL);
   window_title->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   window_title->SetProperty(
       views::kFlexBehaviorKey,
@@ -765,12 +766,12 @@ void DocumentPipFrameView::UpdateOriginAndSecurity() {
       url.SchemeIsFile() ? gfx::ELIDE_TAIL : gfx::ELIDE_HEAD;
   // Extension and isolated-app URLs are like file URLs: the tail is the
   // spoofable part, so elide it.
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   if (url.SchemeIs(extensions::kExtensionScheme) ||
       url.SchemeIs(webapps::kIsolatedAppScheme)) {
     elide_behavior = gfx::ELIDE_TAIL;
   }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   window_title_->SetElideBehavior(elide_behavior);
 
   const security_state::SecurityLevel security_level =

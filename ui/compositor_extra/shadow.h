@@ -9,8 +9,8 @@
 #include <optional>
 
 #include "base/memory/raw_ptr.h"
-#include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animation_observer.h"
+#include "ui/compositor/layer_nine_patch.h"
 #include "ui/compositor/layer_owner.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
@@ -108,6 +108,9 @@ class Shadow : public ui::ImplicitAnimationObserver, public ui::LayerOwner {
   // Updates the shadow appearance based on the inteior inset, the current
   // |content_bounds_|, shadow style, and colors.
   void UpdateShadowAppearance();
+
+  // Clears the bounds of all shadow layers to empty.
+  void ClearLayerBounds();
 
   // The goal elevation, set when the transition animation starts. The elevation
   // dictates the shadow's display characteristics and is proportional to the

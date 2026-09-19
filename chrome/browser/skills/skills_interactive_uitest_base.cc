@@ -22,8 +22,8 @@
 #include "chrome/browser/skills/skills_service_factory.h"
 #include "chrome/browser/skills/skills_ui_window_controller.h"
 #include "chrome/browser/sync/data_type_store_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/webui/skills/skills_dialog_view.h"
 #include "chrome/common/channel_info.h"
@@ -64,7 +64,8 @@ SkillsInteractiveUiTestBase::SkillsInteractiveUiTestBase() {
                             features::kSkillsEnabled,
                             features::kGlicMultitabUnderlines,
                             features::kSkillsServiceApi},
-      /*disabled_features=*/{features::kGlicWarming});
+      /*disabled_features=*/{features::kGlicWarming,
+                             features::kSkillsWebViewV2Enabled});
   // TODO(b:504651450): Consider adding support for the new FRE.
 }
 
@@ -388,7 +389,8 @@ SkillsInteractiveUiTestBase::WaitForSkillPreviewOrder(
 
 ui::test::InteractiveTestApi::StepBuilder
 SkillsInteractiveUiTestBase::ClickOnGlicClientElement(DeepQuery where) {
-  return ExecuteJsAt(glic::kGlicContentsElementId, where, kClickFn);
+  return ExecuteJsAt(glic::kGlicContentsElementId, where, kClickFn,
+                     InteractiveBrowserTestApi::ExecuteJsMode::kFireAndForget);
 }
 
 ui::test::InteractiveTestApi::MultiStep
@@ -435,19 +437,18 @@ SkillsInteractiveUiTestBase::WaitForTabOpenedTo(int tab, GURL url) {
   DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ui::test::PollingStateObserver<GURL>,
                                       kOpenedTabUrlState);
   return Steps(
-      PollState(
-          kOpenedTabUrlState,
-          [this, tab]() {
-            auto* const model = browser()->tab_strip_model();
-            if (model->active_index() != tab) {
-              return GURL();
-            }
-            GURL url =
-                model->GetTabAtIndex(tab)->GetContents()->GetVisibleURL();
-            GURL::Replacements clear_query;
-            clear_query.ClearQuery();
-            return url.ReplaceComponents(clear_query);
-          }),
+      PollState(kOpenedTabUrlState,
+                [this, tab]() {
+                  auto* const model = browser()->GetTabStripModel();
+                  if (model->active_index() != tab) {
+                    return GURL();
+                  }
+                  GURL url =
+                      model->GetTabAtIndex(tab)->GetContents()->GetVisibleURL();
+                  GURL::Replacements clear_query;
+                  clear_query.ClearQuery();
+                  return url.ReplaceComponents(clear_query);
+                }),
       WaitForState(kOpenedTabUrlState, url),
       StopObservingState(kOpenedTabUrlState));
 }

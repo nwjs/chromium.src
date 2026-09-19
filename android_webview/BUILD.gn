@@ -416,13 +416,6 @@ if (_is_default_toolchain) {
       "//android_webview/nonembedded:nonembedded_java",
       "//android_webview/support_library:support_lib_glue_java",
     ]
-
-    # If we are using an unreleased Android SDK snapshot, include the downstream
-    # glue code to support any functionality specific to the in-development
-    # Android version.
-    if (!public_android_sdk) {
-      deps += [ "//clank/android_webview/unreleased:unreleased_glue_java" ]
-    }
   }
 
   # Contains all Java dependencies used by WebView.
@@ -516,6 +509,7 @@ if (_is_default_toolchain) {
       "java/src/org/chromium/android_webview/AwZoomControls.java",
       "java/src/org/chromium/android_webview/CleanupReference.java",
       "java/src/org/chromium/android_webview/ClientCertLookupTable.java",
+      "java/src/org/chromium/android_webview/CompatQuirks.java",
       "java/src/org/chromium/android_webview/DarkModeHelper.java",
       "java/src/org/chromium/android_webview/DefaultVideoPosterRequestHandler.java",
       "java/src/org/chromium/android_webview/DualTraceEvent.java",
@@ -537,6 +531,7 @@ if (_is_default_toolchain) {
       "java/src/org/chromium/android_webview/ShouldInterceptRequestMediator.java",
       "java/src/org/chromium/android_webview/SslUtil.java",
       "java/src/org/chromium/android_webview/StartupCallSite.java",
+      "java/src/org/chromium/android_webview/StartupController.java",
       "java/src/org/chromium/android_webview/StartupDiagnostics.java",
       "java/src/org/chromium/android_webview/StartupMetrics.java",
       "java/src/org/chromium/android_webview/StartupTasksRunner.java",
@@ -549,6 +544,7 @@ if (_is_default_toolchain) {
       "java/src/org/chromium/android_webview/WebResponseCallback.java",
       "java/src/org/chromium/android_webview/WebViewChromiumRunQueue.java",
       "java/src/org/chromium/android_webview/WebviewErrorCode.java",
+      "java/src/org/chromium/android_webview/accessibility/AwAccessibilityStateVisibilityManager.java",
       "java/src/org/chromium/android_webview/autofill/AndroidAutofillSafeModeAction.java",
       "java/src/org/chromium/android_webview/client_hints/AwUserAgentMetadata.java",
       "java/src/org/chromium/android_webview/contextmenu/AwContextMenuCoordinator.java",
@@ -602,6 +598,7 @@ if (_is_default_toolchain) {
       "java/src/org/chromium/android_webview/variations/VariationsSeedSafeModeAction.java",
     ]
     deps = [
+      ":android_webview_product_config_java",
       ":common_aidl_java",
       ":common_java",
       ":common_origin_trials_java",
@@ -674,6 +671,7 @@ if (_is_default_toolchain) {
       "//third_party/blink/public/mojom:mojom_platform_java",
       "//third_party/jni_zero:jni_zero_java",
       "//third_party/metrics_proto:metrics_proto_java",
+      "//ui/accessibility:ax_base_java",
       "//ui/android:ui_no_recycler_view_java",
       "//url:gurl_java",
     ]

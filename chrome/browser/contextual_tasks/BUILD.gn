@@ -37,7 +37,10 @@ source_set("contextual_tasks") {
     "contextual_tasks_tab_visit_tracker.h",
     "contextual_tasks_ui_interface.h",
     "contextual_tasks_ui_service_delegate.h",
+    "contextual_tasks_url_loader_throttle.cc",
+    "contextual_tasks_url_loader_throttle.h",
     "contextual_tasks_utils.h",
+    "smart_tab_sharing_metrics.h",
     "smart_tab_sharing_settings_policy_handler.h",
     "task_info_delegate.h",
   ]
@@ -45,7 +48,10 @@ source_set("contextual_tasks") {
   deps = [
     "//base",
     "//chrome/browser/ui/browser_window",
+    "//components/google/core/common",
     "//components/tabs:public",
+    "//extensions/buildflags",
+    "//net",
     "//ui/base/unowned_user_data",
   ]
 
@@ -65,7 +71,9 @@ source_set("contextual_tasks") {
     "//components/page_content_annotations/core",
     "//components/passage_embeddings/core:passage_embeddings_types",
     "//content/public/browser",
+    "//services/network/public/cpp",
     "//third_party/abseil-cpp:absl",
+    "//third_party/blink/public/common:headers",
     "//third_party/omnibox_proto",
   ]
 
@@ -74,8 +82,12 @@ source_set("contextual_tasks") {
       "contextual_tasks_extension_binder_provider.h",
       "contextual_tasks_extension_bridge.h",
       "contextual_tasks_extension_bridge_factory.h",
+      "contextual_tasks_extension_config_provider.h",
     ]
-    public_deps += [ "//extensions/browser" ]
+    public_deps += [
+      "//extensions/browser",
+      "//extensions/common:extension_features",
+    ]
   }
 
   if (!is_android) {
@@ -114,6 +126,7 @@ source_set("impl") {
     "contextual_tasks_utils.cc",
     "site_exclusion_detail.cc",
     "site_exclusion_detail.h",
+    "smart_tab_sharing_metrics.cc",
   ]
 
   if (enable_extensions_core) {
@@ -121,6 +134,7 @@ source_set("impl") {
       "contextual_tasks_extension_binder_provider.cc",
       "contextual_tasks_extension_bridge.cc",
       "contextual_tasks_extension_bridge_factory.cc",
+      "contextual_tasks_extension_config_provider.cc",
     ]
     if (!is_android) {
       sources += [
@@ -259,6 +273,7 @@ source_set("ui") {
     ":mojo_bindings",
     ":mojom_traits",
     "//base",
+    "//chrome/browser/actor",
     "//chrome/browser/autocomplete:aim_eligibility_service",
     "//chrome/browser/contextual_search",
     "//chrome/browser/tab_list",
@@ -270,6 +285,7 @@ source_set("ui") {
     "//components/contextual_search:public",
     "//components/contextual_tasks/public:feature_list",
     "//components/contextual_tasks/public:query_contextualizer",
+    "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/prefs",
     "//components/signin/public/identity_manager",
     "//components/tabs:public",
@@ -455,6 +471,7 @@ source_set("ui_impl") {
       "//third_party/blink/public/common:headers",
       "//third_party/lens_server_proto:lens_overlay_proto",
       "//third_party/protobuf:protobuf_lite",
+      "//ui/views/controls/webview",
       "//url",
     ]
   }
@@ -468,6 +485,11 @@ source_set("ui_impl") {
     # FaviconSource is only used under #if
     # ENABLE_WEBUI_CONTEXTUAL_TASKS_COMPOSEBOX.
     deps += [ "//chrome/browser/ui/webui:favicon_source" ]
+  }
+
+  if (enable_extensions_core) {
+    deps +=
+        [ "//chrome/browser/resources/contextual_tasks/extension:resources" ]
   }
 
   if (enable_guest_view && !enable_extensions_core) {
@@ -635,6 +657,10 @@ source_set("unit_tests") {
     ]
   }
 
+  if (enable_extensions_core) {
+    sources += [ "contextual_tasks_url_loader_throttle_unittest.cc" ]
+  }
+
   deps = [
     ":contextual_tasks",
     ":impl",
@@ -749,7 +775,7 @@ source_set("interactive_ui_tests") {
       ":ui",
       "//chrome/browser/tab_list",
       "//chrome/browser/ui/contextual_search",
-      "//chrome/browser/ui/lens:lens",
+      "//chrome/browser/ui/lens",
       "//chrome/browser/ui/lens:test_support",
       "//chrome/browser/ui/webui/searchbox:searchbox_test_utils",
       "//components/lens:enterprise_policy",
@@ -771,6 +797,7 @@ if (is_android) {
     sources = [ "android/java/src/org/chromium/chrome/browser/contextual_tasks/ContextualTasksUtils.java" ]
     deps = [
       "//base:features_java",
+      "//chrome/browser/flags:java",
       "//components/embedder_support/android:util_java",
       "//content/public/android:content_java",
       "//third_party/jni_zero:jni_zero_java",
@@ -833,10 +860,12 @@ if (is_android) {
   robolectric_library("junit") {
     sources = [
       "android/java/src/org/chromium/chrome/browser/contextual_tasks/ContextualTasksBridgeUnitTest.java",
+      "android/java/src/org/chromium/chrome/browser/contextual_tasks/ContextualTasksUtilsUnitTest.java",
       "android/java/src/org/chromium/chrome/browser/contextual_tasks/ui/ContextualTasksControlCoordinatorUnitTest.java",
     ]
     deps = [
       ":java",
+      ":utils_java",
       "//base:base_java",
       "//base:base_java_test_support",
       "//base:base_junit_test_support",

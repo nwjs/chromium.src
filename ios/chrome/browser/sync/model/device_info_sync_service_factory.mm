@@ -15,6 +15,8 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/time/default_clock.h"
 #import "components/desktop_to_mobile_promos/features.h"
+#import "components/personal_context/core/personal_context_features.h"
+#import "components/personal_context/core/personal_context_key_manager.h"
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/device_id_helper.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
@@ -165,6 +167,24 @@ class DeviceInfoSyncClient : public syncer::DeviceInfoSyncClient {
     return std::nullopt;
   }
 
+  // syncer::DeviceInfoSyncClient:
+  std::optional<syncer::DeviceInfo::PersonalContextInfo>
+  GetLocalPersonalContextInfo() const override {
+    if (!base::FeatureList::IsEnabled(
+            personal_context::features::
+                kPersonalContextHandleEncryptedPayloads)) {
+      return std::nullopt;
+    }
+    std::vector<uint8_t> public_key =
+        personal_context::PersonalContextKeyManager::
+            GetOrCreateLocalPublicKeyBytes(prefs_);
+    if (public_key.empty()) {
+      return std::nullopt;
+    }
+    return syncer::DeviceInfo::PersonalContextInfo{
+        .serialized_tink_keyset = std::move(public_key)};
+  }
+
  private:
   const raw_ptr<PrefService> prefs_;
   const raw_ptr<syncer::SyncInvalidationsService> sync_invalidations_service_;
@@ -238,7 +258,5 @@ DeviceInfoSyncServiceFactory::BuildServiceInstanceFor(
       std::move(local_device_info_provider), std::move(device_prefs),
       std::move(device_info_sync_client), sync_invalidations_service,
       /*pulse_task_runner=*/
-      base::FeatureList::IsEnabled(base::features::kReducePPMs)
-          ? web::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})
-          : web::GetUIThreadTaskRunner({}));
+      web::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT}));
 }

@@ -26,8 +26,8 @@ const char kAnyOriginValue[] = "*";
 bool ParseOriginListHeader(const std::string& value,
                            bool* any_origin,
                            std::set<url::Origin>* origins) {
-  DCHECK(any_origin);
-  DCHECK(origins);
+  CHECK(any_origin, base::NotFatalUntil::M158);
+  CHECK(origins, base::NotFatalUntil::M158);
 
   if (value == kAnyOriginValue) {
     *any_origin = true;
@@ -55,7 +55,7 @@ bool ParseOriginListHeader(const std::string& value,
 BackgroundFetchCrossOriginFilter::BackgroundFetchCrossOriginFilter(
     const url::Origin& source_origin,
     const BackgroundFetchRequestInfo& request) {
-  DCHECK(!request.GetURLChain().empty());
+  CHECK(!request.GetURLChain().empty(), base::NotFatalUntil::M158);
 
   const GURL& final_url = request.GetURLChain().back();
   const auto& response_header_map = request.GetResponseHeaders();
@@ -84,9 +84,8 @@ BackgroundFetchCrossOriginFilter::BackgroundFetchCrossOriginFilter(
   auto access_control_allow_credentials_iter =
       response_header_map.find(kAccessControlAllowCredentialsHeader);
   if (access_control_allow_credentials_iter != response_header_map.end()) {
-    access_control_allow_credentials_ =
-        base::ToLowerASCII(access_control_allow_credentials_iter->second) ==
-        "true";
+    access_control_allow_credentials_ = base::EqualsCaseInsensitiveASCII(
+        access_control_allow_credentials_iter->second, "true");
   }
 
   include_credentials_ = request.fetch_request()->credentials_mode ==

@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.tab;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.pdf.PdfInfo;
+import org.chromium.chrome.browser.tabmodel.TabModelType;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.components.browser_ui.util.BrowserControlsVisibilityDelegate;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuPopulatorFactory;
@@ -63,6 +64,10 @@ public interface TabDelegateFactory {
     @Nullable NativePage createNativePage(
             String url, @Nullable NativePage candidatePage, Tab tab, @Nullable PdfInfo pdfInfo);
 
+    /** Returns the {@link TabModelType} associated with tabs using this delegate factory. */
+    @TabModelType
+    int getTabModelType();
+
     /** Returns whether the tab is running in a Custom Tab environment. */
     boolean isCustomTab();
 
@@ -74,4 +79,7 @@ public interface TabDelegateFactory {
 
     /** Returns whether the tab is running in a standard tabbed browser environment. */
     boolean isTabInBrowser();
+
+    /** Returns whether the tab is running in a popup window. */
+    boolean isTabInPopup();
 }

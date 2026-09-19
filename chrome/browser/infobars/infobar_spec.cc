@@ -106,6 +106,12 @@ InfoBarSpec::Builder& InfoBarSpec::Builder::SetIsCloseable(bool is_closeable) {
   return *this;
 }
 
+InfoBarSpec::Builder& InfoBarSpec::Builder::SetCloseOnAccept(
+    bool close_on_accept) {
+  spec_.close_on_accept_ = close_on_accept;
+  return *this;
+}
+
 InfoBarSpec::Builder& InfoBarSpec::Builder::AddOkButton(
     const std::u16string& label,
     ActionCallback callback) {
@@ -149,5 +155,13 @@ InfoBarSpec::InfoBarSpec(const InfoBarSpec&) = default;
 InfoBarSpec::InfoBarSpec(InfoBarSpec&&) = default;
 InfoBarSpec::~InfoBarSpec() = default;
 InfoBarSpec& InfoBarSpec::operator=(const InfoBarSpec&) = default;
+
+InfoBarShowParams::InfoBarShowParams() = default;
+InfoBarShowParams::InfoBarShowParams(InfoBarShowParams&&) = default;
+InfoBarShowParams& InfoBarShowParams::operator=(InfoBarShowParams&&) = default;
+InfoBarShowParams::InfoBarShowParams(const InfoBarShowParams&) = default;
+InfoBarShowParams& InfoBarShowParams::operator=(const InfoBarShowParams&) =
+    default;
+InfoBarShowParams::~InfoBarShowParams() = default;
 
 }  // namespace infobars

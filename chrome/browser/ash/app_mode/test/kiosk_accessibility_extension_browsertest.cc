@@ -26,12 +26,9 @@
 #include "chrome/browser/chromeos/app_mode/kiosk_web_app_install_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
 #include "chromeos/ash/components/settings/cros_settings_provider.h"
-#include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -125,19 +122,29 @@ class KioskAccessibilityExtensionTest
     ASSERT_TRUE(WaitKioskLaunched());
   }
 
+  void TearDownOnMainThread() override {
+    // Unload the ChromeVox extension so the browser doesn't try to respond to
+    // in-flight requests during test shutdown.
+    DisableChromeVoxExtension();
+  }
+
   void EnableChromeVoxExtension() {
     chromevox_test_utils_ = std::make_unique<ChromeVoxTestUtils>();
     chromevox_test_utils_->EnableChromeVox(/*check_for_speech=*/false);
   }
 
   bool DisableChromeVoxExtension(Profile& profile) {
-    chromevox_test_utils_.reset();
-    AccessibilityManager::Get()->EnableSpokenFeedback(false);
+    DisableChromeVoxExtension();
     auto& registry = CHECK_DEREF(extensions::ExtensionRegistry::Get(&profile));
     return base::test::RunUntil([&registry] {
       return !registry.ready_extensions().Contains(
           extension_misc::kChromeVoxExtensionId);
     });
+  }
+
+  void DisableChromeVoxExtension() {
+    chromevox_test_utils_.reset();
+    AccessibilityManager::Get()->EnableSpokenFeedback(false);
   }
 
  private:

@@ -65,12 +65,15 @@
 #include "chrome/browser/ash/bluetooth/hats_bluetooth_revamp_trigger_impl.h"
 #include "chrome/browser/ash/boot_times_recorder/boot_times_recorder.h"
 #include "chrome/browser/ash/browser_delegate/browser_controller_impl.h"
+#include "chrome/browser/ash/browser_delegate/keyed_service_provider/desk_sync_service_provider_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/identity_manager_provider_impl.h"
+#include "chrome/browser/ash/browser_delegate/keyed_service_provider/sync_service_provider_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/template_url_service_provider_impl.h"
 #include "chrome/browser/ash/camera/camera_general_survey_handler.h"
 #include "chrome/browser/ash/certs/system_token_cert_db_initializer.h"
 #include "chrome/browser/ash/child_accounts/parent_access_code/parent_access_service.h"
 #include "chrome/browser/ash/crostini/crostini_unsupported_action_notifier.h"
+#include "chrome/browser/ash/customization/customization_document.h"
 #include "chrome/browser/ash/dbus/arc_crosh_service_provider.h"
 #include "chrome/browser/ash/dbus/arc_tracing_service_provider.h"
 #include "chrome/browser/ash/dbus/ash_dbus_helper.h"
@@ -192,7 +195,6 @@
 #include "chrome/browser/ui/webui/ash/emoji/emoji_ui.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/pref_names.h"
 #include "chromeos/ash/components/attestation/attestation_features.h"
@@ -888,6 +890,7 @@ int ChromeBrowserMainPartsAsh::PreMainMessageLoopRun() {
   arc_service_launcher_ = std::make_unique<arc::ArcServiceLauncher>(
       g_browser_process->local_state(),
       g_browser_process->GetFeatures()->application_locale_storage(),
+      g_browser_process->metrics_service(),
       g_browser_process->platform_part()->scheduler_configuration_manager());
 
   // This should be created after ArcServiceLauncher creation.
@@ -946,9 +949,17 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
       g_browser_process->platform_part()->browser_policy_connector_ash(),
       g_browser_process->platform_part()->component_manager_ash());
 
+  services_customization_document_ =
+      std::make_unique<ServicesCustomizationDocument>(
+          g_browser_process->local_state(),
+          g_browser_process->GetFeatures()->application_locale_storage(),
+          g_browser_process->shared_url_loader_factory());
+
   // List of instances providing KeyedService related services.
   app_service_registry_ = std::make_unique<apps::AppServiceRegistry>();
+  desk_sync_service_provider_ = std::make_unique<DeskSyncServiceProviderImpl>();
   identity_manager_provider_ = std::make_unique<IdentityManagerProviderImpl>();
+  sync_service_provider_ = std::make_unique<SyncServiceProviderImpl>();
   template_url_service_provider_ =
       std::make_unique<TemplateURLServiceProviderImpl>();
 
@@ -1103,7 +1114,7 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
   // On Chrome OS, Chrome does not exit when all browser windows are closed.
   // UnregisterKeepAlive is called from chrome::HandleAppExitingForPlatform.
   if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
-          ::switches::kDisableZeroBrowsersOpenForTests)) {
+          ash::switches::kDisableZeroBrowsersOpenForTests)) {
     g_browser_process->platform_part()->RegisterKeepAlive();
   }
 
@@ -1867,8 +1878,11 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
   bluetooth_log_controller_.reset();
 
   template_url_service_provider_.reset();
+  sync_service_provider_.reset();
   identity_manager_provider_.reset();
+  desk_sync_service_provider_.reset();
   app_service_registry_.reset();
+  services_customization_document_.reset();
   user_session_manager_.reset();
 
   g_browser_process->platform_part()->ShutdownSessionManager();

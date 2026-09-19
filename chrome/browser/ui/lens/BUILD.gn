@@ -2,7 +2,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//components/lens/features.gni")
 import("//pdf/features.gni")
+
+assert(enable_lens_overlay_backend,
+       "Lens backend logic is not supported on regular Mobile Android.")
 
 source_set("backend_logic_public") {
   sources = [
@@ -54,6 +58,7 @@ source_set("backend_logic_impl") {
     "//chrome/browser:browser_process",
     "//chrome/browser:global_features",
     "//chrome/browser/autocomplete:aim_eligibility_service",
+    "//chrome/browser/lens:lens_identity_delegation_helper",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/search_engines",
     "//chrome/browser/signin",
@@ -62,6 +67,7 @@ source_set("backend_logic_impl") {
     "//chrome/common:channel_info",
     "//components/application_locale_storage",
     "//components/base32",
+    "//components/google/core/common",
     "//components/language/core/common",
     "//components/lens:enterprise_policy",
     "//components/metrics_services_manager",
@@ -208,7 +214,6 @@ if (!is_android) {
     ]
 
     deps = [
-      "//components/omnibox/common:features",
       ":backend_logic_impl",
       ":lens",
       "//build:branding_buildflags",
@@ -265,6 +270,7 @@ if (!is_android) {
       "//components/lens:features",
       "//components/lens/proto/server:proto",
       "//components/metrics_services_manager",
+      "//components/omnibox/common:features",
       "//components/optimization_guide/content/browser",
       "//components/optimization_guide/content/browser:page_context_eligibility",
       "//components/prefs",
@@ -330,11 +336,11 @@ if (!is_android) {
     ]
 
     deps = [
-      "//components/omnibox/common:features",
       ":backend_logic_impl",
       ":lens",
       "//base/test:test_support",
       "//components/contextual_search:test_support",
+      "//components/omnibox/common:features",
       "//components/tabs:test_support",
       "//google_apis/common",
       "//testing/gtest",
@@ -356,7 +362,6 @@ if (!is_android) {
       "lens_search_feature_flag_utils_browsertest.cc",
     ]
     deps = [
-      "//components/omnibox/common:features",
       ":backend_logic_impl",
       ":lens",
       ":test_support",
@@ -386,6 +391,7 @@ if (!is_android) {
       "//chrome/browser/ui/tabs:tabs_public",
       "//chrome/browser/ui/views/location_bar",
       "//chrome/browser/ui/views/page_action",
+      "//chrome/browser/ui/views/page_action:page_action_test_support",
       "//chrome/browser/ui/views/side_panel",
       "//chrome/browser/ui/webui/searchbox:searchbox_test_utils",
       "//chrome/test:test_support",
@@ -400,6 +406,7 @@ if (!is_android) {
       "//components/lens:enterprise_policy",
       "//components/lens:features",
       "//components/lens/proto/server:proto",
+      "//components/omnibox/common:features",
       "//components/permissions:test_support",
       "//components/prefs",
       "//components/renderer_context_menu",
@@ -446,7 +453,6 @@ if (!is_android) {
       "lens_permission_bubble_controller_interactive_uitest.cc",
     ]
     deps = [
-      "//components/omnibox/common:features",
       ":backend_logic_impl",
       ":lens",
       ":test_support",
@@ -464,6 +470,7 @@ if (!is_android) {
       "//chrome/browser/ui",
       "//chrome/browser/ui:browser_element_identifiers",
       "//chrome/browser/ui:ui_features",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tabs_public",
       "//chrome/browser/ui/views/location_bar",
       "//chrome/test:test_support",
@@ -475,6 +482,7 @@ if (!is_android) {
       "//components/feature_engagement/public",
       "//components/lens:enterprise_policy",
       "//components/lens:features",
+      "//components/omnibox/common:features",
       "//components/prefs",
       "//components/search_engines",
       "//components/user_education/views",
@@ -503,13 +511,11 @@ if (!is_android) {
       "lens_searchbox_controller_unittest.cc",
     ]
     deps = [
-      "//components/omnibox/common:features",
       ":backend_logic_impl",
       ":lens",
       ":test_support",
       "//base",
       "//base/test:test_support",
-      "//chrome/browser",
       "//chrome/browser:browser_process",
       "//chrome/browser/contextual_tasks:test_support",
       "//chrome/browser/contextual_tasks:ui",
@@ -533,6 +539,7 @@ if (!is_android) {
       "//components/lens:enterprise_policy",
       "//components/lens:features",
       "//components/omnibox/browser:test_support",
+      "//components/omnibox/common:features",
       "//components/optimization_guide/content/browser:page_context_eligibility",
       "//components/tabs:test_support",
       "//content/public/browser",
@@ -553,6 +560,10 @@ if (!is_android) {
       "//ui/gfx/geometry",
       "//url",
     ]
+
+    if (is_chromeos) {
+      deps += [ "//chromeos/ash/components/network:test_support" ]
+    }
 
     # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
     # enable the diagnostic by removing this line.

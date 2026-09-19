@@ -1239,12 +1239,10 @@ inline constexpr char kProjectsPanelPinnedToTabstrip[] =
 inline constexpr char kEverythingMenuPinnedToTabstrip[] =
     "everything_menu.pinned_to_tabstrip";
 
-// Boolean indicating whether the one-time migration for
-// kEverythingMenuPinnedToTabstrip has been completed. This sets the pinned
-// state for the button to true for users who have used vertical tab strip
-// before the migration happened.
-inline constexpr char kEverythingMenuPinnedToTabstripMigrationComplete[] =
-    "everything_menu.pinned_to_tabstrip_migration_complete";
+// Boolean determining whether the tab scroll buttons are pinned to the tab
+// strip.
+inline constexpr char kTabScrollButtonsPinnedToTabstrip[] =
+    "tab_scroll_buttons.pinned_to_tabstrip";
 
 // Boolean determining whether vertical tabs are enabled.
 inline constexpr char kVerticalTabsEnabled[] = "vertical_tabs.enabled";
@@ -1560,6 +1558,13 @@ inline constexpr char kRestartLastSessionOnShutdown[] =
 inline constexpr char kRestartInBackgroundOnShutdown[] =
     "restart.in.background.on.shutdown";
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// Timestamp of when the scheduled restart nudge dialog was last shown
+// to the user, used for nudge cooldown calculations.
+inline constexpr char kScheduledRestartLastNudgeTime[] =
+    "restart.scheduled_restart_last_nudge_time";
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
 #if !BUILDFLAG(IS_ANDROID)
 #if !BUILDFLAG(IS_CHROMEOS)
 // Boolean that specifies whether or not to show security warnings for some
@@ -1716,8 +1721,6 @@ inline constexpr char kNtpOutlookCalendarRetryAfterTime[] =
 // Whether NTP Outlook Calendar module is visible.
 inline constexpr char kNtpOutlookModuleVisible[] =
     "NewTabPage.OutlookModuleVisible";
-// List of promos that the user has dismissed while on the NTP.
-inline constexpr char kNtpPromoBlocklist[] = "ntp.promo_blocklist";
 // Whether the promo is visible.
 inline constexpr char kNtpPromoVisible[] = "ntp.promo_visible";
 // Whether NTP Sharepoint module is visible.

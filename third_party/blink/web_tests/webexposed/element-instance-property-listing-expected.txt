@@ -147,7 +147,6 @@ namespace http://www.w3.org/1999/xhtml
     property getAttributeNodeNS
     property getBoundingClientRect
     property getBoxQuads
-    property getCanvasTransform
     property getClientRects
     property getElementsByClassName
     property getElementsByTagName
@@ -366,7 +365,6 @@ namespace http://www.w3.org/1999/xhtml
     property setAttributeNS
     property setAttributeNode
     property setAttributeNodeNS
-    property setCanvasTransform
     property setHTML
     property setHTMLUnsafe
     property setPointerCapture
@@ -588,6 +586,7 @@ html element camera
 html element canvas
     property captureElementImage
     property captureStream
+    property clearElementGeometry
     property configureHighDynamicRange
     property getContext
     property getElementTransform
@@ -598,6 +597,7 @@ html element canvas
     property toBlob
     property toDataURL
     property transferControlToOffscreen
+    property updateElementGeometry
     property width
 html element caption
     property align
@@ -889,6 +889,7 @@ html element input
     property step
     property stepDown
     property stepUp
+    property switch
     property type
     property useMap
     property validationMessage
@@ -905,7 +906,6 @@ html element ins
     property dateTime
 html element install
     property initialPermissionStatus
-    property installURL
     property invalidReason
     property isValid
     property manifest
@@ -1214,7 +1214,10 @@ html element td
 html element template
     property buffer
     property content
+    property crossOrigin
     property htmlFor
+    property integrity
+    property referrerPolicy
     property sanitize
     property shadowRootAdoptedStyleSheets
     property shadowRootClonable
@@ -1224,6 +1227,7 @@ html element template
     property shadowRootReferenceTarget
     property shadowRootSerializable
     property shadowRootSlotAssignment
+    property src
 html element textarea
     property autocomplete
     property checkValidity
@@ -1535,7 +1539,6 @@ namespace http://www.w3.org/2000/svg
     property getAttributeNodeNS
     property getBoundingClientRect
     property getBoxQuads
-    property getCanvasTransform
     property getClientRects
     property getElementsByClassName
     property getElementsByTagName
@@ -1738,7 +1741,6 @@ namespace http://www.w3.org/2000/svg
     property setAttributeNS
     property setAttributeNode
     property setAttributeNodeNS
-    property setCanvasTransform
     property setHTML
     property setHTMLUnsafe
     property setPointerCapture
@@ -2498,6 +2500,9 @@ svg element textPath
     property TEXTPATH_METHODTYPE_ALIGN
     property TEXTPATH_METHODTYPE_STRETCH
     property TEXTPATH_METHODTYPE_UNKNOWN
+    property TEXTPATH_SIDETYPE_LEFT
+    property TEXTPATH_SIDETYPE_RIGHT
+    property TEXTPATH_SIDETYPE_UNKNOWN
     property TEXTPATH_SPACINGTYPE_AUTO
     property TEXTPATH_SPACINGTYPE_EXACT
     property TEXTPATH_SPACINGTYPE_UNKNOWN
@@ -2519,6 +2524,7 @@ svg element textPath
     property nearestViewportElement
     property requiredExtensions
     property selectSubString
+    property side
     property spacing
     property startOffset
     property systemLanguage

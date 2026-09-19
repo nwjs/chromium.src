@@ -2,4 +2,18 @@ include_rules = [
   "+base",
   "+components/keyed_service/core",
   "+third_party/protobuf",
+  "+services/network/public/cpp",
+  "+services/network/public/mojom",
+  "+net/traffic_annotation",
+  "+net/base/url_util.h",
+  "+components/endpoint_fetcher",
+  "+components/signin/public",
 ]
+
+specific_include_rules = {
+  ".*_unittest\\.cc": [
+    "+services/network/test",
+    "+net/http",
+    "+net/traffic_annotation/network_traffic_annotation_test_helper.h",
+  ],
+}

@@ -43,7 +43,7 @@
 #include "ui/aura/window_tree_host.h"
 #include "ui/base/cursor/cursor.h"
 #include "ui/compositor/compositor.h"
-#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_surface.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/display/types/display_constants.h"
@@ -504,7 +504,8 @@ void SurfaceTreeHost::InitHostWindow(const std::string& window_name) {
   host_window_->Init(ui::LAYER_SURFACE);
   host_window_->set_owned_by_parent(false);
   host_window_->SetTransparent(true);
-  host_window_->layer()->AsSurface()->SetBackgroundColor(SkColors::kWhite);
+  host_window_->layer()->AsSurface()->SetFallbackBackgroundColor(
+      SkColors::kWhite);
 
   // The host window is a container of surface tree. It doesn't handle pointer
   // events.

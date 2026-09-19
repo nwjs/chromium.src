@@ -69,9 +69,12 @@
 #include "chrome/browser/background/extensions/background_mode_manager.h"
 #endif
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_PLATFORM_APPS)
 #include "chrome/browser/apps/platform_apps/chrome_apps_browser_api_provider.h"
 #include "chrome/browser/ui/apps/chrome_app_window_client.h"
+#endif
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "components/storage_monitor/storage_monitor.h"  // nogncheck crbug.com/40147906
 #include "components/storage_monitor/test_storage_monitor.h"  // nogncheck crbug.com/40147906
 #endif
@@ -86,6 +89,7 @@
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/speech/speech_recognition_small_expert_model_installer.h"
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/hid/hid_pinned_notification.h"
 #include "chrome/browser/usb/usb_pinned_notification.h"
@@ -203,6 +207,8 @@ TestingBrowserProcess::~TestingBrowserProcess() {
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   extensions::ExtensionsBrowserClient::Set(nullptr);
+#endif
+#if BUILDFLAG(ENABLE_PLATFORM_APPS)
   extensions::AppWindowClient::Set(nullptr);
 #endif
 
@@ -305,7 +311,7 @@ void TestingBrowserProcess::Init() {
   extensions::ExtensionsBrowserClient::Set(extensions_browser_client_.get());
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_PLATFORM_APPS)
   extensions_browser_client_->AddAPIProvider(
       std::make_unique<chrome_apps::ChromeAppsBrowserAPIProvider>());
   extensions::AppWindowClient::Set(ChromeAppWindowClient::GetInstance());
@@ -813,10 +819,21 @@ void TestingBrowserProcess::SetStatusTray(
 }
 
 #if !BUILDFLAG(IS_ANDROID)
+speech::SpeechRecognitionSmallExpertModelInstaller*
+TestingBrowserProcess::speech_recognition_small_expert_model_installer() {
+  return speech_recognition_small_expert_model_installer_.get();
+}
+
 void TestingBrowserProcess::SetComponentUpdater(
     std::unique_ptr<component_updater::ComponentUpdateService>
         component_updater) {
   component_updater_ = std::move(component_updater);
+}
+
+void TestingBrowserProcess::SetSpeechRecognitionSmallExpertModelInstaller(
+    std::unique_ptr<speech::SpeechRecognitionSmallExpertModelInstaller>
+        installer) {
+  speech_recognition_small_expert_model_installer_ = std::move(installer);
 }
 #endif
 

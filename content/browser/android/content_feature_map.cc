@@ -10,6 +10,7 @@
 #include "content/public/common/content_features.h"
 #include "media/base/media_switches.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "ui/accessibility/accessibility_features.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
@@ -28,6 +29,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &blink::features::kDevicePosture,
     &blink::features::kInputCursorAnchorInfoMigration,
     &blink::features::kViewportSegments,
+    &blink::features::kWebHID,
     &media::kAllowDelayedAudioFocusGainAndroid,
     &media::kAndroidEnableBackgroundMediaCapturing,
     &input::features::kInputOnViz,
@@ -40,6 +42,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kAccessibilityExposeNonAtomicTextFieldChildren,
     &features::kAccessibilityExpandEventMetadata,
     &features::kAccessibilityExtendedSelection,
+    &features::kAccessibilitySyncFocusOnViewFocusGain,
     &features::kAccessibilityImeGetFormattedText,
     &features::kAccessibilityImproveLiveRegionAnnounce,
     &features::kAccessibilityMagnificationFollowsFocusKeyboardAttached,
@@ -59,6 +62,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kAndroidPkAutocorrectUnderline,
     &features::kAndroidPkAutocorrectUnderlineV2,
     &features::kAndroidRemoveSetLocalFocusWorkaroundOnBaklava,
+    &features::kAndroidReplayDelKeyEvent,
     &features::kAndroidBlockMisspellingSuggestionSpanInCompositionMode,
     &features::kAndroidBlockGrammarSuggestionSpanInCompositionMode,
     &features::kEarlyTopAppForSandboxedRenderer,

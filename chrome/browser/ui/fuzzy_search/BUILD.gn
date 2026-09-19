@@ -1,0 +1,38 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+source_set("fuzzy_search") {
+  public = [
+    "fuzzy_finder.h",
+    "fuzzy_search_item.h",
+    "fuzzy_search_properties.h",
+  ]
+
+  sources = [
+    "fuzzy_finder.cc",
+    "fuzzy_search_properties.cc",
+  ]
+
+  public_deps = [
+    "//base",
+    "//ui/base",
+  ]
+
+  deps = [
+    "//base:i18n",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "fuzzy_finder_unittest.cc" ]
+
+  deps = [
+    ":fuzzy_search",
+    "//base",
+    "//base/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}

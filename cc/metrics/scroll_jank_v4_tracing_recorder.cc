@@ -24,6 +24,7 @@ using DamagingFrame = ScrollJankV4Frame::DamagingFrame;
 using NonDamagingFrame = ScrollJankV4Frame::NonDamagingFrame;
 using BeginFrameArgsForScrollJank =
     ScrollJankV4Frame::BeginFrameArgsForScrollJank;
+using VsyncIntervalType = ScrollJankV4Result::VsyncIntervalType;
 
 constexpr char kTracingCategory[] = "cc,benchmark,input,input.scrolling";
 
@@ -45,6 +46,20 @@ ToProtoEnum(JankReason reason) {
     CASE(kMissedVsyncDuringFastScroll, MISSED_VSYNC_DURING_FAST_SCROLL);
     CASE(kMissedVsyncAtStartOfFling, MISSED_VSYNC_AT_START_OF_FLING);
     CASE(kMissedVsyncDuringFling, MISSED_VSYNC_DURING_FLING);
+  }
+#undef CASE
+}
+
+constexpr perfetto::protos::pbzero::EventLatency::ScrollJankV4Result::
+    VsyncIntervalType
+    ToProtoEnum(VsyncIntervalType type) {
+#define CASE(type, proto_type)                                          \
+  case VsyncIntervalType::type:                                         \
+    return perfetto::protos::pbzero::EventLatency::ScrollJankV4Result:: \
+        VsyncIntervalType::proto_type
+  switch (type) {
+    CASE(kCurrentOsProvided, CURRENT_OS_PROVIDED);
+    CASE(kPreviousDeadlineDerived, PREVIOUS_DEADLINE_DERIVED);
   }
 #undef CASE
 }
@@ -102,11 +117,8 @@ void PopulateScrollUpdatesProto(
                     SYNTHETIC_WITHOUT_EXTRAPOLATED_INPUT_GENERATION_TIMESTAMP;
           }},
       result.first_scroll_update));
-  if (updates.scroll_begin_arrival_timestamp().has_value()) {
-    out.set_scroll_begin_arrival_us(updates.scroll_begin_arrival_timestamp()
-                                        ->since_origin()
-                                        .InMicroseconds());
-  }
+  out.set_scroll_begin_arrival_us(
+      updates.scroll_begin_arrival_timestamp().since_origin().InMicroseconds());
 }
 
 void PopulateScrollJankV4ResultProto(
@@ -137,7 +149,8 @@ void PopulateScrollJankV4ResultProto(
           }},
       result.presentation));
 
-  out.set_vsync_interval_us(args.interval.InNanoseconds());
+  out.set_vsync_interval_us(result.vsync_interval.InNanoseconds());
+  out.set_vsync_interval_type(ToProtoEnum(result.vsync_interval_type));
 
   if (result.vsyncs_since_previous_frame.has_value()) {
     out.set_vsyncs_since_previous_frame(*result.vsyncs_since_previous_frame);

@@ -255,6 +255,7 @@ class CONTENT_EXPORT RenderFrameImpl
       blink::mojom::FrameOwnerPropertiesPtr frame_owner_properties,
       bool is_on_initial_empty_document,
       const blink::DocumentToken& document_token,
+      const base::UnguessableToken& initiator_state_token,
       blink::mojom::PolicyContainerPtr policy_container,
       bool is_for_nested_main_frame, bool block_parser);
 
@@ -612,6 +613,9 @@ class CONTENT_EXPORT RenderFrameImpl
       const blink::UseCounterFeature& feature) override;
   void DidObserveSoftNavigation(
       blink::SoftNavigationMetricsForReporting metrics) override;
+  void DidObserveSoftNavigationFirstContentfulPaint(
+      uint64_t performance_timeline_navigation_id,
+      base::TimeDelta first_contentful_paint) override;
   void DidObserveSoftLargestContentfulPaint(
       const blink::LargestContentfulPaintDetailsForReporting& lcp) override;
   void DidObserveLayoutShift(

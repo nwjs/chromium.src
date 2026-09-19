@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <memory>
 
-#include "ash/frame_sink/ui_resource_manager.h"
 #include "ash/rounded_display/rounded_display_frame_factory.h"
 #include "ash/rounded_display/rounded_display_gutter.h"
 #include "components/viz/common/quads/compositor_frame.h"
@@ -22,7 +21,6 @@ RoundedDisplayHost::~RoundedDisplayHost() = default;
 
 std::unique_ptr<viz::CompositorFrame> RoundedDisplayHost::CreateCompositorFrame(
     const viz::BeginFrameAck& begin_frame_ack,
-    UiResourceManager& resource_manager,
     viz::ClientResourceProvider& client_resource_provider,
     cc::ResourcePool& resource_pool,
     bool auto_update,
@@ -32,7 +30,8 @@ std::unique_ptr<viz::CompositorFrame> RoundedDisplayHost::CreateCompositorFrame(
   get_resource_generator_callback_.Run(gutters);
 
   auto frame = frame_factory_->CreateCompositorFrame(
-      begin_frame_ack, *host_window(), resource_manager, gutters);
+      begin_frame_ack, *host_window(), client_resource_provider, resource_pool,
+      gutters);
 
   // A change in the size of the compositor frame means we need to identify a
   // new surface to submit the compositor frame to since the surface size is now

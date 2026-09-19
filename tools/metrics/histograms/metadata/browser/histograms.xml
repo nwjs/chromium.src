@@ -117,6 +117,11 @@ chromium-metrics-reviews@google.com.
 
 <variants name="TabSwitchingType">
   <variant name="" summary="Aggregation of all tab states."/>
+  <variant name=".FrozenState.Loaded_Frozen"
+      summary="Tab is loaded and frozen."/>
+  <variant name=".FrozenState.Loaded_Unfrozen"
+      summary="Tab is loaded and not frozen."/>
+  <variant name=".FrozenState.NotLoaded" summary="Tab is not loaded."/>
   <variant name=".NoSavedFrames_Loaded"
       summary="Tab has no saved frame in the cache but is already loaded."/>
   <variant name=".NoSavedFrames_NotLoaded"
@@ -1949,7 +1954,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="BrowserServices.VerificationTime.Offline" units="ms"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>peconn@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -2173,6 +2178,9 @@ chromium-metrics-reviews@google.com.
     <variant name="Accept" summary="Accept/OK button click action"/>
     <variant name="Cancel" summary="Cancel button click action"/>
     <variant name="Dismiss" summary="Dismissal action"/>
+    <variant name="Ignored"
+        summary="Infobar went away without any user interaction, e.g. on tab
+                 close or navigation expiry"/>
     <variant name="LinkClicked" summary="Link click action"/>
     <variant name="Show" summary="Show/display action"/>
   </token>
@@ -2364,7 +2372,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="{SidePanelType}.ResizedWidth" units="px"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>emshack@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -2401,7 +2409,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="{SidePanelType}.{SidePanelAnimationType}.AnimationFPS"
-    units="fps" expires_after="2026-12-16">
+    units="fps" expires_after="2027-02-14">
   <owner>corising@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -2427,7 +2435,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="{SidePanelType}.{SidePanelEntry}.ResizedWidth" units="px"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>emshack@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -2439,7 +2447,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="{SidePanelType}.{SidePanelEntry}.ResizedWidthPercentage"
-    units="% of window width" expires_after="2026-12-16">
+    units="% of window width" expires_after="2027-02-14">
   <owner>emshack@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>

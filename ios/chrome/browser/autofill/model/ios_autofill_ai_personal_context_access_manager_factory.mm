@@ -10,10 +10,12 @@
 #import "components/personal_context/core/personal_context_eligibility_service.h"
 #import "components/personal_context/core/personal_context_service.h"
 #import "components/subscription_eligibility/subscription_eligibility_service.h"
+#import "ios/chrome/browser/autofill/model/ios_autofill_entity_suppression_manager_factory.h"
 #import "ios/chrome/browser/personal_context/model/ios_personal_context_eligibility_service_factory.h"
 #import "ios/chrome/browser/personal_context/model/ios_personal_context_service_factory.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/subscription_eligibility/model/subscription_eligibility_service_factory.h"
+#import "ios/chrome/browser/sync/model/device_info_sync_service_factory.h"
 
 // static
 autofill::AutofillAiPersonalContextAccessManager*
@@ -39,6 +41,8 @@ IOSAutofillAiPersonalContextAccessManagerFactory::
   DependsOn(IOSPersonalContextEligibilityServiceFactory::GetInstance());
   DependsOn(IOSPersonalContextServiceFactory::GetInstance());
   DependsOn(SubscriptionEligibilityServiceFactory::GetInstance());
+  DependsOn(DeviceInfoSyncServiceFactory::GetInstance());
+  DependsOn(IOSAutofillEntitySuppressionManagerFactory::GetInstance());
 }
 
 IOSAutofillAiPersonalContextAccessManagerFactory::
@@ -67,5 +71,7 @@ IOSAutofillAiPersonalContextAccessManagerFactory::BuildServiceInstanceFor(
 
   return std::make_unique<autofill::AutofillAiPersonalContextAccessManagerImpl>(
       personal_context_service, personal_context_eligibility_service,
-      subscription_eligibility_service, profile->GetPrefs());
+      subscription_eligibility_service, profile->GetPrefs(),
+      DeviceInfoSyncServiceFactory::GetForProfile(profile),
+      IOSAutofillEntitySuppressionManagerFactory::GetForProfile(profile));
 }

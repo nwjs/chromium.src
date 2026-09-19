@@ -6,21 +6,6 @@
 
 namespace client_certificates::features {
 
-BASE_FEATURE(kEnableClientCertificateProvisioningOnAndroid,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsClientCertificateProvisioningOnAndroidEnabled() {
-  return base::FeatureList::IsEnabled(
-      kEnableClientCertificateProvisioningOnAndroid);
-}
-
-BASE_FEATURE(kEnableClientCertificateProvisioningOnIOS,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsClientCertificateProvisioningOnIOSEnabled() {
-  return base::FeatureList::IsEnabled(
-      kEnableClientCertificateProvisioningOnIOS);
-}
 
 BASE_FEATURE(kManagedUserClientCertificateInPrefs,
              base::FEATURE_DISABLED_BY_DEFAULT);

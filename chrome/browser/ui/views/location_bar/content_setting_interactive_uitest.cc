@@ -4,8 +4,9 @@
 
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/content_setting_bubble_contents.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
@@ -27,7 +28,7 @@
 
 namespace {
 
-WebUIToolbarWebView* GetWebUIToolbarWebView(Browser* browser) {
+WebUIToolbarWebView* GetWebUIToolbarWebView(BrowserWindowInterface* browser) {
   return static_cast<ToolbarButtonProvider*>(
              BrowserView::GetBrowserViewForBrowser(browser)->toolbar())
       ->GetWebUIToolbarViewForTesting();
@@ -112,7 +113,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewContentSettingsInteractiveTest,
       InstrumentNonTabWebView(kWebUIToolbarWebViewId, kInstrumentedWebViewId),
       NavigateWebContents(kActiveTabId, GetTestURL()), Do([this]() {
         TriggerContentBlocked(
-            browser()->tab_strip_model()->GetActiveWebContents(),
+            browser()->GetTabStripModel()->GetActiveWebContents(),
             ContentSettingsType::COOKIES);
       }),
       WaitForJsResult(kWebUIToolbarWebViewId,

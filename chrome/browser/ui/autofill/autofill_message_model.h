@@ -12,9 +12,7 @@
 #include "base/types/pass_key.h"
 #include "components/messages/android/message_wrapper.h"
 
-namespace content {
-class WebContents;
-}
+class GURL;
 
 namespace autofill {
 
@@ -43,6 +41,8 @@ class AutofillMessageModel {
     // Used to notify the user that page content will now be processed privately
     // by default.
     kPrivateInferenceNotice = 6,
+    // Used when an email has been automatically confirmed on supported sites.
+    kEmailVerified = 7,
   };
 
   AutofillMessageModel(std::unique_ptr<messages::MessageWrapper> message,
@@ -69,6 +69,9 @@ class AutofillMessageModel {
       base::OnceClosure action_callback,
       messages::MessageWrapper::DismissCallback dismiss_callback,
       base::RepeatingClosure secondary_action_callback);
+  static std::unique_ptr<AutofillMessageModel> CreateForEmailVerified(
+      const GURL& issuer,
+      base::OnceClosure action_callback);
 
   // Converts a message model type to a string for debugging and metrics.
   static std::string_view TypeToString(Type message_type);

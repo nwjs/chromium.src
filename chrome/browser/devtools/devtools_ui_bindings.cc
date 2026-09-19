@@ -822,10 +822,6 @@ std::string DevToolsUIBindings::GetTypeForMetrics() {
   return "DevTools";
 }
 
-bool DevToolsUIBindings::MayAccessAllCookies() {
-  return true;
-}
-
 namespace {
 bool IsAnyAidaPoweredFeatureEnabled() {
   return base::FeatureList::IsEnabled(::features::kDevToolsConsoleInsights) ||
@@ -1312,12 +1308,16 @@ void DevToolsUIBindings::LoadNetworkResource(DispatchCallback callback,
 
   network::ResourceRequest resource_request;
   resource_request.url = gurl;
-  // TODO(caseq): this preserves behavior of URLFetcher-based implementation.
-  // We really need to pass proper first party origin from the front-end.
-  resource_request.site_for_cookies = net::SiteForCookies::FromUrl(gurl);
   resource_request.headers.AddHeadersFromString(headers);
 
   content::WebContents* target_tab = delegate_->GetInspectedWebContents();
+  if (target_tab) {
+    const url::Origin& inspected_origin =
+        target_tab->GetPrimaryMainFrame()->GetLastCommittedOrigin();
+    resource_request.request_initiator = inspected_origin;
+    resource_request.site_for_cookies =
+        net::SiteForCookies::FromOrigin(inspected_origin);
+  }
 
   NetworkResourceLoader::URLLoaderFactoryHolder url_loader_factory;
   if (gurl.SchemeIs("chrome-extension")) {
@@ -1434,6 +1434,9 @@ void DevToolsUIBindings::OpenSearchResultsInNewTab(const std::string& query) {
 void DevToolsUIBindings::ShowItemInFolder(const std::string& file_system_path) {
   CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
         frontend_host_);
+  if (!is_local_frontend_) {
+    return;
+  }
   if (!file_helper_.IsFileInFileSystem(file_system_path)) {
     return;
   }
@@ -1444,6 +1447,10 @@ void DevToolsUIBindings::SaveToFile(const std::string& url,
                                     const std::string& content,
                                     bool save_as,
                                     bool is_base64) {
+  if (!is_local_frontend_) {
+    CanceledFileSaveAs(url);
+    return;
+  }
   file_helper_.Save(
       url, content, save_as, is_base64,
       base::BindOnce(&DevToolsSelectFileDialog::SelectFile, web_contents_,
@@ -1456,6 +1463,9 @@ void DevToolsUIBindings::SaveToFile(const std::string& url,
 
 void DevToolsUIBindings::AppendToFile(const std::string& url,
                                       const std::string& content) {
+  if (!is_local_frontend_) {
+    return;
+  }
   file_helper_.Append(url, content,
                       base::BindOnce(&DevToolsUIBindings::AppendedTo,
                                      weak_factory_.GetWeakPtr(), url));
@@ -1464,6 +1474,12 @@ void DevToolsUIBindings::AppendToFile(const std::string& url,
 void DevToolsUIBindings::RequestFileSystems() {
   //CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
   //      frontend_host_);
+  if (!is_local_frontend_) {
+    base::ListValue empty_file_systems_value;
+    CallClientMethod("DevToolsAPI", "fileSystemsLoaded",
+                     base::Value(std::move(empty_file_systems_value)));
+    return;
+  }
   base::ListValue file_systems_value;
   for (auto const& file_system : file_helper_.GetFileSystems()) {
     file_systems_value.Append(CreateFileSystemValue(file_system));
@@ -1475,6 +1491,10 @@ void DevToolsUIBindings::RequestFileSystems() {
 void DevToolsUIBindings::AddFileSystem(const std::string& type) {
   //CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
   //      frontend_host_);
+  if (!is_local_frontend_) {
+    FileSystemAdded("Restricted to local DevTools", nullptr);
+    return;
+  }
   file_helper_.AddFileSystem(
       type,
       base::BindOnce(&DevToolsSelectFileDialog::SelectFile, web_contents_,
@@ -1486,6 +1506,9 @@ void DevToolsUIBindings::AddFileSystem(const std::string& type) {
 void DevToolsUIBindings::RemoveFileSystem(const std::string& file_system_path) {
   //CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
   //frontend_host_);
+  if (!is_local_frontend_) {
+    return;
+  }
   file_helper_.RemoveFileSystem(file_system_path);
 }
 
@@ -1493,6 +1516,9 @@ void DevToolsUIBindings::UpgradeDraggedFileSystemPermissions(
     const std::string& file_system_url) {
   //CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
   //      frontend_host_);
+  if (!is_local_frontend_) {
+    return;
+  }
   file_helper_.UpgradeDraggedFileSystemPermissions(
       file_system_url,
       base::BindRepeating(&DevToolsUIBindings::HandleDirectoryPermissions,
@@ -1507,6 +1533,10 @@ void DevToolsUIBindings::ConnectAutomaticFileSystem(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
         frontend_host_);
+  if (!is_local_frontend_) {
+    ConnectAutomaticFileSystemDone(std::move(callback), false);
+    return;
+  }
   // Ensure that the |file_system_uuid| is indeed a valid UUID.
   base::Uuid uuid = base::Uuid::ParseCaseInsensitive(file_system_uuid);
   if (!uuid.is_valid()) {
@@ -1538,6 +1568,9 @@ void DevToolsUIBindings::DisconnectAutomaticFileSystem(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
         frontend_host_);
+  if (!is_local_frontend_) {
+    return;
+  }
   file_helper_.DisconnectAutomaticFileSystem(file_system_path);
 }
 
@@ -1548,6 +1581,10 @@ void DevToolsUIBindings::IndexPath(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   //CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
   //      frontend_host_);
+  if (!is_local_frontend_) {
+    IndexingDone(index_request_id, file_system_path);
+    return;
+  }
   if (!file_helper_.IsFileSystemAdded(file_system_path)) {
     IndexingDone(index_request_id, file_system_path);
     return;
@@ -1597,6 +1634,11 @@ void DevToolsUIBindings::SearchInPath(int search_request_id,
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   //CHECK(IsValidFrontendURL(web_contents_->GetLastCommittedURL()) &&
   //      frontend_host_);
+  if (!is_local_frontend_) {
+    SearchCompleted(search_request_id, file_system_path,
+                    std::vector<std::string>());
+    return;
+  }
   if (!file_helper_.IsFileSystemAdded(file_system_path)) {
     SearchCompleted(search_request_id, file_system_path,
                     std::vector<std::string>());
@@ -1638,6 +1680,9 @@ void DevToolsUIBindings::SetDevicesDiscoveryConfig(
     const std::string& port_forwarding_config,
     bool network_discovery_enabled,
     const std::string& network_discovery_config) {
+  if (!is_local_frontend_) {
+    return;
+  }
   std::optional<base::DictValue> parsed_port_forwarding =
       base::JSONReader::ReadDict(port_forwarding_config,
                                  base::JSON_PARSE_CHROMIUM_EXTENSIONS);
@@ -1698,6 +1743,9 @@ void DevToolsUIBindings::SendPortForwardingStatus(base::Value status) {
 }
 
 void DevToolsUIBindings::SetDevicesUpdatesEnabled(bool enabled) {
+  if (!is_local_frontend_ && enabled) {
+    return;
+  }
 #if BUILDFLAG(IS_ANDROID)
   NOTIMPLEMENTED();
 #else
@@ -1747,6 +1795,9 @@ void DevToolsUIBindings::SetDevicesUpdatesEnabled(bool enabled) {
 
 void DevToolsUIBindings::OpenRemotePage(const std::string& browser_id,
                                         const std::string& url) {
+  if (!is_local_frontend_) {
+    return;
+  }
   if (!remote_targets_handler_) {
     return;
   }
@@ -1754,6 +1805,9 @@ void DevToolsUIBindings::OpenRemotePage(const std::string& browser_id,
 }
 
 void DevToolsUIBindings::OpenNodeFrontend() {
+  if (!is_local_frontend_) {
+    return;
+  }
   delegate_->OpenNodeFrontend();
 }
 
@@ -2470,10 +2524,16 @@ void DevToolsUIBindings::SetChromeFlagInternal(Profile* profile,
 
 void DevToolsUIBindings::SetChromeFlag(const std::string& flag_name,
                                        bool value) {
+  if (!is_local_frontend_) {
+    return;
+  }
   SetChromeFlagInternal(profile_, flag_name, value);
 }
 
 void DevToolsUIBindings::RequestRestart() {
+  if (!is_local_frontend_) {
+    return;
+  }
   chrome::AttemptRestart();
 }
 
@@ -3135,9 +3195,13 @@ void DevToolsUIBindings::ReadyToCommitNavigation(
     if (frontend_host_) {
       return;
     }
-    if (content::RenderFrameHost* opener = web_contents_->GetOpener()) {
+    // If the window was opened by another window, ensure the root opener in
+    // the live opener chain is a DevTools WebContents with active DevTools
+    // frontend bindings. This also covers cases where `window.opener` was
+    // severed (e.g. via `window.opener = null` or `rel="noopener"`).
+    if (web_contents_->HasLiveOriginalOpenerChain()) {
       content::WebContents* opener_wc =
-          content::WebContents::FromRenderFrameHost(opener);
+          web_contents_->GetFirstWebContentsInLiveOriginalOpenerChain();
       DevToolsUIBindings* opener_bindings =
           opener_wc ? DevToolsUIBindings::ForWebContents(opener_wc) : nullptr;
       if (!opener_bindings || !opener_bindings->frontend_host_) {
@@ -3177,6 +3241,9 @@ void DevToolsUIBindings::PrimaryPageChanged() {
   frontend_loaded_ = false;
   is_local_frontend_ =
       IsLocalDevToolsFrontendURL(web_contents_->GetLastCommittedURL());
+  if (!is_local_frontend_) {
+    SetDevicesUpdatesEnabled(false);
+  }
 }
 
 void DevToolsUIBindings::FrontendLoaded() {

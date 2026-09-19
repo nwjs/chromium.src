@@ -313,7 +313,7 @@ public class AutofillAndPasswordsFragment extends ChromeBaseSettingsFragment {
 
     private void updateSignInPromo() {
         SigninPromoPreference promoPreference = findPreference(PREF_SIGNIN_PROMO);
-        // TODO(crbug.com/542166217): Remove the sign-in promo.
+
         // The sign-in promo is not shown when the user enters the settings page via search due to
         // async update of the screen, which would lead to incorrect highlighting.
         if (mReferrer != AutofillSettingsReferrer.SETTINGS_SEARCH
@@ -407,8 +407,6 @@ public class AutofillAndPasswordsFragment extends ChromeBaseSettingsFragment {
                         indexData.removeEntry(getUniqueId(PREF_AUTOFILL_SHOPPING));
                         indexData.removeEntry(getUniqueId(PREF_AUTOFILL_PERSONAL_CONTEXT));
                     } else {
-                        // TODO(crbug.com/440022435): Remove the PREF_AUTOFILL_SETTINGS index update
-                        // once Autofill AI is launched.
                         String autofillSettingsEntryId = getUniqueId(PREF_AUTOFILL_SETTINGS);
                         SettingsIndexData.Entry autofillSettingsEntry =
                                 indexData.getEntry(autofillSettingsEntryId);
@@ -416,9 +414,16 @@ public class AutofillAndPasswordsFragment extends ChromeBaseSettingsFragment {
                             indexData.updateEntry(
                                     autofillSettingsEntryId,
                                     new SettingsIndexData.Entry.Builder(autofillSettingsEntry)
+                                            // TODO(crbug.com/440022435): Remove the title update
+                                            // once Autofill AI is launched.
                                             .setTitle(
                                                     AutofillOptionsMediator.getFragmentTitle(
                                                             context))
+                                            .setFragment(AutofillOptionsFragment.class.getName())
+                                            .setArguments(
+                                                    AutofillOptionsFragment.createRequiredArgs(
+                                                            AutofillOptionsReferrer
+                                                                    .SETTINGS_SEARCH))
                                             .build());
                         }
 

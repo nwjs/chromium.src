@@ -31,7 +31,6 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.FakeTimeTestRule;
 import org.chromium.base.JniOnceCallback;
@@ -83,7 +82,6 @@ import java.util.concurrent.TimeUnit;
 
 /** Unit tests for {@link RecentlyClosedEntriesManager}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class RecentlyClosedEntriesManagerUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Rule public FakeTimeTestRule mFakeTimeTestRule = new FakeTimeTestRule();
@@ -1197,8 +1195,8 @@ public class RecentlyClosedEntriesManagerUnitTest {
     }
 
     /**
-     * Creates a list of synthetic {@Link InstanceInfo} objects that will be used to created as
-     * {@Code RecentlyClosedWindow} for testing purpose.
+     * Creates a list of synthetic {@link InstanceInfo} objects that will be used to created as
+     * {@code RecentlyClosedWindow} for testing purpose.
      *
      * <p>The instances are assigned mock instance IDs and timestamps, which are incremented by 2
      * for each subsequent entry. The entries are added to the list in descending chronological

@@ -50,6 +50,8 @@ import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager.ScrimClient;
 import org.chromium.components.metrics.OmniboxEventProtosIntDef.PageClassification;
 import org.chromium.components.omnibox.AutocompleteInput;
+import org.chromium.components.omnibox.AutocompleteInput.AutocompleteState;
+import org.chromium.components.omnibox.AutocompleteInput.DisplayState;
 import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.search_engines.TemplateUrlService;
@@ -120,8 +122,6 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
                     ObservableSuppliers.createNonNull(FuseboxLayoutMode.TOOLBAR);
     private final SettableNonNullObservableSupplier<@PopupState Integer> mPopupStateSupplier =
             ObservableSuppliers.createNonNull(PopupState.HIDDEN);
-    private final SettableNonNullObservableSupplier<Boolean> mActivationChipVisibilitySupplier =
-            ObservableSuppliers.createNonNull(false);
     private final SettableNonNullObservableSupplier<Boolean> mHasAttachmentsSupplier =
             ObservableSuppliers.createNonNull(false);
     private final SnackbarManager mSnackbarManager;
@@ -138,11 +138,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
     private boolean mDestroyed;
     private @Nullable Callback<Boolean> mOnInteractionCompletedCallback;
     private @Nullable Runnable mOnFirstPickerInteractionCanceledCallback;
-    private final Runnable mOnActivationChipClickedWithQuery;
-    private final Runnable mClearUrlBarTextCallback;
-    private final Supplier<String> mUrlBarTextSupplier;
     private final boolean mIsForcedPhoneStyleOmnibox;
-    private final NonNullObservableSupplier<Boolean> mWindowHasFocusSupplier;
     private final OmniboxResourceProvider mResourceProvider;
 
     /**
@@ -157,11 +153,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
      * @param snackbarManager The snackbar manager to show messages.
      * @param scrimAnchorViewSupplier Supplier for the view to anchor the scrim to.
      * @param backPressManager The back press manager to register the back press handler.
-     * @param onActivationChipClickedWithQuery Runnable for activation chip when there is a query.
-     * @param clearUrlBarTextRunnable Callback to clear the URL bar text.
-     * @param urlBarTextSupplier Supplier for the current URL bar text
      * @param isForcedPhoneStyleOmnibox Whether to force phone-style Omnibox layout.
-     * @param windowHasFocusSupplier Supplier for whether the window currently has focus.
      */
     public FuseboxCoordinator(
             Context context,
@@ -173,11 +165,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
             SnackbarManager snackbarManager,
             Supplier<@Nullable View> scrimAnchorViewSupplier,
             BackPressManager backPressManager,
-            Runnable onActivationChipClickedWithQuery,
-            Runnable clearUrlBarTextRunnable,
-            Supplier<String> urlBarTextSupplier,
-            boolean isForcedPhoneStyleOmnibox,
-            NonNullObservableSupplier<Boolean> windowHasFocusSupplier) {
+            boolean isForcedPhoneStyleOmnibox) {
         mActivity = assumeNonNull(ContextUtils.activityFromContext(context));
         mWindowAndroid = windowAndroid;
         mParent = parent;
@@ -191,10 +179,6 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
         mIsForcedPhoneStyleOmnibox = isForcedPhoneStyleOmnibox;
         mFuseboxLayoutModeSupplier.set(getFuseboxLayoutMode());
         mBackPressManager = backPressManager;
-        mOnActivationChipClickedWithQuery = onActivationChipClickedWithQuery;
-        mClearUrlBarTextCallback = clearUrlBarTextRunnable;
-        mUrlBarTextSupplier = urlBarTextSupplier;
-        mWindowHasFocusSupplier = windowHasFocusSupplier;
 
         if (!OmniboxFeatures.isMultimodalInputEnabled(context)
                 || parent.findViewById(R.id.fusebox_request_type) == null) {
@@ -309,12 +293,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
                         mScrimAnchorViewSupplier,
                         mBackPressManager,
                         mOnFirstPickerInteractionCanceledCallback,
-                        mActivationChipVisibilitySupplier,
-                        mOnActivationChipClickedWithQuery,
-                        mClearUrlBarTextCallback,
-                        mUrlBarTextSupplier,
-                        mHasAttachmentsSupplier,
-                        mWindowHasFocusSupplier);
+                        mHasAttachmentsSupplier);
         if (mLastBrandedColorScheme != null) {
             mMediator.updateVisualsForState(mLastBrandedColorScheme);
         }
@@ -402,7 +381,10 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
                 // created here. So, we do this initial assignment to ensure that these UI
                 // components don't show any bad intermediate states in the meantime.
                 mFuseboxStateSupplier.set(
-                        session.getAutocompleteInput().isStandby()
+                        session.getAutocompleteInput().getAutocompleteState()
+                                                == AutocompleteState.STANDBY_NO_FOCUS
+                                        || session.getAutocompleteInput().getDisplayState()
+                                                == DisplayState.DRAFTING_NO_FOCUS
                                 ? FuseboxState.DISABLED
                                 : FuseboxState.COMPACT);
                 ensureDeferredInitialized();
@@ -428,28 +410,6 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
         mInput = null;
         mMetrics = null;
         mPendingSession = null;
-    }
-
-    /** Returns a supplier that is notified of visibility changes of the activation chip. */
-    public NonNullObservableSupplier<Boolean> getActivationChipVisibilitySupplier() {
-        return mActivationChipVisibilitySupplier;
-    }
-
-    /** Signal that the keyboard selection state of the activation chip has changed. */
-    public void onActivationChipSelectionChanged(boolean selected) {
-        if (mMediator == null) return;
-        mMediator.onActivationChipSelectionChanged(selected);
-    }
-
-    /**
-     * Signal that the activation chip has been activated in a way that should trigger a click, e.g.
-     * pressing enter while selected.
-     */
-    public void onActivationChipClicked() {
-        if (mMediator == null || mModel == null) {
-            return;
-        }
-        mModel.get(FuseboxProperties.ACTIVATION_CHIP_CLICKED).run();
     }
 
     /**

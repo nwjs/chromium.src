@@ -24,7 +24,6 @@
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -388,10 +387,10 @@ void AccountsPolicyManager::RemoveUnallowedAccounts() {
   auto* accounts_mutator = identity_manager->GetAccountsMutator();
   for (const auto& account : accounts) {
     if (!signin_util::IsAccountExemptedFromEnterpriseProfileSeparation(
-            profile_, account.email) &&
-        account.account_id != primary_account_id) {
+            profile_, account.GetEmail()) &&
+        account.GetAccountId() != primary_account_id) {
       accounts_mutator->RemoveAccount(
-          account.account_id,
+          account.GetAccountId(),
           signin_metrics::SourceForRefreshTokenOperation::
               kEnterprisePolicy_AccountNotAllowedInContentArea);
     }

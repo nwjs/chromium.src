@@ -17,6 +17,7 @@ import 'chrome://resources/cr_elements/cr_shared_style.css.js';
 import '/shared/settings/prefs/prefs.js';
 import 'chrome://resources/cr_elements/icons.html.js';
 import '../icons.html.js';
+import '../privacy_icons.html.js';
 import '../settings_shared.css.js';
 import '../simple_confirmation_dialog.js';
 import './autofill_ai_add_or_edit_dialog.js';
@@ -480,10 +481,14 @@ export class SettingsAutofillAiEntriesListElement extends
         return 'privacy20:person-check';
       case EntityTypeName.kNationalIdCard:
         return 'settings20:id-card';
+      case EntityTypeName.kOrder:
+        return 'settings20:orders';
       case EntityTypeName.kPassport:
         return 'settings20:passport';
       case EntityTypeName.kRedressNumber:
         return 'privacy20:person-check';
+      case EntityTypeName.kShipment:
+        return 'settings20:local-shipping';
       case EntityTypeName.kVehicle:
         return 'settings20:directions-car';
       default:

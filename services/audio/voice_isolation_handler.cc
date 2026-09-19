@@ -8,6 +8,7 @@
 
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
+#include "base/trace_event/trace_event.h"
 #include "media/base/audio_bus.h"
 #include "media/webrtc/ml_model_handle.h"
 #include "media/webrtc/voice_isolation/voice_isolation.h"
@@ -29,6 +30,20 @@ VoiceIsolationHandler::VoiceIsolationHandler(
   CHECK(output_bus_);
 }
 
+VoiceIsolationHandler::VoiceIsolationHandler(
+    std::unique_ptr<media::VoiceIsolation> voice_isolation,
+    const media::AudioParameters& output_params,
+    DeliverProcessedAudioCallback deliver_processed_audio_callback)
+    : model_handle_(nullptr),
+      voice_isolation_(std::move(voice_isolation)),
+      deliver_processed_audio_callback_(
+          std::move(deliver_processed_audio_callback)),
+      output_bus_(media::AudioBus::Create(output_params)) {
+  CHECK(!deliver_processed_audio_callback_.is_null());
+  CHECK(output_bus_);
+  CHECK(voice_isolation_);
+}
+
 VoiceIsolationHandler::~VoiceIsolationHandler() = default;
 
 void VoiceIsolationHandler::ProcessCapturedAudio(
@@ -36,11 +51,31 @@ void VoiceIsolationHandler::ProcessCapturedAudio(
     base::TimeTicks audio_capture_time,
     std::optional<double> volume,
     const media::AudioGlitchInfo& audio_glitch_info) {
+  TRACE_EVENT("audio", "VoiceIsolationHandler::ProcessCapturedAudio");
+  if (IsVoiceIsolationBypassed()) {
+    deliver_processed_audio_callback_.Run(audio_source, audio_capture_time,
+                                          volume, audio_glitch_info);
+    return;
+  }
   DCHECK_EQ(output_bus_->channels(), audio_source.channels());
   DCHECK_EQ(output_bus_->frames(), audio_source.frames());
   voice_isolation_->ProcessAudio(audio_source, *output_bus_);
   deliver_processed_audio_callback_.Run(*output_bus_, audio_capture_time,
                                         volume, audio_glitch_info);
+}
+
+void VoiceIsolationHandler::SetVoiceIsolation(bool enabled) {
+  // TODO(crbug.com/544689562): Disabling/bypassing voice isolation leaves
+  // stranded audio inside the internal lookahead buffers or FIFOs. When
+  // re-enabled, this stale audio can be delivered belatedly alongside new
+  // audio, yielding audible glitches or echoes. We must reset or flush the
+  // internal state of media::VoiceIsolation when voice isolation is re-enabled
+  // or bypassed.
+  bypass_voice_isolation_.store(!enabled, std::memory_order_release);
+}
+
+bool VoiceIsolationHandler::IsVoiceIsolationBypassed() const {
+  return bypass_voice_isolation_.load(std::memory_order_acquire);
 }
 
 std::unique_ptr<VoiceIsolationHandler> VoiceIsolationHandler::MaybeCreate(
@@ -57,6 +92,15 @@ std::unique_ptr<VoiceIsolationHandler> VoiceIsolationHandler::MaybeCreate(
 
   return base::WrapUnique(
       new VoiceIsolationHandler(std::move(model_handle), output_params,
+                                std::move(deliver_processed_audio_callback)));
+}
+
+std::unique_ptr<VoiceIsolationHandler> VoiceIsolationHandler::CreateForTesting(
+    std::unique_ptr<media::VoiceIsolation> voice_isolation,
+    const media::AudioParameters& output_params,
+    DeliverProcessedAudioCallback deliver_processed_audio_callback) {
+  return base::WrapUnique(
+      new VoiceIsolationHandler(std::move(voice_isolation), output_params,
                                 std::move(deliver_processed_audio_callback)));
 }
 }  // namespace audio

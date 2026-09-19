@@ -428,7 +428,6 @@ Response StorageHandler::Disable() {
   cache_storage_observer_.reset();
   indexed_db_observer_.reset();
   quota_override_handle_.reset();
-  SetSharedStorageTracking(false);
   quota_manager_observer_.reset();
   return Response::Success();
 }
@@ -489,11 +488,6 @@ void StorageHandler::SetCookies(
           std::move(callback)));
 }
 
-bool StorageHandler::CanAccessCookie(const net::CanonicalCookie& cookie) const {
-  return NetworkHandler::CanAccessCookie(
-      CHECK_DEREF(client_.get()), frame_host_ && frame_host_->web_ui(), cookie);
-}
-
 void StorageHandler::ClearCookies(
     std::optional<std::string> browser_context_id,
     std::unique_ptr<ClearCookiesCallback> callback) {
@@ -505,15 +499,10 @@ void StorageHandler::ClearCookies(
     return;
   }
 
-  NetworkHandler::ClearCookies(
-      storage_partition, CHECK_DEREF(client_.get()),
-      base::BindRepeating(
-          [](base::WeakPtr<StorageHandler> handler,
-             const net::CanonicalCookie& cookie) {
-            return handler && handler->CanAccessCookie(cookie);
-          },
-          weak_ptr_factory_.GetWeakPtr()),
-      base::BindOnce(&ClearCookiesCallback::sendSuccess, std::move(callback)));
+  storage_partition->GetCookieManagerForBrowserProcess()->DeleteCookies(
+      network::mojom::CookieDeletionFilter::New(),
+      base::IgnoreArgs<uint32_t>(base::BindOnce(
+          &ClearCookiesCallback::sendSuccess, std::move(callback))));
 }
 
 Response StorageHandler::GetStorageKeyForFrameInternal(
@@ -618,9 +607,6 @@ uint32_t GetRemoveDataMask(const std::string& storage_types) {
   }
   if (set.contains(Storage::StorageTypeEnum::Cache_storage)) {
     remove_mask |= StoragePartition::REMOVE_DATA_MASK_CACHE_STORAGE;
-  }
-  if (set.contains(Storage::StorageTypeEnum::Shared_storage)) {
-    remove_mask |= StoragePartition::REMOVE_DATA_MASK_SHARED_STORAGE;
   }
   if (set.contains(Storage::StorageTypeEnum::All)) {
     remove_mask |= StoragePartition::REMOVE_DATA_MASK_ALL;
@@ -1026,49 +1012,6 @@ void StorageHandler::ClearTrustTokens(
       base::BindOnce(&SendClearTrustTokensStatus, std::move(callback)));
 }
 
-void StorageHandler::GetSharedStorageMetadata(
-    const std::string& owner_origin_string,
-    std::unique_ptr<GetSharedStorageMetadataCallback> callback) {
-  callback->sendFailure(Response::ServerError("Shared storage is disabled."));
-}
-
-void StorageHandler::GetSharedStorageEntries(
-    const std::string& owner_origin_string,
-    std::unique_ptr<GetSharedStorageEntriesCallback> callback) {
-  callback->sendFailure(Response::ServerError("Shared storage is disabled."));
-}
-
-void StorageHandler::SetSharedStorageEntry(
-    const std::string& owner_origin_string,
-    const std::string& key,
-    const std::string& value,
-    std::optional<bool> ignore_if_present,
-    std::unique_ptr<SetSharedStorageEntryCallback> callback) {
-  callback->sendFailure(Response::ServerError("Shared storage is disabled."));
-}
-
-void StorageHandler::DeleteSharedStorageEntry(
-    const std::string& owner_origin_string,
-    const std::string& key,
-    std::unique_ptr<DeleteSharedStorageEntryCallback> callback) {
-  callback->sendFailure(Response::ServerError("Shared storage is disabled."));
-}
-
-void StorageHandler::ClearSharedStorageEntries(
-    const std::string& owner_origin_string,
-    std::unique_ptr<ClearSharedStorageEntriesCallback> callback) {
-  callback->sendFailure(Response::ServerError("Shared storage is disabled."));
-}
-
-Response StorageHandler::SetSharedStorageTracking(bool enable) {
-  return Response::ServerError("Shared storage is disabled.");
-}
-
-void StorageHandler::ResetSharedStorageBudget(
-    const std::string& owner_origin_string,
-    std::unique_ptr<ResetSharedStorageBudgetCallback> callback) {
-  callback->sendFailure(Response::ServerError("Shared storage is disabled."));
-}
 
 
 

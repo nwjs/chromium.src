@@ -60,6 +60,7 @@
 #include "third_party/blink/renderer/core/inspector/devtools_agent.h"
 #include "third_party/blink/renderer/core/inspector/devtools_session.h"
 #include "third_party/blink/renderer/core/inspector/inspected_frames.h"
+#include "third_party/blink/renderer/core/inspector/inspector_ads_agent.h"
 #include "third_party/blink/renderer/core/inspector/inspector_animation_agent.h"
 #include "third_party/blink/renderer/core/inspector/inspector_audits_agent.h"
 #include "third_party/blink/renderer/core/inspector/inspector_crash_report_context_agent.h"
@@ -364,7 +365,7 @@ void WebDevToolsAgentImpl::AttachSession(DevToolsSession* session,
     session->CreateAndAppend<InspectorWebMCPAgent>(inspected_frames);
   }
 
-  auto* page_agent = session->CreateAndAppend<InspectorPageAgent>(
+  session->CreateAndAppend<InspectorPageAgent>(
       inspected_frames, this, resource_content_loader_.Get(),
       session->script_to_evaluate_on_load(), session->InjectedScriptManager());
 
@@ -382,6 +383,8 @@ void WebDevToolsAgentImpl::AttachSession(DevToolsSession* session,
       network_agent,
       &inspected_frames->Root()->GetPage()->GetInspectorIssueStorage(),
       inspected_frames, web_local_frame_impl_->AutofillClient());
+
+  session->CreateAndAppend<InspectorAdsAgent>(inspected_frames);
 
   session->CreateAndAppend<InspectorMediaAgent>(
       inspected_frames, /*worker_global_scope=*/nullptr);
@@ -410,7 +413,6 @@ void WebDevToolsAgentImpl::AttachSession(DevToolsSession* session,
   }
 
   network_agents_.insert(session, network_agent);
-  page_agents_.insert(session, page_agent);
   overlay_agents_.insert(session, overlay_agent);
 }
 
@@ -443,7 +445,6 @@ WebDevToolsAgentImpl::~WebDevToolsAgentImpl() {}
 void WebDevToolsAgentImpl::Trace(Visitor* visitor) const {
   visitor->Trace(agent_);
   visitor->Trace(network_agents_);
-  visitor->Trace(page_agents_);
   visitor->Trace(overlay_agents_);
   visitor->Trace(web_local_frame_impl_);
   visitor->Trace(probe_sink_);
@@ -470,7 +471,6 @@ void WebDevToolsAgentImpl::BindReceiver(
 
 void WebDevToolsAgentImpl::DetachSession(DevToolsSession* session) {
   network_agents_.erase(session);
-  page_agents_.erase(session);
   overlay_agents_.erase(session);
   if (!network_agents_.size()) {
     Thread::Current()->RemoveTaskObserver(this);
@@ -534,14 +534,6 @@ void WebDevToolsAgentImpl::DebuggerTaskFinished() {
 void WebDevToolsAgentImpl::DidCommitLoadForLocalFrame(LocalFrame* frame) {
   resource_container_->DidCommitLoadForLocalFrame(frame);
   resource_content_loader_->DidCommitLoadForLocalFrame(frame);
-}
-
-bool WebDevToolsAgentImpl::ScreencastEnabled() {
-  for (auto& it : page_agents_) {
-    if (it.value->ScreencastEnabled())
-      return true;
-  }
-  return false;
 }
 
 void WebDevToolsAgentImpl::PageLayoutInvalidated(bool resized) {

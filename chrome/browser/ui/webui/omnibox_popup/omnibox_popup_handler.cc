@@ -4,20 +4,35 @@
 
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_handler.h"
 
+#include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/escape.h"
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/trace_event/trace_event.h"
+#include "build/branding_buildflags.h"
+#include "build/buildflag.h"
+#include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/history_clusters/history_clusters_tab_helper.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/omnibox/chrome_omnibox_client.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "components/omnibox/browser/omnibox_popup_selection.h"
+#include "components/search/search.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_service.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_context.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/models/menu_model.h"
+#include "ui/base/ui_base_features.h"
 
 namespace {
 
@@ -37,7 +52,14 @@ OmniboxPopupHandler::OmniboxPopupHandler(
     : receiver_(this, std::move(receiver)),
       page_(std::move(page)),
       web_contents_(web_contents),
-      controller_(controller) {}
+      controller_(controller) {
+  if (controller_ && controller_->client()) {
+    if (auto* turl_service = controller_->client()->GetTemplateURLService()) {
+      template_url_service_observation_.Observe(turl_service);
+    }
+  }
+  NotifyDefaultSearchProviderChanged();
+}
 
 OmniboxPopupHandler::~OmniboxPopupHandler() = default;
 
@@ -47,20 +69,19 @@ void OmniboxPopupHandler::ShowContextMenu(const gfx::Point& point) {
   }
 }
 
+// TODO(crbug.com/553005514): Add traces for popup dismissal (CloseUI/Hide) and
+// in-flight query cancellation when the Omnibox is closed rapidly or queries
+// arrive from inactive tabs.
 void OmniboxPopupHandler::CloseUI() {
   if (embedder_) {
+    // NOTE: `embedder_->CloseUI()` transitions the popup state to `kNone`,
+    // which prompts `LocationBarView::OnPopupStateChanged()` to centrally clear
+    // Views focus and notify the edit model via `OnKillFocus()`.
     embedder_->CloseUI();
   }
-  // Transfer focus from the location bar to the active web tab DOM and notify
-  // the edit model that focus was killed so internal focus state and metrics
-  // trackers are updated.
-  if (controller_) {
-    if (controller_->client()) {
-      controller_->client()->FocusWebContents();
-    }
-    if (controller_->edit_model()) {
-      controller_->edit_model()->OnKillFocus();
-    }
+  // Return keyboard focus to the active webpage.
+  if (controller_ && controller_->client()) {
+    controller_->client()->FocusWebContents();
   }
 }
 
@@ -166,6 +187,7 @@ void OmniboxPopupHandler::OnPaste(const std::string& text,
 }
 
 void OmniboxPopupHandler::RequestInputState() {
+  NotifyDefaultSearchProviderChanged();
   auto* edit_model = controller_ ? controller_->edit_model() : nullptr;
   auto* popup_view = edit_model ? edit_model->popup_view() : nullptr;
   if (popup_view) {
@@ -195,6 +217,10 @@ void OmniboxPopupHandler::SetInputState(
   show_full_url_ = show_full_url;
   current_sequence_number_++;
 
+  TRACE_EVENT2("omnibox", "OmniboxPopupHandler::SetInputState",
+               "sequence_number", current_sequence_number_, "is_focused",
+               is_focused);
+
   auto state = omnibox_popup::mojom::OmniboxInputState::New();
   state->sequence_number = current_sequence_number_;
   state->text = text;
@@ -206,11 +232,22 @@ void OmniboxPopupHandler::SetInputState(
   state->show_full_url = show_full_url;
   state->query_zps = query_zps;
   state->keyword_model = std::move(keyword_model);
+  // Extract active tab ID if in a Chrome browser window context.
+  if (controller_ && controller_->client()->IsChromeOmniboxClient()) {
+    auto* chrome_client =
+        static_cast<ChromeOmniboxClient*>(controller_->client());
+    auto* browser = chrome_client->browser();
+    auto* tab_strip = browser ? browser->GetTabStripModel() : nullptr;
+    auto* tab = tab_strip ? tab_strip->GetActiveTab() : nullptr;
+    if (tab) {
+      state->tab_id = tab->GetHandle().raw_value();
+    }
+  }
   page_->SetInputState(std::move(state));
 }
 
-void OmniboxPopupHandler::SetFocus(bool is_focused) {
-  page_->SetFocus(is_focused);
+void OmniboxPopupHandler::SetFocus(bool is_focused, bool query_zps) {
+  page_->SetFocus(is_focused, query_zps);
 }
 
 void OmniboxPopupHandler::ClearAutocompleteMatches() {
@@ -219,6 +256,50 @@ void OmniboxPopupHandler::ClearAutocompleteMatches() {
 
 void OmniboxPopupHandler::ClearPopup(base::OnceClosure callback) {
   page_->ClearPopup(std::move(callback));
+}
+
+void OmniboxPopupHandler::OnTemplateURLServiceChanged() {
+  NotifyDefaultSearchProviderChanged();
+}
+
+void OmniboxPopupHandler::OnTemplateURLServiceShuttingDown() {
+  template_url_service_observation_.Reset();
+}
+
+std::string GetDefaultSearchProviderIcon(
+    const TemplateURLService* template_url_service) {
+  std::string default_icon_path =
+      features::IsRoundedIconsEnabled()
+          ? "//resources/cr_components/searchbox/icons/search_cr23.svg"
+          : "//resources/cr_components/searchbox/icons/search_cr23_old.svg";
+  if (template_url_service) {
+    bool is_google = false;
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+    is_google = search::DefaultSearchProviderIsGoogle(template_url_service);
+#endif
+    if (is_google) {
+      default_icon_path =
+          "//resources/cr_components/searchbox/icons/google_g_gradient.svg";
+    } else if (const auto* default_provider =
+                   template_url_service->GetDefaultSearchProvider();
+               default_provider &&
+               !default_provider->favicon_url().is_empty()) {
+      default_icon_path = base::StrCat(
+          {"chrome://favicon2/?iconUrl=",
+           base::EscapeQueryParamValue(default_provider->favicon_url().spec(),
+                                       /*use_plus=*/false),
+           "&size=16&scaleFactor=1x&forceEmptyDefaultFavicon=1"});
+    }
+  }
+  return default_icon_path;
+}
+
+void OmniboxPopupHandler::NotifyDefaultSearchProviderChanged() {
+  if (!page_.is_bound()) {
+    return;
+  }
+  page_->SetDefaultSearchProvider(GetDefaultSearchProviderIcon(
+      template_url_service_observation_.GetSource()));
 }
 
 void OmniboxPopupHandler::LogEscapeAction(
@@ -356,4 +437,12 @@ void OmniboxPopupHandler::OnCutOrCopy(uint32_t sequence_number,
 void OmniboxPopupHandler::SetEditHistoryState(bool can_undo, bool can_redo) {
   can_undo_ = can_undo;
   can_redo_ = can_redo;
+}
+
+void OmniboxPopupHandler::OpenDevTools() {
+  CHECK(base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopupDebug));
+  if (web_contents_) {
+    DevToolsWindow::OpenDevToolsWindow(web_contents_,
+                                       DevToolsOpenedByAction::kUnknown);
+  }
 }

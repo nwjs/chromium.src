@@ -18,7 +18,7 @@
 #include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
 #include "components/optimization_guide/core/model_execution/model_execution_util.h"
-#include "components/optimization_guide/core/model_execution/on_device_model_component.h"
+#include "components/optimization_guide/core/model_execution/on_device_model_names.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_feature_adapter.h"
 #include "components/optimization_guide/core/model_execution/performance_class.h"
 #include "components/optimization_guide/core/model_execution/usage_tracker.h"
@@ -573,7 +573,7 @@ ManifestSolutionFactory::CreateSolutionForUseCase(
       manifest_.GetDeviceCategoryConfig().use_cases().at(use_case_name);
 
   if (has_unavailable_asset) {
-    if (!usage_tracker_->WasUseCaseRecentlyUsed(use_case_name)) {
+    if (!usage_tracker_->GetPriority(use_case_name)) {
       return base::unexpected(
           OnDeviceModelEligibilityReason::kNoOnDeviceFeatureUsed);
     }

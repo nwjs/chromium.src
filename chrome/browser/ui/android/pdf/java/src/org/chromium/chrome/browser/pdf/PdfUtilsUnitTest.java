@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.pdf;
 
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
@@ -39,6 +40,7 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.util.ChromeFileProvider;
@@ -49,9 +51,7 @@ import java.io.File;
 import java.io.IOException;
 
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(
-        manifest = Config.NONE,
-        shadows = {PdfUtilsUnitTest.CustomShadowParcelFileDescriptor.class})
+@Config(shadows = {PdfUtilsUnitTest.CustomShadowParcelFileDescriptor.class})
 public class PdfUtilsUnitTest {
     @Implements(ParcelFileDescriptor.class)
     public static class CustomShadowParcelFileDescriptor extends ShadowParcelFileDescriptor {
@@ -71,6 +71,7 @@ public class PdfUtilsUnitTest {
     @Mock private PackageManager mPackageManager;
     private String mPdfPageUrl;
     private String mPdfPageBlobUrl;
+    private UserActionTester mUserActionTester;
 
     private static final String DEFAULT_TAB_TITLE = "Loading PDF…";
     private static final String CONTENT_URL = "content://media/external/downloads/1000000022";
@@ -85,7 +86,6 @@ public class PdfUtilsUnitTest {
             "chrome-native://pdf/link?url=chrome%3A%2F%2Fversion";
     private static final String FILE_PATH = "/media/external/downloads/sample.pdf";
     private static final String FILE_NAME = "sample.pdf";
-    private static final String IMAGE_FILE_URL = "file:///media/external/downloads/sample.jpg";
 
     @Before
     public void setUp() {
@@ -94,12 +94,16 @@ public class PdfUtilsUnitTest {
         mPdfPageUrl = PdfUtils.encodePdfPageUrl(PDF_LINK);
         mPdfPageBlobUrl = PdfUtils.encodePdfPageUrl(PDF_BLOB_URL);
         when(mContext.getContentResolver()).thenReturn(mContentResolver);
+        mUserActionTester = new UserActionTester();
     }
 
     @After
     public void tearDown() throws Exception {
         PdfUtils.setShouldOpenPdfInlineForTesting(false);
         ChromeFileProvider.setGeneratedUriForTesting(null);
+        if (mUserActionTester != null) {
+            mUserActionTester.tearDown();
+        }
     }
 
     @Test
@@ -791,5 +795,18 @@ public class PdfUtilsUnitTest {
         PdfUtils.recordHyperlinkClickResult(
                 PdfUtils.PdfHyperlinkClickResult.SUCCESS_LOAD_INITIATED);
         histogramExpectation.assertExpected();
+    }
+
+    @Test
+    public void testRecordDiscardAnnotations() {
+        PdfUtils.recordDiscardAnnotations();
+        Assert.assertTrue(
+                mUserActionTester.getActions().contains("Android.Pdf.DiscardAnnotations"));
+    }
+
+    @Test
+    public void testRecordEditFabAction() {
+        PdfUtils.recordEditFabAction();
+        assertTrue(mUserActionTester.getActions().contains("Android.Pdf.EditFab"));
     }
 }

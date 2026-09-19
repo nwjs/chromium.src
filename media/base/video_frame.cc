@@ -287,49 +287,34 @@ static std::optional<VideoFrameLayout> GetDefaultLayout(
           coded_size.width() * 4, 0, coded_size.GetArea() * 4)};
       break;
 
-    case PIXEL_FORMAT_NV12: {
-      int uv_width = (coded_size.width() + 1) / 2;
-      int uv_height = (coded_size.height() + 1) / 2;
-      int uv_stride = uv_width * 2;
-      int uv_size = uv_stride * uv_height;
-      planes = std::vector<ColorPlaneLayout>{
-          ColorPlaneLayout(coded_size.width(), 0, coded_size.GetArea()),
-          ColorPlaneLayout(uv_stride, coded_size.GetArea(), uv_size),
-      };
-      break;
-    }
-
-    case PIXEL_FORMAT_NV12A: {
-      int uv_width = (coded_size.width() + 1) / 2;
-      int uv_height = (coded_size.height() + 1) / 2;
-      int uv_stride = uv_width * 2;
-      int uv_size = uv_stride * uv_height;
-      planes = std::vector<ColorPlaneLayout>{
-          ColorPlaneLayout(coded_size.width(), 0, coded_size.GetArea()),
-          ColorPlaneLayout(uv_stride, coded_size.GetArea(), uv_size),
-          ColorPlaneLayout(coded_size.width(), coded_size.GetArea() + uv_size,
-                           coded_size.GetArea()),
-      };
-      break;
-    }
-
+    case PIXEL_FORMAT_NV12:
+    case PIXEL_FORMAT_NV12A:
+    case PIXEL_FORMAT_NV16:
+    case PIXEL_FORMAT_NV24:
     case PIXEL_FORMAT_P010LE:
     case PIXEL_FORMAT_P210LE:
     case PIXEL_FORMAT_P410LE: {
-      int y_stride = coded_size.width() * 2;
+      const bool is_420 = format == PIXEL_FORMAT_NV12 ||
+                          format == PIXEL_FORMAT_NV12A ||
+                          format == PIXEL_FORMAT_P010LE;
+      const bool is_444 =
+          format == PIXEL_FORMAT_NV24 || format == PIXEL_FORMAT_P410LE;
+      int sample_bytes =
+          VideoFrame::BytesPerElement(format, VideoFrame::Plane::kY);
+      int y_stride = coded_size.width() * sample_bytes;
       int y_size = y_stride * coded_size.height();
-      int uv_width = (format == PIXEL_FORMAT_P410LE)
-                         ? coded_size.width()
-                         : (coded_size.width() + 1) / 2;
-      int uv_height = (format == PIXEL_FORMAT_P010LE)
-                          ? (coded_size.height() + 1) / 2
-                          : coded_size.height();
-      int uv_stride = uv_width * 4;
+      int uv_width = is_444 ? coded_size.width() : (coded_size.width() + 1) / 2;
+      int uv_height =
+          is_420 ? (coded_size.height() + 1) / 2 : coded_size.height();
+      int uv_stride = uv_width * sample_bytes * 2;
       int uv_size = uv_stride * uv_height;
       planes = std::vector<ColorPlaneLayout>{
           ColorPlaneLayout(y_stride, 0, y_size),
           ColorPlaneLayout(uv_stride, y_size, uv_size),
       };
+      if (format == PIXEL_FORMAT_NV12A) {
+        planes.emplace_back(y_stride, y_size + uv_size, y_size);
+      }
       break;
     }
 
@@ -523,8 +508,8 @@ scoped_refptr<VideoFrame> VideoFrame::WrapMappableSharedImage(
   }
   uint64_t modifier = gfx::NativePixmapHandle::kNoModifier;
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-  bool is_native_buffer = !shared_image->IsSharedMemoryForVideoFrame();
-  if (is_native_buffer) {
+  if (shared_image->GetGpuMemoryBufferType() ==
+      gfx::GpuMemoryBufferType::NATIVE_PIXMAP) {
     const auto gmb_handle = shared_image->CloneGpuMemoryBufferHandle();
     if (gmb_handle.is_null() ||
         gmb_handle.native_pixmap_handle().planes.empty()) {

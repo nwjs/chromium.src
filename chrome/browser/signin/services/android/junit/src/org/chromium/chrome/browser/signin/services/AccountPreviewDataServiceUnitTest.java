@@ -18,12 +18,15 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.sync.DataType;
 import org.chromium.components.sync.protocol.SyncEnums.DeviceFormFactor;
 import org.chromium.google_apis.gaia.GaiaId;
 
 /** Unit tests for {@link AccountPreviewDataService} and {@link AccountPreviewPreference}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@EnableFeatures(SigninFeatures.ENABLE_ACCOUNT_PREVIEW_PREFERRED_ACCOUNT)
 public class AccountPreviewDataServiceUnitTest {
     private static final long NATIVE_SERVICE_PTR = 12345L;
     private static final GaiaId GAIA_ID = new GaiaId("gaia-id-1");
@@ -35,10 +38,12 @@ public class AccountPreviewDataServiceUnitTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private AccountPreviewDataService.Natives mNativeMock;
+    private AccountPreviewDataService mService;
 
     @Before
     public void setUp() {
         AccountPreviewDataServiceJni.setInstanceForTesting(mNativeMock);
+        mService = new AccountPreviewDataService(NATIVE_SERVICE_PTR);
     }
 
     @Test

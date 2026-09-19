@@ -107,7 +107,8 @@ public class MediaDrmBridge {
 
     private final UUID mKeySystemUuid;
     private final int mSecurityLevel;
-    private final boolean mRequiresMediaCrypto;
+
+    private boolean mRequiresMediaCrypto;
 
     // A session only for the purpose of creating a MediaCrypto object. Created
     // after construction, or after the provisioning process is successfully
@@ -409,50 +410,52 @@ public class MediaDrmBridge {
     }
 
     /**
-     * Check whether the crypto scheme is supported for the given container. If |containerMimeType|
-     * is an empty string, we just return whether the crypto scheme is supported.
+     * Check whether the crypto scheme is supported.
      *
-     * @return true if the container and the crypto scheme is supported, or false otherwise.
+     * @return true if the crypto scheme is supported, or false otherwise.
      */
     @CalledByNative
-    private static boolean isCryptoSchemeSupported(byte[] keySystemUuid, String containerMimeType) {
+    private static boolean isCryptoSchemeSupported(byte[] keySystemUuid) {
         UUID cryptoScheme = getUuidFromBytes(keySystemUuid);
-        if (cryptoScheme == null) {
-            return false;
-        }
+        return cryptoScheme != null
+                && isCryptoSchemeSupported(cryptoScheme, "", MediaDrm.SECURITY_LEVEL_UNKNOWN);
+    }
 
+    private static boolean isCryptoSchemeSupported(
+            UUID cryptoScheme, String containerMimeType, int securityLevel) {
         // MediaDrm.isCryptoSchemeSupported reads from disk
         try (StrictModeContext ignored = StrictModeContext.allowDiskReads()) {
             if (containerMimeType.isEmpty()) {
                 return MediaDrm.isCryptoSchemeSupported(cryptoScheme);
             }
-
+            if (securityLevel != MediaDrm.SECURITY_LEVEL_UNKNOWN) {
+                return MediaDrm.isCryptoSchemeSupported(
+                        cryptoScheme, containerMimeType, securityLevel);
+            }
             return MediaDrm.isCryptoSchemeSupported(cryptoScheme, containerMimeType);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | UnsupportedOperationException e) {
             // A few devices have broken DRM HAL configs and throw an exception here regardless of
             // the arguments; just assume this means the scheme is not supported.
+            // In addition, MediaDrm.isCryptoSchemeSupported throws UnsupportedOperationException if
+            // the DRM HAL cannot handle the requested security level.
             Log.e(TAG, "Exception in isCryptoSchemeSupported", e);
             return false;
         }
     }
 
     @CalledByNative
-    private static String[] getSupportedContainers(byte[] keySystemUuid) {
+    private static String[] getSupportedContainers(byte[] keySystemUuid, int securityLevel) {
         UUID cryptoScheme = getUuidFromBytes(keySystemUuid);
         if (cryptoScheme == null) {
             return new String[0];
         }
 
         List<String> containers = new ArrayList<>();
-        try (StrictModeContext ignored = StrictModeContext.allowDiskReads()) {
-            if (MediaDrm.isCryptoSchemeSupported(cryptoScheme, "video/webm")) {
-                containers.add("video/webm");
-            }
-            if (MediaDrm.isCryptoSchemeSupported(cryptoScheme, "video/mp4")) {
-                containers.add("video/mp4");
-            }
-        } catch (IllegalArgumentException e) {
-            Log.e(TAG, "Exception in getSupportedContainers", e);
+        if (isCryptoSchemeSupported(cryptoScheme, "video/webm", securityLevel)) {
+            containers.add("video/webm");
+        }
+        if (isCryptoSchemeSupported(cryptoScheme, "video/mp4", securityLevel)) {
+            containers.add("video/mp4");
         }
         return containers.toArray(new String[0]);
     }
@@ -538,6 +541,23 @@ public class MediaDrmBridge {
         }
 
         return mediaDrmBridge;
+    }
+
+    @CalledByNative
+    private boolean initializeWithOriginAndCrypto(String originId) {
+        mRequiresMediaCrypto = true;
+
+        if (!originId.isEmpty() && !setOrigin(originId)) {
+            onCreateError(MediaDrmCreateError.FAILED_SECURITY_ORIGIN);
+            release();
+            return false;
+        }
+
+        if (!createMediaCrypto()) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

@@ -11,6 +11,7 @@
 #include <string_view>
 #include <vector>
 
+#include "base/containers/extend.h"
 #include "base/containers/span.h"
 #include "base/containers/span_reader.h"
 #include "base/containers/to_vector.h"
@@ -531,6 +532,13 @@ bool CreateCertBuffersFromPKCS7Bytes(
 
 bssl::ParseCertificateOptions DefaultParseCertificateOptions() {
   bssl::ParseCertificateOptions options;
+  // It is sadly common for certificates to have serial numbers over 20 bytes,
+  // especially if the CA counted bytes before the leading zero byte is added
+  // in the INTEGER encoding.
+  //
+  // TODO(crbug.com/533048005): This option also allows non-integers, which is
+  // more problematic and less necessary. Remove this option once BoringSSL
+  // separates the two.
   options.allow_invalid_serial_numbers = true;
   return options;
 }
@@ -694,10 +702,18 @@ std::vector<uint8_t> CreateMtcLandmarkGroupTrustAnchorID(
       CBB_add_asn1_oid_component(cbb.get(), 2) &&
       CBB_add_asn1_oid_component(cbb.get(), log_number) &&
       CBB_add_asn1_oid_component(cbb.get(), landmark_number));
-  // SAFETY: CBB_data(cbb) returns a pointer to the written data with length
-  // CBB_len(cbb).
-  return base::ToVector(UNSAFE_BUFFERS(
-      base::span<const uint8_t>(CBB_data(cbb.get()), CBB_len(cbb.get()))));
+  return base::ToVector(crypto::CbbAsSpan(cbb.get()));
+}
+
+std::vector<uint8_t> EncodeTlsRequestedTrustAnchorIDList(
+    std::vector<std::vector<uint8_t>> trust_anchor_ids) {
+  std::vector<uint8_t> result;
+  std::sort(trust_anchor_ids.begin(), trust_anchor_ids.end());
+  for (const auto& tai : trust_anchor_ids) {
+    result.emplace_back(base::checked_cast<uint8_t>(tai.size()));
+    base::Extend(result, tai);
+  }
+  return result;
 }
 
 }  // namespace net::x509_util

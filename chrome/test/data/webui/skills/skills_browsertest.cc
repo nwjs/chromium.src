@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <optional>
+
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/common/webui_url_constants.h"
@@ -9,25 +11,30 @@
 #include "components/skills/features.h"
 #include "content/public/test/browser_test.h"
 
-
 namespace {
 
 class SkillsBrowserTest : public WebUIMochaBrowserTest {
  protected:
-  SkillsBrowserTest() { set_test_loader_host(chrome::kChromeUISkillsHost); }
+  SkillsBrowserTest() {
+    set_test_loader_host(chrome::kChromeUISkillsHost);
+    scoped_feature_list_.InitWithFeatures({features::kSkillsEnabled},
+                                          {features::kSkillsWebViewV2Enabled});
+  }
 
   void SetUpOnMainThread() override {
     WebUIMochaBrowserTest::SetUpOnMainThread();
-    glic::GlicEnabling::SetBypassEnablementChecksForTesting(true);
+    scoped_glic_bypass_.emplace();
   }
 
   void TearDownOnMainThread() override {
-    glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
+    scoped_glic_bypass_.reset();
     WebUIMochaBrowserTest::TearDownOnMainThread();
   }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_{features::kSkillsEnabled};
+  std::optional<glic::GlicEnabling::ScopedBypassEnablementChecksForTesting>
+      scoped_glic_bypass_;
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 class SkillsV2BrowserTest : public WebUIMochaBrowserTest {
@@ -40,15 +47,17 @@ class SkillsV2BrowserTest : public WebUIMochaBrowserTest {
 
   void SetUpOnMainThread() override {
     WebUIMochaBrowserTest::SetUpOnMainThread();
-    glic::GlicEnabling::SetBypassEnablementChecksForTesting(true);
+    scoped_glic_bypass_.emplace();
   }
 
   void TearDownOnMainThread() override {
-    glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
+    scoped_glic_bypass_.reset();
     WebUIMochaBrowserTest::TearDownOnMainThread();
   }
 
  private:
+  std::optional<glic::GlicEnabling::ScopedBypassEnablementChecksForTesting>
+      scoped_glic_bypass_;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 

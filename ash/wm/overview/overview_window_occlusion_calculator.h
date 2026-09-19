@@ -8,8 +8,7 @@
 #include <optional>
 
 #include "ash/ash_export.h"
-#include "ash/wm/desks/legacy_window_occlusion_calculator.h"
-#include "ash/wm/desks/window_occlusion_calculator.h"
+#include "ash/wm/desks/desks_window_occlusion_calculator.h"
 #include "ash/wm/overview/overview_observer.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
@@ -18,12 +17,10 @@ namespace ash {
 
 class OverviewController;
 
-// Owns the `WindowOcclusionCalculator` used during overview mode sessions.
+// Owns the `DesksWindowOcclusionCalculator` used during overview mode sessions.
 // Responsible for creating and destroying it at the start and end of each
 // session.
-class ASH_EXPORT OverviewWindowOcclusionCalculator
-    : public OverviewObserver,
-      public legacy::WindowOcclusionCalculator::Observer {
+class ASH_EXPORT OverviewWindowOcclusionCalculator : public OverviewObserver {
  public:
   explicit OverviewWindowOcclusionCalculator(
       OverviewController* overview_controller);
@@ -35,23 +32,14 @@ class ASH_EXPORT OverviewWindowOcclusionCalculator
 
   // This may return a null pointer if an overview session is not active or is
   // in the process of ending.
-  base::WeakPtr<WindowOcclusionCalculator> GetCalculator();
+  base::WeakPtr<DesksWindowOcclusionCalculator> GetCalculator();
 
  private:
   // OverviewObserver:
   void OnOverviewModeStarting() override;
-  void OnOverviewModeStartingAnimationComplete(bool canceled) override;
   void OnOverviewModeEnding(OverviewSession* overview_session) override;
 
-  // legacy::WindowOcclusionCalculator::Observer:
-  // Intentionally a no-op. See comments in implementation file.
-  void OnWindowOcclusionChanged(aura::Window* window) override {}
-
-  void ComputeOcclusionStateForAllDesks();
-
-  std::unique_ptr<WindowOcclusionCalculator> calculator_;
-  std::unique_ptr<aura::WindowOcclusionTracker::ScopedPause>
-      enter_overview_pause_;
+  std::unique_ptr<DesksWindowOcclusionCalculator> calculator_;
   base::ScopedObservation<OverviewController, OverviewObserver>
       overview_controller_observation_{this};
 };

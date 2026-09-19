@@ -82,10 +82,6 @@ inline constexpr char kChromeUIConstrainedHTMLTestHost[] = "constrained-test";
 inline constexpr char kChromeUIConstrainedHTMLTestURL[] =
     "chrome://constrained-test/";
 inline constexpr char kChromeUIContactInfoPath[] = "/contactInfo";
-#if !BUILDFLAG(IS_ANDROID)
-inline constexpr char kChromeUIContentAnnotatorInternalsHost[] =
-    "content-annotator-internals";
-#endif
 inline constexpr char kChromeUIContextHubHost[] = "context-hub";
 #if !BUILDFLAG(IS_ANDROID)
 inline constexpr char kChromeUIContextualCueingInternalsHost[] =
@@ -215,7 +211,6 @@ inline constexpr char16_t kChromeUIManagementURL16[] = u"chrome://management";
 inline constexpr char kChromeUIMediaEngagementHost[] = "media-engagement";
 inline constexpr char kChromeUIMediaRouterInternalsHost[] =
     "media-router-internals";
-inline constexpr char kChromeUIMemoryInternalsHost[] = "memory-internals";
 inline constexpr char kChromeUIMetricsInternalsHost[] = "metrics-internals";
 inline constexpr char kChromeUINetExportHost[] = "net-export";
 inline constexpr char kChromeUINetInternalsHost[] = "net-internals";
@@ -256,6 +251,10 @@ inline constexpr char kChromeUIOrganizerPanelURL[] =
     "chrome://organizer-panel.top-chrome/";
 inline constexpr char kChromeUIOnDeviceTranslationInternalsHost[] =
     "on-device-translation-internals";
+inline constexpr char kChromeUIPageActionInternalsHost[] =
+    "page-action-internals";
+inline constexpr char kChromeUIPageActionInternalsURL[] =
+    "chrome://page-action-internals/";
 inline constexpr char kChromeUIPasswordManagerCheckupURL[] =
     "chrome://password-manager/checkup?start=true";
 inline constexpr char kChromeUIPasswordManagerInternalsHost[] =

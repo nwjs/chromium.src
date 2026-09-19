@@ -534,6 +534,10 @@ class CORE_EXPORT StyleCascade {
 
     // Parent stack frame (for dynamic scoping).
     FunctionContext* parent = nullptr;
+
+    // CSS random() might differ between custom functions invocations, we
+    // use this counter to keep track of different invocations.
+    wtf_size_t invocation_count = 0;
   };
 
   // The Resolve*Into functions either resolve dependencies, append to the
@@ -627,6 +631,7 @@ class CORE_EXPORT StyleCascade {
       CascadeResolver&,
       const CSSParserContext&,
       FunctionContext*,
+      CSSParserLocalContext&,
       bool& is_attr_tainted);
 
   // NOTE: The FunctionContext object must be the _caller's_ function context,
@@ -691,7 +696,7 @@ class CORE_EXPORT StyleCascade {
                                           CascadeResolver&,
                                           const CSSParserContext&,
                                           FunctionContext*,
-                                          const CSSPropertyName*);
+                                          CSSParserLocalContext&);
 
   // Find the type associated with a given local variable (or custom property).
   // The return value may be a pointer directly into a PropertyRegistration;
@@ -804,7 +809,7 @@ class CORE_EXPORT StyleCascade {
   // never happens.
   bool TreatAsRevertLayer(CascadePriority) const;
 
-  const Document& GetDocument() const;
+  Document& GetDocument() const;
   const TreeScope* GetTreeScope(CascadePriority) const;
   const MixinParameterBindings* GetMixinParameterBindings(
       CascadePriority) const;

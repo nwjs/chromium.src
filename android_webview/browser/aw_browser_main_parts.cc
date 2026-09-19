@@ -49,14 +49,13 @@
 #include "components/embedder_support/origin_trials/component_updater_utils.h"
 #include "components/embedder_support/origin_trials/origin_trials_settings_storage.h"
 #include "components/heap_profiling/in_process/browser_process_snapshot_controller.h"
+#include "components/heap_profiling/in_process/heap_profiler_controller.h"
 #include "components/heap_profiling/in_process/mojom/snapshot_controller.mojom.h"
-#include "components/heap_profiling/multi_process/supervisor.h"
 #include "components/metrics/android_metrics_helper.h"
 #include "components/metrics/content/subprocess_metrics_provider.h"
 #include "components/metrics/metrics_service.h"
 #include "components/performance_manager/embedder/graph_features.h"
 #include "components/performance_manager/embedder/performance_manager_lifetime.h"
-#include "components/services/heap_profiling/public/cpp/settings.h"
 #include "components/tracing/common/background_tracing_utils.h"
 #include "components/user_prefs/user_prefs.h"
 #include "components/variations/synthetic_trials.h"
@@ -410,6 +409,16 @@ void AwBrowserMainParts::RegisterSyntheticTrials() {
       metrics, "WebViewFasterFinchSeed", group,
       variations::SyntheticTrialAnnotationMode::kCurrentLog);
 
+  std::string trial_name, group_name;
+  if (const auto* heap_profiler_controller =
+          heap_profiling::HeapProfilerController::GetInstance();
+      heap_profiler_controller &&
+      heap_profiler_controller->GetSyntheticFieldTrial(trial_name,
+                                                       group_name)) {
+    AwMetricsServiceAccessor::RegisterSyntheticFieldTrial(
+        metrics, trial_name, group_name,
+        variations::SyntheticTrialAnnotationMode::kCurrentLog);
+  }
 }
 
 int AwBrowserMainParts::PreMainMessageLoopRun() {
@@ -454,10 +463,6 @@ void AwBrowserMainParts::PostCreateThreads() {
     }
   }
 
-  heap_profiling::Mode mode = heap_profiling::GetModeForStartup();
-  if (mode != heap_profiling::Mode::kNone)
-    heap_profiling::Supervisor::GetInstance()->Start(base::NullCallback());
-
   // TODO(crbug.com/524981399): Enable standard graph features.
   performance_manager_lifetime_ =
       std::make_unique<performance_manager::PerformanceManagerLifetime>(
@@ -468,11 +473,6 @@ void AwBrowserMainParts::PostCreateThreads() {
   tracing::SetupPresetTracingFromFieldTrial();
   base::trace_event::EmitNamedTrigger(
       base::trace_event::kStartupTracingTriggerName);
-}
-
-bool AwBrowserMainParts::runStartupTasksAsync() {
-  return Java_AwBrowserMainParts_runStartupTasksAsync(
-      base::android::AttachCurrentThread());
 }
 
 }  // namespace android_webview

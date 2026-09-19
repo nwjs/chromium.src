@@ -114,7 +114,7 @@ chromium-metrics-reviews@google.com.
   <int value="13" label="Warning shown"/>
 </enum>
 
-<!-- LINT.ThenChange(//components/safe_browsing/content/browser/client_side_detection_host.h:ClientSideDetectionEvent)-->
+<!-- LINT.ThenChange(//components/safe_browsing/core/common/client_side_detection_enums.h:ClientSideDetectionEvent)-->
 
 <!-- LINT.IfChange(ClientSideDetectionType) -->
 
@@ -457,6 +457,17 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="MODEL_PARSE_ERROR"/>
   <int value="5" label="MODEL_MISSING_FIELDS"/>
 </enum>
+
+<!-- LINT.IfChange(SBClientPhishingVisualClassificationEarlyReturnReason) -->
+
+<enum name="SBClientPhishingVisualClassificationEarlyReturnReason">
+  <int value="0" label="Scorer is missing before snapshot"/>
+  <int value="1" label="Snapshot tab helper is missing"/>
+  <int value="2" label="Snapshot generation failed or returned empty image"/>
+  <int value="3" label="Scorer is missing after snapshot"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/safe_browsing/model/client_side_detection/client_side_detection_host_ios.h:VisualClassificationEarlyReturnReason) -->
 
 <enum name="SBDeepScanEvent">
   <int value="0" label="Prompt shown"/>

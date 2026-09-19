@@ -37,7 +37,6 @@ net::SSLContextConfig MojoSSLConfigToSSLContextConfig(
   net_config.disabled_cipher_suites = mojo_config->disabled_cipher_suites;
   net_config.tls13_cipher_prefer_aes_256 =
       mojo_config->tls13_cipher_prefer_aes_256;
-  net_config.ech_enabled = mojo_config->ech_enabled;
 
   // Translate the configuration options related to named groups.
   switch (mojo_config->named_groups_preset) {
@@ -56,14 +55,14 @@ net::SSLContextConfig MojoSSLConfigToSSLContextConfig(
       break;
   }
 
-  for (const auto& tai : mojo_config->trust_anchor_ids) {
-    net_config.trust_anchor_ids.insert(tai);
+  if (mojo_config->time_bound_trust_anchor_ids) {
+    net_config.time_bound_trust_anchor_ids = net::TimeBoundTrustAnchorIDs{
+        .max_usable_time =
+            mojo_config->time_bound_trust_anchor_ids->max_usable_time,
+        .trust_anchor_ids =
+            mojo_config->time_bound_trust_anchor_ids->trust_anchor_ids};
   }
-
-  for (const auto& tai : mojo_config->mtc_trust_anchor_ids) {
-    net_config.mtc_trust_anchor_ids.push_back(tai);
-  }
-  net_config.mtc_update_time_seconds = mojo_config->mtc_update_time_seconds;
+  net_config.trust_anchor_ids = mojo_config->trust_anchor_ids;
 
   return net_config;
 }

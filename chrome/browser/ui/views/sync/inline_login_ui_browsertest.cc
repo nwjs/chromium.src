@@ -21,7 +21,7 @@
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/signin/signin_promo.h"
 #include "chrome/browser/signin/signin_util.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "chrome/browser/ui/webui/signin/inline_login_handler_impl.h"
@@ -32,7 +32,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/credential_provider/common/gcp_strings.h"
-#include "chrome/test/base/chrome_test_utils.h"
+#include "chrome/test/base/chrome_test_path_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/test_browser_window.h"
 #include "chrome/test/base/test_chrome_web_ui_controller_factory.h"
@@ -94,14 +94,14 @@ struct ContentInfo {
   raw_ptr<content::StoragePartition> storage_partition;
 };
 
-ContentInfo NavigateAndGetInfo(Browser* browser,
+ContentInfo NavigateAndGetInfo(BrowserWindowInterface* browser,
                                const GURL& url,
                                WindowOpenDisposition disposition) {
   ui_test_utils::NavigateToURLWithDisposition(
       browser, url, disposition,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   content::WebContents* contents =
-      browser->tab_strip_model()->GetActiveWebContents();
+      browser->GetTabStripModel()->GetActiveWebContents();
   content::RenderProcessHost* process =
       contents->GetPrimaryMainFrame()->GetProcess();
   return ContentInfo(contents, process->GetDeprecatedID(),
@@ -449,7 +449,7 @@ IN_PROC_BROWSER_TEST_F(InlineLoginUISafeIframeBrowserTest,
   WaitUntilUIReady(browser());
 
   content::WebContents* contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   EXPECT_EQ(url, contents->GetVisibleURL());
 
   content::NavigationController& controller = contents->GetController();

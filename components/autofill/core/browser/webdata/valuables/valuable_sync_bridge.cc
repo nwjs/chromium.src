@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "base/check.h"
-#include "base/check_deref.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -27,7 +26,7 @@
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
 #include "components/autofill/core/browser/data_model/valuables/valuable_types.h"
-#include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_import_utils.h"
+#include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_import_util.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h"
 #include "components/autofill/core/browser/webdata/autofill_ai/entity_sync_util.h"
 #include "components/autofill/core/browser/webdata/autofill_change.h"
@@ -108,13 +107,16 @@ bool AreAutofillAiSpecificsValid(
           features::kAutofillAiImportConstraintsForSync)) {
     return true;
   }
-  EntityInstance entity =
-      CHECK_DEREF(CreateEntityInstanceFromSpecifics(specifics));
+  std::optional<EntityInstance> entity =
+      CreateEntityInstanceFromSpecifics(specifics);
+  if (!entity) {
+    return false;
+  }
   const bool meets_import_constraints = AttributesMeetImportConstraints(
-      entity.type(), DenseSet(entity.attributes(), &AttributeInstance::type));
+      entity->type(), DenseSet(entity->attributes(), &AttributeInstance::type));
   base::UmaHistogramBoolean(
       base::StrCat({"Autofill.Ai.ImportConstraintsMet.WalletSync.",
-                    EntityTypeToMetricsString(entity.type())}),
+                    EntityTypeToMetricsString(entity->type())}),
       meets_import_constraints);
   return meets_import_constraints;
 }
@@ -146,18 +148,26 @@ bool IsSyncWalletShoppingEnabled() {
 
 // Returns if the entity `change` should be uploaded to AUTOFILL_VALUABLE.
 bool ShouldUploadEntityChange(const EntityInstanceChange& change) {
-  switch (change.data_model().record_type()) {
-    case EntityInstance::RecordType::kLocal:
-      // Local entities are not uploaded as AUTOFILL_VALUABLE.
-      return false;
-    case EntityInstance::RecordType::kServerWallet:
-      // Only public passes are uploaded. For private passes, the
-      // AUTOFILL_VALUABLE sync bridge is read-only.
-      return GetWalletPassType(change.data_model().type(),
-                               EntityInstance::RecordType::kServerWallet) ==
-             EntityInstance::WalletPassType::kPublic;
-    case EntityInstance::RecordType::kPersonalContext:
-      // Personal context entities are not uploaded as AUTOFILL_VALUABLE.
+  // AUTOFILL_VALUABLE is only used to sync kServerWallet entities.
+  if (change.data_model().record_type() !=
+      EntityInstance::RecordType::kServerWallet) {
+    return false;
+  }
+  switch (change.data_model().type().name()) {
+    // Vehicle info is read and written through AUTOFILL_VALUABLE.
+    case EntityTypeName::kVehicle:
+      return true;
+    // Flights and shopping types are read-only (except for metadata sync).
+    case EntityTypeName::kFlightReservation:
+    case EntityTypeName::kOrder:
+    case EntityTypeName::kShipment:
+    // AUTOFILL_VALUABLE is read-only for private passes. Saves go directly
+    // through the Wallet API.
+    case EntityTypeName::kPassport:
+    case EntityTypeName::kDriversLicense:
+    case EntityTypeName::kNationalIdCard:
+    case EntityTypeName::kKnownTravelerNumber:
+    case EntityTypeName::kRedressNumber:
       return false;
   }
   NOTREACHED();

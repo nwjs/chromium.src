@@ -45,6 +45,33 @@
 
 namespace data_controls {
 
+using enterprise_connectors::AnalysisConnector;
+using enterprise_connectors::AnalysisSettings;
+using enterprise_connectors::BlockUntilVerdict;
+using enterprise_connectors::ConnectorsService;
+using enterprise_connectors::ConnectorsServiceFactory;
+using enterprise_connectors::ContentAnalysisInfo;
+using enterprise_connectors::ContentAnalysisRequest;
+using enterprise_connectors::ContentMetaData;
+using enterprise_connectors::FinalContentAnalysisResult;
+using enterprise_connectors::IOSCloudBinaryUploadServiceFactory;
+using enterprise_connectors::IOSReportingEventRouterFactory;
+using enterprise_connectors::IsBulkDataEntryConnectorEnabled;
+using enterprise_connectors::kEnableBulkDataEntryConnectorIOS;
+using enterprise_connectors::PasteboardContentHandlerIOS;
+using enterprise_connectors::PasteboardInfo;
+using enterprise_connectors::RequestHandlerResult;
+using enterprise_connectors::RequestHandlerResultActionLevel;
+
+namespace {
+
+bool ShouldWaitForVerdict(const std::optional<AnalysisSettings>& settings) {
+  return !(settings.has_value() &&
+           settings->block_until_verdict == BlockUntilVerdict::kNoBlock);
+}
+
+}  // namespace
+
 DataControlsTabHelper::DataControlsTabHelper(web::WebState* web_state)
     : web_state_(web_state) {
   scoped_observation_.Observe(DataControlsPasteboardManager::GetInstance());
@@ -206,27 +233,23 @@ void DataControlsTabHelper::PasteIfAllowedByDataControls(
   // Get the connector service for both source profile and destination profile.
   // Only when neither profile has Bulk Data Entry enabled, we allow the paste.
   // Otherwise, run the Pasted Content Analysis.
-  enterprise_connectors::ConnectorsService* source_profile_service = nullptr;
+  ConnectorsService* source_profile_service = nullptr;
   if (source_profile) {
     source_profile_service =
-        enterprise_connectors::ConnectorsServiceFactory::GetForProfile(
-            source_profile.get());
+        ConnectorsServiceFactory::GetForProfile(source_profile.get());
   }
 
   // No need to check destination profile here because paste will be blocked if
   // it is destroyed.
-  enterprise_connectors::ConnectorsService* destination_profile_service =
-      enterprise_connectors::ConnectorsServiceFactory::GetForProfile(
-          destination_profile.get());
+  ConnectorsService* destination_profile_service =
+      ConnectorsServiceFactory::GetForProfile(destination_profile.get());
 
   bool source_profile_connector_enabled =
       (source_profile_service &&
-       enterprise_connectors::IsBulkDataEntryConnectorEnabled(
-           source_profile_service));
+       IsBulkDataEntryConnectorEnabled(source_profile_service));
   bool destination_profile_connector_enabled =
       (destination_profile_service &&
-       enterprise_connectors::IsBulkDataEntryConnectorEnabled(
-           destination_profile_service));
+       IsBulkDataEntryConnectorEnabled(destination_profile_service));
 
   if (!source_profile_connector_enabled &&
       !destination_profile_connector_enabled) {
@@ -241,19 +264,62 @@ void DataControlsTabHelper::PasteIfAllowedByDataControls(
                                           ? destination_profile
                                           : source_profile;
 
-  enterprise_connectors::ContentMetaData::CopiedTextSource copy_source =
+  PasteIfNonBlockingAnalysis(destination_url, source_url, profile,
+                             source_profile, destination_profile,
+                             std::move(callback));
+}
+
+void DataControlsTabHelper::PasteIfNonBlockingAnalysis(
+    const GURL& destination_url,
+    const GURL& source_url,
+    base::WeakPtr<ProfileIOS> profile,
+    base::WeakPtr<ProfileIOS> source_profile,
+    base::WeakPtr<ProfileIOS> destination_profile,
+    base::OnceCallback<void(bool)> callback) {
+  ContentMetaData::CopiedTextSource copy_source =
       IOSClipboardContext::GetCopiedTextSource(source_url, source_profile.get(),
                                                destination_profile.get());
 
+  std::optional<AnalysisSettings> settings;
+
+  ConnectorsService* connectors_service =
+      ConnectorsServiceFactory::GetForProfile(profile.get());
+  if (connectors_service) {
+    settings = connectors_service->GetAnalysisSettings(
+        destination_url, AnalysisConnector::BULK_DATA_ENTRY);
+  }
+
+  if (ShouldWaitForVerdict(settings)) {
+    DataControlsPasteboardManager::GetInstance()->GetPasteboardTextAndImage(
+        base::BindOnce(&DataControlsTabHelper::RunBlockingPastedContentAnalysis,
+                       weak_factory_.GetWeakPtr(), destination_url, profile,
+                       std::move(settings), std::move(copy_source),
+                       std::move(callback)));
+    return;
+  }
+
+  // If the user is spamming paste and reaches the kMaxAuditPasteEvents limit
+  // to send paste for scanning, we should block the paste.
+  if (audit_paste_events_.size() >= kMaxAuditPasteEvents) {
+    FinishPaste(std::move(callback), /*verdict_or_scan_success=*/false,
+                /*analysis_warn_bypassed=*/false);
+    return;
+  }
+
+  // If the setting is non-blocking, allow the paste event without waiting for
+  // the scan result.
+  FinishPaste(std::move(callback), /*verdict_or_scan_success=*/true,
+              /*analysis_warn_bypassed=*/false);
   DataControlsPasteboardManager::GetInstance()->GetPasteboardTextAndImage(
-      base::BindOnce(&DataControlsTabHelper::RunPastedContentAnalysis,
-                     weak_factory_.GetWeakPtr(), destination_url, profile,
-                     std::move(copy_source), std::move(callback)));
+      base::BindOnce(
+          &DataControlsTabHelper::RunNonBlockingPastedContentAnalysis,
+          weak_factory_.GetWeakPtr(), destination_url, profile,
+          std::move(settings), std::move(copy_source)));
 }
 
 void DataControlsTabHelper::PasteIfAllowedByContentAnalysis(
     base::OnceCallback<void(bool)> callback,
-    enterprise_connectors::RequestHandlerResult result) {
+    RequestHandlerResult result) {
   // Pasteboard content changed because the user copied new content before
   // content analysis was done, the old paste event is stale and should be
   // discarded.
@@ -263,7 +329,6 @@ void DataControlsTabHelper::PasteIfAllowedByContentAnalysis(
     return;
   }
 
-  using enterprise_connectors::RequestHandlerResultActionLevel;
   RequestHandlerResultActionLevel action_level = ResultToActionLevel(result);
 
   // Always call `FinishPaste` if the paste is allowed because the pasteboard
@@ -291,24 +356,23 @@ void DataControlsTabHelper::PasteIfAllowedByContentAnalysis(
   }
 }
 
-void DataControlsTabHelper::RunPastedContentAnalysis(
+void DataControlsTabHelper::RunBlockingPastedContentAnalysis(
     const GURL& destination_url,
     base::WeakPtr<ProfileIOS> profile,
-    enterprise_connectors::ContentMetaData::CopiedTextSource copied_source,
+    std::optional<AnalysisSettings> settings,
+    ContentMetaData::CopiedTextSource copied_source,
     base::OnceCallback<void(bool)> callback,
     std::optional<PasteboardContentDLP> pasteboard_content) {
   // This method should be guarded by `IsBulkDataEntryConnectorEnabled` check in
   // the `PasteIfAllowedByDataControls` method.
-  CHECK(base::FeatureList::IsEnabled(
-      enterprise_connectors::kEnableBulkDataEntryConnectorIOS));
+  CHECK(base::FeatureList::IsEnabled(kEnableBulkDataEntryConnectorIOS));
 
   // If the `pasteboard_content` does not have a value, the pasteboard
   // text/image size exceeds 100MB and we directly block the paste without
   // scanning.
   if (!pasteboard_content.has_value()) {
-    enterprise_connectors::RequestHandlerResult result;
-    result.final_result =
-        enterprise_connectors::FinalContentAnalysisResult::FAILURE;
+    RequestHandlerResult result;
+    result.final_result = FinalContentAnalysisResult::FAILURE;
     PasteIfAllowedByContentAnalysis(std::move(callback), std::move(result));
     return;
   }
@@ -329,38 +393,18 @@ void DataControlsTabHelper::RunPastedContentAnalysis(
   // Create a `PasteboardContentHandlerIOS` and use it to upload the content for
   // scanning and pass the result to `PasteIfAllowedByContentAnalysis` as a
   // callback.
-  std::optional<enterprise_connectors::AnalysisSettings> settings =
-      std::nullopt;
+  auto content_analysis_info = std::make_unique<ContentAnalysisInfo>(
+      destination_url, std::move(settings).value_or(AnalysisSettings()),
+      ContentAnalysisRequest::CLIPBOARD_PASTE, *web_state_);
 
-  enterprise_connectors::ConnectorsService* connectors_service =
-      enterprise_connectors::ConnectorsServiceFactory::GetForProfile(
-          profile.get());
-  if (connectors_service) {
-    settings = connectors_service->GetAnalysisSettings(
-        destination_url,
-        enterprise_connectors::AnalysisConnector::BULK_DATA_ENTRY);
-  }
+  PasteboardInfo info = {.text = std::move(pasteboard_content->text),
+                         .image = std::move(pasteboard_content->image),
+                         .destination_url = destination_url};
 
-  auto content_analysis_info =
-      std::make_unique<enterprise_connectors::ContentAnalysisInfo>(
-          destination_url,
-          std::move(settings).value_or(
-              enterprise_connectors::AnalysisSettings()),
-          enterprise_connectors::ContentAnalysisRequest::CLIPBOARD_PASTE,
-          *web_state_);
-
-  enterprise_connectors::PasteboardInfo info = {
-      .text = std::move(pasteboard_content->text),
-      .image = std::move(pasteboard_content->image),
-      .destination_url = destination_url};
-
-  pasteboard_content_handler_ = std::make_unique<
-      enterprise_connectors::PasteboardContentHandlerIOS>(
+  pasteboard_content_handler_ = std::make_unique<PasteboardContentHandlerIOS>(
       std::move(info),
-      enterprise_connectors::IOSCloudBinaryUploadServiceFactory::GetForProfile(
-          profile.get()),
-      enterprise_connectors::IOSReportingEventRouterFactory::GetForProfile(
-          profile.get()),
+      IOSCloudBinaryUploadServiceFactory::GetForProfile(profile.get()),
+      IOSReportingEventRouterFactory::GetForProfile(profile.get()),
       std::move(copied_source), std::move(content_analysis_info),
       base::BindRepeating([]() -> policy::BrowserPolicyConnector* {
         return GetApplicationContext()->GetBrowserPolicyConnector();
@@ -370,6 +414,62 @@ void DataControlsTabHelper::RunPastedContentAnalysis(
 
   paste_event_state_ = PasteEventState::kWaitingScanDecision;
   pasteboard_content_handler_->StartContentAnalysisRequest();
+}
+
+void DataControlsTabHelper::RunNonBlockingPastedContentAnalysis(
+    const GURL& destination_url,
+    base::WeakPtr<ProfileIOS> profile,
+    std::optional<AnalysisSettings> settings,
+    ContentMetaData::CopiedTextSource copied_source,
+    std::optional<PasteboardContentDLP> pasteboard_content) {
+  // This method should be guarded by `IsBulkDataEntryConnectorEnabled` check in
+  // the `PasteIfAllowedByDataControls` method.
+  CHECK(base::FeatureList::IsEnabled(kEnableBulkDataEntryConnectorIOS));
+
+  // Don't run the content analysis if the information is invalid.
+  if (!pasteboard_content.has_value() || !profile ||
+      destination_url != web_state_->GetLastCommittedURL()) {
+    return;
+  }
+
+  auto content_analysis_info = std::make_unique<ContentAnalysisInfo>(
+      destination_url, std::move(settings).value_or(AnalysisSettings()),
+      ContentAnalysisRequest::CLIPBOARD_PASTE, *web_state_);
+
+  PasteboardInfo info = {.text = std::move(pasteboard_content->text),
+                         .image = std::move(pasteboard_content->image),
+                         .destination_url = destination_url};
+
+  auto handler = std::make_unique<PasteboardContentHandlerIOS>(
+      std::move(info),
+      IOSCloudBinaryUploadServiceFactory::GetForProfile(profile.get()),
+      IOSReportingEventRouterFactory::GetForProfile(profile.get()),
+      std::move(copied_source), std::move(content_analysis_info),
+      base::BindRepeating([]() -> policy::BrowserPolicyConnector* {
+        return GetApplicationContext()->GetBrowserPolicyConnector();
+      }),
+      base::BindOnce(&DataControlsTabHelper::OnReceiveAuditOnlyPasteResult,
+                     weak_factory_.GetWeakPtr(), audit_paste_event_index_));
+
+  PasteboardContentHandlerIOS* handler_ptr = handler.get();
+  audit_paste_events_[audit_paste_event_index_++] = std::move(handler);
+  handler_ptr->StartContentAnalysisRequest();
+}
+
+void DataControlsTabHelper::OnReceiveAuditOnlyPasteResult(
+    size_t index,
+    RequestHandlerResult /*result*/) {
+  // Using `PostTask` to avoid deleting the handler while getting the result
+  // synchronously in `StartContentAnalysisRequest`.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          [](base::WeakPtr<DataControlsTabHelper> helper, size_t idx) {
+            if (helper) {
+              helper->audit_paste_events_.erase(idx);
+            }
+          },
+          weak_factory_.GetWeakPtr(), index));
 }
 
 void DataControlsTabHelper::ShouldAllowCut(

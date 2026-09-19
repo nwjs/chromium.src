@@ -15,6 +15,8 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/features.h"
+#include "chrome/browser/ui/tabs/tab_strip_prefs.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_metrics.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -111,6 +113,14 @@ bool SystemMenuModelDelegate::IsCommandIdVisible(int command_id) const {
   if (command_id == IDC_GLIC_TOGGLE_PIN) {
     return glic::GlicEnabling::IsEnabledForProfile(browser_->GetProfile());
   }
+
+  if (command_id == IDC_TAB_SCROLL_BUTTONS_TOGGLE_PIN) {
+    if (base::FeatureList::IsEnabled(tabs::kTabStripUnification)) {
+      return !BrowserView::GetBrowserViewForBrowser(browser_)
+                  ->ShouldDrawVerticalTabStrip();
+    }
+    return false;
+  }
   return true;
 }
 
@@ -126,7 +136,8 @@ bool SystemMenuModelDelegate::IsItemForCommandIdDynamic(int command_id) const {
                   IDC_GLIC_TOGGLE_PIN,
                   IDC_TOGGLE_VERTICAL_TABS,
                   IDC_TOGGLE_VERTICAL_TABS_COLLAPSE,
-                  IDC_TOGGLE_VERTICAL_TABS_EXPAND_ON_HOVER}
+                  IDC_TOGGLE_VERTICAL_TABS_EXPAND_ON_HOVER,
+                  IDC_TAB_SCROLL_BUTTONS_TOGGLE_PIN}
       .contains(command_id);
 }
 
@@ -137,6 +148,30 @@ std::u16string SystemMenuModelDelegate::GetLabelForCommandId(
   int string_id;
   switch (command_id) {
     case IDC_RESTORE_TAB:
+#if BUILDFLAG(IS_MAC)
+      string_id = IDS_REOPEN_CLOSED_TABS_MAC;
+      if (IsCommandIdEnabled(command_id)) {
+        sessions::TabRestoreService* trs =
+            TabRestoreServiceFactory::GetForProfile(browser_->GetProfile());
+        DCHECK(trs);
+        trs->LoadTabsFromLastSession();
+        if (!trs->entries().empty()) {
+          switch (trs->entries().front()->type) {
+            case sessions::tab_restore::Type::WINDOW:
+              string_id = IDS_REOPEN_WINDOW_MAC;
+              break;
+            case sessions::tab_restore::Type::GROUP:
+              string_id = IDS_REOPEN_GROUP_MAC;
+              break;
+            case sessions::tab_restore::Type::SPLIT:
+              string_id = IDS_REOPEN_SPLIT_MAC;
+              break;
+            case sessions::tab_restore::Type::TAB:
+              break;
+          }
+        }
+      }
+#else
       string_id = IDS_RESTORE_TAB;
       if (IsCommandIdEnabled(command_id)) {
         sessions::TabRestoreService* trs =
@@ -159,13 +194,20 @@ std::u16string SystemMenuModelDelegate::GetLabelForCommandId(
           }
         }
       }
+#endif
       break;
     case IDC_TOGGLE_VERTICAL_TABS: {
       auto* controller = tabs::VerticalTabStripStateController::From(browser_);
       CHECK(controller);
+#if BUILDFLAG(IS_MAC)
+      string_id = controller->ShouldDisplayVerticalTabs()
+                      ? IDS_SWITCH_TO_HORIZONTAL_TAB_MAC
+                      : IDS_SWITCH_TO_VERTICAL_TAB_MAC;
+#else
       string_id = controller->ShouldDisplayVerticalTabs()
                       ? IDS_SWITCH_TO_HORIZONTAL_TAB
                       : IDS_SWITCH_TO_VERTICAL_TAB;
+#endif
       break;
     }
     case IDC_TOGGLE_VERTICAL_TABS_COLLAPSE: {
@@ -194,6 +236,12 @@ std::u16string SystemMenuModelDelegate::GetLabelForCommandId(
                       glic::prefs::kGlicPinnedToTabstrip)
                       ? IDS_GLIC_UNPIN
                       : IDS_GLIC_PIN;
+      break;
+    case IDC_TAB_SCROLL_BUTTONS_TOGGLE_PIN:
+      string_id = browser_->GetProfile()->GetPrefs()->GetBoolean(
+                      prefs::kTabScrollButtonsPinnedToTabstrip)
+                      ? IDS_TAB_SCROLL_UNPIN_BUTTONS_SYSTEM_MENU
+                      : IDS_TAB_SCROLL_PIN_BUTTONS_SYSTEM_MENU;
       break;
     default:
       NOTREACHED();
@@ -249,6 +297,15 @@ void SystemMenuModelDelegate::ExecuteCommand(int command_id, int event_flags) {
       base::RecordAction(base::UserMetricsAction(
           is_pinned ? "SystemContextMenu_TabSearch_Unpinned"
                     : "SystemContextMenu_TabSearch_Pinned"));
+      break;
+    }
+    case IDC_TAB_SCROLL_BUTTONS_TOGGLE_PIN: {
+      PrefService* prefs = browser_->GetProfile()->GetPrefs();
+      const bool is_pinned =
+          prefs->GetBoolean(prefs::kTabScrollButtonsPinnedToTabstrip);
+      base::RecordAction(base::UserMetricsAction(
+          is_pinned ? "SystemContextMenu_TabScrollButtons_Unpinned"
+                    : "SystemContextMenu_TabScrollButtons_Pinned"));
       break;
     }
   }

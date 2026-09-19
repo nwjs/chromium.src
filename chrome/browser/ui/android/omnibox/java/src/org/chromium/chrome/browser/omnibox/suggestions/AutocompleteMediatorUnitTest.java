@@ -58,6 +58,7 @@ import org.chromium.base.TimeUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
+import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -79,7 +80,7 @@ import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLay
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator.OmniboxSuggestionsVisualStateObserver;
-import org.chromium.chrome.browser.omnibox.suggestions.SelectionController.Mode;
+import org.chromium.chrome.browser.omnibox.suggestions.SelectionController.TraversalMode;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionCommonProperties.RoundSides;
 import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxActionDelegateImpl;
 import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxActionInSuggest;
@@ -138,10 +139,9 @@ import java.util.function.Consumer;
 
 /** Tests for {@link AutocompleteMediator}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE, shadows = ShadowLooper.class)
+@Config(shadows = ShadowLooper.class)
 public class AutocompleteMediatorUnitTest {
     private static final int SUGGESTION_MIN_HEIGHT = 20;
-    private static final int HEADER_MIN_HEIGHT = 15;
     private static final long TEST_EVENT_TIME = 123L;
     private static final GURL PAGE_URL = new GURL("https://www.site.com/page.html");
     private static final String PAGE_TITLE = "Page Title";
@@ -202,6 +202,8 @@ public class AutocompleteMediatorUnitTest {
     private SettableNonNullObservableSupplier<@FuseboxState Integer> mFuseboxStateSupplier;
     private SettableNonNullObservableSupplier<@FuseboxCoordinator.FuseboxLayoutMode Integer>
             mFuseboxLayoutModeSupplier;
+    private final SettableNullableObservableSupplier<SideUiStateProvider>
+            mSideUiStateProviderSupplier = ObservableSuppliers.createNullable();
     private Context mContext;
 
     @Before
@@ -252,6 +254,11 @@ public class AutocompleteMediatorUnitTest {
                 .doReturn(mFuseboxLayoutModeSupplier)
                 .when(mFuseboxCoordinator)
                 .getFuseboxLayoutModeSupplier();
+        mSideUiStateProviderSupplier.set(mSideUiStateProvider);
+        lenient()
+                .doReturn(mSideUiStateProviderSupplier)
+                .when(mUiOverrides)
+                .getSideUiStateProviderSupplier();
         lenient().doReturn(mSideUiStateProvider).when(mUiOverrides).getSideUiStateProvider();
 
         mMediator =
@@ -309,6 +316,8 @@ public class AutocompleteMediatorUnitTest {
      * Build a fake suggestions list with elements named 'Suggestion #', where '#' is the suggestion
      * index (1-based).
      *
+     * @param count Number of autocomplete suggestions to generate.
+     * @param prefix Text prefix to prepend to each generated suggestion query.
      * @return List of suggestions.
      */
     private List<AutocompleteMatch> buildSampleSuggestionsList(int count, String prefix) {
@@ -333,6 +342,7 @@ public class AutocompleteMediatorUnitTest {
      * @param url The URL to report as a current URL.
      * @param title The Page Title to report.
      * @param pageClassification The Page classification to report.
+     * @return A mocked FuseboxSessionState for the given input.
      */
     private FuseboxSessionState createSession(
             GURL url, String title, @PageClassification int pageClassification) {
@@ -923,6 +933,7 @@ public class AutocompleteMediatorUnitTest {
         mSuggestionsList.clear();
         mSuggestionsList.add(0, defaultMatch);
         var autocompleteInput = session.getAutocompleteInput();
+        autocompleteInput.setPageClassification(PageClassification.OTHER);
         autocompleteInput.setRequestType(AutocompleteRequestType.AI_MODE);
         mMediator.onSuggestionsReceived(AutocompleteResult.fromCache(mSuggestionsList, null), true);
         assertEquals("inline_autocomplete2", session.getAutocompleteInput().getPreviewText());
@@ -2304,6 +2315,52 @@ public class AutocompleteMediatorUnitTest {
 
     @Test
     @SmallTest
+    public void loadTypedOmniboxText_tabSearchOverlay_noSuggestions_doesNotLoadUrl() {
+        var session = createEmptySession();
+        var autocompleteInput = session.getAutocompleteInput();
+        autocompleteInput
+                .setUserText("query")
+                .setPageClassification(PageClassification.ANDROID_TAB_SEARCH_OVERLAY);
+        when(mTextStateProvider.getTextWithAutocomplete()).thenReturn("query");
+        mMediator.beginInput(session);
+
+        mMediator.loadTypedOmniboxText(
+                TEST_EVENT_TIME, AutocompleteCoordinator.NavigationTarget.CURRENT_TAB);
+
+        verify(mAutocompleteDelegate, never()).loadUrl(any());
+        verify(mAutocompleteDelegate, never()).clearOmniboxFocus();
+    }
+
+    @Test
+    @SmallTest
+    public void loadTypedOmniboxText_tabSearchOverlay_withSuggestions_loadsUrl() {
+        var session = createEmptySession();
+        var autocompleteInput = session.getAutocompleteInput();
+        autocompleteInput
+                .setUserText("tab")
+                .setPageClassification(PageClassification.ANDROID_TAB_SEARCH_OVERLAY);
+        when(mTextStateProvider.getTextWithAutocomplete()).thenReturn("tab");
+        mMediator.beginInput(session);
+
+        AutocompleteMatch tabMatch =
+                AutocompleteMatchBuilder.searchWithType(OmniboxSuggestionType.OPEN_TAB)
+                        .setDisplayText("tab match")
+                        .setInlineAutocompletion("")
+                        .setAllowedToBeDefaultMatch(true)
+                        .setUrl(JUnitTestGURLs.URL_1)
+                        .build();
+        mSuggestionsList.add(0, tabMatch);
+        mMediator.onSuggestionsReceived(AutocompleteResult.fromCache(mSuggestionsList, null), true);
+
+        mMediator.loadTypedOmniboxText(
+                TEST_EVENT_TIME, AutocompleteCoordinator.NavigationTarget.CURRENT_TAB);
+
+        verify(mAutocompleteDelegate).loadUrl(mOmniboxLoadUrlParamsCaptor.capture());
+        assertEquals(JUnitTestGURLs.URL_1.getSpec(), mOmniboxLoadUrlParamsCaptor.getValue().url);
+    }
+
+    @Test
+    @SmallTest
     public void loadUrlFromVoice_conventionalRequest_loadsUrl() {
         mMediator.beginInput(createSession(AutocompleteRequestType.SEARCH));
         doReturn(JUnitTestGURLs.BLUE_1).when(mTemplateUrlService).getUrlForVoiceSearchQuery(any());
@@ -2776,9 +2833,8 @@ public class AutocompleteMediatorUnitTest {
     @Test
     @SmallTest
     public void triggerSiteSearch_NoOpsInAiMode() {
-        FuseboxSessionState session = createEmptySession();
+        FuseboxSessionState session = createSession(AutocompleteRequestType.AI_MODE);
         mMediator.beginInput(session);
-        session.getAutocompleteInput().setRequestType(AutocompleteRequestType.AI_MODE);
 
         setUpSiteSearchSpaceTrigger(
                 /* keyword= */ "test",
@@ -2802,14 +2858,14 @@ public class AutocompleteMediatorUnitTest {
         input.setUserText("");
         mMediator.onInputChanged();
         assertEquals(
-                Mode.WRAPPING_WITH_SENTINEL,
+                TraversalMode.WRAPPING_WITH_SENTINEL,
                 mListModel.get(SuggestionListProperties.SELECTION_MODE));
 
         // Prefixed -- use WRAPPING_WITH_SENTINEL mode on mobile.
         input.setUserText("test");
         mMediator.onInputChanged();
         assertEquals(
-                Mode.WRAPPING_WITH_SENTINEL,
+                TraversalMode.WRAPPING_WITH_SENTINEL,
                 mListModel.get(SuggestionListProperties.SELECTION_MODE));
     }
 
@@ -2826,20 +2882,29 @@ public class AutocompleteMediatorUnitTest {
         input.setUserText("");
         mMediator.onInputChanged();
         assertEquals(
-                Mode.SENTINEL_THEN_WRAPPING,
+                TraversalMode.SENTINEL_THEN_WRAPPING,
                 mListModel.get(SuggestionListProperties.SELECTION_MODE));
 
+        input.setPageClassification(PageClassification.OTHER);
         input.setRequestType(AutocompleteRequestType.AI_MODE);
         mMediator.onInputChanged();
         assertEquals(
-                Mode.WRAPPING_WITH_SENTINEL,
+                TraversalMode.WRAPPING_WITH_SENTINEL,
                 mListModel.get(SuggestionListProperties.SELECTION_MODE));
 
         // Prefixed -- use WRAPPING mode on desktop.
         input.setUserText("test");
         input.setRequestType(AutocompleteRequestType.SEARCH);
         mMediator.onInputChanged();
-        assertEquals(Mode.WRAPPING, mListModel.get(SuggestionListProperties.SELECTION_MODE));
+        assertEquals(
+                TraversalMode.WRAPPING, mListModel.get(SuggestionListProperties.SELECTION_MODE));
+
+        // Tab Search Overlay -- use SATURATING_WITH_SENTINEL mode on desktop.
+        input.setPageClassification(PageClassification.ANDROID_TAB_SEARCH_OVERLAY);
+        mMediator.onInputChanged();
+        assertEquals(
+                TraversalMode.SATURATING_WITH_SENTINEL,
+                mListModel.get(SuggestionListProperties.SELECTION_MODE));
     }
 
     @Test
@@ -3156,6 +3221,56 @@ public class AutocompleteMediatorUnitTest {
     }
 
     @Test
+    @Config(qualifiers = "sw600dp")
+    @EnableFeatures(ChromeFeatureList.ANDROID_VERTICAL_TABS)
+    public void sideUiStateProviderAvailableAfterInitialization() {
+        LocationBarEmbedderUiOverrides uiOverrides = new LocationBarEmbedderUiOverrides();
+        uiOverrides.setIsMainBrowserOmnibox();
+        // Provider is initially null when mediator is constructed (e.g. on new window startup).
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.VERTICAL_TABS_ENABLED, true);
+
+        PropertyModel listModel =
+                new PropertyModel.Builder(SuggestionListProperties.ALL_KEYS)
+                        .with(SuggestionListProperties.SUGGESTION_MODELS, new ModelList())
+                        .build();
+        AutocompleteMediator mediator =
+                new AutocompleteMediator(
+                        mContext,
+                        mResourceProvider,
+                        mAutocompleteDelegate,
+                        mTextStateProvider,
+                        listModel,
+                        new Handler(),
+                        () -> mModalDialogManager,
+                        null,
+                        null,
+                        mLocationBarDataProvider,
+                        tabGroupId -> {},
+                        url -> false,
+                        mOmniboxActionDelegate,
+                        mActivityLifecycleDispatcher,
+                        mEmbedder,
+                        mWindowAndroid,
+                        mDeferredImeCallback,
+                        mFuseboxCoordinator,
+                        uiOverrides);
+
+        assertFalse(listModel.get(SuggestionListProperties.APPLY_MARGIN_FOR_LEFT_SIDE_BAR));
+        assertEquals(0, listModel.get(SuggestionListProperties.LEFT_SIDE_BAR_MARGIN_PX));
+
+        // SideUiStateProvider becomes available later.
+        int widthPx = ViewUtils.dpToPx(mContext, VerticalTabUtils.SIDE_UI_CONTAINER_WIDTH_DP);
+        when(mSideUiStateProvider.getCurrentSideUiSpecs())
+                .thenReturn(new SideUiSpecs(widthPx, /* rightContainerWidth= */ 0));
+        uiOverrides.setSideUiStateProvider(mSideUiStateProvider);
+
+        assertTrue(listModel.get(SuggestionListProperties.APPLY_MARGIN_FOR_LEFT_SIDE_BAR));
+        assertEquals(widthPx, listModel.get(SuggestionListProperties.LEFT_SIDE_BAR_MARGIN_PX));
+        mediator.destroy();
+    }
+
+    @Test
     @SmallTest
     public void testStateTransitionToEnabled_triggersSuggestions() {
         GURL url = JUnitTestGURLs.BLUE_1;
@@ -3220,5 +3335,95 @@ public class AutocompleteMediatorUnitTest {
         mFuseboxLayoutModeSupplier.set(FuseboxLayoutMode.SUGGESTIONS_POPOVER);
         mMediator.onSuggestionsReceived(createAutocompleteResult(), /* isFinal= */ true);
         assertTrue(mListModel.get(SuggestionListProperties.APPLY_VERTICAL_PADDING));
+    }
+
+    @Test
+    @SmallTest
+    public void onInputChanged_aimInIncognito_cancelsRequestsAndRendersEmpty() {
+        doReturn(true).when(mLocationBarDataProvider).isIncognitoBranded();
+        FuseboxSessionState session = createSession(AutocompleteRequestType.AI_MODE, SAMPLE_QUERY);
+        mMediator.beginInput(session);
+
+        mMediator.onSuggestionsReceived(mAutocompleteResult, /* isFinal= */ true);
+        assertEquals(mSuggestionsList.size(), mSuggestionModels.size());
+
+        session.getAutocompleteInput().setUserText("new query");
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
+
+        verify(mAutocompleteController, never()).start(any(), any(), anyInt(), anyBoolean());
+        verify(mAutocompleteController, atLeastOnce()).stop(AutocompleteStopReason.CLOBBERED);
+        assertEquals(0, mSuggestionModels.size());
+    }
+
+    @Test
+    @SmallTest
+    public void beginInput_aimInIncognito_doesNotTriggerZeroSuggest() {
+        doReturn(true).when(mLocationBarDataProvider).isIncognitoBranded();
+        FuseboxSessionState session = createSession(AutocompleteRequestType.AI_MODE, "");
+        mMediator.beginInput(session);
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
+
+        verify(mAutocompleteController, never()).startZeroSuggest(any(), any());
+        verify(mAutocompleteController, never()).start(any(), any(), anyInt(), anyBoolean());
+        assertEquals(0, mSuggestionModels.size());
+    }
+
+    @Test
+    @SmallTest
+    public void requestTypeChange_toAimInIncognito_clearsSuggestions() {
+        doReturn(true).when(mLocationBarDataProvider).isIncognitoBranded();
+        FuseboxSessionState session = createSession(AutocompleteRequestType.SEARCH, SAMPLE_QUERY);
+        mMediator.beginInput(session);
+
+        mMediator.onSuggestionsReceived(mAutocompleteResult, /* isFinal= */ true);
+        assertEquals(mSuggestionsList.size(), mSuggestionModels.size());
+
+        session.getAutocompleteInput().setRequestType(AutocompleteRequestType.AI_MODE);
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
+
+        verify(mAutocompleteController, never()).start(any(), any(), anyInt(), anyBoolean());
+        verify(mAutocompleteController, atLeastOnce()).stop(AutocompleteStopReason.CLOBBERED);
+        assertEquals(0, mSuggestionModels.size());
+    }
+
+    @Test
+    @SmallTest
+    public void onInputChanged_aimNonIncognito_triggersAutocomplete() {
+        doReturn(false).when(mLocationBarDataProvider).isIncognitoBranded();
+        FuseboxSessionState session = createSession(AutocompleteRequestType.AI_MODE, SAMPLE_QUERY);
+        mMediator.beginInput(session);
+
+        session.getAutocompleteInput().setUserText("aim search query");
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
+
+        verify(mAutocompleteController)
+                .start(any(), mAutocompleteInputCaptor.capture(), anyInt(), anyBoolean());
+        assertEquals("aim search query", mAutocompleteInputCaptor.getValue().getUserText());
+    }
+
+    @Test
+    @SmallTest
+    public void beginInput_aimNonIncognito_triggersZeroSuggest() {
+        doReturn(false).when(mLocationBarDataProvider).isIncognitoBranded();
+        FuseboxSessionState session = createSession(AutocompleteRequestType.AI_MODE, "");
+        mMediator.beginInput(session);
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
+
+        verify(mAutocompleteController).startZeroSuggest(any(), any());
+    }
+
+    @Test
+    @SmallTest
+    public void onInputChanged_nonAimIncognito_triggersAutocomplete() {
+        doReturn(true).when(mLocationBarDataProvider).isIncognitoBranded();
+        FuseboxSessionState session = createSession(AutocompleteRequestType.SEARCH, SAMPLE_QUERY);
+        mMediator.beginInput(session);
+
+        session.getAutocompleteInput().setUserText("incognito search query");
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
+
+        verify(mAutocompleteController)
+                .start(any(), mAutocompleteInputCaptor.capture(), anyInt(), anyBoolean());
+        assertEquals("incognito search query", mAutocompleteInputCaptor.getValue().getUserText());
     }
 }

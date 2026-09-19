@@ -14,11 +14,13 @@
 #include "cc/test/scheduler_test_common.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
+#include "components/viz/common/quads/compositor_frame_transition_directive.h"
 #include "components/viz/common/surfaces/parent_local_surface_id_allocator.h"
 #include "components/viz/common/surfaces/subtree_capture_id.h"
 #include "components/viz/service/frame_sinks/compositor_frame_sink_support.h"
 #include "components/viz/service/frame_sinks/frame_sink_manager_impl.h"
 #include "components/viz/service/surfaces/pending_copy_output_request.h"
+#include "components/viz/service/surfaces/surface_dependency_deadline.h"
 #include "components/viz/test/begin_frame_args_test.h"
 #include "components/viz/test/compositor_frame_helpers.h"
 #include "components/viz/test/fake_external_begin_frame_source.h"
@@ -348,7 +350,8 @@ TEST_F(ImmediateActivationSurfaceTest, WithNoInteraction) {
 
   {
     CompositorFrame frame = MakeCompositorFrame(root_render_pass->DeepCopy());
-    frame.metadata.activation_dependencies.push_back(child_surface_id);
+    frame.metadata.activation_dependencies.emplace_back(
+        SurfaceId(child_surface_id), 4u);
     frame.metadata.deadline =
         FrameDeadline(Now(), 4u, BeginFrameArgs::DefaultInterval(), false);
     EXPECT_THAT(frame.metadata.referenced_surfaces,
@@ -386,7 +389,8 @@ TEST_F(ImmediateActivationSurfaceTest, WithInteraction) {
 
   {
     CompositorFrame frame = MakeCompositorFrame(root_render_pass->DeepCopy());
-    frame.metadata.activation_dependencies.push_back(child_surface_id);
+    frame.metadata.activation_dependencies.emplace_back(
+        SurfaceId(child_surface_id), 4u);
     frame.metadata.deadline =
         FrameDeadline(Now(), 4u, BeginFrameArgs::DefaultInterval(), false);
     frame.metadata.is_handling_interaction = true;
@@ -600,6 +604,213 @@ TEST_F(SurfaceTest, BypassOutdatedSurfaceActivation) {
   EXPECT_TRUE(parent_surface->HasActiveFrame());
   EXPECT_TRUE(parent_surface->activation_dependencies().empty());
 }
+
+// Tests that reentrant surface activation doesn't cause a stale
+// SurfaceAllocationGroup* to be stored. See crbug.com/540357382 for details.
+TEST_F(SurfaceTest, ReentrantSurfaceActivationStaleAllocationGroup) {
+  SurfaceManager* surface_manager = frame_sink_manager_.surface_manager();
+
+  constexpr FrameSinkId fs_c1(10, 1);
+  constexpr FrameSinkId fs_c2(20, 1);
+  constexpr FrameSinkId fs_s(30, 1);
+
+  auto c1_support = std::make_unique<CompositorFrameSinkSupport>(
+      nullptr, &frame_sink_manager_, fs_c1, /*is_root=*/false);
+  auto c2_support = std::make_unique<CompositorFrameSinkSupport>(
+      nullptr, &frame_sink_manager_, fs_c2, /*is_root=*/false);
+  auto s_support = std::make_unique<CompositorFrameSinkSupport>(
+      nullptr, &frame_sink_manager_, fs_s, /*is_root=*/false);
+
+  const base::UnguessableToken token_c1 = base::UnguessableToken::Create();
+  const base::UnguessableToken token_c2 = base::UnguessableToken::Create();
+  const base::UnguessableToken token_s = base::UnguessableToken::Create();
+
+  SurfaceId unresolvable_dep(
+      FrameSinkId(99, 1),
+      LocalSurfaceId(1, 1, base::UnguessableToken::Create()));
+
+  auto build_frame = [](std::vector<SurfaceId> deps,
+                        std::vector<SurfaceRange> refs) {
+    return CompositorFrameBuilder()
+        .AddRenderPass(gfx::Rect(10, 10), gfx::Rect(10, 10))
+        .SetActivationDependencies(std::move(deps))
+        .SetReferencedSurfaces(std::move(refs))
+        .SetDeadline(FrameDeadline(base::TimeTicks::Now(), 10000u,
+                                   base::Milliseconds(16), false))
+        .Build();
+  };
+
+  // Step 1: Submit C1 frame with an unresolvable dependency. This creates
+  // allocation group G1 and keeps C1 pending.
+  LocalSurfaceId c1_lsid(2, 1, token_c1);
+  SurfaceId c1_surface_id(fs_c1, c1_lsid);
+  c1_support->SubmitCompositorFrame(
+      c1_lsid,
+      build_frame({unresolvable_dep}, {SurfaceRange(unresolvable_dep)}));
+
+  // Step 2: Submit C2 frame with an unresolvable dependency and referencing
+  // C1's surface. This creates allocation group G2 and keeps C2 pending.
+  LocalSurfaceId c2_lsid(1, 1, token_c2);
+  c2_support->SubmitCompositorFrame(
+      c2_lsid, build_frame({unresolvable_dep}, {SurfaceRange(unresolvable_dep),
+                                                SurfaceRange(c1_surface_id)}));
+
+  // Step 3: Submit surface S that would trigger reentrancy. S depends on an
+  // older surface in G1, so C1(2, 1) satisfies it, and a newer surface in G2,
+  // so C2(1, 1) activates as a fallback. The animate transition directive
+  // ensures that reentrant OnActivationDependencyResolved() returns early
+  // instead of hitting `CHECK(pending_frame_data_)`.
+  SurfaceId c1_older_surface_id(fs_c1, LocalSurfaceId(1, 1, token_c1));
+  SurfaceId c2_newer_surface_id(fs_c2, LocalSurfaceId(2, 1, token_c2));
+
+  CompositorFrame s_frame = build_frame(
+      {c1_older_surface_id, c2_newer_surface_id},
+      {SurfaceRange(c1_older_surface_id), SurfaceRange(c2_newer_surface_id)});
+  s_frame.metadata.transition_directives.push_back(
+      CompositorFrameTransitionDirective::CreateAnimate(
+          blink::ViewTransitionToken(), /*maybe_cross_frame_sink=*/false,
+          /*sequence_id=*/1, /*delay_layer_tree_view_deletion=*/true));
+
+  LocalSurfaceId s_lsid(1, 1, token_s);
+  s_support->SubmitCompositorFrame(s_lsid, std::move(s_frame));
+
+  // Step 4: Remove C2's reference to C1 so G1 has no active embedders.
+  c2_support->SubmitCompositorFrame(c2_lsid, build_frame({}, {}));
+
+  // Destroy C1 and garbage collect. This deletes C1 and destroys G1.
+  c1_support.reset();
+  surface_manager->GarbageCollectSurfaces();
+
+  // Step 5: Submit a new frame for S. UpdateActivationDependencies() iterates
+  // `blocking_allocation_groups_` which shouldn't contain G1.
+  s_support->SubmitCompositorFrame(s_lsid, build_frame({}, {}));
+}
+
+TEST_F(SurfaceTest, PerDependencyDeadlines) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kPerDependencyDeadlines);
+
+  constexpr FrameSinkId fs_parent(1, 1);
+  constexpr FrameSinkId fs_child1(2, 1);
+  constexpr FrameSinkId fs_child2(3, 1);
+
+  auto parent_support = std::make_unique<CompositorFrameSinkSupport>(
+      nullptr, &frame_sink_manager_, fs_parent, /*is_root=*/true);
+  auto child1_support = std::make_unique<CompositorFrameSinkSupport>(
+      nullptr, &frame_sink_manager_, fs_child1, /*is_root=*/false);
+  auto child2_support = std::make_unique<CompositorFrameSinkSupport>(
+      nullptr, &frame_sink_manager_, fs_child2, /*is_root=*/false);
+
+  LocalSurfaceId child1_lsid(1, 1, base::UnguessableToken::Create());
+  LocalSurfaceId child2_lsid(1, 1, base::UnguessableToken::Create());
+  SurfaceId child1_id(fs_child1, child1_lsid);
+  SurfaceId child2_id(fs_child2, child2_lsid);
+
+  // Step 1: Submit an active frame for child1 so it is already active.
+  child1_support->SubmitCompositorFrame(
+      child1_lsid, CompositorFrameBuilder()
+                       .AddRenderPass(gfx::Rect(10, 10), gfx::Rect(10, 10))
+                       .Build());
+
+  SurfaceManager* surface_manager = frame_sink_manager_.surface_manager();
+  Surface* child1_surface = surface_manager->GetSurfaceForId(child1_id);
+  ASSERT_TRUE(child1_surface);
+  EXPECT_TRUE(child1_surface->HasActiveFrame());
+
+  // Step 2: Submit a parent frame depending on child1 (already active) with
+  // deadline 2 frames, and child2 (inactive) with deadline 5 frames.
+  base::TimeTicks frame_start_time = base::TimeTicks::Now();
+  base::TimeDelta frame_interval = base::Milliseconds(16);
+  FrameDeadline frame_deadline(frame_start_time, 100u, frame_interval,
+                               /*use_default_lower_bound_deadline=*/false);
+
+  LocalSurfaceId parent_lsid(1, 1, base::UnguessableToken::Create());
+  SurfaceId parent_id(fs_parent, parent_lsid);
+
+  CompositorFrame parent_frame =
+      CompositorFrameBuilder()
+          .AddRenderPass(gfx::Rect(10, 10), gfx::Rect(10, 10))
+          .SetActivationDependencies(std::vector<SurfaceIdAndDeadline>{
+              SurfaceIdAndDeadline(child1_id, 2u),
+              SurfaceIdAndDeadline(child2_id, 5u)})
+          .SetDeadline(frame_deadline)
+          .Build();
+
+  parent_support->SubmitCompositorFrame(parent_lsid, std::move(parent_frame));
+
+  Surface* parent_surface = surface_manager->GetSurfaceForId(parent_id);
+  ASSERT_TRUE(parent_surface);
+  // The frame should not immediately activate because child2 is not active.
+  EXPECT_FALSE(parent_surface->HasActiveFrame());
+  EXPECT_TRUE(parent_surface->HasPendingFrame());
+
+  // Check deadline_: child1 is already active so it should not be in
+  // dependency_deadlines_. child2 is still pending, so its deadline is
+  // converted to wall time and tracked in dependency_deadlines_.
+  ASSERT_TRUE(parent_surface->deadline_for_testing());
+  EXPECT_FALSE(parent_surface->deadline_for_testing()->HasDeadlinePassed());
+  const auto& dep_deadlines =
+      parent_surface->deadline_for_testing()->dependency_deadlines_for_testing();
+  EXPECT_EQ(dep_deadlines.size(), 1u);
+  EXPECT_FALSE(dep_deadlines.contains(child1_id));
+  ASSERT_TRUE(dep_deadlines.contains(child2_id));
+  base::TimeTicks expected_child2_deadline =
+      frame_start_time + 5u * frame_interval;
+  EXPECT_EQ(dep_deadlines.at(child2_id), expected_child2_deadline);
+}
+
+TEST_F(SurfaceTest, DuplicateActivationDependenciesWithDifferentDeadlines) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kPerDependencyDeadlines);
+
+  constexpr FrameSinkId fs_parent(1, 1);
+  constexpr FrameSinkId fs_child(2, 1);
+
+  auto parent_support = std::make_unique<CompositorFrameSinkSupport>(
+      nullptr, &frame_sink_manager_, fs_parent, /*is_root=*/true);
+
+  LocalSurfaceId child_lsid(1, 1, base::UnguessableToken::Create());
+  SurfaceId child_id(fs_child, child_lsid);
+
+  base::TimeTicks frame_start_time = base::TimeTicks::Now();
+  base::TimeDelta frame_interval = base::Milliseconds(16);
+  FrameDeadline frame_deadline(frame_start_time, 100u, frame_interval,
+                               /*use_default_lower_bound_deadline=*/false);
+
+  LocalSurfaceId parent_lsid(1, 1, base::UnguessableToken::Create());
+  SurfaceId parent_id(fs_parent, parent_lsid);
+
+  // Submit a frame with duplicate activation dependencies having different
+  // deadlines.
+  CompositorFrame parent_frame =
+      CompositorFrameBuilder()
+          .AddRenderPass(gfx::Rect(10, 10), gfx::Rect(10, 10))
+          .SetActivationDependencies(std::vector<SurfaceIdAndDeadline>{
+              SurfaceIdAndDeadline(child_id, 2u),
+              SurfaceIdAndDeadline(child_id, 5u)})
+          .SetDeadline(frame_deadline)
+          .Build();
+
+  parent_support->SubmitCompositorFrame(parent_lsid, std::move(parent_frame));
+
+  SurfaceManager* surface_manager = frame_sink_manager_.surface_manager();
+  Surface* parent_surface = surface_manager->GetSurfaceForId(parent_id);
+  ASSERT_TRUE(parent_surface);
+  EXPECT_FALSE(parent_surface->HasActiveFrame());
+  EXPECT_TRUE(parent_surface->HasPendingFrame());
+
+  // Verify that the duplicate dependency was deduplicated and the last deadline
+  // was used.
+  ASSERT_TRUE(parent_surface->deadline_for_testing());
+  EXPECT_FALSE(parent_surface->deadline_for_testing()->HasDeadlinePassed());
+  const auto& dep_deadlines =
+      parent_surface->deadline_for_testing()->dependency_deadlines_for_testing();
+  EXPECT_EQ(dep_deadlines.size(), 1u);
+  ASSERT_TRUE(dep_deadlines.contains(child_id));
+  base::TimeTicks expected_deadline = frame_start_time + 5u * frame_interval;
+  EXPECT_EQ(dep_deadlines.at(child_id), expected_deadline);
+}
+
 
 }  // namespace
 }  // namespace viz

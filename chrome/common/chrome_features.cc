@@ -186,6 +186,9 @@ BASE_FEATURE(kRemoteActorCredentialSharing, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<std::string>
     kRemoteActorCredentialSharingAllowedHostForTesting{
         &kRemoteActorCredentialSharing, "allowed_host_for_testing", ""};
+const base::FeatureParam<std::string> kRemoteActorOAuthClientId{
+    &kRemoteActorCredentialSharing, "oauth_client_id",
+    "320695880279-gnq6the97ga85scn208u5jctnk82qelk.apps.googleusercontent.com"};
 #endif
 
 bool RemoteActorCredentialSharingEnabled() {
@@ -260,12 +263,13 @@ BASE_FEATURE(kForcedAppRelaunchOnPlaceholderUpdate,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
+BASE_FEATURE(kGeic, base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<std::string> kGeicGuestURL{&kGeic, "geic-guest-url",
+                                                    ""};
+
 // Controls whether the actor component of Glic is enabled.
-#if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kGlicActor, base::FEATURE_DISABLED_BY_DEFAULT);
-#else
 BASE_FEATURE(kGlicActor, base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 BASE_FEATURE(kGlicActorApcComparison, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -438,11 +442,13 @@ const base::FeatureParam<base::TimeDelta> kActorObservationDelayLcp{
 // The time for Autofill to parse and classify form fields.
 // Autofill is expected to return within this timeout (having successfully
 // parsed the form fields or not).
+// LINT.IfChange(kActorObservationDelayAutofillPredictionsTimeout)
 BASE_FEATURE_PARAM(base::TimeDelta,
                    kActorObservationDelayAutofillPredictionsTimeout,
                    &kGlicActor,
                    "actor-observation-delay-autofill-predictions-timeout",
                    base::Seconds(1));
+// LINT.ThenChange(//ios/chrome/browser/intelligence/features/features.mm:kActorPageStabilityAutofillPredictionsTimeout)
 
 // If enabled, observation for page load excludes load in ad frames.
 BASE_FEATURE(kGlicActorObservationDelayExcludeAdFrameLoading,
@@ -579,7 +585,8 @@ BASE_FEATURE(kGlicMessageFirstFre, base::FEATURE_DISABLED_BY_DEFAULT);
 // kill-switch for Glic and can be used in the future to handle unsupported
 // Chrome versions.
 BASE_FEATURE(kGlic,
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS) || \
+    BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -598,14 +605,19 @@ const base::FeatureParam<std::string> kGlicIneligibleAccountHelpUrl{
     &kGlicSupportLinks, "ineligible_account_help_url",
     "https://support.google.com/gemini/answer/17117411#gic_access"};
 
-const base::FeatureParam<int> kGlicMinRequiredRamMb{
-    &kGlic, "glic-min-required-ram-mb", 0};
+const base::FeatureParam<int> kGlicMinRequiredRamMb{&kGlic,
+                                                    "glic-min-required-ram-mb",
+#if BUILDFLAG(IS_ANDROID)
+                                                    3600};
+#else
+                                                    0};
+#endif
 
 const base::FeatureParam<bool> kGlicAdaptiveToolbarAutoPin{
     &kGlic, "adaptive-toolbar-auto-pin", true};
 
 const base::FeatureParam<bool> kGlicBottomSheetPromo{
-    &kGlic, "glic-bottom-sheet-promo", true};
+    &kGlic, "glic-bottom-sheet-promo", false};
 
 // Controls whether the Glic feature uses multiple instances or not.
 BASE_FEATURE(kGlicMultiInstance, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -882,7 +894,13 @@ BASE_FEATURE(kGlicDebugWebview, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicScrollTo, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kGlicCaptureRegion, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicCaptureRegion,
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
 
 // Controls whether we enforce that documentId (an optional parameter) is set
 // when trying to scroll all documents except PDFs (and fail the request if
@@ -1114,7 +1132,6 @@ const base::FeatureParam<int> kGlicGuestUrlPresetType{
 BASE_FEATURE(kGlicContextualCueBubble, base::FEATURE_DISABLED_BY_DEFAULT);
 
 
-
 // Enables the `google-chrome://` URI scheme.
 BASE_FEATURE(kGoogleChromeScheme, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -1333,6 +1350,7 @@ BASE_FEATURE(kIncomingCallNotifications,
 
 // Experimental image replacement feature. b/482792874
 BASE_FEATURE(kIndigo, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIndigoContextualCueingV2, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<bool> kIndigoRequireGlicEnabling{
     &kIndigo, "indigo_require_glic_enabling", false};
@@ -1375,6 +1393,15 @@ const base::FeatureParam<std::string> kIndigoGlicSkillId{
 const base::FeatureParam<base::TimeDelta> kIndigoGlicTriggerDelay{
     &kIndigoOpenGlic, "indigo_glic_trigger_delay", base::Milliseconds(300)};
 
+BASE_FEATURE(kIndigoGeneratedImageCache, base::FEATURE_ENABLED_BY_DEFAULT);
+const base::FeatureParam<base::TimeDelta> kIndigoGeneratedImageCacheLifetime{
+    &kIndigoGeneratedImageCache, "indigo_generated_image_cache_lifetime",
+    base::Minutes(30)};
+
+// Enables context menu copy and save actions to operate on Indigo replacement
+// images.
+BASE_FEATURE(kIndigoContextMenuCopy, base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if !BUILDFLAG(IS_ANDROID)
 // A feature that controls whether Instant uses a spare renderer.
 BASE_FEATURE(kInstantUsesSpareRenderer, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1383,9 +1410,6 @@ BASE_FEATURE(kInstantUsesSpareRenderer, base::FEATURE_DISABLED_BY_DEFAULT);
 // Enables Isolated Web App Developer Mode, which allows developers to
 // install untrusted Isolated Web Apps.
 BASE_FEATURE(kIsolatedWebAppDevMode, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables the chrome://iwa-dev WebUI page.
-BASE_FEATURE(kIsolatedWebAppDevUi, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables fast update checks for Isolated Web Apps, reducing the update check
 // interval to 1 minute.
@@ -1433,8 +1457,20 @@ BASE_FEATURE(kLazyKeyedServiceInstantiation, base::FEATURE_DISABLED_BY_DEFAULT);
 // lazily.
 BASE_FEATURE_PARAM(bool,
                    kLazyKeyedServiceInstantiationAutofillAndPassword,
-                   &features::kLazyKeyedServiceInstantiation,
-                   "autofill_and_password",
+                   &kLazyKeyedServiceInstantiation,
+                   true);
+
+// When enabled, extension keyed services are instantiated lazily.
+BASE_FEATURE_PARAM(bool,
+                   kLazyKeyedServiceInstantiationExtensions,
+                   &kLazyKeyedServiceInstantiation,
+                   true);
+
+// When enabled, Optimization Guide and related keyed services are instantiated
+// lazily.
+BASE_FEATURE_PARAM(bool,
+                   kLazyKeyedServiceInstantiationOptimizationGuide,
+                   &kLazyKeyedServiceInstantiation,
                    true);
 
 // Enables the use of system notification centers instead of using the Message
@@ -1704,11 +1740,6 @@ BASE_FEATURE(kProcessPerSiteForDSE,
 #endif
 );
 
-// Consider the default search engine (DSE) warmup page as a search results page
-// (SRP), for the purpose of applying the "process per site for DSE SRP" policy
-// (`kProcessPerSiteForDSE`).
-BASE_FEATURE(kConsiderDSEWarmUpPageAsSRP, base::FEATURE_ENABLED_BY_DEFAULT);
-
 #if BUILDFLAG(IS_CHROMEOS)
 // Enables Camera Cloud Storage for saving photos and videos on Google Drive
 // or OneDrive, controlled by CameraSaveLocation policy.
@@ -1932,11 +1963,6 @@ BASE_FEATURE(kWebAppUpgradeToDatabaseVersion6,
 
 #if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kWebium, base::FEATURE_DISABLED_BY_DEFAULT);
-// Enables logging InitialWebUI-related metrics. The metrics are not necessary
-// comes from WebUI but can also come from the C++ version of them.
-// Defaults to enabled to also collect metrics for the C++ group.
-// See crbug.com/448794588.
-BASE_FEATURE(kInitialWebUIMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
 // When enable, the reload button will be replaced with the a WebView, and
 // chrome://webui-toolbar.top-chrome will be loaded as the content.
 // crbug.com/444358999

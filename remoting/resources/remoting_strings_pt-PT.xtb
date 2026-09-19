@@ -48,6 +48,7 @@ Se "<ph name="SERVICE_SCRIPT_NAME" />" já estiver selecionado, desselecione-o e
 <translation id="3197730452537982411">Ambiente de Trabalho Remoto</translation>
 <translation id="3236334139428307578">Copyright 2026 The Chromium Authors. Todos os direitos reservados.</translation>
 <translation id="324272851072175193">Enviar estas instruções por email</translation>
+<translation id="3254626532848657899">Mover para o fim</translation>
 <translation id="3305934114213025800">O <ph name="PRODUCT_NAME" /> quer efetuar alterações.</translation>
 <translation id="3339299787263251426">Aceder ao seu computador de forma segura através da Internet</translation>
 <translation id="3385242214819933234">Proprietário do anfitrião inválido.</translation>
@@ -166,6 +167,7 @@ Se "<ph name="SERVICE_SCRIPT_NAME" />" já estiver selecionado, desselecione-o e
 <translation id="8073845705237259513">Para utilizar o Ambiente de Trabalho Remoto do Chrome, tem de adicionar uma Conta Google ao seu dispositivo.</translation>
 <translation id="809687642899217504">Os Meus Computadores</translation>
 <translation id="8116630183974937060">Ocorreu um erro de rede. Verifique se o dispositivo está online e tente novamente.</translation>
+<translation id="8249310407154411074">Mover para o início</translation>
 <translation id="8295077433896346116">Para utilizar o <ph name="PRODUCT_NAME" />, tem de conceder a autorização "Acessibilidade" para que a entrada do computador remoto possa ser inserida neste Mac.
 
 Para conceder esta autorização, clique em "<ph name="BUTTON_NAME" />" abaixo. No painel de preferências "Acessibilidade" aberto, selecione a caixa junto a "<ph name="SERVICE_SCRIPT_NAME" />".

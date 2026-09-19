@@ -23,6 +23,12 @@ BASE_DECLARE_FEATURE(kGlicBlockFileSystemAccessApiFilePicker);
 
 BASE_DECLARE_FEATURE(kGlicDeferDownloadFilePickerToUserTakeover);
 
+// When enabled: localhost URLs (e.g. 127.0.0.1, localhost, [::1]) are treated
+// as sensitive origins, requiring user confirmation for page actions and
+// navigations.
+// When disabled: localhost URLs are treated as safe.
+BASE_DECLARE_FEATURE(kGlicActorLocalhostIsSensitive);
+
 BASE_DECLARE_FEATURE(kGlicCrossOriginNavigationGating);
 // Feature params to kGlicCrossOriginNavigationGating to enable individual
 // checks for debugging.
@@ -47,6 +53,12 @@ BASE_DECLARE_FEATURE_PARAM(bool, kGlicNavigationGatingUseSiteNotOrigin);
 BASE_DECLARE_FEATURE_PARAM(bool, kGlicEnforceComponentUpdaterBlockListEntries);
 // Controls whether tool requests can implicitly allow new origins.
 BASE_DECLARE_FEATURE_PARAM(bool, kGlicAllowImplicitToolOriginGrants);
+
+BASE_DECLARE_FEATURE(kGlicAttachNavigationThrottleToPausedTasks);
+
+// Apply navigation gating protections to "page activation" events (navigations
+// served from the BFCache, prerender page activations).
+BASE_DECLARE_FEATURE(kGlicPageActivationGating);
 
 // When enabled, `beforeunload` dialog will not be displayed and the callback
 // indicating the dialog outcome will be called with `true`.

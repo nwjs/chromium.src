@@ -56,8 +56,8 @@
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/sync/user_event_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/simple_message_box_internal.h"
@@ -548,10 +548,10 @@ class DiceBrowserTest : public InProcessBrowserTest,
     AccountInfo secondary_account_info =
         signin::MakeAccountAvailable(GetIdentityManager(), kSecondaryEmail);
     ASSERT_TRUE(GetIdentityManager()->HasAccountWithRefreshToken(
-        secondary_account_info.account_id));
+        secondary_account_info.GetAccountId()));
     ASSERT_FALSE(
         GetIdentityManager()->HasAccountWithRefreshTokenInPersistentErrorState(
-            secondary_account_info.account_id));
+            secondary_account_info.GetAccountId()));
   }
 
   // Navigate to a Gaia URL setting the Google-Accounts-SignOut header.
@@ -1323,12 +1323,10 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, TurnOffDice_SignedIn) {
 
 // Checks that Dice is disabled in incognito mode.
 IN_PROC_BROWSER_TEST_F(DiceBrowserTest, Incognito) {
-  Browser* incognito_browser =
-      CreateBrowserWindow(BrowserWindowCreateParams(
-                              browser()->GetProfile()->GetPrimaryOTRProfile(
-                                  /*create_if_needed=*/true),
-                              /*from_user_gesture=*/true))
-          ->GetBrowserForMigrationOnly();
+  BrowserWindowInterface* incognito_browser = CreateBrowserWindow(
+      BrowserWindowCreateParams(browser()->GetProfile()->GetPrimaryOTRProfile(
+                                    /*create_if_needed=*/true),
+                                /*from_user_gesture=*/true));
 
   // Check that Dice is disabled.
   EXPECT_FALSE(AccountConsistencyModeManager::IsDiceEnabledForProfile(
@@ -1370,7 +1368,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, SignInAfterToken) {
       dice_request_header_);
 
   content::WebContents* tab_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   base::RunLoop ntp_run_loop;
   content::DidFinishNavigationObserver ntp_url_observer(
       tab_contents,
@@ -1982,7 +1980,7 @@ IN_PROC_BROWSER_TEST_F(
   base::test::TestFuture<Profile*, content::WebContents*, const SigninUIError&>
       show_signin_error_future;
   DiceTabHelper::FromWebContents(
-      browser()->tab_strip_model()->GetActiveWebContents())
+      browser()->GetTabStripModel()->GetActiveWebContents())
       ->UpdateSigninErrorCallback(
           show_signin_error_future.GetRepeatingCallback());
 

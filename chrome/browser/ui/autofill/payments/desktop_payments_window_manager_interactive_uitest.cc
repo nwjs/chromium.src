@@ -12,7 +12,6 @@
 #include "base/test/mock_callback.h"
 #include "chrome/browser/ui/autofill/payments/desktop_payments_window_manager.h"
 #include "chrome/browser/ui/autofill/payments/desktop_payments_window_manager_test_api.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -33,7 +32,7 @@
 #include "components/autofill/core/browser/payments/payments_window_manager.h"
 #include "components/autofill/core/browser/payments/test_payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/test_payments_network_interface.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
@@ -242,6 +241,25 @@ IN_PROC_BROWSER_TEST_F(DesktopPaymentsWindowManagerInteractiveUiTest,
   context.completion_callback = authentication_complete_callback_.Get();
   context.user_consent_already_given = true;
   Vcn3dsChallengeOptionMetadata metadata;
+  metadata.success_query_param_name = "token";
+  metadata.failure_query_param_name = "failure";
+  context.challenge_option.vcn_3ds_metadata = std::move(metadata);
+  window_manager().InitVcn3dsAuthentication(std::move(context));
+  EXPECT_TRUE(
+      client()->GetPaymentsAutofillClient()->autofill_error_dialog_shown());
+}
+
+// Tests that an error dialog is shown if the URL to open returned from the
+// server has a non-HTTP/HTTPS scheme.
+IN_PROC_BROWSER_TEST_F(DesktopPaymentsWindowManagerInteractiveUiTest,
+                       Vcn3ds_InvokeUi_BadUrlScheme_ErrorDialogShown) {
+  PaymentsWindowManager::Vcn3dsContext context;
+  context.card = test::GetVirtualCard();
+  context.context_token = kTestContextToken;
+  context.completion_callback = authentication_complete_callback_.Get();
+  context.user_consent_already_given = true;
+  Vcn3dsChallengeOptionMetadata metadata;
+  metadata.url_to_open = GURL("data:text/html,Hello");
   metadata.success_query_param_name = "token";
   metadata.failure_query_param_name = "failure";
   context.challenge_option.vcn_3ds_metadata = std::move(metadata);

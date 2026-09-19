@@ -13,7 +13,7 @@
 #import "base/test/ios/wait_util.h"
 #import "base/time/time.h"
 #import "build/branding_buildflags.h"
-#import "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#import "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/core/common/autofill_payments_features.h"
 #import "components/autofill/ios/common/features.h"
@@ -260,13 +260,6 @@ void FillAndSubmitXframeCreditCardForm() {
 
   if ([self isRunningTest:@selector(DISABLED_testStickySavePromptJourney)]) {
     config.features_enabled.push_back(kAutofillStickyInfobarIos);
-  }
-  if ([self isRunningTest:@selector
-            (DISABLED_testOfferUpstream_FullData_PaymentsAccepts_Xframe)] ||
-      [self isRunningTest:@selector
-            (DISABLED_testUserData_LocalSave_UserAccepts_Xframe)]) {
-    config.features_enabled.push_back(
-        autofill::features::kAutofillAcrossIframesIos);
   }
   if ([self isRunningTest:@selector(
                               testLocalSaveBottomSheetStrikeLimitExperiment)]) {

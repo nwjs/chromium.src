@@ -12,6 +12,10 @@ namespace android_webview::features {
 
 // Alphabetical:
 
+// When enabled, creates a spare renderer for the default webview profile
+BASE_FEATURE(kCreateSpareRendererForDefaultProfile,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Post Chromium startup in the WebView constructor. Only has any effect
 // when kStartupNonBlockingWebViewConstructor is enabled.
 BASE_FEATURE(kPostChromiumStartupInWebViewConstructor,
@@ -24,6 +28,11 @@ BASE_FEATURE(kPrerender2WarmUpCompositorForWebView,
 
 // Enables non-blocking WebView constructor.
 BASE_FEATURE(kStartupNonBlockingWebViewConstructor,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, starts observing for Android OS accessibility changes on
+// startup.
+BASE_FEATURE(kWebViewObserveAccessibilityState,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Kill switch for Profile.addQuicHints.
@@ -47,6 +56,10 @@ BASE_FEATURE(kWebViewBackgroundClassPreloading,
 // `kWebViewEarlyTracingInit`. If both flags are enabled,
 // `kWebViewEarlyTracingInit` will take precedent.
 BASE_FEATURE(kWebViewBackgroundTracingInit, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables boosting the renderer main thread priority during navigation.
+BASE_FEATURE(kWebViewBoostRendererPriorityOnNavigation,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables parsing a custom header passed by the WebView embedder during a
 // prefetch request that allows bypassing the HTTP cache for that request.
@@ -86,6 +99,12 @@ const base::FeatureParam<double> kWebViewCodeCacheSizeLimitMultiplier{
 // Enables content restriction support in WebView.
 BASE_FEATURE(kWebViewContentRestrictionSupport,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Timeout duration for content restriction classification requests before
+// we give up and assume the platform is non-responsive.
+const base::FeatureParam<base::TimeDelta> kWebViewContentRestrictionTimeout{
+    &kWebViewContentRestrictionSupport, "WebViewContentRestrictionTimeout",
+    base::Seconds(10)};
 
 // Enables a simpler URL fixup implementation for URLs passed to CookieManager.
 BASE_FEATURE(kWebViewCookieManagerSimplerUrlFixups,
@@ -290,7 +309,7 @@ BASE_FEATURE(kWebViewPersistentMetricsInNoBackupDir,
 // When enabled, HttpServerProperties will be persisted to disk across
 // app restarts.
 BASE_FEATURE(kWebViewPersistHttpServerProperties,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebViewPrefetchAheadOfPrerender,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -387,6 +406,13 @@ BASE_FEATURE(kWebViewSkipInterceptsForPrefetch,
 // When enabled, certain static methods in SharedStatics do not trigger startup.
 BASE_FEATURE(kWebViewStaticMethodsNotTriggerStartup,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Kill switch for updating RfhToIoThreadClientMap on SubFrameCreated IPC.
+// When enabled, the map is not updated from the SubFrameCreated IPC.
+// TODO(crbug.com/497094708): Remove this flag and apply
+// https://crrev.com/c/8159020 in ~5 months (~January 2027).
+BASE_FEATURE(kWebViewSubFrameCreatedDoNotUpdateClientMap,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // A Feature used for WebView variations tests. Not used in production. Please
 // do not clean up this stale feature: we intentionally keep this feature flag

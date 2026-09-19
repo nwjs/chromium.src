@@ -9,6 +9,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
@@ -28,6 +29,7 @@
 #include "services/device/public/cpp/device_features.h"
 #include "services/device/public/cpp/hid/hid_report_utils.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/frame/user_activation_notification_type.mojom.h"
 #include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom.h"
 
@@ -42,7 +44,7 @@ class DocumentHelper
                  mojo::PendingReceiver<blink::mojom::HidService> receiver)
       : DocumentService(render_frame_host, std::move(receiver)),
         parent_(std::move(parent)) {
-    DCHECK(parent_);
+    CHECK(parent_, base::NotFatalUntil::M159);
   }
   ~DocumentHelper() override = default;
 
@@ -156,6 +158,12 @@ void HidService::Create(
     return;
   }
 
+#if BUILDFLAG(IS_ANDROID)
+  if (!base::FeatureList::IsEnabled(blink::features::kWebHID)) {
+    return;
+  }
+#endif
+
   // Avoid creating the HidService if there is no HID delegate to provide the
   // implementation.
   if (!GetContentClient()->browser()->GetHidDelegate())
@@ -189,7 +197,7 @@ void HidService::Create(
     base::WeakPtr<ServiceWorkerVersion> service_worker_version,
     const url::Origin& origin,
     mojo::PendingReceiver<blink::mojom::HidService> receiver) {
-  DCHECK(service_worker_version);
+  CHECK(service_worker_version, base::NotFatalUntil::M159);
 
   if (origin.opaque()) {
     // Service worker should not be available to a window/worker client which
@@ -197,6 +205,12 @@ void HidService::Create(
     mojo::ReportBadMessage("WebHID is blocked in an opaque origin.");
     return;
   }
+
+#if BUILDFLAG(IS_ANDROID)
+  if (!base::FeatureList::IsEnabled(blink::features::kWebHID)) {
+    return;
+  }
+#endif
 
   // Avoid creating the HidService if there is no HID delegate to provide
   // the implementation.
@@ -421,20 +435,37 @@ void HidService::RequestDevice(
     std::vector<blink::mojom::HidDeviceFilterPtr> exclusion_filters,
     RequestDeviceCallback callback) {
   HidDelegate* delegate = GetContentClient()->browser()->GetHidDelegate();
-  if (!render_frame_host_ ||
-      !FrameTreeNode::From(render_frame_host_)
-           ->UpdateUserActivationState(
-               blink::mojom::UserActivationUpdateType::
-                   kConsumeTransientActivation,
-               blink::mojom::UserActivationNotificationType::kNone) ||
+  if (!delegate ||
       !delegate->CanRequestDevicePermission(GetBrowserContext(), origin_)) {
     std::move(callback).Run(std::vector<device::mojom::HidDeviceInfoPtr>());
     return;
   }
-  chooser_ = GetContentClient()->browser()->GetHidDelegate()->RunChooser(
+
+  // Ensure the requesting document is still active and consume transient user
+  // activation to prevent stale/pending-deletion frames from opening choosers
+  // or consuming user gestures from newly committed documents.
+  if (!render_frame_host_ || !render_frame_host_->IsActive() ||
+      !FrameTreeNode::From(render_frame_host_)
+           ->UpdateUserActivationState(
+               blink::mojom::UserActivationUpdateType::
+                   kConsumeTransientActivation,
+               blink::mojom::UserActivationNotificationType::kNone)) {
+    std::move(callback).Run(std::vector<device::mojom::HidDeviceInfoPtr>());
+    return;
+  }
+  // The delegate's chooser implementation may spin a nested message loop (e.g.
+  // to drop fullscreen), during which the frame may be detached and the
+  // service destroyed. Check that the service is still alive before accessing
+  // member variables.
+  base::WeakPtr<HidService> weak_this = weak_factory_.GetWeakPtr();
+  auto chooser = delegate->RunChooser(
       render_frame_host_, std::move(filters), std::move(exclusion_filters),
       base::BindOnce(&HidService::FinishRequestDevice,
                      weak_factory_.GetWeakPtr(), std::move(callback)));
+  if (!weak_this) {
+    return;
+  }
+  chooser_ = std::move(chooser);
 }
 
 void HidService::Connect(

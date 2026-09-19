@@ -33,6 +33,7 @@
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
+#include "chrome/browser/ui/views/frame/browser_native_widget.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/browser_widget.h"
 #include "chrome/browser/ui/views/frame/caption_button_placeholder_container.h"
@@ -507,20 +508,20 @@ void BrowserFrameViewMac::OnPaint(gfx::Canvas* canvas) {
     return;
   }
 
-  SkColor frame_color = GetFrameColor(BrowserFrameActiveState::kUseCurrent);
   if (is_glass_frame_eligible_) {
-    const SkAlpha frame_alpha = color_utils::IsDark(frame_color)
-                                    ? kBrowserFrameAlphaDark
-                                    : kBrowserFrameAlphaLight;
-    canvas->DrawColor(SkColorSetA(frame_color, frame_alpha));
-  } else {
-    canvas->DrawColor(frame_color);
+    // In glass mode, painting to frame color happens in the opaque background
+    // view instead.
+    return;
+  }
 
-    auto* theme_service = ThemeServiceFactory::GetForProfile(
-        GetBrowserView()->browser()->GetProfile());
-    if (!theme_service->UsingSystemTheme()) {
-      PaintThemedFrame(canvas);
-    }
+  const SkColor frame_color =
+      GetFrameColor(BrowserFrameActiveState::kUseCurrent);
+  canvas->DrawColor(frame_color);
+
+  auto* theme_service = ThemeServiceFactory::GetForProfile(
+      GetBrowserView()->browser()->GetProfile());
+  if (!theme_service->UsingSystemTheme()) {
+    PaintThemedFrame(canvas);
   }
 }
 

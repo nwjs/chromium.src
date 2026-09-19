@@ -127,6 +127,27 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Lens.Composebox.ImageUpload.Java.C2paDetected" enum="Boolean"
+    expires_after="2027-02-07">
+  <owner>hujasonx@chromium.org</owner>
+  <owner>lens-chrome@google.com</owner>
+  <summary>
+    Records whether C2PA metadata was detected in an image attachment during
+    Java-side attachment processing before downscaling and compression.
+  </summary>
+</histogram>
+
+<histogram name="Lens.Composebox.ImageUpload.{UploadType}.C2paDetected"
+    enum="Boolean" expires_after="2027-02-07">
+  <owner>hujasonx@chromium.org</owner>
+  <owner>lens-chrome@google.com</owner>
+  <summary>
+    Recorded when an image is processed for {UploadType}. Logs whether C2PA
+    metadata was detected in the original image bytes in C++.
+  </summary>
+  <token key="UploadType" variants="ComposeboxImageUploadType"/>
+</histogram>
+
 <histogram
     name="Lens.Composebox.ImageUpload.{UploadType}.DownscaleAndEncodeFailed"
     enum="Boolean" expires_after="2027-02-07">
@@ -365,7 +386,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.ByPageContentType.Pdf.PageCount" units="Pages"
-    expires_after="2026-09-13">
+    expires_after="2027-03-13">
   <owner>mercerd@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -388,7 +409,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.ContextMenuOption.Shown"
-    enum="LensOverlayContextMenuOption" expires_after="2026-08-30">
+    enum="LensOverlayContextMenuOption" expires_after="2027-02-28">
   <owner>hujasonx@chromium.org</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -400,7 +421,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Lens.Overlay.ContextualSearchBox.ByDocumentType.{DocumentType}.ShownInSession"
-    enum="BooleanShown" expires_after="2026-09-13">
+    enum="BooleanShown" expires_after="2027-03-13">
   <owner>stanfield@google.com</owner>
   <owner>mercerd@google.com</owner>
   <owner>lens-chrome@google.com</owner>
@@ -458,7 +479,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Lens.Overlay.ContextualSearchBox.ByPageContentType.{PageContentType}.TimeFromNavigationToFirstFocus"
-    units="ms" expires_after="2026-09-13">
+    units="ms" expires_after="2027-03-13">
   <owner>mercerd@chromium.org</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -472,7 +493,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Lens.Overlay.ContextualSearchBox.ByPageContentType.{PageContentType}.TimeFromNavigationToFirstInteraction"
-    units="ms" expires_after="2026-09-13">
+    units="ms" expires_after="2027-03-13">
   <owner>mercerd@chromium.org</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -525,7 +546,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Lens.Overlay.ContextualSuggest.FollowUpQuery.ByPageContentType.{PageContentType}.QueryIssuedInSessionBeforeSuggestShown"
-    enum="Boolean" expires_after="2026-09-13">
+    enum="Boolean" expires_after="2027-03-13">
   <owner>mercerd@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -873,9 +894,10 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Lens.Overlay.PermissionBubble.ByInvocationSource.{InvocationSource}.Shown"
-    enum="BooleanShown" expires_after="2026-09-20">
+    enum="BooleanShown" expires_after="2027-03-20">
   <owner>jdonnelly@chromium.org</owner>
   <owner>mercerd@google.com</owner>
+  <owner>lens-chrome@google.com</owner>
   <summary>
     Recorded each time the Lens Permission Bubble is requested to be shown
     sliced by invocation source.'Shown' is recorded when the Lens Permission
@@ -971,7 +993,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.SidePanelResultStatus"
-    enum="SidePanelResultStatus" expires_after="2026-12-13">
+    enum="SidePanelResultStatus" expires_after="2027-02-14">
   <owner>juanmojica@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -1013,7 +1035,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.TimeToCreateScreenshotBitmap" units="ms"
-    expires_after="2026-03-01">
+    expires_after="2027-09-01">
   <owner>dianaou@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -1055,7 +1077,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.TimeToFirstInteraction.{FirstInteractionType}"
-    units="ms" expires_after="2026-05-17">
+    units="ms" expires_after="2027-09-01">
   <owner>christianxu@chromium.org</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -1067,7 +1089,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.TimeToGetPageContext" units="ms"
-    expires_after="2026-03-01">
+    expires_after="2027-09-01">
   <owner>dianaou@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -1077,7 +1099,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.TimeToScreenshot" units="ms"
-    expires_after="2026-03-01">
+    expires_after="2027-09-01">
   <owner>dianaou@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -1087,7 +1109,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Lens.Overlay.TimeToWebuiBound" units="ms"
-    expires_after="2026-03-01">
+    expires_after="2027-09-01">
   <owner>dianaou@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -1118,17 +1140,6 @@ chromium-metrics-reviews@google.com.
     Quick Action Search Widget.
 
     Note: Gap between 04/22 - 08/23.
-  </summary>
-</histogram>
-
-<histogram name="Lens.SidePanel.IframeLoadStatus"
-    enum="LensSidePanelIframeLoadStatus" expires_after="2026-09-01">
-  <owner>mercerd@google.com</owner>
-  <owner>lens-chrome@google.com</owner>
-  <summary>
-    Recorded after a navigation in the side panel iframe or one of its
-    subframes. Records whether the iframe loaded successfully, or the reason for
-    the error if it failed.
   </summary>
 </histogram>
 

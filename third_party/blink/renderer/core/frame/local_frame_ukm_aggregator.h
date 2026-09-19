@@ -11,6 +11,7 @@
 #include <memory>
 #include <optional>
 
+#include "base/memory/raw_ptr.h"
 #include "base/time/time.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
@@ -170,6 +171,7 @@ class CORE_EXPORT LocalFrameUkmAggregator
   typedef struct MetricInitializationData {
     const char* const name;
     bool has_uma;
+    bool has_ukm;
   } MetricInitializationData;
 
  private:
@@ -182,37 +184,38 @@ class CORE_EXPORT LocalFrameUkmAggregator
   // Add an entry in this array every time a new metric is added.
   static base::span<const MetricInitializationData> metrics_data() {
     static const MetricInitializationData data[] = {
-        {"Blink.CompositingCommit.UpdateTime", true},
-        {"Blink.CompositingInputs.UpdateTime", true},
-        {"Blink.ImplCompositorCommit.UpdateTime", true},
-        {"Blink.IntersectionObservation.UpdateTime", true},
-        {"Blink.IntersectionObservationInternalCount.UpdateTime", true},
-        {"Blink.IntersectionObservationJavascriptCount.UpdateTime", true},
-        {"Blink.Paint.UpdateTime", true},
-        {"Blink.PrePaint.UpdateTime", true},
-        {"Blink.Style.UpdateTime", true},
-        {"Blink.Layout.UpdateTime", true},
-        {"Blink.HandleInputEvents.UpdateTime", true},
-        {"Blink.Animate.UpdateTime", true},
-        {"Blink.UpdateLayers.UpdateTime", false},
-        {"Blink.WaitForCommit.UpdateTime", true},
-        {"Blink.DisplayLockIntersectionObserver.UpdateTime", true},
-        {"Blink.JavascriptIntersectionObserver.UpdateTime", true},
-        {"Blink.LazyLoadIntersectionObserver.UpdateTime", true},
-        {"Blink.MediaIntersectionObserver.UpdateTime", true},
-        {"Blink.PermissionElementIntersectionObserver.UpdateTime", true},
-        {"Blink.AnchorElementMetricsIntersectionObserver.UpdateTime", true},
-        {"Blink.UpdateViewportIntersection.UpdateTime", true},
-        {"Blink.VisualUpdateDelay.UpdateTime", true},
-        {"Blink.ForcedStyleAndLayout.UpdateTime", true},
-        {"Blink.ContentDocumentUpdate.UpdateTime", true},
-        {"Blink.HitTestDocumentUpdate.UpdateTime", true},
-        {"Blink.JavascriptDocumentUpdate.UpdateTime", true},
-        {"Blink.ServiceDocumentUpdate.UpdateTime", true},
-        {"Blink.UserDrivenDocumentUpdate.UpdateTime", true},
-        {"Blink.ParseStyleSheet.UpdateTime", true},
-        {"Blink.Accessibility.UpdateTime", true},
-        {"Blink.PossibleSynchronizedScrollCount2.UpdateTime", true}};
+        {"Blink.CompositingCommit.UpdateTime", true, true},
+        {"Blink.CompositingInputs.UpdateTime", true, true},
+        {"Blink.ImplCompositorCommit.UpdateTime", true, true},
+        {"Blink.IntersectionObservation.UpdateTime", true, true},
+        {"Blink.IntersectionObservationInternalCount.UpdateTime", true, true},
+        {"Blink.IntersectionObservationJavascriptCount.UpdateTime", true, true},
+        {"Blink.Paint.UpdateTime", true, true},
+        {"Blink.PrePaint.UpdateTime", true, true},
+        {"Blink.Style.UpdateTime", true, true},
+        {"Blink.Layout.UpdateTime", true, true},
+        {"Blink.HandleInputEvents.UpdateTime", true, true},
+        {"Blink.Animate.UpdateTime", true, true},
+        {"Blink.UpdateLayers.UpdateTime", false, true},
+        {"Blink.WaitForCommit.UpdateTime", true, true},
+        {"Blink.DisplayLockIntersectionObserver.UpdateTime", true, true},
+        {"Blink.JavascriptIntersectionObserver.UpdateTime", true, true},
+        {"Blink.LazyLoadIntersectionObserver.UpdateTime", true, true},
+        {"Blink.MediaIntersectionObserver.UpdateTime", true, true},
+        {"Blink.PermissionElementIntersectionObserver.UpdateTime", true, true},
+        {"Blink.AnchorElementMetricsIntersectionObserver.UpdateTime", true,
+         true},
+        {"Blink.UpdateViewportIntersection.UpdateTime", true, true},
+        {"Blink.VisualUpdateDelay.UpdateTime", true, true},
+        {"Blink.ForcedStyleAndLayout.UpdateTime", true, true},
+        {"Blink.ContentDocumentUpdate.UpdateTime", true, true},
+        {"Blink.HitTestDocumentUpdate.UpdateTime", true, true},
+        {"Blink.JavascriptDocumentUpdate.UpdateTime", true, true},
+        {"Blink.ServiceDocumentUpdate.UpdateTime", true, true},
+        {"Blink.UserDrivenDocumentUpdate.UpdateTime", true, true},
+        {"Blink.ParseStyleSheet.UpdateTime", true, true},
+        {"Blink.Accessibility.UpdateTime", true, true},
+        {"Blink.PossibleSynchronizedScrollCount2.UpdateTime", true, true}};
     static_assert(std::size(data) == kCount, "Metrics data mismatch");
     return data;
   }
@@ -442,7 +445,8 @@ class CORE_EXPORT LocalFrameUkmAggregator
     intersection_observer_sample_period_ = period;
   }
 
-  const base::TickClock* clock_;
+  raw_ptr<const base::TickClock, UnprotectedInRelease | DanglingUntriaged>
+      clock_;
 
   // Event and metric data
   AbsoluteMetricRecord primary_metric_;

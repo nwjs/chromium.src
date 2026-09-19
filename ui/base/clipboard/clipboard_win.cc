@@ -235,7 +235,7 @@ bool ReadFilenamesAvailable() {
 
 // Limit the size of clipboard data to 256 MiB to prevent allocation failures.
 // See https://crbug.com/1164680.
-constexpr auto kMaxClipboardSize = base::MiBU(256);
+constexpr auto kMaxClipboardSize = base::MiB(256);
 
 // A DIB scanline is padded up to a whole number of 4-byte (32-bit DWORD)
 // boundaries, so its byte length depends on this alignment rather than on
@@ -269,9 +269,7 @@ ClipboardWin::ClipboardWin() {
   if (base::CurrentUIThread::IsSet())
     clipboard_owner_ = std::make_unique<base::win::MessageWindow>();
 
-  if (base::FeatureList::IsEnabled(features::kPlatformClipboardMonitor)) {
-    ui::ClipboardMonitor::GetInstance()->SetNotifier(this);
-  }
+  ui::ClipboardMonitor::GetInstance()->SetNotifier(this);
 
   if (base::FeatureList::IsEnabled(features::kNonBlockingOsClipboardReads)) {
     worker_task_runner_ = base::ThreadPool::CreateSequencedTaskRunner(

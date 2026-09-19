@@ -49,7 +49,6 @@
 #include "components/search_engines/template_url_service.h"
 #include "components/search_engines/template_url_starter_pack_data.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
-#include "third_party/omnibox_proto/answer_type.pb.h"
 #include "third_party/omnibox_proto/groups.pb.h"
 #include "third_party/omnibox_proto/suggest_template_info.pb.h"
 #include "third_party/omnibox_proto/types.pb.h"
@@ -61,7 +60,6 @@
 #include "url/url_util.h"
 
 #if (!BUILDFLAG(IS_ANDROID) || BUILDFLAG(ENABLE_VR)) && !BUILDFLAG(IS_IOS)
-#include "components/omnibox/browser/suggestion_answer.h"
 #include "components/omnibox/browser/vector_icons.h"  // nogncheck
 #include "components/vector_icons/vector_icons.h"     // nogncheck
 #endif
@@ -284,7 +282,6 @@ AutocompleteMatch::AutocompleteMatch(const AutocompleteMatch& match)
       swap_contents_and_description(match.swap_contents_and_description),
       answer_template(match.answer_template),
       suggest_template(match.suggest_template),
-      answer_type(match.answer_type),
       transition(match.transition),
       type(match.type),
       suggest_type(match.suggest_type),
@@ -364,7 +361,6 @@ AutocompleteMatch& AutocompleteMatch::operator=(
       std::move(match.swap_contents_and_description);
   answer_template = std::move(match.answer_template);
   suggest_template = std::move(match.suggest_template);
-  answer_type = std::move(match.answer_type);
   transition = std::move(match.transition);
   type = std::move(match.type);
   suggest_type = std::move(match.suggest_type);
@@ -444,7 +440,6 @@ AutocompleteMatch& AutocompleteMatch::operator=(
   swap_contents_and_description = match.swap_contents_and_description;
   answer_template = match.answer_template;
   suggest_template = match.suggest_template;
-  answer_type = match.answer_type;
   transition = match.transition;
   type = match.type;
   suggest_type = match.suggest_type;
@@ -497,33 +492,6 @@ AutocompleteMatch& AutocompleteMatch::operator=(
 
 #if (!BUILDFLAG(IS_ANDROID) || BUILDFLAG(ENABLE_VR)) && !BUILDFLAG(IS_IOS)
 // static
-const gfx::VectorIcon& AutocompleteMatch::AnswerTypeToAnswerIcon(
-    omnibox::AnswerType type) {
-  switch (type) {
-    case omnibox::ANSWER_TYPE_CURRENCY:
-      return features::IsRoundedIconsEnabled()
-                 ? omnibox::kAutorenewIcon
-                 : omnibox::kAnswerCurrencyChromeRefreshOldIcon;
-    case omnibox::ANSWER_TYPE_DICTIONARY:
-      return features::IsRoundedIconsEnabled()
-                 ? omnibox::kBookIcon
-                 : omnibox::kAnswerDictionaryChromeRefreshOldIcon;
-    case omnibox::ANSWER_TYPE_FINANCE:
-      return features::IsRoundedIconsEnabled()
-                 ? omnibox::kSwapVertIcon
-                 : omnibox::kAnswerFinanceChromeRefreshOldIcon;
-    case omnibox::ANSWER_TYPE_SUNRISE_SUNSET:
-      return features::IsRoundedIconsEnabled()
-                 ? omnibox::kWbSunnyIcon
-                 : omnibox::kAnswerSunriseChromeRefreshOldIcon;
-    case omnibox::ANSWER_TYPE_TRANSLATION:
-      return features::IsRoundedIconsEnabled()
-                 ? omnibox::kTranslateIcon
-                 : omnibox::kAnswerTranslationChromeRefreshOldIcon;
-    default:
-      return omnibox::kAnswerDefaultIcon;
-  }
-}
 
 const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
     bool is_bookmark,
@@ -584,9 +552,6 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
                : omnibox::kBookmarkChromeRefreshOldIcon;
   }
 
-  if (answer_type != omnibox::ANSWER_TYPE_UNSPECIFIED) {
-    return AnswerTypeToAnswerIcon(answer_type);
-  }
 
   switch (type) {
     case Type::URL_WHAT_YOU_TYPED:
@@ -821,10 +786,8 @@ bool AutocompleteMatch::BetterDuplicate(const AutocompleteMatch& match1,
   // Prefer entity and answer matches over non-entity & non-answer matches, if
   // they have the same `fill_into_edit` value.
   if (match1.fill_into_edit == match2.fill_into_edit) {
-    bool rich1 = match1.type == AutocompleteMatchType::SEARCH_SUGGEST_ENTITY ||
-                 match1.answer_type;
-    bool rich2 = match2.type == AutocompleteMatchType::SEARCH_SUGGEST_ENTITY ||
-                 match2.answer_type;
+    bool rich1 = match1.type == AutocompleteMatchType::SEARCH_SUGGEST_ENTITY;
+    bool rich2 = match2.type == AutocompleteMatchType::SEARCH_SUGGEST_ENTITY;
     if (rich1 && !rich2) {
       return true;
     }
@@ -1482,9 +1445,7 @@ template_url_starter_pack_data::StarterPackId AutocompleteMatch::StarterPackId(
 }
 
 GURL AutocompleteMatch::ImageUrl() const {
-  return answer_template.has_value()
-             ? GURL(answer_template->answers(0).image().url())
-             : image_url;
+  return image_url;
 }
 
 void AutocompleteMatch::RecordAdditionalInfo(const std::string& property,
@@ -1774,9 +1735,6 @@ bool AutocompleteMatch::HasCustomDescription() const {
 
 bool AutocompleteMatch::IsMlSignalLoggingEligible() const {
   const auto& ml_config = OmniboxFieldTrial::GetMLConfig();
-  if (answer_type != omnibox::ANSWER_TYPE_UNSPECIFIED) {
-    return false;
-  }
   return type == AutocompleteMatchType::URL_WHAT_YOU_TYPED ||
          type == AutocompleteMatchType::HISTORY_URL ||
          type == AutocompleteMatchType::HISTORY_TITLE ||
@@ -1799,8 +1757,7 @@ bool AutocompleteMatch::IsMlScoringEligible() const {
   // Do not apply ML scoring to calculator or answer suggestions as the ML model
   // currently doesn't provide accurate scores for suggestions that have a low
   // click-through rate.
-  if (type == AutocompleteMatchType::CALCULATOR ||
-      answer_type != omnibox::ANSWER_TYPE_UNSPECIFIED) {
+  if (type == AutocompleteMatchType::CALCULATOR) {
     return false;
   }
 

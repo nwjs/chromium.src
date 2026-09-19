@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_view_views_test.h"
 #include "content/public/test/browser_test.h"
@@ -61,7 +63,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest,
   event_generator.MoveMouseTo(
       browser_view->tab_strip_view()
           ->GetTabAnchorView(
-              browser()->tab_strip_model()->GetTabAtIndex(0)->GetHandle())
+              browser()->GetTabStripModel()->GetTabAtIndex(0)->GetHandle())
           ->GetBoundsInScreen()
           .CenterPoint());
   event_generator.ClickLeftButton();

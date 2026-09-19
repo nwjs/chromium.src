@@ -53,7 +53,7 @@ void LayoutQuote::Trace(Visitor* visitor) const {
   LayoutInline::Trace(visitor);
 }
 
-void LayoutQuote::WillBeDestroyed() {
+void LayoutQuote::WillBeDestroyed(const ComputedStyle* style) {
   NOT_DESTROYED();
   if (scope_) {
     GetDocument()
@@ -62,7 +62,7 @@ void LayoutQuote::WillBeDestroyed() {
         .UpdateOutermostDirtyScope(scope_);
     scope_->DetachItem(*this);
   }
-  LayoutInline::WillBeDestroyed();
+  LayoutInline::WillBeDestroyed(style);
 }
 
 void LayoutQuote::WillBeRemovedFromTree() {
@@ -105,12 +105,12 @@ void LayoutQuote::UpdateText() {
   LayoutTextFragment* fragment = FindFragmentChild();
   if (fragment) {
     fragment->SetStyle(IsA<LayoutTextCombine>(fragment->Parent())
-                           ? fragment->Parent()->Style()
-                           : Style());
+                           ? &fragment->Parent()->StyleRef()
+                           : &StyleRef());
     fragment->SetContentString(text_.Impl());
   } else {
     fragment = LayoutTextFragment::CreateAnonymous(GetDocument(), text_.Impl());
-    fragment->SetStyle(Style());
+    fragment->SetStyle(&StyleRef());
     AddChild(fragment);
   }
 }

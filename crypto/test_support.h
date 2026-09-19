@@ -26,6 +26,22 @@ PrivateKey FixedEcP256PrivateKeyForTesting();
 PublicKey FixedEcP256PublicKeyForTesting();
 const base::span<const uint8_t> FixedEcP256PublicKeyAsCoseForTesting();
 
+PrivateKey FixedMldsa44PrivateKeyForTesting();
+PublicKey FixedMldsa44PublicKeyForTesting();
+const base::span<const uint8_t> FixedMldsa44PublicKeyAsCoseForTesting();
+
+PrivateKey FixedMldsa65PrivateKeyForTesting();
+PublicKey FixedMldsa65PublicKeyForTesting();
+const base::span<const uint8_t> FixedMldsa65PublicKeyAsCoseForTesting();
+
+PrivateKey FixedMldsa87PrivateKeyForTesting();
+PublicKey FixedMldsa87PublicKeyForTesting();
+const base::span<const uint8_t> FixedMldsa87PublicKeyAsCoseForTesting();
+
+PrivateKey FixedEd25519PrivateKeyForTesting();
+PublicKey FixedEd25519PublicKeyForTesting();
+const base::span<const uint8_t> FixedEd25519PublicKeyAsCoseForTesting();
+
 }  // namespace crypto::test
 
 #endif  // CRYPTO_TEST_SUPPORT_H_

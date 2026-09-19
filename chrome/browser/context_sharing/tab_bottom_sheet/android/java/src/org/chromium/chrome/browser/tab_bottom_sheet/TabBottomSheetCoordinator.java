@@ -33,7 +33,6 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
-import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.browser_ui.widget.RoundedCornerOutlineProvider;
 import org.chromium.components.browser_ui.widget.TouchEventObserver;
 import org.chromium.components.browser_ui.widget.TouchEventProvider;
@@ -98,6 +97,7 @@ public class TabBottomSheetCoordinator {
     private boolean mIsShowingTabBottomSheet;
     private boolean mExpectingLayoutChange;
     private boolean mInitialContainerSizeChanged;
+    private boolean mPendingExpansion;
 
     private @Nullable KeyboardVisibilityListener mKeyboardVisibilityListener;
     private @Nullable ModalDialogManager mObservedModalDialogManager;
@@ -161,12 +161,14 @@ public class TabBottomSheetCoordinator {
         createSheetContent();
         assert mSheetContent != null : "TabBottomSheetContent must not be null";
 
+        mPendingExpansion = startsExpanded;
         if (mBottomSheetController.requestShowContent(mSheetContent, animate)) {
             onSheetContentShown(animate, startsExpanded);
             registerSystemObservers();
             mIsShowingTabBottomSheet = true;
             return true;
         } else {
+            mPendingExpansion = false;
             // This happens when either.
             // 1) If the sheet content is null.
             // 2) The bottom sheet is null.
@@ -219,6 +221,7 @@ public class TabBottomSheetCoordinator {
         mSheetContent =
                 provider.createContent(
                         mContentView,
+                        getDefaultHeightRatio(),
                         TabBottomSheetUtils.getFullHeightRatio(),
                         mCoBrowseViews.getBackgroundColor(),
                         mContentView
@@ -267,6 +270,7 @@ public class TabBottomSheetCoordinator {
                             mSheetEventsCallback.onBottomSheetOpened(/* isExpanded= */ false);
                         }
                     }
+                    mPendingExpansion = false;
                 });
     }
 
@@ -388,7 +392,7 @@ public class TabBottomSheetCoordinator {
     }
 
     private BottomSheetObserver buildBottomSheetObserver() {
-        return new EmptyBottomSheetObserver() {
+        return new BottomSheetObserver() {
             private @SheetState int mLastStableState = SheetState.HIDDEN;
 
             @Override
@@ -405,7 +409,9 @@ public class TabBottomSheetCoordinator {
                     // The sheet is considered expanded if it's in HALF, FULL, or SCROLLING above
                     // peek.
                     boolean isExpanded = state != SheetState.PEEK;
-                    mSheetEventsCallback.onBottomSheetOpened(isExpanded);
+                    if (!mPendingExpansion || isExpanded) {
+                        mSheetEventsCallback.onBottomSheetOpened(isExpanded);
+                    }
                 }
                 updateRoundingEdges();
 

@@ -124,7 +124,7 @@ public class RecentTabsPageTest {
     @Rule
     public final ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
-                    .setRevision(11)
+                    .setRevision(12)
                     .setBugComponent(ChromeRenderTestRule.Component.UI_BROWSER_MOBILE_RECENT_TABS)
                     .build();
 
@@ -170,7 +170,7 @@ public class RecentTabsPageTest {
         final int groupIdx = !DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity) ? 0 : 1;
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    mPage.onChildClick(null, null, groupIdx, 0, 0);
+                    mPage.performChildClickForTesting(groupIdx, 0);
                 });
         verify(mManager, times(1))
                 .openRecentlyClosedTab(mTabModel, tab, WindowOpenDisposition.CURRENT_TAB);
@@ -264,7 +264,7 @@ public class RecentTabsPageTest {
         final int groupIdx = !DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity) ? 0 : 1;
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    mPage.onChildClick(null, null, groupIdx, 0, 0);
+                    mPage.performChildClickForTesting(groupIdx, 0);
                 });
         verify(mManager, times(1)).openRecentlyClosedEntry(mTabModel, group);
 
@@ -336,7 +336,7 @@ public class RecentTabsPageTest {
         final int groupIdx = !DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity) ? 0 : 1;
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    mPage.onChildClick(null, null, groupIdx, 0, 0);
+                    mPage.performChildClickForTesting(groupIdx, 0);
                 });
         verify(mManager, times(1)).openRecentlyClosedEntry(mTabModel, group);
 
@@ -427,7 +427,7 @@ public class RecentTabsPageTest {
         final int groupIdx = !DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity) ? 0 : 1;
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    mPage.onChildClick(null, null, groupIdx, 0, 0);
+                    mPage.performChildClickForTesting(groupIdx, 0);
                 });
         verify(mManager, times(1)).openRecentlyClosedEntry(mTabModel, group);
 
@@ -508,7 +508,7 @@ public class RecentTabsPageTest {
         final int groupIdx = !DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity) ? 0 : 1;
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    mPage.onChildClick(null, null, groupIdx, 0, 0);
+                    mPage.performChildClickForTesting(groupIdx, 0);
                 });
         verify(mManager, times(1)).openRecentlyClosedEntry(mTabModel, event);
 

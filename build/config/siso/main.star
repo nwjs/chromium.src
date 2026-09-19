@@ -8,6 +8,7 @@ load("@builtin//encoding.star", "json")
 load("@builtin//lib/gn.star", "gn")
 load("@builtin//runtime.star", "runtime")
 load("@builtin//struct.star", "module")
+load("@builtin//time.star", "time")
 load("./backend_config/backend.star", "backend")
 load("./blink_all.star", "blink_all")
 load("./config.star", "config")
@@ -45,6 +46,12 @@ def __unset_timeout(ctx, step_config):
     if not config.get(ctx, "no-remote-timeout"):
         return step_config
     for rule in step_config["rules"]:
+        # if no timeout, default is 60m timeout.
+        # better to keep longer timeout instead of using shorter timeout.
+        timeout = rule.get("timeout")
+        if timeout and \
+           time.parse_duration(timeout) > time.parse_duration("60m"):
+            continue
         rule.pop("timeout", None)
     return step_config
 
@@ -82,6 +89,12 @@ def init(ctx):
             },
         },
         "rules": [],
+        # Allowlist for fail-on-bad-deps feature.
+        "bad_deps": {
+            "./obj/ash/quick_pair/repository/repository/device_address_map.o": "crbug.com/546524333",
+            "./obj/ash/quick_pair/repository/repository/device_image_store.o": "crbug.com/546524333",
+            "./obj/chrome/browser/ash/smb_client/smb_client/smbfs_share.o": "crbug.com/548936578",
+        },
         # Executables sent from Windows host to Linux workers need to set executable bit explicitly.
         # This is necessary for cross platform build actions. e.g. node binary for typescript
         "executables": [

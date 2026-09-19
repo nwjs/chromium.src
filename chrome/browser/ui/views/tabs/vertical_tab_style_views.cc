@@ -166,7 +166,8 @@ bool VerticalTabStyleViews::ShouldPaintTabBackgroundColor(
     TabStyle::TabSelectionState selection_state,
     bool has_custom_background,
     bool hovered) const {
-  if (selection_state == TabStyle::TabSelectionState::kActive) {
+  if (selection_state == TabStyle::TabSelectionState::kActive ||
+      selection_state == TabStyle::TabSelectionState::kSelected) {
     return true;
   }
 
@@ -219,6 +220,10 @@ gfx::Insets VerticalTabStyleViews::GetContentsInsets() const {
 
 int VerticalTabStyleViews::GetStrokeThickness() const {
   return delegate_->GetStrokeThickness();
+}
+
+SkPath VerticalTabStyleViews::GetOverlinePath(float scale) const {
+  return SkPath();
 }
 
 bool VerticalTabStyleViews::IsApparentlyActive() const {

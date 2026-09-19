@@ -72,7 +72,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Content.SharedWorker.Host.DestructionSource"
-    enum="SharedWorkerHostDestructionSource" expires_after="2026-12-16">
+    enum="SharedWorkerHostDestructionSource" expires_after="2027-02-14">
   <owner>yyanagisawa@chromium.org</owner>
   <owner>chrome-worker@google.com</owner>
   <summary>
@@ -262,7 +262,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSettings.AllowStorageAccessSync" units="ms"
-    expires_after="2026-12-14">
+    expires_after="2027-02-14">
   <owner>sisidovski@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -273,7 +273,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSettings.AllowStorageAccessSync.CacheHit"
-    enum="Boolean" expires_after="2026-12-14">
+    enum="Boolean" expires_after="2027-02-14">
   <owner>sisidovski@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -408,7 +408,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSettings.Popups.StrongBlockerActions"
-    enum="StrongPopupBlockerAction" expires_after="2026-12-20">
+    enum="StrongPopupBlockerAction" expires_after="2027-02-21">
   <owner>csharrison@chromium.org</owner>
   <summary>
     Counts of various events related to the strong popup blocker (aka abusive
@@ -964,7 +964,6 @@ chromium-metrics-reviews@google.com.
 <histogram name="ContentSuggestions.Feed.BrokenNTPHierarchy"
     enum="NTPBrokenViewHierarchyRelationship" expires_after="M120">
   <owner>adamta@google.com</owner>
-  <owner>sczs@chromium.org</owner>
   <owner>feed@chromium.org</owner>
   <summary>
     When the NTP view hierarchy is fixed upon NTP creation, this hisotgram logs
@@ -1081,7 +1080,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSuggestions.Feed.DisplayStatusOnOpen"
-    enum="ContentSuggestionsDisplayStatus" expires_after="2026-12-16">
+    enum="ContentSuggestionsDisplayStatus" expires_after="2027-02-14">
   <owner>jianli@chromium.org</owner>
   <owner>feed@chromium.org</owner>
   <summary>
@@ -1118,7 +1117,6 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="ContentSuggestions.Feed.FeedSignInUI" enum="FeedSignInUI"
     expires_after="2024-02-11">
-  <owner>sczs@chromium.org</owner>
   <owner>tinazwang@chromium.org</owner>
   <owner>feed@chromium.org</owner>
   <summary>
@@ -1129,7 +1127,6 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="ContentSuggestions.Feed.FeedSyncPromo" enum="FeedSyncPromo"
     expires_after="2023-10-10">
-  <owner>sczs@chromium.org</owner>
   <owner>tinazwang@chromium.org</owner>
   <owner>feed@chromium.org</owner>
   <summary>
@@ -1215,7 +1212,6 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="ContentSuggestions.Feed.Network.Duration{NetworkEvent}"
     units="ms" expires_after="2026-03-01">
-  <owner>sczs@chromium.org</owner>
   <owner>harringtond@chromium.org</owner>
   <owner>feed@chromium.org</owner>
   <summary>The amount of time a {NetworkEvent} network event took.</summary>
@@ -1443,7 +1439,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSuggestions.Feed.UserActions" enum="FeedUserActionType"
-    expires_after="2026-12-13">
+    expires_after="2027-02-14">
   <owner>jianli@chromium.org</owner>
   <owner>feed@chromium.org</owner>
   <summary>
@@ -1455,7 +1451,6 @@ chromium-metrics-reviews@google.com.
 <histogram name="ContentSuggestions.Feed.UserActions.Commands"
     enum="FeedUserCommandType" expires_after="2025-01-05">
   <owner>harringtond@chromium.org</owner>
-  <owner>sczs@chromium.org</owner>
   <owner>feed@chromium.org</owner>
   <summary>
     Recorded whenever an Elements commands has taken place which wasn't handled

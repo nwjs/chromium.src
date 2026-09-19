@@ -151,6 +151,7 @@
 ../../web_tests/external/wpt/jpegxl/resources/3x3a_srgb_lossless.jxl
 ../../web_tests/external/wpt/jpegxl/resources/3x3a_srgb_lossy.jxl
 ../../web_tests/external/wpt/jpegxl/resources/8x8_noise.jxl
+../../web_tests/external/wpt/jpegxl/resources/adobe-rgb.jxl
 ../../web_tests/external/wpt/jpegxl/resources/animated-red-green.jxl
 ../../web_tests/external/wpt/jpegxl/resources/animation-1loop.jxl
 ../../web_tests/external/wpt/jpegxl/resources/animation-2loops.jxl
@@ -179,6 +180,8 @@
 ../../web_tests/external/wpt/jpegxl/resources/progressive-2.jxl
 ../../web_tests/external/wpt/jpegxl/resources/progressive-3.jxl
 ../../web_tests/external/wpt/jpegxl/resources/progressive_ac.jxl
+../../web_tests/external/wpt/jpegxl/resources/prophoto-rgb.jxl
+../../web_tests/external/wpt/jpegxl/resources/rec2020.jxl
 ../../web_tests/external/wpt/jpegxl/resources/sdr_alpha.jxl
 ../../web_tests/external/wpt/jpegxl/resources/smallest_valid.jxl
 ../../web_tests/external/wpt/jpegxl/resources/spline_on_first_frame.jxl
@@ -536,6 +539,7 @@
 ../../web_tests/images/resources/favicon.ico
 ../../web_tests/images/resources/flip.webp
 ../../web_tests/images/resources/flowchart.jpg
+../../web_tests/images/resources/fox-progressive.jxl
 ../../web_tests/images/resources/full2loop.gif
 ../../web_tests/images/resources/gainmap-trattore0.jpg
 ../../web_tests/images/resources/gif-loop-count.gif
@@ -802,8 +806,10 @@ image-decoders/testing/first-frame-has-greater-size-than-screen-size.gif
 image-decoders/testing/green-exif-ifd-last.jpg
 image-decoders/testing/incomplete-prev-frame-reusing-clusterfuzz-repro.gif
 image-decoders/testing/interlaced-multiframe-with-blending.png
+image-decoders/testing/interlaced-progressive.png
 image-decoders/testing/invalid-disposal-method.gif
 image-decoders/testing/many-progressive-scans.jpg
+image-decoders/testing/non-interlaced-progressive.png
 image-decoders/testing/plte-weirdness.png
 image-decoders/testing/private-critical-chunk-before-ihdr.png
 image-decoders/testing/radient-bad-terminator.gif

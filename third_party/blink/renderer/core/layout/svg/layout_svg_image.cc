@@ -25,6 +25,7 @@
 
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_image.h"
 
+#include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
 #include "third_party/blink/renderer/core/layout/hit_test_location.h"
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
 #include "third_party/blink/renderer/core/layout/layout_image_resource.h"
@@ -84,11 +85,11 @@ void LayoutSVGImage::StyleDidChange(
                                        style_change_context);
 }
 
-void LayoutSVGImage::WillBeDestroyed() {
+void LayoutSVGImage::WillBeDestroyed(const ComputedStyle* style) {
   NOT_DESTROYED();
   image_resource_->Shutdown();
 
-  LayoutSVGModelObject::WillBeDestroyed();
+  LayoutSVGModelObject::WillBeDestroyed(style);
 }
 
 gfx::SizeF LayoutSVGImage::CalculateObjectSize() const {
@@ -237,8 +238,9 @@ bool LayoutSVGImage::NodeAtPoint(HitTestResult& result,
     if (local_location->Intersects(bounds)) {
       UpdateHitTestResult(result, PhysicalOffset::FromPointFRound(
                                       local_location->TransformedPoint()));
-      if (result.AddNodeToListBasedTestResult(GetElement(), *local_location) ==
-          kStopHitTesting) {
+      if (result.AddNodeToListBasedTestResult(
+              GetElement(), *local_location,
+              PhysicalRect::EnclosingRect(bounds)) == kStopHitTesting) {
         return true;
       }
     }

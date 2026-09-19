@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ui/views/permissions/permission_prompt_factory.h"
+
 #include <algorithm>
 #include <memory>
 
@@ -10,9 +12,10 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
+#include "chrome/browser/ui/location_bar/location_bar_override_data.h"
 #include "chrome/browser/ui/permission_bubble/permission_prompt.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt.h"
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_content_scrim_view.h"
@@ -64,25 +67,13 @@ bool IsFullScreenMode(content::WebContents* web_contents) {
     return false;
   }
 
-  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
-  if (!browser_view) {
-    return false;
-  }
-
-  LocationBar* location_bar = browser_view->GetLocationBar();
+  LocationBar* location_bar =
+      location_bar::GetLocationBarForWebContents(web_contents);
 
   return !location_bar || !location_bar->IsDrawn() ||
          location_bar->IsFullscreen();
 }
 
-LocationBar* GetLocationBar(content::WebContents* web_contents) {
-  BrowserWindowInterface* browser = GetBrowser(web_contents);
-  if (!browser) {
-    return nullptr;
-  }
-  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
-  return browser_view ? browser_view->GetLocationBar() : nullptr;
-}
 
 // A permission request should be auto-ignored if:
 //    - a user interacts with the LocationBar. The only exception is the NTP
@@ -95,29 +86,13 @@ bool ShouldIgnorePermissionRequest(
     permissions::PermissionPrompt::Delegate* delegate) {
   DCHECK(web_contents);
 
-  // Allow permission prompts for WebUI pages that should bypass the omnibox
-  // empty or editing state check:
-  // - NTP has an empty omnibox.
-  // - Contextual Tasks Tab has an empty omnibox.
-  // - Omnibox Popup is an embedded WebUI that itself may request permissions.
-  // - Omnibox Everywhere is an embedded WebUI that itself may request
-  // permissions.
-  const url::Origin committed_origin =
-      web_contents->GetPrimaryMainFrame()->GetLastCommittedOrigin();
-  if (committed_origin.IsSameOriginWith(chrome::ChromeUINewTabURLAsGURL()) ||
-      committed_origin.IsSameOriginWith(
-          chrome::ChromeUINewTabPageURLAsGURL()) ||
-      committed_origin.IsSameOriginWith(
-          GURL(chrome::kChromeUIOmniboxPopupURL)) ||
-      committed_origin.IsSameOriginWith(
-          GURL(chrome::kChromeUIContextualTasksURL)) ||
-      committed_origin.IsSameOriginWith(
-          GURL(chrome::kChromeUIOmniboxEverywhereURL))) {
+  if (ShouldShowPermissionPromptEvenIfOmniboxEditedOrEmpty(web_contents)) {
     return false;
   }
 
   // Suppress permission prompts if the omnibox is being edited or is empty.
-  LocationBar* location_bar = GetLocationBar(web_contents);
+  LocationBar* location_bar =
+      location_bar::GetLocationBarForWebContents(web_contents);
   bool can_display_prompt = !(location_bar && location_bar->IsEditingOrEmpty());
 
   BrowserWindowInterface* browser = GetBrowser(web_contents);
@@ -159,7 +134,7 @@ bool ShouldUseChip(permissions::PermissionPrompt::Delegate* delegate) {
 }
 
 bool IsLocationBarDisplayed(content::WebContents* web_contents) {
-  LocationBar* lb = GetLocationBar(web_contents);
+  LocationBar* lb = location_bar::GetLocationBarForWebContents(web_contents);
   return lb && lb->IsDrawn() && !lb->IsFullscreen();
 }
 
@@ -277,6 +252,35 @@ std::unique_ptr<permissions::PermissionPrompt> CreateQuietPrompt(
 
 }  // namespace
 
+bool ShouldShowPermissionPromptEvenIfOmniboxEditedOrEmpty(
+    content::WebContents* web_contents) {
+  if (!web_contents) {
+    return false;
+  }
+
+  // Allow permission prompts for WebUI pages that should bypass the omnibox
+  // empty or editing state check:
+  // - NTP has an empty omnibox.
+  // - Contextual Tasks Tab has an empty omnibox.
+  // - Omnibox Popup is an embedded WebUI that itself may request permissions.
+  // - Omnibox Everywhere is an embedded WebUI that itself may request
+  // permissions.
+  const url::Origin committed_origin =
+      web_contents->GetPrimaryMainFrame()->GetLastCommittedOrigin();
+  if (committed_origin.IsSameOriginWith(chrome::ChromeUINewTabURLAsGURL()) ||
+      committed_origin.IsSameOriginWith(
+          chrome::ChromeUINewTabPageURLAsGURL()) ||
+      committed_origin.IsSameOriginWith(
+          GURL(chrome::kChromeUIOmniboxPopupURL)) ||
+      committed_origin.IsSameOriginWith(
+          GURL(chrome::kChromeUIContextualTasksURL)) ||
+      committed_origin.IsSameOriginWith(
+          GURL(chrome::kChromeUIOmniboxEverywhereURL))) {
+    return true;
+  }
+  return false;
+}
+
 std::unique_ptr<permissions::PermissionPrompt> CreatePermissionPrompt(
     content::WebContents* web_contents,
     permissions::PermissionPrompt::Delegate* delegate) {
@@ -321,7 +325,8 @@ std::unique_ptr<permissions::PermissionPrompt> CreatePermissionPrompt(
       });
 
   if (has_mic_request) {
-    if (LocationBar* location_bar = GetLocationBar(web_contents)) {
+    if (LocationBar* location_bar =
+            location_bar::GetLocationBarForWebContents(web_contents)) {
       location_bar->SetPermissionPromptShowing(true);
     }
   }
@@ -329,7 +334,8 @@ std::unique_ptr<permissions::PermissionPrompt> CreatePermissionPrompt(
   auto prompt = CreateNormalPrompt(web_contents, delegate);
 
   if (!prompt && has_mic_request) {
-    if (LocationBar* location_bar = GetLocationBar(web_contents)) {
+    if (LocationBar* location_bar =
+            location_bar::GetLocationBarForWebContents(web_contents)) {
       location_bar->SetPermissionPromptShowing(false);
     }
   }

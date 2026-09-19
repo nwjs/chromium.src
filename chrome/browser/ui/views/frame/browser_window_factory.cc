@@ -6,6 +6,7 @@
 #include "ui/display/screen.h"
 
 #include "build/build_config.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window_deleter.h"
 #include "chrome/browser/ui/fullscreen/browser_window_fullscreen_controller.h"
 #include "chrome/browser/ui/views/frame/browser_native_widget_factory.h"
@@ -28,7 +29,7 @@
 
 // static
 std::unique_ptr<BrowserWindow, BrowserWindowDeleter>
-BrowserWindow::CreateBrowserWindow(Browser* browser,
+BrowserWindow::CreateBrowserWindow(BrowserWindowInterface* browser,
                                    bool user_gesture,
                                    bool in_tab_dragging) {
 #if 0
@@ -48,8 +49,8 @@ BrowserWindow::CreateBrowserWindow(Browser* browser,
 #endif
   // Create the view and the frame. The frame will attach itself via the view
   // so we don't need to do anything with the pointer.
-  bool frameless = browser->is_frameless();
-  std::string position = browser->initial_position();
+  bool frameless = browser->GetBrowserForMigrationOnly()->is_frameless();
+  std::string position = browser->GetBrowserForMigrationOnly()->initial_position();
   BrowserView* view = nullptr;
 #if BUILDFLAG(IS_CHROMEOS)
   view = new BrowserViewAsh(browser);

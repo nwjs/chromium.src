@@ -83,7 +83,7 @@ ContentsContainerView::ContentsContainerView(BrowserView* browser_view)
 
   contents_view_ = AddChildView(
       std::make_unique<ContentsWebView>(browser_view->GetProfile(),
-                                        browser_view->browser()->is_transparent()));
+                                        browser_view->browser()->GetBrowserForMigrationOnly()->is_transparent()));
   contents_view_->SetID(VIEW_ID_TAB_CONTAINER);
   contents_view_->set_use_default_deadline_when_animating_bounds(
       base::FeatureList::IsEnabled(
@@ -122,12 +122,10 @@ ContentsContainerView::ContentsContainerView(BrowserView* browser_view)
     ai_overlay_dialog_view_ = AddChildView(std::move(ai_overlay_dialog_view));
   }
 
-  if (features::IsImmersiveReadAnythingEnabled()) {
-    auto read_anything_immersive_overlay_view =
-        std::make_unique<ReadAnythingImmersiveOverlayView>(contents_view_);
-    read_anything_immersive_overlay_view_ =
-        AddChildView(std::move(read_anything_immersive_overlay_view));
-  }
+  auto read_anything_immersive_overlay_view =
+      std::make_unique<ReadAnythingImmersiveOverlayView>(contents_view_);
+  read_anything_immersive_overlay_view_ =
+      AddChildView(std::move(read_anything_immersive_overlay_view));
 
   contents_scrim_view_ = AddChildView(std::make_unique<ScrimView>());
   contents_scrim_view_->layer()->SetName("ContentsScrimView");
@@ -590,8 +588,7 @@ views::ProposedLayout ContentsContainerView::CalculateProposedLayout(
   }
 
   // Reading Mode overlay view bounds are the same as the contents view.
-  if (features::IsImmersiveReadAnythingEnabled() &&
-      read_anything_immersive_overlay_view_) {
+  if (read_anything_immersive_overlay_view_) {
     layouts.child_layouts.emplace_back(
         read_anything_immersive_overlay_view_.get(),
         read_anything_immersive_overlay_view_->GetVisible(),

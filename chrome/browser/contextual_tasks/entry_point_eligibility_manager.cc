@@ -6,6 +6,7 @@
 
 #include "base/callback_list.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_eligibility_manager.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
@@ -41,12 +42,22 @@ EntryPointEligibilityManager::EntryPointEligibilityManager(
     if (eligibility_manager) {
       eligibility_subscription_ =
           eligibility_manager->RegisterEligibilityChangedCallback(
-              base::BindRepeating(&EntryPointEligibilityManager::
-                                      MaybeNotifyEntryPointEligibilityChanged,
-                                  base::Unretained(this)));
+              base::IgnoreArgs<bool>(
+                  base::BindRepeating(&EntryPointEligibilityManager::
+                                          MaybeNotifyEntryPointEligibilityChanged,
+                                      base::Unretained(this))));
     }
   }
+  auto* aim_service = AimEligibilityServiceFactory::GetForProfile(profile_);
+  if (aim_service) {
+    aim_eligibility_subscription_ =
+        aim_service->RegisterEligibilityChangedCallback(
+            base::BindRepeating(&EntryPointEligibilityManager::
+                                    MaybeNotifyEntryPointEligibilityChanged,
+                                base::Unretained(this)));
+  }
   entry_points_are_eligible_ = AreEntryPointsEligible();
+  is_pinning_eligible_ = IsPinningEligible(profile_);
 }
 
 EntryPointEligibilityManager::~EntryPointEligibilityManager() = default;
@@ -90,11 +101,32 @@ bool EntryPointEligibilityManager::IsEligible(Profile* profile) {
   return eligibility_manager->IsEligible();
 }
 
-void EntryPointEligibilityManager::MaybeNotifyEntryPointEligibilityChanged(
-    bool eligible) {
+// static
+bool EntryPointEligibilityManager::IsPinningEligible(Profile* profile) {
+  if (!contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled()) {
+    return false;
+  }
+  if (!profile) {
+    return false;
+  }
+  if (base::FeatureList::IsEnabled(
+          kContextualTasksForceEntryPointEligibility)) {
+    return true;
+  }
+  if (!IsEligible(profile)) {
+    return false;
+  }
+  auto* aim_service = AimEligibilityServiceFactory::GetForProfile(profile);
+  return aim_service && aim_service->IsFuseboxEligible();
+}
+
+void EntryPointEligibilityManager::MaybeNotifyEntryPointEligibilityChanged() {
   const bool updated_eligibility = AreEntryPointsEligible();
-  if (entry_points_are_eligible_ != updated_eligibility) {
+  const bool updated_pinning_eligible = IsPinningEligible(profile_);
+  if (entry_points_are_eligible_ != updated_eligibility ||
+      is_pinning_eligible_ != updated_pinning_eligible) {
     entry_points_are_eligible_ = updated_eligibility;
+    is_pinning_eligible_ = updated_pinning_eligible;
     entry_point_eligibility_change_callback_list_.Notify(
         entry_points_are_eligible_);
   }

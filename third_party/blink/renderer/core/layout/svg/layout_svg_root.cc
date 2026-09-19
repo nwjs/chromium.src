@@ -24,8 +24,6 @@
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_root.h"
 
 #include "base/auto_reset.h"
-#include "base/feature_list.h"
-#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/core/editing/position_with_affinity.h"
 #include "third_party/blink/renderer/core/frame/frame_owner.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -254,10 +252,10 @@ void LayoutSVGRoot::PaintReplaced(const PaintInfo& paint_info,
   SVGRootPainter(*this).PaintReplaced(paint_info, paint_offset);
 }
 
-void LayoutSVGRoot::WillBeDestroyed() {
+void LayoutSVGRoot::WillBeDestroyed(const ComputedStyle* style) {
   NOT_DESTROYED();
-  SVGResources::ClearEffects(*this);
-  LayoutReplaced::WillBeDestroyed();
+  SVGResources::ClearEffects(*this, style);
+  LayoutReplaced::WillBeDestroyed(style);
 }
 
 bool LayoutSVGRoot::IntrinsicSizeIsFontMetricsDependent() const {
@@ -281,9 +279,7 @@ bool LayoutSVGRoot::StyleChangeAffectsIntrinsicSize(
   // any other font-relative unit), any changes to the font may change said
   // dimensions.
   if (IntrinsicSizeIsFontMetricsDependent() &&
-      (base::FeatureList::IsEnabled(blink::features::kCSSFontComparisonFix)
-           ? !base::ValuesEquivalent(old_style.GetFont(), style.GetFont())
-           : old_style.GetFont() != style.GetFont())) {
+      !base::ValuesEquivalent(old_style.GetFont(), style.GetFont())) {
     return true;
   }
   return false;
@@ -316,7 +312,8 @@ void LayoutSVGRoot::StyleDidChange(
 
   SVGResources::UpdateEffects(*this, diff, old_style);
 
-  if (diff.transform_changed) {
+  if (!RuntimeEnabledFeatures::SvgIgnoreOuterTransformsEnabled() &&
+      diff.transform_changed) {
     for (auto& svg_text : text_set_) {
       svg_text->SetNeedsLayout(layout_invalidation_reason::kStyleChange,
                                kMarkContainerChain);
@@ -535,12 +532,14 @@ void LayoutSVGRoot::IntersectChildren(HitTestResult& result,
 
 void LayoutSVGRoot::AddSvgTextDescendant(LayoutSVGText& svg_text) {
   NOT_DESTROYED();
+  DCHECK(!RuntimeEnabledFeatures::SvgIgnoreOuterTransformsEnabled());
   DCHECK(!text_set_.Contains(&svg_text));
   text_set_.insert(&svg_text);
 }
 
 void LayoutSVGRoot::RemoveSvgTextDescendant(LayoutSVGText& svg_text) {
   NOT_DESTROYED();
+  DCHECK(!RuntimeEnabledFeatures::SvgIgnoreOuterTransformsEnabled());
   DCHECK(text_set_.Contains(&svg_text));
   text_set_.erase(&svg_text);
 }

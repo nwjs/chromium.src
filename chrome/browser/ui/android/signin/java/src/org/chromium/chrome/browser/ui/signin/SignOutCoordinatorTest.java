@@ -13,6 +13,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -28,16 +29,23 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 
 import org.chromium.base.Callback;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.util.Batch;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.chrome.browser.browsing_data.BrowsingDataBridge;
+import org.chromium.chrome.browser.browsing_data.BrowsingDataBridgeJni;
+import org.chromium.chrome.browser.browsing_data.BrowsingDataType;
+import org.chromium.chrome.browser.browsing_data.TimePeriod;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninManager;
@@ -45,6 +53,7 @@ import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
+import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.metrics.SignoutReason;
 import org.chromium.components.sync.DataType;
@@ -73,12 +82,14 @@ public class SignOutCoordinatorTest {
     @Mock private SigninManager mSigninManagerMock;
     @Mock private SyncService mSyncService;
     @Mock private Runnable mOnSignOut;
+    @Mock private BrowsingDataBridge.Natives mBrowsingDataBridgeJniMock;
 
     private final Set<Integer> mUnsyncedDataTypes = new HashSet<>();
     private SnackbarManager mSnackbarManager;
 
     @Before
     public void setUp() {
+        BrowsingDataBridgeJni.setInstanceForTesting(mBrowsingDataBridgeJniMock);
         NativeLibraryTestUtils.loadNativeLibraryAndInitBrowserProcess();
         mActivityTestRule.launchActivity(null);
     }
@@ -107,7 +118,7 @@ public class SignOutCoordinatorTest {
         @SignoutReason int signOutReason = SignoutReason.USER_CLICKED_SIGNOUT_SETTINGS;
         mockSignOutSuccess(signOutReason);
 
-        startSignOutFlow(signOutReason, mOnSignOut, false, /* suppressSnackbar= */ true);
+        startSignOutFlow(signOutReason, mOnSignOut, false, false, true);
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -162,6 +173,35 @@ public class SignOutCoordinatorTest {
 
     @Test
     @MediumTest
+    public void testUnsavedDataDialogWithCheckBoxes() {
+        setUpMocks();
+        mUnsyncedDataTypes.add(DataType.BOOKMARKS);
+        doReturn(true).when(mSigninManagerMock).hasSignedInAccountExtensions();
+
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Sync.BookmarksLimitExceededOnSignoutPrompt", false);
+
+        startSignOutFlow(SignoutReason.USER_CLICKED_SIGNOUT_SETTINGS, mOnSignOut, false);
+
+        onView(withText(R.string.sign_out_unsaved_data_title))
+                .inRoot(isDialog())
+                .check(matches(isDisplayed()));
+        String expectedMessage =
+                mActivityTestRule.getActivity().getString(R.string.sign_out_unsaved_data_message)
+                        + mActivityTestRule
+                                .getActivity()
+                                .getString(R.string.sign_out_unsaved_data_message_with_checkbox);
+        onView(withText(expectedMessage)).inRoot(isDialog()).check(matches(isDisplayed()));
+        onView(withText(R.string.sign_out_unsaved_data_primary_button))
+                .inRoot(isDialog())
+                .check(matches(isDisplayed()));
+        onView(withText(R.string.cancel)).inRoot(isDialog()).check(matches(isDisplayed()));
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @MediumTest
     public void testUnsavedDataDialogPrimaryButtonClick() {
         setUpMocks();
         mUnsyncedDataTypes.add(DataType.BOOKMARKS);
@@ -194,7 +234,7 @@ public class SignOutCoordinatorTest {
         onView(withText(R.string.sign_out_unsaved_data_title))
                 .inRoot(isDialog())
                 .check(matches(isDisplayed()));
-        onView(withText(R.string.sign_out_unsaved_data_remove_extensions_message))
+        onView(withText(R.string.sign_out_remove_extensions_checkbox_title))
                 .inRoot(isDialog())
                 .perform(click());
         onView(withText(R.string.sign_out_unsaved_data_primary_button))
@@ -253,7 +293,7 @@ public class SignOutCoordinatorTest {
         onView(withText(R.string.sign_out_message))
                 .inRoot(isDialog())
                 .check(matches(isDisplayed()));
-        onView(withText(R.string.sign_out_remove_extensions_message))
+        onView(withText(R.string.sign_out_remove_extensions_checkbox_title))
                 .inRoot(isDialog())
                 .check(doesNotExist());
         onView(withText(R.string.sign_out)).inRoot(isDialog()).check(matches(isDisplayed()));
@@ -268,7 +308,7 @@ public class SignOutCoordinatorTest {
 
         startSignOutFlow(SignoutReason.USER_CLICKED_SIGNOUT_SETTINGS, mOnSignOut, false);
         onView(withText(R.string.sign_out_title)).inRoot(isDialog()).check(matches(isDisplayed()));
-        onView(withText(R.string.sign_out_remove_extensions_message))
+        onView(withText(R.string.sign_out_remove_extensions_checkbox_title))
                 .inRoot(isDialog())
                 .check(matches(isDisplayed()));
     }
@@ -299,7 +339,7 @@ public class SignOutCoordinatorTest {
         startSignOutFlow(signOutReason, mOnSignOut, true);
 
         onView(withText(R.string.sign_out_title)).inRoot(isDialog()).check(matches(isDisplayed()));
-        onView(withText(R.string.sign_out_remove_extensions_message))
+        onView(withText(R.string.sign_out_remove_extensions_checkbox_title))
                 .inRoot(isDialog())
                 .perform(click());
         onView(withText(R.string.sign_out)).inRoot(isDialog()).perform(click());
@@ -400,6 +440,148 @@ public class SignOutCoordinatorTest {
                 SignoutReason.USER_TAPPED_UNDO_RIGHT_AFTER_SIGN_IN_FROM_BOOKMARKS);
     }
 
+    @Test
+    @MediumTest
+    @EnableFeatures(SigninFeatures.SIGN_OUT_DELETES_BROWSING_DATA)
+    public void testSignOutConfirmDialog_withExtensions_isDesktop() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        setUpMocks();
+        doReturn(true).when(mSigninManagerMock).hasSignedInAccountExtensions();
+
+        startSignOutFlow(SignoutReason.USER_CLICKED_SIGNOUT_SETTINGS, mOnSignOut, true);
+        onView(withText(R.string.sign_out_title)).inRoot(isDialog()).check(matches(isDisplayed()));
+        onView(withText(R.string.sign_out_remove_extensions_checkbox_title))
+                .inRoot(isDialog())
+                .check(matches(isDisplayed()));
+        onView(withText(R.string.sign_out_remove_extensions_checkbox_subtitle))
+                .inRoot(isDialog())
+                .check(matches(isDisplayed()));
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures(SigninFeatures.SIGN_OUT_DELETES_BROWSING_DATA)
+    public void testSignOutConfirmDialog_withExtensions_isNotDesktop() {
+        DeviceInfo.setIsDesktopForTesting(false);
+        setUpMocks();
+        doReturn(true).when(mSigninManagerMock).hasSignedInAccountExtensions();
+
+        startSignOutFlow(SignoutReason.USER_CLICKED_SIGNOUT_SETTINGS, mOnSignOut, true);
+        onView(withText(R.string.sign_out_title)).inRoot(isDialog()).check(matches(isDisplayed()));
+        onView(withText(R.string.sign_out_remove_extensions_checkbox_title))
+                .inRoot(isDialog())
+                .check(matches(isDisplayed()));
+        onView(withText(R.string.sign_out_remove_extensions_checkbox_subtitle))
+                .inRoot(isDialog())
+                .check(doesNotExist());
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures(SigninFeatures.SIGN_OUT_DELETES_BROWSING_DATA)
+    public void testSignOutConfirmDialog_withoutExtensions_isDesktop() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        setUpMocks();
+
+        startSignOutFlow(SignoutReason.USER_CLICKED_SIGNOUT_SETTINGS, mOnSignOut, true);
+        onView(withText(R.string.sign_out_title)).inRoot(isDialog()).check(matches(isDisplayed()));
+        onView(withText(R.string.sign_out_remove_extensions_checkbox_title))
+                .inRoot(isDialog())
+                .check(doesNotExist());
+        onView(withText(R.string.sign_out_remove_extensions_checkbox_subtitle))
+                .inRoot(isDialog())
+                .check(doesNotExist());
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures(SigninFeatures.SIGN_OUT_DELETES_BROWSING_DATA)
+    public void testSignOutConfirmDialog_withoutExtensions_isNotDesktop() {
+        DeviceInfo.setIsDesktopForTesting(false);
+        setUpMocks();
+
+        startSignOutFlow(SignoutReason.USER_CLICKED_SIGNOUT_SETTINGS, mOnSignOut, true);
+        onView(withText(R.string.sign_out_title)).inRoot(isDialog()).check(matches(isDisplayed()));
+        onView(withText(R.string.sign_out_remove_extensions_checkbox_title))
+                .inRoot(isDialog())
+                .check(doesNotExist());
+        onView(withText(R.string.sign_out_remove_extensions_checkbox_subtitle))
+                .inRoot(isDialog())
+                .check(doesNotExist());
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures(SigninFeatures.SIGN_OUT_DELETES_BROWSING_DATA)
+    public void testSignOutConfirmDialogPrimaryButtonClick_deleteBrowsingData_checkboxChecked() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        setUpMocks();
+        @SignoutReason int signOutReason = SignoutReason.USER_CLICKED_SIGNOUT_SETTINGS;
+        mockSignOutSuccess(signOutReason);
+        startSignOutFlow(signOutReason, mOnSignOut, true, true, false);
+
+        onView(withText(R.string.sign_out_title)).inRoot(isDialog()).check(matches(isDisplayed()));
+        onView(withText(R.string.sign_out_delete_browsing_data_checkbox_title))
+                .inRoot(isDialog())
+                .check(matches(isDisplayed()));
+        onView(withText(R.string.sign_out_delete_browsing_data_checkbox_subtitle))
+                .inRoot(isDialog())
+                .check(matches(isDisplayed()));
+        onView(withText(R.string.sign_out_delete_browsing_data_checkbox_title))
+                .inRoot(isDialog())
+                .perform(click());
+        onView(withText(R.string.sign_out)).inRoot(isDialog()).perform(click());
+
+        verifySignOutAndSnackbar();
+
+        ArgumentCaptor<int[]> dataTypesCaptor = ArgumentCaptor.forClass(int[].class);
+        ArgumentCaptor<Integer> timePeriodCaptor = ArgumentCaptor.forClass(Integer.class);
+        verify(mBrowsingDataBridgeJniMock)
+                .clearBrowsingData(
+                        eq(mProfile),
+                        any(),
+                        dataTypesCaptor.capture(),
+                        timePeriodCaptor.capture(),
+                        any(),
+                        any());
+
+        int[] expectedBrowsingDatatypes = {
+            BrowsingDataType.HISTORY,
+            BrowsingDataType.CACHE,
+            BrowsingDataType.SITE_DATA,
+            BrowsingDataType.PASSWORDS,
+            BrowsingDataType.FORM_DATA,
+            BrowsingDataType.SITE_SETTINGS,
+            BrowsingDataType.TABS
+        };
+        Assert.assertArrayEquals(expectedBrowsingDatatypes, dataTypesCaptor.getValue());
+        Assert.assertEquals(TimePeriod.ALL_TIME, (int) timePeriodCaptor.getValue());
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures(SigninFeatures.SIGN_OUT_DELETES_BROWSING_DATA)
+    public void testSignOutConfirmDialogPrimaryButtonClick_deleteBrowsingData_checkboxUnchecked() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        setUpMocks();
+        @SignoutReason int signOutReason = SignoutReason.USER_CLICKED_SIGNOUT_SETTINGS;
+        mockSignOutSuccess(signOutReason);
+        startSignOutFlow(signOutReason, mOnSignOut, true, true, false);
+
+        onView(withText(R.string.sign_out_title)).inRoot(isDialog()).check(matches(isDisplayed()));
+        onView(withText(R.string.sign_out_delete_browsing_data_checkbox_title))
+                .inRoot(isDialog())
+                .check(matches(isDisplayed()));
+        onView(withText(R.string.sign_out_delete_browsing_data_checkbox_subtitle))
+                .inRoot(isDialog())
+                .check(matches(isDisplayed()));
+        onView(withText(R.string.sign_out)).inRoot(isDialog()).perform(click());
+
+        verifySignOutAndSnackbar();
+        verify(mBrowsingDataBridgeJniMock, never())
+                .clearBrowsingData(any(), any(), any(), anyInt(), any(), any());
+    }
+
     private <T extends Throwable> void assertUndoSignInWithSnackbarThrows(
             Class<T> expectedThrowable, @SignoutReason int reason) {
         ThreadUtils.runOnUiThreadBlocking(
@@ -484,6 +666,7 @@ public class SignOutCoordinatorTest {
             @SignoutReason int signoutReason,
             Runnable onSignOut,
             boolean showConfirmDialog,
+            boolean offerDataDeletionChoice,
             boolean suppressSnackbar) {
         ThreadUtils.runOnUiThreadBlocking(
                 () ->
@@ -494,12 +677,13 @@ public class SignOutCoordinatorTest {
                                 mSnackbarManager,
                                 signoutReason,
                                 showConfirmDialog,
+                                offerDataDeletionChoice,
                                 onSignOut,
                                 suppressSnackbar));
     }
 
     private void startSignOutFlow(
             @SignoutReason int signoutReason, Runnable onSignOut, boolean showConfirmDialog) {
-        startSignOutFlow(signoutReason, onSignOut, showConfirmDialog, false);
+        startSignOutFlow(signoutReason, onSignOut, showConfirmDialog, false, false);
     }
 }

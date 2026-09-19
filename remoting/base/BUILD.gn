@@ -130,8 +130,6 @@ source_set("base") {
     "local_session_policies_provider.cc",
     "local_session_policies_provider.h",
     "logging_service_client.h",
-    "memory_consumer_registry.cc",
-    "memory_consumer_registry.h",
     "protobuf_http_client.cc",
     "protobuf_http_client.h",
     "protobuf_http_request.cc",
@@ -166,6 +164,8 @@ source_set("base") {
     "session_options_constants.h",
     "source_location.cc",
     "source_location.h",
+    "ssl_private_key_wrapper.cc",
+    "ssl_private_key_wrapper.h",
     "task_util.h",
     "typed_buffer.h",
     "url_loader_network_service_observer.cc",
@@ -455,9 +455,18 @@ source_set("run_all_unittests") {
     deps += [ ":security_key_socket_name" ]
   }
   if (is_chromeos) {
-    deps += [ "//chromeos/ash/components:test_support" ]
-    data = [ "$root_out_dir/locales/en-US.pak" ]
-    data_deps = [ "//ui/resources:ui_test_pak_data" ]
+    deps += [
+      "//chromeos/ash/components:test_support",
+      "//ui/base",
+    ]
+    data = [
+      "$root_out_dir/locales/en-US.pak",
+      "$root_out_dir/remoting_locales/en-US.pak",
+    ]
+    data_deps = [
+      "//remoting/resources",
+      "//ui/resources:ui_test_pak_data",
+    ]
   }
 }
 
@@ -487,6 +496,7 @@ source_set("unit_tests") {
     "session_options_unittest.cc",
     "session_policies_unittest.cc",
     "source_location_unittest.cc",
+    "ssl_private_key_wrapper_unittest.cc",
     "typed_buffer_unittest.cc",
     "util_unittest.cc",
     "weighted_samples_unittest.cc",
@@ -508,6 +518,19 @@ source_set("unit_tests") {
 
   if (is_posix) {
     sources += [ "passwd_utils_unittest.cc" ]
+  }
+
+  if (is_linux || is_win) {
+    sources += [ "crash/crashpad_database_manager_unittest.cc" ]
+    deps += [ "//remoting/base/crash:crashpad_db_mgr" ]
+  }
+
+  if (is_linux) {
+    sources += [ "crash/crashpad_linux_unittest.cc" ]
+    deps += [
+      "//remoting/base/crash",
+      "//third_party/crashpad/crashpad/client",
+    ]
   }
 
   if (is_win || is_chromeos) {

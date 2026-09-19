@@ -17,6 +17,7 @@ namespace critical_actions {
 
 // Enum defining list of critical categories supported by Critical Action
 // History.
+// LINT.IfChange(CriticalActionType)
 enum class ActionType {
   kUnknown = 0,
   kFormFill = 1,
@@ -28,6 +29,7 @@ enum class ActionType {
   kCredentialsOtp = 7,
   kMaxValue = kCredentialsOtp,
 };
+// LINT.ThenChange(//tools/metrics/histograms/metadata/critical_actions/enums.xml:CriticalActionType)
 
 // Source features that generate critical actions.
 // LINT.IfChange(ActionSource)
@@ -35,7 +37,8 @@ enum class ActionSource {
   kUnknown = 0,
   kPasswordManager = 1,
   kActor = 2,
-  kMaxValue = kActor,
+  kAutofill = 3,
+  kMaxValue = kAutofill,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/critical_actions/histograms.xml:ActionSource)
 
@@ -54,6 +57,8 @@ struct CriticalActionEntry {
   // Returns the user-facing localized tooltip / description for the action.
   std::string GetTooltip() const;
 
+  class Builder;
+
   std::string critical_action_id;  // Client-generated UUID
   base::Time timestamp;
   int64_t visit_id = 0;         // References History visit
@@ -65,6 +70,31 @@ struct CriticalActionEntry {
   std::string metadata;  // Action-specific details in JSON format
 
   bool operator==(const CriticalActionEntry& other) const = default;
+};
+
+class CriticalActionEntry::Builder {
+ public:
+  Builder();
+  ~Builder();
+  Builder(const Builder&) = delete;
+  Builder& operator=(const Builder&) = delete;
+  Builder(Builder&&) noexcept;
+  Builder& operator=(Builder&&) noexcept;
+
+  Builder&& SetCriticalActionId(std::string critical_action_id_val) &&;
+  Builder&& SetTimestamp(base::Time timestamp_val) &&;
+  Builder&& SetActionType(ActionType action_type_val) &&;
+  Builder&& SetActionSource(ActionSource action_source_val) &&;
+  Builder&& SetUrl(GURL url_val) &&;
+  Builder&& SetConversationId(std::string conversation_id_val) &&;
+  Builder&& SetActorTaskId(std::string actor_task_id_val) &&;
+  Builder&& SetMetadata(std::string metadata_val) &&;
+  Builder&& SetVisitId(int64_t visit_id_val) &&;
+
+  CriticalActionEntry Build() &&;
+
+ private:
+  CriticalActionEntry entry_;
 };
 
 // Options for querying critical action history.

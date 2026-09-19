@@ -39,7 +39,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
@@ -50,7 +50,7 @@
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_view_interface.h"
-#include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
+#include "chrome/browser/ui/views/page_action/test_support/page_action_test_accessor.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/chrome_features.h"
@@ -79,6 +79,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/download_test_observer.h"
+#include "content/public/test/hit_test_region_observer.h"
 #include "content/public/test/navigation_handle_observer.h"
 #include "content/public/test/prerender_test_util.h"
 #include "content/public/test/test_frame_navigation_observer.h"
@@ -261,8 +262,8 @@ class ExecutionEngineBrowserTest : public InProcessBrowserTest {
 // while acting on a tab, we override attempts by the page to create new
 // tabs, and instead navigate the existing tab.
 IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest, ForceSameTabNavigation) {
-  const GURL url =
-      embedded_test_server()->GetURL("/actor/target_blank_links.html");
+  const GURL url = embedded_https_test_server().GetURL(
+      "example.com", "/actor/target_blank_links.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
   // Check specifically that it's the existing frame that navigates.
@@ -273,8 +274,8 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest, ForceSameTabNavigation) {
 
 IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest,
                        ForceSameTabNavigationByScript) {
-  const GURL url =
-      embedded_test_server()->GetURL("/actor/target_blank_links.html");
+  const GURL url = embedded_https_test_server().GetURL(
+      "example.com", "/actor/target_blank_links.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
   // Check specifically that it's the existing frame that navigates.
@@ -284,7 +285,8 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest, TwoClicks) {
-  const GURL url = embedded_test_server()->GetURL("/actor/two_clicks.html");
+  const GURL url = embedded_https_test_server().GetURL(
+      "example.com", "/actor/two_clicks.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
   // Check initial background color is red
@@ -313,7 +315,8 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest, TwoClicks) {
 }
 
 IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest, TwoClicksInBackgroundTab) {
-  const GURL url = embedded_test_server()->GetURL("/actor/two_clicks.html");
+  const GURL url = embedded_https_test_server().GetURL(
+      "example.com", "/actor/two_clicks.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
   // Check initial background color is red
@@ -367,9 +370,9 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest, ClickLinkToBlockedSite) {
               mojom::ActionResultCode::kTriggeredNavigationBlocked);
 }
 
-// Ensure that the block list is only active while the actor task is in
-// progress.
-IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest, AllowBlockedSiteWhenPaused) {
+// Ensure that the block list is still active while the actor task is paused.
+IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest,
+                       DisallowBlockedSiteWhenPaused) {
   const GURL start_url = embedded_https_test_server().GetURL(
       "example.com", "/actor/blocked_links.html");
   const GURL blocked_url = embedded_https_test_server().GetURL(
@@ -382,8 +385,8 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest, AllowBlockedSiteWhenPaused) {
   EXPECT_TRUE(content::ExecJs(
       web_contents(), content::JsReplace("setBlockedSite($1);", blocked_url)));
 
-  // Pause the task as if the user took over. Blocked links should now be
-  // allowed.
+  // Pause the task as if the user took over. Blocked links should still be
+  // disallowed.
   actor_task().Pause(true);
 
   content::TestNavigationManager main_manager(web_contents(), blocked_url);
@@ -392,9 +395,9 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest, AllowBlockedSiteWhenPaused) {
       web_contents(), "document.getElementById('directToBlocked').click()"));
 
   ASSERT_TRUE(main_manager.WaitForNavigationFinished());
-  EXPECT_TRUE(main_manager.was_committed());
-  EXPECT_TRUE(main_manager.was_successful());
-  EXPECT_EQ(web_contents()->GetURL(), blocked_url);
+  EXPECT_FALSE(main_manager.was_committed());
+  EXPECT_FALSE(main_manager.was_successful());
+  EXPECT_EQ(web_contents()->GetURL(), start_url);
 }
 
 IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest,
@@ -589,7 +592,8 @@ IN_PROC_BROWSER_TEST_F(ExecutionEnginePixelBrowserTest,
   // Render an HTML <select> element whose second item appears red.
   // The second item should appear when the element is clicked.
   EXPECT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), embedded_test_server()->GetURL("/actor/red_dropdown.html")));
+      browser(), embedded_https_test_server().GetURL(
+                     "example.com", "/actor/red_dropdown.html")));
   EXPECT_TRUE(WaitForRenderFrameReady(web_contents()->GetPrimaryMainFrame()));
   content::SimulateEndOfPaintHoldingOnPrimaryMainFrame(web_contents());
 
@@ -779,6 +783,8 @@ IN_PROC_BROWSER_TEST_P(ExecutionEngineDropdownCaptureOopifBrowserTest,
   content::RenderFrameHost* iframe =
       ChildFrameAt(web_contents()->GetPrimaryMainFrame(), 0);
   ASSERT_NE(iframe, nullptr);
+  EXPECT_TRUE(WaitForRenderFrameReady(iframe));
+  content::WaitForHitTestData(iframe);
 
   // Now click on the <select> in the out of process iframe, and then look for
   // red pixels.
@@ -851,13 +857,10 @@ class ExecutionEngineFileSystemAccessApiBrowserTest
     return result;
   }
 
-  bool IsUsageIndicatorVisible(Browser* browser) {
-    auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
-    auto* provider = browser_view->toolbar_button_provider();
-    auto* icon_view = page_actions::GetIconLabelBubbleViewForTesting(
-        provider->GetPageActionViewInterface(kActionShowFileSystemAccess),
-        kActionShowFileSystemAccess);
-    return icon_view && icon_view->GetVisible();
+  bool IsUsageIndicatorVisible(BrowserWindowInterface* browser) {
+    return page_actions::PageActionTestAccessor(browser,
+                                                kActionShowFileSystemAccess)
+        .GetVisible();
   }
 
  private:
@@ -874,8 +877,8 @@ IN_PROC_BROWSER_TEST_P(ExecutionEngineFileSystemAccessApiBrowserTest,
       std::make_unique<SelectPredeterminedFileDialogFactory>(
           std::vector<base::FilePath>{test_file}));
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(),
-      embedded_test_server()->GetURL("/actor/file_system_access.html")));
+      browser(), embedded_https_test_server().GetURL(
+                     "example.com", "/actor/file_system_access.html")));
 
   EXPECT_FALSE(IsUsageIndicatorVisible(browser()));
 
@@ -991,8 +994,8 @@ IN_PROC_BROWSER_TEST_P(ExecutionEngineSkipBeforeUnloadBrowserTest,
     actor_keyed_service()->ResetForTesting();
   }
 
-  const GURL beforeunload_url =
-      embedded_test_server()->GetURL("/actor/beforeunload.html");
+  const GURL beforeunload_url = embedded_https_test_server().GetURL(
+      "example.com", "/actor/beforeunload.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), beforeunload_url));
 
   content::WebContents* web_contents =
@@ -1000,7 +1003,8 @@ IN_PROC_BROWSER_TEST_P(ExecutionEngineSkipBeforeUnloadBrowserTest,
   content::PrepContentsForBeforeUnloadTest(web_contents);
   ASSERT_EQ(beforeunload_url, web_contents->GetLastCommittedURL());
 
-  const GURL target_url = embedded_test_server()->GetURL("/title1.html");
+  const GURL target_url =
+      embedded_https_test_server().GetURL("example.com", "/title1.html");
 
   bool should_skip_dialog = IsActorActive() && IsSkipFeatureEnabled();
 
@@ -1094,7 +1098,8 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineDownloadBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest, CollectsToolVotes) {
-  const GURL url = embedded_test_server()->GetURL("/actor/two_clicks.html");
+  const GURL url = embedded_https_test_server().GetURL(
+      "example.com", "/actor/two_clicks.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
   std::optional<int> button1_id =
@@ -1121,7 +1126,8 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest, CollectsToolVotes) {
 }
 
 IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest, CollectsMultipleToolVotes) {
-  const GURL url = embedded_test_server()->GetURL("/actor/two_clicks.html");
+  const GURL url = embedded_https_test_server().GetURL(
+      "example.com", "/actor/two_clicks.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
   base::test::TestFuture<ToolCallback> on_invoke_future1;

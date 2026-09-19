@@ -225,15 +225,19 @@ UIImage* GetFallbackImageWithStringAndColor(NSString* string,
                   title:(NSString*)title
      additionalKeywords:(NSArray<NSString*>*)keywords
       completionHandler:(void (^)(CSSearchableItem*))completionHandler {
-  UIImage* favicon;
+  UIImage* favicon = nil;
 
   if (largeIconResult.bitmap.is_valid()) {
     scoped_refptr<base::RefCountedMemory> data =
         largeIconResult.bitmap.bitmap_data;
-    favicon = [UIImage imageWithData:[NSData dataWithBytes:data->front()
-                                                    length:data->size()]
-                               scale:[UIScreen mainScreen].scale];
-  } else {
+    if (data && data->size() && data->front()) {
+      favicon = [UIImage imageWithData:[NSData dataWithBytes:data->front()
+                                                      length:data->size()]
+                                 scale:[UIScreen mainScreen].scale];
+    }
+  }
+
+  if (!favicon) {
     NSString* iconText =
         base::SysUTF16ToNSString(favicon::GetFallbackIconText(itemURL));
     UIColor* backgroundColor = skia::UIColorFromSkColor(
@@ -292,7 +296,9 @@ UIImage* GetFallbackImageWithStringAndColor(NSString* string,
   [attributeSet setURL:nsURL];
   [attributeSet setContentURL:nsURL];
   [attributeSet setContentDescription:base::SysUTF8ToNSString(description)];
-  [attributeSet setThumbnailData:UIImagePNGRepresentation(favicon)];
+  if (favicon) {
+    [attributeSet setThumbnailData:UIImagePNGRepresentation(favicon)];
+  }
 
   NSString* itemID = self.useTitleInIdentifiers
                          ? [self spotlightIDForURL:indexedURL

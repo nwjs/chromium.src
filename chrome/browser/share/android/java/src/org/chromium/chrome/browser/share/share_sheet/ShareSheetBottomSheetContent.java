@@ -35,6 +35,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.DeviceInfo;
+import org.chromium.base.TriState;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -118,19 +119,17 @@ class ShareSheetBottomSheetContent implements BottomSheetContent, OnItemClickLis
         mParams = params;
         mFeatureEngagementTracker = featureEngagementTracker;
 
-        // Set |mLinkGenerationState| to invalid value of |MAX| if |getLinkToTextSuccessful|
+        // Set |mLinkGenerationState| to invalid value of |COUNT| if |getLinkToTextSuccessful|
         // is not set in order to distinguish it from failure state. |getLinkToTextSuccessful| will
         // be set only for link to text.
-        if (mParams.getLinkToTextSuccessful() == null) {
-            mLinkGenerationState = LinkGeneration.MAX;
+        if (mParams.getLinkToTextSuccessful() == TriState.NOT_SET) {
+            mLinkGenerationState = LinkGeneration.COUNT;
+        } else if (mParams.getLinkToTextSuccessful() == TriState.TRUE) {
+            mLinkGenerationState = LinkGeneration.LINK;
+            mLinkToggleState = LinkToggleState.LINK;
         } else {
-            if (mParams.getLinkToTextSuccessful()) {
-                mLinkGenerationState = LinkGeneration.LINK;
-                mLinkToggleState = LinkToggleState.LINK;
-            } else {
-                mLinkGenerationState = LinkGeneration.FAILURE;
-                mLinkToggleState = LinkToggleState.NO_LINK;
-            }
+            mLinkGenerationState = LinkGeneration.FAILURE;
+            mLinkToggleState = LinkToggleState.NO_LINK;
         }
         createContentView();
     }

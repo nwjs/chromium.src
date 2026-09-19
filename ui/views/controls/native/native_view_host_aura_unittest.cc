@@ -13,6 +13,7 @@
 #include "base/test/icu_test_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "ui/aura/client/aura_constants.h"
+#include "ui/aura/test/test_focus_client.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_event_dispatcher.h"
 #include "ui/aura/window_targeter.h"
@@ -22,6 +23,7 @@
 #include "ui/compositor/layer.h"
 #include "ui/events/event_utils.h"
 #include "ui/events/test/event_generator.h"
+#include "ui/platform_window/platform_window_init_properties.h"
 #include "ui/views/controls/native/native_view_host.h"
 #include "ui/views/controls/native/native_view_host_aura_with_clip_window.h"
 #include "ui/views/controls/native/native_view_host_test_base.h"
@@ -32,6 +34,7 @@
 #include "ui/views/views_features.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
+#include "ui/wm/core/default_activation_client.h"
 
 namespace views {
 
@@ -733,6 +736,73 @@ TEST_F(NativeViewHostAuraTest, Attach) {
   DestroyHost();
 }
 
+TEST_F(NativeViewHostAuraTest, HostMovedWithSameLayerBounds) {
+  if (!base::FeatureList::IsEnabled(
+          views::features::kNativeViewHostManagesLayers)) {
+    GTEST_SKIP();
+  }
+  CreateTopLevel();
+  toplevel()->SetBounds({0, 0, 200, 200});
+
+  View* container =
+      toplevel()->client_view()->AddChildView(std::make_unique<View>());
+
+  NativeViewHost* host1 =
+      container->AddChildView(std::make_unique<NativeViewHost>());
+  host1->SetBoundsRect({10, 10, 80, 80});
+
+  NativeViewHost* host2 =
+      container->AddChildView(std::make_unique<NativeViewHost>());
+  host2->SetBoundsRect({30, 40, 80, 80});
+
+  auto child = std::make_unique<Widget>();
+  Widget::InitParams child_params(Widget::InitParams::CLIENT_OWNS_WIDGET,
+                                  Widget::InitParams::TYPE_CONTROL);
+  child_params.parent = toplevel()->GetNativeView();
+  child->Init(std::move(child_params));
+  child->SetContentsView(new View);
+
+  aura::Window* child_win = child->GetNativeView();
+  host1->Attach(child_win);
+  test::RunScheduledLayout(toplevel());
+
+  const gfx::Point client_origin = toplevel()->client_view()->bounds().origin();
+  const gfx::Rect bounds_in_host1{client_origin.x() + 10,
+                                  client_origin.y() + 10, 80, 80};
+  EXPECT_EQ(bounds_in_host1, child_win->bounds());
+  EXPECT_EQ((gfx::Rect{80, 80}), child_win->layer()->bounds());
+
+  NativeViewHostWindowObserver test_observer;
+  child_win->AddObserver(&test_observer);
+
+  // Detach from host1 and attach to host2, which has the same size but a
+  // different location. The child window's layer bounds relative to
+  // host2->layer() remains (0, 0, 80, 80). Because the layer bounds do not
+  // change, Layer::SetBounds() is a no-op, but Window::SetBoundsInternal must
+  // still update the child window's bounds to match host2's position
+  // and notify observers.
+  host1->Detach();
+  host2->Attach(child_win);
+  test::RunScheduledLayout(toplevel());
+
+  const gfx::Rect bounds_in_host2{client_origin.x() + 30,
+                                  client_origin.y() + 40, 80, 80};
+  EXPECT_EQ(bounds_in_host2, child_win->bounds());
+  EXPECT_EQ((gfx::Rect{80, 80}), child_win->layer()->bounds());
+
+  bool found_bounds_changed = false;
+  for (const auto& event : test_observer.events()) {
+    if (event.type == NativeViewHostWindowObserver::EVENT_BOUNDS_CHANGED) {
+      found_bounds_changed = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(found_bounds_changed);
+
+  child_win->RemoveObserver(&test_observer);
+  host2->Detach();
+}
+
 // Ensure the native window is hidden when the host view is hidden.
 TEST_F(NativeViewHostAuraTest, SimpleShowAndHide) {
   CreateHost();
@@ -1244,9 +1314,11 @@ TEST_F(NativeViewHostAuraTest, NestedLayerHierarchy) {
   toplevel()->SetBounds(gfx::Rect(0, 0, 500, 500));
   toplevel()->Show();
 
+  View* container =
+      toplevel()->client_view()->AddChildView(std::make_unique<View>());
   View* parent_view = new View();
   parent_view->SetPaintToLayer();
-  toplevel()->client_view()->AddChildView(parent_view);
+  container->AddChildView(parent_view);
   parent_view->SetBounds(10, 10, 100, 100);
 
   CreateTestingHost();
@@ -1291,6 +1363,89 @@ TEST_F(NativeViewHostAuraTest, NestedLayerHierarchy) {
   EXPECT_FALSE(child_layer->visible());
 
   DestroyHost();
+}
+
+TEST_F(NativeViewHostAuraTest, AttachFromAnotherWindowTreeHostWithObserver) {
+  if (!base::FeatureList::IsEnabled(
+          views::features::kNativeViewHostManagesLayers)) {
+    GTEST_SKIP();
+  }
+
+  root_window()->SetName("PrimaryRootWindow");
+
+  std::unique_ptr<aura::WindowTreeHost> second_host =
+      aura::WindowTreeHost::Create(
+          ui::PlatformWindowInitProperties{gfx::Rect{100, 100}});
+  second_host->InitHost();
+  second_host->window()->SetName("SecondaryRootWindow");
+  new wm::DefaultActivationClient(second_host->window());
+  auto focus_client =
+      std::make_unique<aura::test::TestFocusClient>(second_host->window());
+  second_host->window()->Show();
+
+  auto widget1 = std::make_unique<Widget>();
+  Widget::InitParams widget1_params(Widget::InitParams::CLIENT_OWNS_WIDGET,
+                                    Widget::InitParams::TYPE_WINDOW);
+  widget1_params.parent = second_host->window();
+  widget1_params.name = "Widget1Window";
+  widget1_params.bounds = gfx::Rect{0, 0, 100, 100};
+  widget1->Init(std::move(widget1_params));
+  widget1->Show();
+
+  NativeViewHost* host1 =
+      widget1->client_view()->AddChildView(std::make_unique<NativeViewHost>());
+
+  auto winA = std::make_unique<aura::Window>(nullptr);
+  winA->SetName("winA");
+  winA->Init(ui::LAYER_TEXTURED);
+  winA->SetBounds({10, 10, 50, 50});
+  winA->Show();
+  host1->Attach(winA.get());
+
+  class BoundsInRootObserver : public aura::WindowObserver {
+   public:
+    explicit BoundsInRootObserver(aura::Window* window) : window_(window) {
+      window_->AddObserver(this);
+    }
+    BoundsInRootObserver(const BoundsInRootObserver&) = delete;
+    BoundsInRootObserver& operator=(const BoundsInRootObserver&) = delete;
+    ~BoundsInRootObserver() override {
+      if (window_) {
+        window_->RemoveObserver(this);
+      }
+    }
+
+    void OnWindowParentChanged(aura::Window* window,
+                               aura::Window* parent) override {
+      if (window->GetRootWindow()) {
+        bounds_in_root_ = window->GetBoundsInRootWindow();
+      }
+    }
+
+    void OnWindowDestroying(aura::Window* window) override {
+      window_->RemoveObserver(this);
+      window_ = nullptr;
+    }
+
+    const gfx::Rect& bounds_in_root() const { return bounds_in_root_; }
+
+   private:
+    raw_ptr<aura::Window> window_;
+    gfx::Rect bounds_in_root_;
+  };
+
+  BoundsInRootObserver observer(winA.get());
+
+  CreateTopLevel();
+  toplevel()->GetNativeView()->SetName("TopLevelWindow");
+  toplevel()->SetBounds({0, 0, 500, 500});
+  toplevel()->Show();
+
+  NativeViewHost* host2 = toplevel()->client_view()->AddChildView(
+      std::make_unique<NativeViewHost>());
+  host2->SetBounds(5, 5, 50, 50);
+
+  host2->Attach(winA.get());
 }
 
 }  // namespace views

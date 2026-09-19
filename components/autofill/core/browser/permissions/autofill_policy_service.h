@@ -29,9 +29,18 @@ class AutofillPolicyService : public KeyedService {
 
   // Returns true if the specified Autofill data category is blocked by either
   // user settings or enterprise policy for the given `url`. This static method
-  // is suitable for one-off checks (e.g., at startup) as it parses the policy
+  // is used where an `AutofillPolicyService` instance or `AutofillClient` is
+  // not accessible (e.g., in data managers or at startup), parsing the policy
   // list directly from `prefs` without caching.
   [[nodiscard]] static bool IsAutofillTypeBlockedByPolicyFromPref(
+      const PrefService& prefs,
+      const GURL& url,
+      AutofillClient::AutofillPolicyDataCategory category);
+
+  // Returns true if the specified Autofill data category is disabled
+  // specifically by enterprise policy (`kAutofillTypesBlocked`) for the given
+  // `url`. This does not check user setting preferences.
+  [[nodiscard]] static bool IsAutofillTypeDisabledByEnterprisePolicy(
       const PrefService& prefs,
       const GURL& url,
       AutofillClient::AutofillPolicyDataCategory category);

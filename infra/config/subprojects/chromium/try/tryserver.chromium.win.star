@@ -8,6 +8,7 @@ load("@chromium-luci//builder_config.star", "builder_config")
 load("@chromium-luci//builders.star", "os")
 load("@chromium-luci//consoles.star", "consoles")
 load("@chromium-luci//gn_args.star", "gn_args")
+load("@chromium-luci//gpu.star", shared_gpu = "gpu")
 load("@chromium-luci//targets.star", "targets")
 load("@chromium-luci//try.star", "try_")
 load("//lib/gpu.star", "gpu")
@@ -27,7 +28,7 @@ try_.defaults.set(
     experiments = {
         "chromium_tests.resultdb_module": 100,
     },
-    orchestrator_cores = 2,
+    orchestrator_cores = "2|4",
     orchestrator_siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
     service_account = try_constants.DEFAULT_SERVICE_ACCOUNT,
     siso_keep_going = siso.KEEP_GOING,
@@ -67,6 +68,7 @@ try_.builder(
 
 try_.builder(
     name = "win-annotator-rel",
+    description_html = "Runs tests for the Network Traffic Annotation Auditor on Windows, mirroring win-annotator-rel.",
     mirrors = ["ci/win-annotator-rel"],
     gn_args = gn_args.config(
         configs = [
@@ -75,6 +77,7 @@ try_.builder(
             "no_symbols",
         ],
     ),
+    contact_team_email = "cbe-compliance@google.com",
 )
 
 try_.builder(
@@ -534,7 +537,7 @@ try_.builder(
     contact_team_email = "chrome-webium-product-eng@google.com",
 )
 
-gpu.try_.win_optional_builder(
+shared_gpu.try_.win_optional_builder(
     name = "win_optional_gpu_tests_rel",
     branch_selector = branches.selector.WINDOWS_BRANCHES,
     description_html = ("Runs GPU tests on Windows 10 machines with NVIDIA GTX 1660 and Intel UHD 630 GPUs. " +
@@ -566,10 +569,11 @@ gpu.try_.win_optional_builder(
     # allows us to avoid long pending times without risk of
     # overloading the testing hardware.
     max_concurrent_builds = 9,
+    service_account = gpu.try_.SERVICE_ACCOUNT,
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
 )
 
-gpu.try_.win_optional_builder(
+shared_gpu.try_.win_optional_builder(
     name = "gpu-fyi-cq-win-arm64",
     branch_selector = branches.selector.WINDOWS_BRANCHES,
     description_html = "Runs GPU tests on Windows/ARM64 configs. Only automatically added to CLs that touch GPU-related files.",
@@ -595,6 +599,7 @@ gpu.try_.win_optional_builder(
     # allows us to avoid long pending times without risk of
     # overloading the testing hardware.
     max_concurrent_builds = 9,
+    service_account = gpu.try_.SERVICE_ACCOUNT,
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
 )
 

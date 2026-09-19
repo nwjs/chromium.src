@@ -28,7 +28,6 @@
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
-#include "chrome/browser/ui/views/frame/test_with_browser_view.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_controller.h"
@@ -546,7 +545,7 @@ MATCHER_P(MatchesContext, expected, "Matches the expected context") {
 IN_PROC_BROWSER_TEST_F(BrowserFeaturePromoControllerUiTest,
                        CustomActionCallbackInSecondWindow) {
   // Create a second browser.
-  Browser* const other = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* const other = CreateBrowser(browser()->GetProfile());
 
   // Hide the anchor element in the first browser.
   auto* const app_menu_button = BrowserElementsViews::From(browser())->GetView(
@@ -575,7 +574,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFeaturePromoControllerUiTest,
 IN_PROC_BROWSER_TEST_F(BrowserFeaturePromoControllerUiTest,
                        CustomActionCallbackInSecondWindowAfterFirstCloses) {
   // Create a second browser.
-  Browser* const other = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* const other = CreateBrowser(browser()->GetProfile());
 
   // Hide the anchor element in the first browser.
   auto* const app_menu_button = BrowserElementsViews::From(browser())->GetView(

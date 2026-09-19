@@ -257,6 +257,9 @@ TemplateURLServiceTestUtil::CreateTemplateURLServiceForTesting(
               profile)),
       CHECK_DEREF(
           TemplateURLPrepopulateData::ResolverFactory::GetForProfile(profile)),
+      CHECK_DEREF(regional_capabilities::RegionalCapabilitiesServiceFactory::
+                      GetForProfile(profile)),
+      CHECK_DEREF(ProfileMetricsServiceFactory::GetForProfile(profile)),
       std::move(search_terms_data), web_data_service, std::move(client),
       std::move(dsp_change_callback));
 }
@@ -273,6 +276,9 @@ TemplateURLServiceTestUtil::CreateTemplateURLServiceForTesting(
               profile)),
       CHECK_DEREF(
           TemplateURLPrepopulateData::ResolverFactory::GetForProfile(profile)),
+      CHECK_DEREF(regional_capabilities::RegionalCapabilitiesServiceFactory::
+                      GetForProfile(profile)),
+      CHECK_DEREF(ProfileMetricsServiceFactory::GetForProfile(profile)),
       initializers);
 }
 
@@ -320,7 +326,11 @@ void TemplateURLServiceTestUtil::ResetModel(bool verify_load) {
       web_data_service_.get(),
       std::unique_ptr<TemplateURLServiceClient>(
           new TestingTemplateURLServiceClient(
-              HistoryServiceFactory::GetForProfileIfExists(
+              // Use `GetForProfile()` rather than `GetForProfileIfExists()`:
+              // keyed services are created lazily in testing contexts, so the
+              // history service may not have been instantiated yet even when
+              // the test has registered a testing factory for it.
+              HistoryServiceFactory::GetForProfile(
                   profile(), ServiceAccessType::EXPLICIT_ACCESS),
               &search_term_)),
       base::BindLambdaForTesting([&] { ++dsp_set_to_google_callback_count_; }));

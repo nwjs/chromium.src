@@ -35,6 +35,7 @@ import org.chromium.chrome.browser.prefetch.settings.PreloadPagesSettingsFragmen
 import org.chromium.chrome.browser.privacy.secure_dns.SecureDnsSettings;
 import org.chromium.chrome.browser.privacy.settings.DoNotTrackSettings;
 import org.chromium.chrome.browser.privacy.settings.PrivacySettings;
+import org.chromium.chrome.browser.privacy.settings.UniversalOptOutSettings;
 import org.chromium.chrome.browser.safe_browsing.settings.SafeBrowsingSettingsFragment;
 import org.chromium.chrome.browser.safe_browsing.settings.StandardProtectionSettingsFragment;
 import org.chromium.chrome.browser.safety_check.SafetyCheckSettingsFragment;
@@ -47,7 +48,6 @@ import org.chromium.chrome.browser.sync.settings.AccountManagementFragment;
 import org.chromium.chrome.browser.sync.settings.GoogleServicesSettings;
 import org.chromium.chrome.browser.sync.settings.ManageSyncSettings;
 import org.chromium.chrome.browser.sync.settings.PersonalizeGoogleServicesSettings;
-import org.chromium.chrome.browser.sync.settings.SignInPreference;
 import org.chromium.chrome.browser.tasks.tab_management.TabArchiveSettingsFragment;
 import org.chromium.chrome.browser.tasks.tab_management.TabsSettings;
 import org.chromium.chrome.browser.toolbar.adaptive.settings.AdaptiveToolbarSettingsFragment;
@@ -90,6 +90,7 @@ public final class SearchIndexProviderRegistry {
                     ContextualSearchSettingsFragment.SEARCH_INDEX_DATA_PROVIDER,
                     GlicSettings.SEARCH_INDEX_DATA_PROVIDER,
                     DoNotTrackSettings.SEARCH_INDEX_DATA_PROVIDER,
+                    UniversalOptOutSettings.SEARCH_INDEX_DATA_PROVIDER,
                     HomepageSettings.SEARCH_INDEX_DATA_PROVIDER,
                     LegalInformationSettings.SEARCH_INDEX_DATA_PROVIDER,
                     SearchEngineSettings.SEARCH_INDEX_DATA_PROVIDER,
@@ -134,7 +135,6 @@ public final class SearchIndexProviderRegistry {
                     SafetyCheckSettingsFragment.SEARCH_INDEX_DATA_PROVIDER,
                     TabsSettings.SEARCH_INDEX_DATA_PROVIDER,
                     ManageSyncSettings.SEARCH_INDEX_DATA_PROVIDER,
-                    SignInPreference.SEARCH_INDEX_DATA_PROVIDER,
                     ThemeSettingsFragment.SEARCH_INDEX_DATA_PROVIDER,
                     DownloadSettings.SEARCH_INDEX_DATA_PROVIDER,
                     DeveloperSettings.SEARCH_INDEX_DATA_PROVIDER,

@@ -90,14 +90,11 @@ constexpr char kBindingsSystemPerContextKey[] = "extension_bindings_system";
 
 bool is_creating_hidden_binding = false;
 
-// Returns true if the given |api| is a "prefixed" api of the |root_api|; that
-// is, if the api begins with the root.
-// For example, 'app.runtime' is a prefixed api of 'app'.
-// This is designed to be used as a utility when iterating over a sorted map, so
-// assumes that |api| is lexicographically greater than |root_api|.
+// Returns true if `api` begins with `root_api` followed by a period. For
+// example, 'app.runtime' is a prefixed API of 'app'.
 bool IsPrefixedAPI(std::string_view api, std::string_view root_api) {
-  CHECK_GT(api, root_api);
-  return base::StartsWith(api, root_api, base::CompareCase::SENSITIVE) &&
+  return api.size() > root_api.size() &&
+         base::StartsWith(api, root_api, base::CompareCase::SENSITIVE) &&
          api[root_api.size()] == '.';
 }
 
@@ -261,7 +258,7 @@ bool IsAPIFeatureAvailable(v8::Local<v8::Context> context,
 // specific feature.
 v8::Local<v8::Object> CreateRootBinding(v8::Local<v8::Context> context,
                                         ScriptContext* script_context,
-                                        const std::string& name,
+                                        std::string_view name,
                                         APIBindingsSystem* bindings_system) {
   APIBindingHooks* hooks = nullptr;
   v8::Local<v8::Object> binding_object =
@@ -310,7 +307,8 @@ v8::Local<v8::Object> CreateFullBinding(
     ScriptContext* script_context,
     APIBindingsSystem* bindings_system,
     const FeatureProvider* api_feature_provider,
-    const std::string& root_name, bool hidden = false) {
+    std::string_view root_name,
+    bool hidden = false) {
   const FeatureMap& features = api_feature_provider->GetAllFeatures();
   auto lower = features.lower_bound(root_name);
   CHECK(lower != features.end());
@@ -329,7 +327,7 @@ v8::Local<v8::Object> CreateFullBinding(
         (hidden && (root_name == "app.window" || root_name == "runtime" || root_name == "nw.Window"))) {
       // If this feature is an alias for a different API, use the other binding
       // as the basis for the API contents.
-      const std::string& source_name =
+      const std::string_view source_name =
           feature->source().empty() ? root_name : feature->source();
       root_binding = CreateRootBinding(context, script_context, source_name,
                                        bindings_system);
@@ -337,10 +335,8 @@ v8::Local<v8::Object> CreateFullBinding(
     ++lower;
   }
 
-  // Look for any bindings that would be on the same object. Any of these would
-  // start with the same base name (e.g. 'app') + '.' (since '.' is < x for any
-  // absl::ascii_isalpha(x)).
-  std::string upper = root_name + static_cast<char>('.' + 1);
+  // Look for bindings nested below the root API. These start with the same base
+  // name followed by a period, such as 'app.runtime' for 'app'.
   std::string_view last_binding_name;
   // The following loop is a little painful because we have crazy binding names
   // and syntaxes. The way this works is as follows:
@@ -367,7 +363,8 @@ v8::Local<v8::Object> CreateFullBinding(
   // have strings.
   // On the upside, most APIs are not prefixed at all, and this loop is never
   // entered.
-  for (auto iter = lower; iter != features.end() && iter->first < upper;
+  for (auto iter = lower;
+       iter != features.end() && IsPrefixedAPI(iter->first, root_name);
        ++iter) {
     //if (iter->first.substr(0, 3) == "nw." && !nodejs_enabled)
     //  continue;
@@ -390,7 +387,7 @@ v8::Local<v8::Object> CreateFullBinding(
 
     v8::Local<v8::Object> nested_binding =
         CreateFullBinding(context, script_context, bindings_system,
-                          api_feature_provider, std::string(binding_name), hidden);
+                          api_feature_provider, binding_name, hidden);
     // It's possible that we don't create a binding if no features or
     // prefixed features are available to the context.
     if (nested_binding.IsEmpty())

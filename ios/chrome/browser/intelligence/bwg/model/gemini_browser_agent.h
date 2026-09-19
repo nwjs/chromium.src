@@ -164,6 +164,9 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
   // floaty to be shown.
   void ShowFloatyIfInvoked(bool animated, gemini::FloatyUpdateSource source);
 
+  // Collapses floaty if invoked.
+  void CollapseFloatyIfInvoked();
+
   // Temporarily route SDK events from GeminiContainerMediator to
   // GeminiBrowserAgent to handle work that is necessary for the overlay UI but
   // not for the embedded UI. TODO(crbug.com/535579970): Remove this once
@@ -174,7 +177,6 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
   void OnProcessingStatusChanged(
       ios::provider::GeminiClientMode processing_status,
       ios::provider::GeminiDormantReason dormant_reason) override;
-  void CollapseFloatyIfInvoked() override;
   void SetLastShownViewState(
       ios::provider::GeminiViewState view_state) override;
   void OnLiveButtonTapped() override;
@@ -240,6 +242,9 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
 
   // Records the page type when Gemini is invoked.
   void RecordInvocationPageType();
+
+  // Configures Gemini with startup parameters.
+  void ConfigureGemini();
 
   // Helper to get the GeminiTabHelper for the active web state if it matches
   // the provided web state.
@@ -411,6 +416,11 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
       NSString* tab_id,
       ios::provider::GeminiPageContextAttachmentState new_state);
 
+  // Returns whether all Gemini Live permissions and preferences have been
+  // granted (user consent, intro played, Chrome mic setting, and OS mic
+  // permission).
+  bool HasGivenAllLivePermissions() const;
+
   // Returns the attached page context for `tab_id`, or nil if not found.
   GeminiPageContext* GetAttachedPageContext(web::WebStateID tab_id) const;
 
@@ -424,6 +434,9 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
 
   // Mediator for the Gemini container. Remove after bottom sheet migrations.
   __strong GeminiContainerMediator* gemini_container_mediator_ = nil;
+
+  // Handler for link opening.
+  __strong GeminiLinkOpeningHandler* link_opening_handler_ = nil;
 
   // Reference to fullscreen controller. Used to observe fullscreen progress
   // updates related to the Gemini overlay for the legacy fullscreen
@@ -509,6 +522,9 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
   // The accumulated duration of all Gemini Live segments within a single
   // overall interaction.
   base::TimeDelta live_session_accumulated_duration_;
+
+  // Records Gemini live session started metrics and initializes session timing.
+  void LogLiveSessionStartedMetrics();
 
   // Logs Gemini live related metrics and resets values if needed.
   void LogLiveSessionMetrics(bool floaty_dismissed = false);

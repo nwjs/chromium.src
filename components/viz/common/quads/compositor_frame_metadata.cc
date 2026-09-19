@@ -58,8 +58,13 @@ void CompositorFrameMetadata::AsValueInto(
   value->EndArray();
 
   value->BeginArray("activation_dependencies");
-  for (const auto& surface_id : activation_dependencies) {
-    value->AppendString(surface_id.ToString());
+  for (const auto& dep : activation_dependencies) {
+    value->BeginDictionary();
+    value->SetString("surface_id", dep.surface_id.ToString());
+    if (dep.deadline_in_frames.has_value()) {
+      value->SetInteger("deadline_in_frames", *dep.deadline_in_frames);
+    }
+    value->EndDictionary();
   }
   value->EndArray();
 
@@ -77,6 +82,11 @@ void CompositorFrameMetadata::AsValueInto(
   if (top_controls_visible_height) {
     value->SetDouble("top_controls_visible_height",
                      *top_controls_visible_height);
+  }
+
+  if (view_transition_deadline_in_frames) {
+    value->SetInteger("view_transition_deadline_in_frames",
+                      *view_transition_deadline_in_frames);
   }
 
   value->SetInteger("display_transform_hint",
@@ -146,6 +156,8 @@ CompositorFrameMetadata::CompositorFrameMetadata(
       send_frame_token_to_embedder(other.send_frame_token_to_embedder),
       min_page_scale_factor(other.min_page_scale_factor),
       top_controls_visible_height(other.top_controls_visible_height),
+      view_transition_deadline_in_frames(
+          other.view_transition_deadline_in_frames),
       display_transform_hint(other.display_transform_hint),
       is_mobile_optimized(other.is_mobile_optimized),
       transition_directives(other.transition_directives),

@@ -9,6 +9,7 @@
 
 #include "base/functional/callback.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/types/expected.h"
 #include "base/version_info/channel.h"
 
 namespace endpoint_fetcher {
@@ -24,18 +25,27 @@ namespace signin {
 class IdentityManager;
 }  // namespace signin
 
-namespace webauthn {
+namespace sync_pb {
+class GetDeviceAuthorizationKeyRequest;
+class GetDeviceAuthorizationKeyResponse;
+}  // namespace sync_pb
 
-inline constexpr char kDeviceAuthorizationKeyEndpointUrl[] =
-    "https://chromesyncpasswords-pa.googleapis.com/v1/users/me/"
-    "deviceAuthorizationKey";
+namespace webauthn {
 
 // Handles requests to fetch device authorization keys for password manager
 // passkeys.
 class DeviceAuthorizationKeysFetcher {
  public:
+  // Represents the possible error outcomes when fetching the keys.
+  enum class Error {
+    kNetworkError,
+    kHttpError,
+    kProtoParseError,
+    kAlreadyInProgress,
+  };
+
   using FetchKeysCallback = base::OnceCallback<void(
-      std::unique_ptr<endpoint_fetcher::EndpointResponse>)>;
+      base::expected<sync_pb::GetDeviceAuthorizationKeyResponse, Error>)>;
 
   explicit DeviceAuthorizationKeysFetcher(version_info::Channel channel);
   DeviceAuthorizationKeysFetcher(const DeviceAuthorizationKeysFetcher&) =
@@ -45,14 +55,13 @@ class DeviceAuthorizationKeysFetcher {
   ~DeviceAuthorizationKeysFetcher();
 
   // Initiates the request to fetch device authorization keys.
-  // TODO(crbug.com/405036154): Handle passing request params.
   void FetchDeviceAuthorizationKeys(
+      const sync_pb::GetDeviceAuthorizationKeyRequest& request,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       signin::IdentityManager* identity_manager,
       FetchKeysCallback callback);
 
  private:
-  // TODO(crbug.com/405036154): Handle parsing response.
   void OnFetchCompleted(
       FetchKeysCallback callback,
       std::unique_ptr<endpoint_fetcher::EndpointResponse> response);

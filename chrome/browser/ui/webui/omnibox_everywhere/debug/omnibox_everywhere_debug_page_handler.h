@@ -29,10 +29,13 @@ class OmniboxEverywhereDebugPageHandler : public mojom::PageHandler {
 
   ~OmniboxEverywhereDebugPageHandler() override;
 
-  // mojom::PageHandler:
   void SetBackgroundModeEnabled(bool enabled) override;
   void GetBackgroundModeEnabled(
       GetBackgroundModeEnabledCallback callback) override;
+
+  void SetLaunchOnStartupEnabled(bool enabled) override;
+  void GetLaunchOnStartupEnabled(
+      GetLaunchOnStartupEnabledCallback callback) override;
 
   void SetHotkeyEnabled(bool enabled) override;
   void GetHotkeyEnabled(GetHotkeyEnabledCallback callback) override;
@@ -42,6 +45,11 @@ class OmniboxEverywhereDebugPageHandler : public mojom::PageHandler {
       GetEphemeralModelEnabledCallback callback) override;
 
   void InvokeOmniboxEverywhere(mojom::InvocationSource source) override;
+
+  void CreateStartMenuShortcut(
+      CreateStartMenuShortcutCallback callback) override;
+
+  void PinToTaskbar(PinToTaskbarCallback callback) override;
 
  private:
   void OnPrefChanged(const std::string& pref_name);

@@ -15,14 +15,14 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
-#include "build/build_config.h"
+#include "components/autofill/core/browser/data_manager/autofill_ai/in_memory_entity_suppression_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/personal_context_metrics.h"
 #include "components/autofill/core/browser/network/autofill_ai/autofill_ai_personal_context_access_manager_impl_test_api.h"
 #include "components/autofill/core/browser/network/autofill_ai/personal_context_conversion_util.h"
-#include "components/autofill/core/browser/test_utils/entity_data_test_utils.h"
+#include "components/autofill/core/browser/test_utils/entity_data_test_util.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/personal_context/core/mock_personal_context_eligibility_service.h"
 #include "components/personal_context/core/mock_personal_context_service.h"
@@ -35,6 +35,7 @@
 #include "components/prefs/testing_pref_service.h"
 #include "components/subscription_eligibility/subscription_eligibility_prefs.h"
 #include "components/subscription_eligibility/subscription_eligibility_service.h"
+#include "components/sync_device_info/fake_device_info_sync_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -53,15 +54,20 @@ using ::personal_context::MockPersonalContextEligibilityService;
 using ::personal_context::MockPersonalContextService;
 using ::personal_context::proto::SensitivePiiPresence;
 using ::testing::_;
+using ::testing::AllOf;
 using ::testing::ElementsAreArray;
 using ::testing::Eq;
 using ::testing::InSequence;
 using ::testing::IsEmpty;
 using ::testing::MockFunction;
+using ::testing::Not;
 using ::testing::Optional;
 using ::testing::Property;
+using ::testing::Ref;
+using ::testing::Return;
 using ::testing::Truly;
 using ::testing::UnorderedElementsAre;
+using ::testing::UnorderedElementsAreArray;
 using ::testing::WithArg;
 
 using RequestStatus = AutofillAiPersonalContextAccessManager::RequestStatus;
@@ -82,8 +88,32 @@ MATCHER_P2(MatchContextFetchRequest, expected_types, expected_presence, "") {
       const personal_context::proto::ContextMemoryAmbientAutofillRequest&>(arg);
 
   return req.return_spii_presence() == expected_presence &&
-         ExplainMatchResult(ElementsAreArray(expected_types),
+         ExplainMatchResult(UnorderedElementsAreArray(expected_types),
                             req.requested_types(), result_listener);
+}
+
+// Checks that ContextMemoryAmbientAutofillRequest matches the `expected_types`,
+// `expected_presence`, and `expected_client_id`.
+MATCHER_P3(MatchContextFetchRequestWithClientId,
+           expected_types,
+           expected_presence,
+           expected_client_id,
+           "") {
+  const auto& req = static_cast<
+      const personal_context::proto::ContextMemoryAmbientAutofillRequest&>(arg);
+
+  return req.return_spii_presence() == expected_presence &&
+         req.client_id() == expected_client_id &&
+         ExplainMatchResult(UnorderedElementsAreArray(expected_types),
+                            req.requested_types(), result_listener);
+}
+
+// Checks that an Entity proto has an encrypted entity payload matching
+// `expected_encrypted_bytes`.
+MATCHER_P(MatchEncryptedEntity, expected_encrypted_bytes, "") {
+  return arg.entity_case() ==
+             personal_context::proto::Entity::kEncryptedEntity &&
+         arg.encrypted_entity() == expected_encrypted_bytes;
 }
 
 template <size_t I = 0, typename T>
@@ -129,12 +159,13 @@ class AutofillAiPersonalContextAccessManagerImplTest : public testing::Test {
     access_manager_ =
         std::make_unique<AutofillAiPersonalContextAccessManagerImpl>(
             &mock_personal_context_service_, &mock_eligibility_service_,
-            subscription_eligibility_service_.get(), &pref_service_);
+            subscription_eligibility_service_.get(), &pref_service_,
+            &fake_device_info_sync_service_, &suppression_manager_);
     ON_CALL(mock_eligibility_service_, GetEligibilityState)
-        .WillByDefault(testing::Return(
+        .WillByDefault(Return(
             personal_context::PersonalContextEligibilityState::kEligible));
     ON_CALL(mock_eligibility_service_, GetNonEligibilityReason)
-        .WillByDefault(testing::Return(
+        .WillByDefault(Return(
             personal_context::PersonalContextNonEligibilityReason::kEligible));
     observation_.Observe(access_manager_.get());
   }
@@ -142,6 +173,14 @@ class AutofillAiPersonalContextAccessManagerImplTest : public testing::Test {
 
   AutofillAiPersonalContextAccessManagerImpl& access_manager() {
     return *access_manager_;
+  }
+
+  EntitySuppressionManager& suppression_manager() {
+    return suppression_manager_;
+  }
+
+  syncer::FakeDeviceInfoSyncService& fake_device_info_sync_service() {
+    return fake_device_info_sync_service_;
   }
 
   MockPersonalContextService& mock_personal_context_service() {
@@ -179,14 +218,14 @@ class AutofillAiPersonalContextAccessManagerImplTest : public testing::Test {
   // - `spii_response`: The mocked response for the subsequent SPII-specific
   //   request, if any SPII types are expected.
   void PrefetchContextSync(
-      const std::vector<EntityType>& requested_types,
-      const std::vector<EntityType>& expected_spii_types,
+      DenseSet<EntityType> requested_types,
+      DenseSet<EntityType> expected_spii_types,
       const personal_context::proto::ContextMemoryAmbientAutofillResponse&
           non_spii_and_presence_response,
       const personal_context::proto::ContextMemoryAmbientAutofillResponse&
           spii_response = {}) {
     std::vector<personal_context::proto::EntityType> proto_types;
-    for (const EntityType& type : requested_types) {
+    for (EntityType type : requested_types) {
       if (!access_manager().IsTypePrefetched(type)) {
         proto_types.push_back(
             AutofillEntityTypeToPersonalContextEntityType(type));
@@ -194,7 +233,7 @@ class AutofillAiPersonalContextAccessManagerImplTest : public testing::Test {
     }
 
     std::vector<personal_context::proto::EntityType> proto_spii_types;
-    for (const EntityType& type : expected_spii_types) {
+    for (EntityType type : expected_spii_types) {
       proto_spii_types.push_back(
           AutofillEntityTypeToPersonalContextEntityType(type));
     }
@@ -274,6 +313,8 @@ class AutofillAiPersonalContextAccessManagerImplTest : public testing::Test {
   MockPersonalContextEligibilityService mock_eligibility_service_;
   std::unique_ptr<subscription_eligibility::SubscriptionEligibilityService>
       subscription_eligibility_service_;
+  syncer::FakeDeviceInfoSyncService fake_device_info_sync_service_;
+  InMemoryEntitySuppressionManager suppression_manager_;
   std::unique_ptr<AutofillAiPersonalContextAccessManagerImpl> access_manager_;
   MockAutofillAiPersonalContextAccessManagerObserver mock_observer_;
   base::ScopedObservation<AutofillAiPersonalContextAccessManagerImpl,
@@ -284,7 +325,7 @@ class AutofillAiPersonalContextAccessManagerImplTest : public testing::Test {
 // Tests that PrefetchContext successfully requests context from the backend and
 // parses the returned entities, notifying observers about the result.
 TEST_F(AutofillAiPersonalContextAccessManagerImplTest, PrefetchContextSuccess) {
-  const std::vector<EntityType> requested_types = {
+  const DenseSet<EntityType> requested_types = {
       EntityType(EntityTypeName::kOrder)};
 
   personal_context::proto::ContextMemoryAmbientAutofillResponse
@@ -369,7 +410,7 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
 
   // 2. Now call PrefetchContext for both Passport and Driver's
   // License. It should only request Driver's License.
-  const std::vector<EntityType> requested_types = {
+  const DenseSet<EntityType> requested_types = {
       EntityType(EntityTypeName::kPassport),
       EntityType(EntityTypeName::kDriversLicense)};
 
@@ -415,7 +456,7 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
   // No network request should be made.
   EXPECT_CALL(mock_personal_context_service(), FetchContext).Times(0);
 
-  const std::vector<EntityType> requested_types = {
+  const DenseSet<EntityType> requested_types = {
       EntityType(EntityTypeName::kPassport)};
   access_manager().PrefetchContext(requested_types);
 }
@@ -423,7 +464,7 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
 // Tests that PrefetchContext does not mark types as prefetched when the fetch
 // context request fails.
 TEST_F(AutofillAiPersonalContextAccessManagerImplTest, PrefetchContextFailure) {
-  const std::vector<EntityType> requested_types = {
+  const DenseSet<EntityType> requested_types = {
       EntityType(EntityTypeName::kOrder)};
 
   ContextMemoryError expected_error = ContextMemoryError::FromExecutionError(
@@ -447,7 +488,7 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest, PrefetchContextFailure) {
 // correctly logged.
 TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
        PrefetchContextTriggerResultLogging) {
-  const std::vector<EntityType> requested_types = {
+  const DenseSet<EntityType> requested_types = {
       EntityType(EntityTypeName::kOrder)};
 
   // Initial Prefetch (Cache Empty)
@@ -635,7 +676,7 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
 TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
        GetUnmaskedSpiiEntityRequestLatencyLogging) {
   // Prefetch passport.
-  const std::vector<EntityType> requested_types = {
+  const DenseSet<EntityType> requested_types = {
       EntityType(EntityTypeName::kPassport)};
   personal_context::proto::ContextMemoryAmbientAutofillResponse
       presence_response;
@@ -683,7 +724,7 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
 // require a single request) is correctly recorded.
 TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
        PrefetchTotalLatencyLogging_NonSpii) {
-  const std::vector<EntityType> requested_types = {
+  const DenseSet<EntityType> requested_types = {
       EntityType(EntityTypeName::kOrder)};
 
   personal_context::proto::ContextMemoryAmbientAutofillResponse
@@ -806,7 +847,7 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
 TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
        PrefetchLatencyLogging_NonSpii) {
   base::HistogramTester histogram_tester;
-  const std::vector<EntityType> requested_types = {
+  const DenseSet<EntityType> requested_types = {
       EntityType(EntityTypeName::kOrder)};
 
   personal_context::proto::ContextMemoryAmbientAutofillResponse
@@ -849,7 +890,7 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
 // response is empty.
 TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
        PrefetchContextEmptyResponse) {
-  const std::vector<EntityType> requested_types = {
+  const DenseSet<EntityType> requested_types = {
       EntityType(EntityTypeName::kOrder),
       EntityType(EntityTypeName::kPassport)};
 
@@ -1406,7 +1447,7 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest, WipeStateOnDisablement) {
 // Tests that a pending request blocks subsequent requests for the same type.
 TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
        PendingRequestBlocksSubsequent) {
-  const std::vector<EntityType> requested_types = {
+  const DenseSet<EntityType> requested_types = {
       EntityType(EntityTypeName::kOrder)};
 
   base::test::TestFuture<personal_context::FetchContextCallback> future;
@@ -1443,7 +1484,7 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
 
 // Tests that failed requests trigger exponential backoff.
 TEST_F(AutofillAiPersonalContextAccessManagerImplTest, FailureTriggersBackoff) {
-  const std::vector<EntityType> requested_types = {
+  const DenseSet<EntityType> requested_types = {
       EntityType(EntityTypeName::kOrder)};
 
   ContextMemoryError expected_error = ContextMemoryError::FromExecutionError(
@@ -1838,6 +1879,41 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
       1);
 }
 
+// Tests that `Autofill.Ai.PersonalContext.NonEligibilityReason` is logged on
+// settings toggle updates after the startup delay has elapsed.
+TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
+       LogsAmbientNonEligibilityReasonOnToggleChange) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{features::kAutofillAmbientAutofill,
+        {{"ambient_autofill_eligible_tiers", "1,2"}}}},
+      {});
+
+  pref_service_.SetInteger(subscription_eligibility::prefs::kAiSubscriptionTier,
+                           1);
+  FastForwardBy(base::Seconds(31));
+
+  histogram_tester().ExpectBucketCount(
+      "Autofill.Ai.PersonalContext.NonEligibilityReason",
+      personal_context::PersonalContextNonEligibilityReason::kEligible, 1);
+
+  pref_service_.SetBoolean(
+      personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
+      false);
+  histogram_tester().ExpectBucketCount(
+      "Autofill.Ai.PersonalContext.NonEligibilityReason",
+      personal_context::PersonalContextNonEligibilityReason::
+          kPersonalIntelligencePrefDisabled,
+      1);
+
+  pref_service_.SetBoolean(
+      personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
+      true);
+  histogram_tester().ExpectBucketCount(
+      "Autofill.Ai.PersonalContext.NonEligibilityReason",
+      personal_context::PersonalContextNonEligibilityReason::kEligible, 2);
+}
+
 #if BUILDFLAG(IS_ANDROID)
 // Tests that `Autofill.Ai.PersonalContext.NonEligibilityReason` logs
 // `kEligible` when the Android device is supported, even if the user's
@@ -1873,6 +1949,510 @@ TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
       personal_context::PersonalContextNonEligibilityReason::kEligible, 1);
 }
 #endif
+
+// Tests that `PrefetchContext` populates the `client_id` field of
+// `ContextMemoryAmbientAutofillRequest` using the cache GUID retrieved from
+// `DeviceInfoSyncService`.
+TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
+       PrefetchContext_PopulatesClientIdFromCacheGuid) {
+  const EntityType kOrderType = EntityType(EntityTypeName::kOrder);
+
+  EXPECT_CALL(
+      mock_personal_context_service(),
+      FetchContext(
+          personal_context::proto::CONTEXT_MEMORY_FEATURE_AMBIENT_AUTOFILL,
+          MatchContextFetchRequestWithClientId(
+              std::vector<personal_context::proto::EntityType>{
+                  AutofillEntityTypeToPersonalContextEntityType(kOrderType)},
+              /*expected_presence=*/false,
+              /*expected_client_id=*/
+              fake_device_info_sync_service()
+                  .GetLocalDeviceInfoProvider()
+                  ->GetLocalDeviceInfo()
+                  ->guid()),
+          _, _));
+
+  access_manager().PrefetchContext({kOrderType});
+}
+
+// Tests that `PrefetchContext` populates an empty `client_id` when local device
+// info is unavailable.
+TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
+       PrefetchContext_EmptyClientIdWhenLocalDeviceInfoUnavailable) {
+  fake_device_info_sync_service().GetLocalDeviceInfoProvider()->SetReady(false);
+
+  const EntityType kOrderType = EntityType(EntityTypeName::kOrder);
+
+  EXPECT_CALL(
+      mock_personal_context_service(),
+      FetchContext(
+          personal_context::proto::CONTEXT_MEMORY_FEATURE_AMBIENT_AUTOFILL,
+          MatchContextFetchRequestWithClientId(
+              std::vector<personal_context::proto::EntityType>{
+                  AutofillEntityTypeToPersonalContextEntityType(kOrderType)},
+              /*expected_presence=*/false,
+              /*expected_client_id=*/""),
+          _, _));
+
+  access_manager().PrefetchContext({kOrderType});
+}
+
+// Tests that prefetched personal context entities that are suppressed in the
+// `EntitySuppressionManager` are filtered out before notifying observers.
+TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
+       PrefetchContext_SuppressedEntitiesAreFiltered) {
+  personal_context::proto::ContextMemoryAmbientAutofillResponse response;
+  response.add_entities()->mutable_order()->set_order_id("ORD1");
+  response.add_entities()->mutable_order()->set_order_id("ORD2");
+
+  suppression_manager().SuppressEntity(
+      *PersonalContextEntityToEntityInstance(response.entities(0)));
+
+  EXPECT_CALL(mock_observer(),
+              OnPrefetchContextComplete(
+                  _, Optional(ElementsAre(HasAttributeWithValue(
+                         AttributeTypeName::kOrderId, u"ORD2")))));
+
+  PrefetchContextSync({EntityType(EntityTypeName::kOrder)}, {}, response);
+}
+
+// Tests that suppressing an entity evicts cached masked entities and re-emits
+// the remaining unsuppressed entities.
+TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
+       OnEntitySuppressionsChanged_SuppressEntityEvictsAndReemits) {
+  personal_context::proto::ContextMemoryAmbientAutofillResponse response;
+  response.add_entities()->mutable_order()->set_order_id("ORD1");
+  response.add_entities()->mutable_order()->set_order_id("ORD2");
+
+  EXPECT_CALL(mock_observer(), OnPrefetchContextComplete);
+  PrefetchContextSync({EntityType(EntityTypeName::kOrder)}, {}, response);
+
+  InSequence s;
+  EXPECT_CALL(mock_observer(),
+              OnMaskedEntityTypeEvicted(Ref(access_manager()),
+                                        EntityType(EntityTypeName::kOrder)));
+  EXPECT_CALL(mock_observer(),
+              OnPrefetchContextComplete(
+                  _, Optional(ElementsAre(HasAttributeWithValue(
+                         AttributeTypeName::kOrderId, u"ORD2")))));
+
+  suppression_manager().SuppressEntity(
+      *PersonalContextEntityToEntityInstance(response.entities(0)));
+}
+
+// Tests that unsuppressing an entity evicts cached masked entities and re-emits
+// all newly unsuppressed entities.
+TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
+       OnEntitySuppressionsChanged_UnsuppressEntityEvictsAndReemits) {
+  personal_context::proto::ContextMemoryAmbientAutofillResponse response;
+  response.add_entities()->mutable_order()->set_order_id("ORD1");
+  response.add_entities()->mutable_order()->set_order_id("ORD2");
+
+  EntityInstance order1 =
+      *PersonalContextEntityToEntityInstance(response.entities(0));
+  suppression_manager().SuppressEntity(order1);
+
+  EXPECT_CALL(mock_observer(), OnPrefetchContextComplete);
+  PrefetchContextSync({EntityType(EntityTypeName::kOrder)}, {}, response);
+
+  InSequence s;
+  EXPECT_CALL(mock_observer(),
+              OnMaskedEntityTypeEvicted(Ref(access_manager()),
+                                        EntityType(EntityTypeName::kOrder)));
+  EXPECT_CALL(
+      mock_observer(),
+      OnPrefetchContextComplete(
+          _,
+          Optional(UnorderedElementsAre(
+              HasAttributeWithValue(AttributeTypeName::kOrderId, u"ORD1"),
+              HasAttributeWithValue(AttributeTypeName::kOrderId, u"ORD2")))));
+
+  suppression_manager().UnsuppressEntity(order1);
+}
+
+// Tests that OnEntitySuppressionsChanged is a no-op when the proto cache is
+// empty.
+TEST_F(AutofillAiPersonalContextAccessManagerImplTest,
+       OnEntitySuppressionsChanged_EmptyCacheIsNoOp) {
+  EXPECT_CALL(mock_observer(), OnMaskedEntityTypeEvicted).Times(0);
+  EXPECT_CALL(mock_observer(), OnPrefetchContextComplete).Times(0);
+
+  EntityInstance passport = test::GetPassportEntityInstance();
+  suppression_manager().SuppressEntity(passport);
+}
+
+class AutofillAiPersonalContextAccessManagerImplSpiiCacheTest
+    : public AutofillAiPersonalContextAccessManagerImplTest {
+ public:
+  AutofillAiPersonalContextAccessManagerImplSpiiCacheTest() = default;
+
+  // Prefetches personal context for `requested_types` in a single request as
+  // expected when `kAutofillAmbientAutofillSpiiCache` is enabled.
+  void PrefetchContextSync(
+      DenseSet<EntityType> requested_types,
+      const personal_context::proto::ContextMemoryAmbientAutofillResponse&
+          response) {
+    std::vector<personal_context::proto::EntityType> proto_types;
+    for (EntityType type : requested_types) {
+      if (!access_manager().IsTypePrefetched(type)) {
+        proto_types.push_back(
+            AutofillEntityTypeToPersonalContextEntityType(type));
+      }
+    }
+
+    if (proto_types.empty()) {
+      access_manager().PrefetchContext(requested_types);
+      return;
+    }
+
+    personal_context::proto::Any any_response;
+    response.SerializeToString(any_response.mutable_value());
+
+    EXPECT_CALL(
+        mock_personal_context_service(),
+        FetchContext(
+            personal_context::proto::CONTEXT_MEMORY_FEATURE_AMBIENT_AUTOFILL,
+            MatchContextFetchRequest(proto_types, /*expected_presence=*/false),
+            _, _))
+        .WillOnce(RunOnceCallback<3>(personal_context::FetchContextResult(
+            base::ok(std::move(any_response)))));
+
+    access_manager().PrefetchContext(requested_types);
+  }
+
+  // Helper to create an encrypted proto entity wrapper.
+  personal_context::proto::Entity CreateEncryptedEntity(
+      std::string_view encrypted_bytes) {
+    personal_context::proto::Entity entity;
+    entity.set_encrypted_entity(std::string(encrypted_bytes));
+    return entity;
+  }
+
+  // Helper to create a decrypted passport proto entity.
+  personal_context::proto::Entity CreateDecryptedPassportEntity(
+      std::string_view passport_number,
+      std::string_view passport_name) {
+    personal_context::proto::Entity entity;
+    entity.mutable_passport()->set_number(std::string(passport_number));
+    entity.mutable_passport()->set_name(std::string(passport_name));
+    return entity;
+  }
+
+  // Helper to create a decrypted drivers license proto entity.
+  personal_context::proto::Entity CreateDecryptedDriversLicenseEntity(
+      std::string_view dl_number,
+      std::string_view dl_name) {
+    personal_context::proto::Entity entity;
+    entity.mutable_drivers_license()->set_number(std::string(dl_number));
+    entity.mutable_drivers_license()->set_name(std::string(dl_name));
+    return entity;
+  }
+
+  // Prefetches a single encrypted Passport entity and returns its GUID.
+  EntityInstance::EntityId PrefetchEncryptedPassportAndGetGuid(
+      std::string_view encrypted_bytes = "encrypted_passport_bytes",
+      std::string_view passport_number = "P123",
+      std::string_view passport_name = "John Doe") {
+    personal_context::proto::ContextMemoryAmbientAutofillResponse response;
+    *response.add_entities() = CreateEncryptedEntity(encrypted_bytes);
+
+    EXPECT_CALL(mock_personal_context_service(),
+                DecryptEntity(MatchEncryptedEntity(encrypted_bytes)))
+        .WillOnce(Return(
+            CreateDecryptedPassportEntity(passport_number, passport_name)));
+
+    std::vector<EntityInstance> entities;
+    EXPECT_CALL(mock_observer(),
+                OnPrefetchContextComplete(_, Optional(Not(IsEmpty()))))
+        .WillOnce(SaveOptSpanToVector<1>(&entities));
+
+    PrefetchContextSync({EntityType(EntityTypeName::kPassport)}, response);
+    CHECK_EQ(entities.size(), 1u);
+    return entities[0].guid();
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_{
+      features::kAutofillAmbientAutofillSpiiCache};
+};
+
+// Tests that when `kAutofillAmbientAutofillSpiiCache` is enabled, prefetching
+// SPII types sends a single request that does not ask for SPII presence, and
+// directly marks the type as prefetched.
+TEST_F(AutofillAiPersonalContextAccessManagerImplSpiiCacheTest,
+       PrefetchContext_SpiiTypesOnlySendsSingleRequest) {
+  const DenseSet<EntityType> requested_types = {
+      EntityType(EntityTypeName::kPassport)};
+
+  personal_context::proto::ContextMemoryAmbientAutofillResponse response;
+  *response.add_entities() = CreateEncryptedEntity("encrypted_passport_data");
+
+  EXPECT_CALL(mock_personal_context_service(),
+              DecryptEntity(MatchEncryptedEntity("encrypted_passport_data")))
+      .WillOnce(Return(CreateDecryptedPassportEntity("P12345", "Jane Doe")));
+
+  std::vector<EntityInstance> entities;
+  EXPECT_CALL(mock_observer(),
+              OnPrefetchContextComplete(_, Optional(Not(IsEmpty()))))
+      .WillOnce(SaveOptSpanToVector<1>(&entities));
+
+  PrefetchContextSync(requested_types, response);
+
+  EXPECT_TRUE(
+      access_manager().IsTypePrefetched(EntityType(EntityTypeName::kPassport)));
+  ASSERT_EQ(entities.size(), 1u);
+  EXPECT_TRUE(entities[0].IsMaskedEntity());
+  EXPECT_THAT(
+      entities,
+      UnorderedElementsAre(AllOf(
+          Property(&EntityInstance::type,
+                   Property(&EntityType::name, EntityTypeName::kPassport)),
+          HasAttributeWithValue(AttributeTypeName::kPassportName, u"Jane Doe"),
+          HasAttributeWithValue(AttributeTypeName::kPassportNumber, u"45"))));
+}
+
+// Tests that prefetching a mix of non-SPII and SPII types sends a single
+// request containing all types without requesting presence, and marks all types
+// as prefetched.
+TEST_F(AutofillAiPersonalContextAccessManagerImplSpiiCacheTest,
+       PrefetchContext_MixedTypesOnlySendsSingleRequest) {
+  const DenseSet<EntityType> requested_types = {
+      EntityType(EntityTypeName::kOrder),
+      EntityType(EntityTypeName::kPassport)};
+
+  personal_context::proto::ContextMemoryAmbientAutofillResponse response;
+  personal_context::proto::Entity* order_entity = response.add_entities();
+  order_entity->mutable_order()->set_order_id("ORD-999");
+  order_entity->mutable_order()->set_merchant_name("BestBuy");
+
+  *response.add_entities() = CreateEncryptedEntity("encrypted_passport_bytes");
+
+  EXPECT_CALL(mock_personal_context_service(),
+              DecryptEntity(MatchEncryptedEntity("encrypted_passport_bytes")))
+      .WillOnce(Return(CreateDecryptedPassportEntity("P5678", "Alice")));
+
+  std::vector<EntityInstance> entities;
+  EXPECT_CALL(mock_observer(),
+              OnPrefetchContextComplete(_, Optional(Not(IsEmpty()))))
+      .WillOnce(SaveOptSpanToVector<1>(&entities));
+
+  PrefetchContextSync(requested_types, response);
+
+  EXPECT_TRUE(
+      access_manager().IsTypePrefetched(EntityType(EntityTypeName::kOrder)));
+  EXPECT_TRUE(
+      access_manager().IsTypePrefetched(EntityType(EntityTypeName::kPassport)));
+  ASSERT_EQ(entities.size(), 2u);
+  EXPECT_THAT(
+      entities,
+      UnorderedElementsAre(
+          AllOf(Property(&EntityInstance::type,
+                         Property(&EntityType::name, EntityTypeName::kOrder)),
+                HasAttributeWithValue(AttributeTypeName::kOrderId, u"ORD-999"),
+                HasAttributeWithValue(AttributeTypeName::kOrderMerchantName,
+                                      u"BestBuy")),
+          AllOf(
+              Property(&EntityInstance::type,
+                       Property(&EntityType::name, EntityTypeName::kPassport)),
+              HasAttributeWithValue(AttributeTypeName::kPassportName, u"Alice"),
+              HasAttributeWithValue(AttributeTypeName::kPassportNumber,
+                                    u"78"))));
+}
+
+// Tests that if decrypting an encrypted entity fails, the entity is dropped,
+// but the requested type is still marked as prefetched.
+TEST_F(AutofillAiPersonalContextAccessManagerImplSpiiCacheTest,
+       PrefetchContext_EncryptedEntityDecryptionFails) {
+  const DenseSet<EntityType> requested_types = {
+      EntityType(EntityTypeName::kPassport)};
+
+  personal_context::proto::ContextMemoryAmbientAutofillResponse response;
+  *response.add_entities() = CreateEncryptedEntity("corrupt_encrypted_data");
+
+  EXPECT_CALL(mock_personal_context_service(),
+              DecryptEntity(MatchEncryptedEntity("corrupt_encrypted_data")))
+      .WillOnce(Return(std::nullopt));
+
+  std::vector<EntityInstance> entities;
+  EXPECT_CALL(mock_observer(),
+              OnPrefetchContextComplete(_, Optional(IsEmpty())))
+      .WillOnce(SaveOptSpanToVector<1>(&entities));
+
+  PrefetchContextSync(requested_types, response);
+
+  EXPECT_TRUE(
+      access_manager().IsTypePrefetched(EntityType(EntityTypeName::kPassport)));
+  EXPECT_THAT(entities, IsEmpty());
+}
+
+// Tests that if the decrypted entity type was not in `requested_types`,
+// it is filtered out and not returned to observers.
+TEST_F(AutofillAiPersonalContextAccessManagerImplSpiiCacheTest,
+       PrefetchContext_FiltersUnrequestedDecryptedTypes) {
+  const DenseSet<EntityType> requested_types = {
+      EntityType(EntityTypeName::kPassport)};
+
+  personal_context::proto::ContextMemoryAmbientAutofillResponse response;
+  *response.add_entities() = CreateEncryptedEntity("encrypted_dl_data");
+
+  EXPECT_CALL(mock_personal_context_service(),
+              DecryptEntity(MatchEncryptedEntity("encrypted_dl_data")))
+      .WillOnce(Return(CreateDecryptedDriversLicenseEntity("DL12345", "Bob")));
+
+  std::vector<EntityInstance> entities;
+  EXPECT_CALL(mock_observer(),
+              OnPrefetchContextComplete(_, Optional(IsEmpty())))
+      .WillOnce(SaveOptSpanToVector<1>(&entities));
+
+  PrefetchContextSync(requested_types, response);
+
+  EXPECT_TRUE(
+      access_manager().IsTypePrefetched(EntityType(EntityTypeName::kPassport)));
+  EXPECT_FALSE(access_manager().IsTypePrefetched(
+      EntityType(EntityTypeName::kDriversLicense)));
+  EXPECT_THAT(entities, IsEmpty());
+}
+
+// Tests prefetching multiple encrypted entities in the same response.
+TEST_F(AutofillAiPersonalContextAccessManagerImplSpiiCacheTest,
+       PrefetchContext_MultipleEncryptedEntities) {
+  const DenseSet<EntityType> requested_types = {
+      EntityType(EntityTypeName::kPassport),
+      EntityType(EntityTypeName::kDriversLicense)};
+
+  personal_context::proto::ContextMemoryAmbientAutofillResponse response;
+  *response.add_entities() = CreateEncryptedEntity("passport_enc_bytes");
+  *response.add_entities() = CreateEncryptedEntity("dl_enc_bytes");
+
+  EXPECT_CALL(mock_personal_context_service(),
+              DecryptEntity(MatchEncryptedEntity("passport_enc_bytes")))
+      .WillOnce(Return(CreateDecryptedPassportEntity("P100", "John")));
+  EXPECT_CALL(mock_personal_context_service(),
+              DecryptEntity(MatchEncryptedEntity("dl_enc_bytes")))
+      .WillOnce(Return(CreateDecryptedDriversLicenseEntity("DL200", "John")));
+
+  std::vector<EntityInstance> entities;
+  EXPECT_CALL(mock_observer(),
+              OnPrefetchContextComplete(_, Optional(Not(IsEmpty()))))
+      .WillOnce(SaveOptSpanToVector<1>(&entities));
+
+  PrefetchContextSync(requested_types, response);
+
+  EXPECT_TRUE(
+      access_manager().IsTypePrefetched(EntityType(EntityTypeName::kPassport)));
+  EXPECT_TRUE(access_manager().IsTypePrefetched(
+      EntityType(EntityTypeName::kDriversLicense)));
+  ASSERT_EQ(entities.size(), 2u);
+  EXPECT_THAT(
+      entities,
+      UnorderedElementsAre(
+          AllOf(
+              Property(&EntityInstance::type,
+                       Property(&EntityType::name, EntityTypeName::kPassport)),
+              HasAttributeWithValue(AttributeTypeName::kPassportNumber, u"0")),
+          AllOf(Property(&EntityInstance::type,
+                         Property(&EntityType::name,
+                                  EntityTypeName::kDriversLicense)),
+                HasAttributeWithValue(AttributeTypeName::kDriversLicenseNumber,
+                                      u"00"))));
+}
+
+// Tests that prefetched encrypted entities expire after the 30-minute TTL.
+TEST_F(AutofillAiPersonalContextAccessManagerImplSpiiCacheTest,
+       PrefetchedEntities_TTL) {
+  PrefetchEncryptedPassportAndGetGuid("enc_bytes", "P123", "John Doe");
+  EXPECT_TRUE(
+      access_manager().IsTypePrefetched(EntityType(EntityTypeName::kPassport)));
+
+  // Fast forward 15 minutes (still valid).
+  FastForwardBy(base::Minutes(15));
+  EXPECT_TRUE(
+      access_manager().IsTypePrefetched(EntityType(EntityTypeName::kPassport)));
+
+  // Fast forward another 15 minutes (TTL expires at 30 min).
+  EXPECT_CALL(mock_observer(), OnMaskedEntityTypeEvicted(
+                                   _, EntityType(EntityTypeName::kPassport)));
+  FastForwardBy(base::Minutes(15));
+  EXPECT_FALSE(
+      access_manager().IsTypePrefetched(EntityType(EntityTypeName::kPassport)));
+}
+
+// Tests that GetUnmaskedSpiiEntity decrypts and unmasks the entity locally
+// on the first call, and serves it from cache on subsequent calls when
+// SpiiCache is enabled.
+TEST_F(AutofillAiPersonalContextAccessManagerImplSpiiCacheTest,
+       GetUnmaskedSpiiEntity_SpiiCacheEnabled_Success) {
+  EntityInstance::EntityId passport_guid =
+      PrefetchEncryptedPassportAndGetGuid("enc_bytes", "P123", "John Doe");
+  // GetUnmaskedSpiiEntity should call `DecryptEntity`.
+  EXPECT_CALL(mock_personal_context_service(),
+              DecryptEntity(MatchEncryptedEntity("enc_bytes")))
+      .WillOnce(Return(CreateDecryptedPassportEntity("P123", "John Doe")));
+
+  // Call GetUnmaskedSpiiEntity.
+  std::optional<EntityInstance> unmasked =
+      GetUnmaskedSpiiEntitySync(passport_guid);
+  ASSERT_TRUE(unmasked.has_value());
+  EXPECT_FALSE(unmasked->IsMaskedEntity());
+  EXPECT_THAT(
+      *unmasked,
+      AllOf(Property(&EntityInstance::type,
+                     Property(&EntityType::name, EntityTypeName::kPassport)),
+            HasAttributeWithValue(AttributeTypeName::kPassportNumber, u"P123"),
+            HasAttributeWithValue(AttributeTypeName::kPassportName,
+                                  u"John Doe")));
+
+  // Subsequent call should be a cache hit(no DecryptEntity call expected).
+  std::optional<EntityInstance> cached_unmasked =
+      GetUnmaskedSpiiEntitySync(passport_guid);
+  ASSERT_TRUE(cached_unmasked.has_value());
+  EXPECT_FALSE(cached_unmasked->IsMaskedEntity());
+  EXPECT_EQ(cached_unmasked->guid(), passport_guid);
+}
+
+// Tests that if local decryption fails during GetUnmaskedSpiiEntity, it
+// returns nullopt.
+TEST_F(AutofillAiPersonalContextAccessManagerImplSpiiCacheTest,
+       GetUnmaskedSpiiEntity_SpiiCacheEnabled_DecryptionFailure) {
+  EntityInstance::EntityId passport_guid =
+      PrefetchEncryptedPassportAndGetGuid("enc_bytes", "P123", "John Doe");
+
+  // GetUnmaskedSpiiEntity's decryption call fails.
+  EXPECT_CALL(mock_personal_context_service(),
+              DecryptEntity(MatchEncryptedEntity("enc_bytes")))
+      .WillOnce(Return(std::nullopt));
+  EXPECT_EQ(GetUnmaskedSpiiEntitySync(passport_guid), std::nullopt);
+  histogram_tester().ExpectUniqueSample(
+      "Autofill.Ai.Unmask.Result.PersonalContext",
+      AutofillAiUnmaskResult::kDecryptionFailed, 1);
+}
+
+TEST_F(AutofillAiPersonalContextAccessManagerImplSpiiCacheTest,
+       ConvertProtoToEntityInstance_MaskSpii) {
+  personal_context::proto::ContextMemoryAmbientAutofillResponse response;
+  *response.add_entities() = CreateEncryptedEntity("enc_passport");
+  const DenseSet<EntityType> requested_types = {
+      EntityType(EntityTypeName::kPassport)};
+
+  EXPECT_CALL(mock_personal_context_service(),
+              DecryptEntity(MatchEncryptedEntity("enc_passport")))
+      .WillOnce(Return(CreateDecryptedPassportEntity("P12345", "Jane Doe")));
+  std::vector<EntityInstance> entities;
+  EXPECT_CALL(mock_observer(),
+              OnPrefetchContextComplete(_, Optional(Not(IsEmpty()))))
+      .WillOnce(SaveOptSpanToVector<1>(&entities));
+
+  PrefetchContextSync(requested_types, response);
+  ASSERT_EQ(entities.size(), 1u);
+  EXPECT_TRUE(entities[0].IsMaskedEntity());
+  EXPECT_THAT(
+      entities,
+      UnorderedElementsAre(AllOf(
+          Property(&EntityInstance::type,
+                   Property(&EntityType::name, EntityTypeName::kPassport)),
+          HasAttributeWithValue(AttributeTypeName::kPassportName, u"Jane Doe"),
+          HasAttributeWithValue(AttributeTypeName::kPassportNumber, u"45"))));
+}
 
 }  // namespace
 }  // namespace autofill

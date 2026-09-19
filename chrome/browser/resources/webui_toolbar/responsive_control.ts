@@ -2,11 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import type {OverflowMenuItem} from '/shared/toolbar_ui_api.mojom-webui.js';
+
 /**
  * Interface for elements whose sizing or visibility responds dynamically
- * to toolbar layout width changes.
+ * to toolbar layout width changes. When a ResponsiveControl's minumum
+ * or preferred width changes (or the behavior of its expandUpToPreferredWidth()
+ * method), it must trigger a layout by dispayching a `request-layout`
+ * CustomEvent with `{bubbles: true, composed: true}` to cause the toolbar to
+ * layout its controls again.
  */
-export interface ResponsiveControl {
+export interface ResponsiveControl extends EventTarget {
   /**
    * Whether the control is pinned/enabled and should be shown if it fits.
    */
@@ -30,20 +36,9 @@ export interface ResponsiveControl {
   expandUpToPreferredWidth(): void;
 
   /**
-   * Returns string HTML element ids of controls that are hidden and therefore
+   * Returns items of controls that are hidden and therefore
    * need to be added to the overflow menu. Returns an empty Array if there are
    * no such controls managed by this ResponsiveControl.
    */
-  controlsToAddToOverflowMenu(): string[];
-
-  /**
-   * Returns true if the state of the control has changed in a way likely to
-   * require a new layout of the toolbar, which generally means its min or
-   * preferred size has changed. When this returns true, subsequent calls will
-   * return false until another change occurs that may require another layout.
-   * Return value may only be changed when controls are all being updated in an
-   * updated() call, as the only time the return value is checked is immediately
-   * after all updated() calls have completed.
-   */
-  consumeNeedsLayout(): boolean;
+  controlsToAddToOverflowMenu(): OverflowMenuItem[];
 }

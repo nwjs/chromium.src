@@ -16,12 +16,12 @@ import "url/mojom/url.mojom";
 // Do not modify the integer values because they are used UKM metrics.
 enum FormControlType {
   kContentEditable = 0,
-  kInputCheckbox = 1,
+  // deprecated: kInputCheckbox = 1,
   kInputEmail = 2,
   kInputMonth = 3,
   kInputNumber = 4,
   kInputPassword = 5,
-  kInputRadio = 6,
+  // deprecated: kInputRadio = 6,
   kInputSearch = 7,
   kInputTelephone = 8,
   kInputText = 9,
@@ -252,12 +252,6 @@ struct AutocompleteParsingResult {
 
 // autofill::FormFieldData (components/autofill/core/common/form_field_data.h)
 struct FormFieldData {
-  enum CheckStatus {
-    kNotCheckable,
-    kCheckableButUnchecked,
-    kChecked,
-  };
-
   // Copied to components/autofill/ios/browser/resources/autofill_controller.js.
   enum RoleAttribute {
     // "presentation"
@@ -314,7 +308,6 @@ struct FormFieldData {
 
   uint64 max_length;
   bool is_autofilled_according_to_renderer;
-  CheckStatus check_status;
   bool is_focusable;
   bool is_visible;
   bool should_autocomplete;
@@ -610,14 +603,16 @@ enum AutofillSuggestionTriggerSource {
   kProactivePasswordRecovery = 20,
   // Suggestions triggered by the GLIC service.
   kGlic = 21,
-  // Suggestions triggered by the @memory feature (typing "@@").
+  // Suggestions triggered by the AtMemory feature (typing "@@").
   kAtMemoryTriggerString = 22,
-  // Suggestions triggered by the @memory feature via context menu.
+  // Suggestions triggered by the AtMemory feature via context menu.
   kAtMemoryContextMenu = 23,
   // Suggestions triggered by the inactivity timer.
   kAtMemoryInactivityNudge = 24,
-  // Suggestions triggered by the @memory keyboard shortcut.
+  // Suggestions triggered by the AtMemory keyboard shortcut.
   kAtMemoryKeyboardShortcut = 25,
+  // Suggestions triggered by the AtMemory double Ctrl press.
+  kAtMemoryDoubleCtrl = 26,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/autofill/enums.xml:AutofillSuggestionTriggerSource)
 

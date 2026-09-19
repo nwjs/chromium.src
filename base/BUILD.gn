@@ -276,7 +276,6 @@ component("base") {
     "base64url.cc",
     "base64url.h",
     "base_switches.h",
-    "big_endian.h",
     "bit_cast.h",
     "bits.h",
     "byte_size.cc",
@@ -504,6 +503,8 @@ component("base") {
     "memory_coordinator/memory_consumer_registry_destruction_observer.h",
     "memory_coordinator/memory_coordinator_features.cc",
     "memory_coordinator/memory_coordinator_features.h",
+    "memory_coordinator/memory_limit.cc",
+    "memory_coordinator/memory_limit.h",
     "memory_coordinator/multi_memory_consumer.cc",
     "memory_coordinator/multi_memory_consumer.h",
     "memory_coordinator/traits.cc",
@@ -676,6 +677,8 @@ component("base") {
     "sampling_heap_profiler/lock_free_bloom_filter.h",
     "sampling_heap_profiler/poisson_allocation_sampler.cc",
     "sampling_heap_profiler/poisson_allocation_sampler.h",
+    "sampling_heap_profiler/sampling_heap_churn_profiler.cc",
+    "sampling_heap_profiler/sampling_heap_churn_profiler.h",
     "sampling_heap_profiler/sampling_heap_profiler.cc",
     "sampling_heap_profiler/sampling_heap_profiler.h",
     "scoped_add_feature_flags.cc",
@@ -759,7 +762,9 @@ component("base") {
     "synchronization/lock_impl.h",
     "synchronization/lock_metrics_recorder.cc",
     "synchronization/lock_metrics_recorder.h",
+    "synchronization/lock_metrics_recorder_tags.h",
     "synchronization/lock_subtle.h",
+    "synchronization/tagged_metric_lock.h",
     "synchronization/waitable_event.cc",
     "synchronization/waitable_event.h",
     "synchronization/waitable_event_watcher.h",
@@ -1124,7 +1129,10 @@ component("base") {
   }
 
   all_dependent_configs = []
-  defines = [ "BASE_IMPLEMENTATION" ]
+  # V8_CPPGC_MICROTASK_QUEUE: v8 headers (v8-microtask-queue.h) now
+  # require this define; v8.gni defaults v8_cppgc_microtask_queue = true.
+  # base includes v8.h for node integration without //v8's config.
+  defines = [ "BASE_IMPLEMENTATION", "V8_CPPGC_MICROTASK_QUEUE" ]
   data = []
   data_deps = []
   libs = []
@@ -1302,6 +1310,8 @@ component("base") {
       "android/scoped_input_event.h",
       "android/scoped_service_binding_batch.cc",
       "android/scoped_service_binding_batch.h",
+      "android/screen_state_receiver.cc",
+      "android/screen_state_receiver.h",
       "android/self_compaction_manager.cc",
       "android/self_compaction_manager.h",
       "android/shared_preferences/shared_preferences_manager.cc",
@@ -1367,6 +1377,7 @@ component("base") {
       ":memory_jni",
       ":path_utils_jni",
       ":process_launcher_jni",
+      ":screen_state_receiver_jni",
       ":sys_utils_jni",
       ":system_jni($default_toolchain)",
       ":tasks_jni",
@@ -2385,14 +2396,6 @@ component("base") {
         "profiler/suspendable_thread_delegate_mac.h",
       ]
     }
-    if (!use_allocator_shim) {
-      sources -= [
-        "sampling_heap_profiler/poisson_allocation_sampler.cc",
-        "sampling_heap_profiler/poisson_allocation_sampler.h",
-        "sampling_heap_profiler/sampling_heap_profiler.cc",
-        "sampling_heap_profiler/sampling_heap_profiler.h",
-      ]
-    }
 
     frameworks += [
       "Foundation.framework",
@@ -3251,9 +3254,10 @@ executable("containers_memory_benchmark") {
 
 test("base_perftests") {
   sources = [
-    "big_endian_perftest.cc",
+    "byte_conversions_perftest.cc",
     "hash/hash_perftest.cc",
     "json/json_perftest.cc",
+    "memory/shared_memory_region_perftest.cc",
     "message_loop/message_pump_perftest.cc",
     "observer_list_perftest.cc",
     "rand_util_perftest.cc",
@@ -3812,6 +3816,7 @@ test("base_unittests") {
     "memory_coordinator/async_memory_consumer_registration_unittest.cc",
     "memory_coordinator/memory_consumer_registry_unittest.cc",
     "memory_coordinator/memory_consumer_unittest.cc",
+    "memory_coordinator/memory_limit_unittest.cc",
     "memory_coordinator/multi_memory_consumer_unittest.cc",
     "message_loop/message_pump_glib_unittest.cc",
     "message_loop/message_pump_unittest.cc",
@@ -3919,6 +3924,7 @@ test("base_unittests") {
     "synchronization/condition_variable_unittest.cc",
     "synchronization/lock_metrics_recorder_unittest.cc",
     "synchronization/lock_unittest.cc",
+    "synchronization/tagged_metric_lock_unittest.cc",
     "synchronization/waitable_event_unittest.cc",
     "synchronization/waitable_event_watcher_unittest.cc",
     "sys_byteorder_unittest.cc",
@@ -4117,6 +4123,7 @@ test("base_unittests") {
     ":rust_feature_unittests",
     ":sanitizer_buildflags",
     "//base/allocator:buildflags",
+    "//base/i18n:test_support",
     "//base/i18n:unittests",
     "//base/i18n/icubridge:unittests",
     "//base/logging/rust_logger:unittests",
@@ -4443,6 +4450,7 @@ test("base_unittests") {
       "//base/android/linker:ashmem",
       "//base/test:test_support_java",
       "//third_party/jni_zero",
+      "//third_party/jni_zero/test:jni_zero_unittests_sources",
     ]
   }
 
@@ -4668,6 +4676,7 @@ test("base_unittests") {
   if (use_allocator_shim) {
     sources += [
       "sampling_heap_profiler/poisson_allocation_sampler_unittest.cc",
+      "sampling_heap_profiler/sampling_heap_churn_profiler_unittest.cc",
       "sampling_heap_profiler/sampling_heap_profiler_unittest.cc",
 
       # TODO(crbug.com/40158212): Move partition_alloc tests into its
@@ -4849,6 +4858,7 @@ if (enable_nocompile_tests) {
       "task/task_traits_nocompile.nc",
       "test/bind_test_nocompile.nc",
       "thread_annotations_nocompile.nc",
+      "threading/sequence_bound_nocompile.nc",
       "traits_bag_nocompile.nc",
       "types/expected_macros_nocompile.nc",
       "types/optional_util_nocompile.nc",
@@ -5510,11 +5520,17 @@ if (is_android) {
     ]
   }
 
+  generate_jni("screen_state_receiver_jni") {
+    sources = [ "android/java/src/org/chromium/base/ScreenStateReceiver.java" ]
+  }
+
   android_library("screen_state_receiver_java") {
     sources = [ "android/java/src/org/chromium/base/ScreenStateReceiver.java" ]
+    srcjar_deps = [ ":screen_state_receiver_jni" ]
     deps = [
       ":tasks_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
+      "//third_party/jni_zero:jni_zero_java",
     ]
   }
 
@@ -5846,6 +5862,9 @@ if (is_android) {
       "android/java/src/org/chromium/base/BindingRequestQueue.java",
       "android/java/src/org/chromium/base/PasswordEchoSettingDelegate.java",
       "android/java/src/org/chromium/base/SelectionActionMenuClientWrapper.java",
+      "android/java/src/org/chromium/base/hid/HidDevice.java",
+      "android/java/src/org/chromium/base/hid/HidDeviceListener.java",
+      "android/java/src/org/chromium/base/hid/HidManager.java",
       "android/java/src/org/chromium/base/serial/SerialManager.java",
       "android/java/src/org/chromium/base/serial/SerialPort.java",
       "android/java/src/org/chromium/base/serial/SerialPortListener.java",
@@ -6209,6 +6228,7 @@ if (is_android) {
       "android/junit/src/org/chromium/base/CollectionUtilTest.java",
       "android/junit/src/org/chromium/base/CommandLineTest.java",
       "android/junit/src/org/chromium/base/ContentUriUtilsUnitTest.java",
+      "android/junit/src/org/chromium/base/DeviceInfoUnitTest.java",
       "android/junit/src/org/chromium/base/DiscardableReferencePoolTest.java",
       "android/junit/src/org/chromium/base/FeatureOverridesUnitTest.java",
       "android/junit/src/org/chromium/base/FileUtilsTest.java",

@@ -29,6 +29,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/common/chrome_paths.h"
+#include "chrome/test/base/chrome_test_path_utils.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "components/browsing_data/content/browsing_data_model.h"
 #include "components/browsing_data/content/browsing_data_test_util.h"
@@ -308,7 +309,7 @@ void BrowsingDataRemoverBrowserTestBase::CheckUserDirectoryForString(
     }
 
     // Check file name.
-    if (file.find(hostname) != std::string::npos) {
+    if (file.contains(hostname)) {
       ADD_FAILURE() << "Found file name: " << file << " containing "
                     << hostname;
     }
@@ -348,7 +349,7 @@ void BrowsingDataRemoverBrowserTestBase::CheckUserDirectoryForString(
         for (it->SeekToFirst(); it->Valid(); it->Next()) {
           std::string entry =
               it->key().ToString() + ":" + it->value().ToString();
-          if (entry.find(hostname) != std::string::npos) {
+          if (entry.contains(hostname)) {
             ADD_FAILURE() << "Found leveldb entry: " << file << " " << entry;
           }
         }

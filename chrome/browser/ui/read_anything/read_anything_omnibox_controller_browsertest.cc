@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/read_anything/read_anything_omnibox_controller.h"
 
 #include <memory>
+#include <vector>
 
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
@@ -15,16 +16,15 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/page_action/page_action_controller.h"
 #include "chrome/browser/ui/page_action/page_action_triggers.h"
 #include "chrome/browser/ui/read_anything/read_anything_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_entry_point_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_enums.h"
 #include "chrome/browser/ui/read_anything/read_anything_prefs.h"
-#include "chrome/browser/ui/read_anything/read_anything_side_panel_controller_utils.h"
 #include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/side_panel/side_panel_enums.h"
@@ -52,8 +52,7 @@ using ui_test_utils::NavigateToURL;
 
 class ReadAnythingOmniboxControllerTestBase
     : public InProcessBrowserTest,
-      public page_actions::PageActionObserver,
-      public testing::WithParamInterface<bool> {
+      public page_actions::PageActionObserver {
  public:
   ReadAnythingOmniboxControllerTestBase()
       : PageActionObserver(kActionSidePanelShowReadAnything) {}
@@ -62,18 +61,11 @@ class ReadAnythingOmniboxControllerTestBase
     ReadAnythingEntryPointController::ResetCheckCountForTesting();
   }
 
-  bool IsImmersiveEnabled() const { return GetParam(); }
-
   void VerifyUIState() {
-    if (IsImmersiveEnabled()) {
-      auto* controller =
-          ReadAnythingController::From(browser()->GetActiveTabInterface());
-      ASSERT_EQ(controller->GetPresentationState(),
-                ReadAnythingController::PresentationState::kInImmersiveOverlay);
-    } else {
-      ASSERT_TRUE(base::test::RunUntil(
-          [&]() { return IsReadAnythingEntryShowing(browser()); }));
-    }
+    auto* controller =
+        ReadAnythingController::From(browser()->GetActiveTabInterface());
+    ASSERT_EQ(controller->GetPresentationState(),
+              ReadAnythingController::PresentationState::kInImmersiveOverlay);
   }
 
   void OpenRMWithOmnibox() {
@@ -108,7 +100,7 @@ class ReadAnythingOmniboxControllerTestBase
   }
 
   void ShowPageAction() {
-    tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+    tabs::TabInterface* tab = browser()->GetTabStripModel()->GetActiveTab();
     tab->GetTabFeatures()->page_action_controller()->Show(
         kActionSidePanelShowReadAnything);
   }
@@ -119,14 +111,9 @@ class ReadAnythingOmniboxControllerTestBase
 
   void MockDwellTime(base::TimeDelta time_delta) {
     base::TimeTicks time = base::TimeTicks::Now() - time_delta;
-    if (IsImmersiveEnabled()) {
-      auto* controller =
-          ReadAnythingController::From(browser()->GetActiveTabInterface());
-      controller->SetDwellTimeForTesting(time);
-    } else {
-      auto* controller = side_panel_controller();
-      controller->SetDwellTimeForTesting(time);
-    }
+    auto* controller =
+        ReadAnythingController::From(browser()->GetActiveTabInterface());
+    controller->SetDwellTimeForTesting(time);
   }
 
   void WaitForDebounce() {
@@ -154,13 +141,6 @@ class ReadAnythingOmniboxControllerTestBase
         prefs::kAccessibilityReadAnythingOmniboxChipIgnoredCount);
   }
 
-  ReadAnythingSidePanelController* side_panel_controller() {
-    return browser()
-        ->GetActiveTabInterface()
-        ->GetTabFeatures()
-        ->read_anything_side_panel_controller();
-  }
-
   SidePanelEntry* read_anything_entry() {
     return SidePanelRegistry::From(browser()->GetActiveTabInterface())
         ->GetEntryForKey(
@@ -174,32 +154,24 @@ class ReadAnythingOmniboxControllerTestBase
   }
 
   void OnEntryShown(SidePanelEntry* entry) {
-    if (IsImmersiveEnabled()) {
-      ReadAnythingOpenTrigger read_anything_trigger =
-          entry->last_open_trigger().has_value()
-              ? read_anything::SidePanelToReadAnythingOpenTrigger(
-                    entry->last_open_trigger().value())
-              : ReadAnythingOpenTrigger::kUnknown;
-      ReadAnythingController::From(browser()->GetActiveTabInterface())
-          ->OnEntryShown(read_anything_trigger);
-    } else {
-      side_panel_controller()->OnEntryShown(entry);
-    }
+    ReadAnythingOpenTrigger read_anything_trigger =
+        entry->last_open_trigger().has_value()
+            ? read_anything::SidePanelToReadAnythingOpenTrigger(
+                  entry->last_open_trigger().value())
+            : ReadAnythingOpenTrigger::kUnknown;
+    ReadAnythingController::From(browser()->GetActiveTabInterface())
+        ->OnEntryShown(read_anything_trigger);
   }
 
   void Deactivate(ReadAnythingCloseReason reason) {
-    if (IsImmersiveEnabled()) {
-      auto* read_anything_controller =
-          ReadAnythingController::From(browser()->GetActiveTabInterface());
-      CHECK(read_anything_controller);
-      read_anything_controller->ShowImmersiveUI(
-          ReadAnythingOpenTrigger::kReadAnythingContextMenu);
-      read_anything_controller->CloseImmersiveUI(reason);
-      read_anything_controller->SetPresentationState(
-          ReadAnythingController::PresentationState::kInactive);
-    } else {
-      side_panel_controller()->OnEntryHidden(read_anything_entry());
-    }
+    auto* read_anything_controller =
+        ReadAnythingController::From(browser()->GetActiveTabInterface());
+    CHECK(read_anything_controller);
+    read_anything_controller->ShowImmersiveUI(
+        ReadAnythingOpenTrigger::kReadAnythingContextMenu);
+    read_anything_controller->CloseImmersiveUI(reason);
+    read_anything_controller->SetPresentationState(
+        ReadAnythingController::PresentationState::kInactive);
   }
 };
 
@@ -217,29 +189,21 @@ class ReadAnythingOmniboxControllerBrowserTest
         features::kWasmTtsEngineAutoInstallDisabled
 #endif
     };
-    std::vector<base::test::FeatureRef> disabled_features;
-
-    if (IsImmersiveEnabled()) {
-      enabled_features.push_back(features::kImmersiveReadAnything);
-    } else {
-      disabled_features.push_back(features::kImmersiveReadAnything);
-    }
-
-    scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
+    scoped_feature_list_.InitWithFeatures(enabled_features, {});
   }
 
  protected:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        PrimaryPageChanged_ShowsChipOnDistillablePage) {
   RegisterPageActionObserver();
   NavigateToDistillablePage();
   WaitForPageActionShowing(true);
 }
 
-IN_PROC_BROWSER_TEST_P(
+IN_PROC_BROWSER_TEST_F(
     ReadAnythingOmniboxControllerBrowserTest,
     PrimaryPageChanged_ShowsIconOnDistillablePageAfterIgnoredManyTimes) {
   RegisterPageActionObserver();
@@ -255,7 +219,7 @@ IN_PROC_BROWSER_TEST_P(
   ExpectPageActionStateImmediate(true);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        PrimaryPageChanged_HidesOnNonHttp) {
   RegisterPageActionObserver();
   NavigateToDistillablePage();
@@ -266,7 +230,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
   WaitForPageActionShowing(false);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        PrimaryPageChanged_HidesOnKnownPoorlyDistilledSites) {
   RegisterPageActionObserver();
   NavigateToDistillablePage();
@@ -277,7 +241,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
   WaitForPageActionShowing(false);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        PrimaryPageChanged_UpdatesIgnoredCount) {
   RegisterPageActionObserver();
   // When the page changes with no previous page, ignored count stays at 0.
@@ -298,7 +262,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
   EXPECT_EQ(GetOmniboxIgnoredCount(), 1);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        PrimaryPageChanged_DoesNotUpdateIgnoredCountIfRMOpened) {
   RegisterPageActionObserver();
   // When the page changes with no previous page, ignored count stays at 0.
@@ -320,7 +284,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
   EXPECT_EQ(GetOmniboxIgnoredCount(), 0);
 }
 
-IN_PROC_BROWSER_TEST_P(
+IN_PROC_BROWSER_TEST_F(
     ReadAnythingOmniboxControllerBrowserTest,
     PrimaryPageChanged_DoesNotUpdateIgnoredCountIfPageNotDwelledOn) {
   // When the page changes with no previous page, ignored count stays at 0.
@@ -338,7 +302,7 @@ IN_PROC_BROWSER_TEST_P(
   EXPECT_EQ(GetOmniboxIgnoredCount(), 0);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        PrimaryPageChangedWithIphShowing_LogsNotOpenedAfterIph) {
   base::HistogramTester histogram_tester;
   RegisterPageActionObserver();
@@ -352,7 +316,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
       "Accessibility.ReadAnything.OpenedAfterOmniboxIPH", false, 1);
 }
 
-IN_PROC_BROWSER_TEST_P(
+IN_PROC_BROWSER_TEST_F(
     ReadAnythingOmniboxControllerBrowserTest,
     PrimaryPageChangedWithNoIphShowing_DoesNotLogOpenedAfterIph) {
   base::HistogramTester histogram_tester;
@@ -361,18 +325,16 @@ IN_PROC_BROWSER_TEST_P(
       "Accessibility.ReadAnything.OpenedAfterOmniboxIPH", 0);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        PrimaryPageChanged_DoesNotCheckIfRMOpened) {
   RegisterPageActionObserver();
   OpenRMWithOmnibox();
   VerifyUIState();
 
   // It's easier to test this in SP mode so that page changes don't close RM.
-  if (IsImmersiveEnabled()) {
-    auto* controller =
-        ReadAnythingController::From(browser()->GetActiveTabInterface());
-    controller->TogglePresentation(/*is_user_initiated=*/true);
-  }
+  auto* controller =
+      ReadAnythingController::From(browser()->GetActiveTabInterface());
+  controller->TogglePresentation(/*is_user_initiated=*/true);
   ReadAnythingEntryPointController::ResetCheckCountForTesting();
 
   NavigateToDistillablePage();
@@ -381,7 +343,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
   EXPECT_EQ(ReadAnythingEntryPointController::CheckCountForTesting(), 0);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        PageChangeWithLoadingIsDebounced) {
   base::ScopedMockTimeMessageLoopTaskRunner mocked_task_runner;
 
@@ -411,7 +373,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
   EXPECT_EQ(ReadAnythingEntryPointController::CheckCountForTesting(), 1);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        TabForegroundedIsDebounced) {
   RegisterPageActionObserver();
   NavigateToDistillablePage();
@@ -419,10 +381,10 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
 
   // Switch tabs in quick succession.
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
-  browser()->tab_strip_model()->ActivateTabAt(1);
-  browser()->tab_strip_model()->ActivateTabAt(0);
-  browser()->tab_strip_model()->ActivateTabAt(1);
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(1);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(1);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
 
   // After the last switch, wait until the page action shows. It should have
   // only shown once despite foregrounding the distillable page several times.
@@ -430,7 +392,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
   EXPECT_EQ(ReadAnythingEntryPointController::CheckCountForTesting(), 1);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        TabForegroundedDoesNotCheckIfAlreadyChecked) {
   RegisterPageActionObserver();
   NavigateToDistillablePage();
@@ -440,15 +402,15 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
 
   // Switch tabs in quick succession.
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
-  browser()->tab_strip_model()->ActivateTabAt(1);
-  browser()->tab_strip_model()->ActivateTabAt(0);
-  browser()->tab_strip_model()->ActivateTabAt(1);
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(1);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(1);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
 
   EXPECT_EQ(ReadAnythingEntryPointController::CheckCountForTesting(), 0);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        TabForegroundedDoesNotCheckIfRMOpened) {
   RegisterPageActionObserver();
   NavigateToDistillablePage();
@@ -457,31 +419,31 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
 
   // Switch to tab 1.
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
-  browser()->tab_strip_model()->ActivateTabAt(1);
+  browser()->GetTabStripModel()->ActivateTabAt(1);
   WaitForDebounce();
   ReadAnythingEntryPointController::ResetCheckCountForTesting();
 
   // Switch back to tab 0 where RM should still be open. After it loads and
   // debounces, no checks should run.
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
   VerifyUIState();
   WaitForDebounce();
   EXPECT_EQ(ReadAnythingEntryPointController::CheckCountForTesting(), 0);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        TabBackgrounded_DoesNotCheck) {
   NavigateToDistillablePage();
   ReadAnythingEntryPointController::ResetCheckCountForTesting();
 
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
-  browser()->tab_strip_model()->ActivateTabAt(1);
+  browser()->GetTabStripModel()->ActivateTabAt(1);
   WaitForDebounce();
 
   EXPECT_EQ(ReadAnythingEntryPointController::CheckCountForTesting(), 0);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        TabBackgrounded_LogsNotOpenedAfterIPH) {
   base::HistogramTester histogram_tester;
   RegisterPageActionObserver();
@@ -489,13 +451,13 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
   WaitForPageActionShowing(true);
 
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
-  browser()->tab_strip_model()->ActivateTabAt(1);
+  browser()->GetTabStripModel()->ActivateTabAt(1);
 
   histogram_tester.ExpectUniqueSample(
       "Accessibility.ReadAnything.OpenedAfterOmniboxIPH", false, 1);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        TabDetached_UpdatesIgnoredCountIfPageWasDistillable) {
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
   RegisterPageActionObserver();
@@ -503,12 +465,12 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
   WaitForPageActionShowing(true);
   MockLongDwellTime();
 
-  browser()->tab_strip_model()->GetActiveTab()->Close();
+  browser()->GetTabStripModel()->GetActiveTab()->Close();
 
   EXPECT_EQ(GetOmniboxIgnoredCount(), 1);
 }
 
-IN_PROC_BROWSER_TEST_P(
+IN_PROC_BROWSER_TEST_F(
     ReadAnythingOmniboxControllerBrowserTest,
     TabDetached_ShowsIconOnDistillablePageAfterIgnoredManyTimes) {
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
@@ -520,7 +482,7 @@ IN_PROC_BROWSER_TEST_P(
 
   // This is the 6th time the chip was ignored.
   MockLongDwellTime();
-  browser()->tab_strip_model()->GetActiveTab()->Close();
+  browser()->GetTabStripModel()->GetActiveTab()->Close();
   WaitForChipShowing(false);
 
   // Open a new tab and navigate to a distillable page. Only the icon should
@@ -532,18 +494,18 @@ IN_PROC_BROWSER_TEST_P(
   EXPECT_FALSE(GetCurrentPageActionState().chip_showing);
 }
 
-IN_PROC_BROWSER_TEST_P(
+IN_PROC_BROWSER_TEST_F(
     ReadAnythingOmniboxControllerBrowserTest,
     TabDetached_DoesNotUpdateIgnoredCountIfPageWasNotDistillable) {
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
   MockLongDwellTime();
 
-  browser()->tab_strip_model()->GetActiveTab()->Close();
+  browser()->GetTabStripModel()->GetActiveTab()->Close();
 
   EXPECT_EQ(GetOmniboxIgnoredCount(), 0);
 }
 
-IN_PROC_BROWSER_TEST_P(
+IN_PROC_BROWSER_TEST_F(
     ReadAnythingOmniboxControllerBrowserTest,
     TabDetached_DoesNotUpdateIgnoredCountIfPageWasNotChecked) {
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
@@ -562,11 +524,11 @@ IN_PROC_BROWSER_TEST_P(
 
   // Close the tab before the new page is checked. The ignored count should not
   // increase because it wasn't checked.
-  browser()->tab_strip_model()->GetActiveTab()->Close();
+  browser()->GetTabStripModel()->GetActiveTab()->Close();
   EXPECT_EQ(GetOmniboxIgnoredCount(), 1);
 }
 
-IN_PROC_BROWSER_TEST_P(
+IN_PROC_BROWSER_TEST_F(
     ReadAnythingOmniboxControllerBrowserTest,
     TabDetached_DoesNotUpdateIgnoredCountIfPageWasNotDwelledOn) {
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
@@ -575,12 +537,12 @@ IN_PROC_BROWSER_TEST_P(
   WaitForPageActionShowing(true);
   MockShortDwellTime();
 
-  browser()->tab_strip_model()->GetActiveTab()->Close();
+  browser()->GetTabStripModel()->GetActiveTab()->Close();
 
   EXPECT_EQ(GetOmniboxIgnoredCount(), 0);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        TabDetached_LogsNotOpenedAfterIPH) {
   base::HistogramTester histogram_tester;
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
@@ -588,13 +550,13 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
   NavigateToDistillablePage();
   WaitForPageActionShowing(true);
 
-  browser()->tab_strip_model()->GetActiveTab()->Close();
+  browser()->GetTabStripModel()->GetActiveTab()->Close();
 
   histogram_tester.ExpectUniqueSample(
       "Accessibility.ReadAnything.OpenedAfterOmniboxIPH", false, 1);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        LogsNotOpenedAfterIphTimeout) {
   base::HistogramTester histogram_tester;
   RegisterPageActionObserver();
@@ -613,7 +575,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
   }));
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        ActivateWithIphShowing_LogsOpenedAfterIph) {
   base::HistogramTester histogram_tester;
   RegisterPageActionObserver();
@@ -628,7 +590,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
       "Accessibility.ReadAnything.OpenedAfterOmniboxIPH", true, 1);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        ActivateWithNoIphShowing_DoesNotLogOpenedAfterIph) {
   base::HistogramTester histogram_tester;
   OpenRMWithOmnibox();
@@ -637,7 +599,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
       "Accessibility.ReadAnything.OpenedAfterOmniboxIPH", 0);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        Activate_LogsOmniboxEntrypointAfterOmniboxClicked) {
   base::HistogramTester histogram_tester;
   RegisterPageActionObserver();
@@ -651,7 +613,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
       ReadAnythingOpenTrigger::kOmniboxChip, 1);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        Activate_LogsNotOmniboxEntrypointAfterOmniboxShown) {
   base::HistogramTester histogram_tester;
   RegisterPageActionObserver();
@@ -665,7 +627,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
       ReadAnythingOpenTrigger::kReadAnythingContextMenu, 1);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        Activate_DoesNotLogTogglePresentationAfterOmniboxShown) {
   base::HistogramTester histogram_tester;
   RegisterPageActionObserver();
@@ -678,7 +640,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
       "Accessibility.ReadAnything.EntryPointAfterOmnibox", 0);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        Activate_HidesOmniboxImmediately) {
   RegisterPageActionObserver();
   NavigateToDistillablePage();
@@ -689,7 +651,7 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
   ExpectPageActionStateImmediate(false);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        DeactivateByUser_ShowsOmnibox) {
   RegisterPageActionObserver();
   Activate(SidePanelOpenTrigger::kReadAnythingOmniboxChip);
@@ -700,33 +662,30 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
   ExpectPageActionStateImmediate(true);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        DeactivateOnTabChange_DoesNotShowOmnibox) {
   RegisterPageActionObserver();
   Activate(SidePanelOpenTrigger::kReadAnythingOmniboxChip);
   ExpectPageActionStateImmediate(false);
 
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
-  browser()->tab_strip_model()->ActivateTabAt(1);
+  browser()->GetTabStripModel()->ActivateTabAt(1);
 
   ExpectPageActionStateImmediate(false);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        DeactivateOnPageChange_DoesNotShowOmnibox) {
-  // Only relevant with immersive since SP does not close on page change.
-  if (IsImmersiveEnabled()) {
-    RegisterPageActionObserver();
-    Activate(SidePanelOpenTrigger::kReadAnythingOmniboxChip);
-    ExpectPageActionStateImmediate(false);
+  RegisterPageActionObserver();
+  Activate(SidePanelOpenTrigger::kReadAnythingOmniboxChip);
+  ExpectPageActionStateImmediate(false);
 
-    Deactivate(ReadAnythingCloseReason::kPageChanged);
+  Deactivate(ReadAnythingCloseReason::kPageChanged);
 
-    ExpectPageActionStateImmediate(false);
-  }
+  ExpectPageActionStateImmediate(false);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ReadAnythingOmniboxControllerBrowserTest,
                        OnDiscardContents_ResetsState) {
   RegisterPageActionObserver();
   NavigateToDistillablePage();
@@ -734,19 +693,19 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
 
   // Switch to a new tab to background the first tab, so it can be discarded.
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
-  browser()->tab_strip_model()->ActivateTabAt(1);
+  browser()->GetTabStripModel()->ActivateTabAt(1);
 
   // Discard the first tab.
   std::unique_ptr<content::WebContents> new_contents =
       content::WebContents::Create(
           content::WebContents::CreateParams(browser()->GetProfile()));
 
-  browser()->tab_strip_model()->DiscardWebContents(
-      browser()->tab_strip_model()->GetWebContentsAt(0),
+  browser()->GetTabStripModel()->DiscardWebContents(
+      browser()->GetTabStripModel()->GetWebContentsAt(0),
       std::move(new_contents));
 
   // Switch back to the discarded tab.
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
 
   // The chip should be hidden now because was_page_checked_ was reset.
   // It will eventually show again once the new contents finishes loading and
@@ -759,7 +718,3 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
   NavigateToDistillablePage();
   WaitForPageActionShowing(true);
 }
-
-INSTANTIATE_TEST_SUITE_P(All,
-                         ReadAnythingOmniboxControllerBrowserTest,
-                         testing::Bool());

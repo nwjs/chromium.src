@@ -87,7 +87,13 @@ void ActorTaskListBubbleController::ShowBubbleImpl(bool is_start_notification) {
   // start notification for an experimentalTriggering task triggered while
   // the Glic panel is visible on this window. We avoid popping up the bubble
   // for subsequent background task status updates to avoid disturbing the user.
-  if (!browser_->IsActive()) {
+#if BUILDFLAG(IS_ANDROID)
+  const bool is_active =
+      browser_->GetWindow() && browser_->GetWindow()->IsActive();
+#else
+  const bool is_active = browser_->IsActive();
+#endif
+  if (!is_active) {
     auto* glic_service = glic::GlicKeyedServiceFactory::GetGlicKeyedService(
         browser_->GetProfile());
     if (!is_start_notification || !glic_service ||
@@ -151,11 +157,13 @@ void ActorTaskListBubbleController::OnTaskRowClicked(actor::TaskId task_id) {
     TabListInterface::From(last_tab->GetBrowserWindowInterface())
         ->ActivateTab(last_tab->GetHandle());
     // Activate the window that the tab is in as it may not be the current one.
-    last_tab->GetBrowserWindowInterface()->GetWindow()->Activate();
+    if (auto* window = last_tab->GetBrowserWindowInterface()->GetWindow()) {
+      window->Activate();
+    }
     if (auto* glic_service =
             glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile)) {
-      glic_service->ToggleUI(browser_, /*prevent_close=*/true,
-                             glic::mojom::InvocationSource::kActorTaskIcon);
+      glic_service->ShowUI(browser_,
+                           glic::mojom::InvocationSource::kActorTaskIcon);
       if (auto* instance = glic_service->GetInstanceForTab(last_tab)) {
         instance->NotifyActorTaskListRowClicked(task_id.value());
       }

@@ -41,7 +41,7 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
-#include "components/autofill/core/browser/at_memory/at_memory_enablement_utils.h"
+#include "components/autofill/core/browser/at_memory/at_memory_enablement_util.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/content_settings/core/common/content_settings_types.h"
@@ -68,7 +68,17 @@ const gfx::VectorIcon& GetTaskInProgressIcon() {
 }
 }  // namespace
 
-ToastService::ToastService(BrowserWindowInterface* browser_window_interface) {
+DEFINE_USER_DATA(ToastService);
+
+// static
+ToastService* ToastService::From(BrowserWindowInterface* browser) {
+  return Get(browser->GetUnownedUserDataHost());
+}
+
+ToastService::ToastService(BrowserWindowInterface* browser_window_interface)
+    : scoped_unowned_user_data_(
+          browser_window_interface->GetUnownedUserDataHost(),
+          *this) {
   toast_registry_ = std::make_unique<ToastRegistry>();
   toast_controller_ = std::make_unique<ToastController>(
       browser_window_interface, toast_registry_.get());
@@ -694,6 +704,14 @@ void ToastService::RegisterToasts(
                                         ? vector_icons::kErrorIcon
                                         : vector_icons::kErrorOldIcon,
                                     IDS_DICTATION_ERROR_TOAST)
+            .Build());
+    toast_registry_->RegisterToast(
+        ToastId::kDictationNoMicrophoneError,
+        ToastSpecification::Builder(
+            features::IsRoundedIconsEnabled()
+                ? vector_icons::kErrorIcon
+                : vector_icons::kMicOffChromeRefreshOldIcon,
+            IDS_DICTATION_NO_MIC_ERROR_TOAST)
             .Build());
     toast_registry_->RegisterToast(
         ToastId::kDictationStopped,

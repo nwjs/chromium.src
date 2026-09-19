@@ -8,7 +8,7 @@
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
 
-@protocol BWGGatewayProtocol <NSObject>
+@protocol BWGLinkOpeningDelegate <NSObject>
 @end
 
 namespace {
@@ -27,35 +27,41 @@ class GeminiStartupConfigurationTest : public PlatformTest {
 // Tests the default state of `GeminiStartupConfiguration` properties.
 TEST_F(GeminiStartupConfigurationTest, TestDefaultState) {
   EXPECT_EQ(config_.authService, nullptr);
-  EXPECT_EQ(config_.gateway, nil);
+  EXPECT_EQ(config_.linkOpeningHandler, nil);
+  EXPECT_FALSE(config_.imageRemixEnabled);
+  EXPECT_FALSE(config_.geminiLiveEnabled);
 }
 
 // Tests that the properties of `GeminiStartupConfiguration` can be correctly
 // assigned and retrieved.
 TEST_F(GeminiStartupConfigurationTest, TestProperties) {
-  const id<BWGGatewayProtocol> mock_gateway =
-      OCMProtocolMock(@protocol(BWGGatewayProtocol));
+  const id<BWGLinkOpeningDelegate> mock_link_opening_handler =
+      OCMProtocolMock(@protocol(BWGLinkOpeningDelegate));
   AuthenticationService* const dummy_auth_service =
       reinterpret_cast<AuthenticationService*>(0x1234);
 
-  config_.gateway = mock_gateway;
+  config_.linkOpeningHandler = mock_link_opening_handler;
   config_.authService = dummy_auth_service;
+  config_.imageRemixEnabled = YES;
+  config_.geminiLiveEnabled = YES;
 
-  EXPECT_EQ(config_.gateway, mock_gateway);
+  EXPECT_EQ(config_.linkOpeningHandler, mock_link_opening_handler);
   EXPECT_EQ(config_.authService, dummy_auth_service);
+  EXPECT_TRUE(config_.imageRemixEnabled);
+  EXPECT_TRUE(config_.geminiLiveEnabled);
 }
 
-// Tests that the weak reference to the `gateway` property is zeroed out
-// when the referenced object is deallocated.
-TEST_F(GeminiStartupConfigurationTest, TestWeakGatewayReference) {
+// Tests that the weak reference to the `linkOpeningHandler` property is zeroed
+// out when the referenced object is deallocated.
+TEST_F(GeminiStartupConfigurationTest, TestWeakLinkOpeningHandlerReference) {
   @autoreleasepool {
-    id<BWGGatewayProtocol> mock_gateway =
-        OCMProtocolMock(@protocol(BWGGatewayProtocol));
-    config_.gateway = mock_gateway;
-    EXPECT_EQ(config_.gateway, mock_gateway);
+    id<BWGLinkOpeningDelegate> mock_link_opening_handler =
+        OCMProtocolMock(@protocol(BWGLinkOpeningDelegate));
+    config_.linkOpeningHandler = mock_link_opening_handler;
+    EXPECT_EQ(config_.linkOpeningHandler, mock_link_opening_handler);
   }
 
-  EXPECT_EQ(config_.gateway, nil);
+  EXPECT_EQ(config_.linkOpeningHandler, nil);
 }
 
 }  // namespace

@@ -25,7 +25,6 @@
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/views/mouse_constants.h"
 
-class Browser;
 class BrowserWindowInterface;
 class OmniboxController;
 class OmniboxPopupView;
@@ -45,11 +44,13 @@ class Point;
 
 // A LocationBar implementation using WebUI.
 class WebUILocationBar : public LocationBar,
+                         public LocationBarTesting,
                          public ContentSettingImageViewDelegate,
                          public WebUIReadOnlyOmnibox::UpdatePropagator,
                          public OmniboxPopupPresenterDelegate {
  public:
-  WebUILocationBar(Browser* browser, LocationBarView::Delegate* delegate);
+  WebUILocationBar(BrowserWindowInterface* browser,
+                   LocationBarView::Delegate* delegate);
   ~WebUILocationBar() override;
 
   void Init(WebUIToolbarControlDelegate* delegate);
@@ -60,14 +61,14 @@ class WebUILocationBar : public LocationBar,
   void PropagateApplyFocusRingToAimButton(bool force_focus) override;
   void PropagateFocusRequest(
       toolbar_ui_api::mojom::FocusRequestTarget target) override;
-  std::optional<GURL> ConsumeDroppedUrl(
-      const gfx::PointF& drop_position) override;
+  void OpenOmniboxIfFullPopup(bool query_zps) override;
 
   // Called from WebUIToolbarWebView:
   void OnThemeChanged();
   base::expected<std::monostate, mojo_base::mojom::ErrorPtr> OnOmniboxAction(
       toolbar_ui_api::mojom::OmniboxActionPtr action);
   void SetFocusWithin(bool focused);
+  void OnBlur();
 
   void HandleContextMenu(views::Widget* widget,
                          const gfx::Point& point,
@@ -78,6 +79,7 @@ class WebUILocationBar : public LocationBar,
   void FocusLocation(bool is_user_initiated,
                      bool clear_focus_if_failed) override;
   void FocusSearch() override;
+
   void UpdateFocusBehavior(bool toolbar_visible) override;
   void UpdateContentSettingsIcons() override;
   void SaveStateToContents(content::WebContents* contents) override;
@@ -98,6 +100,7 @@ class WebUILocationBar : public LocationBar,
   std::optional<bubble_anchor_util::AnchorConfiguration> GetChipAnchor()
       override;
   ui::TrackedElement* GetAnchorOrNull() override;
+  bool in_popup_state_transition() const override;
   BrowserWindowInterface* GetBrowser() override;
   Profile* GetProfile() override;
   void OnChanged() override;
@@ -118,10 +121,13 @@ class WebUILocationBar : public LocationBar,
   void ResetTabState(content::WebContents* contents) override;
   bool HasSecurityStateChanged() override;
   LocationBarTesting* GetLocationBarForTesting() override;
+  bool TestContentSettingImagePressed(size_t index) override;
+  bool IsContentSettingBubbleShowing(size_t index) override;
 
   // Left hand side (LHS) chip events (called from WebUIToolbarWebView)
   void OnLhsChipMousePressed(
-      toolbar_ui_api::mojom::LhsChipIdentifier identifier);
+      toolbar_ui_api::mojom::LhsChipIdentifier identifier,
+      bool is_middle_click);
   void OnLhsChipClicked(toolbar_ui_api::mojom::LhsChipIdentifier identifier,
                         bool is_mouse_interaction);
   void OnLhsChipPointerEntered(
@@ -163,6 +169,8 @@ class WebUILocationBar : public LocationBar,
   void SetSuppressionThresholdForTesting(base::TimeDelta threshold);
 
  private:
+  void OnMiddleClickPaste(base::TimeTicks event_timestamp, std::u16string text);
+
   friend class WebUILocationBarTest;
   friend class WebUIPermissionChipTest;
 
@@ -174,6 +182,7 @@ class WebUILocationBar : public LocationBar,
   void OnMovedOrShown(ui::TrackedElement* element);
   void OnPopupStateChanged(OmniboxPopupState old_state,
                            OmniboxPopupState new_state);
+  void ClearInPopupStateTransition();
 
   void UpdateLocationBarFlagsState();
   void UpdateSelectedKeywordState();
@@ -182,6 +191,8 @@ class WebUILocationBar : public LocationBar,
   // Updates the state of the LHS location bar chips (e.g. security chip) and
   // pushes it to the WebUI.
   void UpdateLhsChipsState(bool icon_known = false);
+
+  void UpdatePageActions(content::WebContents* contents);
 
   // Updates the state of the content setting models (e.g. camera, microphone,
   // sensors) to reflect status on the current page. Pushes the updated
@@ -197,6 +208,11 @@ class WebUILocationBar : public LocationBar,
   void OnIconFetched(const gfx::Image& image);
 
   void ShowPageInfoBubble();
+  void OnPageInfoBubbleClosed(views::Widget::ClosedReason closed_reason,
+                              bool reload_prompt);
+
+  void HandleFocusRequestForFullPopup(
+      toolbar_ui_api::mojom::FocusRequestTarget target);
 
   raw_ptr<BrowserWindowInterface> browser_ = nullptr;
   raw_ptr<LocationBarView::Delegate> delegate_ = nullptr;
@@ -219,6 +235,7 @@ class WebUILocationBar : public LocationBar,
   std::unique_ptr<OmniboxController> omnibox_controller_;
   std::unique_ptr<WebUIReadOnlyOmnibox> omnibox_view_;
   std::unique_ptr<OmniboxPopupViewWebUI> omnibox_popup_view_;
+  const bool using_full_popup_;
   // The presenter controlling the showing of the AI mode popup.
   std::unique_ptr<OmniboxPopupAimPresenter> omnibox_popup_aim_presenter_;
   std::unique_ptr<OmniboxPopupFileSelector> omnibox_popup_file_selector_;
@@ -233,6 +250,8 @@ class WebUILocationBar : public LocationBar,
 
   // Whether to paint AIM button as focused (with focus still on omnibox).
   bool force_aim_button_focus_ring_ = false;
+
+  bool in_popup_state_transition_ = false;
 
   toolbar_ui_api::IconHandle location_icon_;
   security_state::SecurityLevel last_update_security_level_ =

@@ -11,9 +11,9 @@
 #include "build/build_config.h"
 #include "chrome/browser/apps/link_capturing/link_capturing_feature_test_support.h"
 #include "chrome/browser/favicon/favicon_utils.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/intent_picker_tab_helper.h"
+#include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -21,7 +21,6 @@
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/intent_picker_bubble_view.h"
 #include "chrome/browser/ui/views/location_bar/intent_chip_button_test_base.h"
-#include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "ui/base/models/image_model.h"
@@ -53,12 +52,15 @@ class IntentPickerDialogTest : public DialogBrowserTest {
     add_entry("b");
     add_entry("c");
     add_entry("d");
+    BrowserView* browser_view =
+        BrowserView::GetBrowserViewForBrowser(browser());
+    views::BubbleAnchor anchor(
+        browser_view->GetLocationBar()->GetAnchorOrNull());
+    EXPECT_FALSE(anchor.IsNull());
     IntentPickerBubbleView::ShowBubble(
-        views::BubbleAnchor(BrowserView::GetBrowserViewForBrowser(browser())
-                                ->GetLocationBarView()),
-        GetHighlightElement(),
+        anchor, GetHighlightElement(),
         IntentPickerBubbleView::BubbleType::kLinkCapturing,
-        browser()->tab_strip_model()->GetActiveWebContents(),
+        browser()->GetTabStripModel()->GetActiveWebContents(),
         std::move(app_info), true, true,
         url::Origin::Create(GURL("https://c.com")), base::DoNothing());
   }

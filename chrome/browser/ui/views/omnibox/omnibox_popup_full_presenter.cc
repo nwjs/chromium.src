@@ -124,10 +124,12 @@ void OmniboxPopupFullPresenter::Hide() {
   forward_events_timer_.Stop();
   popup_widget_observation_.Reset();
   OmniboxPopupPresenterBase::Hide();
-  // Reset the cached height to force a layout update when the popup is
-  // reshown. This prevents the popup from temporarily using a stale size
-  // from its previous state.
-  content_height_ = 1;
+  if (ShouldApplyHeightWorkarounds()) {
+    // Reset the cached height to force a layout update when the popup is
+    // reshown. This prevents the popup from temporarily using a stale size
+    // from its previous state.
+    content_height_ = 1;
+  }
 }
 
 void OmniboxPopupFullPresenter::RequestFocus() {
@@ -161,9 +163,26 @@ OmniboxPopupFullPresenter::ShouldDeferUntilVisualStateReady() const {
       omnibox::kOmniboxFullWebUIDeferShowUntilVisualStateReadyTimeoutMs.Get());
 }
 
+bool OmniboxPopupFullPresenter::ShouldDebounceResize() const {
+  return base::FeatureList::IsEnabled(omnibox::kOmniboxFullWebUIDebounceResize);
+}
+
+bool OmniboxPopupFullPresenter::ShouldApplyHeightWorkarounds() const {
+  return base::FeatureList::IsEnabled(omnibox::kOmniboxFullWebUIHeightWorkarounds);
+}
+
 bool OmniboxPopupFullPresenter::ShouldDetachWebContentsOnHide() const {
   return base::FeatureList::IsEnabled(
       omnibox::kOmniboxFullWebUIDetachWebContentsOnHide);
+}
+
+bool OmniboxPopupFullPresenter::ShouldEvictOnHide() const {
+  return base::FeatureList::IsEnabled(omnibox::kOmniboxFullWebUIEvictOnHide);
+}
+
+bool OmniboxPopupFullPresenter::ShouldSizeWebViewToPreferredHeight() const {
+  return base::FeatureList::IsEnabled(
+      omnibox::kOmniboxFullWebUISizeWebViewToPreferredHeight);
 }
 
 bool OmniboxPopupFullPresenter::ShouldHideForInitialLayout() const {

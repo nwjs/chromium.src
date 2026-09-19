@@ -26,15 +26,19 @@
 #include "components/sync/test/test_sync_service.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_task_environment.h"
+#include "content/public/test/mock_navigation_handle.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_web_contents_factory.h"
 #include "content/public/test/url_loader_interceptor.h"
+#include "content/public/test/web_contents_tester.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "net/base/net_errors.h"
+#include "net/cookies/site_for_cookies.h"
 #include "net/http/http_status_code.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "url/origin.h"
 
 using testing::_;
 
@@ -42,6 +46,9 @@ class DevToolsUIBindingsTest : public testing::Test {};
 
 class DevToolsUIBindingsLoadNetworkResourceTest : public testing::Test {
  public:
+  bool GetDevicesUpdatesEnabled() {
+    return bindings_->devices_updates_enabled_;
+  }
   void SetUp() override {
     profile_ = std::make_unique<TestingProfile>();
     web_contents_ = web_contents_factory_.CreateWebContents(profile_.get());
@@ -104,6 +111,19 @@ class MockDevToolsUIBindingsDelegate : public DevToolsUIBindings::Delegate {
  private:
   raw_ptr<content::WebContents> inspected_web_contents_;
 };
+
+TEST_F(DevToolsUIBindingsLoadNetworkResourceTest,
+       RestrictsPrivilegedMethodsFromRemoteFrontend) {
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(
+      web_contents(),
+      GURL("devtools://devtools/remote/serve_file/inspector.html"));
+
+  // Should return early without enabling device updates.
+  static_cast<DevToolsEmbedderMessageDispatcher::Delegate*>(bindings())
+      ->SetDevicesUpdatesEnabled(true);
+
+  EXPECT_FALSE(GetDevicesUpdatesEnabled());
+}
 
 TEST_F(DevToolsUIBindingsLoadNetworkResourceTest,
        AllowsFileSchemeFromRemoteFrontendWithFlag) {
@@ -216,6 +236,44 @@ TEST_F(DevToolsUIBindingsLoadNetworkResourceTest,
               "Local file loading is restricted for remote DevTools. Use "
               "--allow-unsafe-devtools-remote-file-loading to enable it.");
   }
+}
+
+TEST_F(DevToolsUIBindingsLoadNetworkResourceTest,
+       UsesInspectedPageAsRequestInitiator) {
+  const GURL inspected_url("http://a.test/page.html");
+  const GURL resource_url("http://b.test/source.map");
+
+  content::WebContents* inspected_web_contents =
+      web_contents_factory_.CreateWebContents(profile_.get());
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(
+      inspected_web_contents, inspected_url);
+  auto delegate =
+      std::make_unique<MockDevToolsUIBindingsDelegate>(inspected_web_contents);
+  bindings()->SetDelegate(delegate.release());
+
+  std::optional<network::ResourceRequest> captured_request;
+  content::URLLoaderInterceptor interceptor(base::BindLambdaForTesting(
+      [&](content::URLLoaderInterceptor::RequestParams* params) {
+        captured_request = params->url_request;
+        content::URLLoaderInterceptor::WriteResponse(
+            "HTTP/1.1 200 OK\n\n", "{}", params->client.get());
+        return true;
+      }));
+
+  base::RunLoop run_loop;
+  CallLoadNetworkResource(
+      resource_url.spec(), "", 0,
+      base::BindLambdaForTesting(
+          [&](const base::Value*) { run_loop.Quit(); }));
+  run_loop.Run();
+
+  ASSERT_TRUE(captured_request.has_value());
+  EXPECT_EQ(captured_request->url, resource_url);
+  const url::Origin inspected_origin = url::Origin::Create(inspected_url);
+  EXPECT_EQ(captured_request->request_initiator, inspected_origin);
+  EXPECT_TRUE(captured_request->site_for_cookies.IsEquivalent(
+      net::SiteForCookies::FromOrigin(inspected_origin)));
+  EXPECT_FALSE(captured_request->site_for_cookies.IsFirstParty(resource_url));
 }
 
 TEST_F(DevToolsUIBindingsTest, SanitizeFrontendURL) {
@@ -335,6 +393,109 @@ TEST_F(DevToolsUIBindingsTest, SanitizeFrontendURL) {
     url = DevToolsUIBindings::SanitizeFrontendURL(url);
     EXPECT_EQ(pair.second, url.spec());
   }
+}
+
+class DevToolsUIBindingsNavigationTest : public testing::Test {
+ public:
+  content::WebContents* CreateWebContents() {
+    return web_contents_factory_.CreateWebContents(&profile_);
+  }
+
+ protected:
+  content::BrowserTaskEnvironment task_environment_;
+  TestingProfile profile_;
+  content::TestWebContentsFactory web_contents_factory_;
+};
+
+TEST_F(DevToolsUIBindingsNavigationTest,
+       BrowserInitiatedNavigationCreatesFrontendHost) {
+  content::WebContents* web_contents = CreateWebContents();
+  auto bindings = std::make_unique<DevToolsUIBindings>(web_contents);
+  EXPECT_FALSE(bindings->has_frontend_host_for_testing());
+
+  content::MockNavigationHandle handle(
+      GURL("devtools://devtools/bundled/devtools_app.html"),
+      web_contents->GetPrimaryMainFrame());
+  handle.set_is_in_primary_main_frame(true);
+  handle.set_is_renderer_initiated(false);
+
+  bindings->ReadyToCommitNavigationForTesting(&handle);
+
+  EXPECT_TRUE(bindings->has_frontend_host_for_testing());
+}
+
+TEST_F(DevToolsUIBindingsNavigationTest,
+       OpenerWithoutDevToolsBindingsRejected) {
+  content::WebContents* opener_contents = CreateWebContents();
+  content::WebContents* web_contents = CreateWebContents();
+  content::WebContentsTester::For(web_contents)->SetOpener(opener_contents);
+  content::WebContentsTester::For(web_contents)
+      ->SetOriginalOpener(opener_contents);
+
+  auto bindings = std::make_unique<DevToolsUIBindings>(web_contents);
+
+  content::MockNavigationHandle handle(
+      GURL("devtools://devtools/bundled/devtools_app.html"),
+      web_contents->GetPrimaryMainFrame());
+  handle.set_is_in_primary_main_frame(true);
+  handle.set_is_renderer_initiated(false);
+
+  bindings->ReadyToCommitNavigationForTesting(&handle);
+
+  EXPECT_FALSE(bindings->has_frontend_host_for_testing());
+}
+
+TEST_F(DevToolsUIBindingsNavigationTest,
+       OriginalOpenerWithoutDevToolsBindingsRejectedEvenIfOpenerSevered) {
+  content::WebContents* original_opener_contents = CreateWebContents();
+  content::WebContents* web_contents = CreateWebContents();
+  content::WebContentsTester::For(web_contents)
+      ->SetOriginalOpener(original_opener_contents);
+  // Ensure the live opener is null (simulating `window.opener = null`).
+  EXPECT_EQ(nullptr, web_contents->GetOpener());
+  EXPECT_TRUE(web_contents->HasLiveOriginalOpenerChain());
+
+  auto bindings = std::make_unique<DevToolsUIBindings>(web_contents);
+
+  content::MockNavigationHandle handle(
+      GURL("devtools://devtools/bundled/devtools_app.html"),
+      web_contents->GetPrimaryMainFrame());
+  handle.set_is_in_primary_main_frame(true);
+  handle.set_is_renderer_initiated(false);
+
+  bindings->ReadyToCommitNavigationForTesting(&handle);
+
+  EXPECT_FALSE(bindings->has_frontend_host_for_testing());
+}
+
+TEST_F(DevToolsUIBindingsNavigationTest,
+       OpenerWithValidDevToolsBindingsAccepted) {
+  content::WebContents* opener_contents = CreateWebContents();
+  auto opener_bindings = std::make_unique<DevToolsUIBindings>(opener_contents);
+  content::MockNavigationHandle opener_handle(
+      GURL("devtools://devtools/bundled/devtools_app.html"),
+      opener_contents->GetPrimaryMainFrame());
+  opener_handle.set_is_in_primary_main_frame(true);
+  opener_handle.set_is_renderer_initiated(false);
+  opener_bindings->ReadyToCommitNavigationForTesting(&opener_handle);
+  ASSERT_TRUE(opener_bindings->has_frontend_host_for_testing());
+
+  content::WebContents* web_contents = CreateWebContents();
+  content::WebContentsTester::For(web_contents)->SetOpener(opener_contents);
+  content::WebContentsTester::For(web_contents)
+      ->SetOriginalOpener(opener_contents);
+
+  auto bindings = std::make_unique<DevToolsUIBindings>(web_contents);
+
+  content::MockNavigationHandle handle(
+      GURL("devtools://devtools/bundled/devtools_app.html"),
+      web_contents->GetPrimaryMainFrame());
+  handle.set_is_in_primary_main_frame(true);
+  handle.set_is_renderer_initiated(false);
+
+  bindings->ReadyToCommitNavigationForTesting(&handle);
+
+  EXPECT_TRUE(bindings->has_frontend_host_for_testing());
 }
 
 class DevToolsUIBindingsSyncInfoTest : public testing::Test {

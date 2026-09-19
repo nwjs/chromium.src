@@ -2335,9 +2335,9 @@ void FileManagerBrowserTestBase::SetUpCommandLine(
     // (At the time of writing, exactly one does).
     // Although in this path no browser is created (and so one can never
     // close..), setting this to false prevents InProcessBrowserTest from adding
-    // the kDisableZeroBrowsersOpenForTests flag, which would prevent
-    // `ChromeBrowserMainPartsAsh` from adding the keepalive that normally
-    // stops chromeos from shutting down unexpectedly.
+    // the ash::switches::kDisableZeroBrowsersOpenForTests flag, which would
+    // prevent `ChromeBrowserMainPartsAsh` from adding the keepalive that
+    // normally stops chromeos from shutting down unexpectedly.
     set_exit_when_last_browser_closes(false);
   }
 
@@ -3757,10 +3757,7 @@ void FileManagerBrowserTestBase::OnCommand(const std::string& name,
   // stores the navigation observer, which later could be used via the
   // `waitForSelectFileDialogNavigation` message.
   if (name == "runSelectFileDialog") {
-    browser()
-        ->GetFeatures()
-        .browser_select_file_dialog_controller()
-        ->OpenFile();
+    BrowserSelectFileDialogController::From(browser())->OpenFile();
 
     test_navigation_observer_ =
         std::make_unique<content::TestNavigationObserver>(

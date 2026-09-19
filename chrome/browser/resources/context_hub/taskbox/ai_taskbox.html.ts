@@ -9,7 +9,7 @@ import {TodoItemVariant} from './todo_item.js';
 
 export function getHtml(this: AiTaskboxElement) {
   return this.showingReadingList_ ? html`
-    <main id="reading-list-view">
+    <main id="reading-list-view" @feedback-changed="${this.onFeedbackChanged_}">
       <section class="header-section">
         <div class="header-title-container">
           <cr-icon-button
@@ -38,6 +38,7 @@ export function getHtml(this: AiTaskboxElement) {
                   todo.data.thirdParty!.lastActiveTimestamp}"
                         .groupType="${todo.data.thirdParty!.groupType}"
                         .variant="${TodoItemVariant.TAB}"
+                        .liked="${this.feedbacks_.get(todo.id) ?? null}"
                         .disable_state_mgmt="${this.isGeneratingTabTodos_}">
                     </todo-item>
                   `) :
@@ -45,7 +46,7 @@ export function getHtml(this: AiTaskboxElement) {
       </div>
     </main>
   ` : html`
-    <main id="dashboard-view">
+    <main id="dashboard-view" @feedback-changed="${this.onFeedbackChanged_}">
         <section class="header-section">
             <!-- TODO(crbug.com/519576944): Replace with the dynamic greeting title. -->
             <h1>AI Taskbox</h1>
@@ -66,14 +67,31 @@ export function getHtml(this: AiTaskboxElement) {
             <section class="todo-column">
                 <div class="column-header">
                     <h2>Workspace Todos</h2>
-                    <cr-button class="tonal-button"
-                        ?disabled="${
-      !this.autoTodosEnabled_ || this.isGeneratingGmailTodos_}"
-                        @click="${this.onGenerateGmailTodosClick_}">
-                      ${
-      this.isGeneratingGmailTodos_ ? 'Generating...' :
-                                     'Generate Workspace Todos'}
-                    </cr-button>
+                    <div class="refresh-container">
+                      <span class="last-updated-text">
+                        ${
+          this.isGeneratingGmailTodos_ ?
+              'Generating...' :
+              this.getFormattedTimeAgo_(this.lastGmailGenerationTime_)}
+                      </span>
+                      <cr-icon-button
+                          iron-icon="cr:sync"
+                          title="Refresh"
+                          aria-label="Refresh Workspace Todos"
+                          ?disabled="${
+          !this.autoTodosEnabled_ || this.isGeneratingGmailTodos_}"
+                          @click="${this.onGenerateGmailTodosClick_}">
+                      </cr-icon-button>
+                      <cr-icon-button
+                          id="workspaceDropdownButton"
+                          iron-icon="cr:arrow-drop-down"
+                          title="clears all todos and any context. regeneration after clearing may result in previously dismissed/cleared todos"
+                          aria-label="Clear ALL Workspace Todos"
+                          ?disabled="${
+          !this.autoTodosEnabled_ || this.isGeneratingGmailTodos_}"
+                          @click="${this.onWorkspaceMenuClick_}">
+                      </cr-icon-button>
+                    </div>
                 </div>
 
                 <div class="todo-list">
@@ -92,6 +110,7 @@ export function getHtml(this: AiTaskboxElement) {
                           .sourceReferences="${
                   todo.data.firstParty?.sourceReferences || []}"
                           .score="${todo.score}"
+                          .liked="${this.feedbacks_.get(todo.id) ?? null}"
                           .disable_state_mgmt="${this.isGeneratingGmailTodos_}">
                       </todo-item>
                     `) :
@@ -138,6 +157,7 @@ export function getHtml(this: AiTaskboxElement) {
                                   .sourceReferences="${
                           todo.data.firstParty?.sourceReferences || []}"
                                   .score="${todo.score}"
+                                  .liked="${this.feedbacks_.get(todo.id) ?? null}"
                                   .disable_state_mgmt="${this.isGeneratingGmailTodos_}">
                               </todo-item>
                             `) : ''}
@@ -150,31 +170,118 @@ export function getHtml(this: AiTaskboxElement) {
             <section class="todo-column">
                 <div class="column-header">
                     <h2>Browser Todos</h2>
-                    <cr-button class="tonal-button" disabled
-                        @click="${this.onGenerateTabTodosClick_}">
-                      ${
-      this.isGeneratingTabTodos_ ? 'Generating...' : 'Generate Browser Todos'}
-                    </cr-button>
+                    <div class="refresh-container">
+                      <span class="last-updated-text">
+                        ${
+          this.isGeneratingTabTodos_ ?
+              'Generating...' :
+              this.getFormattedTimeAgo_(this.lastTabGenerationTime_)}
+                      </span>
+                      <cr-icon-button
+                          iron-icon="cr:sync"
+                          title="Refresh"
+                          aria-label="Refresh Browser Todos"
+                          ?disabled="${
+          !this.autoTodosEnabled_ || this.isGeneratingTabTodos_}"
+                          @click="${this.onGenerateTabTodosClick_}">
+                      </cr-icon-button>
+                      <cr-icon-button
+                          id="browserDropdownButton"
+                          iron-icon="cr:arrow-drop-down"
+                          title="clears all todos and any context. regeneration after clearing may result in previously dismissed/cleared todos"
+                          aria-label="Clear ALL Browser Todos"
+                          ?disabled="${
+          !this.autoTodosEnabled_ || this.isGeneratingTabTodos_}"
+                          @click="${this.onBrowserMenuClick_}">
+                      </cr-icon-button>
+                    </div>
                 </div>
 
-                <div class="todo-list">
-                    ${
-      this.tabTodos && this.tabTodos.length > 0 ?
-          repeat(this.tabTodos, todo => todo.id, todo => html`
-                      <todo-item
-                          .id="${todo.id}"
-                          .heading="${todo.title}"
-                          .description="${todo.description}"
-                          .status="${todo.status}"
-                          .tabId="${todo.data.thirdParty!.tabId}"
-                          .lastActiveTimestamp="${
-                 todo.data.thirdParty!.lastActiveTimestamp}"
-                          .groupType="${todo.data.thirdParty!.groupType}"
-                          .variant="${TodoItemVariant.TAB}"
-                          .disable_state_mgmt="${this.isGeneratingTabTodos_}">
-                      </todo-item>
-                    `) :
-          this.hasTabGenerationError_ ? html`
+                ${this.getUnfinishedTabTodos_().length > 0 || this.getShoppingCartTabTodos_().length > 0 || this.getStaleTabTodos_().length > 0 ? html`
+                  <div class="category-sections">
+                    ${this.getUnfinishedTabTodos_().length > 0 ? html`
+                      <div class="category-section">
+                        <div class="category-header">
+                          <h3>Pending actions</h3>
+                        </div>
+                        <div class="todo-list">
+                          ${repeat(this.getUnfinishedTabTodos_(), todo => todo.id, todo => html`
+                            <todo-item
+                                .id="${todo.id}"
+                                .heading="${todo.title}"
+                                .description="${todo.description}"
+                                .status="${todo.status}"
+                                .tabId="${todo.data.thirdParty!.tabId}"
+                                .lastActiveTimestamp="${
+                        todo.data.thirdParty!.lastActiveTimestamp}"
+                                .groupType="${todo.data.thirdParty!.groupType}"
+                                .variant="${TodoItemVariant.TAB}"
+                                .liked="${this.feedbacks_.get(todo.id) ?? null}"
+                                .disable_state_mgmt="${this.isGeneratingTabTodos_}">
+                            </todo-item>
+                          `)}
+                        </div>
+                      </div>
+                    ` : ''}
+
+                    ${this.getShoppingCartTabTodos_().length > 0 ? html`
+                      <div class="category-section">
+                        <div class="category-header">
+                          <h3>Shopping carts</h3>
+                        </div>
+                        <div class="todo-list">
+                          ${repeat(this.getShoppingCartTabTodos_(), todo => todo.id, todo => html`
+                            <todo-item
+                                .id="${todo.id}"
+                                .heading="${todo.title}"
+                                .description="${todo.description}"
+                                .status="${todo.status}"
+                                .tabId="${todo.data.thirdParty!.tabId}"
+                                .lastActiveTimestamp="${
+                        todo.data.thirdParty!.lastActiveTimestamp}"
+                                .groupType="${todo.data.thirdParty!.groupType}"
+                                .variant="${TodoItemVariant.TAB}"
+                                .liked="${this.feedbacks_.get(todo.id) ?? null}"
+                                .disable_state_mgmt="${this.isGeneratingTabTodos_}">
+                            </todo-item>
+                          `)}
+                        </div>
+                      </div>
+                    ` : ''}
+
+                    ${this.getStaleTabTodos_().length > 0 ? html`
+                      <div class="category-section">
+                        <div class="category-header">
+                          <h3>Stale tabs</h3>
+                          <cr-button class="tonal-button"
+                              ?disabled="${this.isGeneratingTabTodos_}"
+                              @click="${this.onCloseAllStaleTabsClick_}">
+                            Close all tabs
+                          </cr-button>
+                        </div>
+                        <div class="todo-list">
+                          ${repeat(this.getStaleTabTodos_(), todo => todo.id, todo => html`
+                            <todo-item
+                                .id="${todo.id}"
+                                .heading="${todo.title}"
+                                .description="${todo.description}"
+                                .status="${todo.status}"
+                                .tabId="${todo.data.thirdParty!.tabId}"
+                                .lastActiveTimestamp="${
+                        todo.data.thirdParty!.lastActiveTimestamp}"
+                                .groupType="${todo.data.thirdParty!.groupType}"
+                                .variant="${TodoItemVariant.TAB}"
+                                .liked="${this.feedbacks_.get(todo.id) ?? null}"
+                                .disable_state_mgmt="${this.isGeneratingTabTodos_}">
+                            </todo-item>
+                          `)}
+                        </div>
+                      </div>
+                    ` : ''}
+                  </div>
+                ` : html`
+                  <div class="todo-list">
+                    ${this.hasTabGenerationError_ ? html`
                       <div class="placeholder-card">
                         <p class="placeholder-text error-text">Failed to generate. Please try again.</p>
                       </div>
@@ -189,7 +296,8 @@ export function getHtml(this: AiTaskboxElement) {
                         <p class="placeholder-text">No Browser Todos yet.</p>
                       </div>
                     `}
-                </div>
+                  </div>
+                `}
 
                 <!-- Completed Browser Todos Section -->
                 <div class="completed-section">
@@ -217,6 +325,7 @@ export function getHtml(this: AiTaskboxElement) {
                                   .groupType="${todo.data.thirdParty!.groupType}"
                                   .status="${todo.status}"
                                   .variant="${TodoItemVariant.TAB}"
+                                  .liked="${this.feedbacks_.get(todo.id) ?? null}"
                                   .disable_state_mgmt="${this.isGeneratingTabTodos_}">
                               </todo-item>
                             `) : ''}
@@ -225,6 +334,22 @@ export function getHtml(this: AiTaskboxElement) {
                 </div>
             </section>
         </div>
+
+        <cr-action-menu id="workspaceMenu">
+          <button class="dropdown-item"
+              title="clears all todos and any context. regeneration after clearing may result in previously dismissed/cleared todos"
+              @click="${this.onClearWorkspaceTodosClick_}">
+            Clear ALL Workspace Todos
+          </button>
+        </cr-action-menu>
+
+        <cr-action-menu id="browserMenu">
+          <button class="dropdown-item"
+              title="clears all todos and any context. regeneration after clearing may result in previously dismissed/cleared todos"
+              @click="${this.onClearBrowserTodosClick_}">
+            Clear ALL Browser Todos
+          </button>
+        </cr-action-menu>
     </main>
   `;
 }

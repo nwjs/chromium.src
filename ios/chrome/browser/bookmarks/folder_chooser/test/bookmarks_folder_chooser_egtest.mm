@@ -70,6 +70,7 @@ BookmarkStorageType kindOfTestToStorageType(KindOfTest kind) {
 
   [BookmarkEarlGrey waitForBookmarkModelLoaded];
   [BookmarkEarlGrey clearBookmarks];
+  [BookmarkEarlGrey clearBookmarksPositionCache];
 }
 
 // Tear down called once per test.
@@ -1419,6 +1420,8 @@ BookmarkStorageType kindOfTestToStorageType(KindOfTest kind) {
 // Tests that the default folder bookmarks are saved in is updated to the last
 // used folder.
 - (void)testStickyDefaultSignedOut {
+  [BookmarkEarlGrey setLastUsedBookmarkFolderToMobileBookmarksInStorageType:
+                        BookmarkStorageType::kLocalOrSyncable];
   [self util_testStickyDefaultFolder:KindOfTest::kSignedOut];
 }
 
@@ -1582,6 +1585,45 @@ BookmarkStorageType kindOfTestToStorageType(KindOfTest kind) {
   [self util_searchBookmarks:KindOfTest::kLocal];
 }
 
+// Tests that swiping down on BookmarksFolderChooserViewController when opened
+// directly from Bookmarks Home (e.g. Move action) dismisses cleanly.
+- (void)testSwipeDownToDismissFolderChooserStandaloneLocal {
+  [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
+  [BookmarkEarlGrey
+      setupStandardBookmarksInStorage:BookmarkStorageType::kLocalOrSyncable];
+  [BookmarkEarlGreyUI openBookmarks];
+  [BookmarkEarlGreyUI openMobileBookmarks:KindOfTest::kLocal];
+
+  // Long press on folder and tap Move to open Folder Chooser standalone.
+  [[EarlGrey
+      selectElementWithMatcher:TappableBookmarkNodeWithLabel(@"Folder 1")]
+      performAction:grey_longPress()];
+  [[EarlGrey selectElementWithMatcher:ButtonWithAccessibilityLabelId(
+                                          IDS_IOS_BOOKMARK_CONTEXT_MENU_MOVE)]
+      performAction:grey_tap()];
+
+  // Verify Folder Chooser is visible.
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_accessibilityID(kBookmarkFolderPickerViewContainerIdentifier)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Swipe down to dismiss Folder Chooser.
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_accessibilityID(kBookmarkFolderPickerViewContainerIdentifier)]
+      performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
+
+  // Verify Folder Chooser is dismissed.
+  [ChromeEarlGrey
+      waitForUIElementToDisappearWithMatcher:
+          grey_accessibilityID(kBookmarkFolderPickerViewContainerIdentifier)];
+
+  // Dismiss Bookmarks Home.
+  [[EarlGrey selectElementWithMatcher:BookmarksHomeDoneButton()]
+      performAction:grey_tap()];
+}
+
 @end
 
 @interface BookmarksFolderChooserAccountTestCase
@@ -1686,6 +1728,8 @@ BookmarkStorageType kindOfTestToStorageType(KindOfTest kind) {
 // used folder.
 - (void)testStickyDefaultFolderAccount {
   [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
+  [BookmarkEarlGrey setLastUsedBookmarkFolderToMobileBookmarksInStorageType:
+                        BookmarkStorageType::kAccount];
   [self util_testStickyDefaultFolder:KindOfTest::kAccount];
 }
 
@@ -1734,6 +1778,47 @@ BookmarkStorageType kindOfTestToStorageType(KindOfTest kind) {
 - (void)testSearchBookmarksAccount {
   [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [self util_searchBookmarks:KindOfTest::kAccount];
+}
+
+// Tests that signing out while BookmarksFolderChooser is open dismisses the
+// chooser gracefully without crash.
+- (void)testSignOutWhileFolderChooserIsOpenAccount {
+  [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
+  [BookmarkEarlGrey addBookmarkWithTitle:@"Account Bookmark"
+                                     URL:@"https://www.example.com"
+                               inStorage:BookmarkStorageType::kAccount];
+  [BookmarkEarlGreyUI openBookmarks];
+  [BookmarkEarlGreyUI
+      openMobileBookmarks:chrome_test_util::KindOfTest::kAccount];
+
+  // Long press on bookmark and tap Edit.
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TappableBookmarkNodeWithLabel(
+                                   @"Account Bookmark",
+                                   chrome_test_util::KindOfTest::kAccount)]
+      performAction:grey_longPress()];
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::
+                                          BookmarksContextMenuEditButton()]
+      performAction:grey_tap()];
+
+  [BookmarkEarlGreyUI openFolderPicker];
+
+  // Verify Folder Chooser is visible.
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_accessibilityID(kBookmarkFolderPickerViewContainerIdentifier)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Sign out while Folder Chooser is open.
+  [SigninEarlGrey signOut];
+
+  // Folder Chooser and Editor should be dismissed gracefully.
+  [ChromeEarlGrey
+      waitForUIElementToDisappearWithMatcher:
+          grey_accessibilityID(kBookmarkFolderPickerViewContainerIdentifier)];
+  [ChromeEarlGrey
+      waitForUIElementToDisappearWithMatcher:
+          grey_accessibilityID(kBookmarkEditViewContainerIdentifier)];
 }
 
 @end

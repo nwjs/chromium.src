@@ -38,9 +38,9 @@ import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.night_mode.GlobalNightModeStateProviderHolder;
 import org.chromium.chrome.browser.night_mode.NightModeStateProvider;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabHidingType;
+import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.TabUtils;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonVariant;
@@ -79,8 +79,7 @@ import java.util.function.Supplier;
  * loading.
  */
 @NullMarked
-public class ReaderModeManager extends EmptyTabObserver
-        implements UserData, NightModeStateProvider.Observer {
+public class ReaderModeManager implements TabObserver, UserData, NightModeStateProvider.Observer {
 
     // LINT.IfChange(DomDistillerEntryPoint)
 
@@ -672,7 +671,7 @@ public class ReaderModeManager extends EmptyTabObserver
                         RecordHistogram.recordEnumeratedHistogram(
                                 "CustomTab.AdaptiveToolbarButton.FallbackUi",
                                 AdaptiveToolbarButtonVariant.READER_MODE,
-                                AdaptiveToolbarButtonVariant.MAX_VALUE);
+                                AdaptiveToolbarButtonVariant.MAX_VALUE + 1);
                     }
                     recordEntryPointMetric(entryPoint);
                 };
@@ -853,8 +852,8 @@ public class ReaderModeManager extends EmptyTabObserver
      * @param isDistillable Whether the tab is considered distillable.
      * @param isMobileOptimized Whether the tab is considered optimized for mobile.
      * @param isLast Whether this is the last signal we'll get for the tab.
-     * @returns A pair which contains: pair.first - Whether distillability has been fully
-     *     determined. pair.second - The current distillation status.
+     * @return A pair which contains: pair.first - Whether distillability has been fully determined.
+     *     pair.second - The current distillation status.
      */
     public static Pair<Boolean, Integer> computeDistillationStatus(
             Tab tab, boolean isDistillable, boolean isMobileOptimized, boolean isLast) {
@@ -916,12 +915,10 @@ public class ReaderModeManager extends EmptyTabObserver
      * @return Whether Reader mode and its new UI are enabled.
      */
     public static boolean isEnabled() {
-        boolean enabled =
-                CommandLine.getInstance().hasSwitch(ChromeSwitches.ENABLE_DOM_DISTILLER)
-                        && !CommandLine.getInstance()
-                                .hasSwitch(ChromeSwitches.DISABLE_READER_MODE_BOTTOM_BAR)
-                        && DomDistillerTabUtils.isDistillerHeuristicsEnabled();
-        return enabled;
+        return CommandLine.getInstance().hasSwitch(ChromeSwitches.ENABLE_DOM_DISTILLER)
+                && !CommandLine.getInstance()
+                        .hasSwitch(ChromeSwitches.DISABLE_READER_MODE_BOTTOM_BAR)
+                && DomDistillerTabUtils.isDistillerHeuristicsEnabled();
     }
 
     /**

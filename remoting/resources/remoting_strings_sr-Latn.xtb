@@ -48,6 +48,7 @@ Ako je stavka „<ph name="SERVICE_SCRIPT_NAME" />“ već označena, uklonite 
 <translation id="3197730452537982411">Udaljeni računar</translation>
 <translation id="3236334139428307578">Autorska prava 2026. Autori Chromium-a. Sva prava zadržana.</translation>
 <translation id="324272851072175193">Pošalji ova uputstva imejlom</translation>
+<translation id="3254626532848657899">Premesti na dno</translation>
 <translation id="3305934114213025800"><ph name="PRODUCT_NAME" /> želi da napravi izmene.</translation>
 <translation id="3339299787263251426">Bezbedno pristupajte računaru preko interneta</translation>
 <translation id="3385242214819933234">Vlasnik hosta je nevažeći.</translation>
@@ -166,6 +167,7 @@ Ako je stavka „<ph name="SERVICE_SCRIPT_NAME" />“ već označena, uklonite 
 <translation id="8073845705237259513">Da biste koristili Chrome udaljeni računar, morate da dodate Google nalog na uređaj.</translation>
 <translation id="809687642899217504">Moji računari</translation>
 <translation id="8116630183974937060">Došlo je do greške na mreži. Uverite se da je uređaj onlajn i pokušajte ponovo.</translation>
+<translation id="8249310407154411074">Premesti na vrh</translation>
 <translation id="8295077433896346116">Da biste koristili <ph name="PRODUCT_NAME" />, morate da date dozvolu za Pristupačnost da bi unos sa daljinskog uređaja mogao da se doda u ovaj Mac.
 
 Da biste dali ovu dozvolu, kliknite na <ph name="BUTTON_NAME" /> u nastavku. U oknu podešavanja za Pristupačnost koje se otvara označite polje pored stavke <ph name="SERVICE_SCRIPT_NAME" />.

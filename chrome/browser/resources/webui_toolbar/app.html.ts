@@ -43,7 +43,8 @@ ${this.isBackForwardButtonEnabled_ ? html`
   ` : ''}
   ${this.isLocationBarEnabled_ ? html`
     <location-bar id="location-bar"
-        .locationBarState="${this.navigationControlsState_.locationBarState}">
+        .locationBarState="${this.navigationControlsState_.locationBarState}"
+        .touchUi="${this.navigationControlsState_.touchUi}">
     </location-bar>
   ` : ''}
   ${this.isExtensionsContainerEnabled_ ? html`
@@ -76,7 +77,8 @@ ${this.isBackForwardButtonEnabled_ ? html`
     </avatar-button>
   ` : ''}
   ${this.webUIToolbarFullyEnabled_ ? html`
-    <overflow-button id="overflow" hidden>
+    <overflow-button id="overflow" hidden
+        .getOverflowedMenuItems="${() => this.getOverflowedMenuItems()}">
     </overflow-button>
   ` : ''}
   ${this.isAppMenuButtonEnabled_ ? html`

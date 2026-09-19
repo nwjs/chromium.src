@@ -153,7 +153,7 @@ bool PermissionSet::HasAPIPermission(APIPermissionID id, bool ignore_override) c
   return apis().count(id);
 }
 
-bool PermissionSet::HasAPIPermission(const std::string& permission_name,
+bool PermissionSet::HasAPIPermission(std::string_view permission_name,
                                      bool ignore_override) const {
   const APIPermissionInfo* permission =
       PermissionsInfo::GetInstance()->GetByName(permission_name);

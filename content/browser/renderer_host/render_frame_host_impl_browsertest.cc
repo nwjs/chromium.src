@@ -214,6 +214,31 @@ class FirstPartySchemeContentBrowserClient
       trustmeifembeddingsecure_factory_;
 };
 
+class BlockedNavigationDelegate : public WebContentsDelegate {
+ public:
+  explicit BlockedNavigationDelegate(WebContents* web_contents)
+      : web_contents_(web_contents) {
+    web_contents_->SetDelegate(this);
+  }
+
+  ~BlockedNavigationDelegate() override { web_contents_->SetDelegate(nullptr); }
+
+  void OnDidBlockNavigation(
+      WebContents* web_contents,
+      const GURL& blocked_url,
+      const GURL& initiator_url,
+      const url::Origin& initiator_origin,
+      blink::mojom::NavigationBlockedReason reason) override {
+    ++blocked_navigation_count_;
+  }
+
+  int blocked_navigation_count() const { return blocked_navigation_count_; }
+
+ private:
+  raw_ptr<WebContents> web_contents_;
+  int blocked_navigation_count_ = 0;
+};
+
 }  // namespace
 
 // TODO(mlamouri): part of these tests were removed because they were dependent
@@ -744,14 +769,16 @@ class RenderFrameHostFactoryForBeforeUnloadInterceptor
       const blink::LocalFrameToken& frame_token,
       const blink::DocumentToken& document_token,
       base::UnguessableToken devtools_frame_token,
+      const base::UnguessableToken& initiator_state_token,
       bool renderer_initiated_creation,
       RenderFrameHostImpl::LifecycleStateImpl lifecycle_state,
       scoped_refptr<BrowsingContextState> browsing_context_state) override {
     return base::WrapUnique(new RenderFrameHostImplForBeforeUnloadInterceptor(
         site_instance, std::move(render_view_host), delegate, frame_tree,
         frame_tree_node, routing_id, std::move(frame_remote), frame_token,
-        document_token, devtools_frame_token, renderer_initiated_creation,
-        lifecycle_state, std::move(browsing_context_state),
+        document_token, devtools_frame_token, initiator_state_token,
+        renderer_initiated_creation, lifecycle_state,
+        std::move(browsing_context_state),
         frame_tree_node->frame_owner_element_type(), frame_tree_node->parent(),
         frame_tree_node->fenced_frame_status()));
   }
@@ -10087,6 +10114,36 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTestWithBFCache,
   EXPECT_TRUE(ContainsSurfaceIdOrNewer(ids, id_b));
 }
 
+// Tests that DidBlockNavigation from a document that has been placed in the
+// back/forward cache does not surface blocked-redirect UI for the now-primary
+// page.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTestWithBFCache,
+                       DidBlockNavigationIgnoredFromBackForwardCache) {
+  GURL url_a(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  GURL url_b(embedded_test_server()->GetURL("b.com", "/title2.html"));
+
+  // Navigate to A.
+  EXPECT_TRUE(NavigateToURL(shell(), url_a));
+  RenderFrameHostImpl* rfh_a = web_contents()->GetPrimaryMainFrame();
+
+  // Navigate to B, placing A in the back/forward cache.
+  EXPECT_TRUE(NavigateToURL(shell(), url_b));
+  ASSERT_TRUE(rfh_a->IsInBackForwardCache());
+
+  BlockedNavigationDelegate delegate(web_contents());
+
+  // Simulate the cached document reporting a blocked redirect after it has
+  // entered the back/forward cache.
+  rfh_a->DidBlockNavigation(
+      url_a, blink::mojom::NavigationBlockedReason::kRedirectWithNoUserGesture);
+  EXPECT_EQ(0, delegate.blocked_navigation_count());
+
+  // The active document should still be able to report blocked redirects.
+  web_contents()->GetPrimaryMainFrame()->DidBlockNavigation(
+      url_b, blink::mojom::NavigationBlockedReason::kRedirectWithNoUserGesture);
+  EXPECT_EQ(1, delegate.blocked_navigation_count());
+}
+
 class RenderFrameHostImplPrerenderBrowserTest
     : public RenderFrameHostImplBrowserTest {
  public:
@@ -11058,6 +11115,98 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
 
   // Browser should have reset the flag on document commit. No crash.
   EXPECT_FALSE(root_frame_host()->has_navigate_event_handler());
+}
+
+namespace {
+
+// Allows MojoJS enablement for every frame, standing in for an embedder that
+// sanctions a specific frame via ShouldAllowMojoJsBindingsForFrame().
+class AllowMojoJsContentBrowserClient
+    : public ContentBrowserTestContentBrowserClient {
+ public:
+  bool ShouldAllowMojoJsBindingsForFrame(
+      RenderFrameHost& render_frame_host) override {
+    return true;
+  }
+};
+
+// A BrowserInterfaceBroker that records the interface names requested through
+// it instead of binding anything.
+class RecordingInterfaceBroker : public blink::mojom::BrowserInterfaceBroker {
+ public:
+  mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker> Bind() {
+    return receiver_.BindNewPipeAndPassRemote();
+  }
+
+  void GetInterface(mojo::GenericPendingReceiver receiver) override {
+    requested_names_.push_back(receiver.interface_name().value_or(""));
+    if (quit_) {
+      std::move(quit_).Run();
+    }
+  }
+
+  void WaitForRequest() {
+    if (!requested_names_.empty()) {
+      return;
+    }
+    base::RunLoop loop;
+    quit_ = loop.QuitClosure();
+    loop.Run();
+  }
+
+  const std::vector<std::string>& requested_names() const {
+    return requested_names_;
+  }
+
+ private:
+  std::vector<std::string> requested_names_;
+  base::OnceClosure quit_;
+  mojo::Receiver<blink::mojom::BrowserInterfaceBroker> receiver_{this};
+};
+
+// Enables MojoJS with the given broker for the next committing document.
+class EnableMojoJsWithBrokerOnCommit : public WebContentsObserver {
+ public:
+  EnableMojoJsWithBrokerOnCommit(WebContents* web_contents,
+                                 RecordingInterfaceBroker* broker)
+      : WebContentsObserver(web_contents), broker_(broker) {}
+
+  void ReadyToCommitNavigation(NavigationHandle* navigation_handle) override {
+    navigation_handle->GetRenderFrameHost()->EnableMojoJsBindingsWithBroker(
+        broker_->Bind());
+  }
+
+ private:
+  raw_ptr<RecordingInterfaceBroker> broker_;
+};
+
+}  // namespace
+
+// EnableMojoJsBindingsWithBroker() works for a non-WebUI frame sanctioned by
+// the embedder: the document gets the MojoJS API, and Mojo.bindInterface
+// requests are routed to the caller-supplied broker rather than the frame's
+// BrowserInterfaceBroker.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
+                       MojoJsBindingsWithEmbedderOwnedBroker) {
+  AllowMojoJsContentBrowserClient client;
+  RecordingInterfaceBroker broker;
+  EnableMojoJsWithBrokerOnCommit enabler(web_contents(), &broker);
+
+  ASSERT_TRUE(NavigateToURL(
+      shell(), embedded_test_server()->GetURL("a.com", "/title1.html")));
+
+  // The document has MojoJS enabled.
+  EXPECT_EQ(true, EvalJs(web_contents(), "typeof Mojo !== 'undefined'"));
+
+  // A bindInterface call reaches the supplied broker, which chose not to bind
+  // it -- proving requests are scoped to the embedder's broker.
+  ASSERT_TRUE(ExecJs(web_contents(), R"(
+    const pipe = Mojo.createMessagePipe();
+    Mojo.bindInterface('test.mojom.NotServed', pipe.handle0);
+  )"));
+  broker.WaitForRequest();
+  ASSERT_EQ(1u, broker.requested_names().size());
+  EXPECT_EQ("test.mojom.NotServed", broker.requested_names()[0]);
 }
 
 }  // namespace content

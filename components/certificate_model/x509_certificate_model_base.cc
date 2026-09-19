@@ -12,6 +12,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/string_view_util.h"
+#include "components/certificate_model/x509_certificate_constants.h"
 #include "components/strings/grit/components_strings.h"
 #include "crypto/sha2.h"
 #include "net/cert/qwac.h"
@@ -243,6 +244,7 @@ std::optional<int> GetCommonOidStringId(bssl::der::Input oid) {
           {bssl::der::Input(kOidAlgMldsa44), IDS_CERT_OID_ML_DSA_44},
           {bssl::der::Input(kOidAlgMldsa65), IDS_CERT_OID_ML_DSA_65},
           {bssl::der::Input(kOidAlgMldsa87), IDS_CERT_OID_ML_DSA_87},
+          {bssl::der::Input(kOidAlgMtcProofDraft), IDS_CERT_OID_MTC_PROOF},
 
           // Extended Key Usage fields:
           {bssl::der::Input(bssl::kAnyEKU), IDS_CERT_EKU_ANY_EKU},
@@ -297,16 +299,15 @@ X509CertificateModelBase::X509CertificateModelBase(
     bssl::UniquePtr<CRYPTO_BUFFER> cert_data)
     : cert_data_(std::move(cert_data)) {
   CHECK(cert_data_);
-  bssl::ParseCertificateOptions options;
-  options.allow_invalid_serial_numbers = true;
   bssl::CertErrors unused_errors;
   if (!bssl::ParseCertificate(
           bssl::der::Input(
               net::x509_util::CryptoBufferAsSpan(cert_data_.get())),
           &tbs_certificate_tlv_, &signature_algorithm_tlv_, &signature_value_,
           &unused_errors) ||
-      !ParseTbsCertificate(tbs_certificate_tlv_, options, &tbs_,
-                           &unused_errors) ||
+      !ParseTbsCertificate(tbs_certificate_tlv_,
+                           net::x509_util::DefaultParseCertificateOptions(),
+                           &tbs_, &unused_errors) ||
       !bssl::ParseName(tbs_.subject_tlv, &subject_rdns_) ||
       !bssl::ParseName(tbs_.issuer_tlv, &issuer_rdns_)) {
     return;

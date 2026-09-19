@@ -68,6 +68,7 @@
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/size_assertions.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
 
@@ -89,14 +90,14 @@ void LayoutBlock::Trace(Visitor* visitor) const {
   LayoutBox::Trace(visitor);
 }
 
-void LayoutBlock::WillBeDestroyed() {
+void LayoutBlock::WillBeDestroyed(const ComputedStyle* style) {
   NOT_DESTROYED();
 
   if (LocalFrame* frame = GetFrame()) {
     frame->Selection().LayoutBlockWillBeDestroyed(*this);
     frame->GetPage()->GetDragCaret().LayoutBlockWillBeDestroyed(*this);
   }
-  LayoutBox::WillBeDestroyed();
+  LayoutBox::WillBeDestroyed(style);
 }
 
 // Compute a local version of the "font size scale factor" used by SVG
@@ -119,7 +120,8 @@ void LayoutBlock::StyleDidChange(
   // Computes old scaling factor before PaintLayer::UpdateTransform()
   // updates Layer()->Transform().
   double old_squared_scale = 1;
-  if (Layer() && diff.transform_changed && HasSVGTextDescendants()) {
+  if (!RuntimeEnabledFeatures::SvgIgnoreOuterTransformsEnabled() && Layer() &&
+      diff.transform_changed && HasSVGTextDescendants()) {
     old_squared_scale =
         ComputeSquaredLocalFontSizeScalingFactor(Layer()->Transform());
   }
@@ -143,7 +145,8 @@ void LayoutBlock::StyleDidChange(
 
   PropagateStyleToAnonymousChildren();
 
-  if (diff.transform_changed && HasSVGTextDescendants()) {
+  if (!RuntimeEnabledFeatures::SvgIgnoreOuterTransformsEnabled() &&
+      diff.transform_changed && HasSVGTextDescendants()) {
     const double new_squared_scale = ComputeSquaredLocalFontSizeScalingFactor(
         Layer() ? Layer()->Transform() : nullptr);
     // Compare local scale before and after.
@@ -338,6 +341,7 @@ void LayoutBlock::RemovePositionedObjects(LayoutObject* stay_within) {
 
 void LayoutBlock::AddSvgTextDescendant(LayoutSVGText& svg_text) {
   NOT_DESTROYED();
+  DCHECK(!RuntimeEnabledFeatures::SvgIgnoreOuterTransformsEnabled());
   auto result = View()->SvgTextDescendantsMap().insert(this, nullptr);
   if (result.is_new_entry) {
     result.stored_value->value =
@@ -349,6 +353,7 @@ void LayoutBlock::AddSvgTextDescendant(LayoutSVGText& svg_text) {
 
 void LayoutBlock::RemoveSvgTextDescendant(LayoutSVGText& svg_text) {
   NOT_DESTROYED();
+  DCHECK(!RuntimeEnabledFeatures::SvgIgnoreOuterTransformsEnabled());
   auto& map = View()->SvgTextDescendantsMap();
   auto it = map.find(this);
   if (it == map.end())
@@ -400,6 +405,28 @@ bool LayoutBlock::NodeAtPoint(HitTestResult& result,
   return false;
 }
 
+namespace {
+
+// Returns true if the editability of |box| differs from that of its closest
+// ancestor that has a node, i.e. |box| is an editing boundary.
+bool IsEditingBoundary(const LayoutBox& box) {
+  const Node* node = box.NonPseudoNode();
+  if (!node) {
+    return false;
+  }
+  const LayoutObject* parent = box.Parent();
+  if (!parent) {
+    return false;
+  }
+  const Node* parent_node = parent->GeneratingNode();
+  if (!parent_node) {
+    return false;
+  }
+  return IsEditable(*node) != IsEditable(*parent_node);
+}
+
+}  // namespace
+
 PositionWithAffinity LayoutBlock::PositionForPointIfOutsideAtomicInlineLevel(
     const PhysicalOffset& point) const {
   NOT_DESTROYED();
@@ -408,15 +435,40 @@ PositionWithAffinity LayoutBlock::PositionForPointIfOutsideAtomicInlineLevel(
       WritingModeConverter({StyleRef().GetWritingMode(), ResolvedDirection()},
                            StitchedSize())
           .ToLogical(point, PhysicalSize());
-  if (logical_offset.inline_offset < 0)
-    return FirstPositionInOrBeforeThis();
-  if (logical_offset.inline_offset >= LogicalWidth())
-    return LastPositionInOrAfterThis();
-  if (logical_offset.block_offset < 0)
-    return FirstPositionInOrBeforeThis();
-  if (logical_offset.block_offset >= LogicalHeight())
-    return LastPositionInOrAfterThis();
-  return PositionWithAffinity();
+
+  // Which side did |point| miss on? The inline direction takes precedence over
+  // the block direction.
+  bool before;
+  if (logical_offset.inline_offset < 0) {
+    before = true;
+  } else if (logical_offset.inline_offset >= LogicalWidth()) {
+    before = false;
+  } else if (logical_offset.block_offset < 0) {
+    before = true;
+  } else if (logical_offset.block_offset >= LogicalHeight()) {
+    before = false;
+  } else {
+    // |point| is inside; let the caller resolve the position normally.
+    return PositionWithAffinity();
+  }
+
+  // At an editing boundary the position must stay outside, or clicking next to
+  // <div contenteditable style="display:inline-block"> pulls focus into it; the
+  // LayoutObject position helpers all resolve back inside, so anchor on the
+  // parent instead.
+  if (IsEditingBoundary(*this) &&
+      RuntimeEnabledFeatures::CaretOutsideEditableAtomicInlineEnabled()) {
+    const Node* node = NonPseudoNode();
+    DCHECK(node);
+    const Position position =
+        before ? Position::BeforeNode(*node) : Position::AfterNode(*node);
+    // Re-anchor onto the parent; this box itself is the editing boundary.
+    const Position position_in_parent = position.ToOffsetInAnchor();
+    if (position_in_parent.IsNotNull()) {
+      return PositionWithAffinity(position_in_parent);
+    }
+  }
+  return before ? FirstPositionInOrBeforeThis() : LastPositionInOrAfterThis();
 }
 
 PositionWithAffinity LayoutBlock::PositionForPoint(

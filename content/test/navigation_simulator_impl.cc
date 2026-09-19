@@ -10,7 +10,6 @@
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/run_loop.h"
-#include "components/history/core/browser/features.h"
 #include "content/browser/back_forward_cache/back_forward_cache_metrics.h"
 #include "content/browser/renderer_host/debug_urls.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
@@ -33,6 +32,7 @@
 #include "net/storage_access_api/status.h"
 #include "net/url_request/redirect_info.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
+#include "services/network/public/cpp/resource_request_body.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
@@ -1070,6 +1070,16 @@ void NavigationSimulatorImpl::SetMethod(const std::string& method) {
   initial_method_ = method;
 }
 
+void NavigationSimulatorImpl::SetResourceRequestBody(
+    scoped_refptr<network::ResourceRequestBody> resource_request_body) {
+  CHECK_EQ(INITIALIZATION, state_) << "The resource request body cannot be set "
+                                      "after the navigation has started";
+  resource_request_body_ = std::move(resource_request_body);
+  if (resource_request_body_) {
+    post_id_ = resource_request_body_->identifier();
+  }
+}
+
 void NavigationSimulatorImpl::SetIsFormSubmission(bool is_form_submission) {
   CHECK_EQ(INITIALIZATION, state_) << "The form submission parameter cannot "
                                       "be set after the navigation has started";
@@ -1213,6 +1223,7 @@ void NavigationSimulatorImpl::BrowserInitiatedStartAndWaitBeforeUnload() {
       load_url_params.initiator_origin = initiator_origin_;
       if (initial_method_ == "POST") {
         load_url_params.load_type = NavigationController::LOAD_TYPE_HTTP_POST;
+        load_url_params.post_data = resource_request_body_;
       }
 
       web_contents_->GetController().LoadURLWithParams(load_url_params);
@@ -1457,6 +1468,7 @@ bool NavigationSimulatorImpl::SimulateRendererInitiatedStart() {
   common_params->url = navigation_url_;
   common_params->initiator_origin = initiator_origin_.value();
   common_params->method = initial_method_;
+  common_params->post_data = resource_request_body_;
   common_params->referrer = referrer_.Clone();
   common_params->transition = transition_;
   common_params->navigation_type =
@@ -1644,6 +1656,11 @@ NavigationSimulatorImpl::BuildDidCommitProvisionalLoadParams(
   if (frame_tree_node_->IsMainFrame() && request_) {
     params->transition =
         ui::PageTransitionFromInt(request_->common_params().transition);
+    if (ui::PageTransitionCoreTypeIs(params->transition,
+                                     ui::PAGE_TRANSITION_LINK) &&
+        request_->common_params().post_data) {
+      params->transition = ui::PAGE_TRANSITION_FORM_SUBMIT;
+    }
   } else if (!params->did_create_new_entry &&
              PageTransitionCoreTypeIs(transition_,
                                       ui::PAGE_TRANSITION_MANUAL_SUBFRAME)) {
@@ -1659,22 +1676,20 @@ NavigationSimulatorImpl::BuildDidCommitProvisionalLoadParams(
   params->navigation_token = request_
                                  ? request_->commit_params().navigation_token
                                  : base::UnguessableToken::Create();
-  params->post_id = post_id_;
 
   params->method = request_ ? request_->common_params().method : "GET";
+  params->post_id = -1;
+  if (params->method == "POST") {
+    params->post_id = post_id_;
+  }
 
   if (failed_navigation) {
     params->url_is_unreachable = true;
     params->should_update_history = false;
-  } else if (same_document) {
-    params->should_update_history = true;
   } else {
     // TODO(crbug.com/40161149): Reconsider how we calculate
     // should_update_history.
-    bool are_404_navigations_saved_in_history =
-        base::FeatureList::IsEnabled(history::kVisitedLinksOn404);
-    params->should_update_history = are_404_navigations_saved_in_history ||
-                                    response_headers_->response_code() != 404;
+    params->should_update_history = true;
   }
 
   // This mirrors the calculation in

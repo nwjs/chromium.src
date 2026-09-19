@@ -25,37 +25,6 @@ uint64_t GetRegionSize(const cc::Region& region) {
   return size;
 }
 
-// static
-Element* ContainerRootFallback(Element* element) {
-  // Check if the element itself is a container root (e.g., <img
-  // containertiming> where the painted element and the root are the same
-  // element).
-  if (element->FastHasAttribute(html_names::kContainertimingAttr)) {
-    return element;
-  }
-  // Walk up the DOM looking for a container root. Stops at
-  // containertimingignore (unless that element also has containertiming).
-  while ((element = element->parentElement())) {
-    if (element->FastHasAttribute(html_names::kContainertimingAttr)) {
-      return element;
-    }
-    if (element->HasContainerTimingIgnoreAttribute()) {
-      return nullptr;
-    }
-  }
-  return nullptr;
-}
-
-// static
-Element* ParentContainerRootFallback(Element* element) {
-  auto* parent = element->parentElement();
-  if (!parent || !parent->SelfOrAncestorHasContainerTiming()) {
-    return nullptr;
-  }
-
-  return ContainerRootFallback(parent);
-}
-
 }  // namespace
 
 // static
@@ -71,12 +40,29 @@ ContainerTiming& ContainerTiming::From(LocalDOMWindow& window) {
 
 ContainerTiming::ContainerTiming(LocalDOMWindow& window)
     : Supplement<LocalDOMWindow>(window),
-      performance_(DOMWindowPerformance::performance(window)) {
-  if (RuntimeEnabledFeatures::ContainerTimingPrepaintTraversalEnabled(
-          &window)) {
-    paint_attribution_tracker_ =
-        MakeGarbageCollected<ContainerTimingPaintAttributionTracker>();
+      performance_(DOMWindowPerformance::performance(window)),
+      paint_attribution_tracker_(
+          MakeGarbageCollected<ContainerTimingPaintAttributionTracker>()) {
+  CHECK(RuntimeEnabledFeatures::ContainerTimingEnabled(&window));
+}
+
+// static
+bool ContainerTiming::ContributesToContainerTiming(Element* element) {
+  if (!element || element->IsInShadowTree()) {
+    return false;
   }
+  // Check the feature before From(), which would create the supplement: this
+  // runs for every text record considered for timing.
+  LocalDOMWindow* window = element->GetDocument().domWindow();
+  if (!window || !RuntimeEnabledFeatures::ContainerTimingEnabled(window)) {
+    return false;
+  }
+  // The paint attribution tracker, populated during the pre-paint walk (which
+  // runs before paint), keys images by their generating node and text by its
+  // aggregation node, which is exactly `element` either way.
+  ContainerTimingPaintAttributionTracker* tracker =
+      From(*window).PaintAttributionTracker();
+  return tracker->GetContainerRootFor(element) != nullptr;
 }
 
 bool ContainerTiming::CanReportToContainerTiming() const {
@@ -160,23 +146,23 @@ void ContainerTiming::OnElementPainted(
     const DOMPaintTimingInfo& paint_timing_info,
     Element* element,
     const gfx::RectF& intersection_rect) {
-  if (!ContributesToContainerTiming(element)) {
+  if (!element) {
     return;
   }
-
+  // The tracker only maps elements that are actually attributed to a container
+  // root. A null result means this paint (e.g. a text record that only exists
+  // for LCP) is not under any container root and must be ignored.
+  //
   // This runs at presentation time, not during paint, so we deliberately don't
   // assert that ContainerTimingChanged() is clean: an attribute change between
   // paint and now marks the layout object for re-attribution on a future
   // pre-paint, which doesn't affect this callback. We report the paint that
-  // already happened using the attribution captured at the last pre-paint. The
-  // fallback is only for the feature-off case (no tracker).
+  // already happened using the attribution captured at the last pre-paint.
   Element* container_root =
-      paint_attribution_tracker_
-          ? paint_attribution_tracker_->GetContainerRootFor(element)
-          : ContainerRootFallback(element);
+      paint_attribution_tracker_->GetContainerRootFor(element);
   if (!container_root) {
-    // This runs at presentation time, so the element may have been detached
-    // since paint, leaving no reachable container root. Don't report it.
+    // The element may also have been detached since paint, leaving no reachable
+    // container root. Don't report it.
     // TODO(crbug.com/535107494): attributing at paint time would let this
     // become a CHECK.
     return;
@@ -184,9 +170,9 @@ void ContainerTiming::OnElementPainted(
 
   const gfx::Rect enclosing_rect = gfx::ToEnclosingRect(intersection_rect);
   // The attribute re-check is not redundant: this runs at presentation time, so
-  // the tracker (or fallback chain) can be stale relative to the live DOM if
-  // the containertiming attribute was removed since the last pre-paint. Skip
-  // roots that are no longer roots. See StaleTrackerGuard_* tests.
+  // the tracker can be stale relative to the live DOM if the containertiming
+  // attribute was removed since the last pre-paint. Skip roots that are no
+  // longer roots. See StaleTrackerGuard_* tests.
   while (container_root &&
          container_root->FastHasAttribute(html_names::kContainertimingAttr)) {
     Record* record = GetOrCreateRecord(paint_timing_info, container_root);
@@ -198,10 +184,7 @@ void ContainerTiming::OnElementPainted(
       break;
     }
     container_root =
-        paint_attribution_tracker_
-            ? paint_attribution_tracker_->GetParentContainerRootFor(
-                  container_root)
-            : ParentContainerRootFallback(container_root);
+        paint_attribution_tracker_->GetParentContainerRootFor(container_root);
   }
   performance_->SetHasContainerTimingChanges();
 }

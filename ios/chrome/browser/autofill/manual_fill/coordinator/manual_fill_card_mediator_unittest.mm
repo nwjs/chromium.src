@@ -10,7 +10,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/run_until.h"
 #import "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
-#import "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#import "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #import "components/autofill/ios/browser/autofill_client_ios.h"
 #import "components/autofill/ios/browser/test_autofill_client_ios.h"
 #import "components/sync/test/test_sync_service.h"
@@ -110,7 +110,6 @@ class ManualFillCardMediatorTest : public PlatformTest {
 
     mediator_ = [[ManualFillCardMediator alloc]
         initWithPersonalDataManager:&test_personal_data_manager_
-             reauthenticationModule:nil
              showAutofillFormButton:NO
                            webState:nullptr];
 
@@ -259,7 +258,6 @@ TEST_F(ManualFillCardMediatorTest,
   [mediator() disconnect];
   mediator_ = [[ManualFillCardMediator alloc]
       initWithPersonalDataManager:&test_personal_data_manager_
-           reauthenticationModule:nil
            showAutofillFormButton:NO
                          webState:web_state.get()];
   mediator_.consumer = consumer();

@@ -57,6 +57,9 @@ bool IsPreservePortsForTestingEnabled();
 // Whether navigation interception is enabled.
 bool IsNavigationInterceptionEnabled();
 
+// Whether the FedCM Identity Handler (service worker interception) is enabled.
+bool IsFedCmIdentityHandlerEnabled();
+
 // Whether embedder initiated login is enabled.
 bool IsEmbedderInitiatedLoginEnabled();
 
@@ -65,6 +68,9 @@ bool IsFedCmAmbientUIEnabled();
 
 // Whether native IdPs are enabled.
 bool IsFedCmNativeIdPsEnabled();
+
+// Whether Active Mode with multiple IdPs is enabled.
+bool IsActiveModeMultipleIdentityProvidersEnabled();
 
 }  // namespace content::webid
 

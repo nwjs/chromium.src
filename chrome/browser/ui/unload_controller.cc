@@ -174,8 +174,7 @@ void UnloadController::OnWindowClosing() {
 #endif
 
   if (tab_restore_service && notify_restore_service) {
-    tab_restore_service->BrowserClosing(
-        browser_->GetFeatures().live_tab_context());
+    tab_restore_service->BrowserClosing(BrowserLiveTabContext::From(browser_));
   }
 
   if (!browser_->GetTabStripModel()->empty()) {
@@ -190,7 +189,7 @@ void UnloadController::OnWindowClosing() {
 }
 
 UnloadController::UnloadController(BrowserWindowInterface* browser)
-    : browser_(browser->GetBrowserForMigrationOnly()),
+    : browser_(browser),
       scoped_unowned_user_data_(browser->GetUnownedUserDataHost(), *this),
       web_contents_collection_(this),
       is_attempting_to_close_browser_(false) {

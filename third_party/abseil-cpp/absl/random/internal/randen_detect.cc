@@ -19,20 +19,18 @@
 
 #include "absl/random/internal/randen_detect.h"
 
-#if defined(__APPLE__) && defined(__aarch64__)
-#if defined(__has_include)
-#if __has_include(<arm/cpu_capabilities_public.h>)
-#include <arm/cpu_capabilities_public.h>
-#endif
-#endif
-#include <sys/sysctl.h>
-#include <sys/types.h>
-#endif
-
 #include <optional>  // IWYU pragma: keep
 
 #include "absl/base/config.h"
 #include "absl/random/internal/platform.h"
+
+#if defined(__APPLE__) && defined(__aarch64__)
+#if __has_include(<arm/cpu_capabilities_public.h>)
+#include <arm/cpu_capabilities_public.h>
+#endif
+#include <sys/sysctl.h>
+#include <sys/types.h>
+#endif
 
 #if !defined(__UCLIBC__) && defined(__GLIBC__) && \
     (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 16))

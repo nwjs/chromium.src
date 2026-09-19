@@ -126,7 +126,6 @@ public class AtMemoryBottomSheetMediatorTest {
 
         mMediator.show(suggestions);
 
-        assertTrue(mModel.get(VISIBLE));
         assertEquals(2, mModelList.size());
 
         assertEquals(suggestions.get(0).getLabel(), mModelList.get(0).model.get(TITLE));
@@ -136,6 +135,13 @@ public class AtMemoryBottomSheetMediatorTest {
         itemModel1.get(ON_SUGGESTION_CLICKED).run();
 
         verify(mDelegate).onSuggestionClicked(/* position= */ 0);
+    }
+
+    @Test
+    public void testOnSheetOpened() {
+        assertFalse(mModel.get(VISIBLE));
+        mMediator.onSheetOpened();
+        assertTrue(mModel.get(VISIBLE));
     }
 
     @Test
@@ -239,7 +245,7 @@ public class AtMemoryBottomSheetMediatorTest {
                         .setIconId(R.drawable.ic_spark_24dp)
                         .setLabel("Ask Gemini")
                         .setSubLabel("Search with Gemini")
-                        .setSuggestionType(SuggestionType.OPEN_GEMINI)
+                        .setSuggestionType(SuggestionType.AT_MEMORY_OPEN_GEMINI)
                         .build();
         List<AutofillSuggestion> suggestions = List.of(suggestion);
         mMediator.show(suggestions);

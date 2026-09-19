@@ -25,6 +25,11 @@
 #include "extensions/buildflags/buildflags.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "services/device/public/mojom/hid.mojom-forward.h"
+#include "url/origin.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/android/device_dialog/hid_chooser_dialog_android.h"
+#endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
@@ -53,6 +58,9 @@ HidConnectionTracker* GetConnectionTracker(
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
+// Returns the embedder origin if `render_frame_host` is a <webview> guest, or
+// std::nullopt if it is not a guest context. Unattached guests return an opaque
+// origin to ensure callers use partitioned permission storage.
 std::optional<url::Origin> GetWebViewEmbedderOrigin(
     content::RenderFrameHost* render_frame_host) {
   if (!render_frame_host) {
@@ -62,11 +70,14 @@ std::optional<url::Origin> GetWebViewEmbedderOrigin(
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   if (auto* web_view =
           extensions::WebViewGuest::FromRenderFrameHost(render_frame_host)) {
-    auto* embedder_rfh = web_view->embedder_rfh();
-    if (!embedder_rfh) {
-      return std::nullopt;
+    if (auto* embedder_rfh = web_view->embedder_rfh()) {
+      return embedder_rfh->GetMainFrame()->GetLastCommittedOrigin();
     }
-    return embedder_rfh->GetMainFrame()->GetLastCommittedOrigin();
+    // The guest exists but isn't currently attached to its embedder. Return an
+    // opaque origin so that callers still consult `WebViewChooserContext`
+    // (which will hold no grants for it) instead of treating the frame as a
+    // top-level page and falling through to profile-level state.
+    return url::Origin();
   }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
@@ -221,16 +232,15 @@ std::unique_ptr<content::HidChooser> ChromeHidDelegate::RunChooser(
   }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
+  auto chooser_controller = std::make_unique<HidChooserController>(
+      render_frame_host, std::move(filters), std::move(exclusion_filters),
+      std::move(callback));
 #if BUILDFLAG(IS_ANDROID)
-  // TODO(crbug.com/480251649): Show a device chooser on Android.
-  NOTIMPLEMENTED();
-  return nullptr;
+  return std::make_unique<HidChooser>(HidChooserDialogAndroid::Create(
+      render_frame_host, std::move(chooser_controller)));
 #else
   return std::make_unique<HidChooser>(chrome::ShowDeviceChooserDialog(
-      render_frame_host,
-      std::make_unique<HidChooserController>(
-          render_frame_host, std::move(filters), std::move(exclusion_filters),
-          std::move(callback))));
+      render_frame_host, std::move(chooser_controller)));
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 

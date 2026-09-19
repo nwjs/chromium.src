@@ -25,12 +25,12 @@
 #include "chrome/browser/ash/boca/on_task/on_task_pod_controller_impl.h"
 #include "chrome/browser/ash/browser_delegate/browser_controller.h"
 #include "chrome/browser/ash/browser_delegate/browser_delegate.h"
-#include "chrome/browser/platform_util.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chromeos/ash/components/boca/boca_metrics_util.h"
 #include "chromeos/ash/components/boca/boca_role_util.h"
 #include "chromeos/ash/components/boca/boca_window_observer.h"
 #include "chromeos/ash/components/boca/on_task/activity/active_tab_tracker.h"
@@ -111,6 +111,9 @@ void LockedSessionWindowTracker::RefreshUrlBlocklist() {
 void LockedSessionWindowTracker::set_oauth_in_progress(
     bool in_progress,
     ash::BrowserDelegate* browser) {
+  if (in_progress && !oauth_in_progress_) {
+    ash::boca::RecordOnTaskOAuthTriggered();
+  }
   oauth_in_progress_ = in_progress;
   if (in_progress && browser &&
       browser->GetType() == ash::BrowserType::kAppPopup) {
@@ -155,7 +158,7 @@ void LockedSessionWindowTracker::MaybeCloseBrowser(
       ash::IsBrowserForSystemWebApp(*browser, ash::SystemWebAppType::BOCA);
 
   if (browser_ &&
-      !platform_util::IsBrowserLockedFullscreen(&browser_->GetBrowser()) &&
+      !browser_->IsOnTaskState(ash::BrowserDelegate::OnTaskState::kLocked) &&
       !is_boca_app_instance) {
     // New instance that is not a Boca SWA instance and was spawned when the
     // Boca SWA instance being tracked is not in locked fullscreen mode. Skip
@@ -435,7 +438,7 @@ void LockedSessionWindowTracker::OnBrowserActivated(
   if (browser != browser_) {
     if (browser->GetType() == ash::BrowserType::kNormal &&
         browser != authorized_oauth_browser_ &&
-        platform_util::IsBrowserLockedFullscreen(&browser_->GetBrowser())) {
+        browser_->IsOnTaskState(ash::BrowserDelegate::OnTaskState::kLocked)) {
       aura::Window* const window = browser->GetNativeWindow();
       if (window) {
         std::unique_ptr<aura::WindowTracker> tracker =

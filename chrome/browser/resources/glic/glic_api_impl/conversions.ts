@@ -4,6 +4,7 @@
 
 import type * as mojom from '../glic.mojom-webui.js';
 import type * as api from '../glic_api/glic_api.js';
+import type * as mojomEnums from '../glic_enums.mojom-webui.js';
 
 import type * as requestTypes from './request_types.js';
 import {assertNever} from './transport/messaging.js';
@@ -66,19 +67,12 @@ export type CheckEnumCompatibility<MojoEnum, TsEnum> = AnnotateError<
 
 // Ignore FLOATING and DOCKED in the api, as they're just deprecated aliases.
 assertNever<CheckEnumCompatibility<
-    typeof mojom.PanelStateKind,
+    typeof mojomEnums.PanelStateKind,
     Omit<typeof api.PanelStateKind, 'FLOATING'|'DOCKED'>>>();
-// kUnknown isn't in the public API because this is a closed enum, and will not
-// be expanded.
+// kUnknown isn't in the public API because this is a closed enum, and will
+// not be expanded.
 assertNever<CheckEnumCompatibility<
     Omit<typeof mojom.WebClientMode, 'kUnknown'>, typeof api.WebClientMode>>();
-assertNever<CheckEnumCompatibility<
-    typeof mojom.CaptureScreenshotErrorReason,
-    typeof api.CaptureScreenshotErrorReason>>();
-assertNever<CheckEnumCompatibility<
-    typeof mojom.ScrollToErrorReason, typeof api.ScrollToErrorReason>>();
-assertNever<CheckEnumCompatibility<
-    typeof mojom.InvocationSource, typeof api.InvocationSource>>();
 assertNever<CheckEnumCompatibility<
     Omit<typeof mojom.SettingsPageField, 'kNone'>,
     typeof api.SettingsPageField>>();

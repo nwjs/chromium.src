@@ -18,7 +18,8 @@
 
 namespace autofill {
 
-// Command line flags that enable importing AutofillProfiles for manual testing:
+// Command line flags that enable importing AutofillProfiles, credit cards and
+// AutofillAi entities for manual testing:
 //   --autofill-profiles-content-for-manual-testing
 //       Expects profile, credit card and entity descriptions as a string in
 //       JSON format.
@@ -95,11 +96,28 @@ namespace autofill {
 //         "Delivery zip code": "94043",
 //         "Carrier name": "Carrier X",
 //         "Carrier domain": "carrierx.com",
-//         "Estimated delivery date": "2025-05-15",
-//         "Order ids": "12345",
-//         "Order dates": "2025-05-12",
+//         "Shipped date": "2025-05-15",
 //         "Merchant name": "Example Store",
 //         "Product names": "Widget, Gadget"
+//       }
+//     },
+//     {
+//       "entity_type": "Passport",
+//       "record_type": "personalContext",
+//       "sources": [
+//         {
+//           "type": "photos",
+//           "url": "https://photos.google.com/sample"
+//         },
+//         {
+//           "type": "gmail",
+//           "url": "https://mail.google.com/sample"
+//         }
+//       ],
+//       "attributes": {
+//         "Number": "123456789",
+//         "Name": "John Doe",
+//         "Country": "US"
 //       }
 //     }
 //   ]
@@ -107,6 +125,9 @@ namespace autofill {
 // The "record_type" is optional. For profiles, it can either be "account" or
 // "localOrSyncable" (defaulting to "localOrSyncable"). For entities, it can
 // be "local", "serverWallet", or "personalContext" (defaulting to "local").
+// For entities with "personalContext" record type, the "sources" list is
+// optional and can contain objects with "type" ("gmail" or "photos") and
+// "url".
 // The "initial_creator_id" is an optional int value which sets the profile's
 // property of the same name. The "nickname" in credit cards optional as well.
 // "field-type" corresponds to FieldTypes like "NAME_FULL". For profiles and

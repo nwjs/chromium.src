@@ -9,22 +9,27 @@
 #include <optional>
 #include <string>
 
-#include "base/memory/weak_ptr.h"
+#include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
 #include "base/sequence_checker.h"
 #include "components/sync/model/data_type_local_change_processor.h"
-#include "components/sync/model/data_type_store.h"
 #include "components/sync/model/data_type_sync_bridge.h"
-#include "components/sync/model/metadata_batch.h"
 #include "components/sync/protocol/entity_specifics.pb.h"
 
 namespace history::journeys {
 
+class HistoryBackendForJourneysSync;
+class JourneysSyncMetadataDatabase;
+
 // DataTypeSyncBridge implementation for JOURNEY sync data.
 class JourneysSyncBridge : public syncer::DataTypeSyncBridge {
  public:
+  // `backend` must not be null.
+  // `sync_metadata_database` may be null, but if non-null, must outlive this.
   JourneysSyncBridge(
-      std::unique_ptr<syncer::DataTypeLocalChangeProcessor> change_processor,
-      syncer::OnceDataTypeStoreFactory store_factory);
+      HistoryBackendForJourneysSync* backend,
+      JourneysSyncMetadataDatabase* sync_metadata_database,
+      std::unique_ptr<syncer::DataTypeLocalChangeProcessor> change_processor);
 
   JourneysSyncBridge(const JourneysSyncBridge&) = delete;
   JourneysSyncBridge& operator=(const JourneysSyncBridge&) = delete;
@@ -32,6 +37,8 @@ class JourneysSyncBridge : public syncer::DataTypeSyncBridge {
   ~JourneysSyncBridge() override;
 
   // syncer::DataTypeSyncBridge implementation.
+  std::unique_ptr<syncer::MetadataChangeList> CreateMetadataChangeList()
+      override;
   std::optional<syncer::ModelError> MergeFullSyncData(
       std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
       syncer::EntityChangeList entity_changes) override;
@@ -51,18 +58,19 @@ class JourneysSyncBridge : public syncer::DataTypeSyncBridge {
   void ApplyDisableSyncChanges(std::unique_ptr<syncer::MetadataChangeList>
                                    delete_metadata_change_list) override;
 
- private:
-  void OnStoreCreated(const std::optional<syncer::ModelError>& error,
-                      std::unique_ptr<syncer::DataTypeStore> store);
-  void OnReadAllData(
-      const std::optional<syncer::ModelError>& error,
-      std::unique_ptr<syncer::DataTypeStore::RecordList> records);
-  void OnReadAllMetadata(const std::optional<syncer::ModelError>& error,
-                         std::unique_ptr<syncer::MetadataBatch> metadata_batch);
+  // Untracks all entities from the processor, and clears their (persisted)
+  // metadata. Called on history wipe.
+  void UntrackAndClearMetadataForAllEntities();
 
-  std::unique_ptr<syncer::DataTypeStore> store_;
+  // Called when the database encounters an error.
+  void OnDatabaseError();
+
+ private:
+  void LoadMetadata();
+
+  const raw_ref<HistoryBackendForJourneysSync> backend_;
+  raw_ptr<JourneysSyncMetadataDatabase> sync_metadata_database_;
   SEQUENCE_CHECKER(sequence_checker_);
-  base::WeakPtrFactory<JourneysSyncBridge> weak_ptr_factory_{this};
 };
 
 }  // namespace history::journeys

@@ -17,7 +17,7 @@
 #include "components/android_autofill/browser/mock_form_field_data_android_bridge.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/form_structure.h"
-#include "components/autofill/core/common/autofill_test_utils.h"
+#include "components/autofill/core/common/autofill_test_util.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_data_test_api.h"
 #include "components/autofill/core/common/form_field_data.h"
@@ -52,7 +52,6 @@ FormFieldData CreateTestField(std::u16string name = u"SomeName") {
   f.set_name_attribute(f.name());
   f.set_id_attribute(u"some_id");
   f.set_form_control_type(FormControlType::kInputText);
-  f.set_check_status(FormFieldData::CheckStatus::kChecked);
   f.set_role(FormFieldData::RoleAttribute::kOther);
   f.set_is_focusable(true);
   f.set_renderer_id(FieldRendererId(renderer_id++));

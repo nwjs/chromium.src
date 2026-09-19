@@ -10,6 +10,7 @@
 #include <optional>
 #include <utility>
 
+#include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
@@ -166,12 +167,17 @@ class SearchPrefetchService : public KeyedService,
   void OnPrerenderedRequestUsed(const GURL& canonical_search_url,
                                 const GURL& navigation_url);
 
-  // Creates a response reader if this instance has prefetched a response for
-  // the given `tentative_resource_request`, and the caller can read the
-  // response with the returned value. Returns an empty callback if the response
-  // is not found.
-  SearchPrefetchURLLoader::RequestHandler MaybeCreateResponseReader(
+  // Creates a response reader for a prerender navigation if this instance has
+  // prefetched a response for the given `tentative_resource_request`, and the
+  // caller can read the response with the returned value. Returns an empty
+  // callback if the response is not found.
+  SearchPrefetchURLLoader::RequestHandler MaybeCreateResponseReaderForPrerender(
       const network::ResourceRequest& tentative_resource_request);
+
+  // Tracks navigation IDs currently being served by a search prefetch.
+  void AddServingNavigationId(int64_t navigation_id);
+  bool IsServingNavigation(int64_t navigation_id) const;
+  void RemoveServingNavigationId(int64_t navigation_id);
 
   // Reports the status of a prefetch for a given search suggestion URL.
   std::optional<SearchPrefetchStatus> GetSearchPrefetchStatusForTesting(
@@ -296,6 +302,8 @@ class SearchPrefetchService : public KeyedService,
   // serving time of the response.
   std::map<GURL, std::pair<GURL, base::Time>> prefetch_cache_;
 
+  // Navigation IDs currently being served by a search prefetch.
+  base::flat_set<int64_t> serving_navigation_ids_;
 
   base::WeakPtrFactory<SearchPrefetchService> weak_factory_{this};
 };

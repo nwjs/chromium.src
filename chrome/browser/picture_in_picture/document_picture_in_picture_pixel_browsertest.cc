@@ -5,11 +5,13 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "chrome/browser/preloading/scoped_prewarm_feature_list.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/test/test_browser_ui.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/picture_in_picture_browser_frame_view.h"
+#include "chrome/test/base/chrome_test_path_utils.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/document_picture_in_picture_window_controller.h"
@@ -93,7 +95,7 @@ class DocumentPictureInPicturePixelTest : public UiBrowserTest,
   }
 
   void LoadTabAndEnterPictureInPicture(
-      Browser* browser,
+      BrowserWindowInterface* browser,
       const gfx::Size& window_size = gfx::Size(300, 300)) {
     GURL test_page_url = chrome_test_utils::GetTestUrl(
         base::FilePath(base::FilePath::kCurrentDirectory),
@@ -101,7 +103,7 @@ class DocumentPictureInPicturePixelTest : public UiBrowserTest,
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser, test_page_url));
 
     content::WebContents* active_web_contents =
-        browser->tab_strip_model()->GetActiveWebContents();
+        browser->GetTabStripModel()->GetActiveWebContents();
     ASSERT_NE(nullptr, active_web_contents);
 
     SetUpWindowController(active_web_contents);

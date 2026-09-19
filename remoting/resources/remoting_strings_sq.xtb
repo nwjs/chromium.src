@@ -48,6 +48,7 @@ Nëse "<ph name="SERVICE_SCRIPT_NAME" />" është e zgjedhur tashmë, anulo zgje
 <translation id="3197730452537982411">Desktopi në distancë</translation>
 <translation id="3236334139428307578">Të drejtat e autorit 2026 të "Autorëve të Chromium". Të gjitha të drejtat të rezervuara.</translation>
 <translation id="324272851072175193">Dërgo me email këto udhëzime</translation>
+<translation id="3254626532848657899">Lëvize në fund</translation>
 <translation id="3305934114213025800"><ph name="PRODUCT_NAME" /> dëshiron të bëjë ndryshime.</translation>
 <translation id="3339299787263251426">Qasu në kompjuterin tënd në mënyrë të sigurt nga interneti</translation>
 <translation id="3385242214819933234">Zotërues i pavlefshëm strehimi.</translation>
@@ -166,6 +167,7 @@ Nëse "<ph name="SERVICE_SCRIPT_NAME" />" është e zgjedhur tashmë, anulo zgje
 <translation id="8073845705237259513">Për të përdorur "Desktopin në distancë" të Chrome, duhet të shtosh një llogari të Google në pajisjen tënde.</translation>
 <translation id="809687642899217504">Kompjuterët e mi</translation>
 <translation id="8116630183974937060">Ndodhi një gabim me rrjetin. Kontrollo që pajisja jote është online dhe provo përsëri.</translation>
+<translation id="8249310407154411074">Lëvize në krye</translation>
 <translation id="8295077433896346116">Për të përdorur <ph name="PRODUCT_NAME" />, duhet t'i japësh autorizim "Qasshmërisë" në mënyrë që të dhënat nga makineria në distancë të mund të injektohen në këtë Mac.
 
 Për të dhënë këtë autorizim, kliko "<ph name="BUTTON_NAME" />" më poshtë. Në panelin e preferencave të "Qasshmërisë" që hapet, zgjidh kutinë pranë "<ph name="SERVICE_SCRIPT_NAME" />".

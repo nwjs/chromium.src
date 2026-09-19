@@ -47,7 +47,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
-#include "chrome/test/base/chrome_test_utils.h"
+#include "chrome/test/base/chrome_test_path_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
@@ -589,7 +589,7 @@ IN_PROC_BROWSER_TEST_P(PrefersColorSchemeTest, PrefersColorSchemeGlic) {
 // browser theme.
 IN_PROC_BROWSER_TEST_P(PrefersColorSchemeTest, ChromeSearchTheme) {
   // Open an incognito browser and navigate to search scheme.
-  Browser* incognito_browser =
+  BrowserWindowInterface* incognito_browser =
       CreateIncognitoBrowser(GetBrowser()->GetProfile());
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       incognito_browser, GURL("chrome-search://most-visited/title.html")));

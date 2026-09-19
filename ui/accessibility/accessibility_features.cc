@@ -48,6 +48,11 @@ bool IsAccessibilityPruneRedundantInlineConnectivityEnabled() {
       ::features::kAccessibilityPruneRedundantInlineConnectivity);
 }
 
+BASE_FEATURE(kAccessibilityCheckAXNodeIDs, base::FEATURE_ENABLED_BY_DEFAULT);
+bool IsAccessibilityCheckAXNodeIDsEnabled() {
+  return base::FeatureList::IsEnabled(::features::kAccessibilityCheckAXNodeIDs);
+}
+
 BASE_FEATURE(kAccessibilityTextFormatting, base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsAccessibilityTextFormattingEnabled() {
   return base::FeatureList::IsEnabled(::features::kAccessibilityTextFormatting);
@@ -217,6 +222,13 @@ BASE_FEATURE(kUiaMathMlSupport, base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsUiaMathMlSupportEnabled() {
   return base::FeatureList::IsEnabled(::features::kUiaMathMlSupport);
 }
+
+BASE_FEATURE(kAccessibilityGroupLocationChangeByCommonAncestor,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+bool IsAccessibilityGroupLocationChangeByCommonAncestorEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kAccessibilityGroupLocationChangeByCommonAncestor);
+}
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -372,11 +384,6 @@ bool IsScreenAIMainContentExtractionEnabled() {
 
 bool IsScreenAIOCREnabled() {
   return base::FeatureList::IsEnabled(ax::mojom::features::kScreenAIOCREnabled);
-}
-
-BASE_FEATURE(kImmersiveReadAnything, base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsImmersiveReadAnythingEnabled() {
-  return base::FeatureList::IsEnabled(::features::kImmersiveReadAnything);
 }
 
 BASE_FEATURE(kMainNodeAnnotations, base::FEATURE_DISABLED_BY_DEFAULT);

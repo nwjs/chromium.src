@@ -49,8 +49,19 @@ bool GetDlgItemText(HWND dlg, int item_id, std::wstring* text);
 // Returns true if the system is in high contrast mode.
 bool IsHighContrastOn();
 
-// Returns true if the system is in dark mode.
+// Returns true if the system is in dark mode (or in high contrast mode with a
+// dark theme).
 bool IsDarkModeOn();
+
+// Returns true if `color` has low perceived luminance (i.e. is dark).
+bool IsColorDark(COLORREF color);
+
+// Explicitly sets the arrow cursor if `wparam` matches `hwnd` (or a child
+// control without its own class cursor) and `lparam` represents a client-area
+// hit test (`HTCLIENT`), returning true if handled. Prevents Windows from
+// sticking with the `IDC_APPSTARTING` ("Working in Background") cursor during
+// GUI startup transitions.
+bool MaybeSetArrowCursor(HWND hwnd, WPARAM wparam, LPARAM lparam);
 
 }  // namespace updater::ui
 

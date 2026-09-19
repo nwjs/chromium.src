@@ -12,8 +12,8 @@
 #include "chrome/browser/history_clusters/history_clusters_metrics_logger.h"
 #include "chrome/browser/history_clusters/history_clusters_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -41,10 +41,20 @@ BEGIN_TEMPLATE_METADATA(SidePanelWebUIViewT_HistoryClustersSidePanelUI,
                         SidePanelWebUIViewT)
 END_METADATA
 
+DEFINE_USER_DATA(HistoryClustersSidePanelCoordinator);
+
+// static
+HistoryClustersSidePanelCoordinator* HistoryClustersSidePanelCoordinator::From(
+    BrowserWindowInterface* browser) {
+  return Get(browser->GetUnownedUserDataHost());
+}
+
 HistoryClustersSidePanelCoordinator::HistoryClustersSidePanelCoordinator(
     BrowserWindowInterface* browser,
     Profile* profile)
-    : browser_(CHECK_DEREF(browser)), profile_(CHECK_DEREF(profile)) {
+    : scoped_unowned_user_data_(browser->GetUnownedUserDataHost(), *this),
+      browser_(CHECK_DEREF(browser)),
+      profile_(CHECK_DEREF(profile)) {
   pref_change_registrar_.Init(profile_->GetPrefs());
   base::RepeatingClosure callback(base::BindRepeating(
       &HistoryClustersSidePanelCoordinator::OnHistoryClustersPreferenceChanged,

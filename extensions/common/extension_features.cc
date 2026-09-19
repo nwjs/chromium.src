@@ -16,8 +16,6 @@ namespace extensions_features {
 
 BASE_FEATURE(kApiActionSetBadgeTextByteLimit, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kApiAlarmsCreateLengthLimit, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kApiTabsSplitView, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kApiContentSettingsClipboard, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -91,9 +89,12 @@ BASE_FEATURE(kApiRuntimeGetPlatformInfoNaClArch,
 BASE_FEATURE(kWebRequestSecurityInfo, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebRequestPerContextEventDispatch,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kApiDesktopAndroidNativeMessaging,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kApiDesktopAndroidNativeMessagingBypassExtensionAllowlist,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -123,6 +124,9 @@ BASE_FEATURE(kEnableWebHidInWebView, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kExtensionAutoRejectIncognitoConnectability,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kExtensionAsyncListenerRegistration,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kExtensionDisableUnsupportedDeveloper,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -237,9 +241,6 @@ BASE_FEATURE(kDebuggerAPIRestrictedToDevMode,
 BASE_FEATURE(kExtensionBrowserNamespaceOnWebPages,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAvoidCloneArgsOnExtensionFunctionDispatch,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kExtensionContentVerificationUsesExtensionRoot,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -264,5 +265,7 @@ BASE_FEATURE(kSearchEngineUnconditionalDialog,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kOptimizeWebRequestProxy, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kUseSha256ForExtensionHashes, base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace extensions_features

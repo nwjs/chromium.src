@@ -31,6 +31,7 @@
 
 #include <memory>
 
+#include "base/memory/raw_ptr.h"
 #include "base/notreached.h"
 #include "base/time/time.h"
 #include "cc/paint/paint_canvas.h"
@@ -273,6 +274,9 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
 
 class EmptyWebWorkerFetchContext : public WebWorkerFetchContext {
  public:
+  explicit EmptyWebWorkerFetchContext()
+      : WebWorkerFetchContext(RendererPreferences()) {}
+
   void SetTerminateSyncLoadEvent(base::WaitableEvent*) override {}
   void InitializeOnWorkerThread(AcceptLanguagesWatcher*) override {}
   URLLoaderFactory* GetURLLoaderFactory() override { return nullptr; }
@@ -492,7 +496,8 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
 
  protected:
   // Not owned
-  WebTextCheckClient* text_check_client_;
+  raw_ptr<WebTextCheckClient, UnprotectedInRelease | DanglingUntriaged>
+      text_check_client_;
 
   std::unique_ptr<AssociatedInterfaceProvider> associated_interface_provider_;
 };

@@ -36,13 +36,15 @@ struct CueTabMetrics {
 void RecordCueShownMetrics(ukm::SourceId source_id,
                            std::string_view cuj,
                            const CueTabMetrics& tab_metrics,
-                           base::TimeDelta latency);
+                           base::TimeDelta latency,
+                           bool is_pdf);
 
 void RecordContextualCueingInteraction(
     ContextualCueingInteraction contextual_cueing_interaction,
     const std::string& cuj,
     ukm::SourceId source_id,
-    base::TimeDelta shown_duration);
+    base::TimeDelta shown_duration,
+    bool is_pdf);
 
 void RecordContextualCueingDecision(
     ukm::SourceId source_id,
@@ -59,7 +61,8 @@ void RecordCueShownToPrivateInsights(
     const optimization_guide::proto::ContextualCue& cue,
     tabs::TabInterface* active_tab,
     const std::vector<tabs::TabHandle>& tabs_to_show,
-    const std::vector<optimization_guide::proto::Tab>& background_tabs);
+    const std::vector<optimization_guide::proto::Tab>& background_tabs,
+    const std::string& cuj);
 
 void RecordCueingInteractionToPrivateInsights(
     Profile* profile,
@@ -83,7 +86,8 @@ private_insights::events::ContextualCueLogEvent CreateContextualCueLogEvent(
     const optimization_guide::proto::ContextualCue& cue,
     tabs::TabInterface* active_tab,
     const std::vector<tabs::TabHandle>& tabs_to_show,
-    const std::vector<optimization_guide::proto::Tab>& background_tabs);
+    const std::vector<optimization_guide::proto::Tab>& background_tabs,
+    const std::string& cuj);
 
 }  // namespace internal
 

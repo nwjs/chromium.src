@@ -47,7 +47,7 @@
 
 #if BUILDFLAG(IS_WIN)
 #include "services/viz/privileged/mojom/gl/info_collection_gpu_service.mojom.h"
-#include "services/webnn/public/mojom/ep_package_info.mojom.h"
+#include "services/webnn/public/mojom/ep_device_info.mojom.h"
 #include "services/webnn/public/mojom/webnn_context_provider.mojom.h"
 #include "ui/gfx/mojom/dxgi_info.mojom.h"
 #endif
@@ -119,16 +119,21 @@ class VIZ_HOST_EXPORT GpuHostImpl : public mojom::GpuHost,
     virtual void TerminateGpuProcess(const std::string& message) = 0;
 #endif
 #if BUILDFLAG(IS_WIN)
-    // Requests the Browser to create a CompilerContext in the Compiler
-    // process, launching it first if needed.
+    using RequestWebNNCompilerContextResultCallback =
+        base::OnceCallback<void(bool success)>;
     virtual void RequestWebNNCompilerContext(
         webnn::mojom::CreateContextOptionsPtr context_options,
         const webnn::ContextProperties& context_properties,
         const webnn::EpDeviceInfo& target_device,
         mojo::PendingReceiver<webnn::mojom::WebNNCompilerContext>
             compiler_context_receiver,
-        mojo::PendingRemote<webnn::mojom::WebNNModelLoader>
-            model_loader_remote);
+        mojo::PendingRemote<webnn::mojom::WebNNModelLoader> model_loader_remote,
+        RequestWebNNCompilerContextResultCallback callback);
+#endif
+#if BUILDFLAG(IS_APPLE)
+    virtual void CopyWebNNCompiledModel(
+        const base::FilePath& compiler_model_path,
+        CopyWebNNCompiledModelCallback callback);
 #endif
 
    protected:
@@ -320,8 +325,12 @@ class VIZ_HOST_EXPORT GpuHostImpl : public mojom::GpuHost,
       const webnn::EpDeviceInfo& target_device,
       mojo::PendingReceiver<webnn::mojom::WebNNCompilerContext>
           compiler_context_receiver,
-      mojo::PendingRemote<webnn::mojom::WebNNModelLoader> model_loader_remote)
-      override;
+      mojo::PendingRemote<webnn::mojom::WebNNModelLoader> model_loader_remote,
+      RequestWebNNCompilerContextCallback callback) override;
+#endif
+#if BUILDFLAG(IS_APPLE)
+  void CopyWebNNCompiledModel(const base::FilePath& compiler_model_path,
+                              CopyWebNNCompiledModelCallback callback) override;
 #endif
   void CreateWebNNWeightsFile(CreateWebNNWeightsFileCallback cb) override;
 

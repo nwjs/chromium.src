@@ -7,6 +7,7 @@
 
 #include <bitset>
 
+#include "base/memory/raw_ref.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/unguessable_token.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink-forward.h"
@@ -49,6 +50,8 @@ class WorkerNavigator;
 class WorkerOrWorkletScriptController;
 class WorkerReportingProxy;
 class WorkerThread;
+
+struct RendererPreferences;
 
 class CORE_EXPORT WorkerOrWorkletGlobalScope
     : public EventTarget,
@@ -164,7 +167,7 @@ class CORE_EXPORT WorkerOrWorkletGlobalScope
     return v8_cache_options_;
   }
 
-  WorkerReportingProxy& ReportingProxy() { return reporting_proxy_; }
+  WorkerReportingProxy& ReportingProxy() { return *reporting_proxy_; }
 
   void Trace(Visitor*) const override;
 
@@ -202,6 +205,8 @@ class CORE_EXPORT WorkerOrWorkletGlobalScope
       mojo::PendingRemote<network::mojom::blink::URLLoaderFactory>>
   FindRaceNetworkRequestURLLoaderFactory(
       const base::UnguessableToken& token) = 0;
+
+  const RendererPreferences& GetRendererPreferences() const;
 
  protected:
   // Sets outside's CSP used for off-main-thread top-level worker script
@@ -287,7 +292,8 @@ class CORE_EXPORT WorkerOrWorkletGlobalScope
   Vector<network::mojom::blink::ContentSecurityPolicyPtr>
       outside_content_security_policies_;
 
-  WorkerReportingProxy& reporting_proxy_;
+  const raw_ref<WorkerReportingProxy, UnprotectedInRelease | DanglingUntriaged>
+      reporting_proxy_;
 
   // This is the set of features that this worker has used.
   std::bitset<static_cast<size_t>(WebFeature::kMaxValue) + 1> used_features_;

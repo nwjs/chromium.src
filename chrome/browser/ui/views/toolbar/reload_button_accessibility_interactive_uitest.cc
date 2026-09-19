@@ -5,6 +5,7 @@
 #include "base/test/run_until.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/toolbar/reload_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_accessibility_test.h"
@@ -298,11 +299,11 @@ IN_PROC_BROWSER_TEST_P(ReloadButtonAccessibilityTest, MAYBE_MiddleClickReload) {
       WaitForReloadButtonReady(), WaitForShow(kReloadButtonElementId),
 
       // Ensure we have only 1 tab
-      Check([&]() { return browser()->tab_strip_model()->count() == 1; }),
+      Check([&]() { return browser()->GetTabStripModel()->count() == 1; }),
 
       // Setup state observer for tab count
       PollState(kTabCountState,
-                [this]() { return browser()->tab_strip_model()->count(); }),
+                [this]() { return browser()->GetTabStripModel()->count(); }),
 
       // Middle-click the reload button
       MoveMouseOverReloadButton(), ClickMouse(ui_controls::MIDDLE),
@@ -313,7 +314,7 @@ IN_PROC_BROWSER_TEST_P(ReloadButtonAccessibilityTest, MAYBE_MiddleClickReload) {
       // Verify a new tab was opened with the same URL
       Check([&]() {
         return browser()
-                   ->tab_strip_model()
+                   ->GetTabStripModel()
                    ->GetWebContentsAt(1)
                    ->GetVisibleURL() == url;
       }));

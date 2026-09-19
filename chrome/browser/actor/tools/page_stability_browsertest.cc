@@ -14,7 +14,6 @@
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/tools/page_stability_test_util.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_features.h"
 #include "components/actor/core/actor_features.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
@@ -442,7 +441,8 @@ IN_PROC_BROWSER_TEST_P(ActorGeneralPageStabilityTest,
   monitor.set_disconnect_handler(result.GetCallback());
 
   // Navigate away and finish the navigation.
-  const GURL url = embedded_test_server()->GetURL("/actor/blank.html");
+  const GURL url =
+      embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
   TestNavigationManager manager(web_contents(), url);
   ASSERT_TRUE(ExecJs(web_contents(), JsReplace("window.location = $1", url)));
   ASSERT_TRUE(manager.WaitForNavigationFinished());
@@ -470,7 +470,8 @@ IN_PROC_BROWSER_TEST_P(ActorGeneralPageStabilityTest, NavigationBeforeNotify) {
   monitor.set_disconnect_handler(result.GetCallback());
 
   // Navigate away and finish the navigation.
-  const GURL url = embedded_test_server()->GetURL("/actor/blank.html");
+  const GURL url =
+      embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
   TestNavigationManager manager(web_contents(), url);
   ASSERT_TRUE(ExecJs(web_contents(), JsReplace("window.location = $1", url)));
   ASSERT_TRUE(manager.WaitForNavigationFinished());
@@ -492,7 +493,8 @@ IN_PROC_BROWSER_TEST_P(ActorGeneralPageStabilityTest,
 
   // Start and cancel a navigation before querying the monitor.
   {
-    const GURL url = embedded_test_server()->GetURL("/actor/blank.html");
+    const GURL url =
+        embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
     TestNavigationManager manager(web_contents(), url);
     auto scoped_navigation_canceler = ScopedCancelAllIncomingNavigations();
     ASSERT_TRUE(ExecJs(web_contents(), JsReplace("window.location = $1", url)));
@@ -537,7 +539,8 @@ IN_PROC_BROWSER_TEST_P(ActorGeneralPageStabilityTest,
   // Start a navigation but don't let it proceed to cancelation yet, it's
   // deferred for now.
   auto scoped_navigation_canceler = ScopedCancelAllIncomingNavigations();
-  const GURL url = embedded_test_server()->GetURL("/actor/blank.html");
+  const GURL url =
+      embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
   TestNavigationManager manager(web_contents(), url);
   ASSERT_TRUE(ExecJs(web_contents(), JsReplace("window.location = $1", url)));
   ASSERT_TRUE(manager.WaitForFirstYieldAfterDidStartNavigation());
@@ -585,7 +588,8 @@ IN_PROC_BROWSER_TEST_P(ActorGeneralPageStabilityTest,
   monitor->NotifyWhenStable(/*observation_delay=*/base::Seconds(300),
                             result.GetCallback());
 
-  const GURL url = embedded_test_server()->GetURL("/actor/blank.html");
+  const GURL url =
+      embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
   TestNavigationManager manager(web_contents(), url);
   ASSERT_TRUE(ExecJs(web_contents(), JsReplace("window.location = $1", url)));
   ASSERT_TRUE(manager.WaitForNavigationFinished());
@@ -618,7 +622,8 @@ IN_PROC_BROWSER_TEST_P(ActorGeneralPageStabilityTest,
   EXPECT_FALSE(result.IsReady());
 
   // Navigating away should cause the monitor to complete.
-  const GURL url = embedded_test_server()->GetURL("/actor/blank.html");
+  const GURL url =
+      embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
   TestNavigationManager manager(web_contents(), url);
   ASSERT_TRUE(ExecJs(web_contents(), JsReplace("window.location = $1", url)));
   ASSERT_TRUE(manager.WaitForNavigationFinished());

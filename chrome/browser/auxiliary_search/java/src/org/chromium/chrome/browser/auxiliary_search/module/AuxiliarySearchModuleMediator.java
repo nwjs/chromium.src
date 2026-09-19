@@ -4,17 +4,15 @@
 
 package org.chromium.chrome.browser.auxiliary_search.module;
 
-import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchConfigManager;
+import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchDonationServiceUtils;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchMetrics;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchMetrics.ClickInfo;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchUtils;
 import org.chromium.chrome.browser.auxiliary_search.R;
 import org.chromium.chrome.browser.magic_stack.ModuleDelegate;
 import org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType;
-import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
-import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.ui.modelutil.PropertyModel;
 
 /** Mediator for the auxiliary search opt in module. */
@@ -23,6 +21,7 @@ public class AuxiliarySearchModuleMediator {
     private final PropertyModel mModel;
     private final ModuleDelegate mModuleDelegate;
     private final Runnable mOpenSettingsRunnable;
+    private final boolean mIsBrowsingDataDonationEnabled;
     private final boolean mIsShareTabsDefaultEnabledByOs;
 
     /** Whether the module is currently showing. */
@@ -39,9 +38,27 @@ public class AuxiliarySearchModuleMediator {
         mModuleDelegate = moduleDelegate;
         mOpenSettingsRunnable = openSettingsRunnable;
 
+        mIsBrowsingDataDonationEnabled =
+                AuxiliarySearchDonationServiceUtils.isBrowsingDataDonationEnabled();
         mIsShareTabsDefaultEnabledByOs = AuxiliarySearchUtils.isShareTabsWithOsDefaultEnabled();
 
-        if (mIsShareTabsDefaultEnabledByOs) {
+        if (mIsBrowsingDataDonationEnabled) {
+            mModel.set(
+                    AuxiliarySearchModuleProperties.MODULE_TITLE_TEXT_RES_ID,
+                    R.string.auxiliary_search_browsing_data_module_name);
+            mModel.set(
+                    AuxiliarySearchModuleProperties.MODULE_CONTENT_TEXT_RES_ID,
+                    R.string.auxiliary_search_browsing_data_module_content);
+            mModel.set(
+                    AuxiliarySearchModuleProperties.MODULE_FIRST_BUTTON_TEXT_RES_ID,
+                    R.string.auxiliary_search_module_button_go_to_settings);
+            mModel.set(
+                    AuxiliarySearchModuleProperties.MODULE_SECOND_BUTTON_TEXT_RES_ID,
+                    R.string.auxiliary_search_module_button_got_it);
+        } else if (mIsShareTabsDefaultEnabledByOs) {
+            mModel.set(
+                    AuxiliarySearchModuleProperties.MODULE_TITLE_TEXT_RES_ID,
+                    R.string.auxiliary_search_module_name);
             mModel.set(
                     AuxiliarySearchModuleProperties.MODULE_CONTENT_TEXT_RES_ID,
                     R.string.auxiliary_search_module_content);
@@ -52,6 +69,9 @@ public class AuxiliarySearchModuleMediator {
                     AuxiliarySearchModuleProperties.MODULE_SECOND_BUTTON_TEXT_RES_ID,
                     R.string.auxiliary_search_module_button_got_it);
         } else {
+            mModel.set(
+                    AuxiliarySearchModuleProperties.MODULE_TITLE_TEXT_RES_ID,
+                    R.string.auxiliary_search_module_name);
             mModel.set(
                     AuxiliarySearchModuleProperties.MODULE_CONTENT_TEXT_RES_ID,
                     R.string.auxiliary_search_module_content_default_off);
@@ -69,7 +89,7 @@ public class AuxiliarySearchModuleMediator {
 
         mIsShown = true;
 
-        if (mIsShareTabsDefaultEnabledByOs) {
+        if (mIsBrowsingDataDonationEnabled || mIsShareTabsDefaultEnabledByOs) {
             setDefaultOptInCard();
         } else {
             setDefaultOptOutCard();
@@ -122,9 +142,6 @@ public class AuxiliarySearchModuleMediator {
         mModuleDelegate.onModuleClicked(ModuleType.AUXILIARY_SEARCH);
         mModuleDelegate.removeModule(ModuleType.AUXILIARY_SEARCH);
 
-        SharedPreferencesManager prefManager = ChromeSharedPreferences.getInstance();
-        prefManager.writeBoolean(ChromePreferenceKeys.AUXILIARY_SEARCH_MODULE_USER_RESPONDED, true);
-
-        AuxiliarySearchMetrics.recordClickButtonInfo(type);
+        AuxiliarySearchMetrics.recordClickButtonInfo(type, mIsBrowsingDataDonationEnabled);
     }
 }

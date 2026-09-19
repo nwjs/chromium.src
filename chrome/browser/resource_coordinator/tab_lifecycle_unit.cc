@@ -31,7 +31,6 @@
 #include "chrome/browser/resource_coordinator/tab_load_tracker.h"
 #include "chrome/browser/resource_coordinator/time.h"
 #include "chrome/browser/resource_coordinator/utils.h"
-#include "chrome/browser/tab_contents/form_interaction_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/recently_audible_helper.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -204,10 +203,11 @@ bool TabLifecycleUnitSource::TabLifecycleUnit::MaybeLoad() {
 
 void TabLifecycleUnitSource::TabLifecycleUnit::SetRecentlyAudible(
     bool recently_audible) {
-  if (recently_audible)
+  if (recently_audible) {
     recently_audible_time_ = base::TimeTicks::Max();
-  else if (recently_audible_time_ == base::TimeTicks::Max())
+  } else if (recently_audible_time_ == base::TimeTicks::Max()) {
     recently_audible_time_ = NowTicks();
+  }
 }
 
 void TabLifecycleUnitSource::TabLifecycleUnit::UpdateLifecycleState(
@@ -367,7 +367,7 @@ bool TabLifecycleUnitSource::TabLifecycleUnit::Discard(
   const base::TimeTicks discard_start_time = NowTicks();
 
   last_discard_time_ = discard_start_time;
-  last_discard_memory_estimate_ = base::KiBU(tab_memory_footprint_estimate);
+  last_discard_memory_estimate_ = base::KiB(tab_memory_footprint_estimate);
 
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused.
@@ -464,11 +464,11 @@ void TabLifecycleUnitSource::TabLifecycleUnit::UpdatePreDiscardResourceUsage(
   if (pre_discard_resource_usage == nullptr) {
     performance_manager::user_tuning::UserPerformanceTuningManager::
         PreDiscardResourceUsage::CreateForWebContents(
-            web_contents, base::KiBU(tab_memory_footprint_estimate),
+            web_contents, base::KiB(tab_memory_footprint_estimate),
             discard_reason);
   } else {
     pre_discard_resource_usage->UpdateDiscardInfo(
-        base::KiBU(tab_memory_footprint_estimate), discard_reason);
+        base::KiB(tab_memory_footprint_estimate), discard_reason);
   }
 }
 

@@ -48,6 +48,7 @@
 <translation id="3197730452537982411">ເດັສທັອບທາງໄກ</translation>
 <translation id="3236334139428307578">ລິຂະສິດ 2026 The Chromium Authors. ສະຫງວນລິຂະສິດ.</translation>
 <translation id="324272851072175193">ອີເມວຄຳແນະນຳເຫຼົ່ານີ້</translation>
+<translation id="3254626532848657899">ຍ້າຍໄປລຸ່ມສຸດ</translation>
 <translation id="3305934114213025800"><ph name="PRODUCT_NAME" /> ຕ້ອງການເຮັດການປ່ຽນແປງ.</translation>
 <translation id="3339299787263251426">ເຂົ້າ​ຫາ​ຄອມ​ພິວ​ເຕີ​ຂອງ​ທ່ານ​ຢູ່​ເທິງ​ອິນ​ເຕີ​ເນັດ​ຢ່າງ​ປອດ​ໄພ</translation>
 <translation id="3385242214819933234">ເຈົ້າ​ຂອງ​ແມ່​ຂ່າຍ​ໃຊ້​ບໍ່​ໄດ້.</translation>
@@ -167,6 +168,7 @@ Desktop</translation>
 <translation id="8073845705237259513">ເພື່ອໃຊ້ Chrome Remote Desktop, ທ່ານຈໍາເປັນຕ້ອງເພີ່ມບັນຊີ Google ໃສ່ກັບອຸປະກອນຂອງທ່ານ.</translation>
 <translation id="809687642899217504">ຄອມ​ພິວ​ເຕີ​ຂອງ​ຂ້ອຍ</translation>
 <translation id="8116630183974937060">ເກີດຄວາມຜິດພາດຂອງເຄືອຂ່າຍ. ກະລຸນາກວດເບິ່ງວ່າ ເຄື່ອງຂອງທ່ານອອນລາຍນ໌ແລ້ວບໍ່ ແລະລອງໃໝ່ອີກ.</translation>
+<translation id="8249310407154411074">ຍ້າຍໄປເທິງສຸດ</translation>
 <translation id="8295077433896346116">ເພື່ອໃຊ້ <ph name="PRODUCT_NAME" />, ທ່ານຈຳເປັນຕ້ອງໃຫ້ການອະນຸຍາດ 'ການຊ່ວຍເຂົ້າເຖິງ' ເພື່ອໃຫ້ອິນພຸດຈາກເຄື່ອງທາງໄກສົ່ງເຖິງ Mac ນີ້ໄດ້.
 
 ເພື່ອໃຫ້ການອະນຸຍາດ, ກະລຸນາຄລິກ '<ph name="BUTTON_NAME" />' ຂ້າງລຸ່ມ. ໃນແຖບການຕັ້ງຄ່າ 'ການຊ່ວຍເຂົ້າເຖິງ' ທີ່ເປີດຢູ່, ກະລຸນາໝາຍເອົາກ່ອງຢູ່ໜ້າ '<ph name="SERVICE_SCRIPT_NAME" />'.

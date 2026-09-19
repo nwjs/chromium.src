@@ -5,17 +5,16 @@
 #include "chrome/browser/context_hub/storage/memory_bank_table.h"
 
 #include <cstdint>
-#include <limits>
+#include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
-#include "base/check.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
-#include "base/strings/cstring_view.h"
 #include "base/strings/strcat.h"
-#include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "components/database_utils/url_converter.h"
@@ -24,6 +23,7 @@
 #include "sql/statement_id.h"
 #include "sql/table_management_helpers.h"
 #include "sql/transaction.h"
+#include "url/gurl.h"
 
 namespace context_hub {
 
@@ -37,6 +37,8 @@ constexpr std::string_view kUrlColumn = "url";
 constexpr std::string_view kTabTitleColumn = "tab_title";
 constexpr std::string_view kSelectedTextColumn = "selected_text";
 constexpr std::string_view kTagsColumn = "tags";
+constexpr std::string_view kNoteColumn = "note";
+constexpr std::string_view kCollectionColumn = "collection";
 
 MemoryBankEntry ToMemoryBankEntry(sql::Statement& statement) {
   MemoryBankEntry entry;
@@ -60,6 +62,13 @@ MemoryBankEntry ToMemoryBankEntry(sql::Statement& statement) {
         }
       }
     }
+  }
+
+  if (statement.GetColumnType(7) != sql::ColumnType::kNull) {
+    entry.note = statement.ColumnString(7);
+  }
+  if (statement.GetColumnType(8) != sql::ColumnType::kNull) {
+    entry.collection = statement.ColumnString(8);
   }
 
   return entry;
@@ -104,6 +113,19 @@ bool MemoryBankTable::MigrateFromCleanStateToVersion1() {
   return sql::CreateIndex(*db_, kMemoryBankEntriesTable, {kUrlColumn});
 }
 
+bool MemoryBankTable::MigrateToVersion2AddNoteAndCollectionColumns() {
+  if (!db_) {
+    return false;
+  }
+
+  if (!sql::AddColumn(*db_, kMemoryBankEntriesTable, kNoteColumn, "TEXT")) {
+    return false;
+  }
+
+  return sql::AddColumn(*db_, kMemoryBankEntriesTable, kCollectionColumn,
+                        "TEXT");
+}
+
 bool MemoryBankTable::AddOrUpdateEntry(const MemoryBankEntry& entry) {
   if (!db_) {
     return false;
@@ -114,7 +136,7 @@ bool MemoryBankTable::AddOrUpdateEntry(const MemoryBankEntry& entry) {
       SQL_FROM_HERE, *db_, statement, kMemoryBankEntriesTable,
       /*column_names=*/
       {kIdColumn, kTypeColumn, kTimestampColumn, kUrlColumn, kTabTitleColumn,
-       kSelectedTextColumn, kTagsColumn},
+       kSelectedTextColumn, kTagsColumn, kNoteColumn, kCollectionColumn},
       /*or_replace=*/true);
 
   if (entry.id > 0) {
@@ -141,8 +163,60 @@ bool MemoryBankTable::AddOrUpdateEntry(const MemoryBankEntry& entry) {
   } else {
     statement.BindNull(6);
   }
+  if (entry.note.has_value() && !entry.note->empty()) {
+    statement.BindString(7, *entry.note);
+  } else {
+    statement.BindNull(7);
+  }
+  if (entry.collection.has_value() && !entry.collection->empty()) {
+    statement.BindString(8, *entry.collection);
+  } else {
+    statement.BindNull(8);
+  }
 
   return statement.Run();
+}
+
+bool MemoryBankTable::UpdateEntryAnnotations(
+    int64_t id,
+    const std::vector<std::string>& tags,
+    const std::optional<std::string>& note,
+    const std::optional<std::string>& collection) {
+  if (!db_) {
+    return false;
+  }
+
+  static constexpr char kQuery[] =
+      "UPDATE memory_bank_entries SET tags = ?, note = ?, collection = ? "
+      "WHERE id = ?";
+  sql::Statement statement(db_->GetCachedStatement(SQL_FROM_HERE, kQuery));
+
+  if (!tags.empty()) {
+    base::ListValue tags_list;
+    for (const auto& tag : tags) {
+      tags_list.Append(tag);
+    }
+    std::string tags_json = base::WriteJson(tags_list).value_or("");
+    statement.BindString(0, tags_json);
+  } else {
+    statement.BindNull(0);
+  }
+
+  if (note.has_value() && !note->empty()) {
+    statement.BindString(1, *note);
+  } else {
+    statement.BindNull(1);
+  }
+
+  if (collection.has_value() && !collection->empty()) {
+    statement.BindString(2, *collection);
+  } else {
+    statement.BindNull(2);
+  }
+
+  statement.BindInt64(3, id);
+
+  return statement.Run() && db_->GetLastChangeCount() > 0;
 }
 
 std::optional<MemoryBankEntry> MemoryBankTable::GetEntry(int64_t id) {
@@ -155,7 +229,7 @@ std::optional<MemoryBankEntry> MemoryBankTable::GetEntry(int64_t id) {
       SQL_FROM_HERE, *db_, statement, kMemoryBankEntriesTable,
       /*columns=*/
       {kIdColumn, kTypeColumn, kTimestampColumn, kUrlColumn, kTabTitleColumn,
-       kSelectedTextColumn, kTagsColumn},
+       kSelectedTextColumn, kTagsColumn, kNoteColumn, kCollectionColumn},
       /*modifiers=*/"WHERE id = ?");
   statement.BindInt64(0, id);
 
@@ -191,7 +265,7 @@ std::vector<MemoryBankEntry> MemoryBankTable::GetAllEntries() {
       SQL_FROM_HERE, *db_, statement, kMemoryBankEntriesTable,
       /*columns=*/
       {kIdColumn, kTypeColumn, kTimestampColumn, kUrlColumn, kTabTitleColumn,
-       kSelectedTextColumn, kTagsColumn},
+       kSelectedTextColumn, kTagsColumn, kNoteColumn, kCollectionColumn},
       /*modifiers=*/"ORDER BY timestamp DESC");
 
   std::vector<MemoryBankEntry> entries;
@@ -200,6 +274,51 @@ std::vector<MemoryBankEntry> MemoryBankTable::GetAllEntries() {
   }
 
   return entries;
+}
+
+std::vector<std::string> MemoryBankTable::GetAllTags() {
+  if (!db_) {
+    return {};
+  }
+
+  sql::Statement statement(db_->GetCachedStatement(
+      SQL_FROM_HERE,
+      "SELECT DISTINCT tags FROM memory_bank_entries WHERE tags IS NOT NULL "
+      "AND tags != ''"));
+
+  std::set<std::string> unique_tags;
+  while (statement.Step()) {
+    std::string tags_json = statement.ColumnString(0);
+    std::optional<base::ListValue> list_opt =
+        base::JSONReader::ReadList(tags_json, base::JSON_PARSE_RFC);
+    if (list_opt.has_value()) {
+      for (const auto& val : list_opt.value()) {
+        if (val.is_string()) {
+          unique_tags.insert(val.GetString());
+        }
+      }
+    }
+  }
+
+  return std::vector<std::string>(unique_tags.begin(), unique_tags.end());
+}
+
+std::vector<std::string> MemoryBankTable::GetAllCollections() {
+  if (!db_) {
+    return {};
+  }
+
+  sql::Statement statement(db_->GetCachedStatement(
+      SQL_FROM_HERE,
+      "SELECT DISTINCT collection FROM memory_bank_entries WHERE collection "
+      "IS NOT NULL AND collection != '' ORDER BY collection ASC"));
+
+  std::vector<std::string> collections;
+  while (statement.Step()) {
+    collections.push_back(statement.ColumnString(0));
+  }
+
+  return collections;
 }
 
 size_t MemoryBankTable::GetEntryCount() {

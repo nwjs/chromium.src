@@ -53,6 +53,8 @@ class BrowserMemoryCoordinatorBridge
 
   // mojom::ChildMemoryCoordinator:
   void UpdateConsumers(std::vector<MemoryConsumerUpdate> updates) override;
+  void SetOverrideLimit(uint32_t consumer_id, int32_t percentage) override;
+  void ClearOverrideLimit(uint32_t consumer_id, int32_t policy_limit) override;
 #if BUILDFLAG(ENABLE_MEMORY_COORDINATOR_INTERNALS)
   void EnableDiagnosticsReporting(
       mojo::PendingRemote<mojom::MemoryCoordinatorDiagnosticsHost> host)
@@ -61,7 +63,7 @@ class BrowserMemoryCoordinatorBridge
   // MemoryCoordinatorPolicyManager::DiagnosticObserver:
   void OnMemoryLimitChanged(uint32_t consumer_id,
                             ChildProcessId child_process_id,
-                            int memory_limit) override;
+                            base::MemoryLimit memory_limit) override;
 #endif  // BUILDFLAG(ENABLE_MEMORY_COORDINATOR_INTERNALS)
 
   // Binds this policy to the browser registry host.

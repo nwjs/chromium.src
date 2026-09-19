@@ -92,6 +92,10 @@ bool WebUIPermissionChip::GetVisible() const {
   return is_visible_;
 }
 
+std::u16string WebUIPermissionChip::GetTooltipText() const {
+  return tooltip_;
+}
+
 void WebUIPermissionChip::SetChipIcon(const gfx::VectorIcon& icon) {
   icon_name_ = icon.name;
   UpdateState();
@@ -267,6 +271,16 @@ void WebUIPermissionChip::SetBubbleOwner(BubbleOwnerDelegate* owner) {
   bubble_owner_ = owner;
 }
 
+void WebUIPermissionChip::ExecuteForTesting() {
+  if (pressed_callback_) {
+    pressed_callback_.Run(/*is_pointer_interaction=*/false);
+  }
+}
+
+void WebUIPermissionChip::EndAnimationForTesting() {
+  ResetAnimation(AnimationState::kCollapsed);
+}
+
 void WebUIPermissionChip::OnExpandAnimationEnded() {
   // Ignore blind IPCs sent by the WebUI frontend after a forced synchronous
   // snap triggered by ResetAnimation().
@@ -353,4 +367,24 @@ void WebUIPermissionChip::NotifyVisibilityChanged() {
 
 void WebUIPermissionChip::UpdateState() {
   location_bar_->OnChanged();
+}
+
+std::u16string WebUIPermissionChip::GetTextForTesting() const {
+  return message_;
+}
+
+PermissionChipTheme WebUIPermissionChip::GetThemeForTesting() const {
+  return theme_;
+}
+
+bool WebUIPermissionChip::GetIsRequestForTesting() const {
+  switch (theme_) {
+    case PermissionChipTheme::kNormalVisibility:
+    case PermissionChipTheme::kLowVisibility:
+      return true;
+    case PermissionChipTheme::kBlockedActivityIndicator:
+    case PermissionChipTheme::kOnSystemBlockedActivityIndicator:
+    case PermissionChipTheme::kInUseActivityIndicator:
+      return false;
+  }
 }

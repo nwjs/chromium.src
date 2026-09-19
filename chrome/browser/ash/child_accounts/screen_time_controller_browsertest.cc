@@ -20,6 +20,7 @@
 #include "chrome/browser/ash/child_accounts/time_limit_override.h"
 #include "chrome/browser/ash/child_accounts/time_limit_test_utils.h"
 #include "chrome/browser/ash/login/lock/screen_locker.h"
+#include "chrome/browser/ash/login/lock/screen_locker_controller.h"
 #include "chrome/browser/ash/login/lock/screen_locker_tester.h"
 #include "chrome/browser/ash/login/test/logged_in_user_mixin.h"
 #include "chrome/browser/ash/policy/core/user_policy_test_helper.h"
@@ -120,7 +121,8 @@ class ScreenTimeControllerTest : public MixinBasedInProcessBrowserTest {
   }
 
   bool IsAuthEnabled() {
-    return !ScreenLocker::default_screen_locker()
+    return !ScreenLockerController::Get()
+                .screen_locker()
                 ->IsAuthTemporarilyDisabledForUser(
                     logged_in_user_mixin_.GetAccountId());
   }
@@ -497,8 +499,10 @@ IN_PROC_BROWSER_TEST_F(ScreenTimeControllerTest, DISABLED_DefaultBedtime) {
   }
 }
 
+// TODO(crbug.com/550179314): Re-enable this test.
 // Tests the default time window limit.
-IN_PROC_BROWSER_TEST_F(ScreenTimeControllerTest, DefaultDailyLimit) {
+IN_PROC_BROWSER_TEST_F(ScreenTimeControllerTest,
+                       DISABLED_DefaultDailyLimit) {
   LogInChildAndSetupClockWithTime("1 Jan 2018 10:00:00 GMT");
   ScreenLockerTester().Lock();
 

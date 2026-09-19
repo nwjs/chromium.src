@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ui/views/extensions/dialogs/request_file_system_dialog.h"
+
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/extensions/extensions_dialogs.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "content/public/test/browser_test.h"
@@ -25,7 +26,7 @@ class RequestFileSystemDialogTest : public DialogBrowserTest {
 
   void ShowUi(const std::string& name) override {
     extensions::ShowRequestFileSystemDialog(
-        browser()->tab_strip_model()->GetActiveWebContents(),
+        browser()->GetTabStripModel()->GetActiveWebContents(),
         "RequestFileSystemDialogTest", "TestVolume", true, base::DoNothing());
   }
 };

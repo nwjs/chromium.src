@@ -5,11 +5,13 @@
 #include "chrome/browser/ui/webui/ai_overlay_dialog/page_context_monitor.h"
 
 #include "base/files/file_util.h"
+#include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/page_content_annotations/page_content_screenshot_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "components/optimization_guide/content/browser/page_content_proto_util.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
@@ -68,6 +70,7 @@ void ConvertContentNodesToMojo(
         mojo_node->text = attrs.text_data().text_content();
       }
       if (attrs.has_anchor_data()) {
+        mojo_node->tag_name = "a";
         mojo_node->url = GURL(attrs.anchor_data().url());
         mojo_node->is_interactive = true;
         mojo_node->role = ai_overlay_dialog::mojom::NodeRole::kLink;
@@ -190,10 +193,12 @@ std::string FindUrlForDomNodeId(
 PageContextMonitor::PageContextMonitor(BrowserWindowInterface& window,
                                        AiOverlayDialogPageHandler& page_handler)
     : window_(window), page_handler_(page_handler) {
+#if !BUILDFLAG(IS_ANDROID)
   active_tab_subscription_ =
       window.RegisterActiveTabDidChange(base::BindRepeating(
           &PageContextMonitor::OnActiveTabChanged, base::Unretained(this)));
   OnActiveTabChanged(&window);
+#endif
 }
 
 PageContextMonitor::~PageContextMonitor() = default;
@@ -213,6 +218,9 @@ void PageContextMonitor::DidStopLoading() {
 }
 
 void PageContextMonitor::OnActiveTabChanged(BrowserWindowInterface* window) {
+#if BUILDFLAG(IS_ANDROID)
+  NOTREACHED();
+#else
   CHECK_EQ(window, &window_.get());
 
   tabs::TabInterface* active_tab = window_->GetActiveTabInterface();
@@ -226,6 +234,7 @@ void PageContextMonitor::OnActiveTabChanged(BrowserWindowInterface* window) {
   page_handler_->DidChangePage(web_contents()->GetLastCommittedURL(),
                                web_contents()->GetTitle(), std::nullopt);
   StartNewFetch();
+#endif
 }
 
 void PageContextMonitor::StartNewFetch() {
@@ -322,6 +331,35 @@ std::string PageContextMonitor::GetUrlForHash(
     return "";
   }
   return FindUrlForDomNodeId(last_page_content_->root_node(), target_hash);
+}
+
+std::optional<int32_t> PageContextMonitor::ResolveImageDomNodeId(
+    std::string_view document_identifier,
+    int32_t dom_node_id) const {
+  if (!last_page_content_.has_value()) {
+    return std::nullopt;
+  }
+  auto target_info = optimization_guide::FindNodeWithID(
+      *last_page_content_, document_identifier, dom_node_id);
+  if (!target_info || !target_info->node) {
+    return std::nullopt;
+  }
+  const auto& node = *target_info->node;
+  if (node.has_content_attributes() &&
+      node.content_attributes().attribute_type() ==
+          optimization_guide::proto::ContentAttributeType::
+              CONTENT_ATTRIBUTE_IMAGE) {
+    return node.content_attributes().common_ancestor_dom_node_id();
+  }
+  for (const auto& child : node.children_nodes()) {
+    if (child.has_content_attributes() &&
+        child.content_attributes().attribute_type() ==
+            optimization_guide::proto::ContentAttributeType::
+                CONTENT_ATTRIBUTE_IMAGE) {
+      return child.content_attributes().common_ancestor_dom_node_id();
+    }
+  }
+  return std::nullopt;
 }
 
 }  // namespace ttc

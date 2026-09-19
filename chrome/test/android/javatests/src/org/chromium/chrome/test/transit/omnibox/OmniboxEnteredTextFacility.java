@@ -4,17 +4,29 @@
 
 package org.chromium.chrome.test.transit.omnibox;
 
+import static androidx.test.espresso.matcher.ViewMatchers.isDescendantOfA;
+import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
+
+import static org.hamcrest.CoreMatchers.allOf;
+
+import static org.chromium.base.test.transit.ViewSpec.viewSpec;
+
+import android.view.View;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.transit.Facility;
 import org.chromium.base.test.transit.Station;
+import org.chromium.base.test.transit.ViewSpec;
+import org.chromium.chrome.R;
+import org.chromium.chrome.browser.omnibox.LocationBarLayout;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.omnibox.OmniboxCapabilities;
 
 /**
- * Represents test entered into the Omnibox.
+ * Represents the Omnibox in a state where text has been entered in conventional mode.
  *
  * <p>TODO(crbug.com/345808144): Make this a child of OmniboxFacility when Facilities can have
  * children like Stations.
@@ -23,6 +35,16 @@ public class OmniboxEnteredTextFacility extends Facility<Station<?>> {
     private final OmniboxFacility mOmniboxFacility;
     private final String mText;
 
+    public static final ViewSpec<LocationBarLayout> LOCATION_BAR_POPPED_OUT =
+            viewSpec(
+                    LocationBarLayout.class,
+                    allOf(
+                            withId(R.id.location_bar),
+                            isDescendantOfA(withId(R.id.omnibox_suggestions_container))));
+
+    public static final ViewSpec<View> SUGGESTIONS_DROPDOWN =
+            viewSpec(allOf(withId(R.id.omnibox_suggestions_dropdown), isDisplayed()));
+
     public OmniboxEnteredTextFacility(OmniboxFacility omniboxFacility, String text) {
         mOmniboxFacility = omniboxFacility;
         mText = text;
@@ -30,13 +52,9 @@ public class OmniboxEnteredTextFacility extends Facility<Station<?>> {
         declareEnterCondition(omniboxFacility.urlBarElement.matches(withText(mText)));
         if (mText.isEmpty()) {
             declareEnterCondition(omniboxFacility.deleteButtonElement.absent());
-            if (omniboxFacility.getHostStation().isIncognito()) {
+            if (OmniboxCapabilities.isDesktopPlatform()) {
                 declareEnterCondition(omniboxFacility.micButtonElement.absent());
-            } else if (!OmniboxCapabilities.isDesktopPlatform()) {
-                // Non-desktop platform devices should show mic button.
-                // Mic behaviour on desktop platform devices is still WIP.
-                // TODO(crbug.com/521341182): Revisit the mic visibility check when desktop platform
-                // behaviour is more stable.
+            } else {
                 declareEnterCondition(omniboxFacility.micButtonElement.present());
             }
         } else {
@@ -65,7 +83,7 @@ public class OmniboxEnteredTextFacility extends Facility<Station<?>> {
     }
 
     /** Simulate autocomplete suggestion received from the server. */
-    public OmniboxEnteredTextFacility simulateAutocomplete(String autocompleted) {
+    public OmniboxSuggestionsFacility simulateAutocomplete(String autocompleted) {
         return runTo(
                         () -> {
                             Profile profile =
@@ -76,7 +94,7 @@ public class OmniboxEnteredTextFacility extends Facility<Station<?>> {
                         })
                 .exitFacilityAnd()
                 .enterFacility(
-                        new OmniboxEnteredTextFacility(mOmniboxFacility, mText + autocompleted));
+                        new OmniboxSuggestionsFacility(mOmniboxFacility, mText + autocompleted));
     }
 
     /** Clear text in the omnibox. */
@@ -92,5 +110,10 @@ public class OmniboxEnteredTextFacility extends Facility<Station<?>> {
                 .clickTo()
                 .exitFacilityAnd(this)
                 .enterFacility(new OmniboxEnteredTextFacility(mOmniboxFacility, ""));
+    }
+
+    /** Presses Back to exit Omnibox completely, returning to host CtaPageStation (WEBSITE). */
+    public void pressBackToExit() {
+        pressBackTo().exitFacilityAnd().exitFacility(mOmniboxFacility);
     }
 }

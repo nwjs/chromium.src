@@ -26,6 +26,7 @@
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/defaults.h"
+#include "chrome/browser/enterprise/isolated_mode/isolated_mode_settings_service_factory.h"
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
 #include "chrome/browser/extensions/extension_ui_util.h"
 #include "chrome/browser/feedback/report_unsafe_site_dialog.h"
@@ -118,7 +119,6 @@
 #include "components/dom_distiller/content/browser/uma_helper.h"
 #include "components/dom_distiller/core/dom_distiller_features.h"
 #include "components/dom_distiller/core/url_utils.h"
-#include "components/enterprise/isolated_mode/settings.h"
 #include "components/feature_engagement/public/event_constants.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/lens/lens_features.h"
@@ -443,12 +443,12 @@ std::u16string GetSyncSectionTitle(Profile* profile,
   }
 
   if (signin_util::IsSigninPending(identity_manager)) {
-    return base::UTF8ToUTF16(account.email);
+    return base::UTF8ToUTF16(account.GetEmail());
   }
 
   return l10n_util::GetStringFUTF16(
       IDS_PROFILE_ROW_SIGNED_IN_MESSAGE_WITH_EMAIL,
-      {base::UTF8ToUTF16(account.email)});
+      {base::UTF8ToUTF16(account.GetEmail())});
 }
 
 class ProfileSubMenuModel : public ui::SimpleMenuModel,
@@ -512,7 +512,11 @@ ProfileSubMenuModel::ProfileSubMenuModel(
       features::IsRoundedIconsEnabled() ? kAccountCircleIcon
                                         : kAccountCircleChromeRefreshOldIcon,
       ui::kColorMenuIcon, avatar_icon_size);
-  if (profile->IsIncognitoProfile()) {
+  // TODO(b/540249284): Temporarily Isolated mode is treated as Incognito. This
+  // should be revisited when deciding on the final integration of Isolated
+  // mode.
+  if (profile->IsIncognitoProfile() ||
+      profile->IsEnterpriseIsolatedModeProfile()) {
     avatar_image_model_ = ui::ImageModel::FromVectorIcon(
         features::IsRoundedIconsEnabled() ? kIncognitoCircleFilledIcon
                                           : kIncognitoOldIcon,
@@ -578,8 +582,11 @@ ProfileSubMenuModel::ProfileSubMenuModel(
 
   bool needs_separator = false;
   const bool is_guest_mode_enabled = profiles::IsGuestModeEnabled(*profile);
-
-  if (!profile->IsIncognitoProfile() && !profile->IsGuestSession()) {
+  // TODO(b/540249284): Temporarily Isolated mode is treated as Incognito. This
+  // should be revisited when deciding on the final integration of Isolated
+  // mode.
+  if (!profile->IsIncognitoProfile() && !profile->IsGuestSession() &&
+      !profile->IsEnterpriseIsolatedModeProfile()) {
     AddSeparator(ui::NORMAL_SEPARATOR);
     AddTitle(l10n_util::GetStringUTF16(IDS_OTHER_CHROME_PROFILES_TITLE));
     auto profile_entries = GetAllOtherProfileEntriesForProfileSubMenu(profile);
@@ -819,9 +826,12 @@ void ProfileSubMenuModel::BuildGuestProfileRow(Profile* profile) {
   SetElementIdentifierAt(GetIndexOfCommandId(IDC_OPEN_GUEST_PROFILE).value(),
                          AppMenuModel::kProfileOpenGuestItem);
 }
-
+// TODO(b/540249284): Temporarily Isolated mode is treated as Incognito. This
+// should be revisited when deciding on the final integration of Isolated
+// mode.
 void ProfileSubMenuModel::BuildCustomizeProfileRow(Profile* profile) {
-  if (!profile->IsIncognitoProfile() && !profile->IsGuestSession()) {
+  if (!profile->IsIncognitoProfile() && !profile->IsGuestSession() &&
+      !profile->IsEnterpriseIsolatedModeProfile()) {
     AddItemWithStringIdAndVectorIcon(
         this, IDC_CUSTOMIZE_CHROME, IDS_CUSTOMIZE_CHROME,
         features::IsRoundedIconsEnabled()
@@ -843,7 +853,8 @@ void ProfileSubMenuModel::BuildCloseProfileRow(Profile* profile) {
 
 void ProfileSubMenuModel::BuildManageGoogleAccountRow(Profile* profile) {
   if (HasUnconstentedProfile(profile) && !IsSyncPaused(profile) &&
-      !profile->IsIncognitoProfile()) {
+      !profile->IsIncognitoProfile() &&
+      !profile->IsEnterpriseIsolatedModeProfile()) {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
     const gfx::VectorIcon& manage_account_icon =
         vector_icons::kGoogleGLogoMonochromeIcon;
@@ -1206,18 +1217,11 @@ void ToolsMenuModel::Build(BrowserWindowInterface* browser) {
                                     : kDockToRightOldIcon
           : features::IsRoundedIconsEnabled() ? kDockToRightIcon
                                               : kDockToLeftOldIcon);
-      const bool use_preview_badge =
-          base::FeatureList::IsEnabled(tabs::kVerticalTabsPreviewBadge);
-      const ui::NewBadgeType badge_type = use_preview_badge
-                                              ? ui::NewBadgeType::kPreview
-                                              : ui::NewBadgeType::kNew;
       const user_education::DisplayNewBadge show_badge =
-          UserEducationService::MaybeShowNewBadge(
-              browser->GetProfile(), use_preview_badge
-                                         ? tabs::kVerticalTabsPreviewBadge
-                                         : tabs::kVerticalTabsNewBadge);
+          UserEducationService::MaybeShowNewBadge(browser->GetProfile(),
+                                                  tabs::kVerticalTabsNewBadge);
       SetIsNewFeatureAt(GetIndexOfCommandId(IDC_TOGGLE_VERTICAL_TABS).value(),
-                        show_badge, badge_type);
+                        show_badge, ui::NewBadgeType::kNew);
     }
   }
 
@@ -1251,10 +1255,9 @@ void ToolsMenuModel::Build(BrowserWindowInterface* browser) {
                          kPerformanceMenuItem);
 
   if (chrome::CanOpenTaskManager()) {
-    AddItemWithStringIdAndVectorIcon(
-        this, IDC_TASK_MANAGER_APP_MENU, IDS_TASK_MANAGER,
-        features::IsRoundedIconsEnabled() ? kTableChartIcon
-                                          : kTaskManagerOldIcon);
+    AddItemWithStringIdAndVectorIcon(this, IDC_TASK_MANAGER_APP_MENU,
+                                     IDS_TASK_MANAGER,
+                                     vector_icons::kTableChartIcon);
   }
 #if BUILDFLAG(IS_CHROMEOS)
   AddItemWithStringId(IDC_TAKE_SCREENSHOT, IDS_TAKE_SCREENSHOT);
@@ -2184,6 +2187,10 @@ void AppMenuModel::LogMenuAction(AppMenuAction action_id) {
 }
 
 // Note: When adding new menu items please place under an appropriate section.
+// Capitalization Policy (go/chrome-capitalization):
+// In-browser 3-dot app menus use sentence case across all platforms, including
+// macOS. Native macOS system menus (the main menu bar and right-click context
+// menus) use Title Case separately.
 // Menu is organised as follows:
 // - Extension toolbar overflow.
 // - Global browser errors and warnings.
@@ -2216,10 +2223,13 @@ void AppMenuModel::Build() {
       AddDefaultBrowserMenuItems()) {
     AddSeparator(ui::NORMAL_SEPARATOR);
   }
-
+  // TODO(b/540249284): Temporarily Isolated mode is treated as Incognito. This
+  // should be revisited when deciding on the final integration of Isolated
+  // mode.
   AddItemWithStringIdAndVectorIcon(
       this, IDC_NEW_TAB,
-      browser_->GetProfile()->IsIncognitoProfile() &&
+      (browser_->GetProfile()->IsIncognitoProfile() ||
+       browser_->GetProfile()->IsEnterpriseIsolatedModeProfile()) &&
               !browser_->GetProfile()->IsGuestSession()
           ? IDS_NEW_INCOGNITO_TAB
           : IDS_NEW_TAB,
@@ -2242,7 +2252,7 @@ void AppMenuModel::Build() {
 
     bool isolated_mode_enabled =
         enterprise_isolated_mode::IsolatedModeReplacesIncognito(
-            *browser_->GetProfile()->GetPrefs(), chrome::GetChannel());
+            browser_->GetProfile());
 
     if (isolated_mode_enabled) {
       AddItemWithStringIdAndVectorIcon(
@@ -2555,11 +2565,14 @@ bool AppMenuModel::AddGlobalErrorMenuItems() {
   }
   return menu_items_added;
 }
-
+// TODO(b/540249284): Temporarily Isolated mode is treated as Incognito. This
+// should be revisited when deciding on the final integration of Isolated
+// mode.
 bool AppMenuModel::AddDefaultBrowserMenuItems() {
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
   if (browser_->GetProfile()->IsIncognitoProfile() ||
-      browser_->GetProfile()->IsGuestSession()) {
+      browser_->GetProfile()->IsGuestSession() ||
+      browser_->GetProfile()->IsEnterpriseIsolatedModeProfile()) {
     return false;
   }
 

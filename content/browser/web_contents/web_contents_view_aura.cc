@@ -131,8 +131,9 @@ RenderWidgetHostViewAura* ToRenderWidgetHostViewAura(
     return nullptr;  // Can't cast to RenderWidgetHostViewAura in unit tests.
   }
 
-  DCHECK(!view || !static_cast<RenderWidgetHostViewBase*>(view)
-                       ->IsRenderWidgetHostViewChildFrame());
+  CHECK(!view || !static_cast<RenderWidgetHostViewBase*>(view)
+                      ->IsRenderWidgetHostViewChildFrame(),
+        base::NotFatalUntil::M158);
   return static_cast<RenderWidgetHostViewAura*>(view);
 }
 
@@ -205,7 +206,7 @@ void PrepareDragForFileContents(const DropData& drop_data,
 void PrepareDragForDownload(RenderFrameHost& source_rfh,
                             const DropData& drop_data,
                             ui::OSExchangeDataProvider* provider) {
-  DCHECK(drop_data.download_metadata.has_value());
+  CHECK(drop_data.download_metadata.has_value(), base::NotFatalUntil::M158);
 
   const GURL& page_url = source_rfh.GetLastCommittedURL();
   const std::string& page_encoding =
@@ -538,7 +539,8 @@ class WebContentsViewAura::WindowObserver
                              const gfx::Rect& old_bounds,
                              const gfx::Rect& new_bounds,
                              ui::PropertyChangeReason reason) override {
-    DCHECK(window == host_window_ || window == view_->window_.get());
+    CHECK(window == host_window_ || window == view_->window_.get(),
+          base::NotFatalUntil::M158);
     if (!ShouldNotifyOfBoundsChanges())
       return;
 
@@ -581,7 +583,7 @@ class WebContentsViewAura::WindowObserver
     if (!ShouldNotifyOfBoundsChanges())
       return;
 
-    DCHECK(!pending_window_changes_);
+    CHECK(!pending_window_changes_, base::NotFatalUntil::M158);
     pending_window_changes_ = std::make_unique<PendingWindowChanges>();
   }
 
@@ -638,7 +640,7 @@ class WebContentsViewAura::WindowObserver
   };
 
   void ProcessWindowBoundsChange(bool did_origin_change) {
-    DCHECK(ShouldNotifyOfBoundsChanges());
+    CHECK(ShouldNotifyOfBoundsChanges(), base::NotFatalUntil::M158);
     SendScreenRects();
     if (did_origin_change) {
       TouchSelectionControllerClientAura* selection_controller_client =
@@ -649,7 +651,7 @@ class WebContentsViewAura::WindowObserver
   }
 
   void ProcessHostMovedInPixels() {
-    DCHECK(ShouldNotifyOfBoundsChanges());
+    CHECK(ShouldNotifyOfBoundsChanges(), base::NotFatalUntil::M158);
     // NOTE: this function is *not* called if OnHostWillProcessBoundsChange()
     // *and* the bounds changes (OnWindowBoundsChanged() is called).
     TRACE_EVENT1(
@@ -822,6 +824,12 @@ void WebContentsViewAura::PrepareDropData(
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
+void WebContentsViewAura::ClearDragStateOnStartFailure(
+    RenderWidgetHostImpl* source_rwh) {
+  drag_security_info_.OnDragEnded();
+  web_contents_->SystemDragEnded(source_rwh);
+}
+
 void WebContentsViewAura::EndDrag(
     base::WeakPtr<RenderWidgetHostImpl> source_rwh_weak_ptr,
     DragOperation op) {
@@ -989,8 +997,8 @@ gfx::Size WebContentsViewAura::GetSize() const {
 }
 
 void WebContentsViewAura::CreateAuraWindow(aura::Window* context) {
-  DCHECK(aura::Env::HasInstance());
-  DCHECK(!window_);
+  CHECK(aura::Env::HasInstance(), base::NotFatalUntil::M158);
+  CHECK(!window_, base::NotFatalUntil::M158);
   window_ =
       std::make_unique<aura::Window>(this, aura::client::WINDOW_TYPE_CONTROL);
   window_->set_owned_by_parent(false);
@@ -1030,7 +1038,8 @@ Visibility WebContentsViewAura::GetVisibility() const {
   if (window_->GetOcclusionState() == aura::Window::OcclusionState::OCCLUDED)
     return Visibility::OCCLUDED;
 
-  DCHECK_EQ(window_->GetOcclusionState(), aura::Window::OcclusionState::HIDDEN);
+  CHECK_EQ(window_->GetOcclusionState(), aura::Window::OcclusionState::HIDDEN,
+           base::NotFatalUntil::M158);
   return Visibility::HIDDEN;
 }
 
@@ -1055,7 +1064,7 @@ RenderWidgetHostViewBase* WebContentsViewAura::CreateViewForWidget(
     // this actually is happening (and somebody isn't accidentally creating the
     // view twice), we check for the RVH Factory, which will be set when we're
     // making special ones (which go along with the special views).
-    DCHECK(RenderViewHostFactory::has_factory());
+    CHECK(RenderViewHostFactory::has_factory(), base::NotFatalUntil::M158);
     return static_cast<RenderWidgetHostViewBase*>(
         render_widget_host->GetView());
   }
@@ -1225,7 +1234,7 @@ void WebContentsViewAura::StartDragging(
     return;
   }
   if (!aura::client::GetDragDropClient(root_window)) {
-    web_contents_->SystemDragEnded(source_rwh);
+    ClearDragStateOnStartFailure(source_rwh);
     return;
   }
 
@@ -1243,7 +1252,7 @@ void WebContentsViewAura::StartDragging(
   // Synchronous policy check.
   // If drag is not allowed, it means the policy blocked the action.
   if (!IsDragAllowedByDataControlPolicy(source_endpoint, drop_data)) {
-    web_contents_->SystemDragEnded(source_rwh);
+    ClearDragStateOnStartFailure(source_rwh);
     return;
   }
 
@@ -1291,7 +1300,7 @@ void WebContentsViewAura::StartDragging(
          !env->is_touch_down()) ||
         (event_info.source == ui::mojom::DragEventSource::kMouse &&
          !env->IsMouseButtonDown())) {
-      web_contents_->SystemDragEnded(source_rwh);
+      ClearDragStateOnStartFailure(source_rwh);
       return;
     }
     if (event_info.source == ui::mojom::DragEventSource::kTouch) {
@@ -1305,7 +1314,7 @@ void WebContentsViewAura::StartDragging(
     // visible.
     if (!content_native_view->GetBoundsInScreen().Contains(trusted_location) ||
         !content_native_view->IsVisible()) {
-      web_contents_->SystemDragEnded(source_rwh);
+      ClearDragStateOnStartFailure(source_rwh);
       return;
     }
     base::CurrentThread::ScopedAllowApplicationTasksInNativeNestedLoop allow;
@@ -1540,7 +1549,7 @@ void WebContentsViewAura::DragEnteredCallback(
     return;
   }
 
-  DCHECK(transformed_pt.has_value());
+  CHECK(transformed_pt.has_value(), base::NotFatalUntil::M158);
   gfx::PointF screen_pt(display::Screen::Get()->GetCursorScreenPoint());
   current_rwh_for_drag_->DragTargetDragEnter(
       *current_drag_data_, transformed_pt.value(), screen_pt, op_mask,
@@ -1630,7 +1639,7 @@ void WebContentsViewAura::DragUpdatedCallback(
     return;
   }
 
-  DCHECK(transformed_pt.has_value());
+  CHECK(transformed_pt.has_value(), base::NotFatalUntil::M158);
   blink::DragOperationsMask op_mask =
       ConvertToDragOperationsMask(drop_metadata.source_operations);
   target_rwh->DragTargetDragOver(
@@ -1777,7 +1786,7 @@ void WebContentsViewAura::PerformDropCallback(
     return;
   }
 
-  DCHECK(transformed_pt.has_value());
+  CHECK(transformed_pt.has_value(), base::NotFatalUntil::M158);
 
   gfx::PointF screen_pt(display::Screen::Get()->GetCursorScreenPoint());
   if (target_rwh != current_rwh_for_drag_.get()) {

@@ -11,9 +11,9 @@
 #import "base/test/bind.h"
 #import "base/test/mock_callback.h"
 #import "base/test/test_future.h"
-#import "components/autofill/core/browser/test_utils/autofill_form_test_utils.h"
-#import "components/autofill/core/browser/test_utils/autofill_test_utils.h"
-#import "components/autofill/core/common/autofill_test_utils.h"
+#import "components/autofill/core/browser/test_utils/autofill_form_test_util.h"
+#import "components/autofill/core/browser/test_utils/autofill_test_util.h"
+#import "components/autofill/core/common/autofill_test_util.h"
 #import "components/autofill/core/common/form_data.h"
 #import "components/autofill/core/common/form_field_data.h"
 #import "components/autofill/core/common/unique_ids.h"
@@ -39,17 +39,22 @@
 - (void)setForms:(std::vector<autofill::FormData>)forms;
 - (void)setFetchFormsCompletionHandler:
     (base::RepeatingCallback<void(FormFetchCompletion)>)handler;
+- (const std::string&)lastScrolledFrameId;
+@property(nonatomic, assign) autofill::FieldRendererId lastScrolledField;
+@property(nonatomic, assign) int formsSeenRunCount;
 
 @end
 
 @implementation FakeAutofillDriverIOSBridge {
   std::vector<autofill::FormData> _forms;
   base::RepeatingCallback<void(FormFetchCompletion)> _fetchHandler;
+  std::string _lastScrolledFrameId;
 }
 
 - (instancetype)init {
   if ((self = [super init])) {
     _forms = {};
+    _formsSeenRunCount = 0;
   }
   return self;
 }
@@ -85,6 +90,15 @@
 }
 - (void)notifyFormsSeen:(std::vector<autofill::FormData>)updatedForms
                 inFrame:(web::WebFrame*)frame {
+  _formsSeenRunCount++;
+}
+- (void)scrollFieldIntoView:(const autofill::FieldRendererId&)field
+                    inFrame:(web::WebFrame*)frame {
+  _lastScrolledField = field;
+  _lastScrolledFrameId = frame ? frame->GetFrameId() : "";
+}
+- (const std::string&)lastScrolledFrameId {
+  return _lastScrolledFrameId;
 }
 - (void)fetchFormsFiltered:(std::optional<std::u16string>)formNameFilter
                    inFrame:(web::WebFrame*)frame
@@ -308,6 +322,84 @@ TEST_F(AutofillDriverIOSTest, Unregister_InvalidatesWeakPtrs) {
   ASSERT_TRUE(weak_ptr);
   main_frame_driver()->Unregister();
   EXPECT_FALSE(weak_ptr);
+}
+
+// Tests that ScrollFieldIntoView on the main frame driver forwards the field
+// renderer ID and main frame to the bridge.
+TEST_F(AutofillDriverIOSTest, ScrollFieldIntoView_MainFrame) {
+  FormData main_frame_form = MakeForm(/*main_frame=*/true);
+  main_frame_driver()->FormsSeen({main_frame_form}, /*removed_forms=*/{});
+
+  FieldRendererId field_id(123);
+  FieldGlobalId global_id(main_frame_driver()->GetFrameToken(), field_id);
+
+  main_frame_driver()->ScrollFieldIntoView(global_id);
+
+  EXPECT_EQ(bridge().lastScrolledField, field_id);
+  EXPECT_EQ(bridge().lastScrolledFrameId,
+            main_frame_driver()->web_frame()->GetFrameId());
+}
+
+// Tests that ScrollFieldIntoView on a child frame is routed correctly.
+TEST_F(AutofillDriverIOSTest, ScrollFieldIntoView_Iframe) {
+  FormData iframe_form = MakeForm(/*main_frame=*/false);
+  FormData main_frame_form = MakeForm(/*main_frame=*/true);
+  main_frame_driver()->FormsSeen({main_frame_form}, /*removed_forms=*/{});
+  iframe_driver()->FormsSeen({iframe_form}, /*removed_forms=*/{});
+
+  FieldRendererId field_id(456);
+  FieldGlobalId global_id(iframe_driver()->GetFrameToken(), field_id);
+
+  main_frame_driver()->ScrollFieldIntoView(global_id);
+
+  EXPECT_EQ(bridge().lastScrolledField, field_id);
+  EXPECT_EQ(bridge().lastScrolledFrameId,
+            iframe_driver()->web_frame()->GetFrameId());
+}
+
+// Test that `ScanForms` triggers form extraction on this driver frame and
+// invokes `callback` passed upon success.
+TEST_F(AutofillDriverIOSTest, ScanForms_WithCallback) {
+  FormData main_frame_form = MakeForm(/*main_frame=*/true);
+  [bridge() setForms:{main_frame_form}];
+
+  base::test::TestFuture<bool> future;
+  main_frame_driver()->ScanForms(/*immediately=*/true, future.GetCallback());
+
+  EXPECT_TRUE(future.Get());
+  EXPECT_EQ(bridge().formsSeenRunCount, 1);
+}
+
+// Test that `TriggerFormExtractionInAllFrames` triggers form extraction in all
+// frames and notifies the bridge upon success.
+TEST_F(AutofillDriverIOSTest, TriggerFormExtractionInAllFrames_Success) {
+  FormData iframe_form = MakeForm(/*main_frame=*/false);
+  FormData main_frame_form = MakeForm(/*main_frame=*/true);
+
+  std::vector<FormData> bridge_result{iframe_form, main_frame_form};
+  [bridge() setForms:bridge_result];
+
+  base::test::TestFuture<bool> future;
+  main_frame_driver()->TriggerFormExtractionInAllFrames(future.GetCallback());
+
+  EXPECT_TRUE(future.Get());
+  // Forms seen should be notified for both frames since bridge returns forms.
+  EXPECT_EQ(bridge().formsSeenRunCount, 2);
+}
+
+// Test that `TriggerFormExtractionInAllFrames` reports failure when fetching
+// forms fails.
+TEST_F(AutofillDriverIOSTest, TriggerFormExtractionInAllFrames_Failure) {
+  auto callback =
+      base::BindLambdaForTesting([](FormFetchCompletion completion) {
+        std::move(completion).Run(std::nullopt);
+      });
+  [bridge() setFetchFormsCompletionHandler:std::move(callback)];
+
+  base::test::TestFuture<bool> future;
+  main_frame_driver()->TriggerFormExtractionInAllFrames(future.GetCallback());
+
+  EXPECT_FALSE(future.Get());
 }
 
 }  // namespace

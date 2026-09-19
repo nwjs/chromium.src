@@ -9,7 +9,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/ui/bluetooth/bluetooth_dialogs.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "components/constrained_window/constrained_window_views.h"
@@ -17,6 +16,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "ui/events/base_event_utils.h"
+#include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/test/button_test_api.h"
 
 #if PAIR_BLUETOOTH_ON_DEMAND()
@@ -46,8 +46,8 @@ class BluetoothDevicePairConfirmViewBrowserTest
                                     : std::nullopt;
 
     ShowBluetoothDevicePairConfirmDialog(
-        browser()->tab_strip_model()->GetActiveWebContents(), kDeviceIdentifier,
-        passkey, base::NullCallback());
+        browser()->GetTabStripModel()->GetActiveWebContents(),
+        kDeviceIdentifier, passkey, base::NullCallback());
   }
 };
 
@@ -70,7 +70,7 @@ IN_PROC_BROWSER_TEST_P(BluetoothDevicePairConfirmViewBrowserTest,
       future
           .GetCallback<const content::BluetoothDelegate::PairPromptResult&>());
   views::Widget* dialog_widget = constrained_window::ShowWebModalDialogViews(
-      view, browser()->tab_strip_model()->GetActiveWebContents());
+      view, browser()->GetTabStripModel()->GetActiveWebContents());
   ASSERT_NE(dialog_widget, nullptr);
 
   views::MdTextButton* ok_button = view->GetOkButton();

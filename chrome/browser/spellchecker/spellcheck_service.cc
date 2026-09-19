@@ -14,6 +14,7 @@
 #include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -21,6 +22,7 @@
 #include "base/synchronization/waitable_event.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
+#include "base/timer/elapsed_timer.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
@@ -222,15 +224,12 @@ SpellcheckService::SpellcheckService(content::BrowserContext* context)
 
   // 2. Initialize Hunspell dictionaries.
   if (run_hunspell_init) {
-    if (defer_spellcheck) {
-      content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})
-          ->PostTask(FROM_HERE,
-                     base::BindOnce(&SpellcheckService::InitializeDictionaries,
-                                    weak_ptr_factory_.GetWeakPtr(),
-                                    base::DoNothing()));
-    } else {
-      InitializeDictionaries(base::DoNothing());
-    }
+    // Do initialization directly instead of as a posted task. Hunspell
+    // dictionary file loading already runs asynchronously on a background
+    // task runner, but the dictionary objects and metrics must be registered
+    // synchronously so that renderers created during startup know spellcheck
+    // is enabled and do not disable spelling services.
+    InitializeDictionaries(base::DoNothing());
   }
 }
 
@@ -497,6 +496,7 @@ void SpellcheckService::StartRecordingMetrics(bool spellcheck_enabled) {
 }
 
 void SpellcheckService::InitForRenderer(content::RenderProcessHost* host) {
+  base::ScopedUmaHistogramTimer timer("SpellCheck.Browser.InitForRendererTime");
   // Skip initialization of the spellcheck service for top chrome and NTP web UI
   // pages when Initial WebUI feature is enabled for optimizing browser startup.
   if (host->IsForTopChromeWebUI() &&

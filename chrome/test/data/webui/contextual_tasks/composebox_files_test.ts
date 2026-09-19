@@ -246,7 +246,7 @@ suite('ContextualTasksComposeboxFilesTest', () => {
       microtasksFinished(),
     ]);
 
-    assertEquals(0, composebox.files.size);
+    assertEquals(0, composebox.attachedContext.size);
 
     const submitButton: HTMLButtonElement|null = getSubmitButton(composebox);
     assertTrue(submitButton !== null, 'Submit button should exist');
@@ -275,7 +275,7 @@ suite('ContextualTasksComposeboxFilesTest', () => {
             token1, new File(['foo'], 'foo.jpg', {type: 'image/jpeg'}),
             composebox, mockSearchboxPageHandler);
 
-        const currentFiles = composebox.files;
+        const currentFiles = composebox.attachedContext;
         currentFiles.forEach((file: ComposeboxFile) => {
           file.isDeletable = false;
         });
@@ -302,7 +302,7 @@ suite('ContextualTasksComposeboxFilesTest', () => {
         await composebox.updateComplete;
         await microtasksFinished();
 
-        assertEquals(1, composebox.files.size);
+        assertEquals(1, composebox.attachedContext.size);
 
         const submitButton: HTMLButtonElement|null =
             getSubmitButton(composebox);
@@ -334,7 +334,7 @@ suite('ContextualTasksComposeboxFilesTest', () => {
         await searchboxCallbackRouterRemote.$.flushForTesting();
         await composebox.updateComplete;
 
-        const currentFiles2 = composebox.files;
+        const currentFiles2 = composebox.attachedContext;
         currentFiles2.forEach((file: ComposeboxFile) => {
           file.isDeletable = false;
         });
@@ -347,7 +347,7 @@ suite('ContextualTasksComposeboxFilesTest', () => {
         composebox.clearAllInputs(false);
         await composebox.updateComplete;
         await microtasksFinished();
-        assertEquals(2, composebox.files.size);
+        assertEquals(2, composebox.attachedContext.size);
 
         assertTrue(submitButton !== null, 'Submit button should exist');
         // There are no more deletable files, but the remaining undeletable
@@ -363,7 +363,7 @@ suite('ContextualTasksComposeboxFilesTest', () => {
         assertStyle(
             submitContainer, 'pointer-events', 'auto',
             'Submit container should have pointer-events on.');
-        assertEquals(2, composebox.files.size);
+        assertEquals(2, composebox.attachedContext.size);
       });
 
   test('Composebox upload disabled when uploading files', async () => {
@@ -598,264 +598,276 @@ suite('ContextualTasksComposeboxFilesTest', () => {
           await microtasksFinished();
         });
 
-        test(
-            'closes Lens overlay when image uploads are disabled', async () => {
-              const disabledState = {
-                ...new MockInputState(),
-                disabledInputTypes: [InputType.kLensImage],
-              };
+        suite('LensBehavior', () => {
+          test(
+              'closes Lens overlay when image uploads are disabled',
+              async () => {
+                const disabledState = {
+                  ...new MockInputState(),
+                  disabledInputTypes: [InputType.kLensImage],
+                };
 
-              parts.innerComposebox.dispatchEvent(
-                  new CustomEvent('input-state-changed', {
-                    detail: {inputState: disabledState},
-                    bubbles: true,
-                    composed: true,
-                  }));
+                parts.innerComposebox.dispatchEvent(
+                    new CustomEvent('input-state-changed', {
+                      detail: {inputState: disabledState},
+                      bubbles: true,
+                      composed: true,
+                    }));
 
-              await microtasksFinished();
+                await microtasksFinished();
 
-              assertEquals(
-                  1,
-                  mockComposeboxPageHandler.getCallCount(
-                      'closeLensOverlayFromWebUI'));
-              assertEquals(
-                  LensOverlayDismissalSource
-                      .kContextualTasksImageUploadsDisabled,
-                  mockComposeboxPageHandler.getArgs(
-                      'closeLensOverlayFromWebUI')[0]);
-            });
-
-        test(
-            'lens button is disabled when image uploads are disabled',
-            async () => {
-              const disabledState = {
-                ...new MockInputState(),
-                disabledInputTypes: [InputType.kLensImage],
-              };
-
-              searchboxCallbackRouterRemote.onInputStateChanged(disabledState);
-              await searchboxCallbackRouterRemote.$.flushForTesting();
-              await parts.wrapper.updateComplete;
-              await parts.innerComposebox.updateComplete;
-              await microtasksFinished();
-
-              assertTrue(parts.innerComposebox.lensButtonDisabled);
-            });
-
-        test(
-            'lens button renders in side panel and click opens overlay',
-            async () => {
-              const {wrapper, innerComposebox} = parts;
-              wrapper.isSidePanel = true;
-              await wrapper.updateComplete;
-              await innerComposebox.updateComplete;
-
-              const lensIcon =
-                  innerComposebox.shadowRoot.querySelector<CrIconButtonElement>(
-                      '#lensIcon');
-              assertTrue(
-                  lensIcon !== null, 'Lens icon should render in side panel');
-              assertEquals(lensIcon, innerComposebox.getLensButtonElement());
-
-              lensIcon.click();
-              await mockComposeboxPageHandler.whenCalled(
-                  'handleLensButtonClick');
-              assertEquals(
-                  1,
-                  mockComposeboxPageHandler.getCallCount(
-                      'handleLensButtonClick'));
-              assertEquals(
-                  0,
-                  mockComposeboxPageHandler.getCallCount('handleFileUpload'));
-            });
-
-        test('lens icon disabled state reflects on the icon', async () => {
-          const {wrapper, innerComposebox} = parts;
-          wrapper.isSidePanel = true;
-          await wrapper.updateComplete;
-
-          searchboxCallbackRouterRemote.onInputStateChanged({
-            ...new MockInputState(),
-            disabledInputTypes: [InputType.kLensImage],
-          });
-          await searchboxCallbackRouterRemote.$.flushForTesting();
-          await wrapper.updateComplete;
-          await innerComposebox.updateComplete;
-
-          const lensIcon =
-              innerComposebox.shadowRoot.querySelector<CrIconButtonElement>(
-                  '#lensIcon');
-          assertTrue(lensIcon !== null);
-          assertTrue(lensIcon.disabled);
-        });
-
-        test('file inputs are disabled', () => {
-          const fileInputs = parts.innerComposebox.$.fileInputs;
-          assertTrue(fileInputs.disableFileInputs);
-          assertFalse(!!fileInputs.shadowRoot.querySelector('#imageInput'));
-        });
-
-        test(
-            'file upload renders the carousel and delete removes it',
-            async () => {
-              const {innerComposebox} = parts;
-              const testFile =
-                  new File(['test'], 'test.jpg', {type: 'image/jpeg'});
-              await uploadFileAndVerify(
-                  FAKE_TOKEN_STRING, testFile, innerComposebox,
-                  mockSearchboxPageHandler);
-
-              const carouselContainer =
-                  innerComposebox.shadowRoot.querySelector(
-                      '#carouselContainer');
-              assertTrue(carouselContainer !== null);
-              assertEquals(
-                  'carousel-container', carouselContainer.getAttribute('part'));
-              const carousel =
-                  innerComposebox.shadowRoot.querySelector('#carousel');
-              assertTrue(carousel !== null);
-              assertEquals(
-                  'cr-composebox-file-carousel', carousel.getAttribute('part'));
-              const exportparts = carousel.getAttribute('exportparts');
-              assertTrue(exportparts !== null);
-              const exportedParts = exportparts.split(',').map(p => p.trim());
-              assertTrue(exportedParts.includes('thumbnail'));
-              assertTrue(exportedParts.includes('thumbnail-title'));
-
-              await deleteLastFile(innerComposebox);
-              await innerComposebox.updateComplete;
-              assertFalse(
-                  !!innerComposebox.shadowRoot.querySelector('#carousel'));
-            });
-
-        test(
-            'paste with a file attaches it and renders the carousel',
-            async () => {
-              const {innerComposebox} = parts;
-              assertFalse(
-                  !!innerComposebox.shadowRoot.querySelector('#carousel'));
-
-              mockSearchboxPageHandler.resetResolver(ADD_FILE_CONTEXT_FN);
-              mockSearchboxPageHandler.setResultFor(
-                  ADD_FILE_CONTEXT_FN, Promise.resolve(FAKE_TOKEN_STRING));
-
-              const dataTransfer = new DataTransfer();
-              dataTransfer.items.add(
-                  new File(['test'], 'test.jpg', {type: 'image/jpeg'}));
-              const composeboxDiv =
-                  innerComposebox.shadowRoot.querySelector<HTMLElement>(
-                      '#composebox');
-              assertTrue(composeboxDiv !== null);
-
-              let pasteEvent = new ClipboardEvent('paste', {
-                clipboardData: dataTransfer,
-                bubbles: true,
-                composed: true,
+                assertEquals(
+                    1,
+                    mockComposeboxPageHandler.getCallCount(
+                        'closeLensOverlayFromWebUI'));
+                assertEquals(
+                    LensOverlayDismissalSource
+                        .kContextualTasksImageUploadsDisabled,
+                    mockComposeboxPageHandler.getArgs(
+                        'closeLensOverlayFromWebUI')[0]);
               });
-              if (!pasteEvent.clipboardData) {
-                // The clipboardData constructor init is ignored in some
-                // environments; fall back to injecting the property.
-                pasteEvent = new Event('paste', {
-                               bubbles: true,
-                               composed: true,
-                             }) as ClipboardEvent;
-                Object.defineProperty(
-                    pasteEvent, 'clipboardData', {value: dataTransfer});
-              }
-              composeboxDiv.dispatchEvent(pasteEvent);
 
-              await mockSearchboxPageHandler.whenCalled(ADD_FILE_CONTEXT_FN);
-              await innerComposebox.updateComplete;
-              await microtasksFinished();
+          test(
+              'lens button is disabled when image uploads are disabled',
+              async () => {
+                const disabledState = {
+                  ...new MockInputState(),
+                  disabledInputTypes: [InputType.kLensImage],
+                };
 
-              assertEquals(1, innerComposebox.files.size);
-              assertTrue(
-                  !!innerComposebox.shadowRoot.querySelector('#carousel'));
+                searchboxCallbackRouterRemote.onInputStateChanged(
+                    disabledState);
+                await searchboxCallbackRouterRemote.$.flushForTesting();
+                await parts.wrapper.updateComplete;
+                await parts.innerComposebox.updateComplete;
+                await microtasksFinished();
+
+                assertTrue(parts.innerComposebox.lensButtonDisabled);
+              });
+
+          test(
+              'lens button renders in side panel and click opens overlay',
+              async () => {
+                const {wrapper, innerComposebox} = parts;
+                wrapper.isSidePanel = true;
+                await wrapper.updateComplete;
+                await innerComposebox.updateComplete;
+
+                const lensIcon =
+                    innerComposebox.shadowRoot
+                        .querySelector<CrIconButtonElement>('#lensIcon');
+                assertTrue(
+                    lensIcon !== null, 'Lens icon should render in side panel');
+                assertEquals(lensIcon, innerComposebox.getLensButtonElement());
+
+                lensIcon.click();
+                await mockComposeboxPageHandler.whenCalled(
+                    'handleLensButtonClick');
+                assertEquals(
+                    1,
+                    mockComposeboxPageHandler.getCallCount(
+                        'handleLensButtonClick'));
+                assertEquals(
+                    0,
+                    mockComposeboxPageHandler.getCallCount('handleFileUpload'));
+              });
+
+          test('lens icon disabled state reflects on the icon', async () => {
+            const {wrapper, innerComposebox} = parts;
+            wrapper.isSidePanel = true;
+            await wrapper.updateComplete;
+
+            searchboxCallbackRouterRemote.onInputStateChanged({
+              ...new MockInputState(),
+              disabledInputTypes: [InputType.kLensImage],
             });
+            await searchboxCallbackRouterRemote.$.flushForTesting();
+            await wrapper.updateComplete;
+            await innerComposebox.updateComplete;
 
-        test('file hint updates the input placeholder', async () => {
-          const {innerComposebox} = parts;
-          const imageFile =
-              new File(['test'], 'test.jpg', {type: 'image/jpeg'});
-          await uploadFileAndVerify(
-              FAKE_TOKEN_STRING, imageFile, innerComposebox,
-              mockSearchboxPageHandler);
-          assertEquals(
-              'Ask about this image', innerComposebox.inputPlaceholder);
-
-          const pdfFile =
-              new File(['test2'], 'test2.pdf', {type: 'application/pdf'});
-          await uploadFileAndVerify(
-              FAKE_TOKEN_STRING_2, pdfFile, innerComposebox,
-              mockSearchboxPageHandler, 1);
-          assertEquals('Ask about these', innerComposebox.inputPlaceholder);
+            const lensIcon =
+                innerComposebox.shadowRoot.querySelector<CrIconButtonElement>(
+                    '#lensIcon');
+            assertTrue(lensIcon !== null);
+            assertTrue(lensIcon.disabled);
+          });
         });
 
-        test('single tab file updates the input placeholder', async () => {
-          const {innerComposebox} = parts;
-          const token = {high: 0n, low: 1n} as unknown as UnguessableToken;
-          const file = new ComposeboxFile(
-              token, 'test.tab', 'tab', InputType.kBrowserTab);
-          innerComposebox.addFileContextForTesting(file);
-          await innerComposebox.updateComplete;
+        suite('FileInputsAndUploads', () => {
+          test('file inputs are disabled', () => {
+            const fileInputs = parts.innerComposebox.$.fileInputs;
+            assertTrue(fileInputs.disableFileInputs);
+            assertFalse(!!fileInputs.shadowRoot.querySelector('#imageInput'));
+          });
 
-          assertEquals('Ask about this tab', innerComposebox.inputPlaceholder);
+          test(
+              'file upload renders the carousel and delete removes it',
+              async () => {
+                const {innerComposebox} = parts;
+                const testFile =
+                    new File(['test'], 'test.jpg', {type: 'image/jpeg'});
+                await uploadFileAndVerify(
+                    FAKE_TOKEN_STRING, testFile, innerComposebox,
+                    mockSearchboxPageHandler);
+
+                const carouselContainer =
+                    innerComposebox.shadowRoot.querySelector(
+                        '#carouselContainer');
+                assertTrue(carouselContainer !== null);
+                assertEquals(
+                    'carousel-container',
+                    carouselContainer.getAttribute('part'));
+                const carousel =
+                    innerComposebox.shadowRoot.querySelector('#carousel');
+                assertTrue(carousel !== null);
+                assertEquals(
+                    'cr-composebox-file-carousel',
+                    carousel.getAttribute('part'));
+                const exportparts = carousel.getAttribute('exportparts');
+                assertTrue(exportparts !== null);
+                const exportedParts = exportparts.split(',').map(p => p.trim());
+                assertTrue(exportedParts.includes('thumbnail'));
+                assertTrue(exportedParts.includes('thumbnail-title'));
+
+                await deleteLastFile(innerComposebox);
+                await innerComposebox.updateComplete;
+                assertFalse(
+                    !!innerComposebox.shadowRoot.querySelector('#carousel'));
+              });
+
+          test(
+              'paste with a file attaches it and renders the carousel',
+              async () => {
+                const {innerComposebox} = parts;
+                assertFalse(
+                    !!innerComposebox.shadowRoot.querySelector('#carousel'));
+
+                mockSearchboxPageHandler.resetResolver(ADD_FILE_CONTEXT_FN);
+                mockSearchboxPageHandler.setResultFor(
+                    ADD_FILE_CONTEXT_FN, Promise.resolve(FAKE_TOKEN_STRING));
+
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(
+                    new File(['test'], 'test.jpg', {type: 'image/jpeg'}));
+                const composeboxDiv =
+                    innerComposebox.shadowRoot.querySelector<HTMLElement>(
+                        '#composebox');
+                assertTrue(composeboxDiv !== null);
+
+                let pasteEvent = new ClipboardEvent('paste', {
+                  clipboardData: dataTransfer,
+                  bubbles: true,
+                  composed: true,
+                });
+                if (!pasteEvent.clipboardData) {
+                  // The clipboardData constructor init is ignored in some
+                  // environments; fall back to injecting the property.
+                  pasteEvent = new Event('paste', {
+                                 bubbles: true,
+                                 composed: true,
+                               }) as ClipboardEvent;
+                  Object.defineProperty(
+                      pasteEvent, 'clipboardData', {value: dataTransfer});
+                }
+                composeboxDiv.dispatchEvent(pasteEvent);
+
+                await mockSearchboxPageHandler.whenCalled(ADD_FILE_CONTEXT_FN);
+                await innerComposebox.updateComplete;
+                await microtasksFinished();
+
+                assertEquals(1, innerComposebox.attachedContext.size);
+                assertTrue(
+                    !!innerComposebox.shadowRoot.querySelector('#carousel'));
+              });
+
+          test('file hint updates the input placeholder', async () => {
+            const {innerComposebox} = parts;
+            const imageFile =
+                new File(['test'], 'test.jpg', {type: 'image/jpeg'});
+            await uploadFileAndVerify(
+                FAKE_TOKEN_STRING, imageFile, innerComposebox,
+                mockSearchboxPageHandler);
+            assertEquals(
+                'Ask about this image', innerComposebox.inputPlaceholder);
+
+            const pdfFile =
+                new File(['test2'], 'test2.pdf', {type: 'application/pdf'});
+            await uploadFileAndVerify(
+                FAKE_TOKEN_STRING_2, pdfFile, innerComposebox,
+                mockSearchboxPageHandler, 1);
+            assertEquals('Ask about these', innerComposebox.inputPlaceholder);
+          });
         });
 
-        test('single pdf file updates the input placeholder', async () => {
-          const {innerComposebox} = parts;
-          const pdfFile =
-              new File(['test'], 'test.pdf', {type: 'application/pdf'});
-          await uploadFileAndVerify(
-              FAKE_TOKEN_STRING, pdfFile, innerComposebox,
-              mockSearchboxPageHandler);
-          assertEquals('Ask about this doc', innerComposebox.inputPlaceholder);
-        });
+        suite('PlaceholderHints', () => {
+          test('single tab file updates the input placeholder', async () => {
+            const {innerComposebox} = parts;
+            const token = {high: 0n, low: 1n} as unknown as UnguessableToken;
+            const file = new ComposeboxFile(
+                token, 'test.tab', 'tab', InputType.kBrowserTab);
+            innerComposebox.addFileContextForTesting(file);
+            await innerComposebox.updateComplete;
 
-        test('single unknown file does not update placeholder', async () => {
-          const {innerComposebox} = parts;
-          const token = {high: 0n, low: 1n} as unknown as UnguessableToken;
-          const file = new ComposeboxFile(
-              token, 'unknown.dat', 'unknown/type', InputType.kLensFile);
-          innerComposebox.addFileContextForTesting(file);
-          await innerComposebox.updateComplete;
+            assertEquals(
+                'Ask about this tab', innerComposebox.inputPlaceholder);
+          });
 
-          const placeholder = innerComposebox.inputPlaceholder;
-          assertTrue(
-              !placeholder.includes('Ask about'),
-              `Placeholder '${placeholder}' should not include 'Ask about'`);
-        });
+          test('single pdf file updates the input placeholder', async () => {
+            const {innerComposebox} = parts;
+            const pdfFile =
+                new File(['test'], 'test.pdf', {type: 'application/pdf'});
+            await uploadFileAndVerify(
+                FAKE_TOKEN_STRING, pdfFile, innerComposebox,
+                mockSearchboxPageHandler);
+            assertEquals(
+                'Ask about this doc', innerComposebox.inputPlaceholder);
+          });
 
-        test('file hint skips the automatic active tab', async () => {
-          const {innerComposebox} = parts;
-          mockSearchboxPageHandler.setResultFor(
-              'addTabContext',
-              Promise.resolve('0000000000000000DDDDDDDDDDDDDD04'));
-          searchboxCallbackRouterRemote.updateAutoSuggestedTabContext(
-              {
-                tabId: 1,
-                title: 'Auto tab',
-                url: 'https://auto.example.com',
-                lastActive: {internalValue: BigInt(100)},
-                showInCurrentTabChip: true,
-                showInPreviousTabChip: false,
-              },
-              null);
-          await searchboxCallbackRouterRemote.$.flushForTesting();
-          await mockSearchboxPageHandler.whenCalled('addTabContext');
-          await microtasksFinished();
-          await innerComposebox.updateComplete;
+          test('single unknown file does not update placeholder', async () => {
+            const {innerComposebox} = parts;
+            const token = {high: 0n, low: 1n} as unknown as UnguessableToken;
+            const file = new ComposeboxFile(
+                token, 'unknown.dat', 'unknown/type', InputType.kLensFile);
+            innerComposebox.addFileContextForTesting(file);
+            await innerComposebox.updateComplete;
 
-          assertEquals(1, innerComposebox.files.size);
-          assertNotEquals(
-              'Ask about this tab', innerComposebox.inputPlaceholder);
+            const placeholder = innerComposebox.inputPlaceholder;
+            assertTrue(
+                !placeholder.includes('Ask about'),
+                `Placeholder '${placeholder}' should not include 'Ask about'`);
+          });
 
-          const imageFile =
-              new File(['test'], 'test.jpg', {type: 'image/jpeg'});
-          await uploadFileAndVerify(
-              FAKE_TOKEN_STRING, imageFile, innerComposebox,
-              mockSearchboxPageHandler, 1);
-          assertEquals('Ask about these', innerComposebox.inputPlaceholder);
+          test('file hint skips the automatic active tab', async () => {
+            const {innerComposebox} = parts;
+            mockSearchboxPageHandler.setResultFor(
+                'addTabContext',
+                Promise.resolve('0000000000000000DDDDDDDDDDDDDD04'));
+            searchboxCallbackRouterRemote.updateAutoSuggestedTabContext(
+                {
+                  tabId: 1,
+                  title: 'Auto tab',
+                  url: 'https://auto.example.com',
+                  lastActive: {internalValue: BigInt(100)},
+                  showInCurrentTabChip: true,
+                  showInPreviousTabChip: false,
+                },
+                null);
+            await searchboxCallbackRouterRemote.$.flushForTesting();
+            await mockSearchboxPageHandler.whenCalled('addTabContext');
+            await microtasksFinished();
+            await innerComposebox.updateComplete;
+
+            assertEquals(1, innerComposebox.attachedContext.size);
+            assertNotEquals(
+                'Ask about this tab', innerComposebox.inputPlaceholder);
+
+            const imageFile =
+                new File(['test'], 'test.jpg', {type: 'image/jpeg'});
+            await uploadFileAndVerify(
+                FAKE_TOKEN_STRING, imageFile, innerComposebox,
+                mockSearchboxPageHandler, 1);
+            assertEquals('Ask about these', innerComposebox.inputPlaceholder);
+          });
         });
       });
 });
@@ -970,7 +982,7 @@ function disableAnimationsRecursively(element: Element) {
         }
 
         function hasFileWithTabId(tabId: number): boolean {
-          return Array.from(parts.innerComposebox.files.values())
+          return Array.from(parts.innerComposebox.attachedContext.values())
               .some((file: ComposeboxFile) => file.tabId === tabId);
         }
 
@@ -1082,9 +1094,10 @@ function disableAnimationsRecursively(element: Element) {
             await settle();
 
             assertTrue(innerComposebox.getHasAutomaticActiveTabChipToken());
-            assertEquals(1, innerComposebox.files.size);
+            assertEquals(1, innerComposebox.attachedContext.size);
             const file =
-                Array.from(innerComposebox.files.values())[0] as ComposeboxFile;
+                Array.from(innerComposebox.attachedContext.values())[0] as
+                ComposeboxFile;
             assertEquals(1, file.tabId);
             assertEquals('Auto tab', file.name);
             assertEquals('https://auto.example.com', file.url);
@@ -1103,9 +1116,10 @@ function disableAnimationsRecursively(element: Element) {
             await pushAutoTab(
                 createTabInfo(1, 'Updated Title', 'https://a.example.com'));
             await settle();
-            assertEquals(1, innerComposebox.files.size);
+            assertEquals(1, innerComposebox.attachedContext.size);
             const updatedFile =
-                Array.from(innerComposebox.files.values())[0] as ComposeboxFile;
+                Array.from(innerComposebox.attachedContext.values())[0] as
+                ComposeboxFile;
             assertEquals('Updated Title', updatedFile.name);
             assertEquals(AUTO_TOKEN, updatedFile.uuid);
 
@@ -1119,7 +1133,8 @@ function disableAnimationsRecursively(element: Element) {
             // Reference should be exactly the same (no re-allocation or
             // modification)
             assertEquals(
-                updatedFile, Array.from(innerComposebox.files.values())[0]);
+                updatedFile,
+                Array.from(innerComposebox.attachedContext.values())[0]);
           });
 
           test(
@@ -1255,6 +1270,76 @@ function disableAnimationsRecursively(element: Element) {
           });
 
           test(
+              're-suggesting the same tab URL after null update recreates ' +
+                  'the chip',
+              async () => {
+                await mountApp();
+                const {innerComposebox} = parts;
+
+                // Initial suggestion creates the chip.
+                await expectAddTabContext(
+                    AUTO_TOKEN,
+                    () => pushAutoTab(
+                        createTabInfo(1, 'Auto tab', 'https://a.example.com')));
+                await settle();
+                assertTrue(innerComposebox.getHasAutomaticActiveTabChipToken());
+                assertEquals(1, innerComposebox.files.size);
+
+                // Null update deletes the chip.
+                await pushAutoTab(null);
+                await settle();
+                assertFalse(
+                    innerComposebox.getHasAutomaticActiveTabChipToken());
+                assertEquals(0, innerComposebox.files.size);
+
+                // Re-suggesting the exact same URL recreates the chip.
+                await expectAddTabContext(
+                    REPLACEMENT_TOKEN,
+                    () => pushAutoTab(
+                        createTabInfo(1, 'Auto tab', 'https://a.example.com')));
+                await settle();
+                assertTrue(innerComposebox.getHasAutomaticActiveTabChipToken());
+                assertEquals(1, innerComposebox.files.size);
+                assertTrue(hasFileWithTabId(1));
+              });
+
+          test(
+              're-suggesting the same tab URL after user deletion recreates ' +
+                  'the chip',
+              async () => {
+                await mountApp();
+                const {innerComposebox} = parts;
+
+                // Initial suggestion creates the chip.
+                await expectAddTabContext(
+                    AUTO_TOKEN,
+                    () => pushAutoTab(
+                        createTabInfo(1, 'Auto tab', 'https://a.example.com')));
+                await settle();
+                assertTrue(innerComposebox.getHasAutomaticActiveTabChipToken());
+                assertEquals(1, innerComposebox.files.size);
+
+                // User deletes the chip.
+                const file = Array.from(innerComposebox.files.values())[0] as
+                    ComposeboxFile;
+                innerComposebox.deleteFile(file.uuid, /*fromUserAction=*/ true);
+                await settle();
+                assertFalse(
+                    innerComposebox.getHasAutomaticActiveTabChipToken());
+                assertEquals(0, innerComposebox.files.size);
+
+                // Re-suggesting the exact same URL recreates the chip.
+                await expectAddTabContext(
+                    REPLACEMENT_TOKEN,
+                    () => pushAutoTab(
+                        createTabInfo(1, 'Auto tab', 'https://a.example.com')));
+                await settle();
+                assertTrue(innerComposebox.getHasAutomaticActiveTabChipToken());
+                assertEquals(1, innerComposebox.files.size);
+                assertTrue(hasFileWithTabId(1));
+              });
+
+          test(
               'page action without ask-G in the side panel keeps the default ' +
                   'semantics',
               async () => {
@@ -1316,7 +1401,7 @@ function disableAnimationsRecursively(element: Element) {
                 await pushAutoTab(null, 'OmniboxPageAction');
                 await settle();
                 assertTrue(innerComposebox.getHasAutomaticActiveTabChipToken());
-                assertEquals(1, innerComposebox.files.size);
+                assertEquals(1, innerComposebox.attachedContext.size);
               });
 
           test('delays the upload outside the side panel', async () => {
@@ -1356,8 +1441,9 @@ function disableAnimationsRecursively(element: Element) {
 
                 resolve(AUTO_TOKEN);
                 await settle();
-                assertEquals(1, innerComposebox.files.size);
-                const file = Array.from(innerComposebox.files.values())[0] as
+                assertEquals(1, innerComposebox.attachedContext.size);
+                const file =
+                    Array.from(innerComposebox.attachedContext.values())[0] as
                     ComposeboxFile;
                 assertEquals('Second title', file.name);
                 assertTrue(innerComposebox.getHasAutomaticActiveTabChipToken());
@@ -1378,7 +1464,7 @@ function disableAnimationsRecursively(element: Element) {
                 assertEquals(
                     0,
                     mockSearchboxPageHandler.getCallCount(ADD_TAB_CONTEXT_FN));
-                assertEquals(0, innerComposebox.files.size);
+                assertEquals(0, innerComposebox.attachedContext.size);
 
                 document.body.appendChild(app);
                 await settle();
@@ -1387,7 +1473,7 @@ function disableAnimationsRecursively(element: Element) {
                     () => pushAutoTab(
                         createTabInfo(1, 'Auto tab', 'https://a.example.com')));
                 await settle();
-                assertEquals(1, innerComposebox.files.size);
+                assertEquals(1, innerComposebox.attachedContext.size);
                 assertTrue(innerComposebox.getHasAutomaticActiveTabChipToken());
               });
 
@@ -1511,7 +1597,7 @@ function disableAnimationsRecursively(element: Element) {
             cancelIcon.click();
             await settle();
             assertFalse(innerComposebox.getHasAutomaticActiveTabChipToken());
-            assertEquals(0, innerComposebox.files.size);
+            assertEquals(0, innerComposebox.attachedContext.size);
 
             // The pending url/title guard must reset too: the same url pushed
             // again creates a fresh chip instead of being deduped away.
@@ -1521,7 +1607,7 @@ function disableAnimationsRecursively(element: Element) {
                     createTabInfo(1, 'Auto tab', 'https://a.example.com')));
             await settle();
             assertTrue(innerComposebox.getHasAutomaticActiveTabChipToken());
-            assertEquals(1, innerComposebox.files.size);
+            assertEquals(1, innerComposebox.attachedContext.size);
           });
         });
 
@@ -1542,7 +1628,7 @@ function disableAnimationsRecursively(element: Element) {
                     () => pushAutoTab(
                         createTabInfo(1, 'Auto tab', 'https://a.example.com')));
                 await settle();
-                assertEquals(2, innerComposebox.files.size);
+                assertEquals(2, innerComposebox.attachedContext.size);
 
                 const queryCallCount = mockSearchboxPageHandler.getCallCount(
                     QUERY_AUTOCOMPLETE_FN);
@@ -1550,7 +1636,7 @@ function disableAnimationsRecursively(element: Element) {
                 await searchboxCallbackRouterRemote.$.flushForTesting();
                 await settle();
 
-                assertEquals(0, innerComposebox.files.size);
+                assertEquals(0, innerComposebox.attachedContext.size);
                 assertFalse(
                     innerComposebox.getHasAutomaticActiveTabChipToken());
                 // Exactly one requery proves the auto tab was excluded from
@@ -1584,7 +1670,7 @@ function disableAnimationsRecursively(element: Element) {
                 await innerComposebox.updateComplete;
                 await settle();
 
-                assertEquals(0, innerComposebox.files.size);
+                assertEquals(0, innerComposebox.attachedContext.size);
                 assertFalse(
                     innerComposebox.getHasAutomaticActiveTabChipToken());
                 assertEquals(
@@ -1606,7 +1692,7 @@ function disableAnimationsRecursively(element: Element) {
             searchboxCallbackRouterRemote.updateSmartTabSharingActive(true);
             await searchboxCallbackRouterRemote.$.flushForTesting();
             await settle();
-            assertEquals(0, innerComposebox.files.size);
+            assertEquals(0, innerComposebox.attachedContext.size);
 
             const addCallCount =
                 mockSearchboxPageHandler.getCallCount(ADD_TAB_CONTEXT_FN);
@@ -1616,7 +1702,7 @@ function disableAnimationsRecursively(element: Element) {
             assertEquals(
                 addCallCount,
                 mockSearchboxPageHandler.getCallCount(ADD_TAB_CONTEXT_FN));
-            assertEquals(0, innerComposebox.files.size);
+            assertEquals(0, innerComposebox.attachedContext.size);
             assertFalse(innerComposebox.getHasAutomaticActiveTabChipToken());
           });
         });

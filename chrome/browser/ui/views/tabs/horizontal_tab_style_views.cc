@@ -60,7 +60,7 @@ SkPath HorizontalTabStyleViews::GetPath(TabStyle::PathType path_type,
                                         float scale,
                                         const TabPathFlags& flags) const {
   if (delegate_->IsPinned() && !delegate_->IsActive() &&
-      base::FeatureList::IsEnabled(tabs::kTabStripUnification)) {
+      tabs::IsNewHorizontalPinnedTabStylingEnabled()) {
     return GetPinnedPath(path_type, scale, flags).value_or(SkPath());
   }
 
@@ -634,19 +634,22 @@ int HorizontalTabStyleViews::GetStrokeThickness() const {
     return delegate_->GetStrokeThickness();
   }
 
-  if (delegate_->IsPinned() &&
-      base::FeatureList::IsEnabled(tabs::kTabStripUnification)) {
+  if (delegate_->IsPinned() && tabs::IsNewHorizontalPinnedTabStylingEnabled()) {
     return 1;
   }
 
   return 0;
 }
 
+SkPath HorizontalTabStyleViews::GetOverlinePath(float scale) const {
+  return GetPath(TabStyle::PathType::kBorder, scale,
+                 {.should_paint_extension = false});
+}
+
 bool HorizontalTabStyleViews::ShouldPaintTabBackgroundColor(
     TabStyle::TabSelectionState selection_state,
     bool has_custom_background) const {
-  if (delegate_->IsPinned() &&
-      base::FeatureList::IsEnabled(tabs::kTabStripUnification) &&
+  if (delegate_->IsPinned() && tabs::IsNewHorizontalPinnedTabStylingEnabled() &&
       !delegate_->IsGlassFrame()) {
     return true;
   }
@@ -790,6 +793,12 @@ void HorizontalTabStyleViews::PaintBackgroundHover(gfx::Canvas* canvas,
 void HorizontalTabStyleViews::PaintBackgroundStroke(
     gfx::Canvas* canvas,
     SkColor stroke_color) const {
+  if (base::FeatureList::IsEnabled(tabs::kTabStripUnification) &&
+      delegate_->GetGroup().has_value() && !delegate_->IsInFocusedGroup() &&
+      !delegate_->IsDragging()) {
+    return;
+  }
+
   const int stroke_thickness = GetStrokeThickness();
   if (!stroke_thickness) {
     return;
@@ -892,7 +901,7 @@ std::optional<SkPath> HorizontalTabStyleViews::GetPinnedPath(
     TabStyle::PathType path_type,
     float scale,
     const TabPathFlags& flags) const {
-  CHECK(base::FeatureList::IsEnabled(tabs::kTabStripUnification));
+  CHECK(tabs::IsNewHorizontalPinnedTabStylingEnabled());
   CHECK(delegate()->IsPinned());
 
   const int stroke_thickness = GetStrokeThickness();

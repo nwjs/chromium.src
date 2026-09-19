@@ -10,11 +10,12 @@
 #include "base/containers/flat_set.h"
 #include "base/uuid.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_model_listener.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_action_context_desktop.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -23,6 +24,7 @@
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/saved_tab_groups/public/types.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/navigation_handle.h"
 #include "ui/gfx/range/range.h"
 
 namespace tab_groups {
@@ -72,10 +74,11 @@ void RemoveTabFromGroup(TabStripModel& tab_strip_model,
 }
 
 TabStripModel* GetTabStripModelForLocalGroup(const LocalTabGroupID& group_id) {
-  Browser* browser = SavedTabGroupUtils::GetBrowserWithTabGroupId(group_id);
+  BrowserWindowInterface* browser =
+      SavedTabGroupUtils::GetBrowserWithTabGroupId(group_id);
   CHECK(browser);
 
-  TabStripModel* tab_strip_model = browser->tab_strip_model();
+  TabStripModel* tab_strip_model = browser->GetTabStripModel();
   CHECK(tab_strip_model);
   CHECK(tab_strip_model->SupportsTabGroups());
 

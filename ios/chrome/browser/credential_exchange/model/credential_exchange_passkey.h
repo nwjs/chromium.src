@@ -36,8 +36,22 @@
 // Private key of a passkey, unencrypted.
 @property(nonatomic, copy) NSData* privateKey;
 
-// Creation date of the credential.
+// Creation date of the credential in the exporting password manager.
 @property(nonatomic, copy) NSDate* creationDate;
+
+// 32-byte secret used for the WebAuthn PRF / CTAP2.1 hmac-secret extension.
+// (https://fidoalliance.org/specs/cx/cxf-v1.0-ps-20250814.html#dict-fido2-hmac-credentials)
+@property(nonatomic, copy) NSData* hmacSecret;
+
+// The algorithm used for the hmac-secret extension.
+@property(nonatomic, copy) NSString* hmacSecretAlgorithm;
+
+// The contents of the DEFLATE-compressed large blob data.
+// (https://www.w3.org/TR/webauthn-3/#largeblob)
+@property(nonatomic, copy) NSData* largeBlob;
+
+// The claimed uncompressed size of the DEFLATE-compressed large blob.
+@property(nonatomic, copy) NSNumber* largeBlobUncompressedSize;
 
 - (instancetype)initWithCredentialId:(NSData*)credentialId
                                 rpId:(NSString*)rpId
@@ -46,6 +60,10 @@
                               userId:(NSData*)userId
                           privateKey:(NSData*)privateKey
                         creationDate:(NSDate*)creationDate
+                          hmacSecret:(NSData*)hmacSecret
+                 hmacSecretAlgorithm:(NSString*)hmacSecretAlgorithm
+                           largeBlob:(NSData*)largeBlob
+           largeBlobUncompressedSize:(NSNumber*)largeBlobUncompressedSize
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;

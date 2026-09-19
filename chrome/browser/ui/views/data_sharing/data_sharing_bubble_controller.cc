@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/views/data_sharing/data_sharing_utils.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
@@ -126,8 +127,8 @@ void DataSharingBubbleController::Show(data_sharing::RequestInfo request_info) {
   CHECK(net::GetValueForKeyInQuery(url.value(), data_sharing::kQueryParamFlow,
                                    &flow_value));
 
-  const BrowserView* const browser_view = BrowserView::GetBrowserViewForBrowser(
-      browser_->GetBrowserForMigrationOnly());
+  const BrowserView* const browser_view =
+      BrowserView::GetBrowserViewForBrowser(&browser_.get());
 
   views::View* anchor_view_for_share = nullptr;
   if (flow_value == data_sharing::kFlowShare) {

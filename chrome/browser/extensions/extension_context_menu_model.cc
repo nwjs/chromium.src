@@ -18,6 +18,7 @@
 #include "chrome/browser/extensions/context_menu_matcher.h"
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
+#include "chrome/browser/extensions/extension_ui_util.h"
 #include "chrome/browser/extensions/extension_uninstall_dialog.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/menu_manager.h"
@@ -70,7 +71,6 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/extensions/api/side_panel/side_panel_service.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/extensions/extension_side_panel_utils.h"
@@ -232,6 +232,8 @@ ExtensionContextMenuModel::ContextMenuAction CommandIdToContextMenuAction(
       return ContextMenuAction::kViewWebPermissions;
     case ExtensionContextMenuModel::POLICY_INSTALLED:
       return ContextMenuAction::kPolicyInstalled;
+    case ExtensionContextMenuModel::RATE_EXTENSION:
+      return ContextMenuAction::kRateExtension;
     default:
       break;
   }
@@ -461,6 +463,10 @@ bool ExtensionContextMenuModel::IsCommandIdEnabled(int command_id) const {
       // This option is always enabled since it will only be visible when the
       // extension provides a side panel.
       return true;
+    case RATE_EXTENSION:
+      // Rate extension is always enabled since it will only be visible if the
+      // eligibility checks for rating are met.
+      return true;
     case POLICY_INSTALLED:
       // This option is always disabled since user cannot remove a policy
       // installed extension.
@@ -608,6 +614,18 @@ void ExtensionContextMenuModel::ExecuteCommand(int command_id,
       break;
     case INSPECT_POPUP: {
       delegate_->InspectPopup();
+      break;
+    }
+    case RATE_EXTENSION: {
+      util::CWSReviewSource review_source =
+          (source_ == ContextMenuSource::kMenuItem)
+              ? util::CWSReviewSource::kExtensionsMenu
+              : util::CWSReviewSource::kContextMenu;
+
+      const GURL review_url =
+          util::GetCWSWritingReviewUrl(extension->id(), review_source);
+      CHECK(review_url.is_valid());
+      OpenUrl(GetActiveWebContents(), review_url);
       break;
     }
     case POLICY_INSTALLED:
@@ -859,6 +877,12 @@ void ExtensionContextMenuModel::InitMenuWithFeature(
                            kToggleVisibilityMenuItem);
   }
 
+  if (ui_util::ShouldShowReviewPrompt(*extension, *profile_)) {
+    // Ellipsis is used because further user action is needed after clicking
+    // the item to complete the rating flow on the Chrome Web Store.
+    AddItemWithStringId(RATE_EXTENSION, IDS_EXTENSIONS_CONTEXT_MENU_RATE_IT);
+  }
+
   if (has_options_page) {
     AddItemWithStringId(OPTIONS, IDS_EXTENSIONS_OPTIONS_MENU_ITEM);
   }
@@ -928,6 +952,12 @@ void ExtensionContextMenuModel::InitMenu(const Extension* extension,
                            *extension, web_contents->GetLastCommittedURL()))) {
     CreatePageAccessItems(extension, web_contents);
     AddSeparator(ui::NORMAL_SEPARATOR);
+  }
+
+  if (ui_util::ShouldShowReviewPrompt(*extension, *profile_)) {
+    // Ellipsis is used because further user action is needed after clicking
+    // the item to complete the rating flow on the Chrome Web Store.
+    AddItemWithStringId(RATE_EXTENSION, IDS_EXTENSIONS_CONTEXT_MENU_RATE_IT);
   }
 
   if (OptionsPageInfo::HasOptionsPage(extension))

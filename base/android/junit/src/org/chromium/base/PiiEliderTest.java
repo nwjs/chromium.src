@@ -8,16 +8,12 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 
 /** junit tests for {@link PiiElider}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class PiiEliderTest {
-    private static final int MAX_LINES = 5;
-
     @Test
     public void testElideEmail() {
         String original = "email me at someguy@mailservice.com";
@@ -110,8 +106,9 @@ public class PiiEliderTest {
     public void testDontElideFilePaths() {
         String original =
                 """
-            dlopen failed: library "/data/app/com.chrome.dev-Lo4Mduh0dhPARVPBiAM_ag==/Chrome.apk!/\
-            lib/arm64-v8a/libelements.so" not found""";
+                dlopen failed: library "/data/app/com.chrome.dev-Lo4Mduh0dhPARVPBiAM_ag==/Chrome.apk!/\
+                lib/arm64-v8a/libelements.so" not found\
+                """;
         assertEquals(original, PiiElider.elideUrl(original));
     }
 
@@ -179,7 +176,8 @@ public class PiiEliderTest {
                 java.lang.NullPointerException: Attempt to invoke virtual method 'int \
                 org.robolectric.internal.AndroidSandbox.getBackStackEntryCount()' on a null \
                 object reference
-                \tat ...""";
+                \tat ...\
+                """;
         assertEquals(original, PiiElider.sanitizeStacktrace(original));
     }
 }

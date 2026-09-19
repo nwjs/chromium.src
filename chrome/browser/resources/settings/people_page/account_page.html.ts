@@ -1,0 +1,123 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {html} from '//resources/lit/v3_0/lit.rollup.js';
+
+import {ChromeSigninAccessPoint} from '/shared/settings/people_page/sync_browser_proxy.js';
+
+import type {SettingsAccountPageElement} from './account_page.js';
+
+export function getHtml(this: SettingsAccountPageElement) {
+  return html`<!--_html_template_start_-->
+<settings-subpage page-title="$i18n{accountPageTitle}"
+    route-path="${this.routePath}">
+
+  ${this.shouldShowPageContents_() ? html`
+    <!-- Account card -->
+    <settings-sync-account-control embedded-in-subpage
+        .syncStatus="${this.syncStatus_!}" hide-banner
+        .accessPoint="${ChromeSigninAccessPoint.SETTINGS}">
+    </settings-sync-account-control>
+
+    <!-- In your Google Account -->
+    <settings-sync-controls .syncStatus="${this.syncStatus_}">
+    </settings-sync-controls>
+
+    <!-- Advanced -->
+    <div id="sync-section">
+      <div class="cr-row first">
+        <h2 class="cr-title-text">$i18n{advancedPageTitle}</h2>
+      </div>
+
+      <div id="other-sync-items" class="list-frame">
+
+        <!-- Chrome data in your account -->
+        <cr-link-row id="syncDashboardLink" class="hr"
+            label="$i18n{manageSyncedDataTitle}"
+            @click="${this.onSyncDashboardLinkClick_}"
+            ?hidden="${!!this.syncStatus_?.supervisedUser}" external>
+        </cr-link-row>
+
+        <!-- Manage your Google Account -->
+        <cr-link-row id="manage-google-account" class="hr"
+            label="$i18n{manageGoogleAccount}"
+            @click="${this.onManageGoogleAccountClick_}" external>
+        </cr-link-row>
+
+        <if expr="is_chromeos">
+          <!-- Manage accounts on this device -->
+          <cr-link-row id="manage-device-accounts" class="hr"
+              label="$i18n{manageDeviceAccounts}"
+              @click="${this.onManageDeviceAccountsClick_}" external>
+          </cr-link-row>
+        </if>
+
+        <!-- Control how browsing history is used -->
+        ${!this.isEeaChoiceCountry_ ? html`
+          <cr-link-row class="hr" id="activityControlsLinkRowV2"
+              label="$i18n{personalizeGoogleServicesTitleV2}"
+              sub-label="$i18n{personalizeGoogleServicesDesc}"
+              @click="${this.onActivityControlsClick_}" external>
+          </cr-link-row>
+        ` : html`
+          <cr-expand-button class="hr" id="personalizationExpandButton"
+              ?expanded="${this.personalizationCollapseExpanded_}"
+              @expanded-changed="${
+                  this.onPersonalizationCollapseExpandedChanged_}">
+            $i18n{personalizeGoogleServicesTitleV2}
+            <div class="secondary">
+              $i18n{personalizeGoogleServicesDescWithLinkedServices}
+            </div>
+          </cr-expand-button>
+          <cr-collapse id="personalizationCollapse"
+              ?opened="${this.personalizationCollapseExpanded_}">
+            <cr-link-row external @click="${this.onActivityControlsClick_}"
+                label="$i18n{personalizeGoogleServicesWaaTitle}">
+            </cr-link-row>
+            <cr-link-row external id="linkedServicesLinkRow"
+                @click="${this.onLinkedServicesClick_}"
+                label="$i18n{personalizeGoogleServicesLinkedServicesTitle}"
+                sub-label="$i18n{personalizeGoogleServicesLinkedServicesDesc}">
+            </cr-link-row>
+          </cr-collapse>
+        `}
+
+        <!-- Encryption options -->
+        <cr-expand-button id="encryptionDescription"
+            ?hidden="${!!this.syncPrefs?.passphraseRequired}"
+            ?expanded="${this.encryptionExpanded_}"
+            @expanded-changed="${this.onEncryptionExpandedChanged_}"
+            class="hr">
+          $i18n{encryptionOptionsTitle}
+          <div class="secondary">
+            $i18n{syncDataEncryptedText}
+            <div @click="${this.onResetSyncClick_}"
+                ?hidden="${!this.syncPrefs?.encryptAllData}"
+                class="passphrase-reset-container">
+              <cr-icon icon="cr:info"
+                  class="passphrase-reset-icon">
+              </cr-icon>
+              <span>$i18nRaw{passphraseResetHintEncryption}</span>
+            </div>
+          </div>
+        </cr-expand-button>
+
+        <cr-collapse id="encryptionCollapse"
+            ?opened="${this.encryptionExpanded_}">
+          <settings-sync-encryption-options
+              .syncStatus="${this.syncStatus_}"
+              .syncPrefs="${this.syncPrefs}"
+              @sync-prefs-changed="${
+                  this.onSyncEncryptionOptionsSyncPrefsChanged_}"
+              .existingPassphraseLabel="${this.existingPassphraseLabel_}">
+          </settings-sync-encryption-options>
+        </cr-collapse>
+
+      </div>
+    </div>
+  ` : ''}
+
+</settings-subpage>
+<!--_html_template_end_-->`;
+}

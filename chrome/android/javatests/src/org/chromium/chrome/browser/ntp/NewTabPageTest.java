@@ -83,8 +83,8 @@ import org.chromium.chrome.browser.suggestions.SiteSuggestion;
 import org.chromium.chrome.browser.suggestions.tile.Tile;
 import org.chromium.chrome.browser.suggestions.tile.TileGroup;
 import org.chromium.chrome.browser.suggestions.tile.TilesLinearLayout;
-import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.util.BrowserUiUtils.ModuleTypeOnStartAndNtp;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
@@ -137,6 +137,8 @@ import java.util.concurrent.TimeUnit;
 @EnableFeatures(
         ChromeFeatureList.HOME_BUTTON_REMOVAL
                 + ":set_default_to_false_on_homepage_on_desktop/false")
+// TODO(b/555414915): Update Android tests with WebUI NTP enabled on AL.
+@DisableFeatures(ChromeFeatureList.USE_WEB_UI_NTP_ANDROID)
 public class NewTabPageTest {
     private static final int RENDER_TEST_REVISION = 9;
 
@@ -469,7 +471,7 @@ public class NewTabPageTest {
             ThreadUtils.runOnUiThreadBlocking(
                     () -> {
                         mTab.addObserver(
-                                new EmptyTabObserver() {
+                                new TabObserver() {
                                     @Override
                                     public void onPageLoadFinished(Tab tab, GURL url) {
                                         loadedCallback.notifyCalled();

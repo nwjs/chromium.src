@@ -69,6 +69,14 @@ class MockToolbarUIServiceDelegate
                const gfx::RectF&,
                ui::mojom::MenuSourceType),
               (override));
+  MOCK_METHOD(
+      void,
+      ShowOverflowMenu,
+      (std::vector<toolbar_ui_api::mojom::OverflowMenuItemPtr>,
+       const gfx::RectF&,
+       ui::mojom::MenuSourceType,
+       toolbar_ui_api::mojom::ToolbarUIService::ShowOverflowMenuCallback),
+      (override));
   MOCK_METHOD(void,
               ShowContentSettingsBubble,
               (::toolbar_ui_api::mojom::ContentSettingImageType type,
@@ -79,6 +87,14 @@ class MockToolbarUIServiceDelegate
   MOCK_METHOD(void,
               OnContentSettingImagePointerDown,
               (::toolbar_ui_api::mojom::ContentSettingImageType type),
+              (override));
+  MOCK_METHOD(void,
+              OnContentSettingImageAnimationEnded,
+              (::toolbar_ui_api::mojom::ContentSettingImageType),
+              (override));
+  MOCK_METHOD(void,
+              OnPageActionPointerDown,
+              (::toolbar_ui_api::mojom::PageActionId action_id),
               (override));
   MOCK_METHOD(
       void,
@@ -120,7 +136,7 @@ class MockToolbarUIServiceDelegate
               (override));
   MOCK_METHOD(void,
               OnLhsChipMousePressed,
-              (toolbar_ui_api::mojom::LhsChipIdentifier),
+              (toolbar_ui_api::mojom::LhsChipIdentifier, bool),
               (override));
   MOCK_METHOD(void,
               OnLhsChipClicked,

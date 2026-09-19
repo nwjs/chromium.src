@@ -12,6 +12,7 @@
 #include "chrome/browser/dictation/dictation_keyed_service.h"
 #include "chrome/browser/dictation/features.h"
 #include "chrome/browser/dictation/logging.h"
+#include "chrome/browser/dictation/metrics.h"
 #include "chrome/browser/dictation/stream_provider_delegate.h"
 #include "chrome/browser/dictation/target.h"
 #include "chrome/common/extensions/api/dictation_private.h"
@@ -66,6 +67,7 @@ ListenerStreamProvider::ListenerStreamProvider(
     : delegate_(delegate), browser_context_(browser_context) {}
 
 ListenerStreamProvider::~ListenerStreamProvider() {
+  RecordExitMetric(DictationStreamEndTrigger::kDestructor);
   VT_LOG(browser_context_) << "Stream(" << stream_id_ << ") destroyed";
   if (stream_id_) {
     GetMultiplexer().UnregisterStreamProvider(stream_id_);
@@ -152,8 +154,9 @@ void ListenerStreamProvider::OnAsyncContextCaptured(DictationContext result) {
       ->BroadcastEvent(std::move(event));
 }
 
-void ListenerStreamProvider::Stop() {
+void ListenerStreamProvider::Stop(DictationStreamEndTrigger trigger) {
   VT_LOG(browser_context_) << "Stream(" << stream_id_ << ")::" << __func__;
+  RecordExitMetric(trigger);
   context_fetcher_.reset();
 
   if (!stream_id_) {
@@ -193,8 +196,10 @@ void ListenerStreamProvider::OnTranscriptionUpdated(const std::string& data,
   target_->SetComposition(base::UTF8ToUTF16(data), is_final);
 }
 
-void ListenerStreamProvider::OnStreamStateChanged(StreamState state) {
+void ListenerStreamProvider::OnStreamStateChanged(StreamState state,
+                                                  StreamErrorReason reason) {
   if (state == StreamState::kComplete) {
+    RecordExitMetric(DictationStreamEndTrigger::kSpeechComplete);
     VT_LOG(browser_context_) << "Stream(" << stream_id_ << ")::" << __func__
                              << " Complete pending commit";
     target_->CommitComposition(
@@ -208,6 +213,10 @@ void ListenerStreamProvider::OnStreamStateChanged(StreamState state) {
     return;
   }
 
+  if (state == StreamState::kFailed) {
+    RecordExitMetric(DictationStreamEndTrigger::kSpeechError);
+  }
+
   VT_LOG(browser_context_) << "Stream(" << stream_id_ << ")::" << __func__
                            << " " << state_ << " --> " << state;
 
@@ -215,7 +224,7 @@ void ListenerStreamProvider::OnStreamStateChanged(StreamState state) {
   StreamState old_state = state_;
   state_ = state;
 
-  delegate_->DidUpdateStreamProviderState(*this, old_state);
+  delegate_->DidUpdateStreamProviderState(*this, old_state, reason);
 }
 
 void ListenerStreamProvider::OnPendingInsertionsComplete() {
@@ -227,6 +236,47 @@ void ListenerStreamProvider::OnPendingInsertionsComplete() {
   state_ = StreamState::kComplete;
 
   delegate_->DidUpdateStreamProviderState(*this, old_state);
+}
+
+void ListenerStreamProvider::RecordExitMetric(
+    DictationStreamEndTrigger trigger) {
+  if (trigger == DictationStreamEndTrigger::kTest) {
+    return;
+  }
+
+  if (has_recorded_exit_status_) {
+    return;
+  }
+  has_recorded_exit_status_ = true;
+
+  DictationStreamExitStatus status;
+  switch (trigger) {
+    case DictationStreamEndTrigger::kDoneButton:
+    case DictationStreamEndTrigger::kEscapeKey:
+    case DictationStreamEndTrigger::kHotkeyToggle:
+      status = DictationStreamExitStatus::kUserDone;
+      break;
+    case DictationStreamEndTrigger::kCancelButton:
+      status = DictationStreamExitStatus::kUserCancelled;
+      break;
+    case DictationStreamEndTrigger::kSpeechComplete:
+    case DictationStreamEndTrigger::kFocusChange:
+    case DictationStreamEndTrigger::kUserTyping:
+    case DictationStreamEndTrigger::kNewSessionTriggered:
+    case DictationStreamEndTrigger::kShutdown:
+      status = DictationStreamExitStatus::kAutoDone;
+      break;
+    case DictationStreamEndTrigger::kDestructor:
+      status = DictationStreamExitStatus::kAutoCancelled;
+      break;
+    case DictationStreamEndTrigger::kSpeechError:
+      status = DictationStreamExitStatus::kSpeechError;
+      break;
+    case DictationStreamEndTrigger::kTest:
+      NOTREACHED();
+  }
+
+  RecordDictationStreamExitStatus(status);
 }
 
 const std::string&

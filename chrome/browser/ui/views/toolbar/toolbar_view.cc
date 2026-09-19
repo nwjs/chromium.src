@@ -43,7 +43,6 @@
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/ai_overlay_dialog/ai_overlay_dialog_controller.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -52,6 +51,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/global_error/global_error_service.h"
 #include "chrome/browser/ui/global_error/global_error_service_factory.h"
@@ -99,6 +99,7 @@
 #include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
 #include "chrome/browser/ui/views/toolbar/chrome_labs/chrome_labs_coordinator.h"
 #include "chrome/browser/ui/views/toolbar/home_button.h"
+#include "chrome/browser/ui/views/toolbar/overflow_menu.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/toolbar/reload_button.h"
 #include "chrome/browser/ui/views/toolbar/split_tabs_button.h"
@@ -181,7 +182,7 @@ DEFINE_UI_CLASS_PROPERTY_KEY(bool, kActionItemUnderlineIndicatorKey, false)
 namespace {
 
 // Gets the display mode for a given browser.
-ToolbarView::DisplayMode GetDisplayMode(Browser* browser) {
+ToolbarView::DisplayMode GetDisplayMode(BrowserWindowInterface* browser) {
   // Checked in this order because even tabbed PWAs use the CUSTOM_TAB
   // display mode.
   if (web_app::AppBrowserController::IsWebApp(browser)) {
@@ -259,7 +260,8 @@ void SetRefreshMargins(views::View* button, bool expanded) {
 
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(ToolbarView, kToolbarElementId);
 
-ToolbarView::ToolbarView(Browser* browser, BrowserView* browser_view)
+ToolbarView::ToolbarView(BrowserWindowInterface* browser,
+                         BrowserView* browser_view)
     : AnimationDelegateViews(this),
       browser_(browser),
       browser_view_(browser_view),
@@ -303,6 +305,17 @@ ToolbarView::~ToolbarView() {
 
   for (const auto& view_and_command : GetViewCommandMap()) {
     chrome::RemoveCommandObserver(browser_, view_and_command.second, this);
+  }
+}
+
+// Forwards the early teardown request to both the embedded and detached WebUI
+// toolbar web views to stop renderer script execution before IPC disconnection.
+void ToolbarView::DestroyWebUIToolbarWebContents() {
+  if (toolbar_webview_) {
+    toolbar_webview_->DestroyWebContents();
+  }
+  if (detached_toolbar_webview_) {
+    detached_toolbar_webview_->DestroyWebContents();
   }
 }
 
@@ -378,7 +391,7 @@ void ToolbarView::Init() {
     return;
   }
 
-  const auto callback = [](Browser* browser, int command,
+  const auto callback = [](BrowserWindowInterface* browser, int command,
                            const ui::Event& event) {
     chrome::ExecuteCommandWithDisposition(
         browser, command, ui::DispositionFromEventFlags(event.flags()));
@@ -549,7 +562,7 @@ void ToolbarView::Init() {
       actions::ActionItem* action_item =
           actions::ActionManager::Get().FindAction(
               kActionShowAiOverlayDialog,
-              browser_->GetFeatures().browser_actions()->root_action_item());
+              BrowserActions::From(browser_)->root_action_item());
       if (action_item) {
         action_item->SetVisible(true);
         action_item->SetEnabled(true);
@@ -638,17 +651,17 @@ void ToolbarView::Init() {
     home_->SetVisible(show_home_button_.GetValue());
   }
 
+  auto* vertical_tab_strip_state_controller =
+      tabs::VerticalTabStripStateController::From(browser_view_->browser());
+  if (vertical_tab_strip_state_controller) {
+    vertical_tab_subscription_ =
+        vertical_tab_strip_state_controller->RegisterOnModeChanged(
+            base::BindRepeating(&ToolbarView::OnVerticalTabStripModeChanged,
+                                base::Unretained(this)));
+    should_display_vertical_tabs_ =
+        vertical_tab_strip_state_controller->ShouldDisplayVerticalTabs();
+  }
   if (glic::GlicEnabling::IsProfileEligible(browser_view_->GetProfile())) {
-    auto* vertical_tab_strip_state_controller =
-        tabs::VerticalTabStripStateController::From(browser_view_->browser());
-    if (vertical_tab_strip_state_controller) {
-      vertical_tab_subscription_ =
-          vertical_tab_strip_state_controller->RegisterOnModeChanged(
-              base::BindRepeating(&ToolbarView::OnVerticalTabStripModeChanged,
-                                  base::Unretained(this)));
-      should_display_vertical_tabs_ =
-          vertical_tab_strip_state_controller->ShouldDisplayVerticalTabs();
-    }
     UpdateGlicButtonVisibility();
   }
 
@@ -687,6 +700,10 @@ void ToolbarView::OnVerticalTabStripModeChanged(
   should_display_vertical_tabs_ = controller->ShouldDisplayVerticalTabs();
   UpdateGlicButtonVisibility();
   UpdateGlicActorVisibility();
+  // Invalidate the layout cache so responsive buttons (forward, home, split,
+  // etc) re-evaluate their visibility against the final toolbar width, clearing
+  // out any zeroed out state from intermediate layout passes.
+  InvalidateLayout();
 }
 
 std::unique_ptr<GlicAndActorButtonsContainer>
@@ -1306,7 +1323,7 @@ views::LabelButton* ToolbarView::GetGlicButton() {
 // ToolbarView, LocationBarView::Delegate implementation:
 
 WebContents* ToolbarView::GetWebContents() {
-  return browser_->tab_strip_model()->GetActiveWebContents();
+  return browser_->GetTabStripModel()->GetActiveWebContents();
 }
 
 LocationBarModel* ToolbarView::GetLocationBarModel() {
@@ -1319,7 +1336,7 @@ const LocationBarModel* ToolbarView::GetLocationBarModel() const {
 
 ContentSettingBubbleModelDelegate*
 ToolbarView::GetContentSettingBubbleModelDelegate() {
-  return browser_->GetFeatures().content_setting_bubble_model_delegate();
+  return BrowserContentSettingBubbleModelDelegate::From(browser_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1619,7 +1636,7 @@ void ToolbarView::InitLayout() {
 
     // TODO(crbug.com/40929989): Ignore containers till issue addressed.
     toolbar_controller_ = std::make_unique<ToolbarController>(
-        ToolbarController::GetDefaultResponsiveElements(browser_),
+        OverflowMenu::GetDefaultResponsiveElements(browser_),
         ToolbarController::GetDefaultOverflowOrder(), kToolbarFlexOrderStart,
         this, toolbar_webview_.get(), overflow_button_, pinned_toolbar_actions_,
         PinnedToolbarActionsModel::Get(browser_view_->GetProfile()));
@@ -1922,7 +1939,7 @@ WebUIToolbarWebView* ToolbarView::GetWebUIToolbarViewForTesting() {
 std::optional<BrowserRootView::DropIndex> ToolbarView::GetDropIndex(
     const ui::DropTargetEvent& event) {
   return BrowserRootView::DropIndex{
-      .index = browser_->tab_strip_model()->active_index(),
+      .index = browser_->GetTabStripModel()->active_index(),
       .relative_to_index =
           BrowserRootView::DropIndex::RelativeToIndex::kReplaceIndex};
 }

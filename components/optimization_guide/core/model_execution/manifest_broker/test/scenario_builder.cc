@@ -66,9 +66,14 @@ ScenarioBuilder& ScenarioBuilder::AddSafetyModel(const std::string& name) {
           .model_info_version = 1,
       }));
   builder.Add(name + "_asset", OnDemandComponent(name + "_key", "1"));
+  state_->UpdateLanguageDetectionModel(
+      name + "_lang_key", std::make_unique<FakeLanguageModelAsset>());
+  builder.Add(name + "_lang_asset",
+              OnDemandComponent(name + "_lang_key", "123"));
   builder.Add(name + "_recipe",
-              SafetyModelRecipe(FileReference(name + "_asset", "ts.bin"),
-                                FileReference(name + "_asset", "lang.bin")));
+              SafetyModelRecipe(
+                  FileReference(name + "_asset", "model.tflite"),
+                  FileReference(name + "_lang_asset", "weights.bin")));
   return *this;
 }
 
@@ -90,16 +95,25 @@ ScenarioBuilder& ScenarioBuilder::AddAdaptation(const std::string& name,
 
 ScenarioBuilder& ScenarioBuilder::AddUnsafeSolution(const std::string& use_case,
                                                     const std::string& model) {
-  manifest_directory_->Add(use_case + "config.pb", []() {
-    proto::SolutionConfig solution_config;
-    *solution_config.mutable_feature() = SimpleTestFeatureConfig();
-    return solution_config;
-  }());
+  proto::SolutionConfig solution_config;
+  *solution_config.mutable_feature() = SimpleTestFeatureConfig();
+  return AddUnsafeSolution(use_case, model, std::move(solution_config));
+}
+
+ScenarioBuilder& ScenarioBuilder::AddUnsafeSolution(
+    const std::string& use_case,
+    const std::string& model,
+    proto::SolutionConfig config) {
+  manifest_directory_->Add(use_case + "config.pb", std::move(config));
   builder.Add(
       use_case + "_solution",
       SolutionRecipe(model + "_recipe", "",
                      FileReference("manifest", use_case + "config.pb")));
   builder.Add(DeviceUseCase{DeviceCategory::kGpuHighTier, use_case},
+              use_case + "_solution");
+  builder.Add(DeviceUseCase{DeviceCategory::kGpuLowTier, use_case},
+              use_case + "_solution");
+  builder.Add(DeviceUseCase{DeviceCategory::kCpu, use_case},
               use_case + "_solution");
   return *this;
 }
@@ -116,6 +130,10 @@ ScenarioBuilder& ScenarioBuilder::AddSafeSolution(
                      FileReference("manifest", use_case + "config.pb")));
   builder.Add(DeviceUseCase{DeviceCategory::kGpuHighTier, use_case},
               use_case + "_solution");
+  builder.Add(DeviceUseCase{DeviceCategory::kGpuLowTier, use_case},
+              use_case + "_solution");
+  builder.Add(DeviceUseCase{DeviceCategory::kCpu, use_case},
+              use_case + "_solution");
   return *this;
 }
 
@@ -123,6 +141,14 @@ ScenarioBuilder& ScenarioBuilder::SetFeatureConfig(DeviceCategory category,
                                                    const std::string& use_case,
                                                    const proto::Any& config) {
   builder.SetFeatureConfig(category, use_case, config);
+  return *this;
+}
+
+ScenarioBuilder& ScenarioBuilder::SetFeatureConfig(const std::string& use_case,
+                                                   const proto::Any& config) {
+  SetFeatureConfig(DeviceCategory::kGpuHighTier, use_case, config);
+  SetFeatureConfig(DeviceCategory::kGpuLowTier, use_case, config);
+  SetFeatureConfig(DeviceCategory::kCpu, use_case, config);
   return *this;
 }
 

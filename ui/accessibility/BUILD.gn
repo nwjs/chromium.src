@@ -565,6 +565,7 @@ if (is_android) {
 
     sources = [ "android/java/src/org/chromium/ui/accessibility/AccessibilityFeaturesMap.java" ]
     deps = [
+      ":accessibility_features_java",
       "//base:base_java",
       "//third_party/jni_zero:jni_zero_java",
     ]
@@ -577,6 +578,8 @@ if (is_android) {
       "android/java/src/org/chromium/ui/accessibility/AccessibilityState.java",
       "android/java/src/org/chromium/ui/accessibility/AccessibilityStateDelegate.java",
       "android/java/src/org/chromium/ui/accessibility/AccessibilityStateDelegateImpl.java",
+      "android/java/src/org/chromium/ui/accessibility/AccessibilityStateVisibilityManager.java",
+      "android/java/src/org/chromium/ui/accessibility/ApplicationStatusAccessibilityStateVisibilityManager.java",
     ]
     deps = [
       "//base:base_java",

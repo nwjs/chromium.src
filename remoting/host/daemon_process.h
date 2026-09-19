@@ -68,7 +68,6 @@ class DaemonProcess : public ConfigWatcher::Delegate,
   static inline constexpr const char* const kCopiedSwitchNames[] = {
       switches::kV,
       switches::kVModule,
-      kEnablePeerConnectionProcessSwitch,
   };
 
   using StoppedCallback = base::OnceCallback<void(int /*exit_code*/)>;
@@ -130,6 +129,12 @@ class DaemonProcess : public ConfigWatcher::Delegate,
   // implementation may cleanup resources such as closing desktop sessions.
   // `callback` is called once the cleanup has complete.
   virtual void Cleanup(base::OnceClosure callback);
+
+  // mojom::DesktopSessionManager implementation.
+  void GetDesktopSession(
+      mojo::PendingReceiver<mojom::DesktopSession> control_receiver,
+      mojo::PendingRemote<mojom::DesktopSessionEvents> events_remote,
+      mojom::DesktopSessionOptionsPtr options) override;
 
   void CreateDesktopSession(
       int terminal_id,
@@ -241,12 +246,6 @@ class DaemonProcess : public ConfigWatcher::Delegate,
   }
 
  private:
-  // mojom::DesktopSessionManager implementation.
-  void GetDesktopSession(
-      mojo::PendingReceiver<mojom::DesktopSession> control_receiver,
-      mojo::PendingRemote<mojom::DesktopSessionEvents> events_remote,
-      mojom::DesktopSessionOptionsPtr options) override;
-
   // Launches a peer connection process and establishes an IPC channel with it.
   // Returns a pointer to the created handler, or nullptr if creation failed.
   PeerConnectionProcessHandler* LaunchPeerConnectionProcess();

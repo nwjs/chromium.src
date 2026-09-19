@@ -74,7 +74,11 @@ constexpr base::FeatureParam<std::string> kClientSideDetectionBypassTiersList{
     /*default_value=*/""};
 
 BASE_FEATURE(kClientSideDetectionClipboardCopyApi,
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#else
              base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 constexpr base::FeatureParam<double> kCsdClipboardCopyApiHCAcceptanceRate{
     &kClientSideDetectionClipboardCopyApi, "HCAcceptanceRate",
     /*default_value=*/1.0};
@@ -97,7 +101,7 @@ const base::FeatureParam<std::string> kCsdClipboardCopyApiLoaders{
     &kClientSideDetectionClipboardCopyApi, "Loaders",
     /*default_value=*/
     "curl,wget,invoke-webrequest,iwr,invoke-restmethod,irm,certutil,"
-    "bitsadmin,echo,cat,finger"};
+    "bitsadmin,echo,cat,finger,gc"};
 const base::FeatureParam<std::string> kCsdClipboardCopyApiRunners{
     &kClientSideDetectionClipboardCopyApi, "Runners",
     /*default_value=*/
@@ -144,6 +148,9 @@ const base::FeatureParam<bool> kCsdCreditCardFormEnableDetectionTrigger{
     /*default_value=*/false};
 
 BASE_FEATURE(kClientSideDetectionEnabledIos, base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<bool> kCsdEnforceIos{&kClientSideDetectionEnabledIos,
+                                              "CsdEnforceIos",
+                                              /*default_value=*/false};
 
 BASE_FEATURE(kClientSideDetectionForcedLlamaRedirectChainKillswitch,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -192,12 +199,33 @@ constexpr base::FeatureParam<int> kClientSideDetectionServerModelMaxScansPerDay{
     &kClientSideDetectionServerModelForScamDetectionAndroid,
     "MaxIntelligentScansPerDay",
     /*default_value=*/5};
+#endif
 
+#if !BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kClientSideDetectionServerModelForScamDetectionDesktop,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+constexpr base::FeatureParam<int>
+    kClientSideDetectionServerModelMaxScansPerDayDesktop{
+        &kClientSideDetectionServerModelForScamDetectionDesktop,
+        "MaxIntelligentScansPerDayDesktop",
+        /*default_value=*/5};
+#endif
+
+#if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kClientSideDetectionServerModelRolloutAndroid,
              base::FEATURE_DISABLED_BY_DEFAULT);
 constexpr base::FeatureParam<int>
     kClientSideDetectionServerModelRolloutVersionAndroid{
         &kClientSideDetectionServerModelRolloutAndroid, "ModelVersion",
+        /*default_value=*/1000};
+#endif
+
+#if !BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kClientSideDetectionServerModelRolloutDesktop,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+constexpr base::FeatureParam<int>
+    kClientSideDetectionServerModelRolloutVersionDesktop{
+        &kClientSideDetectionServerModelRolloutDesktop, "ModelVersion",
         /*default_value=*/1000};
 #endif
 
@@ -278,7 +306,7 @@ BASE_FEATURE(kExtendedReportingRemovePrefDependency,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kExtensionBlocklistSkipNetworkQuery,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kExtensionTelemetryConfiguration,
              "SafeBrowsingExtensionTelemetryConfiguration",

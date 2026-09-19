@@ -816,6 +816,7 @@ input[pseudo="-webkit-media-controls-timeline" i]::-internal-track-segment-highl
 input[pseudo="-webkit-media-controls-volume-slider" i]::-internal-track-segment-highlight-before,
 input[pseudo="-webkit-media-controls-volume-slider" i]::-internal-track-segment-highlight-after {
   position: absolute;
+  left: 0;
   height: 4px;
 }
 
@@ -1347,7 +1348,6 @@ video::cue {
     display: inline;
 
     background-color: rgba(0, 0, 0, 0.8);
-    padding: 2px 2px;
 }
 
 video::-webkit-media-text-track-region {

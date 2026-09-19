@@ -300,6 +300,7 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   virtual gfx::NativeViewAccessible AccessibilityGetNativeViewAccessible();
   virtual gfx::NativeViewAccessible
   AccessibilityGetNativeViewAccessibleForWindow();
+  virtual ui::AXTreeID AccessibilityGetParentAXTreeID();
   virtual void SetMainFrameAXTreeID(ui::AXTreeID id) {}
   // Informs that the focused DOM node has changed.
   virtual void FocusedNodeChanged(bool is_editable_node,
@@ -591,6 +592,8 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   bool HasFallbackSurfaceForTesting() const { return HasFallbackSurface(); }
 
   void SetIsFrameSinkIdOwner(bool is_owner);
+
+  void SetEvictOnHide(bool evict_on_hide) override {}
 
   void SetViewTransitionResources(
       std::unique_ptr<ScopedViewTransitionResources> resources);

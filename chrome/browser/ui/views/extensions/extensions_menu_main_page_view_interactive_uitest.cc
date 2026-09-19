@@ -18,6 +18,7 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_ui_controller/browser_ui_controller.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/extensions/reload_page_dialog_controller.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
@@ -298,7 +299,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsMenuMainPageViewInteractiveUITest,
   // Navigate to a.com and add a site access request for the extension.
   GURL urlA = embedded_test_server()->GetURL("a.com", "/title1.html");
   NavigateTo(urlA);
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
   AddHostAccessRequest(*extension, web_contents);
 
   ShowUi("");
@@ -393,7 +394,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsMenuMainPageViewInteractiveUITest,
                             ui::PAGE_TRANSITION_TYPED));
   ASSERT_TRUE(
       AddTabAtIndex(1, GURL("chrome://extensions"), ui::PAGE_TRANSITION_TYPED));
-  browser()->tab_strip_model()->ActivateTabAt(1);
+  browser()->GetTabStripModel()->ActivateTabAt(1);
 
   ShowUi("");
 
@@ -403,7 +404,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsMenuMainPageViewInteractiveUITest,
   // Update the title of the unfocused tab.
   BrowserUiController::From(browser())->set_update_ui_immediately_for_testing();
   content::WebContents* unfocused_tab =
-      browser()->tab_strip_model()->GetWebContentsAt(0);
+      browser()->GetTabStripModel()->GetWebContentsAt(0);
   std::u16string updated_title = u"Updated Title";
   content::TitleWatcher title_watcher(unfocused_tab, updated_title);
   ASSERT_TRUE(
@@ -416,7 +417,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsMenuMainPageViewInteractiveUITest,
 
   // Verify extensions menu content wasn't affected by checking the site
   // displayed on the menu's subtitle.
-  ASSERT_EQ(browser()->tab_strip_model()->active_index(), 1);
+  ASSERT_EQ(browser()->GetTabStripModel()->active_index(), 1);
   EXPECT_EQ(main_page()->GetSiteSettingLabelForTesting(),
             u"Extensions are not allowed on chrome://extensions");
 }
@@ -449,15 +450,15 @@ IN_PROC_BROWSER_TEST_F(ExtensionsMenuMainPageViewInteractiveUITest,
 
   // Retrieve tab's information.
   content::WebContents* tab1_web_contents =
-      browser()->tab_strip_model()->GetWebContentsAt(tab1_index);
+      browser()->GetTabStripModel()->GetWebContentsAt(tab1_index);
   content::WebContents* tab2_web_contents =
-      browser()->tab_strip_model()->GetWebContentsAt(tab2_index);
+      browser()->GetTabStripModel()->GetWebContentsAt(tab2_index);
   int tab1_id = extensions::ExtensionTabUtil::GetTabId(tab1_web_contents);
   int tab2_id = extensions::ExtensionTabUtil::GetTabId(tab2_web_contents);
 
   // Activate the first tab and open the menu. Verify there are no site access
   // requests on the menu.
-  browser()->tab_strip_model()->ActivateTabAt(tab1_index);
+  browser()->GetTabStripModel()->ActivateTabAt(tab1_index);
   ShowUi("");
   const views::View* requests_section = main_page()->requests_section();
   EXPECT_FALSE(requests_section->GetVisible());
@@ -537,7 +538,7 @@ class ExtensionsMenuMainPageViewInteractiveTest
   }
 
   content::WebContents* active_web_contents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   extensions::ExtensionActionRunner* active_action_runner() {
@@ -1088,7 +1089,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionsMenuMainPageViewInteractiveTest,
 IN_PROC_BROWSER_TEST_F(ExtensionsMenuMainPageViewInteractiveTest,
                        PinningDisabledInIncognito) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kTab);
-  Browser* const incognito_browser = CreateIncognitoBrowser(profile());
+  BrowserWindowInterface* const incognito_browser =
+      CreateIncognitoBrowser(profile());
   ui_test_utils::BrowserActivationWaiter(incognito_browser).WaitForActivation();
 
   const extensions::Extension* extension =

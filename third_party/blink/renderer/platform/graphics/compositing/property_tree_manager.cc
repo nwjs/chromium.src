@@ -25,27 +25,6 @@
 
 namespace blink {
 
-PropertyTreeManager::EffectState::EffectState(const CurrentEffectState& other)
-    : effect(other.effect),
-      clip(other.clip),
-      transform(other.transform),
-      effect_id(other.effect_id),
-      may_be_2d_axis_misaligned_to_render_surface(
-          other.may_be_2d_axis_misaligned_to_render_surface),
-      contained_by_non_render_surface_synthetic_rounded_clip(
-          other.contained_by_non_render_surface_synthetic_rounded_clip) {}
-
-PropertyTreeManager::CurrentEffectState::CurrentEffectState(
-    const EffectState& other)
-    : effect(other.effect),
-      clip(other.clip),
-      transform(other.transform),
-      effect_id(other.effect_id),
-      may_be_2d_axis_misaligned_to_render_surface(
-          other.may_be_2d_axis_misaligned_to_render_surface),
-      contained_by_non_render_surface_synthetic_rounded_clip(
-          other.contained_by_non_render_surface_synthetic_rounded_clip) {}
-
 PropertyTreeManager::PropertyTreeManager(PropertyTreeManagerClient& client,
                                          cc::PropertyTrees& property_trees,
                                          cc::Layer& root_layer,
@@ -1490,14 +1469,19 @@ void PropertyTreeManager::UpdatePixelMovingFilterClipExpanders() {
 
 void PropertyTreeManager::
     EnsureCompositorNodesForAnchorPositionAdjustmentContainers(
-        const StackScrollTranslationVector& scroll_translations) {
+        const StackTransformPaintPropertyNodeVector& transforms) {
   if (anchor_position_adjustment_container_ids_.empty()) {
     return;
   }
-  for (auto& scroll_translation : scroll_translations) {
-    if (anchor_position_adjustment_container_ids_.Contains(
-            scroll_translation->ScrollNode()->GetCompositorElementId())) {
-      EnsureCompositorScrollAndTransformNode(*scroll_translation);
+  for (auto& transform : transforms) {
+    if (auto* scroll = transform->ScrollNode()) {
+      if (anchor_position_adjustment_container_ids_.Contains(
+              scroll->GetCompositorElementId())) {
+        EnsureCompositorScrollAndTransformNode(*transform);
+      }
+    } else if (anchor_position_adjustment_container_ids_.Contains(
+                   transform->GetCompositorElementId())) {
+      EnsureCompositorTransformNode(*transform);
     }
   }
 }

@@ -119,7 +119,7 @@ import java.io.IOException;
 
 /** Unit tests for {@link NtpCustomizationUtils} */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE, sdk = Build.VERSION_CODES.R)
+@Config(sdk = Build.VERSION_CODES.R)
 public class NtpCustomizationUtilsUnitTest {
     private static final String TEST_FILE_NAME = "test_file.png";
     private static final String LARGE_FILE_NAME = "large_file.png";
@@ -1644,8 +1644,18 @@ public class NtpCustomizationUtilsUnitTest {
     }
 
     @Test
-    public void testGetSearchBoxHeight() {
-        // Mock dimension values.
+    @EnableFeatures(ChromeFeatureList.NTP_AURORA)
+    public void testGetSearchBoxHeight_auroraEnabled() {
+        testGetSearchBoxHeightImpl(/* isAuroraEnabled= */ true);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.NTP_AURORA)
+    public void testGetSearchBoxHeight_auroraDisabled() {
+        testGetSearchBoxHeightImpl(/* isAuroraEnabled= */ false);
+    }
+
+    private void testGetSearchBoxHeightImpl(boolean isAuroraEnabled) {
         int searchBoxHeightTall =
                 mResources.getDimensionPixelSize(R.dimen.ntp_search_box_height_tall);
         int searchBoxHeight = mResources.getDimensionPixelSize(R.dimen.ntp_search_box_height);
@@ -1657,7 +1667,7 @@ public class NtpCustomizationUtilsUnitTest {
         assertEquals(expectedHeight, actualHeight);
 
         // Test case 2: Regular search box.
-        expectedHeight = searchBoxHeight;
+        expectedHeight = isAuroraEnabled ? searchBoxHeightTall : searchBoxHeight;
         actualHeight =
                 NtpCustomizationUtils.getSearchBoxHeight(
                         mResources, /* showSearchBoxTall= */ false);

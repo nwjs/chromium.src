@@ -49,7 +49,6 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationState;
@@ -135,7 +134,6 @@ import java.util.Locale;
 
 /** Unit tests for {@link ReadAloudController}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 @DisableFeatures({
     ChromeFeatureList.READALOUD_AUDIO_OVERVIEWS,
     ChromeFeatureList.GLIC,
@@ -143,8 +141,6 @@ import java.util.Locale;
 })
 public class ReadAloudControllerUnitTest {
     private static final GURL sTestGURL = JUnitTestGURLs.EXAMPLE_URL;
-    private static final GURL sTestRedirectGURL = JUnitTestGURLs.URL_1_WITH_PATH;
-    private static final Locale EN_US = new Locale("en", "US");
     private static final Locale FR_FR = new Locale("fr", "FR");
 
     private static final ReadAloudController.ReadabilityInfo ALL_SUPPORTED =
@@ -822,6 +818,49 @@ public class ReadAloudControllerUnitTest {
                                 new ReadAloudReadabilityHooks.ReadabilityResult(true, false)));
         UnifiedConsentServiceBridge.setUrlKeyedAnonymizedDataCollectionEnabled(false);
         assertFalse(mController.isReadable(mTab));
+    }
+
+    @Test
+    @EnableFeatures(AccessibilityFeatures.READ_ALOUD_NATIVE)
+    public void testCheckReadability_nativeEnabled() {
+        when(mNativeBridgeNatives.init(any(), any())).thenReturn(12345L);
+        mController.onProfileAvailable(mMockProfile);
+
+        mController.maybeCheckReadability(mTab);
+
+        verify(mNativeBridgeNatives).checkReadability(eq(12345L), eq(sTestGURL));
+        verify(mHooksImpl, never())
+                .isPageReadable(
+                        anyString(),
+                        any(ReadAloudReadabilityHooks.ReadabilityPerModeCallback.class));
+    }
+
+    @Test
+    @EnableFeatures(AccessibilityFeatures.READ_ALOUD_NATIVE)
+    public void testOnReadabilityResult_nativeEnabled() {
+        when(mNativeBridgeNatives.init(any(), any())).thenReturn(12345L);
+        mController.onProfileAvailable(mMockProfile);
+
+        assertFalse(mController.isReadable(mTab));
+
+        mController.onReadabilityResult(sTestGURL, true);
+
+        assertTrue(mController.isReadable(mTab));
+        assertEquals(PlaybackMode.CLASSIC, mController.getModeToPlay(mTab));
+    }
+
+    @Test
+    @EnableFeatures(AccessibilityFeatures.READ_ALOUD_NATIVE)
+    public void testIsAllowed_nativeEnabled() {
+        UnifiedConsentServiceBridge.setUrlKeyedAnonymizedDataCollectionEnabled(false);
+        assertTrue(ReadAloudFeatures.isAllowed(mMockProfile));
+
+        when(mMockProfile.isOffTheRecord()).thenReturn(true);
+        assertFalse(ReadAloudFeatures.isAllowed(mMockProfile));
+
+        when(mMockProfile.isOffTheRecord()).thenReturn(false);
+        when(mPrefService.getBoolean(Pref.LISTEN_TO_THIS_PAGE_ENABLED)).thenReturn(false);
+        assertFalse(ReadAloudFeatures.isAllowed(mMockProfile));
     }
 
     @Test

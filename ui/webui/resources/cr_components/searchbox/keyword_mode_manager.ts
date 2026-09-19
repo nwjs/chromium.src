@@ -3,8 +3,22 @@
 // found in the LICENSE file.
 
 import {assert} from '//resources/js/assert.js';
-import {KeywordType} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import type {AutocompleteMatch, InputKeywordModel} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {loadTimeData} from '//resources/js/load_time_data.js';
+import {KeywordType, SelectionLineState} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {AutocompleteMatch, InputKeywordModel, OmniboxPopupSelection} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+
+/**
+ * Loosely based on `metrics::OmniboxEventProto::KeywordModeEntryMethod` in
+ * third_party/metrics_proto/omnibox_event.proto, but not 1:1.
+ */
+export enum KeywordModeEntryMethod {
+  NONE = 0,
+  TAB = 1,
+  SPACE_AT_END = 2,
+  QUESTION_MARK = 3,
+  KEYBOARD_SHORTCUT = 4,
+  CLICK = 5,
+}
 
 export interface KeywordClearedEvent {
   restoredText: string;
@@ -28,7 +42,13 @@ export interface KeywordModeManagerDelegate {
  * the WebUI searchbox.
  */
 export class KeywordModeManager {
+  keywordSpaceTriggeringEnabled: boolean = loadTimeData.isInitialized() &&
+          loadTimeData.valueExists('keywordSpaceTriggeringEnabled') ?
+      loadTimeData.getBoolean('keywordSpaceTriggeringEnabled') :
+      true;
+
   private inputKeywordModel_: InputKeywordModel|null = null;
+  private entryMethod_: KeywordModeEntryMethod = KeywordModeEntryMethod.NONE;
   private delegate_: KeywordModeManagerDelegate;
 
   constructor(delegate: KeywordModeManagerDelegate) {
@@ -55,9 +75,15 @@ export class KeywordModeManager {
   }
 
   /**
-   * Enters keyword mode with the specified keyword and displayText hint.
+   * Enters keyword mode with the specified keyword, displayText hint, and entry
+   * method.
    */
-  enter(keyword: string, displayText: string): void {
+  enter(
+      keyword: string, displayText: string,
+      entryMethod: KeywordModeEntryMethod): void {
+    // TODO(crbug.com/546826241): To fully support keyword mode entryMethod
+    // state needs to be saved/restored across tabs.
+    this.entryMethod_ = entryMethod;
     this.inputKeywordModel = {
       type: KeywordType.kInKeyword,
       keyword: keyword,
@@ -66,9 +92,10 @@ export class KeywordModeManager {
   }
 
   /**
-   * Exits keyword mode, resetting the keyword model.
+   * Exits keyword mode, resetting the keyword model and entry state.
    */
   exit(): void {
+    this.entryMethod_ = KeywordModeEntryMethod.NONE;
     this.inputKeywordModel = null;
   }
 
@@ -84,12 +111,17 @@ export class KeywordModeManager {
       return false;
     }
 
-    const remainingText = inputState.value;
-    // TODO(b/504669216): Restoring keyword text correctly is more
-    //   complicated than just prepending keyword and a space.
-    const restoredKeywordText = this.activeKeyword + ' ';
-    const restoredText = restoredKeywordText + remainingText;
-    const newCursorPos = restoredKeywordText.length;
+    let prefix = this.activeKeyword ? `${this.activeKeyword} ` : '';
+    if (this.entryMethod_ === KeywordModeEntryMethod.TAB && !inputState.value) {
+      prefix = this.activeKeyword;
+    } else if (this.entryMethod_ === KeywordModeEntryMethod.QUESTION_MARK) {
+      prefix = '?';
+    } else if (this.entryMethod_ === KeywordModeEntryMethod.KEYBOARD_SHORTCUT) {
+      prefix = '';
+    }
+
+    const restoredText = prefix + inputState.value;
+    const newCursorPos = prefix.length;
 
     this.exit();
     this.delegate_.onKeywordCleared({
@@ -105,7 +137,9 @@ export class KeywordModeManager {
    */
   handleKeywordClick(match: AutocompleteMatch): void {
     assert(match.keywordModel);
-    this.enter(match.keywordModel.keyword, match.keywordModel.chipHint);
+    this.enter(
+        match.keywordModel.keyword, match.keywordModel.chipHint,
+        KeywordModeEntryMethod.CLICK);
     this.delegate_.onKeywordEntered();
   }
 
@@ -123,7 +157,9 @@ export class KeywordModeManager {
     if (!isDefaultMatch) {
       return false;
     }
-    this.enter(match.keywordModel.keyword, match.keywordModel.chipHint);
+    this.enter(
+        match.keywordModel.keyword, match.keywordModel.chipHint,
+        KeywordModeEntryMethod.TAB);
     this.delegate_.onKeywordEntered();
     return true;
   }
@@ -171,10 +207,13 @@ export class KeywordModeManager {
     // TODO(b/504669216): webUI doesn't track paste state yet.
 
     // Space triggering must be enabled.
-    // TODO(b/504669216): webUI isn't aware of
-    //   `kKeywordSpaceTriggeringEnabled` pref.
+    if (!this.keywordSpaceTriggeringEnabled) {
+      return false;
+    }
 
-    this.enter(keyword, this.inputKeywordModel_.displayText);
+    this.enter(
+        keyword, this.inputKeywordModel_.displayText,
+        KeywordModeEntryMethod.SPACE_AT_END);
     return true;
   }
 
@@ -201,7 +240,7 @@ export class KeywordModeManager {
     // Input must have been typed, not pasted.
     // TODO(b/504669216): webUI doesn't track paste state yet.
 
-    this.enter('?', '');
+    this.enter('?', '', KeywordModeEntryMethod.QUESTION_MARK);
     return true;
   }
 
@@ -213,29 +252,60 @@ export class KeywordModeManager {
   formatMatchFillIntoEdit(
       match: AutocompleteMatch, matchIndex: number,
       lastQueriedInput?: string|null): string {
+    if (this.isInKeywordMode) {
+      const keyword = this.inputKeywordModel_?.keyword;
+      if (keyword) {
+        if (match.fillIntoEdit.startsWith(keyword + ' ')) {
+          return match.fillIntoEdit.substring(keyword.length + 1);
+        }
+        if (match.fillIntoEdit === keyword ||
+            (match.keywordModel?.type !== KeywordType.kInKeyword &&
+             match.keywordModel?.keyword === keyword)) {
+          return '';
+        }
+      }
+      return match.fillIntoEdit;
+    }
     const isDefaultMatch = matchIndex === 0 && match.allowedToBeDefaultMatch;
     if (isDefaultMatch && lastQueriedInput) {
       return lastQueriedInput + match.inlineAutocompletion;
-    }
-    if (this.isInKeywordMode) {
-      const keyword = this.inputKeywordModel_?.keyword;
-      if (keyword && match.fillIntoEdit.startsWith(keyword + ' ')) {
-        return match.fillIntoEdit.substring(keyword.length + 1);
-      }
     }
     return match.fillIntoEdit;
   }
 
   /**
    * Updates or preserves the keyword model when the selected autocomplete match
-   * changes.
+   * or popup selection changes.
    */
-  onSelectedMatchChanged(selectedMatch: AutocompleteMatch|null): void {
-    // If the input is in keyword mode, preserve keyword mode.
-    if (this.isInKeywordMode) {
+  onSelectedMatchChanged(
+      selectedMatch: AutocompleteMatch|null,
+      selection?: OmniboxPopupSelection): void {
+    if (!selectedMatch) {
+      if (!this.isInKeywordMode) {
+        this.inputKeywordModel = null;
+      }
       return;
     }
-    if (!selectedMatch?.keywordModel) {
+    const isKeywordChipSelected =
+        selection?.state === SelectionLineState.kKeywordMode ||
+        selectedMatch.keywordModel?.type === KeywordType.kInstant;
+
+    if (isKeywordChipSelected && selectedMatch.keywordModel) {
+      if (!this.isInKeywordMode ||
+          this.activeKeyword !== selectedMatch.keywordModel.keyword) {
+        this.enter(
+            selectedMatch.keywordModel.keyword,
+            selectedMatch.keywordModel.chipHint, KeywordModeEntryMethod.TAB);
+      }
+      return;
+    }
+    if (selectedMatch.keywordModel?.type === KeywordType.kInKeyword) {
+      return;
+    }
+    if (this.isInKeywordMode) {
+      this.exit();
+    }
+    if (!selectedMatch.keywordModel) {
       this.inputKeywordModel = null;
       return;
     }

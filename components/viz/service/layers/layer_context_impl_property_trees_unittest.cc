@@ -1090,6 +1090,18 @@ TEST_F(LayerContextImplUpdateDisplayTreeTransformNodeTest,
   ASSERT_FALSE(result.has_value());
   EXPECT_EQ(result.error(),
             "Invalid parent_id for non-root property tree node");
+
+  // Verify that the parent_id of node 1 was NOT corrupted to -1.
+  cc::TransformNode* node_impl =
+      GetTransformNodeFromActiveTree(cc::kSecondaryRootPropertyNodeId);
+  ASSERT_TRUE(node_impl);
+  EXPECT_EQ(node_impl->parent_id, cc::kRootPropertyNodeId);
+
+  // Subsequent valid full update should succeed.
+  first_update_ = true;  // Force full update
+  auto update2 = CreateDefaultUpdate();
+  auto result2 = layer_context_impl_->DoUpdateDisplayTree(std::move(update2));
+  EXPECT_TRUE(result2.has_value()) << result2.error();
 }
 
 class LayerContextImplUpdateDisplayTreeClipNodeTest
@@ -1736,6 +1748,29 @@ TEST_F(LayerContextImplUpdateDisplayTreeEffectNodeTest, SurfaceContentsScale) {
       GetEffectNodeFromActiveTree(cc::kSecondaryRootPropertyNodeId);
   ASSERT_TRUE(node_impl);
   EXPECT_EQ(node_impl->surface_contents_scale, surface_contents_scale);
+}
+
+TEST_F(LayerContextImplPropertyTreesTestBase,
+       ExternalPageScaleFactorChangeInvalidatesClipTree) {
+  // Initialize the display tree, then clear the clip update consumed during
+  // initial setup.
+  ASSERT_TRUE(ApplyDefaultUpdate().has_value());
+  cc::PropertyTrees* property_trees =
+      layer_context_impl_->host_impl()->active_tree()->property_trees();
+  property_trees->clip_tree_mutable().set_needs_update(false);
+
+  // Reapplying the same external scale should not invalidate the clip tree.
+  auto update = CreateDefaultUpdate();
+  ASSERT_TRUE(
+      layer_context_impl_->DoUpdateDisplayTree(std::move(update)).has_value());
+  EXPECT_FALSE(property_trees->clip_tree().needs_update());
+
+  // A new external scale changes surface-space clips.
+  update = CreateDefaultUpdate();
+  update->external_page_scale_factor = 2.f;
+  ASSERT_TRUE(
+      layer_context_impl_->DoUpdateDisplayTree(std::move(update)).has_value());
+  EXPECT_TRUE(property_trees->clip_tree().needs_update());
 }
 
 TEST_F(LayerContextImplUpdateDisplayTreeEffectNodeTest, SubtreeCaptureId) {

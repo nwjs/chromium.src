@@ -18,8 +18,6 @@
 #include "base/test/task_environment.h"
 #include "build/build_config.h"
 #include "chrome/browser/contextual_search/contextual_search_service_factory.h"
-#include "chrome/browser/ui/contextual_search/searchbox_context_data.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/omnibox/chrome_omnibox_client.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
@@ -29,10 +27,7 @@
 #include "chrome/browser/ui/omnibox/test_omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/test_omnibox_popup_view.h"
 #include "chrome/browser/ui/omnibox/test_omnibox_view.h"
-#include "chrome/test/base/browser_with_test_window_test.h"
-#include "chrome/test/base/chrome_render_view_host_test_harness.h"
-#include "components/sessions/content/session_tab_helper.h"
-#include "components/tabs/public/tab_interface.h"
+#include "chrome/test/base/testing_profile.h"
 #include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/contextual_search/mock_contextual_search_service.h"
 #include "components/contextual_search/mock_contextual_search_session_handle.h"
@@ -60,11 +55,11 @@
 #include "components/omnibox/common/omnibox_focus_state.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "components/url_formatter/url_fixer.h"
+#include "content/public/test/browser_task_environment.h"
 #include "extensions/buildflags/buildflags.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
-#include "third_party/omnibox_proto/answer_type.pb.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/window_open_disposition.h"
@@ -632,6 +627,86 @@ TEST_F(OmniboxEditModelTest,
   OmniboxEditModel::State state = model()->GetStateForTabSwitch();
   EXPECT_EQ(GURL("https://www.example.com/"),
             state.autocomplete_input.canonicalized_url());
+}
+
+TEST_F(OmniboxEditModelTest, SpaceInMiddleWithoutKeywordSelectionDoesNotCrash) {
+  // Populate the TemplateURLService with a keyword search engine.
+  TemplateURLData data;
+  data.SetShortName(u"bing");
+  data.SetKeyword(u"bing.com");
+  data.SetURL("https://bing.com?q={searchTerms}");
+  data.is_active = TemplateURLData::ActiveStatus::kTrue;
+  TemplateURL* turl = controller()->client()->GetTemplateURLService()->Add(
+      std::make_unique<TemplateURL>(data));
+  ASSERT_TRUE(turl);
+
+  // Inserting a space after '/' in "bing.com/something" should not be accepted
+  // as a keyword because "bing.com/" is a URL path component, not the keyword
+  // "bing.com".
+  EXPECT_FALSE(model()->ShouldAcceptKeywordAfterInsertingSpaceInMiddle(
+      u"bing.com/something", u"bing.com/ something", 10));
+  // In contrast, inserting a space after the exact keyword "bing.com" should be
+  // accepted.
+  EXPECT_TRUE(model()->ShouldAcceptKeywordAfterInsertingSpaceInMiddle(
+      u"bing.comsomething", u"bing.com something", 9));
+
+  // Inserting a space after '/' in "bing.com/something" creates "bing.com/
+  // something".
+  std::u16string old_text = u"bing.com/something";
+  std::u16string new_text = u"bing.com/ something";
+  OmniboxView::StateChanges state_changes{&old_text,
+                                          &new_text,
+                                          gfx::Range(10, 10),
+                                          /*selection_differs=*/true,
+                                          /*text_differs=*/true,
+                                          /*keyword_differs=*/false,
+                                          /*just_deleted_text=*/false};
+
+  model()->OnAfterPossibleChange(state_changes,
+                                 /*allow_keyword_ui_change=*/true);
+  EXPECT_FALSE(model()->is_keyword_selected());
+
+  // Backspacing the space should also not crash.
+  OmniboxView::StateChanges backspace_changes{&new_text,
+                                              &old_text,
+                                              gfx::Range(9, 9),
+                                              /*selection_differs=*/true,
+                                              /*text_differs=*/true,
+                                              /*keyword_differs=*/false,
+                                              /*just_deleted_text=*/true};
+
+  model()->OnAfterPossibleChange(backspace_changes,
+                                 /*allow_keyword_ui_change=*/true);
+  EXPECT_FALSE(model()->is_keyword_selected());
+}
+
+TEST_F(OmniboxEditModelTest, StartAutocompleteWithoutViewDoesNotCrash) {
+  // Disconnect the view to simulate headless / WebUI searchbox usage.
+  controller_->SetView(nullptr);
+  ASSERT_EQ(model()->view(), nullptr);
+
+  model()->SetUserText(u"search query");
+  EXPECT_NO_FATAL_FAILURE(
+      model()->StartAutocomplete(/*prevent_inline_autocomplete=*/false));
+  EXPECT_EQ(model()->GetInputForTesting().text(), u"search query");
+  EXPECT_EQ(model()->GetInputForTesting().cursor_position(), 12u);
+
+  // Also test in keyword mode without a view.
+  TemplateURLData data;
+  data.SetShortName(u"custom");
+  data.SetKeyword(u"@custom");
+  data.SetURL("https://custom.com?q={searchTerms}");
+  TemplateURL* turl = controller()->client()->GetTemplateURLService()->Add(
+      std::make_unique<TemplateURL>(data));
+  ASSERT_TRUE(turl);
+
+  model()->SetUserText(u"hello");
+  model()->SetKeywordInfo(KeywordState::kKeyword, u"@custom", u"",
+                          OmniboxEventProto::TAB);
+  EXPECT_NO_FATAL_FAILURE(
+      model()->StartAutocomplete(/*prevent_inline_autocomplete=*/true));
+  EXPECT_EQ(model()->GetInputForTesting().text(), u"@custom hello");
+  EXPECT_EQ(model()->GetInputForTesting().cursor_position(), 13u);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1788,19 +1863,6 @@ TEST_F(OmniboxEditModelTest, OpenAiModeTriggersContextualizeWithoutService) {
   model()->SetQueryContextualizerForTesting(nullptr);
 }
 
-TEST_F(OmniboxEditModelTest, LogAnswerUsed) {
-  base::HistogramTester histogram_tester;
-  AutocompleteMatch match(
-      controller()->autocomplete_controller()->search_provider(), 0, false,
-      AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED);
-  match.answer_type = omnibox::ANSWER_TYPE_WEATHER;
-  match.destination_url = GURL("https://foo");
-  model()->OpenMatchForTesting(match, WindowOpenDisposition::CURRENT_TAB,
-                               GURL(), std::u16string(), 0);
-  histogram_tester.ExpectUniqueSample("Omnibox.SuggestionUsed.AnswerInSuggest",
-                                      8, 1);
-}
-
 // Tests `GetPopupRichSuggestionBitmap()` method, verifying that no bitmap is
 // fetched when there is no match with an `associated_keyword`.
 TEST_F(OmniboxEditModelPopupTest,
@@ -2357,18 +2419,18 @@ TEST_F(OmniboxEditModelTest, NavigateToThirdPartyAiMode) {
   model()->NavigateToThirdPartyAiMode(u"");
 }
 
-class OmniboxEditModelContextualSearchTest
-    : public BrowserWithTestWindowTest {
+class OmniboxEditModelContextualSearchTest : public testing::Test {
  public:
   OmniboxEditModelContextualSearchTest() = default;
   ~OmniboxEditModelContextualSearchTest() override = default;
 
   void SetUp() override {
-    BrowserWithTestWindowTest::SetUp();
+    testing::Test::SetUp();
+    profile_ = std::make_unique<TestingProfile>();
 
     // Create the ChromeOmniboxClient.
     auto omnibox_client = std::make_unique<ChromeOmniboxClient>(
-        /*location_bar=*/nullptr, browser(), profile());
+        /*location_bar=*/nullptr, /*browser=*/nullptr, profile_.get());
 
     // Create the OmniboxController.
     controller_ =
@@ -2376,7 +2438,7 @@ class OmniboxEditModelContextualSearchTest
 
     // Create the TestOmniboxEditModel.
     auto edit_model = std::make_unique<TestOmniboxEditModel>(
-        controller_.get(), profile()->GetPrefs());
+        controller_.get(), profile_->GetPrefs());
     model_ = edit_model.get();
     controller_->SetEditModelForTesting(std::move(edit_model));
   }
@@ -2384,13 +2446,17 @@ class OmniboxEditModelContextualSearchTest
   void TearDown() override {
     model_ = nullptr;
     controller_.reset();
-    BrowserWithTestWindowTest::TearDown();
+    profile_.reset();
+    testing::Test::TearDown();
   }
 
+  TestingProfile* profile() { return profile_.get(); }
   TestOmniboxEditModel* model() { return model_; }
   OmniboxController* controller() { return controller_.get(); }
 
  private:
+  content::BrowserTaskEnvironment task_environment_;
+  std::unique_ptr<TestingProfile> profile_;
   std::unique_ptr<OmniboxController> controller_;
   raw_ptr<TestOmniboxEditModel> model_ = nullptr;
 };
@@ -2486,44 +2552,4 @@ TEST_F(OmniboxEditModelTest, OpenMatchWithActionPreservesPopupState) {
 
   EXPECT_EQ(controller()->popup_state_manager()->popup_state(),
             OmniboxPopupState::kAim);
-}
-
-TEST_F(OmniboxEditModelContextualSearchTest,
-       OpenComposeboxForAskGPopulatesContext) {
-  const GURL expected_url("https://example.com/test-page");
-  AddTab(browser(), expected_url);
-
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  ASSERT_TRUE(web_contents);
-
-  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
-  ASSERT_TRUE(tab);
-  int32_t expected_tab_handle = tab->GetHandle().raw_value();
-  SessionID session_id = sessions::SessionTabHelper::IdForTab(web_contents);
-
-  // Trigger the AskG flow.
-  model()->OpenComposeboxForAskG();
-
-  // Verify the popup state is correct.
-  EXPECT_EQ(controller()->popup_state_manager()->popup_state(),
-            OmniboxPopupState::kAim);
-
-  // Verify context was populated correctly with TabHandle (not SessionID).
-  SearchboxContextData* context_data =
-      browser()->GetFeatures().searchbox_context_data();
-  ASSERT_TRUE(context_data);
-
-  std::unique_ptr<SearchboxContextData::Context> context =
-      context_data->TakePendingContext();
-  ASSERT_TRUE(context);
-  ASSERT_EQ(context->file_infos.size(), 1u);
-
-  const auto& attachment = context->file_infos[0];
-  ASSERT_TRUE(attachment->is_tab_attachment());
-
-  const auto& tab_attachment = attachment->get_tab_attachment();
-  EXPECT_EQ(tab_attachment->tab_id, expected_tab_handle);
-  EXPECT_NE(tab_attachment->tab_id, session_id.id());
-  EXPECT_EQ(tab_attachment->url, expected_url);
 }

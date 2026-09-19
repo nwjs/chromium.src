@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/autofill/form_input_accessory/coordinator/form_input_accessory_coordinator.h"
 
+#import <ranges>
+#import <variant>
 #import <vector>
 
 #import "base/apple/foundation_util.h"
@@ -88,6 +90,7 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/web/public/web_state.h"
 #import "ui/base/l10n/l10n_util_mac.h"
+#import "url/gurl.h"
 
 namespace {
 // Delay between the time the view is shown, and the time the suggestion label
@@ -575,6 +578,51 @@ AutofillSettingsPage SuggestionToAutofillSettingsPage(
   [_formInputAccessoryMediator openEditForSuggestion:suggestion];
 }
 
+- (void)openSourcesForSuggestion:(FormSuggestion*)suggestion {
+  // TODO(crbug.com/551864564): Implement opening sources for the suggestion.
+}
+
+- (void)suppressPersonalContextSuggestion:(FormSuggestion*)suggestion {
+  // TODO(crbug.com/551864564): Implement suppression/removal of the entity.
+}
+
+- (BOOL)hasSourcesForSuggestion:(FormSuggestion*)suggestion {
+  if (!base::FeatureList::IsEnabled(
+          autofill::features::kAutofillAmbientAutofillSourceAttribution)) {
+    return NO;
+  }
+
+  web::WebState* activeWebState = [self activeWebState];
+  if (!activeWebState) {
+    return NO;
+  }
+  base::optional_ref<const autofill::EntityInstance> entity =
+      autofill::GetEntityInstance(
+          ProfileIOS::FromBrowserState(activeWebState->GetBrowserState()),
+          suggestion.payload);
+  if (!entity.has_value()) {
+    return NO;
+  }
+
+  const auto* payload =
+      std::get_if<autofill::EntityInstance::PersonalContextRecordTypePayload>(
+          &entity->record_type_data());
+  if (!payload) {
+    return NO;
+  }
+  return std::ranges::any_of(payload->sources, [](const auto& source) {
+    return GURL(source.url).is_valid();
+  });
+}
+
+- (BOOL)canSuppressPersonalContextSuggestion:(FormSuggestion*)suggestion {
+  if (![self isPersonalContextSuggestion:suggestion]) {
+    return NO;
+  }
+  return base::FeatureList::IsEnabled(
+      autofill::features::kAutofillAmbientAutofillSuppressionUI);
+}
+
 - (BOOL)isPersonalContextSuggestion:(FormSuggestion*)suggestion {
   web::WebState* activeWebState = [self activeWebState];
   if (!activeWebState) {
@@ -764,17 +812,18 @@ AutofillSettingsPage SuggestionToAutofillSettingsPage(
 }
 
 - (void)openAutofillSettings {
-  [self dismissAtMemory];
+  __weak __typeof(self) weakSelf = self;
   id<SettingsCommands> settingsHandler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), SettingsCommands);
-  if (IsYourSavedInfoSettingsPageIosEnabled()) {
-    // TODO(crbug.com/540433768): Present the Autofill Settings page without a
-    // back button.
-    [settingsHandler showAutofillSettings];
-  } else {
-    [settingsHandler
-        showProfileSettingsFromViewController:self.baseViewController];
-  }
+  [settingsHandler showEnhancedAutofillSettingsWithCompletion:^{
+    [weakSelf onAutofillSettingsDismissed];
+  }];
+}
+
+- (void)openManageEnhancedAutofillDetails {
+  id<SettingsCommands> settingsHandler = HandlerForProtocol(
+      self.browser->GetCommandDispatcher(), SettingsCommands);
+  [settingsHandler showSuggestionsFromGeminiHelpImprove];
 }
 
 #pragma mark - SecurityAlertCommands
@@ -1065,6 +1114,16 @@ AutofillSettingsPage SuggestionToAutofillSettingsPage(
 
   // Ensure the keyboard accessory knows we are now in manual filling mode.
   [self updateKeyboardAccessoryForManualFilling];
+}
+
+// Handles dismissal of the Autofill settings page opened from AtMemory notice.
+- (void)onAutofillSettingsDismissed {
+  if (!self.browser) {
+    return;
+  }
+  if (!autofill::IsEnhancedAutofillEnabled(self.browser->GetProfile())) {
+    [self dismissAtMemory];
+  }
 }
 
 @end

@@ -6,11 +6,14 @@ package org.chromium.chrome.browser.actor;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabId;
 
 import java.lang.ref.WeakReference;
 import java.util.HashSet;
@@ -20,17 +23,26 @@ import java.util.Set;
 @JNINamespace("actor")
 @NullMarked
 public class ActorTask {
+    public static final int INVALID_TASK_ID = -1;
+
     private long mNativeTask;
     private final int mId;
     private final String mTitle;
     private final WeakReference<Profile> mProfile;
+    private final @Nullable String mGlicConversationId;
 
     @CalledByNative
-    private ActorTask(long nativeTask, int id, String title, Profile profile) {
+    private ActorTask(
+            long nativeTask,
+            int id,
+            @JniType("std::string") String title,
+            Profile profile,
+            @Nullable @JniType("std::optional<std::string>") String glicConversationId) {
         mNativeTask = nativeTask;
         mId = id;
         mTitle = title;
         mProfile = new WeakReference<>(profile);
+        mGlicConversationId = glicConversationId;
     }
 
     /**
@@ -38,6 +50,13 @@ public class ActorTask {
      */
     public int getId() {
         return mId;
+    }
+
+    /**
+     * @return The conversation ID associated with this task, if any.
+     */
+    public @Nullable String getGlicConversationId() {
+        return mGlicConversationId;
     }
 
     /**
@@ -118,6 +137,33 @@ public class ActorTask {
     }
 
     /**
+     * @return The ID of the tab most recently added or actuated on, or Tab.INVALID_TAB_ID if none.
+     *     Unlike {@link #getTabs()} and {@link #getLastActedTabs()}, this ID is preserved after
+     *     task completion as long as the underlying tab is still open.
+     */
+    public int getLastActuatedTabId() {
+        if (mNativeTask == 0) return Tab.INVALID_TAB_ID;
+        return ActorTaskJni.get().getLastActuatedTabId(mNativeTask);
+    }
+
+    /**
+     * Returns the target tab ID for bringing to the front, preferring the most recently actuated
+     * tab, or falling back to any tab associated with the task. Returns {@link Tab#INVALID_TAB_ID}
+     * if none exists.
+     */
+    public @TabId int getTargetTabId() {
+        @TabId int lastActuatedTabId = getLastActuatedTabId();
+        if (lastActuatedTabId != Tab.INVALID_TAB_ID) {
+            return lastActuatedTabId;
+        }
+        Set<Integer> tabs = getTabs();
+        if (!tabs.isEmpty()) {
+            return tabs.iterator().next();
+        }
+        return Tab.INVALID_TAB_ID;
+    }
+
+    /**
      * @param tabId The tab ID to check if the task is acting on.
      * @return true if the task is acting on the given tab, false otherwise.
      */
@@ -141,6 +187,7 @@ public class ActorTask {
 
     @NativeMethods
     interface Natives {
+        @JniType("std::string")
         String getCurrentActionName(long nativeActorTaskAndroid);
 
         int getState(long nativeActorTaskAndroid);
@@ -153,8 +200,12 @@ public class ActorTask {
 
         void resume(long nativeActorTaskAndroid);
 
+        @JniType("std::vector<int32_t>")
         int[] getTabs(long nativeActorTaskAndroid);
 
+        @JniType("std::vector<int32_t>")
         int[] getLastActedTabs(long nativeActorTaskAndroid);
+
+        int getLastActuatedTabId(long nativeActorTaskAndroid);
     }
 }

@@ -23,8 +23,8 @@ _mojom_primitive_type_to_rust_type = {
   mojom.UINT16: "u16",
   mojom.UINT32: "u32",
   mojom.UINT64: "u64",
-  mojom.FLOAT: "f32",
-  mojom.DOUBLE: "f64",
+  mojom.FLOAT: "OrderedFloat<f32>",
+  mojom.DOUBLE: "OrderedFloat<f64>",
   mojom.STRING: "String",
   mojom.HANDLE: "system::mojo_types::UntypedHandle",
   mojom.MSGPIPE: "system::message_pipe::MessageEndpoint",
@@ -75,6 +75,10 @@ def _GetLocalName(ty: mojom.Kind) -> str:
   return ty.name
 
 
+def _GetCrateAlias(target_label: str) -> str:
+  return target_label.lstrip("/").replace("/", "_").replace(":", "_")
+
+
 def _GetQualifiedName(
   ty: mojom.Kind, current_module: mojom.Module, source_to_target_map: dict
 ) -> str:
@@ -93,11 +97,10 @@ def _GetQualifiedName(
   if _SameGNTarget(ty.module, current_module, source_to_target_map):
     return f"crate::{ty_module_name}::{local_name}"
 
-  # Otherwise, it was defined in a different crate, which has the same name as
-  # as the GN target that defined it.
+  # Otherwise, it was defined in a different crate, which has a unique alias
+  # derived from its GN target name.
   extern_target_name = source_to_target_map[ty.module.path]
-  # Map //foo/bar:baz -> baz, and //foo/bar -> bar
-  extern_crate = extern_target_name.split(':')[-1].split('/')[-1]
+  extern_crate = _GetCrateAlias(extern_target_name)
   return f"{extern_crate}::{ty_module_name}::{local_name}"
 
 
@@ -133,9 +136,6 @@ def _MojomTypeToRustType(
     key_ty = _MojomTypeToRustType(
       ty.key_kind, current_module, source_to_target_map, typemap
     )
-    # Rust requires comparison operators to use floats as keys in a map
-    if ty.key_kind == mojom.FLOAT or ty.key_kind == mojom.DOUBLE:
-      key_ty = f"OrderedFloat<{key_ty}>"
     value_ty = _MojomTypeToRustType(
       ty.value_kind, current_module, source_to_target_map, typemap
     )
@@ -366,6 +366,14 @@ class Generator(generator.Generator):
     # Remove our own target, since we don't import ourselves
     imported_targets -= {self.source_to_target_map[self.module.path]}
 
+    imports = sorted(
+      [
+        {"target": target, "alias": _GetCrateAlias(target)}
+        for target in imported_targets
+      ],
+      key=lambda x: x["alias"],
+    )
+
     typemaps_to_include = []
     seen_files = set()
 
@@ -394,7 +402,7 @@ class Generator(generator.Generator):
 
     return {
       "module": self.module,
-      "imports": imported_targets,
+      "imports": imports,
       "typemaps_to_include": typemaps_to_include,
       "typemap": self.typemap,
     }

@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "android-10-x86-rel",
-              "project": "chromium-m153"
+              "project": "chromium-m154"
             },
             "builder_spec": {
               "builder_group": "chromium.android",
@@ -31,8 +31,7 @@
               "legacy_gclient_config": {
                 "apply_configs": [
                   "android",
-                  "chromium_with_telemetry_dependencies",
-                  "enable_wpr_tests"
+                  "chromium_with_telemetry_dependencies"
                 ],
                 "config": "chromium"
               }
@@ -44,7 +43,7 @@
         {
           "bucket": "ci",
           "builder": "android-10-x86-rel",
-          "project": "chromium-m153"
+          "project": "chromium-m154"
         }
       ],
       "mirroring_builder_group_and_names": [

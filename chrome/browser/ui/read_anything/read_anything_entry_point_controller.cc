@@ -15,7 +15,7 @@
 #include "chrome/browser/dom_distiller/tab_utils.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/page_action/page_action_controller.h"
@@ -268,23 +268,13 @@ void ReadAnythingEntryPointController::ShowUI(
                                   open_trigger);
   }
 
-  if (features::IsImmersiveReadAnythingEnabled()) {
-    // TODO(crbug.com/471001915): Once IRM flag is enabled by default, change
-    // IDC_CONTENT_CONTEXT_OPEN_IN_READING_MODE, one of the triggers of this
-    // method, to reflect that it's opening Immersive mode instead of Side
-    // Panel.
-    if (tabs::TabInterface* tab = bwi->GetActiveTabInterface()) {
-      auto* controller = ReadAnythingController::From(tab);
-      CHECK(controller);
-      controller->ShowInPreferredUI(open_trigger);
-    }
-  } else {
-    SidePanelOpenTrigger side_panel_open_trigger =
-        ReadAnythingToSidePanelOpenTrigger(open_trigger);
-
-    bwi->GetFeatures().side_panel_ui()->Show(
-        SidePanelEntryKey(SidePanelEntryId::kReadAnything),
-        side_panel_open_trigger);
+  // TODO(crbug.com/471001915): Change IDC_CONTENT_CONTEXT_OPEN_IN_READING_MODE,
+  // one of the triggers of this method, to reflect that it's opening Immersive
+  // mode instead of Side Panel.
+  if (tabs::TabInterface* tab = bwi->GetActiveTabInterface()) {
+    auto* controller = ReadAnythingController::From(tab);
+    CHECK(controller);
+    controller->ShowInPreferredUI(open_trigger);
   }
 }
 
@@ -301,26 +291,17 @@ void ReadAnythingEntryPointController::ToggleUI(
                                   open_trigger);
   }
 
-  if (features::IsImmersiveReadAnythingEnabled()) {
-    if (tabs::TabInterface* tab = bwi->GetActiveTabInterface()) {
-      auto* controller = ReadAnythingController::From(tab);
-      CHECK(controller);
-      controller->ToggleUI(open_trigger);
-    }
-  } else {
-    SidePanelOpenTrigger side_panel_open_trigger =
-        ReadAnythingToSidePanelOpenTrigger(open_trigger);
-
-    bwi->GetFeatures().side_panel_ui()->Toggle(
-        SidePanelEntryKey(SidePanelEntryId::kReadAnything),
-        side_panel_open_trigger);
+  if (tabs::TabInterface* tab = bwi->GetActiveTabInterface()) {
+    auto* controller = ReadAnythingController::From(tab);
+    CHECK(controller);
+    controller->ToggleUI(open_trigger);
   }
 }
 
 // static
 bool ReadAnythingEntryPointController::IsUIShowing(
     BrowserWindowInterface* bwi) {
-  if (!features::IsImmersiveReadAnythingEnabled() || !bwi) {
+  if (!bwi) {
     return IsReadAnythingEntryShowing(bwi);
   }
 
@@ -398,10 +379,8 @@ bool ReadAnythingEntryPointController::CheckIfShouldSuggestReadingModeNaive(
 
   // Disable the omnibox on app windows, as these windows don't usually have
   // omnibox support.
-  Browser* browser = bwi->GetBrowserForMigrationOnly();
-  if (browser &&
-      (browser->GetType() == BrowserWindowInterface::Type::TYPE_APP ||
-       browser->GetType() == BrowserWindowInterface::Type::TYPE_APP_POPUP)) {
+  if (bwi->GetType() == BrowserWindowInterface::Type::TYPE_APP ||
+      bwi->GetType() == BrowserWindowInterface::Type::TYPE_APP_POPUP) {
     LogDecision(ReadAnythingOmniboxChipDecision::kHideAppWindow);
     return false;
   }

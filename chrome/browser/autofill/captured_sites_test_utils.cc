@@ -41,6 +41,8 @@
 #include "build/build_config.h"
 #include "chrome/browser/autofill/autofill_uitest_util.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -48,7 +50,7 @@
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/field_types.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/browser/test_utils/test_autofill_clock.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/javascript_dialogs/app_modal_dialog_controller.h"
@@ -933,7 +935,7 @@ bool ProfileDataController::AddAutofillProfileInfo(
 
 // TestRecipeReplayer ---------------------------------------------------------
 TestRecipeReplayer::TestRecipeReplayer(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     TestRecipeReplayChromeFeatureActionExecutor* feature_action_executor)
     : browser_(browser), feature_action_executor_(feature_action_executor) {
   CleanupSiteData();
@@ -1046,7 +1048,7 @@ TestRecipeReplayer::feature_action_executor() {
   return feature_action_executor_;
 }
 
-Browser* TestRecipeReplayer::browser() {
+BrowserWindowInterface* TestRecipeReplayer::browser() {
   return browser_;
 }
 

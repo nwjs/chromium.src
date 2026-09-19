@@ -21,6 +21,8 @@ interface AccessibilityStateDelegate {
 
     boolean isKnownScreenReaderEnabled();
 
+    boolean isSamsungTalkBackEnabled();
+
     boolean isComplexUserInteractionServiceEnabled();
 
     /** True when touch exploration is enabled. */
@@ -133,7 +135,7 @@ interface AccessibilityStateDelegate {
      */
     void registerObservers();
 
-    void initializeOnStartup();
+    void initializeOnStartup(AccessibilityStateVisibilityManager visibilityManager);
 
     void updateAccessibilityServices();
 

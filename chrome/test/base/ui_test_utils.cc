@@ -61,7 +61,6 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/autocomplete_change_observer.h"
-#include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/find_result_waiter.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/download/public/common/download_item.h"
@@ -300,9 +299,7 @@ void NavigateToURL(NavigateParams* params) {
 }
 
 void NavigateToURLWithPost(BrowserWindowInterface* browser, const GURL& url) {
-  NavigateParams params(
-      browser ? browser->GetBrowserForMigrationOnly() : nullptr, url,
-      ui::PAGE_TRANSITION_FORM_SUBMIT);
+  NavigateParams params(browser, url, ui::PAGE_TRANSITION_FORM_SUBMIT);
 
   std::string post_data("test=body");
   params.post_data = network::ResourceRequestBody::CreateFromCopyOfBytes(
@@ -352,10 +349,9 @@ NavigateToURLWithDispositionBlockUntilNavigationsComplete(
   AllBrowserTabAddedWaiter tab_added_waiter;
 
   WebContents* const web_contents =
-      browser->GetBrowserForMigrationOnly()->OpenURL(
-          OpenURLParams(url, Referrer(), disposition, ui::PAGE_TRANSITION_TYPED,
-                        false),
-          /*navigation_handle_callback=*/{});
+      browser->OpenURL(OpenURLParams(url, Referrer(), disposition,
+                                     ui::PAGE_TRANSITION_TYPED, false),
+                       /*navigation_handle_callback=*/{});
   if (browser_test_flags & BROWSER_TEST_WAIT_FOR_BROWSER) {
     // `WaitForBrowserNotInSet()` waits until the new browser is created, and
     // `WaitForBrowserSetLastActive()` waits until the new browser is active.
@@ -698,14 +694,14 @@ bool IsBrowserActive(BrowserWindowInterface* browser) {
   return widget->native_widget_active();
 }
 
-Browser* OpenNewEmptyWindowAndWaitUntilActivated(
+BrowserWindowInterface* OpenNewEmptyWindowAndWaitUntilActivated(
     Profile* profile,
     bool should_trigger_session_restore) {
   ui_test_utils::BrowserCreatedObserver browser_created_observer;
   chrome::NewEmptyWindow(profile, should_trigger_session_restore);
   BrowserWindowInterface* new_browser = browser_created_observer.Wait();
   WaitUntilBrowserBecomeActive(new_browser);
-  return new_browser->GetBrowserForMigrationOnly();
+  return new_browser;
 }
 
 BrowserDidBecomeActiveWaiter::BrowserDidBecomeActiveWaiter(
@@ -779,7 +775,7 @@ void SendToOmniboxAndSubmit(BrowserWindowInterface* browser,
   }
 }
 
-Browser* GetBrowserNotInSet(
+BrowserWindowInterface* GetBrowserNotInSet(
     const std::set<BrowserWindowInterface*>& excluded_browsers) {
   BrowserWindowInterface* browser_not_in_set = nullptr;
   ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
@@ -790,8 +786,7 @@ Browser* GetBrowserNotInSet(
         }
         return true;  // Continue iterating.
       });
-  return browser_not_in_set ? browser_not_in_set->GetBrowserForMigrationOnly()
-                            : nullptr;
+  return browser_not_in_set;
 }
 
 std::vector<BrowserWindowInterface*> FindMatchingBrowsers(
@@ -1060,7 +1055,7 @@ void WaitForHistoryToLoad(history::HistoryService* history_service) {
   }
 }
 
-Browser* WaitForBrowserToOpen() {
+BrowserWindowInterface* WaitForBrowserToOpen() {
   return BrowserCreatedObserver().Wait();
 }
 
@@ -1187,12 +1182,12 @@ BrowserCreatedObserver::BrowserCreatedObserver() {
 
 BrowserCreatedObserver::~BrowserCreatedObserver() = default;
 
-Browser* BrowserCreatedObserver::Wait() {
+BrowserWindowInterface* BrowserCreatedObserver::Wait() {
   if (!browser_) {
     run_loop_.Run();
   }
   CHECK(browser_);
-  return browser_->GetBrowserForMigrationOnly();
+  return browser_;
 }
 
 void BrowserCreatedObserver::OnBrowserCreated(BrowserWindowInterface* browser) {

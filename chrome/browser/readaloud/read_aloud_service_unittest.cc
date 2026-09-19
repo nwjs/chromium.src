@@ -8,11 +8,15 @@
 #include <utility>
 
 #include "base/functional/callback_helpers.h"
+#include "base/run_loop.h"
+#include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/dom_distiller/dom_distiller_service_factory.h"
 #include "chrome/browser/media/router/chrome_media_router_factory.h"
+#include "chrome/browser/readaloud/fake_audio_stream_factory.h"
 #include "chrome/browser/readaloud/read_aloud_service_factory.h"
+#include "chrome/common/readaloud/read_aloud_constants.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/dom_distiller/core/distiller_page.h"
 #include "components/dom_distiller/core/dom_distiller_service.h"
@@ -20,8 +24,12 @@
 #include "components/dom_distiller/core/proto/distilled_article.pb.h"
 #include "components/dom_distiller/core/proto/distilled_page.pb.h"
 #include "components/media_router/browser/test/mock_media_router.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
+#include "media/audio/audio_device_description.h"
 #include "media/base/audio_parameters.h"
+#include "media/mojo/mojom/audio_data_pipe.mojom.h"
+#include "media/mojo/mojom/audio_output_stream.mojom.h"
 #include "mojo/public/mojom/base/work_in_progress.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -110,11 +118,6 @@ class FakePlaybackController
     : public read_aloud::mojom::ReadAloudPlaybackController {
  public:
   FakePlaybackController() = default;
-  explicit FakePlaybackController(
-      mojo::PendingReceiver<read_aloud::mojom::ReadAloudPlaybackController>
-          receiver)
-      : receiver_(this, std::move(receiver)) {}
-
   ~FakePlaybackController() override = default;
 
   void Bind(
@@ -124,12 +127,25 @@ class FakePlaybackController
     receiver_.Bind(std::move(receiver));
   }
 
-  void Reset() { receiver_.reset(); }
+  void Reset() {
+    receiver_.reset();
+    received_segments_.clear();
+    last_audio_stream_.reset();
+    last_data_pipe_.reset();
+  }
 
   void InitializeAudio(
       mojo::PendingRemote<media::mojom::AudioOutputStream> stream,
       media::mojom::ReadWriteAudioDataPipePtr data_pipe,
-      const media::AudioParameters& params) override {}
+      const media::AudioParameters& params) override {
+    last_audio_stream_ = std::move(stream);
+    last_data_pipe_ = std::move(data_pipe);
+    last_audio_params_ = params;
+    initialize_audio_called_count_++;
+    if (initialize_audio_callback_) {
+      std::move(initialize_audio_callback_).Run();
+    }
+  }
 
   void SetTextContent(
       std::vector<read_aloud::mojom::TextSegmentPtr> segments) override {
@@ -139,28 +155,80 @@ class FakePlaybackController
     }
   }
 
-  void Play() override {}
-  void Pause() override {}
+  void Play() override {
+    play_count_++;
+    if (play_callback_) {
+      std::move(play_callback_).Run();
+    }
+  }
+  void Pause() override {
+    pause_count_++;
+    if (pause_callback_) {
+      std::move(pause_callback_).Run();
+    }
+  }
   void SeekToWord(uint32_t segment_index, uint32_t character_offset) override {}
   void SeekToTime(base::TimeDelta position) override {}
   void SetVoice(const std::string& voice_id) override {}
-  void SetPlaybackRate(float rate) override {}
+  void SetPlaybackRate(float rate) override {
+    last_playback_rate_ = rate;
+    if (set_playback_rate_callback_) {
+      std::move(set_playback_rate_callback_).Run();
+    }
+  }
   void FlushBuffers() override {}
 
   void set_text_content_callback(base::OnceClosure callback) {
     set_text_content_callback_ = std::move(callback);
   }
+  void set_play_callback(base::OnceClosure callback) {
+    play_callback_ = std::move(callback);
+  }
+  void set_pause_callback(base::OnceClosure callback) {
+    pause_callback_ = std::move(callback);
+  }
+  void set_playback_rate_callback(base::OnceClosure callback) {
+    set_playback_rate_callback_ = std::move(callback);
+  }
 
-  const std::vector<read_aloud::mojom::TextSegmentPtr>& received_segments() const {
+  const std::vector<read_aloud::mojom::TextSegmentPtr>& received_segments()
+      const {
     return received_segments_;
   }
 
- private:
-  mojo::Receiver<read_aloud::mojom::ReadAloudPlaybackController> receiver_{this};
-  std::vector<read_aloud::mojom::TextSegmentPtr> received_segments_;
-  base::OnceClosure set_text_content_callback_;
-};
+  int play_count() const { return play_count_; }
+  int pause_count() const { return pause_count_; }
+  float last_playback_rate() const { return last_playback_rate_; }
+  void set_initialize_audio_callback(base::OnceClosure callback) {
+    initialize_audio_callback_ = std::move(callback);
+  }
 
+  int initialize_audio_called_count() const {
+    return initialize_audio_called_count_;
+  }
+  const media::AudioParameters& last_audio_params() const {
+    return last_audio_params_;
+  }
+  bool has_audio_stream() const { return last_audio_stream_.is_valid(); }
+  bool has_data_pipe() const { return !last_data_pipe_.is_null(); }
+
+ private:
+  mojo::Receiver<read_aloud::mojom::ReadAloudPlaybackController> receiver_{
+      this};
+  std::vector<read_aloud::mojom::TextSegmentPtr> received_segments_;
+  mojo::PendingRemote<media::mojom::AudioOutputStream> last_audio_stream_;
+  media::mojom::ReadWriteAudioDataPipePtr last_data_pipe_;
+  media::AudioParameters last_audio_params_;
+  base::OnceClosure set_text_content_callback_;
+  base::OnceClosure play_callback_;
+  base::OnceClosure pause_callback_;
+  base::OnceClosure set_playback_rate_callback_;
+  int play_count_ = 0;
+  int pause_count_ = 0;
+  float last_playback_rate_ = 1.0f;
+  base::OnceClosure initialize_audio_callback_;
+  int initialize_audio_called_count_ = 0;
+};
 }  // namespace
 
 class ReadAloudServiceTest : public ChromeRenderViewHostTestHarness {
@@ -185,7 +253,10 @@ class ReadAloudServiceTest : public ChromeRenderViewHostTestHarness {
               return std::make_unique<ReadAloudService>(
                   Profile::FromBrowserContext(context),
                   base::BindRepeating(&ReadAloudServiceTest::BindController,
-                                      base::Unretained(test)));
+                                      base::Unretained(test)),
+                  base::BindRepeating(
+                      &ReadAloudServiceTest::BindAudioStreamFactory,
+                      base::Unretained(test)));
             },
             this));
   }
@@ -204,6 +275,18 @@ class ReadAloudServiceTest : public ChromeRenderViewHostTestHarness {
     return service()->GetViewerHandleForTesting();
   }
 
+  void ExpectDistillation(const GURL& url) {
+    EXPECT_CALL(*mock_distiller_service(),
+                CreateDefaultDistillerPageWithHandle(testing::_))
+        .WillOnce(testing::Return(testing::ByMove(
+            std::make_unique<dom_distiller::test::MockDistillerPage>())));
+
+    EXPECT_CALL(*mock_distiller_service(),
+                ViewUrlIgnoreCache(service(), testing::_, url))
+        .WillOnce(testing::Return(testing::ByMove(
+            std::make_unique<dom_distiller::ViewerHandle>(base::DoNothing()))));
+  }
+
   void SetFakeController(
       std::unique_ptr<FakePlaybackController> controller) {
     fake_controller_ = std::move(controller);
@@ -211,6 +294,23 @@ class ReadAloudServiceTest : public ChromeRenderViewHostTestHarness {
 
   FakePlaybackController* fake_controller() {
     return fake_controller_.get();
+  }
+
+  FakeAudioStreamFactory* fake_audio_stream_factory() {
+    return &fake_audio_stream_factory_;
+  }
+
+  void ExpectInitializeCallbacks(
+      MockDelegate* delegate,
+      testing::Matcher<std::string_view> expected_title = testing::_,
+      testing::Matcher<std::string_view> expected_publisher = "example.com") {
+    EXPECT_CALL(*delegate,
+                OnMetadataAvailable(expected_title, expected_publisher))
+        .Times(1);
+    EXPECT_CALL(*delegate,
+                OnPlaybackProgressUpdated(/*elapsed=*/base::Seconds(0),
+                                          /*duration=*/base::Seconds(0)))
+        .Times(1);
   }
 
   void BindController(
@@ -221,8 +321,14 @@ class ReadAloudServiceTest : public ChromeRenderViewHostTestHarness {
     }
   }
 
+  void BindAudioStreamFactory(
+      mojo::PendingReceiver<media::mojom::AudioStreamFactory> receiver) {
+    fake_audio_stream_factory_.Bind(std::move(receiver));
+  }
+
  private:
   std::unique_ptr<FakePlaybackController> fake_controller_;
+  FakeAudioStreamFactory fake_audio_stream_factory_;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
@@ -283,7 +389,7 @@ TEST_F(ReadAloudServiceTest, DistillPageAndArticleReady) {
   EXPECT_EQ(u"Second page content", segments[1]->text);
 }
 
-TEST_F(ReadAloudServiceTest, DistillPageAndArticleReady_EmptyPageHtml) {
+TEST_F(ReadAloudServiceTest, DistillPageAndArticleReadyEmptyPageHtml) {
   NavigateAndCommit(GURL("https://www.example.com/article"));
 
   SetFakeController(std::make_unique<FakePlaybackController>());
@@ -328,6 +434,257 @@ TEST_F(ReadAloudServiceTest, DistillPageAndArticleReady_EmptyPageHtml) {
   EXPECT_EQ(u"", segments[1]->text);
 }
 
+TEST_F(ReadAloudServiceTest,
+       InitializePopulatesTitleAndPublisherFromWebContents) {
+  NavigateAndCommit(GURL("https://www.example.com/article"));
+  web_contents()->UpdateTitleForEntry(
+      web_contents()->GetController().GetLastCommittedEntry(),
+      u"Example Article - Example News");
+
+  auto delegate = std::make_unique<testing::StrictMock<MockDelegate>>();
+  MockDelegate* delegate_ptr = delegate.get();
+  service()->SetDelegate(std::move(delegate));
+
+  SetFakeController(std::make_unique<FakePlaybackController>());
+
+  EXPECT_CALL(
+      *delegate_ptr,
+      OnMetadataAvailable("Example Article - Example News", "example.com"))
+      .Times(1);
+  EXPECT_CALL(*delegate_ptr,
+              OnPlaybackProgressUpdated(base::Seconds(0), base::Seconds(0)))
+      .Times(1);
+
+  service()->Initialize(web_contents());
+
+  EXPECT_CALL(*delegate_ptr, OnNativeDestroyed()).Times(1);
+}
+
+TEST_F(ReadAloudServiceTest,
+       InitializePopulatesDefaultTitleAndPublisherWhenEmpty) {
+  std::unique_ptr<content::WebContents> test_contents = CreateTestWebContents();
+
+  auto delegate = std::make_unique<testing::StrictMock<MockDelegate>>();
+  MockDelegate* delegate_ptr = delegate.get();
+  service()->SetDelegate(std::move(delegate));
+
+  SetFakeController(std::make_unique<FakePlaybackController>());
+
+  EXPECT_CALL(*delegate_ptr, OnMetadataAvailable("", "")).Times(1);
+  EXPECT_CALL(*delegate_ptr,
+              OnPlaybackProgressUpdated(/*elapsed=*/base::Seconds(0),
+                                        /*duration=*/base::Seconds(0)))
+      .Times(1);
+
+  service()->Initialize(test_contents.get());
+
+  EXPECT_CALL(*delegate_ptr, OnNativeDestroyed()).Times(1);
+}
+
+TEST_F(ReadAloudServiceTest, OnArticleReadyUpdatesTitleFromDistilledProto) {
+  NavigateAndCommit(GURL("https://www.example.com/article"));
+
+  auto delegate = std::make_unique<testing::StrictMock<MockDelegate>>();
+  MockDelegate* delegate_ptr = delegate.get();
+  service()->SetDelegate(std::move(delegate));
+
+  SetFakeController(std::make_unique<FakePlaybackController>());
+
+  EXPECT_CALL(*mock_distiller_service(),
+              CreateDefaultDistillerPageWithHandle(testing::_))
+      .WillOnce(testing::Return(testing::ByMove(
+          std::make_unique<dom_distiller::test::MockDistillerPage>())));
+
+  dom_distiller::ViewRequestDelegate* view_delegate = nullptr;
+  EXPECT_CALL(*mock_distiller_service(),
+              ViewUrlIgnoreCache(service(), testing::_,
+                                 GURL("https://www.example.com/article")))
+      .WillOnce([&](dom_distiller::ViewRequestDelegate* d,
+                    std::unique_ptr<dom_distiller::DistillerPage> page,
+                    const GURL& url) {
+        view_delegate = d;
+        return std::make_unique<dom_distiller::ViewerHandle>(base::DoNothing());
+      });
+
+  ExpectInitializeCallbacks(delegate_ptr);
+  service()->Initialize(web_contents());
+  ASSERT_NE(view_delegate, nullptr);
+
+  EXPECT_CALL(*delegate_ptr,
+              OnMetadataAvailable("Distilled Headline Title", "example.com"))
+      .Times(1);
+
+  dom_distiller::DistilledArticleProto proto;
+  proto.set_title("Distilled Headline Title");
+  dom_distiller::DistilledPageProto* page1 = proto.add_pages();
+  page1->set_html("Article body text");
+
+  view_delegate->OnArticleReady(&proto);
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_CALL(*delegate_ptr, OnNativeDestroyed()).Times(1);
+}
+
+TEST_F(ReadAloudServiceTest,
+       OnArticleReadyDoesNotOverrideTitleWhenProtoTitleIsEmpty) {
+  NavigateAndCommit(GURL("https://www.example.com/article"));
+
+  auto delegate = std::make_unique<testing::StrictMock<MockDelegate>>();
+  MockDelegate* delegate_ptr = delegate.get();
+  service()->SetDelegate(std::move(delegate));
+
+  SetFakeController(std::make_unique<FakePlaybackController>());
+
+  EXPECT_CALL(*mock_distiller_service(),
+              CreateDefaultDistillerPageWithHandle(testing::_))
+      .WillOnce(testing::Return(testing::ByMove(
+          std::make_unique<dom_distiller::test::MockDistillerPage>())));
+
+  dom_distiller::ViewRequestDelegate* view_delegate = nullptr;
+  EXPECT_CALL(*mock_distiller_service(),
+              ViewUrlIgnoreCache(service(), testing::_,
+                                 GURL("https://www.example.com/article")))
+      .WillOnce([&](dom_distiller::ViewRequestDelegate* d,
+                    std::unique_ptr<dom_distiller::DistillerPage> page,
+                    const GURL& url) {
+        view_delegate = d;
+        return std::make_unique<dom_distiller::ViewerHandle>(base::DoNothing());
+      });
+
+  ExpectInitializeCallbacks(delegate_ptr);
+  service()->Initialize(web_contents());
+  ASSERT_NE(view_delegate, nullptr);
+
+  // Expect no additional OnMetadataAvailable call when distillation headline is
+  // empty.
+  EXPECT_CALL(*delegate_ptr, OnMetadataAvailable(testing::_, testing::_))
+      .Times(0);
+
+  dom_distiller::DistilledArticleProto proto;
+  proto.set_title("");
+  dom_distiller::DistilledPageProto* page1 = proto.add_pages();
+  page1->set_html("Article body text");
+
+  view_delegate->OnArticleReady(&proto);
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_CALL(*delegate_ptr, OnNativeDestroyed()).Times(1);
+}
+
+TEST_F(ReadAloudServiceTest, OnPlaybackDurationChangedUpdatesDurationState) {
+  NavigateAndCommit(GURL("https://www.example.com/article"));
+
+  auto delegate = std::make_unique<testing::StrictMock<MockDelegate>>();
+  MockDelegate* delegate_ptr = delegate.get();
+  service()->SetDelegate(std::move(delegate));
+
+  SetFakeController(std::make_unique<FakePlaybackController>());
+
+  ExpectInitializeCallbacks(delegate_ptr);
+  service()->Initialize(web_contents());
+
+  // OnPlaybackDurationChanged updates duration state without triggering a UI
+  // scrubber jump.
+  service()->OnPlaybackDurationChanged(base::Seconds(120));
+
+  // Word boundary updates deliver the updated duration alongside clamped elapsed
+  // progress.
+  EXPECT_CALL(
+      *delegate_ptr,
+      OnPlaybackProgressUpdated(/*elapsed=*/base::Seconds(10),
+                                /*duration=*/base::Seconds(120)))
+      .Times(1);
+  service()->OnWordBoundaryReached(0, 0, base::Seconds(10));
+
+  EXPECT_CALL(*delegate_ptr, OnNativeDestroyed()).Times(1);
+}
+
+TEST_F(ReadAloudServiceTest, OnWordBoundaryReachedClampsElapsedWithinDuration) {
+  NavigateAndCommit(GURL("https://www.example.com/article"));
+
+  auto delegate = std::make_unique<testing::StrictMock<MockDelegate>>();
+  MockDelegate* delegate_ptr = delegate.get();
+  service()->SetDelegate(std::move(delegate));
+
+  SetFakeController(std::make_unique<FakePlaybackController>());
+
+  ExpectInitializeCallbacks(delegate_ptr);
+  service()->Initialize(web_contents());
+
+  // Set total duration to 100 seconds.
+  service()->OnPlaybackDurationChanged(base::Seconds(100));
+
+  // Test normal progress timestamp within bounds (15s).
+  EXPECT_CALL(
+      *delegate_ptr,
+      OnPlaybackProgressUpdated(/*elapsed=*/base::Seconds(15),
+                                /*duration=*/base::Seconds(100)))
+      .Times(1);
+  service()->OnWordBoundaryReached(0, 0, base::Seconds(15));
+
+  // Test negative timestamp is clamped to 0s.
+  EXPECT_CALL(
+      *delegate_ptr,
+      OnPlaybackProgressUpdated(/*elapsed=*/base::Seconds(0),
+                                /*duration=*/base::Seconds(100)))
+      .Times(1);
+  service()->OnWordBoundaryReached(0, 0, base::Seconds(-10));
+
+  // Test overflow timestamp is clamped to total duration (100s).
+  EXPECT_CALL(
+      *delegate_ptr,
+      OnPlaybackProgressUpdated(/*elapsed=*/base::Seconds(100),
+                                /*duration=*/base::Seconds(100)))
+      .Times(1);
+  service()->OnWordBoundaryReached(0, 0, base::Seconds(150));
+
+  EXPECT_CALL(*delegate_ptr, OnNativeDestroyed()).Times(1);
+}
+
+TEST_F(ReadAloudServiceTest,
+       OnArticleReadyRefinesTitleWhenUtilityPlayerUnbound) {
+  NavigateAndCommit(GURL("https://www.example.com/article"));
+
+  auto delegate = std::make_unique<testing::StrictMock<MockDelegate>>();
+  MockDelegate* delegate_ptr = delegate.get();
+  service()->SetDelegate(std::move(delegate));
+
+  // Note: Do NOT call SetFakeController, leaving utility_player_ unbound.
+
+  dom_distiller::ViewRequestDelegate* view_delegate = nullptr;
+  EXPECT_CALL(*mock_distiller_service(),
+              ViewUrlIgnoreCache(service(), testing::_,
+                                 GURL("https://www.example.com/article")))
+      .WillOnce([&](dom_distiller::ViewRequestDelegate* d,
+                    std::unique_ptr<dom_distiller::DistillerPage> page,
+                    const GURL& url) {
+        view_delegate = d;
+        return std::make_unique<dom_distiller::ViewerHandle>(base::DoNothing());
+      });
+
+  ExpectInitializeCallbacks(delegate_ptr);
+  EXPECT_CALL(*delegate_ptr, OnPlaybackError("Utility process disconnected"))
+      .Times(testing::AtMost(1));
+  service()->Initialize(web_contents());
+  ASSERT_NE(view_delegate, nullptr);
+
+  // Verify that OnArticleReady still refines title in service state & delegate
+  // even when utility_player_ is unbound.
+  EXPECT_CALL(*delegate_ptr,
+              OnMetadataAvailable("Distilled Headline Title", "example.com"))
+      .Times(1);
+
+  dom_distiller::DistilledArticleProto proto;
+  proto.set_title("Distilled Headline Title");
+  dom_distiller::DistilledPageProto* page1 = proto.add_pages();
+  page1->set_html("Article body text");
+
+  view_delegate->OnArticleReady(&proto);
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_CALL(*delegate_ptr, OnNativeDestroyed()).Times(1);
+}
+
 TEST_F(ReadAloudServiceTest, UtilityDisconnectTriggersErrorAndStop) {
   NavigateAndCommit(GURL("https://www.example.com/article"));
 
@@ -337,8 +694,10 @@ TEST_F(ReadAloudServiceTest, UtilityDisconnectTriggersErrorAndStop) {
 
   SetFakeController(std::make_unique<FakePlaybackController>());
 
-  EXPECT_CALL(*delegate_ptr_mock, OnPlaybackError("Utility process disconnected")).Times(1);
-  EXPECT_CALL(*delegate_ptr_mock, OnNativeDestroyed()).Times(1);
+  ExpectInitializeCallbacks(delegate_ptr_mock);
+  EXPECT_CALL(*delegate_ptr_mock,
+              OnPlaybackError("Utility process disconnected"))
+      .Times(1);
 
   // Force service connection to bind fake controller:
   service()->Initialize(web_contents());
@@ -346,6 +705,8 @@ TEST_F(ReadAloudServiceTest, UtilityDisconnectTriggersErrorAndStop) {
   // Simulating utility process crash by destroying receiver.
   fake_controller()->Reset();
   base::RunLoop().RunUntilIdle();
+
+  EXPECT_CALL(*delegate_ptr_mock, OnNativeDestroyed()).Times(1);
 }
 
 TEST_F(ReadAloudServiceTest, DistillPageAndArticleFailure) {
@@ -403,16 +764,7 @@ TEST_F(ReadAloudServiceTest, OnArticleUpdated) {
 TEST_F(ReadAloudServiceTest, ShutdownClearsHandle) {
   NavigateAndCommit(GURL("https://www.example.com/article"));
 
-  EXPECT_CALL(*mock_distiller_service(),
-              CreateDefaultDistillerPageWithHandle(testing::_))
-      .WillOnce(testing::Return(testing::ByMove(
-          std::make_unique<dom_distiller::test::MockDistillerPage>())));
-
-  EXPECT_CALL(*mock_distiller_service(),
-              ViewUrlIgnoreCache(service(), testing::_,
-                                 GURL("https://www.example.com/article")))
-      .WillOnce(testing::Return(testing::ByMove(
-          std::make_unique<dom_distiller::ViewerHandle>(base::DoNothing()))));
+  ExpectDistillation(GURL("https://www.example.com/article"));
 
   service()->Play(web_contents());
   EXPECT_NE(nullptr, GetViewerHandle());
@@ -457,16 +809,7 @@ TEST_F(ReadAloudServiceTest, SetDelegateAndShutdownLifecycle) {
 TEST_F(ReadAloudServiceTest, PrimaryPageChangedStopsAndDetachesObserver) {
   NavigateAndCommit(GURL("https://www.example.com/article"));
 
-  EXPECT_CALL(*mock_distiller_service(),
-              CreateDefaultDistillerPageWithHandle(testing::_))
-      .WillOnce(testing::Return(testing::ByMove(
-          std::make_unique<dom_distiller::test::MockDistillerPage>())));
-
-  EXPECT_CALL(*mock_distiller_service(),
-              ViewUrlIgnoreCache(service(), testing::_,
-                                 GURL("https://www.example.com/article")))
-      .WillOnce(testing::Return(testing::ByMove(
-          std::make_unique<dom_distiller::ViewerHandle>(base::DoNothing()))));
+  ExpectDistillation(GURL("https://www.example.com/article"));
 
   service()->Play(web_contents());
   EXPECT_NE(nullptr, GetViewerHandle());
@@ -558,6 +901,68 @@ TEST_F(ReadAloudServiceTest, UtilityProcessLifecycle) {
   // set at the top of this test case will fail if a third distillation is
   // triggered.
   service()->Play(web_contents());
+}
+
+TEST_F(ReadAloudServiceTest, AudioStreamLifecycle) {
+  NavigateAndCommit(GURL("https://www.example.com/article"));
+
+  SetFakeController(std::make_unique<FakePlaybackController>());
+
+  ExpectDistillation(GURL("https://www.example.com/article"));
+
+  base::RunLoop run_loop;
+  fake_controller()->set_initialize_audio_callback(run_loop.QuitClosure());
+
+  // Calling Play() initializes controller and requests audio stream creation.
+  service()->Play(web_contents());
+  run_loop.Run();
+
+  EXPECT_EQ(fake_audio_stream_factory()->create_output_stream_called_count(),
+            1);
+  EXPECT_EQ(fake_audio_stream_factory()->last_device_id(),
+            media::AudioDeviceDescription::kDefaultDeviceId);
+  EXPECT_EQ(fake_audio_stream_factory()->last_params().sample_rate(),
+            readaloud::kAudioSampleRate);
+  EXPECT_EQ(fake_audio_stream_factory()->last_params().frames_per_buffer(),
+            readaloud::kAudioFramesPerBuffer);
+  EXPECT_EQ(fake_audio_stream_factory()->last_group_id(),
+            web_contents()->GetAudioGroupId());
+
+  // Controller received the audio initialization call with valid handles.
+  EXPECT_EQ(fake_controller()->initialize_audio_called_count(), 1);
+  EXPECT_TRUE(fake_controller()->has_audio_stream());
+  EXPECT_TRUE(fake_controller()->has_data_pipe());
+  EXPECT_EQ(fake_controller()->last_audio_params().sample_rate(),
+            readaloud::kAudioSampleRate);
+}
+
+TEST_F(ReadAloudServiceTest, AudioStreamCreationFailureDispatchesError) {
+  NavigateAndCommit(GURL("https://www.example.com/article"));
+
+  SetFakeController(std::make_unique<FakePlaybackController>());
+  fake_audio_stream_factory()->set_auto_respond(/*auto_respond=*/true,
+                                                /*should_succeed=*/false);
+
+  auto delegate = std::make_unique<testing::NiceMock<MockDelegate>>();
+  MockDelegate* delegate_ptr = delegate.get();
+  service()->SetDelegate(std::move(delegate));
+
+  ExpectDistillation(GURL("https://www.example.com/article"));
+
+  base::RunLoop run_loop;
+
+  EXPECT_CALL(*delegate_ptr,
+              OnPlaybackError("Failed to initialize audio output stream"))
+      .Times(1)
+      .WillOnce(testing::InvokeWithoutArgs([&run_loop] { run_loop.Quit(); }));
+
+  service()->Play(web_contents());
+  run_loop.Run();
+
+  EXPECT_EQ(service()->web_contents(), nullptr);
+  EXPECT_TRUE(service()->IsPlaybackPaused());
+
+  EXPECT_CALL(*delegate_ptr, OnNativeDestroyed()).Times(1);
 }
 
 TEST_F(ReadAloudServiceTest,
@@ -659,12 +1064,84 @@ TEST_F(ReadAloudServiceTest, PlayResumesPlaybackAfterVoicePreview) {
   EXPECT_CALL(*delegate_ptr, OnNativeDestroyed()).Times(1);
 }
 
-TEST_F(ReadAloudServiceTest,
-       SetVoiceAndLanguageCodeForwardsToSpeechSynthesisBroker) {
-  // Verifies that SetVoice and SetLanguageCode do not crash and forward
-  // parameters.
+TEST_F(ReadAloudServiceTest, SetVoiceAndLanguageCodeForwardsToBroker) {
   service()->SetVoice("es-ES-Wavenet-B");
   service()->SetLanguageCode("es");
+}
+
+TEST_F(ReadAloudServiceTest, PlayForwardedToUtility) {
+  SetFakeController(std::make_unique<FakePlaybackController>());
+  service()->Initialize(web_contents());
+
+  base::RunLoop run_loop;
+  fake_controller()->set_play_callback(run_loop.QuitClosure());
+  service()->Play(web_contents());
+  run_loop.Run();
+  EXPECT_EQ(fake_controller()->play_count(), 1);
+}
+
+TEST_F(ReadAloudServiceTest, PauseForwardedToUtility) {
+  SetFakeController(std::make_unique<FakePlaybackController>());
+  service()->Initialize(web_contents());
+
+  base::RunLoop run_loop;
+  fake_controller()->set_pause_callback(run_loop.QuitClosure());
+  service()->Pause();
+  run_loop.Run();
+  EXPECT_EQ(fake_controller()->pause_count(), 1);
+}
+
+TEST_F(ReadAloudServiceTest, SetPlaybackRateForwardedToUtility) {
+  SetFakeController(std::make_unique<FakePlaybackController>());
+  service()->Initialize(web_contents());
+
+  base::RunLoop run_loop;
+  fake_controller()->set_playback_rate_callback(run_loop.QuitClosure());
+  service()->SetPlaybackRate(1.5f);
+  run_loop.Run();
+  EXPECT_FLOAT_EQ(fake_controller()->last_playback_rate(), 1.5f);
+}
+
+TEST_F(ReadAloudServiceTest, SetPlaybackMode) {
+  EXPECT_EQ(ReadAloudService::PlaybackMode::kClassic,
+            service()->playback_mode());
+
+  service()->SetPlaybackMode(ReadAloudService::PlaybackMode::kOverview);
+  EXPECT_EQ(ReadAloudService::PlaybackMode::kOverview,
+            service()->playback_mode());
+}
+
+TEST_F(ReadAloudServiceTest, CheckReadability) {
+  auto delegate = std::make_unique<testing::StrictMock<MockDelegate>>();
+  MockDelegate* delegate_ptr = delegate.get();
+  service()->SetDelegate(std::move(delegate));
+
+  const GURL valid_url("https://www.example.com/article");
+  const GURL invalid_url("chrome://settings");
+
+  EXPECT_CALL(*delegate_ptr, OnReadabilityResult(valid_url, true)).Times(1);
+  service()->CheckReadability(valid_url);
+
+  EXPECT_CALL(*delegate_ptr, OnReadabilityResult(invalid_url, false)).Times(1);
+  service()->CheckReadability(invalid_url);
+
+  EXPECT_CALL(*delegate_ptr, OnNativeDestroyed()).Times(1);
+}
+
+TEST_F(ReadAloudServiceTest,
+       RequestSpeechSynthesisDelegatesToBrokerAndHandlesError) {
+  bool callback_called = false;
+  service()->RequestSpeechSynthesis(
+      /*text_chunk=*/u"Hello world", /*sequence_id=*/1,
+      base::BindLambdaForTesting(
+          [&](mojo_base::BigBuffer response_bytes, bool success) {
+            callback_called = true;
+            // No OptGuide service configured on TestingProfile in basic unit
+            // test setup, so expects false gracefully.
+            EXPECT_FALSE(success);
+            EXPECT_EQ(response_bytes.size(), 0u);
+          }));
+  EXPECT_TRUE(callback_called);
 }
 
 }  // namespace readaloud

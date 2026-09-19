@@ -17,7 +17,6 @@
 #include "components/supervised_user/core/browser/device_parental_controls.h"
 #include "components/supervised_user/core/browser/supervised_user_synthetic_field_trial_service_delegate.h"
 #include "components/supervised_user/core/browser/supervised_user_url_filtering_service.h"
-#include "supervised_user_service.h"
 
 class PrefRegistrySimple;
 class PrefService;
@@ -27,14 +26,38 @@ class Time;
 }  // namespace base
 
 namespace supervised_user {
-class FamilyLinkUrlFilter;
 
 // Service to initialize and control metric recorders of supervised users.
-// Records metrics daily, or when the SupervisedUserService changes.
+// Records metrics daily, or when supervision settings change.
 class SupervisedUserMetricsService
     : public KeyedService,
       public SupervisedUserUrlFilteringService::Observer {
  public:
+  // This enum describes whether the approved list or blocked list is used on
+  // Chrome on Chrome OS, which is set by Family Link App or at
+  // families.google.com/families via "manage sites" setting. This is also
+  // referred to as manual behavior/filter as parent need to add everything one
+  // by one. These values are logged to UMA. Entries should not be renumbered
+  // and numeric values should never be reused. Please keep in sync with
+  // "FamilyLinkManagedSiteList" in src/tools/metrics/histograms/enums.xml.
+  enum class ManagedSiteList {
+    // The web filter has both empty blocked and approved list.
+    kEmpty = 0,
+
+    // The web filter has approved list only.
+    kApprovedListOnly = 1,
+
+    // The web filter has blocked list only.
+    kBlockedListOnly = 2,
+
+    // The web filter has both approved list and blocked list.
+    kBoth = 3,
+
+    // Used for UMA. Update kMaxValue to the last value. Add future entries
+    // above this comment. Sync with enums.xml.
+    kMaxValue = kBoth,
+  };
+
   // Delegate for recording metrics relating to extensions for supervised users
   // such as metrics that should be recorded daily.
   class SupervisedUserMetricsServiceExtensionDelegate {
@@ -51,7 +74,6 @@ class SupervisedUserMetricsService
 
   SupervisedUserMetricsService(
       PrefService* pref_service,
-      SupervisedUserService& supervised_user_service,
       SupervisedUserUrlFilteringService& url_filtering_service,
       DeviceParentalControls& device_parental_controls,
       std::unique_ptr<SupervisedUserMetricsServiceExtensionDelegate>
@@ -89,7 +111,6 @@ class SupervisedUserMetricsService
   void RecordCurrentDay();
 
   const raw_ptr<PrefService> pref_service_;
-  raw_ref<SupervisedUserService> supervised_user_service_;
   raw_ref<const SupervisedUserUrlFilteringService> url_filtering_service_;
   const raw_ref<const DeviceParentalControls> device_parental_controls_;
   std::unique_ptr<SupervisedUserMetricsServiceExtensionDelegate>
@@ -102,7 +123,7 @@ class SupervisedUserMetricsService
   // Cache of last recorded values of FamilyLinkUrlFilter to avoid duplicated
   // emissions.
   std::optional<WebFilterType> last_recorded_family_link_web_filter_type_;
-  std::optional<FamilyLinkUrlFilter::Statistics> last_recorded_statistics_;
+  std::optional<UrlFilteringDelegate::Statistics> last_recorded_statistics_;
   std::optional<WebFilterType> last_recorded_supervised_user_web_filter_type_;
   base::ScopedObservation<SupervisedUserUrlFilteringService,
                           SupervisedUserUrlFilteringService::Observer>
@@ -110,7 +131,6 @@ class SupervisedUserMetricsService
 
   base::CallbackListSubscription device_parental_controls_subscription_;
 };
-
 }  // namespace supervised_user
 
 #endif  // COMPONENTS_SUPERVISED_USER_CORE_BROWSER_SUPERVISED_USER_METRICS_SERVICE_H_

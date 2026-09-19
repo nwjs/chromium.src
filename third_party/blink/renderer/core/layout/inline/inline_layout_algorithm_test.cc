@@ -218,7 +218,7 @@ TEST_F(InlineLayoutAlgorithmTest, BreakToken) {
   ConstraintSpace constraint_space = builder.ToConstraintSpace();
 
   BoxFragmentBuilder container_builder(
-      block_flow, block_flow->Style(), constraint_space,
+      block_flow, &block_flow->StyleRef(), constraint_space,
       block_flow->StyleRef().GetWritingDirection());
   SimpleInlineChildLayoutContext context(inline_node, &container_builder);
   const LayoutResult* layout_result =
@@ -1334,6 +1334,49 @@ TEST_F(InlineLayoutAlgorithmTest, RubyTextEmphasisHeight) {
             both->GetPhysicalFragment(0)->Size().height);
   EXPECT_EQ(emp->GetPhysicalFragment(0)->Size().height,
             ruby->GetPhysicalFragment(0)->Size().height);
+}
+
+TEST_F(InlineLayoutAlgorithmTest, TextBoxTrimOnInlineBox) {
+  LoadAhem();
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      #container {
+        font: 100px/1 Ahem;
+      }
+      .target {
+        text-box: trim-both cap alphabetic;
+      }
+    </style>
+    <div id="container"><span id="target" class="target">X</span></div>
+  )HTML");
+
+  LayoutBlockFlow* container = GetLayoutBlockFlowByElementId("container");
+  ASSERT_NE(container, nullptr);
+  LayoutObject* target = GetLayoutObjectByElementId("target");
+  ASSERT_NE(target, nullptr);
+
+  {
+    ScopedTextBoxTrimOnInlineBoxForTest enable_text_box_trim_on_inline_box(
+        false);
+    container->SetNeedsLayout("test");
+    UpdateAllLifecyclePhasesForTest();
+
+    InlineCursor cursor(*container);
+    cursor.MoveTo(*target);
+    ASSERT_TRUE(cursor);
+    EXPECT_EQ(cursor.Current().Size().height, LayoutUnit(100));
+  }
+
+  ScopedTextBoxTrimOnInlineBoxForTest enable_text_box_trim_on_inline_box(true);
+  container->SetNeedsLayout("test");
+  UpdateAllLifecyclePhasesForTest();
+
+  InlineCursor cursor(*container);
+  cursor.MoveTo(*target);
+  ASSERT_TRUE(cursor);
+  // In Ahem at 100px, cap-height is 80px and alphabetic baseline is 0px.
+  // Trimming to cap-to-alphabetic results in height of 80px.
+  EXPECT_EQ(cursor.Current().Size().height, LayoutUnit(80));
 }
 
 }  // namespace

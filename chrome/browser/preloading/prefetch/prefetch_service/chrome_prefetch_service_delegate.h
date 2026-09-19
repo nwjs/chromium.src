@@ -42,14 +42,14 @@ class ChromePrefetchServiceDelegate : public content::PrefetchServiceDelegate {
   bool IsOriginOutsideRetryAfterWindow(const GURL& url) override;
   void ClearData() override;
   bool DisableDecoysBasedOnUserSettings() override;
-  content::PreloadingEligibility IsSomePreloadingEnabled() override;
+  content::PreloadingEligibility IsSomePreloadingEnabled(
+      bool should_ignore_saver_modes) override;
   bool IsPreloadingPrefEnabled() override;
   bool IsDataSaverEnabled() override;
   bool IsBatterySaverEnabled() override;
   bool IsExtendedPreloadingEnabled() override;
   bool IsDomainInPrefetchAllowList(const GURL& referring_url) override;
   bool IsContaminationExempt(const url::Origin& referring_origin) override;
-  void OnPrefetchLikely(content::WebContents* web_contents) override;
   void SetAcceptLanguageHeader(std::string accept_language_header) override;
 
  private:

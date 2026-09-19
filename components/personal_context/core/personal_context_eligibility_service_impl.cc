@@ -182,6 +182,11 @@ SatisfiesPrefsRequirements(const PrefService* pref_service,
 SatisfiesMiscellaneousRequirements(GeoIpCountryCode country_code,
                                    std::string_view locale,
                                    std::string* debug_message = nullptr) {
+  if (base::FeatureList::IsEnabled(
+          features::debug::kAutofillAmbientAutofillSkipEligibilityChecks)) {
+    return std::pair{true, std::nullopt};
+  }
+
   if (country_code != GeoIpCountryCode("US")) {
     MaybeOutputReason(debug_message, "Unsupported GeoIp.");
     return std::pair{false, PersonalContextNonEligibilityReason::kNotGeoIpUS};
@@ -309,11 +314,12 @@ void PersonalContextEligibilityServiceImpl::UpdateEligibilityState() {
         &PersonalContextEligibilityService::Observer::OnEligibilityStateChanged,
         eligibility_state_);
   }
-  if (base::FeatureList::IsEnabled(
-          personal_context::features::kPersonalContextLogNonEligibilityUma) &&
-      non_eligibility_reason != last_non_eligibility_reason_) {
+  if (non_eligibility_reason != last_non_eligibility_reason_) {
     last_non_eligibility_reason_ = non_eligibility_reason;
-    MaybeLogPersonalContextNonEligibility(non_eligibility_reason);
+    if (base::FeatureList::IsEnabled(
+            personal_context::features::kPersonalContextLogNonEligibilityUma)) {
+      MaybeLogPersonalContextNonEligibility(non_eligibility_reason);
+    }
   }
 }
 

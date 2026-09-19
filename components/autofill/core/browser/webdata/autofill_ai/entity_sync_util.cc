@@ -646,10 +646,10 @@ GetShipmentAttributesFromSpecifics(const sync_pb::Shipment& shipment,
   AddDateAttribute(kShipmentShippedDate, shipment.shipping_date(), attributes);
   AddAttribute(kShipmentCarrierName, shipment.carrier_name(), attributes);
   AddAttribute(kShipmentCarrierDomain, shipment.carrier_domain(), attributes);
-  AddAttribute(
-      kShipmentOrderIds,
-      base::JoinString(base::ToVector(shipment.associated_order_ids()), ", "),
-      attributes);
+  AddAttribute(kShipmentMerchantName, shipment.merchant_name(), attributes);
+  AddAttribute(kShipmentProductNames,
+               base::JoinString(base::ToVector(shipment.product_names()), ", "),
+               attributes);
   FinalizeEntityAttributes(EntityType(EntityTypeName::kShipment),
                            serialized_metadata, attributes);
   return attributes;
@@ -675,17 +675,18 @@ sync_pb::AutofillValuableSpecifics GetShipmentSpecifics(
                             shipment);
   SET_OR_CLEAR_STRING_FIELD(entity, kShipmentCarrierDomain, carrier_domain,
                             shipment);
+  SET_OR_CLEAR_STRING_FIELD(entity, kShipmentMerchantName, merchant_name,
+                            shipment);
   // Best-effort reversal of `GetShipmentAttributesFromSpecifics()`'s
   // JoinString().
   if (base::optional_ref<const AttributeInstance> attr =
-          entity.attribute(AttributeType(kShipmentOrderIds))) {
+          entity.attribute(AttributeType(kShipmentProductNames))) {
     for (std::string_view name : base::SplitStringPiece(
              base::UTF16ToUTF8(attr->GetCompleteRawInfo()), ", ",
              base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
-      shipment.add_associated_order_ids(std::string(name));
+      shipment.add_product_names(std::string(name));
     }
   }
-
   *specifics.mutable_serialized_chrome_valuables_metadata() =
       AnyWrapProto(SerializeChromeValuablesMetadata(entity));
   return specifics;
@@ -773,19 +774,30 @@ sync_pb::AutofillValuableSpecifics CreateSpecificsFromEntityInstance(
 
 std::optional<EntityInstance> CreateEntityInstanceFromSpecifics(
     const sync_pb::AutofillValuableSpecifics& specifics) {
-  const EntityInstance::EntityId guid(specifics.id());
+  auto maybe_create_entity =
+      [&](EntityTypeName entity_type_name,
+          base::flat_set<AttributeInstance, AttributeInstance::CompareByType>
+              attributes,
+          std::string frecency_overwrite =
+              "") -> std::optional<EntityInstance> {
+    if (attributes.empty()) {
+      return std::nullopt;
+    }
+    return EntityInstance(
+        EntityType(entity_type_name), std::move(attributes),
+        EntityInstance::EntityId(specifics.id()),
+        /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
+        /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
+        EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
+        std::move(frecency_overwrite));
+  };
   switch (specifics.valuable_data_case()) {
     case sync_pb::AutofillValuableSpecifics::kVehicleRegistration: {
-      return EntityInstance(
-          EntityType(EntityTypeName::kVehicle),
+      return maybe_create_entity(
+          EntityTypeName::kVehicle,
           GetVehicleAttributesFromSpecifics(
               specifics.vehicle_registration(),
-              specifics.serialized_chrome_valuables_metadata()),
-          guid,
-          /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
-          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
-          EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
-          /*frecency_override=*/"");
+              specifics.serialized_chrome_valuables_metadata()));
     }
     case sync_pb::AutofillValuableSpecifics::kFlightReservation: {
       std::string frecency_override;
@@ -796,105 +808,66 @@ std::optional<EntityInstance> CreateEntityInstanceFromSpecifics(
             1000);
         frecency_override = base::TimeFormatAsIso8601(departure_time);
       }
-      return EntityInstance(
-          EntityType(EntityTypeName::kFlightReservation),
+      return maybe_create_entity(
+          EntityTypeName::kFlightReservation,
           GetFlightReservationAttributesFromSpecifics(
               specifics.flight_reservation(),
               specifics.serialized_chrome_valuables_metadata()),
-          guid,
-          /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
-          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
-          EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
-          frecency_override);
+          std::move(frecency_override));
     }
     case sync_pb::AutofillValuableSpecifics::kPassport: {
-      return EntityInstance(
-          EntityType(EntityTypeName::kPassport),
+      return maybe_create_entity(
+          EntityTypeName::kPassport,
           GetPassportAttributesFromSpecifics(
               specifics.passport(),
               specifics.serialized_chrome_valuables_metadata(),
-              AttributeInstance::MarkAsMaskedPasskey()),
-          guid,
-          /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
-          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
-          EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
-          /*frecency_override=*/"");
+              AttributeInstance::MarkAsMaskedPasskey()));
     }
     case sync_pb::AutofillValuableSpecifics::kDriverLicense: {
-      return EntityInstance(
-          EntityType(EntityTypeName::kDriversLicense),
+      return maybe_create_entity(
+          EntityTypeName::kDriversLicense,
           GetDriversLicenseAttributesFromSpecifics(
               specifics.driver_license(),
               specifics.serialized_chrome_valuables_metadata(),
-              AttributeInstance::MarkAsMaskedPasskey()),
-          guid,
-          /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
-          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
-          EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
-          /*frecency_override=*/"");
+              AttributeInstance::MarkAsMaskedPasskey()));
     }
     case sync_pb::AutofillValuableSpecifics::kNationalIdCard: {
-      return EntityInstance(
-          EntityType(EntityTypeName::kNationalIdCard),
+      return maybe_create_entity(
+          EntityTypeName::kNationalIdCard,
           GetNationalIdCardAttributesFromSpecifics(
               specifics.national_id_card(),
               specifics.serialized_chrome_valuables_metadata(),
-              AttributeInstance::MarkAsMaskedPasskey()),
-          guid,
-          /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
-          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
-          EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
-          /*frecency_override=*/"");
+              AttributeInstance::MarkAsMaskedPasskey()));
     }
     case sync_pb::AutofillValuableSpecifics::kRedressNumber: {
-      return EntityInstance(
-          EntityType(EntityTypeName::kRedressNumber),
+      return maybe_create_entity(
+          EntityTypeName::kRedressNumber,
           GetRedressNumberAttributesFromSpecifics(
               specifics.redress_number(),
               specifics.serialized_chrome_valuables_metadata(),
-              AttributeInstance::MarkAsMaskedPasskey()),
-          guid,
-          /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
-          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
-          EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
-          /*frecency_override=*/"");
+              AttributeInstance::MarkAsMaskedPasskey()));
     }
     case sync_pb::AutofillValuableSpecifics::kKnownTravelerNumber: {
-      return EntityInstance(
-          EntityType(EntityTypeName::kKnownTravelerNumber),
+      return maybe_create_entity(
+          EntityTypeName::kKnownTravelerNumber,
           GetKnownTravelerNumberAttributesFromSpecifics(
               specifics.known_traveler_number(),
               specifics.serialized_chrome_valuables_metadata(),
-              AttributeInstance::MarkAsMaskedPasskey()),
-          guid,
-          /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
-          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
-          EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
-          /*frecency_override=*/"");
+              AttributeInstance::MarkAsMaskedPasskey()));
     }
     case sync_pb::AutofillValuableSpecifics::kOrder: {
-      return EntityInstance(
-          EntityType(EntityTypeName::kOrder),
+      return maybe_create_entity(
+          EntityTypeName::kOrder,
           GetOrderAttributesFromSpecifics(
               specifics.order(),
-              specifics.serialized_chrome_valuables_metadata()),
-          guid,
-          /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
-          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
-          EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
-          /*frecency_override=*/"");
+              specifics.serialized_chrome_valuables_metadata()));
     }
     case sync_pb::AutofillValuableSpecifics::kShipment: {
-      return EntityInstance(
-          EntityType(EntityTypeName::kShipment),
+      return maybe_create_entity(
+          EntityTypeName::kShipment,
           GetShipmentAttributesFromSpecifics(
               specifics.shipment(),
-              specifics.serialized_chrome_valuables_metadata()),
-          guid,
-          /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
-          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
-          EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
-          /*frecency_override=*/"");
+              specifics.serialized_chrome_valuables_metadata()));
     }
     case sync_pb::AutofillValuableSpecifics::kLoyaltyCard:
     case sync_pb::AutofillValuableSpecifics::kEventTicket:

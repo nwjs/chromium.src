@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/base64.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/tools/attempt_otp_filling_tool_request.h"
@@ -102,6 +101,7 @@ class JournalObserver : public ::actor::AggregatedJournal::Observer {
 
   void WillAddJournalEntry(
       const ::actor::AggregatedJournal::Entry& entry) override {
+    entries_.push_back(entry.data.Clone());
     if (wait_predicate_ && wait_predicate_.Run(*entry.data)) {
       if (run_loop_) {
         run_loop_->Quit();
@@ -110,15 +110,21 @@ class JournalObserver : public ::actor::AggregatedJournal::Observer {
   }
 
   // Waits until a journal entry matching the predicate is observed.
-  // NOTE: Only entries added after this method is called will be considered.
   void WaitUntil(Predicate predicate) {
+    for (const auto& entry : entries_) {
+      if (predicate.Run(*entry)) {
+        return;
+      }
+    }
     wait_predicate_ = std::move(predicate);
     run_loop_ = std::make_unique<base::RunLoop>();
     run_loop_->Run();
+    wait_predicate_.Reset();
   }
 
  private:
   raw_ptr<::actor::AggregatedJournal> journal_;
+  std::vector<::actor::mojom::JournalEntryPtr> entries_;
   Predicate wait_predicate_;
   std::unique_ptr<base::RunLoop> run_loop_;
 };
@@ -223,7 +229,7 @@ class GlicActorTaskLifecycleFunctionalBrowserTest
  public:
   GlicActorTaskLifecycleFunctionalBrowserTest()
       : GlicActorFunctionalBrowserTestBase(
-            "./glic_actor_task_lifecycle_browsertest.js") {
+            GlicTestJsPath("./glic_actor_task_lifecycle_browsertest.js")) {
     scoped_feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/
         {
@@ -235,6 +241,14 @@ class GlicActorTaskLifecycleFunctionalBrowserTest
         /*disabled_features=*/{});
   }
   ~GlicActorTaskLifecycleFunctionalBrowserTest() override = default;
+
+  void SetUpOnMainThread() override {
+    embedded_https_test_server().ServeFilesFromSourceDirectory(
+        "components/test/data");
+    GlicActorFunctionalBrowserTestBase::SetUpOnMainThread();
+    host_resolver()->AddRule("*", "127.0.0.1");
+    ASSERT_TRUE(embedded_https_test_server().Start());
+  }
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -270,11 +284,7 @@ class GlicActorTaskLifecycleGmailOtpEnabledBrowserTest
   }
 
   void SetUpOnMainThread() override {
-    embedded_https_test_server().ServeFilesFromSourceDirectory(
-        "components/test/data");
     GlicActorTaskLifecycleFunctionalBrowserTest::SetUpOnMainThread();
-    host_resolver()->AddRule("*", "127.0.0.1");
-    ASSERT_TRUE(embedded_https_test_server().Start());
 
     autofill::prefs::SetAutofillGmailOtpFillingEnabled(GetProfile()->GetPrefs(),
                                                        true);
@@ -381,14 +391,6 @@ class GlicActorTaskLifecycleGmailOtpEnabledBrowserTest
 };
 
 IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
-                       testAllTestsAreRegistered) {
-  AssertAllTestsRegistered({
-      "GlicActorTaskLifecycleFunctionalBrowserTest",
-      "GlicActorTaskLifecycleGmailOtpEnabledBrowserTest",
-  });
-}
-
-IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
                        testPauseAndResumeCreatedTask) {
   TestFuture<ActorTask::State> task_completion_state;
   base::CallbackListSubscription completion_subscription;
@@ -415,9 +417,10 @@ IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
 #endif
 IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
                        MAYBE_testPauseAndResumeCreatedTaskWithIframe) {
-  ASSERT_TRUE(content::NavigateToURL(
-      active_tab()->GetContents(),
-      embedded_test_server()->GetURL("/actor/simple_iframe.html")));
+  ASSERT_TRUE(
+      content::NavigateToURL(active_tab()->GetContents(),
+                             embedded_https_test_server().GetURL(
+                                 "example.com", "/actor/simple_iframe.html")));
 
   content::RenderFrameHost* main_frame =
       active_tab()->GetContents()->GetPrimaryMainFrame();
@@ -487,12 +490,12 @@ IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
   completion_subscription =
       CreateTaskCompletionSubscription(task_id, task_completion_state);
 
-  EXPECT_EQ(ActorTask::State::kFinished, task_completion_state.Get())
-      << "Task " << task_id << " did not reach kFinished state.";
-
   JournalObserver observer(&actor_keyed_service()->GetJournal());
 
   ContinueJsTest();
+
+  EXPECT_EQ(ActorTask::State::kFinished, task_completion_state.Get())
+      << "Task " << task_id << " did not reach kFinished state.";
 
   // Pausing an inactive task should be a no-op and log an error.
   observer.WaitUntil(
@@ -641,20 +644,11 @@ IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
   EXPECT_FALSE(actuating_false_future.Get());
 }
 
-// TODO(https://crbug.com/544820815): Fix and re-enable this test.
 IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
-                       DISABLED_testActivateTabWithConversationUsesActorState) {
+                       testActivateTabWithConversationUsesActorState) {
   GlicInstanceImpl* instance = GetInstanceImpl();
   ASSERT_TRUE(instance);
-
-  // Register a conversation ID for the instance if not present.
-  std::optional<std::string> conv_id_opt = instance->conversation_id();
-  std::string conv_id = conv_id_opt.value_or("test_conversation_id");
-  if (!conv_id_opt.has_value()) {
-    auto info = mojom::ConversationInfo::New();
-    info->conversation_id = conv_id;
-    instance->RegisterConversation(std::move(info), base::DoNothing());
-  }
+  PreventDeletionOnClose(instance, "test_conversation_id");
 
   // Execute JS test to create the task.
   ExecuteJsTest();
@@ -674,7 +668,8 @@ IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
   // Now the first tab should be in LastActedTabs.
 
   // Call ActivateTabWithConversation.
-  auto activate_result = coordinator().ActivateTabWithConversation(conv_id);
+  auto activate_result =
+      coordinator().ActivateTabWithConversation("test_conversation_id");
 
   EXPECT_EQ(GlicInstanceCoordinator::ActivateTabResult::kSuccess,
             activate_result);
@@ -1237,9 +1232,8 @@ bool IsProtectRecentlyVisibleTabEnabled() {
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-// TODO(https://crbug.com/544820815): Fix and re-enable this test.
 IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
-                       DISABLED_testActuatingPriorityChange) {
+                       testActuatingPriorityChange) {
   GlicInstanceImpl* instance = GetInstanceImpl();
   ASSERT_TRUE(instance);
   ASSERT_OK(WaitForGlicClient(instance));

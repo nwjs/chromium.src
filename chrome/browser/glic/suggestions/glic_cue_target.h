@@ -36,6 +36,7 @@ class GlicCueTarget : public contextual_cueing::CueTarget {
 
   // contextual_cueing::CueTarget:
   contextual_cueing::CueTargetType GetType() const override;
+  bool RequiresModelExecution() const override;
   bool IsEligible() const override;
   void CheckEligibility(base::WeakPtr<content::WebContents> web_contents,
                         contextual_cueing::CueIntrusiveness intrusiveness,
@@ -43,7 +44,8 @@ class GlicCueTarget : public contextual_cueing::CueTarget {
   bool IsPageEligible(
       const page_content_annotations::PageContentAnnotationsResult& result,
       content::WebContents* active_web_contents) const override;
-  void OnClick(contextual_cueing::CueActionData data) override;
+  void OnAnchoredMessageClicked(contextual_cueing::CueActionData data) override;
+  bool SupportsEditPrompt() const override;
   void OnEditPrompt(contextual_cueing::CueActionData data) override;
   ui::ImageModel GetAnchoredMessageIcon() const override;
   ui::ImageModel GetOmniboxChipIcon() const override;

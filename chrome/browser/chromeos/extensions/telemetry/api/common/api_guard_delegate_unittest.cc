@@ -24,6 +24,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/test_future.h"
+#include "build/build_config.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
 #include "chrome/browser/chromeos/extensions/telemetry/api/common/hardware_info_delegate.h"
 #include "chrome/browser/extensions/extension_management_test_util.h"
@@ -580,6 +581,26 @@ class ApiGuardDelegateShimlessRMAAppTest : public ApiGuardDelegateTest {
   void SwitchActiveUser(const std::string& email) override {}
   void OnUserProfileCreated(const std::string& email,
                             Profile* profile) override {}
+
+  // Standalone dialogs in Shimless RMA run without a desktop `Browser`.
+  // Returning `nullptr` prevents `BrowserWithTestWindowTest::SetUp()` from
+  // allocating an unmanaged `TestBrowserWindow` on the heap when no `Browser`
+  // is instantiated.
+  std::unique_ptr<BrowserWindow> CreateBrowserWindow() override {
+    return nullptr;
+  }
+
+  // Returning `nullptr` prevents `BrowserWithTestWindowTest::SetUp()` from
+  // creating a desktop `Browser` for `ShimlessRmaAppProfile`. This profile does
+  // not instantiate regular user services like `WaapUIMetricsService`, which
+  // `BrowserWindowFeatures` expects for normal browser windows.
+  std::unique_ptr<Browser> CreateBrowser(
+      Profile* profile,
+      Browser::Type browser_type,
+      bool hosted_app,
+      BrowserWindow* browser_window) override {
+    return nullptr;
+  }
 
  private:
   std::unique_ptr<ScopedChromeOSSystemExtensionInfo>

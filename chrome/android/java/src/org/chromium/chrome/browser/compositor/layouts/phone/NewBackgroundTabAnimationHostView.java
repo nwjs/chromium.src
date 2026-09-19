@@ -26,9 +26,10 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
+import org.chromium.ui.animation.CommonAnimationsFactory;
+import org.chromium.ui.animation.PathAnimationUtils.ArcDirection;
 import org.chromium.ui.animation.RunOnNextLayout;
 import org.chromium.ui.animation.RunOnNextLayoutDelegate;
-import org.chromium.ui.animation.ViewCurvedMotionAnimatorFactory;
 import org.chromium.ui.interpolators.Interpolators;
 import org.chromium.ui.util.ColorUtils;
 
@@ -123,7 +124,7 @@ public class NewBackgroundTabAnimationHostView extends FrameLayout implements Ru
         target[1] -= Math.round(mLinkIcon.getHeight() / 2f);
 
         AnimatorSet transitionAnimator = getTransitionAnimator();
-        ObjectAnimator pathAnimator = getPathArcAnimator(originX, originY, target[0], target[1]);
+        Animator pathAnimator = getPathArcAnimator(originX, originY, target[0], target[1]);
         AnimatorSet backgroundAnimation = new AnimatorSet();
         AnimatorSet fakeTabSwitcherAnimator;
 
@@ -222,20 +223,23 @@ public class NewBackgroundTabAnimationHostView extends FrameLayout implements Ru
     }
 
     /**
-     * Returns the {@link ObjectAnimator} for the path arc animation.
+     * Returns the {@link Animator} for the path arc animation.
      *
      * @param originX x-coordinate for the start point.
      * @param originY y-coordinate for the start point.
      * @param finalX x-coordinate for the end point.
      * @param finalY y-coordinate for the end point.
      */
-    private ObjectAnimator getPathArcAnimator(
-            float originX, float originY, float finalX, float finalY) {
-        boolean isClockwise = mIsTargetOnTop ? (originX >= finalX) : (originX <= finalX);
+    private Animator getPathArcAnimator(float originX, float originY, float finalX, float finalY) {
+        @ArcDirection
+        int direction =
+                (mIsTargetOnTop ? (originX >= finalX) : (originX <= finalX))
+                        ? ArcDirection.CLOCKWISE
+                        : ArcDirection.COUNTER_CLOCKWISE;
 
-        ObjectAnimator animator =
-                ViewCurvedMotionAnimatorFactory.build(
-                        mLinkIcon, originX, originY, finalX, finalY, isClockwise);
+        Animator animator =
+                CommonAnimationsFactory.createViewArcAnimation(
+                        mLinkIcon, originX, originY, finalX, finalY, direction);
         animator.setDuration(PATH_ARC_DURATION_MS);
         animator.setInterpolator(Interpolators.EMPHASIZED_DECELERATE);
 

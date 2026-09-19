@@ -257,17 +257,17 @@ TEST_F(ScreenLockerUnitTest, VerifyAshIsNotifiedOfScreenLocked) {
   EXPECT_EQ(0, test_session_controller_.lock_animation_complete_call_count());
 
   // Show the lock screen.
-  ScreenLocker::Show();
+  ScreenLockerController::Get().ShowLockScreen();
   base::RunLoop().RunUntilIdle();
-  ASSERT_TRUE(ScreenLocker::default_screen_locker());
-  EXPECT_TRUE(ScreenLocker::default_screen_locker()->locked());
+  ASSERT_TRUE(ScreenLockerController::Get().screen_locker());
+  EXPECT_TRUE(ScreenLockerController::Get().screen_locker()->locked());
   EXPECT_EQ(1, test_session_controller_.lock_animation_complete_call_count());
 
   // Hide the lock screen.
-  ScreenLocker::Hide();
-  // Needed to perform internal cleanup scheduled in ScreenLocker::Hide()
+  ScreenLockerController::Get().HideLockScreen();
+  // Needed to perform internal cleanup scheduled in HideLockScreen()
   base::RunLoop().RunUntilIdle();
-  EXPECT_FALSE(ScreenLocker::default_screen_locker());
+  EXPECT_FALSE(ScreenLockerController::Get().screen_locker());
 }
 
 // Tests that `GetUsersToShow()` returns a list with one user when the user is
@@ -275,11 +275,13 @@ TEST_F(ScreenLockerUnitTest, VerifyAshIsNotifiedOfScreenLocked) {
 TEST_F(ScreenLockerUnitTest, GetUsersToShowRegular) {
   CreateSessionForUser(/*is_public_account=*/false);
 
-  ScreenLocker::Show();
+  ScreenLockerController::Get().ShowLockScreen();
   base::RunLoop().RunUntilIdle();
-  EXPECT_EQ(ScreenLocker::default_screen_locker()->GetUsersToShow().size(), 1u);
-  ScreenLocker::Hide();
-  // Needed to perform internal cleanup scheduled in ScreenLocker::Hide()
+  EXPECT_EQ(
+      ScreenLockerController::Get().screen_locker()->GetUsersToShow().size(),
+      1u);
+  ScreenLockerController::Get().HideLockScreen();
+  // Needed to perform internal cleanup scheduled in HideLockScreen()
   base::RunLoop().RunUntilIdle();
 }
 
@@ -288,11 +290,12 @@ TEST_F(ScreenLockerUnitTest, GetUsersToShowRegular) {
 TEST_F(ScreenLockerUnitTest, GetUsersToShowPublicAccount) {
   CreateSessionForUser(/*is_public_account=*/true);
 
-  ScreenLocker::Show();
+  ScreenLockerController::Get().ShowLockScreen();
   base::RunLoop().RunUntilIdle();
-  EXPECT_TRUE(ScreenLocker::default_screen_locker()->GetUsersToShow().empty());
-  ScreenLocker::Hide();
-  // Needed to perform internal cleanup scheduled in ScreenLocker::Hide()
+  EXPECT_TRUE(
+      ScreenLockerController::Get().screen_locker()->GetUsersToShow().empty());
+  ScreenLockerController::Get().HideLockScreen();
+  // Needed to perform internal cleanup scheduled in HideLockScreen()
   base::RunLoop().RunUntilIdle();
 }
 

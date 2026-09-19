@@ -22,19 +22,23 @@
 #include "chrome/browser/devtools/devtools_window_testing.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/platform_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/picture_in_picture_browser_frame_view.h"
+#include "chrome/browser/ui/views/picture_in_picture/document_pip_frame_view.h"
+#include "chrome/browser/ui/views/picture_in_picture/document_pip_host.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_accessibility.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/ui/web_applications/web_app_browsertest_base.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
+#include "chrome/common/chrome_features.h"
+#include "chrome/test/base/chrome_test_path_utils.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -80,6 +84,7 @@
 #include "ui/views/test/button_test_api.h"
 #include "ui/views/view_observer.h"
 #include "ui/views/widget/widget_observer.h"
+#include "ui/views/window/non_client_view.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chromeos/ui/base/chromeos_ui_constants.h"
@@ -157,9 +162,42 @@ class WidgetActivationWaiter : public views::WidgetObserver {
   std::unique_ptr<base::RunLoop> run_loop_;
 };
 
+class PictureInPictureFrameViewControlsTestApi {
+ public:
+  explicit PictureInPictureFrameViewControlsTestApi(
+      PictureInPictureBrowserFrameView* frame_view)
+      : browser_frame_view_(frame_view) {}
+
+  explicit PictureInPictureFrameViewControlsTestApi(
+      DocumentPipFrameView* frame_view)
+      : document_frame_view_(frame_view) {}
+
+  views::Button* back_to_tab_button() const {
+    return views::Button::AsButton(
+        browser_frame_view_
+            ? browser_frame_view_->GetBackToTabButtonForTesting()
+            : document_frame_view_->GetBackToTabButtonForTesting());
+  }
+
+  views::Button* close_button() const {
+    return views::Button::AsButton(
+        browser_frame_view_ ? browser_frame_view_->GetCloseButtonForTesting()
+                            : document_frame_view_->GetCloseButtonForTesting());
+  }
+
+  views::Label* window_title() const {
+    return browser_frame_view_
+               ? browser_frame_view_->GetWindowTitleForTesting()
+               : document_frame_view_->GetWindowTitleForTesting();
+  }
+
+ private:
+  raw_ptr<PictureInPictureBrowserFrameView> browser_frame_view_ = nullptr;
+  raw_ptr<DocumentPipFrameView> document_frame_view_ = nullptr;
+};
+
 class DocumentPictureInPictureWindowControllerBrowserTest
-    : public InProcessBrowserTest,
-      public testing::WithParamInterface<gfx::Size> {
+    : public InProcessBrowserTest {
  public:
   DocumentPictureInPictureWindowControllerBrowserTest() = default;
 
@@ -181,15 +219,15 @@ class DocumentPictureInPictureWindowControllerBrowserTest
   }
 
   void SetUp() override {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/
-        {blink::features::kDocumentPictureInPictureAPI,
-         blink::features::kDocumentPictureInPicturePreferInitialPlacement},
-        /*disabled_features=*/
-        // TODO(crbug.com/452061489): Fix tests that fail when the WebUI Omnibox
-        // is enabled and then remove these two Features.
-        {omnibox::internal::kWebUIOmniboxPopup,
-         omnibox::internal::kWebUIOmniboxAimPopup});
+    scoped_feature_list_.InitWithFeatureStates(
+        {{blink::features::kDocumentPictureInPictureAPI, true},
+         {blink::features::kDocumentPictureInPicturePreferInitialPlacement,
+          true},
+         {features::kDocumentPipStandaloneWindow, UseStandaloneDocumentPip()},
+         // TODO(crbug.com/452061489): Fix tests that fail when the WebUI
+         // Omnibox is enabled and then remove these two Features.
+         {omnibox::internal::kWebUIOmniboxPopup, false},
+         {omnibox::internal::kWebUIOmniboxAimPopup, false}});
     InProcessBrowserTest::SetUp();
   }
 
@@ -213,7 +251,7 @@ class DocumentPictureInPictureWindowControllerBrowserTest
   }
 
   void LoadTabAndEnterPictureInPicture(
-      Browser* browser,
+      BrowserWindowInterface* browser,
       const gfx::Size& window_size = gfx::Size(500, 500),
       bool prefer_initial_window_placement = false) {
     GURL test_page_url = chrome_test_utils::GetTestUrl(
@@ -222,7 +260,7 @@ class DocumentPictureInPictureWindowControllerBrowserTest
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser, test_page_url));
 
     content::WebContents* active_web_contents =
-        browser->tab_strip_model()->GetActiveWebContents();
+        browser->GetTabStripModel()->GetActiveWebContents();
     ASSERT_NE(nullptr, active_web_contents);
 
     SetUpWindowController(active_web_contents);
@@ -300,12 +338,58 @@ class DocumentPictureInPictureWindowControllerBrowserTest
     bool is_destroyed() const { return !web_contents(); }
   };
 
+ protected:
+  virtual bool UseStandaloneDocumentPip() const { return false; }
+
  private:
   raw_ptr<content::DocumentPictureInPictureWindowController,
           AcrossTasksDanglingUntriaged>
       pip_window_controller_ = nullptr;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
+
+class DocumentPictureInPictureWindowControllerFrameViewTest
+    : public DocumentPictureInPictureWindowControllerBrowserTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  bool standalone_enabled() const { return GetParam(); }
+
+ protected:
+  bool UseStandaloneDocumentPip() const override {
+    return standalone_enabled();
+  }
+
+  PictureInPictureFrameViewControlsTestApi GetPipFrameViewControls() {
+    content::WebContents* pip_web_contents =
+        window_controller()->GetChildWebContents();
+    CHECK(pip_web_contents);
+
+    if (standalone_enabled()) {
+      auto* host = DocumentPipHost::FromChildWebContents(pip_web_contents);
+      CHECK(host);
+      CHECK(host->GetWidget());
+      auto* frame_view = static_cast<DocumentPipFrameView*>(
+          host->GetWidget()->non_client_view()->frame_view());
+      CHECK(frame_view);
+      return PictureInPictureFrameViewControlsTestApi(frame_view);
+    }
+
+    auto* browser_view = static_cast<BrowserView*>(
+        BrowserWindow::FindBrowserWindowWithWebContents(pip_web_contents));
+    CHECK(browser_view);
+    auto* frame_view = static_cast<PictureInPictureBrowserFrameView*>(
+        browser_view->browser_widget()->GetFrameView());
+    CHECK(frame_view);
+    return PictureInPictureFrameViewControlsTestApi(frame_view);
+  }
+};
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         DocumentPictureInPictureWindowControllerFrameViewTest,
+                         testing::Bool(),
+                         [](const testing::TestParamInfo<bool>& info) {
+                           return info.param ? "Standalone" : "BrowserBacked";
+                         });
 
 // Helper class that waits without polling a run loop until a condition is met.
 // Note that it does not ever check the condition itself; some other thing, like
@@ -398,7 +482,7 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
   // Now open the window a second time, without previously closing the original
   // window.
   content::WebContents* active_web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_EQ(true, EvalJs(active_web_contents,
                          "documentPictureInPicture.requestWindow()"
                          ".then(w => true)"));
@@ -440,7 +524,7 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
   LoadTabAndEnterPictureInPicture(browser());
 
   content::WebContents* active_web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_EQ(true, EvalJs(active_web_contents,
                          "navigateInDocumentPipWindow('http://media/"
                          "picture_in_picture/blank.html');"));
@@ -454,7 +538,7 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
   LoadTabAndEnterPictureInPicture(browser());
 
   content::WebContents* active_web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_EQ(true, EvalJs(active_web_contents,
                          "navigateInDocumentPipWindow('#top');"));
   base::RunLoop().RunUntilIdle();
@@ -467,7 +551,7 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
   LoadTabAndEnterPictureInPicture(browser());
 
   content::WebContents* active_web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_EQ(true, EvalJs(active_web_contents, "refreshInDocumentPipWindow();"));
   base::RunLoop().RunUntilIdle();
   EXPECT_FALSE(window_controller()->GetChildWebContents());
@@ -480,7 +564,7 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
   LoadTabAndEnterPictureInPicture(browser());
 
   content::WebContents* active_web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_EQ(true, EvalJs(active_web_contents,
                          "navigateInDocumentPipWindow('about:blank');"));
   base::RunLoop().RunUntilIdle();
@@ -494,7 +578,7 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
   LoadTabAndEnterPictureInPicture(browser());
 
   content::WebContents* active_web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_EQ(true,
             EvalJs(active_web_contents, "navigateInDocumentPipWindow('');"));
   base::RunLoop().RunUntilIdle();
@@ -507,7 +591,7 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
   LoadTabAndEnterPictureInPicture(browser());
 
   content::WebContents* active_web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_EQ(true, EvalJs(active_web_contents,
                          "addScriptToPictureInPictureWindow();"));
   base::RunLoop().RunUntilIdle();
@@ -539,7 +623,7 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
 #else
 #define MAYBE_FocusInitiatorWhenBackToTab FocusInitiatorWhenBackToTab
 #endif
-IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
+IN_PROC_BROWSER_TEST_P(DocumentPictureInPictureWindowControllerFrameViewTest,
                        MAYBE_FocusInitiatorWhenBackToTab) {
   LoadTabAndEnterPictureInPicture(browser());
   auto* opener_web_contents = window_controller()->GetWebContents();
@@ -551,24 +635,15 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
       browser(), test_page_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
-  EXPECT_NE(browser()->tab_strip_model()->GetActiveWebContents(),
+  EXPECT_NE(browser()->GetTabStripModel()->GetActiveWebContents(),
             opener_web_contents);
 
-  auto* web_contents = window_controller()->GetChildWebContents();
-  ASSERT_TRUE(web_contents);
-
-  auto* browser_view = static_cast<BrowserView*>(
-      BrowserWindow::FindBrowserWindowWithWebContents(web_contents));
-  ASSERT_TRUE(browser_view);
-
-  auto* pip_frame_view = static_cast<PictureInPictureBrowserFrameView*>(
-      browser_view->browser_widget()->GetFrameView());
-  ASSERT_TRUE(pip_frame_view);
-
-  ClickButton(
-      views::Button::AsButton(pip_frame_view->GetBackToTabButtonForTesting()));
+  views::Button* back_to_tab_button =
+      GetPipFrameViewControls().back_to_tab_button();
+  ASSERT_NE(nullptr, back_to_tab_button);
+  ClickButton(back_to_tab_button);
   EXPECT_FALSE(window_controller()->GetChildWebContents());
-  EXPECT_EQ(browser()->tab_strip_model()->GetActiveWebContents(),
+  EXPECT_EQ(browser()->GetTabStripModel()->GetActiveWebContents(),
             opener_web_contents);
 }
 
@@ -581,7 +656,7 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), test_page_url));
 
   content::WebContents* active_web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_NE(nullptr, active_web_contents);
 
   // In an insecure context, there should not be a method.
@@ -666,27 +741,44 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
             pip_frame_view->browser_widget()->IsMenuRunnerRunningForTesting());
 }
 
-IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
+IN_PROC_BROWSER_TEST_P(DocumentPictureInPictureWindowControllerFrameViewTest,
                        WindowClosesEvenIfDisconnectedFromWindowManager) {
-  // Rarely, `PictureInPictureWindowManager` fails to close the pip browser
-  // window. It's unclear why this happens, but the pip browser frame should
-  // fall back and close itself.
+  // Rarely, `PictureInPictureWindowManager` fails to close the PiP window.
+  // It's unclear why this happens, but the frame should fall back and close
+  // itself.
   LoadTabAndEnterPictureInPicture(browser());
   auto* pip_web_contents = window_controller()->GetChildWebContents();
   ASSERT_NE(nullptr, pip_web_contents);
   WaitForPageLoad(pip_web_contents);
-  auto* browser_view = static_cast<BrowserView*>(
-      BrowserWindow::FindBrowserWindowWithWebContents(pip_web_contents));
-  auto* pip_frame_view = static_cast<PictureInPictureBrowserFrameView*>(
-      browser_view->browser_widget()->GetFrameView());
   // Make the window manager forget about the window controller, which will
   // cause it to fail to close the window when asked.
   PictureInPictureWindowManager::GetInstance()
       ->set_window_controller_for_testing(nullptr);
-  ClickButton(
-      views::Button::AsButton(pip_frame_view->GetCloseButtonForTesting()));
+  views::Button* close_button = GetPipFrameViewControls().close_button();
+  ASSERT_NE(nullptr, close_button);
+  ClickButton(close_button);
   base::RunLoop().RunUntilIdle();
   EXPECT_FALSE(window_controller()->GetChildWebContents());
+}
+
+IN_PROC_BROWSER_TEST_P(DocumentPictureInPictureWindowControllerFrameViewTest,
+                       WindowTitleHasCorrectDirectionality) {
+  LoadTabAndEnterPictureInPicture(browser());
+  views::Label* window_title = GetPipFrameViewControls().window_title();
+  ASSERT_NE(nullptr, window_title);
+
+  // The directionality should be LTR to prevent spoofing.
+  EXPECT_EQ(base::i18n::LEFT_TO_RIGHT,
+            window_title->GetTextDirectionForTesting());
+
+  // Set the window title to a RTL string.
+  const char16_t kRtl[] = u"אבג";
+  window_title->SetText(kRtl);
+  EXPECT_EQ(kRtl, window_title->GetText());
+
+  // The directionality should still be LTR.
+  EXPECT_EQ(base::i18n::LEFT_TO_RIGHT,
+            window_title->GetTextDirectionForTesting());
 }
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -833,13 +925,18 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
   EXPECT_EQ(browser_view_3->GetBounds(), original_window_bounds);
 }
 
-INSTANTIATE_TEST_SUITE_P(WindowSizes,
-                         DocumentPictureInPictureWindowControllerBrowserTest,
-                         testing::Values(gfx::Size(1, 1),
-                                         gfx::Size(22, 22),
-                                         gfx::Size(300, 300),
-                                         gfx::Size(500, 500),
-                                         gfx::Size(250, 670)));
+class DocumentPictureInPictureWindowControllerWindowSizeBrowserTest
+    : public DocumentPictureInPictureWindowControllerBrowserTest,
+      public testing::WithParamInterface<gfx::Size> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    WindowSizes,
+    DocumentPictureInPictureWindowControllerWindowSizeBrowserTest,
+    testing::Values(gfx::Size(1, 1),
+                    gfx::Size(22, 22),
+                    gfx::Size(300, 300),
+                    gfx::Size(500, 500),
+                    gfx::Size(250, 670)));
 
 #if BUILDFLAG(IS_LINUX)
 // TODO(crbug.com/40923223): Fix and re-enable this test for Linux.
@@ -850,8 +947,9 @@ INSTANTIATE_TEST_SUITE_P(WindowSizes,
 #define MAYBE_VerifyWindowMargins VerifyWindowMargins
 #endif
 // Test that the document PiP window margins are correct.
-IN_PROC_BROWSER_TEST_P(DocumentPictureInPictureWindowControllerBrowserTest,
-                       MAYBE_VerifyWindowMargins) {
+IN_PROC_BROWSER_TEST_P(
+    DocumentPictureInPictureWindowControllerWindowSizeBrowserTest,
+    MAYBE_VerifyWindowMargins) {
   const BrowserWindow* const browser_window =
       BrowserWindow::FromBrowser(browser());
   const gfx::NativeWindow native_window = browser_window->GetNativeWindow();
@@ -899,7 +997,7 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
       browser(), test_page_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
-  EXPECT_NE(browser()->tab_strip_model()->GetActiveWebContents(),
+  EXPECT_NE(browser()->GetTabStripModel()->GetActiveWebContents(),
             opener_web_contents);
 
   ASSERT_EQ(true, EvalJs(opener_web_contents, "loadAndPlayVideo();"));
@@ -987,7 +1085,7 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
   // the pip window page title is not set.
   EXPECT_EQ(base::UTF8ToUTF16(window_page_title),
             tabs::GetAccessibleTabLabel(
-                pip_browser_view->browser()->tab_strip_model()->GetActiveTab(),
+                pip_browser_view->browser()->GetTabStripModel()->GetActiveTab(),
                 /*is_for_tab=*/false));
 
   // Set the pip window page title and ensure that the pip and opener window
@@ -1002,7 +1100,7 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
   // label returns the opener window page title.
   EXPECT_EQ(base::UTF8ToUTF16(window_page_title),
             tabs::GetAccessibleTabLabel(
-                pip_browser_view->browser()->tab_strip_model()->GetActiveTab(),
+                pip_browser_view->browser()->GetTabStripModel()->GetActiveTab(),
                 /*is_for_tab=*/false));
 }
 
@@ -1095,7 +1193,7 @@ IN_PROC_BROWSER_TEST_F(
           &was_tucked_during_picker));
 
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   auto result = EvalJs(web_contents, "window.showOpenFilePicker();");
   EXPECT_TRUE(result.ExtractError().find("aborted") != std::string::npos)
       << result;

@@ -102,7 +102,9 @@ source_set("browser_tests") {
   deps = [
     ":progress_delay",
     ":web_app_blocked_migration_infobar_delegate",
+    ":web_app_install_progress_view",
     ":web_app_update_identity_view",
+    ":web_app_update_review_dialog",
     "//base",
     "//chrome/browser/picture_in_picture",
     "//chrome/browser/picture_in_picture:test_support_ui",
@@ -161,6 +163,30 @@ source_set("launch_dialogs") {
 }
 
 if (is_chromeos) {
+  source_set("protocol_handler_picker_coordinator") {
+    public = [ "protocol_handler_picker_coordinator.h" ]
+    sources = [ "protocol_handler_picker_coordinator.cc" ]
+    public_deps = [
+      ":protocol_handler_picker_dialog",
+      "//base",
+      "//components/services/app_service",
+      "//components/tabs:public",
+      "//ui/base/unowned_user_data",
+      "//ui/views",
+      "//url",
+    ]
+    deps = [
+      "//chrome/browser/apps/app_service",
+      "//chrome/browser/profiles:profile",
+      "//chrome/browser/ui:url_identity",
+      "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/tabs:tabs_public",
+      "//content/public/browser",
+      "//ui/base",
+    ]
+  }
+
   source_set("protocol_handler_picker_dialog") {
     public = [ "protocol_handler_picker_dialog.h" ]
     sources = [ "protocol_handler_picker_dialog.cc" ]
@@ -201,5 +227,73 @@ source_set("web_app_icon_name_and_origin_view") {
     "//third_party/abseil-cpp:absl",
     "//ui/base",
     "//ui/gfx",
+  ]
+}
+
+source_set("web_app_install_progress_view") {
+  public = [ "web_app_install_progress_view.h" ]
+  sources = [ "web_app_install_progress_view.cc" ]
+  public_deps = [
+    "//base",
+    "//chrome/browser/ui/views/web_apps/isolated_web_apps:installer_base",
+    "//ui/base",
+    "//ui/base/metadata",
+    "//ui/views",
+  ]
+}
+
+# Modularized UI component for web app modal dialog delegate.
+source_set("web_app_modal_dialog_delegate") {
+  public = [ "web_app_modal_dialog_delegate.h" ]
+  public_deps = [
+    "//base",
+    "//chrome/browser/picture_in_picture",
+    "//content/public/browser",
+    "//ui/base",
+    "//ui/views",
+  ]
+}
+
+source_set("web_app_uninstall_dialog_view") {
+  public = [ "web_app_uninstall_dialog_view.h" ]
+  public_deps = [
+    "//base",
+    "//chrome/browser/web_applications",
+    "//components/webapps/common",
+    "//skia",
+    "//ui/base",
+    "//ui/base/interaction",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/views",
+  ]
+}
+
+source_set("web_app_update_review_dialog") {
+  public = [ "web_app_update_review_dialog.h" ]
+  public_deps = [
+    "//ui/base",
+    "//ui/base/interaction",
+  ]
+}
+
+source_set("image_carousel_view") {
+  public = [ "image_carousel_view.h" ]
+  public_deps = [
+    "//base",
+    "//skia",
+    "//ui/base/metadata",
+    "//ui/gfx/geometry",
+    "//ui/views",
+  ]
+}
+
+source_set("view_visible_in_active_widget_notifier") {
+  public = [ "view_visible_in_active_widget_notifier.h" ]
+  public_deps = [
+    "//base",
+    "//ui/base",
+    "//ui/base/interaction",
+    "//ui/views",
   ]
 }

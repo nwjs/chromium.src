@@ -63,13 +63,13 @@
 #include "components/autofill/core/browser/strike_databases/payments/test_credit_card_save_strike_database.h"
 #include "components/autofill/core/browser/strike_databases/payments/test_strike_database.h"
 #include "components/autofill/core/browser/studies/autofill_experiments.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/common/autocomplete_parsing_util.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
-#include "components/autofill/core/common/autofill_test_utils.h"
+#include "components/autofill/core/common/autofill_test_util.h"
 #include "components/autofill/core/common/credit_card_network_identifiers.h"
 #include "components/autofill/core/common/credit_card_number_validation.h"
 #include "components/autofill/core/common/form_data.h"
@@ -6208,6 +6208,33 @@ TEST_F(CreditCardSaveManagerTest,
       autofill_metrics::SaveCardPromptOffer::kNotShownRequiredDelay, 1);
 }
 #endif
+
+class UpstreamStrikeDelayTest : public CreditCardSaveManagerTest,
+                                public testing::WithParamInterface<int> {
+ public:
+  void SetUp() override {
+    CreditCardSaveManagerTest::SetUp();
+    feature_list_.InitAndEnableFeatureWithParameters(
+        features::kAutofillUpstreamEnforceStrikeDelay,
+        {{"autofill_upstream_enforce_strike_delay_days",
+          base::NumberToString(GetParam())}});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_P(UpstreamStrikeDelayTest, StrikeDelay) {
+  TestCreditCardSaveStrikeDatabase credit_card_save_strike_database =
+      TestCreditCardSaveStrikeDatabase(&strike_database());
+  EXPECT_EQ(base::Days(GetParam()),
+            credit_card_save_strike_database.GetRequiredDelaySinceLastStrike()
+                .value());
+}
+
+INSTANTIATE_TEST_SUITE_P(CreditCardSaveManagerTest,
+                         UpstreamStrikeDelayTest,
+                         testing::Values(1, 3, 7));
 
 // Tests that adding a card clears all strikes for that card.
 TEST_F(CreditCardSaveManagerTest, LocallySaveCreditCard_ClearStrikesOnAdd) {

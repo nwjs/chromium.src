@@ -99,6 +99,7 @@ import org.mockito.junit.MockitoRule;
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ApplicationStatus.ActivityStateListener;
+import org.chromium.base.CallbackUtils;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.IntentUtils;
@@ -162,11 +163,11 @@ import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
-import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.Tab.LoadUrlResult;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabTestUtils;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -376,7 +377,7 @@ public class CustomTabActivityTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     tab.addObserver(
-                            new EmptyTabObserver() {
+                            new TabObserver() {
                                 @Override
                                 public void onLoadUrl(
                                         Tab tab,
@@ -505,10 +506,10 @@ public class CustomTabActivityTest {
     @Test
     @SmallTest
     @Feature({"StatusBar"})
-    // TODO(crbug.com/428056054): Do not read color from system window bars on B+.
+    // TODO(crbug.com/428281172): Do not read color from system window bars on B+.
     @DisableIf.Build(
             sdk_is_greater_than = Build.VERSION_CODES.VANILLA_ICE_CREAM,
-            message = "crbug.com/428056054")
+            message = "crbug.com/428281172")
     public void testToolbarColor() {
         Intent intent = createMinimalCustomTabIntent();
         final int expectedColor = Color.RED;
@@ -951,7 +952,7 @@ public class CustomTabActivityTest {
                         ApplicationProvider.getApplicationContext(),
                         mTestPage,
                         false,
-                        builder -> {});
+                        CallbackUtils.emptyCallback());
         CustomTabsConnection connection = CustomTabsTestUtils.warmUpAndWait();
         CustomTabsSessionToken token = CustomTabsSessionToken.getSessionTokenFromIntent(intent);
         connection.newSession(token);
@@ -984,7 +985,10 @@ public class CustomTabActivityTest {
 
         Intent intent =
                 CustomTabsIntentTestUtils.createCustomTabIntent(
-                                context, mTestPage, /* launchAsNewTask= */ false, builder -> {})
+                                context,
+                                mTestPage,
+                                /* launchAsNewTask= */ false,
+                                CallbackUtils.emptyCallback())
                         .putExtra(IntentHandler.EXTRA_ACTIVITY_REFERRER, context.getPackageName());
 
         CustomTabActivity cctActivity =
@@ -1055,7 +1059,7 @@ public class CustomTabActivityTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     tab.addObserver(
-                            new EmptyTabObserver() {
+                            new TabObserver() {
                                 @Override
                                 public void onPageLoadFinished(Tab tab, GURL url) {
                                     pageLoadFinishedHelper.notifyCalled();
@@ -1128,7 +1132,7 @@ public class CustomTabActivityTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     tab.addObserver(
-                            new EmptyTabObserver() {
+                            new TabObserver() {
                                 @Override
                                 public void onLoadUrl(
                                         Tab tab,
@@ -1177,7 +1181,7 @@ public class CustomTabActivityTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     tab.addObserver(
-                            new EmptyTabObserver() {
+                            new TabObserver() {
                                 @Override
                                 public void onLoadUrl(
                                         Tab tab,
@@ -2294,11 +2298,11 @@ public class CustomTabActivityTest {
     @SmallTest
     @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
     @EnableFeatures({ChromeFeatureList.CCT_RESIZABLE_FOR_THIRD_PARTIES})
-    // TODO(crbug.com/428056054): Test assume view hierarchy, does not work with e2e everywhere.
+    // TODO(crbug.com/428281172): Test assume view hierarchy, does not work with e2e everywhere.
     @DisableFeatures(ChromeFeatureList.EDGE_TO_EDGE_EVERYWHERE)
     @DisableIf.Build(
             sdk_is_greater_than = Build.VERSION_CODES.VANILLA_ICE_CREAM,
-            message = "crbug.com/428056054")
+            message = "crbug.com/428281172")
     public void testLaunchPartialCustomTabActivity_BottomSheet() throws Exception {
         Intent intent = createMinimalCustomTabIntent();
         var token = SessionHolder.getSessionHolderFromIntent(intent);
@@ -3098,10 +3102,6 @@ public class CustomTabActivityTest {
     @Test
     @MediumTest
     public void omniboxInCct_testNonInteractiveOmniboxWhenIntentNotEligible() {
-        // TODO: Find a better way to test omnibox interactivity because titleBar is going to have
-        // a click listener to show page info.
-        if (ChromeFeatureList.sCctNestedSecurityIcon.isEnabled()) return;
-
         // By default, omnibox in CCT is not permitted and no stubbing is necessary.
         Intent intent = createMinimalCustomTabIntent();
         mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
@@ -3110,12 +3110,19 @@ public class CustomTabActivityTest {
 
         var titleBar =
                 mCustomTabActivityTestRule.getActivity().findViewById(R.id.title_url_container);
-        Assert.assertFalse(titleBar.hasOnClickListeners());
+        assertNull(
+                "Page info hasn't been shown, so PageInfoController should be null.",
+                PageInfoController.getLastPageInfoController());
+        // For a non-interactive omnibox, clicking the title bar should show Page Info instead of
+        // activating the omnibox.
+        ThreadUtils.runOnUiThreadBlocking(() -> titleBar.performClick());
+        assertNotNull(
+                "Page info should have been shown.",
+                PageInfoController.getLastPageInfoController());
     }
 
     @Test
     @MediumTest
-    @EnableFeatures(ChromeFeatureList.CCT_NESTED_SECURITY_ICON)
     @MinAndroidSdkLevel(VERSION_CODES.R)
     public void titleAndUrlActionTest() throws ExecutionException {
         mCustomTabActivityTestRule.startCustomTabActivityWithIntent(createMinimalCustomTabIntent());

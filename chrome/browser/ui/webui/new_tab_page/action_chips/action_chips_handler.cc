@@ -48,6 +48,7 @@
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
+#include "chrome/browser/ui/webui/webui_embedding_context.h"
 #endif
 
 namespace {
@@ -136,14 +137,13 @@ ActionChipsHandler::ActionChipsHandler(
       action_chips_generator_(std::move(action_chips_generator)),
       get_session_handle_callback_(std::move(get_session_handle_callback)) {
 #if !BUILDFLAG(IS_ANDROID)
-  content::WebContents* web_contents = web_ui_->GetWebContents();
-  auto* browser_window_interface =
-      webui::GetBrowserWindowInterface(web_contents);
-  if (browser_window_interface) {
-    // No need to call RemoveObserver later since TabStripModelObserver takes
-    // care of it in its destructor.
-    browser_window_interface->GetTabStripModel()->AddObserver(this);
-  }
+  browser_window_interface_subscription_ =
+      webui::RegisterBrowserWindowInterfaceChanged(
+          web_ui_->GetWebContents(),
+          base::BindRepeating(
+              &ActionChipsHandler::OnBrowserWindowInterfaceChanged,
+              weak_factory_.GetWeakPtr()));
+  UpdateTabStripModelObservation();
 #endif  // !BUILDFLAG(IS_ANDROID)
   pref_change_registrar_.Init(profile_->GetPrefs());
   pref_change_registrar_.Add(
@@ -231,6 +231,25 @@ void ActionChipsHandler::OnTabStripModelChanged(
   }
   StartActionChipsRetrieval();
 }
+
+bool ActionChipsHandler::UpdateTabStripModelObservation() {
+  TabStripModelObserver::StopObservingAll(this);
+  content::WebContents* web_contents = web_ui_->GetWebContents();
+  auto* browser_window_interface =
+      webui::GetBrowserWindowInterface(web_contents);
+  if (browser_window_interface) {
+    browser_window_interface->GetTabStripModel()->AddObserver(this);
+  }
+  return browser_window_interface != nullptr;
+}
+
+void ActionChipsHandler::OnBrowserWindowInterfaceChanged() {
+  if (!UpdateTabStripModelObservation()) {
+    return;
+  }
+  last_processed_url_.reset();
+  StartActionChipsRetrieval();
+}
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 bool ActionChipsHandler::ShouldThrottleRetrieval(const GURL& current_url) {
@@ -261,9 +280,7 @@ void ActionChipsHandler::NavigateToAim(
 
   GURL aim_url = GetUrlForAim(
       template_url_service,
-      // TODO(crbug.com/540050449): This is a temporary placeholder that needs
-      // to be updated to the new Action Chips entry point.
-      omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_NTP_REALBOX_ENTRY_POINT,
+      omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_NTP_ACTION_CHIPS_ENTRY_POINT,
       base::Time::Now(), base::UTF8ToUTF16(query_text),
       lens::LensOverlayInvocationSource::kNtpActionChips,
       /*additional_params=*/{});

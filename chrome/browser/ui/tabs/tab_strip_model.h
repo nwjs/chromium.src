@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
@@ -25,6 +26,7 @@
 #include "base/scoped_observation.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "chrome/browser/tab_list/constants.h"
 #include "chrome/browser/tab_list/tab_removed_reason.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
@@ -36,6 +38,7 @@
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "components/tabs/public/tab_collection.h"
 #include "components/tabs/public/tab_collection_types.h"
+#include "components/tabs/public/tab_context_menu_command.h"
 #include "components/tabs/public/tab_interface.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
 #include "ui/base/models/list_selection_model.h"
@@ -195,10 +198,12 @@ class ScopedTabStripModalUI {
 class TabStripModel {
  public:
   using TabIterator = tabs::TabCollection::TabIterator;
+  using iterator = TabIterator;
+  using const_iterator = TabIterator;
+  using reverse_iterator = std::reverse_iterator<TabIterator>;
+  using const_reverse_iterator = std::reverse_iterator<TabIterator>;
 
-  // TODO(crbug.com/540829277): Remove this, and use std::optional<size_t> (or
-  // at least std::optional<int>) in its place.
-  static constexpr int kNoTab = -1;
+  static constexpr int kNoTab = tab_list::kNoTabIndex;
 
   TabStripModel() = delete;
 
@@ -467,8 +472,10 @@ class TabStripModel {
   // notifications this method causes.
   void CloseAllTabs();
 
-  // Close all tabs in the given `group` at once, but sets the focus state
-  // first.
+  // Closes all tabs in the given `group`. If the group is focused, focus is
+  // unset before closing. If all tabs in the tabstrip are in `group`, a new
+  // fallback tab is added outside the group to prevent the browser window from
+  // closing.
   void CloseAllTabsInGroup(const tab_groups::TabGroupId& group);
 
   // Returns true if there are any WebContentses that are currently loading
@@ -738,6 +745,8 @@ class TabStripModel {
   // Returns iterators for traversing through all the tabs in the tabstrip.
   TabIterator begin() const;
   TabIterator end() const;
+  reverse_iterator rbegin() const;
+  reverse_iterator rend() const;
   TabIterator at(tabs::TabInterface* tab) const;
 
   // Gets the root of the tab strip model. Used to traverse the tab topology.
@@ -757,43 +766,8 @@ class TabStripModel {
 
   // View API //////////////////////////////////////////////////////////////////
 
-  // LINT.IfChange(TabContextMenuCommand)
-  // Context menu functions. Tab groups uses command ids following CommandLast
-  // for entries in the 'Add to existing group' submenu.
-  enum ContextMenuCommand {
-    CommandFirst,
-    CommandNewTabToRight,
-    CommandReload,
-    CommandDuplicate,
-    CommandCloseTab,
-    CommandCloseOtherTabs,
-    CommandCloseTabsToRight,
-    CommandTogglePinned,
-    CommandToggleGrouped,
-    CommandToggleSiteMuted,
-    CommandSendTabToSelf,
-    CommandAddNote,
-    CommandAddToReadLater,
-    CommandAddToNewGroup,
-    CommandAddToExistingGroup,
-    CommandAddToNewGroupFromMenuItem,
-    CommandAddToSplit,
-    CommandSwapWithActiveSplit,
-    CommandArrangeSplit,
-    CommandRemoveFromGroup,
-    CommandMoveToExistingWindow,
-    CommandMoveTabsToNewWindow,
-    CommandCopyURL,
-    CommandGoBack,
-    CommandCloseAllTabs,
-    CommandToggleVertical,
-    CommandGlicShare,
-    CommandGlicCreateNewChat,
-    CommandGlicSwitchToRecentConversation,
-    CommandGlicUnshare,
-    CommandLast
-  };
-  // LINT.ThenChange(//tools/metrics/histograms/metadata/tab/histograms.xml:TabContextMenuCommand)
+  using ContextMenuCommand = tabs::TabContextMenuCommand;
+  using enum tabs::TabContextMenuCommand;
 
   // Returns true if the specified command is enabled. If `context_index` is
   // selected the response applies to all selected tabs.
@@ -1301,6 +1275,13 @@ class TabStripModel {
       tabs::TabInterface* tab,
       const std::optional<tab_groups::TabGroupId> initial_group,
       const std::optional<tab_groups::TabGroupId> new_group);
+
+  // Exits or updates focus mode when a moved or reparented tab was the active
+  // tab in the focused group.
+  void MaybeUpdateFocusModeForMovedTab(
+      tabs::TabInterface* tab,
+      bool initial_pinned_state,
+      const std::optional<tab_groups::TabGroupId>& initial_focused_group);
 
   // Updates the `group_model` by incrementing the tab count of `group`.
   void AddTabToGroupModel(const tab_groups::TabGroupId& group);

@@ -7,7 +7,7 @@
 #import "base/test/scoped_feature_list.h"
 #import "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #import "components/signin/public/identity_manager/account_info.h"
-#import "components/signin/public/identity_manager/identity_test_utils.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_test_utils.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
@@ -27,10 +27,10 @@ class GeminiFeatureAvailabilityTest : public PlatformTest {
 
   // Helper to create AccountInfo with specific capability.
   AccountInfo CreateAccountInfoWithCapability(bool can_use_model_execution) {
-    AccountInfo account_info;
-    account_info.account_id = CoreAccountId::FromGaiaId(GaiaId("test_gaia_id"));
-    account_info.email = "test@example.com";
-    account_info.gaia = GaiaId("test_gaia_id");
+    AccountInfo account_info =
+        AccountInfo::Builder(GaiaId("test_gaia_id"), "test@example.com")
+            .SetAccountId(CoreAccountId::FromGaiaId(GaiaId("test_gaia_id")))
+            .Build();
 
     AccountCapabilitiesTestMutator mutator(&account_info);
     mutator.set_can_use_model_execution_features(can_use_model_execution);
@@ -49,17 +49,10 @@ class GeminiFeatureAvailabilityTest : public PlatformTest {
     std::unique_ptr<TestProfileIOS> profile = std::move(builder).Build();
 
     if (can_use_model_execution.has_value()) {
-      signin::IdentityManager* identity_manager =
-          IdentityManagerFactory::GetForProfile(profile.get());
-
-      AccountInfo account_info =
-          signin::MakeAccountAvailable(identity_manager, "test@example.com");
-      signin::SetPrimaryAccount(identity_manager, "test@example.com",
-                                signin::ConsentLevel::kSignin);
-
-      AccountCapabilitiesTestMutator mutator(&account_info);
-      mutator.set_can_use_model_execution_features(*can_use_model_execution);
-      signin::UpdateAccountInfoForAccount(identity_manager, account_info);
+      gemini::test::SetUpEligibleAccount(
+          profile.get(), "test@example.com",
+          /*can_use_model_execution=*/*can_use_model_execution,
+          /*can_use_gemini_in_chrome=*/*can_use_model_execution);
     }
 
     return profile;

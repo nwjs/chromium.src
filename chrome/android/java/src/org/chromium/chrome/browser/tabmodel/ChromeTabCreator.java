@@ -53,6 +53,7 @@ import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.url.GURL;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
@@ -127,6 +128,8 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
                 return "NewIncognitoTab";
             case TabLaunchType.FROM_STARTUP:
                 return "Startup";
+            case TabLaunchType.FROM_SESSION_STARTUP_WITH_URLS_PREF:
+                return "SessionStartupWithUrlsPref";
             case TabLaunchType.FROM_START_SURFACE:
                 return "StartSurface";
             case TabLaunchType.FROM_TAB_GROUP_UI:
@@ -316,18 +319,38 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
             boolean openInTabGroup,
             @Nullable Intent intent) {
         Tab firstTab = createNewTab(firstTabParams, type, parent, intent);
+        if (firstTab == null || mTabModel == null) return firstTab;
+
         if (additionalUrls != null && !additionalUrls.isEmpty()) {
-            Tab groupParent = openInTabGroup ? firstTab : null;
             @TabLaunchType
             int additionalUrlLaunchType =
                     openInTabGroup
                             ? TabLaunchType.FROM_LONGPRESS_BACKGROUND_IN_GROUP
                             : TabLaunchType.FROM_LONGPRESS_BACKGROUND;
-            for (int i = 0; i < additionalUrls.size(); i++) {
+            List<Tab> additionalTabs = new ArrayList<>();
+            // Iterate backwards because background tabs are inserted immediately after the active
+            // tab, so inserting from last to first preserves the exact list order.
+            for (int i = additionalUrls.size() - 1; i >= 0; i--) {
                 LoadUrlParams copy = LoadUrlParams.copy(firstTabParams);
                 copy.setUrl(additionalUrls.get(i));
-                createNewTab(copy, additionalUrlLaunchType, groupParent);
+                // Do not pass firstTab as parent; establishing a parent relationship
+                // causes issues during subsequent tab reparenting (e.g. crashing when
+                // dragging a tab group into a new window). Tabs are grouped explicitly below.
+                Tab tab = createNewTab(copy, additionalUrlLaunchType, parent, intent);
+                if (tab != null) {
+                    additionalTabs.add(0, tab);
+                }
             }
+            if (openInTabGroup) {
+                if (additionalTabs.isEmpty()) {
+                    mTabModel.createSingleTabGroup(firstTab);
+                } else {
+                    mTabModel.mergeListOfTabsToGroup(
+                            additionalTabs, firstTab, TabGroupMergeNotificationType.DONT_NOTIFY);
+                }
+            }
+        } else if (openInTabGroup) {
+            mTabModel.createSingleTabGroup(firstTab);
         }
         return firstTab;
     }
@@ -341,7 +364,7 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
      * @param parent the parent tab, if present.
      * @param position the requested position (index in the tab model)
      * @param intent the source of the url if it isn't null.
-     * @param copyHistory Whether the new tab should have the same history stack as {@param parent}.
+     * @param copyHistory Whether the new tab should have the same history stack as {@code parent}.
      * @return The new tab or null if the tab is not created in current window.
      */
     @Nullable Tab createNewTab(
@@ -822,6 +845,7 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
             case TabLaunchType.FROM_RESTORE_TABS_UI:
             case TabLaunchType.FROM_TAB_GROUP_UI:
             case TabLaunchType.FROM_STARTUP:
+            case TabLaunchType.FROM_SESSION_STARTUP_WITH_URLS_PREF:
             case TabLaunchType.FROM_LAUNCHER_SHORTCUT:
             case TabLaunchType.FROM_LAUNCH_NEW_INCOGNITO_TAB:
             case TabLaunchType.FROM_APP_WIDGET:
@@ -881,7 +905,8 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
     }
 
     /** Returns the default tab delegate factory to be used if creating new tabs w/o parents. */
-    private @Nullable TabDelegateFactory createDefaultTabDelegateFactory() {
+    @Override
+    public @Nullable TabDelegateFactory createDefaultTabDelegateFactory() {
         return mTabDelegateFactorySupplier != null ? mTabDelegateFactorySupplier.get() : null;
     }
 

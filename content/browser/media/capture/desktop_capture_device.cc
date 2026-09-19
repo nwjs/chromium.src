@@ -66,8 +66,8 @@
 #include "third_party/webrtc/modules/desktop_capture/desktop_capturer.h"
 #include "third_party/webrtc/modules/desktop_capture/fake_desktop_capturer.h"
 #include "third_party/webrtc/modules/desktop_capture/mouse_cursor_monitor.h"
+#include "skia/ext/color_profile.h"
 #include "third_party/webrtc_overrides/rtc_base/diagnostic_logging.h"
-#include "ui/gfx/icc_profile.h"
 
 #if BUILDFLAG(IS_WIN)
 #include <windows.h>
@@ -306,6 +306,7 @@ class DesktopCaptureDevice::Core : public webrtc::DesktopCapturer::Callback {
   void SetMockTimeForTesting(
       scoped_refptr<base::SingleThreadTaskRunner> task_runner,
       const base::TickClock* tick_clock);
+  void InvalidateBuffers();
 
   base::WeakPtr<Core> GetWeakPtr() { return weak_factory_.GetWeakPtr(); }
 
@@ -586,6 +587,11 @@ void DesktopCaptureDevice::Core::SetMockTimeForTesting(
   capture_timer_->SetTaskRunner(task_runner);
 }
 
+void DesktopCaptureDevice::Core::InvalidateBuffers() {
+  CHECK(client_);
+  client_->InvalidateBuffers();
+}
+
 void DesktopCaptureDevice::Core::OnCaptureResult(
     webrtc::DesktopCapturer::Result result,
     std::unique_ptr<webrtc::DesktopFrame> frame) {
@@ -820,9 +826,11 @@ void DesktopCaptureDevice::Core::OnCaptureResultZeroCopy(
   // Set color space correctly.
   gfx::ColorSpace frame_color_space;
   if (!frame->icc_profile().empty()) {
-    gfx::ICCProfile icc_profile = gfx::ICCProfile::FromData(
-        frame->icc_profile().data(), frame->icc_profile().size());
-    frame_color_space = icc_profile.GetColorSpace();
+    if (auto color_profile =
+            skia::ColorProfile::Make(base::as_byte_span(frame->icc_profile()))) {
+      frame_color_space =
+          gfx::ColorSpace(color_profile->GetSkColorSpace().get());
+    }
     // Conversion ARGB->I420 will switch the color space.
     frame_color_space = frame_color_space.GetWithMatrixAndRange(
         gfx::ColorSpace::MatrixID::SMPTE170M,
@@ -1066,9 +1074,11 @@ void DesktopCaptureDevice::Core::OnCaptureResultLegacy(
 
   gfx::ColorSpace frame_color_space;
   if (!frame->icc_profile().empty()) {
-    gfx::ICCProfile icc_profile = gfx::ICCProfile::FromData(
-        frame->icc_profile().data(), frame->icc_profile().size());
-    frame_color_space = icc_profile.GetColorSpace();
+    if (auto color_profile =
+            skia::ColorProfile::Make(base::as_byte_span(frame->icc_profile()))) {
+      frame_color_space =
+          gfx::ColorSpace(color_profile->GetSkColorSpace().get());
+    }
     if (frame->pixel_format() != output_format &&
         output_format == webrtc::FOURCC_I420) {
       // Conversion ARGB->I420 will switch the color space.
@@ -1489,6 +1499,14 @@ void DesktopCaptureDevice::RequestRefreshFrame() {
   thread_.task_runner()->PostTask(
       FROM_HERE,
       base::BindOnce(&Core::RequestRefreshFrame, core_->GetWeakPtr()));
+}
+
+void DesktopCaptureDevice::InvalidateBuffers() {
+  if (!core_) {
+    return;
+  }
+  thread_.task_runner()->PostTask(
+      FROM_HERE, base::BindOnce(&Core::InvalidateBuffers, core_->GetWeakPtr()));
 }
 
 void DesktopCaptureDevice::SetNotificationWindowId(

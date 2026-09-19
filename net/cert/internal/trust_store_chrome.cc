@@ -26,6 +26,9 @@
 #include "net/cert/time_conversions.h"
 #include "net/cert/x509_certificate.h"
 #include "net/cert/x509_util.h"
+#include "net/log/net_log_event_type.h"
+#include "net/log/net_log_values.h"
+#include "net/log/net_log_with_source.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "third_party/boringssl/src/include/openssl/bytestring.h"
 #include "third_party/boringssl/src/include/openssl/mem.h"
@@ -440,14 +443,14 @@ TrustStoreChrome::TrustStoreChrome(
     for (const auto& issuer : root_store_data.signer_set()->trusted_issuers()) {
       TrustStoreChrome::MtcAnchorExtraData trust_store_anchor_data(issuer);
 
-      std::map<uint16_t, std::vector<bssl::TrustedSubtree>> trusted_subtrees;
+      std::vector<bssl::LogTrustedSubtrees> trusted_subtrees;
       if (mtc_metadata) {
-        auto it = mtc_metadata->plants05_anchor_data().find(issuer.base_id);
-        if (it != mtc_metadata->plants05_anchor_data().end()) {
+        auto it = mtc_metadata->mtc_anchor_data().find(issuer.base_id);
+        if (it != mtc_metadata->mtc_anchor_data().end()) {
           // `mtc_anchor` is a trusted MTC anchor which also has trusted
           // subtrees supplied in the MTC metadata.
-          const ChromeRootStoreMtcMetadata::Plants05AnchorData&
-              mtc_anchor_data = it->second;
+          const ChromeRootStoreMtcMetadata::MtcAnchorData& mtc_anchor_data =
+              it->second;
 
           trusted_subtrees = mtc_anchor_data.trusted_subtrees;
           trust_store_anchor_data.revoked_serials =
@@ -682,8 +685,8 @@ const TrustStoreChrome::AnchorExtraData* TrustStoreChrome::GetAnchorData(
 }
 
 const TrustStoreChrome::MtcAnchorExtraData* TrustStoreChrome::GetMTCAnchorData(
-    base::span<const uint8_t> log_id) const {
-  auto it = mtc_anchor_extra_data_.find(log_id);
+    base::span<const uint8_t> ca_id) const {
+  auto it = mtc_anchor_extra_data_.find(ca_id);
   if (it == mtc_anchor_extra_data_.end()) {
     return nullptr;
   }
@@ -791,6 +794,32 @@ std::string GetOperatorForSignerIfUsableAtTime(const Signer& signer,
   return {};
 }
 
+void NetLogCosignerPolicyResult(
+    bool is_valid,
+    std::string_view reason,
+    base::span<const std::vector<uint8_t>> valid_additional_cosigners,
+    const absl::flat_hash_map<std::vector<uint8_t>, std::string>&
+        cosigner_status,
+    const NetLogWithSource& net_log) {
+  net_log.AddEvent(NetLogEventType::CERT_MTC_COSIGNER_POLICY_CHECKED, [&] {
+    base::DictValue dict;
+    dict.Set("is_valid", is_valid);
+    dict.Set("reason", reason);
+    base::ListValue output_cosigners;
+    for (const auto& cosigner_id : valid_additional_cosigners) {
+      base::DictValue cosigner_dict;
+      cosigner_dict.Set("id", x509_util::RelativeOidToString(cosigner_id));
+      auto it = cosigner_status.find(cosigner_id);
+      if (it != cosigner_status.end()) {
+        cosigner_dict.Set("status", it->second);
+      }
+      output_cosigners.Append(std::move(cosigner_dict));
+    }
+    dict.Set("verified_cosigners", std::move(output_cosigners));
+    return dict;
+  });
+}
+
 // TODO(crbug.com/452983502): max age from CT policy. Is it good here too?
 constexpr base::TimeDelta kMaxSignerSetAge = base::Days(70);
 }  // namespace
@@ -799,13 +828,23 @@ bool TrustStoreChrome::IsMtcCosignerPolicySatisfied(
     const bssl::ParsedCertificate& target_cert,
     base::Time current_time,
     const bssl::MTCAnchor* mtc_anchor,
-    base::span<const std::vector<uint8_t>> valid_additional_cosigners) const {
+    base::span<const std::vector<uint8_t>> valid_additional_cosigners,
+    const NetLogWithSource& net_log) const {
+  absl::flat_hash_map<std::vector<uint8_t>, std::string> cosigner_status;
   if (disable_mtc_mirroring_requirements_) {
+    NetLogCosignerPolicyResult(true, "kill switch", valid_additional_cosigners,
+                               cosigner_status, net_log);
     return true;
   }
 
-  if (current_time - signer_set_timestamp_ > kMaxSignerSetAge) {
-    // Fail open on old component data.
+  // It should be impossible to reach this method if the signerset wasn't
+  // initialized.
+  CHECK(signer_set_timestamp_.has_value());
+  if (current_time - *signer_set_timestamp_ > kMaxSignerSetAge) {
+    NetLogCosignerPolicyResult(true, "old SignerSet",
+                               valid_additional_cosigners, cosigner_status,
+                               net_log);
+    // Fail open on old SignerSet data.
     return true;
   }
 
@@ -820,12 +859,17 @@ bool TrustStoreChrome::IsMtcCosignerPolicySatisfied(
   base::Time cert_not_before;
   if (!GeneralizedTimeToTime(target_cert.tbs().validity_not_before,
                              &cert_not_before)) {
+    NetLogCosignerPolicyResult(false, "cert error", valid_additional_cosigners,
+                               cosigner_status, net_log);
     return false;
   }
 
   const TrustStoreChrome::MtcAnchorExtraData* mtc_anchor_data =
       GetMTCAnchorData(mtc_anchor->ca_id());
   if (!mtc_anchor_data) {
+    NetLogCosignerPolicyResult(false, "CA data missing",
+                               valid_additional_cosigners, cosigner_status,
+                               net_log);
     return false;
   }
   const Signer& ca_signer = mtc_anchor_data->signer_config;
@@ -833,27 +877,40 @@ bool TrustStoreChrome::IsMtcCosignerPolicySatisfied(
   std::string ca_operator =
       GetOperatorForSignerIfUsableAtTime(ca_signer, cert_not_before);
   if (ca_operator.empty()) {
+    NetLogCosignerPolicyResult(false, "CA not usable at cert time",
+                               valid_additional_cosigners, cosigner_status,
+                               net_log);
     return false;
   }
 
   for (const auto& cosigner_id : valid_additional_cosigners) {
     auto it = signer_set_mirrors_.find(cosigner_id);
     if (it == signer_set_mirrors_.end()) {
+      cosigner_status[cosigner_id] = "mirror data missing";
       continue;
     }
     const Signer& mirror = it->second;
     std::string mirror_operator =
         GetOperatorForSignerIfUsableAtTime(mirror, cert_not_before);
     if (mirror_operator.empty()) {
+      cosigner_status[cosigner_id] = "mirror not usable at cert time";
       continue;
     }
 
     if (mirror_operator != ca_operator) {
       // Found a mirror that satisfies the policy requirements.
+      cosigner_status[cosigner_id] = "satisfies policy";
+      NetLogCosignerPolicyResult(true, "mirror policy satisfied",
+                                 valid_additional_cosigners, cosigner_status,
+                                 net_log);
       return true;
     }
+    cosigner_status[cosigner_id] = "same operator as CA";
   }
 
+  NetLogCosignerPolicyResult(false, "policy not satisfied",
+                             valid_additional_cosigners, cosigner_status,
+                             net_log);
   return false;
 }
 
@@ -866,63 +923,6 @@ int64_t CompiledSignerSetTimestampSeconds() {
 }
 
 namespace {
-
-std::optional<ChromeRootStoreMtcMetadata::MtcAnchorData>
-CreateMtcAnchorDataForExperiment(
-    const chrome_root_store::MtcAnchorData& proto_mtc_anchor_data) {
-  if (!proto_mtc_anchor_data.has_log_id() ||
-      proto_mtc_anchor_data.log_id().empty() ||
-      !proto_mtc_anchor_data.has_trusted_landmark_ids_range() ||
-      !proto_mtc_anchor_data.trusted_landmark_ids_range().has_base_id() ||
-      !proto_mtc_anchor_data.trusted_landmark_ids_range()
-           .has_min_active_landmark_inclusive() ||
-      !proto_mtc_anchor_data.trusted_landmark_ids_range()
-           .has_last_landmark_inclusive() ||
-      proto_mtc_anchor_data.trusted_subtrees_size() == 0) {
-    return std::nullopt;
-  }
-
-  ChromeRootStoreMtcMetadata::MtcAnchorData mtc_anchor_data;
-  mtc_anchor_data.log_id =
-      base::ToVector(base::as_byte_span(proto_mtc_anchor_data.log_id()));
-
-  mtc_anchor_data.landmark_base_id = base::ToVector(base::as_byte_span(
-      proto_mtc_anchor_data.trusted_landmark_ids_range().base_id()));
-  mtc_anchor_data.landmark_min_inclusive =
-      proto_mtc_anchor_data.trusted_landmark_ids_range()
-          .min_active_landmark_inclusive();
-  mtc_anchor_data.landmark_max_inclusive =
-      proto_mtc_anchor_data.trusted_landmark_ids_range()
-          .last_landmark_inclusive();
-
-  for (const auto& subtree : proto_mtc_anchor_data.trusted_subtrees()) {
-    if (!subtree.has_start_inclusive() || !subtree.has_end_exclusive() ||
-        !subtree.has_hash() || subtree.hash().size() != crypto::kSHA256Length) {
-      return std::nullopt;
-    }
-    bssl::TrustedSubtree trusted_subtree;
-    trusted_subtree.range.start = subtree.start_inclusive();
-    trusted_subtree.range.end = subtree.end_exclusive();
-    base::span(trusted_subtree.hash)
-        .copy_from(base::as_byte_span(subtree.hash()));
-    mtc_anchor_data.trusted_subtrees.push_back(std::move(trusted_subtree));
-  }
-
-  std::vector<std::pair<uint64_t, uint64_t>> revoked_indices_storage;
-  revoked_indices_storage.reserve(proto_mtc_anchor_data.revoked_indices_size());
-  for (const auto& revoked_range : proto_mtc_anchor_data.revoked_indices()) {
-    if (!revoked_range.has_end_exclusive() ||
-        !revoked_range.has_start_inclusive()) {
-      return std::nullopt;
-    }
-    revoked_indices_storage.emplace_back(revoked_range.end_exclusive(),
-                                         revoked_range.start_inclusive());
-  }
-  mtc_anchor_data.revoked_indices =
-      base::flat_map<uint64_t, uint64_t>(std::move(revoked_indices_storage));
-
-  return mtc_anchor_data;
-}
 
 base::Time ProtoTimestampToTime(const chrome_root_store::Timestamp& timestamp) {
   return base::Time::UnixEpoch() + base::Seconds(timestamp.seconds()) +
@@ -1091,8 +1091,7 @@ bool ParseAndFilterSigner(const chrome_root_store::Signer& signer_proto,
   return true;
 }
 
-std::optional<ChromeRootStoreMtcMetadata::Plants05AnchorData>
-CreatePlants05AnchorData(
+std::optional<ChromeRootStoreMtcMetadata::MtcAnchorData> CreateMtcAnchorData(
     const chrome_root_store::MtcAnchorData& proto_mtc_anchor_data) {
   if (!proto_mtc_anchor_data.has_ca_id() ||
       proto_mtc_anchor_data.ca_id().empty()) {
@@ -1110,7 +1109,7 @@ CreatePlants05AnchorData(
                                          revoked_range.start_inclusive());
   }
 
-  ChromeRootStoreMtcMetadata::Plants05AnchorData anchor_data;
+  ChromeRootStoreMtcMetadata::MtcAnchorData anchor_data;
   anchor_data.revoked_serials =
       base::flat_map<uint64_t, uint64_t>(std::move(revoked_indices_storage));
 
@@ -1127,8 +1126,7 @@ CreatePlants05AnchorData(
 
     uint16_t log_number = proto_mtc_log_data.log_number();
 
-    ChromeRootStoreMtcMetadata::Plants05AnchorData::LogLandmarkRange
-        landmark_range;
+    ChromeRootStoreMtcMetadata::MtcAnchorData::LogLandmarkRange landmark_range;
     landmark_range.log_number = log_number;
     landmark_range.landmark_min_inclusive =
         proto_mtc_log_data.trusted_landmark_ids_range()
@@ -1152,7 +1150,8 @@ CreatePlants05AnchorData(
           .copy_from(base::as_byte_span(subtree.hash()));
       trusted_subtrees.push_back(std::move(trusted_subtree));
     }
-    anchor_data.trusted_subtrees[log_number] = std::move(trusted_subtrees);
+    anchor_data.trusted_subtrees.emplace_back(log_number,
+                                              std::move(trusted_subtrees));
   }
 
   return anchor_data;
@@ -1173,20 +1172,6 @@ ChromeRootStoreMtcMetadata::MtcAnchorData::operator=(
 ChromeRootStoreMtcMetadata::MtcAnchorData&
 ChromeRootStoreMtcMetadata::MtcAnchorData::operator=(
     ChromeRootStoreMtcMetadata::MtcAnchorData&& other) = default;
-
-ChromeRootStoreMtcMetadata::Plants05AnchorData::Plants05AnchorData() = default;
-ChromeRootStoreMtcMetadata::Plants05AnchorData::~Plants05AnchorData() = default;
-
-ChromeRootStoreMtcMetadata::Plants05AnchorData::Plants05AnchorData(
-    const ChromeRootStoreMtcMetadata::Plants05AnchorData& other) = default;
-ChromeRootStoreMtcMetadata::Plants05AnchorData::Plants05AnchorData(
-    ChromeRootStoreMtcMetadata::Plants05AnchorData&& other) = default;
-ChromeRootStoreMtcMetadata::Plants05AnchorData&
-ChromeRootStoreMtcMetadata::Plants05AnchorData::operator=(
-    const ChromeRootStoreMtcMetadata::Plants05AnchorData& other) = default;
-ChromeRootStoreMtcMetadata::Plants05AnchorData&
-ChromeRootStoreMtcMetadata::Plants05AnchorData::operator=(
-    ChromeRootStoreMtcMetadata::Plants05AnchorData&& other) = default;
 
 ChromeRootStoreMtcMetadata::ChromeRootStoreMtcMetadata() = default;
 ChromeRootStoreMtcMetadata::~ChromeRootStoreMtcMetadata() = default;
@@ -1213,26 +1198,20 @@ ChromeRootStoreMtcMetadata::CreateFromMtcMetadataProto(
       base::Time::UnixEpoch() + base::Seconds(proto.update_time_seconds());
 
   for (const auto& proto_mtc_anchor_data : proto.mtc_anchor_data()) {
+    // TODO(crbug.com/520071497): The MtcAnchorData proto message previously
+    // could contain either davidben-08 or plants-05 style data. The presence
+    // of the `ca_id` field indicates this message contains plants-05 data.
+    // If/when we are sure there are no more protos containing davidben-08 data
+    // in the wild we could remove the has_ca_id conditional here.
     if (proto_mtc_anchor_data.has_ca_id()) {
-      std::optional<ChromeRootStoreMtcMetadata::Plants05AnchorData>
-          plants05_anchor_data =
-              CreatePlants05AnchorData(proto_mtc_anchor_data);
-      if (!plants05_anchor_data) {
+      std::optional<ChromeRootStoreMtcMetadata::MtcAnchorData> mtc_anchor_data =
+          CreateMtcAnchorData(proto_mtc_anchor_data);
+      if (!mtc_anchor_data) {
         return std::nullopt;
       }
       std::vector<uint8_t> ca_id =
           base::ToVector(base::as_byte_span(proto_mtc_anchor_data.ca_id()));
-      mtc_metadata.plants05_anchor_data_[ca_id] =
-          std::move(plants05_anchor_data).value();
-    } else {
-      std::optional<ChromeRootStoreMtcMetadata::MtcAnchorData> mtc_anchor_data =
-          CreateMtcAnchorDataForExperiment(proto_mtc_anchor_data);
-      if (!mtc_anchor_data) {
-        return std::nullopt;
-      }
-      std::vector<uint8_t> log_id = mtc_anchor_data->log_id;
-      mtc_metadata.mtc_anchor_data_[log_id] =
-          std::move(mtc_anchor_data).value();
+      mtc_metadata.mtc_anchor_data_[ca_id] = std::move(mtc_anchor_data).value();
     }
   }
 

@@ -333,7 +333,7 @@ bool BrowserDesktopWindowTreeHostWin::GetClientAreaInsets(
   //NWJS#7221, this is called during NCCALCSIZE handler
   //without this, it will lead to a window with white bg shown
   //initially during first ShowWindow call.
-  if (browser_view_->browser()->is_transparent())
+  if (browser_view_->browser()->GetBrowserForMigrationOnly()->is_transparent())
     return false;
   // Always use default insets for opaque frame.
   if (!browser_view_ || !ShouldUseNativeFrame()) {
@@ -526,7 +526,7 @@ bool BrowserDesktopWindowTreeHostWin::ShouldUseNativeFrame() const {
   if (!browser_view_->browser()) {
     return false;
   }
-  if (browser_view_->browser()->is_transparent()) {
+  if (browser_view_->browser()->GetBrowserForMigrationOnly()->is_transparent()) {
     return true;
   }
   if (browser_view_->browser()->is_frameless()) {
@@ -547,7 +547,7 @@ bool BrowserDesktopWindowTreeHostWin::ShouldUseNativeFrame() const {
 bool BrowserDesktopWindowTreeHostWin::ShouldWindowContentsBeTransparent()
     const {
   CHECK(browser_view_);
-  if (browser_view_->browser()->is_transparent())
+  if (browser_view_->browser()->GetBrowserForMigrationOnly()->is_transparent())
     return true;
   return false;
 }

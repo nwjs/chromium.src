@@ -16,6 +16,8 @@ source_set("core") {
     "personal_context_eligibility_service.h",
     "personal_context_eligibility_service_impl.cc",
     "personal_context_eligibility_service_impl.h",
+    "personal_context_key_manager.cc",
+    "personal_context_key_manager.h",
     "personal_context_service.h",
     "personal_context_service_impl.cc",
     "personal_context_service_impl.h",
@@ -34,8 +36,11 @@ source_set("core") {
     "//components/optimization_guide/core:features",
     "//components/personal_context/proto:personal_context_proto",
     "//components/prefs",
+    "//components/signin/public/base:hybrid_encryption_key_proto",
     "//components/signin/public/identity_manager",
+    "//components/sync_device_info",
     "//components/variations/net",
+    "//crypto",
     "//net",
   ]
 }
@@ -85,6 +90,7 @@ source_set("unit_tests") {
     "network/personal_context_fetcher_unittest.cc",
     "network/personal_context_manager_unittest.cc",
     "personal_context_eligibility_service_impl_unittest.cc",
+    "personal_context_key_manager_unittest.cc",
     "personal_context_service_impl_unittest.cc",
   ]
 
@@ -98,6 +104,7 @@ source_set("unit_tests") {
     "//components/account_settings:test_support",
     "//components/prefs:test_support",
     "//components/signin/public/identity_manager:test_support",
+    "//components/sync_device_info:test_support",
     "//components/sync_preferences:test_support",
     "//components/variations:test_support",
     "//services/network:test_support",

@@ -32,6 +32,8 @@ source_set("autofill") {
     "autofill_save_iban_delegate.h",
     "autofill_vcn_enroll_bottom_sheet_bridge.cc",
     "autofill_vcn_enroll_bottom_sheet_bridge.h",
+    "autofill_wallet_reminder_notice_bottom_sheet_bridge.cc",
+    "autofill_wallet_reminder_notice_bottom_sheet_bridge.h",
     "card_expiration_date_fix_flow_view_android.cc",
     "card_expiration_date_fix_flow_view_android.h",
     "card_name_fix_flow_view_android.cc",
@@ -42,6 +44,8 @@ source_set("autofill") {
     "credit_card_scanner_view_android.h",
     "dialog/autofill_dialog_view_android.cc",
     "dialog/autofill_dialog_view_android.h",
+    "email_verification_bottom_sheet_bridge.cc",
+    "email_verification_bottom_sheet_bridge.h",
     "manual_filling_view_android.cc",
     "manual_filling_view_android.h",
     "otp_verification_dialog_view_android.cc",
@@ -54,6 +58,8 @@ source_set("autofill") {
     "snackbar/autofill_snackbar_view_android.h",
     "virtual_card_utils.cc",
     "virtual_card_utils.h",
+    "wallet_reminder_notice_ui_delegate_android.cc",
+    "wallet_reminder_notice_ui_delegate_android.h",
   ]
   deps = [
     "//base",
@@ -108,7 +114,9 @@ source_set("unit_tests") {
     "autofill_save_card_delegate_android_unittest.cc",
     "autofill_save_iban_delegate_unittest.cc",
     "autofill_vcn_enroll_bottom_sheet_bridge_unittest.cc",
+    "email_verification_bottom_sheet_bridge_unittest.cc",
     "save_update_address_profile_flow_manager_unittest.cc",
+    "wallet_reminder_notice_ui_delegate_android_unittest.cc",
   ]
   deps = [
     ":autofill",
@@ -117,7 +125,6 @@ source_set("unit_tests") {
     "//chrome/browser/android:resource_mapper",
     "//chrome/browser/autofill",
     "//chrome/browser/personal_context/first_run",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:test_support",
     "//chrome/browser/ui/android/autofill:test_support",
     "//chrome/browser/ui/android/tab_model:test_support",

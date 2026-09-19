@@ -9,15 +9,48 @@ source_set("device_authorization") {
   ]
 
   deps = [
+    ":metrics",
+    ":switches",
     "//base",
     "//components/endpoint_fetcher",
     "//components/signin/public/base",
     "//components/signin/public/identity_manager",
     "//components/sync/base",
     "//components/version_info",
+    "//components/webauthn/core/browser/device_authorization/proto",
     "//net",
     "//net/traffic_annotation",
     "//services/network/public/cpp",
+    "//url",
+  ]
+}
+
+source_set("features") {
+  sources = [
+    "device_authorization_features.cc",
+    "device_authorization_features.h",
+  ]
+
+  deps = [ "//base" ]
+}
+
+source_set("metrics") {
+  sources = [
+    "device_authorization_metrics.cc",
+    "device_authorization_metrics.h",
+  ]
+
+  deps = [ "//base" ]
+}
+
+source_set("switches") {
+  sources = [
+    "device_authorization_switches.cc",
+    "device_authorization_switches.h",
+  ]
+
+  deps = [
+    "//base",
     "//url",
   ]
 }
@@ -28,11 +61,14 @@ source_set("unit_tests") {
 
   deps = [
     ":device_authorization",
+    ":metrics",
+    ":switches",
     "//base",
     "//base/test:test_support",
     "//components/endpoint_fetcher",
     "//components/signin/public/base",
     "//components/signin/public/identity_manager:test_support",
+    "//components/webauthn/core/browser/device_authorization/proto",
     "//google_apis",
     "//net",
     "//services/network:test_support",

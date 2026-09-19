@@ -11,6 +11,7 @@ import android.os.Bundle;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.fragment.app.Fragment;
 
 import org.chromium.base.ObserverList;
@@ -34,6 +35,7 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerFacto
 import org.chromium.components.browser_ui.bottomsheet.ManagedBottomSheetController;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
+import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.BackPressResult;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager.ScrimClient;
 import org.chromium.ui.KeyboardVisibilityDelegate;
@@ -112,7 +114,27 @@ public class SettingsInTabTestActivity extends ChromeBaseAppCompatActivity
                         assumeNonNull(mBottomSheetControllerSupplier.get()),
                         assumeNonNull(getModalDialogManager()),
                         new MockTab(TAB_ID, mProfile));
-        mFragmentDelegate.initSettings(contentView, "");
+        mFragmentDelegate.initSettingsForTesting(contentView, "");
+
+        // Delegate back presses to the settings fragment delegate so detail fragments or
+        // child pages popped from the multi-column backstack are handled properly before
+        // falling back to default activity back press behavior.
+        var onBackPressedCallback =
+                new OnBackPressedCallback(/* enabled= */ true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (mFragmentDelegate != null
+                                && mFragmentDelegate.handleBackPress() == BackPressResult.SUCCESS) {
+                            return;
+                        }
+                        // Temporarily disable this callback so calling onBackPressed() passes
+                        // through to the next callback without causing recursion.
+                        setEnabled(false);
+                        getOnBackPressedDispatcher().onBackPressed();
+                        setEnabled(true);
+                    }
+                };
+        getOnBackPressedDispatcher().addCallback(this, onBackPressedCallback);
 
         // Ensure bottom sheets are above the settings views.
         contentView.bringChildToFront(sheetContainer);
@@ -153,22 +175,26 @@ public class SettingsInTabTestActivity extends ChromeBaseAppCompatActivity
 
     @Override
     public @Nullable Fragment getMainFragment() {
-        SettingsHostFragment host = SettingsHostFragment.get(this);
-        return host != null ? host.getMainFragment() : null;
+        // Delegate to mFragmentDelegate rather than SettingsHostFragment.get(this), because get()
+        // requires the host fragment view to be isShown(), which may be false in test setups.
+        return mFragmentDelegate != null ? mFragmentDelegate.getMainFragment() : null;
     }
 
     @Override
     public void finishCurrentSettings(Fragment fragment) {
-        SettingsHostFragment host = SettingsHostFragment.get(this);
-        if (host != null) {
-            host.finishCurrentSettings(fragment);
+        if (mFragmentDelegate != null) {
+            mFragmentDelegate.finishCurrentSettings(fragment);
         }
     }
 
     @Override
     public @Nullable MultiColumnSettings getMultiColumnSettings() {
-        SettingsHostFragment host = SettingsHostFragment.get(this);
-        return host != null ? host.getMultiColumnSettings() : null;
+        return mFragmentDelegate != null ? mFragmentDelegate.getMultiColumnSettings() : null;
+    }
+
+    @Override
+    public @Nullable Object getSearchCoordinator() {
+        return mFragmentDelegate.getSearchCoordinator();
     }
 
     @Override

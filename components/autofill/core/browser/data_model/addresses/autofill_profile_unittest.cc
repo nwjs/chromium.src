@@ -28,7 +28,7 @@
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/geo/autofill_country.h"
 #include "components/autofill/core/browser/geo/country_data.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/browser/test_utils/test_profiles.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -2269,13 +2269,9 @@ TEST_F(AutofillProfileTest, ProfilesMerge_InvalidCountryCode) {
   AutofillProfile incoming(AddressCountryCode("XX"));
   incoming.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, u"650-253-0000");
 
-  AutofillProfileComparator comparator("en-US");
-
   // They should be mergeable because:
   // 1. Phone numbers match (6502530000 vs 650-253-0000)
   // 2. Countries are mergeable because `existing` has no country.
-  ASSERT_TRUE(comparator.AreMergeable(existing, incoming));
-
   // This will call `MergeDataFrom(incoming, "en-US")` region hint will be "US"
   // (from app_locale).
   ASSERT_EQ(existing.MergeDataFrom(incoming, "en-US"),

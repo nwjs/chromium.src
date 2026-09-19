@@ -65,6 +65,7 @@
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/pointer_interaction_util.h"
+#import "ios/chrome/common/ui/util/ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/public/provider/chrome/browser/lens/lens_api.h"
 #import "ui/base/l10n/l10n_util.h"
@@ -299,8 +300,12 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
 }
 
 - (void)updateTrailingButtonState {
-  if (IsNextOldDesignEnabled()) {
-    self.trailingButtonState = kShareButton;
+  if (IsChromeNextIaEnabled()) {
+    BOOL shouldShowVoiceSearch = self.traitCollection.verticalSizeClass ==
+                                 UIUserInterfaceSizeClassCompact;
+
+    self.trailingButtonState =
+        shouldShowVoiceSearch ? kVoiceSearchButton : kShareButton;
     return;
   }
 
@@ -503,10 +508,6 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
 - (void)updateForFullscreenProgress:(CGFloat)progress {
   _fullscreenProgress = progress;
   CGFloat alphaValue = fmax((progress - 0.85) / 0.15, 0);
-  CGFloat scaleValue =
-      IsChromeNextIaEnabled()
-          ? kFullscreenScaleFactor + (1 - kFullscreenScaleFactor) * progress
-          : 0.79 + 0.21 * progress;
   self.locationBarSteadyView.trailingButton.alpha = alphaValue;
   self.locationBarSteadyView.badgesContainerView.placeholderView.alpha =
       alphaValue;
@@ -517,8 +518,14 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
   BOOL badgeViewShouldCollapse = progress <= kFullscreenProgressThreshold;
   [self.locationBarSteadyView
       setFullScreenCollapsedMode:badgeViewShouldCollapse];
-  self.locationBarSteadyView.transform =
-      CGAffineTransformMakeScale(scaleValue, scaleValue);
+  if (!IsGlassToolbarEnabled()) {
+    CGFloat scaleValue =
+        IsChromeNextIaEnabled()
+            ? kFullscreenScaleFactor + (1 - kFullscreenScaleFactor) * progress
+            : (0.79 + 0.21 * progress);
+    self.locationBarSteadyView.transform =
+        CGAffineTransformMakeScale(scaleValue, scaleValue);
+  }
   [self updateCustomLeadingViewVisibilityAnimated:YES];
 }
 
@@ -968,7 +975,10 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
   if (!self.isViewLoaded) {
     return;
   }
-  if (_active) {
+  // The _active flag is only used when NextIA is enabled. When it is disabled,
+  // the location bar should always be treated as active for layout guides.
+  BOOL isActive = _active || !IsChromeNextIaEnabled();
+  if (isActive) {
     if (self.readerModeChipView) {
       [self.layoutGuideCenter referenceView:self.readerModeChipView
                                   underName:kReaderModeOptionsEntrypointGuide];

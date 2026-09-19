@@ -112,11 +112,7 @@ export function webFormElementToFormData(
   const controlElements =
       getFormControlElements(formElement) as FormControlElement[];
 
-  let iframeElements = extractChildFrames &&
-          autofillFormFeaturesApi.getFunction(
-              'isAutofillAcrossIframesEnabled')() ?
-      getIframeElements(formElement) :
-      [];
+  let iframeElements = extractChildFrames ? getIframeElements(formElement) : [];
 
   // To avoid performance bottlenecks, do not keep child frames if their
   // quantity exceeds the allowed threshold.
@@ -205,7 +201,6 @@ export function webFormControlElementToFormField(
       inferenceUtil.isTextAreaElement(element) ||
       inferenceUtil.isSelectElement(element)) {
     field.is_autofilled = (element as any).isAutofilled;
-    field.is_user_edited_deprecated = fieldWasEditedByUser(element);
     field.should_autocomplete = fillUtil.shouldAutocomplete(element);
     field.is_focusable = !element.disabled && !(element as any).readOnly &&
         element.tabIndex >= 0 && fillUtil.isVisibleNode(element);
@@ -221,11 +216,7 @@ export function webFormControlElementToFormField(
     field.max_length = 0;
   }
 
-  if (inferenceUtil.isAutofillableInputElement(element)) {
-    field.is_checkable = inferenceUtil.isCheckableElement(element);
-  } else if (inferenceUtil.isTextAreaElement(element)) {
-    // Nothing more to do in this case.
-  } else {
+  if (inferenceUtil.isSelectElement(element)) {
     fillUtil.getOptionStringsFromElement(element as HTMLSelectElement, field);
   }
 
@@ -733,9 +724,7 @@ export function autofillSubmissionData(form: HTMLFormElement):
  * makes an edited field unedited.
  */
 export function fieldWasEditedByUser(element: Element) {
-  return !autofillFormFeaturesApi.getFunction(
-             'isAutofillCorrectUserEditedBitInParsedField')() ||
-      (wasEditedByUser.get(element) ?? false);
+  return (wasEditedByUser.get(element) ?? false);
 }
 
 /**

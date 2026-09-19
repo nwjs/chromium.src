@@ -248,6 +248,8 @@ inline constexpr char kAutofillThirdPartyPackageUsedForPlatformAutofill[] =
     "autofill.third_party_package_used_for_platform_autofill";
 inline constexpr char kFacilitatedPaymentsEwallet[] =
     "facilitated_payments.ewallet";
+inline constexpr char kFacilitatedPaymentsEwalletAccountLinking[] =
+    "facilitated_payments.ewallet_account_linking_enabled";
 inline constexpr char kFacilitatedPaymentsPix[] = "facilitated_payments.pix";
 inline constexpr char kFacilitatedPaymentsPixAccountLinking[] =
     "facilitated_payments.pix_account_linking_enabled";
@@ -280,6 +282,12 @@ inline constexpr char kAutofillAutocompleteLabelSensitiveMigrationGeneration[] =
 // value is reached, we should not show a mandatory re-auth promo.
 const int kMaxValueForMandatoryReauthPromoShownCounter = 2;
 
+// Boolean indicating whether the user has been shown the Wallet reminder
+// notice. This pref is synced and is written only to the account store, so is
+// effectively tied to a GAIA id.
+inline constexpr char kAutofillWalletReminderNoticeShown[] =
+    "autofill.wallet_reminder_notice_shown";
+
 namespace sync_transport_opt_in {
 enum Flags {
   kWallet = 1 << 0,
@@ -310,8 +318,6 @@ void SetAutofillHasSeenIban(PrefService* prefs);
 bool IsAutofillProfileManaged(const PrefService* prefs);
 
 bool IsAutofillCreditCardManaged(const PrefService* prefs);
-
-bool IsAutofillTypesBlockedManaged(const PrefService* prefs);
 
 bool IsAutofillProfileEnabled(const PrefService* prefs);
 
@@ -368,6 +374,12 @@ void SetFacilitatedPaymentsEwallet(PrefService* prefs, bool value);
 
 bool IsFacilitatedPaymentsEwalletEnabled(const PrefService* prefs);
 
+void SetFacilitatedPaymentsEwalletAccountLinking(PrefService* prefs,
+                                                 bool value);
+
+bool IsFacilitatedPaymentsEwalletAccountLinkingEnabled(
+    const PrefService* prefs);
+
 void SetFacilitatedPaymentsPix(PrefService* prefs, bool value);
 
 bool IsFacilitatedPaymentsPixEnabled(const PrefService* prefs);
@@ -391,6 +403,14 @@ bool HasSeenBnpl(const PrefService* prefs);
 void SetAutofillAmountExtractionAiTermsSeen(PrefService* prefs);
 
 bool AmountExtractionAiTermsSeen(const PrefService* prefs);
+
+// Records that the user has been shown the Wallet reminder notice in `prefs`.
+void SetHasShownWalletReminderNotice(PrefService* prefs);
+
+// Returns `true` if the user has already been shown the Wallet reminder notice
+// according to `prefs`, `false` otherwise.
+bool HasShownWalletReminderNotice(const PrefService* prefs);
+
 }  // namespace autofill::prefs
 
 #endif  // COMPONENTS_AUTOFILL_CORE_COMMON_AUTOFILL_PREFS_H_

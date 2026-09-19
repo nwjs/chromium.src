@@ -22,8 +22,8 @@
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/profiles/profile_colors_util.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
@@ -254,6 +254,18 @@ void ManagedProfileCreationController::ShowManagementDisclaimer() {
 
   if (!has_browser_with_tab) {
     // Posting the task here so that all code paths are asynchronous.
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            std::move(callback_),
+            base::unexpected(
+                ManagedProfileCreationFailureReason::kNoActiveBrowser),
+            profile_creation_required_by_policy_));
+    return;
+  }
+
+  if (browser && !browser->GetActiveTabInterface()) {
+    // The tabs have not been initialized yet.
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
         base::BindOnce(

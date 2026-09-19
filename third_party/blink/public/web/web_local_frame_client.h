@@ -276,6 +276,7 @@ class BLINK_EXPORT WebLocalFrameClient {
   using FinishChildFrameCreationFn = base::FunctionRef<void(
       WebLocalFrame*,
       const DocumentToken&,
+      const base::UnguessableToken& initiator_state_token,
       CrossVariantMojoRemote<mojom::BrowserInterfaceBrokerInterfaceBase>,
       std::unique_ptr<base::UnguessableToken> sandbox_origin_token)>;
   virtual WebLocalFrame* CreateChildFrame(
@@ -657,6 +658,11 @@ class BLINK_EXPORT WebLocalFrameClient {
   // A new soft navigation was observed.
   virtual void DidObserveSoftNavigation(
       SoftNavigationMetricsForReporting metrics) {}
+
+  // A new First Contentful Paint was observed for a soft navigation.
+  virtual void DidObserveSoftNavigationFirstContentfulPaint(
+      uint64_t performance_timeline_navigation_id,
+      base::TimeDelta first_contentful_paint) {}
 
   // A new largest contentful paint candidate relating to the most recent
   // soft navigation was observed. Also see DidObserveSoftNavigation().

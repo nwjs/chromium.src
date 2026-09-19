@@ -26,7 +26,6 @@
 #import "components/sync_sessions/open_tabs_ui_delegate.h"
 #import "components/sync_sessions/session_sync_service.h"
 #import "ios/chrome/app/tests_hook.h"
-#import "ios/chrome/browser/authentication/history_sync/coordinator/history_sync_coordinator.h"
 #import "ios/chrome/browser/authentication/history_sync/model/history_sync_utils.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/signin_promo_view_configurator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/signin_promo_view_consumer.h"
@@ -794,7 +793,7 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
         [weakSelf removeSection:sectionIdentifier forSessionWithTag:sessionTag];
       }
       completion:^(BOOL) {
-        [weakSelf deleteSession:sessionTag];
+        [weakSelf.presentationDelegate deleteForeignSession:sessionTag];
       }];
 }
 
@@ -831,13 +830,6 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
 
   [self.tableView deleteSections:[NSIndexSet indexSetWithIndex:sectionIndex]
                 withRowAnimation:UITableViewRowAnimationLeft];
-}
-
-// Helper for removeSessionAtTableSectionWithIdentifier
-- (void)deleteSession:(std::string)sessionTag {
-  SessionSyncServiceFactory::GetForProfile(self.profile)
-      ->GetOpenTabsUIDelegate()
-      ->DeleteForeignSession(sessionTag);
 }
 
 #pragma mark - Private
@@ -957,8 +949,11 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
       [self.tableViewModel itemTypeForIndexPath:indexPath];
   switch (itemTypeSelected) {
     case ItemTypeRecentlyClosed:
-      [self openTabWithTabRestoreEntryId:
+      if (!self.presentedViewController) {
+        [self.presentationDelegate
+            openTabWithTabRestoreEntryId:
                 [self tabRestoreEntryIdAtIndexPath:indexPath]];
+      }
       break;
     case ItemTypeSessionTabData:
       [self
@@ -1359,37 +1354,6 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
           WebStateList::InsertionParams::Automatic().Activate());
     }
   }
-  [self.presentationDelegate showActiveRegularTabFromRecentTabs];
-}
-
-- (void)openTabWithTabRestoreEntryId:(const SessionID)entry_id {
-  if (!self.browser) {
-    // Prevent interactions if the browser is nil, for example during dismissal.
-    return;
-  }
-
-  // It is reasonable to ignore this request if a modal UI is already showing
-  // above recent tabs. This can happen when a user simultaneously taps a
-  // recently closed tab and "enable sync". The sync settings UI appears first
-  // and we should not dismiss it to restore a recently closed tab.
-  if (self.presentedViewController) {
-    return;
-  }
-
-  base::RecordAction(
-      base::UserMetricsAction("MobileRecentTabManagerRecentTabOpened"));
-  web::WebState* activeWebState = self.webStateList->GetActiveWebState();
-  bool is_ntp =
-      activeWebState && activeWebState->GetVisibleURL() == kChromeUINewTabURL;
-  new_tab_page_uma::RecordNTPAction(
-      self.isIncognito, is_ntp,
-      new_tab_page_uma::ACTION_OPENED_RECENTLY_CLOSED_ENTRY);
-
-  WindowOpenDisposition disposition =
-      IsNTPWithoutHistory(self.webStateList->GetActiveWebState())
-          ? WindowOpenDisposition::CURRENT_TAB
-          : WindowOpenDisposition::NEW_FOREGROUND_TAB;
-  RestoreTab(entry_id, disposition, self.browser);
   [self.presentationDelegate showActiveRegularTabFromRecentTabs];
 }
 

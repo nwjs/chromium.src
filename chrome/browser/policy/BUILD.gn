@@ -6,6 +6,7 @@ import("//components/enterprise/buildflags/buildflags.gni")
 import("//components/on_device_translation/buildflags/features.gni")
 import("//components/safe_browsing/buildflags.gni")
 import("//components/signin/features.gni")
+import("//content/browser/devtools/features.gni")
 import("//extensions/buildflags/buildflags.gni")
 import("//pdf/features.gni")
 import("//printing/buildflags/buildflags.gni")
@@ -295,6 +296,7 @@ source_set("test_support") {
     deps += [
       "//chrome/browser/preloading:test_support",
       "//chrome/browser/profiles:profile",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/location_bar",
       "//chrome/common:constants",
       "//chrome/common/net",
@@ -503,7 +505,6 @@ source_set("browser_tests") {
     "//chrome/test:test_support",
     "//components/enterprise",
     "//components/enterprise:test_support",
-    "//components/invalidation:legacy_topics_cleanup",
     "//components/invalidation:test_support",
     "//components/keyed_service/core",
     "//components/policy:chrome_settings_proto_generated_compile",
@@ -623,7 +624,7 @@ source_set("browser_tests") {
       "test/renderer_app_container_enabled_win_browsertest.cc",
       "test/restrict_core_sharing_policy_browsertest.cc",
     ]
-    deps += [ "//chrome/browser/win:isolated_browser_support" ]
+    deps += [ "//chrome/browser/win/isolated_browser:isolated_browser_support" ]
   }
 
   if (is_win || is_linux) {
@@ -707,6 +708,7 @@ source_set("browser_tests") {
       "//chrome/browser/search_engines",
       "//chrome/browser/site_protection:utils",
       "//chrome/browser/ui:browser_otr_state",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/search:test_support_ui",
       "//chrome/browser/ui/toolbar/cast",
       "//chrome/browser/usb",
@@ -814,6 +816,7 @@ source_set("unit_tests") {
     "messaging_layer/util/user_dm_token_retriever_unittest.cc",
     "profile_policy_connector_unittest.cc",
     "serial_allow_usb_devices_for_urls_policy_handler_unittest.cc",
+    "status_provider/user_cloud_policy_status_provider_unittest.cc",
     "value_provider/policy_value_provider_unittest.cc",
     "webhid_device_policy_handler_unittest.cc",
     "webusb_allow_devices_for_urls_policy_handler_unittest.cc",
@@ -852,12 +855,7 @@ source_set("unit_tests") {
   }
 
   if (!is_android) {
-    sources += [
-      "developer_tools_availability_list_policy_handler_unittest.cc",
-      "developer_tools_policy_checker_factory_unittest.cc",
-      "developer_tools_policy_checker_unittest.cc",
-      "policy_path_parser_unittest.cc",
-    ]
+    sources += [ "policy_path_parser_unittest.cc" ]
     deps += [ ":path_parser" ]
   }
 
@@ -877,8 +875,13 @@ source_set("unit_tests") {
     ]
   }
 
-  if (!is_android || enable_desktop_android_extensions) {
-    sources += [ "developer_tools_policy_handler_unittest.cc" ]
+  if (enable_devtools_frontend) {
+    sources += [
+      "developer_tools_availability_list_policy_handler_unittest.cc",
+      "developer_tools_policy_checker_factory_unittest.cc",
+      "developer_tools_policy_checker_unittest.cc",
+      "developer_tools_policy_handler_unittest.cc",
+    ]
   }
 
   if (is_android) {
@@ -915,6 +918,7 @@ source_set("unit_tests") {
       "networking/network_configuration_updater_unittest.cc",
       "status_provider/device_cloud_policy_status_provider_chromeos_unittest.cc",
       "status_provider/device_local_account_policy_status_provider_unittest.cc",
+      "status_provider/user_cloud_policy_status_provider_chromeos_unittest.cc",
       "system_features_disable_list_policy_handler_unittest.cc",
     ]
     deps += [
@@ -1048,6 +1052,10 @@ source_set("policy") {
     ]
   }
 
+  if (enable_devtools_frontend) {
+    public += [ "developer_tools_availability_list_policy_handler.h" ]
+  }
+
   if (enterprise_client_certificates) {
     public_deps += [ "//components/enterprise/client_certificates/core" ]
   }
@@ -1118,10 +1126,7 @@ source_set("policy") {
   }
 
   if (is_linux || is_win || is_mac || is_chromeos) {
-    public += [
-      "battery_saver_policy_handler.h",
-      "developer_tools_availability_list_policy_handler.h",
-    ]
+    public += [ "battery_saver_policy_handler.h" ]
   }
 
   if (is_linux || is_win || is_mac) {
@@ -1337,6 +1342,10 @@ source_set("impl") {
     deps += [ "//chrome/browser/pdf:pdf_pref_names" ]
   }
 
+  if (enable_devtools_frontend) {
+    sources += [ "developer_tools_availability_list_policy_handler.cc" ]
+  }
+
   if (safe_browsing_mode != 0) {
     deps += [ "//components/safe_browsing/content/common:file_type_policies" ]
   }
@@ -1492,10 +1501,7 @@ source_set("impl") {
   }
 
   if (is_linux || is_win || is_mac || is_chromeos) {
-    sources += [
-      "battery_saver_policy_handler.cc",
-      "developer_tools_availability_list_policy_handler.cc",
-    ]
+    sources += [ "battery_saver_policy_handler.cc" ]
   }
 
   if (is_linux || is_win || is_mac) {

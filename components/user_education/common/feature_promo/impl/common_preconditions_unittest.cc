@@ -11,6 +11,7 @@
 #include "base/test/bind.h"
 #include "components/feature_engagement/public/configuration.h"
 #include "components/feature_engagement/test/mock_tracker.h"
+#include "components/user_education/common/anchor_element_provider.h"
 #include "components/user_education/common/feature_promo/feature_promo_lifecycle.h"
 #include "components/user_education/common/feature_promo/feature_promo_precondition.h"
 #include "components/user_education/common/feature_promo/feature_promo_result.h"
@@ -144,7 +145,8 @@ TEST(CommonPreconditionsTest, AnchorElementPrecondition) {
   ui::test::TestElement el(kTestId, kTestContext);
   el.Show();
   test::MockAnchorElementProvider provider;
-  AnchorElementPrecondition precond(provider, kTestContext, false);
+  AnchorElementPrecondition precond(provider, kTestContext,
+                                    AnchorElementFilter(), false);
 
   test::TestUserEducationStorageService storage_service;
   UnownedTypedDataCollection data;
@@ -155,13 +157,15 @@ TEST(CommonPreconditionsTest, AnchorElementPrecondition) {
           FeaturePromoLifecycle::PromoType::kToast,
           FeaturePromoLifecycle::PromoSubtype::kNormal, 0));
 
-  EXPECT_CALL(provider, GetAnchorElement(kTestContext, std::optional<int>()))
+  EXPECT_CALL(provider,
+              GetAnchorElement(kTestContext, testing::_, std::optional<int>()))
       .WillOnce(testing::Return(nullptr));
   EXPECT_EQ(FeaturePromoResult::kAnchorNotVisible,
             precond.CheckPrecondition(data));
   EXPECT_EQ(nullptr, data[AnchorElementPrecondition::kAnchorElement].get());
 
-  EXPECT_CALL(provider, GetAnchorElement(kTestContext, std::optional<int>()))
+  EXPECT_CALL(provider,
+              GetAnchorElement(kTestContext, testing::_, std::optional<int>()))
       .WillOnce(testing::Return(&el));
   EXPECT_EQ(FeaturePromoResult::Success(), precond.CheckPrecondition(data));
   EXPECT_EQ(&el, data[AnchorElementPrecondition::kAnchorElement].get());
@@ -171,7 +175,8 @@ TEST(CommonPreconditionsTest, AnchorElementPrecondition) {
       FeaturePromoLifecycle::PromoType::kRotating,
       FeaturePromoLifecycle::PromoSubtype::kNormal, 3);
   (*lifecycle_data)->SetPromoIndex(1);
-  EXPECT_CALL(provider, GetAnchorElement(kTestContext, std::make_optional(2)))
+  EXPECT_CALL(provider,
+              GetAnchorElement(kTestContext, testing::_, std::make_optional(2)))
       .WillOnce(testing::Return(nullptr));
   EXPECT_CALL(provider, GetNextValidIndex(1)).WillOnce(testing::Return(2));
   EXPECT_EQ(FeaturePromoResult::kAnchorNotVisible,
@@ -186,7 +191,8 @@ TEST(CommonPreconditionsTest,
   el.Show();
 
   test::MockAnchorElementProvider provider;
-  AnchorElementPrecondition precond(provider, kTestContext, false);
+  AnchorElementPrecondition precond(provider, kTestContext,
+                                    AnchorElementFilter(), false);
 
   OwnedTypedDataCollection coll;
   test::TestUserEducationStorageService storage_service;
@@ -198,7 +204,8 @@ TEST(CommonPreconditionsTest,
           FeaturePromoLifecycle::PromoType::kToast,
           FeaturePromoLifecycle::PromoSubtype::kNormal, 0));
 
-  EXPECT_CALL(provider, GetAnchorElement(kTestContext, std::optional<int>()))
+  EXPECT_CALL(provider,
+              GetAnchorElement(kTestContext, testing::_, std::optional<int>()))
       .WillOnce(testing::Return(&el));
   EXPECT_EQ(FeaturePromoResult::Success(), precond.CheckPrecondition(cd));
 
@@ -214,7 +221,8 @@ TEST(CommonPreconditionsTest,
      AnchorElementPrecondition_ExtractCachedDataReturnsNull) {
 
   test::MockAnchorElementProvider provider;
-  AnchorElementPrecondition precond(provider, kTestContext, false);
+  AnchorElementPrecondition precond(provider, kTestContext,
+                                    AnchorElementFilter(), false);
 
   OwnedTypedDataCollection coll;
   test::TestUserEducationStorageService storage_service;
@@ -226,7 +234,8 @@ TEST(CommonPreconditionsTest,
           FeaturePromoLifecycle::PromoType::kToast,
           FeaturePromoLifecycle::PromoSubtype::kNormal, 0));
 
-  EXPECT_CALL(provider, GetAnchorElement(kTestContext, std::optional<int>()))
+  EXPECT_CALL(provider,
+              GetAnchorElement(kTestContext, testing::_, std::optional<int>()))
       .WillOnce(testing::Return(nullptr));
   EXPECT_EQ(FeaturePromoResult::kAnchorNotVisible,
             precond.CheckPrecondition(cd));

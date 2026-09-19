@@ -13,7 +13,7 @@
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/field_types.h"
-#include "components/autofill/core/common/autofill_test_utils.h"
+#include "components/autofill/core/common/autofill_test_util.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -30,7 +30,6 @@ FormFieldData CreateTestField() {
   f.set_name_attribute(f.name());
   f.set_id_attribute(u"some_id");
   f.set_form_control_type(FormControlType::kInputText);
-  f.set_check_status(FormFieldData::CheckStatus::kChecked);
   return f;
 }
 
@@ -163,23 +162,6 @@ TEST_F(FormFieldDataAndroidTest, SimilarFieldsAs) {
   // If global ids differ, they are not similar.
   f2 = f1;
   f2.set_renderer_id(FieldRendererId(f1.renderer_id().value() + 1));
-  EXPECT_FALSE(af.SimilarFieldAs(f2));
-}
-
-// Tests that field similarity checks whether a field is checkable, but not
-// whether it is checked.
-TEST_F(FormFieldDataAndroidTest, SimilarFieldsAs_Checkable) {
-  FormFieldData f1 = CreateTestField();
-  FormFieldData f2 = CreateTestField();
-  f1.set_check_status(FormFieldData::CheckStatus::kCheckableButUnchecked);
-  FormFieldDataAndroid af(&f1);
-
-  // If they are both checkable, they are similar (even if one is checked and
-  // the other is not).
-  f2.set_check_status(FormFieldData::CheckStatus::kChecked);
-  EXPECT_TRUE(af.SimilarFieldAs(f2));
-
-  f2.set_check_status(FormFieldData::CheckStatus::kNotCheckable);
   EXPECT_FALSE(af.SimilarFieldAs(f2));
 }
 

@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_CONTEXT_HUB_MEMORY_BANK_MEMORY_BANK_H_
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "base/containers/span.h"
@@ -18,10 +19,16 @@ class MemoryBank {
  public:
   virtual ~MemoryBank() = default;
 
-  using OperationCompleteCallback = base::OnceClosure;
+  using OperationCompleteCallback = base::OnceCallback<void(bool)>;
   // Saves or updates an entry in the memory bank.
   virtual void SaveMemoryBankEntry(MemoryBankEntry entry,
                                    OperationCompleteCallback callback) = 0;
+  // Updates the annotations (tags, note, collection) for an existing entry.
+  virtual void UpdateEntryAnnotations(int64_t id,
+                                      std::vector<std::string> tags,
+                                      std::optional<std::string> note,
+                                      std::optional<std::string> collection,
+                                      OperationCompleteCallback callback) = 0;
   // Deletes entries from the memory bank.
   virtual void DeleteEntries(base::span<const int64_t> ids,
                              OperationCompleteCallback callback) = 0;
@@ -32,6 +39,12 @@ class MemoryBank {
   // Returns entries for the given IDs from the memory bank via the callback.
   virtual void GetEntriesByIds(base::span<const int64_t> ids,
                                GetEntriesCallback callback) const = 0;
+  using GetStringsCallback =
+      base::OnceCallback<void(const std::vector<std::string>&)>;
+  // Returns all unique tags from the memory bank via the callback.
+  virtual void GetAllTags(GetStringsCallback callback) const = 0;
+  // Returns all unique collections from the memory bank via the callback.
+  virtual void GetAllCollections(GetStringsCallback callback) const = 0;
 };
 
 }  // namespace context_hub

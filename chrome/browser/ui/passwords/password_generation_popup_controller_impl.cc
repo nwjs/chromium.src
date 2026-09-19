@@ -293,7 +293,8 @@ void PasswordGenerationPopupControllerImpl::Show(GenerationUIState state) {
   if (state_ == kOfferGeneration) {
     driver_->PreviewGenerationSuggestion(current_generated_password_);
 
-    // For the screen reader users, move the focus to the accept button on show.
+    // For screen reader users, select the accept button on show so that
+    // virtual focus announces the suggestion and popup content immediately.
     if (ui::AXPlatform::GetInstance().IsScreenReaderActive()) {
       SelectElement(PasswordGenerationPopupElement::kAcceptButton);
     }
@@ -317,13 +318,6 @@ void PasswordGenerationPopupControllerImpl::FrameWasScrolled() {
 }
 
 void PasswordGenerationPopupControllerImpl::GenerationElementLostFocus() {
-  // Popup's widget will only be activated in generation state with an active
-  // screen reader, resulting in the focus moving to the popup. Prevent hiding
-  // the popup here.
-  if (view_->IsWidgetActive()) {
-    return;
-  }
-
   HideImpl();
 }
 

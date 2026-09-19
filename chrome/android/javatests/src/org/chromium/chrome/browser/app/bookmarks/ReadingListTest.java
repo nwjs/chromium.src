@@ -99,7 +99,10 @@ import java.util.concurrent.ExecutionException;
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @ImportantFormFactors(DeviceFormFactor.ONLY_TABLET)
 @DoNotBatch(reason = "BookmarkTest has behaviours and thus can't be batched.")
-@DisableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+@DisableFeatures({
+    ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT,
+    ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_DIALOG
+})
 public class ReadingListTest {
     @Rule
     public FreshCtaTransitTestRule mActivityTestRule =
@@ -145,7 +148,8 @@ public class ReadingListTest {
         BookmarkTestUtil.waitForBookmarkModelLoaded();
 
         if (mActivityTestRule.getActivity().isTablet()) {
-            mActivityTestRule.loadUrl(getOriginalNativeBookmarksUrl());
+            String rootFolderId = "folder/0";
+            mActivityTestRule.loadUrl(getOriginalNativeBookmarksUrl() + rootFolderId);
             ThreadUtils.runOnUiThreadBlocking(
                     () -> {
                         mItemsContainer =

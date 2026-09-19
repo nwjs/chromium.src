@@ -49,13 +49,13 @@
 #include "components/autofill/core/browser/foundations/test_autofill_driver.h"
 #include "components/autofill/core/browser/foundations/test_browser_autofill_manager.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics_test_base.h"
-#include "components/autofill/core/browser/metrics/autofill_metrics_utils.h"
+#include "components/autofill/core/browser/metrics/autofill_metrics_util.h"
 #include "components/autofill/core/browser/metrics/form_events/address_form_event_logger.h"
 #include "components/autofill/core/browser/metrics/form_events/credit_card_form_event_logger.h"
 #include "components/autofill/core/browser/metrics/form_events/form_events.h"
 #include "components/autofill/core/browser/metrics/form_interactions_ukm_logger.h"
 #include "components/autofill/core/browser/metrics/payments/credit_card_save_metrics.h"
-#include "components/autofill/core/browser/metrics/ukm_metrics_test_utils.h"
+#include "components/autofill/core/browser/metrics/ukm_metrics_test_util.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/test_credit_card_save_manager.h"
@@ -63,17 +63,17 @@
 #include "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator_util.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
-#include "components/autofill/core/browser/test_utils/autofill_form_test_utils.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_form_test_util.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/browser/test_utils/test_autofill_clock.h"
-#include "components/autofill/core/browser/test_utils/valuables_data_test_utils.h"
+#include "components/autofill/core/browser/test_utils/valuables_data_test_util.h"
 #include "components/autofill/core/browser/ui/autofill_external_delegate.h"
 #include "components/autofill/core/browser/ui/test_autofill_external_delegate.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
-#include "components/autofill/core/common/autofill_test_utils.h"
+#include "components/autofill/core/common/autofill_test_util.h"
 #include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_data_test_api.h"
@@ -602,8 +602,9 @@ TEST_F(AutofillMetricsTest, CreditCardCheckoutFlowUserActions) {
     base::UserActionTester user_action_tester;
     DidShowAutofillSuggestions(form, /*field_index=*/0,
                                SuggestionType::kCreditCardEntry);
-    EXPECT_EQ(1, user_action_tester.GetActionCount(
-                     "Autofill_ShowedCreditCardSuggestions"));
+    EXPECT_EQ(user_action_tester.GetActionCount(
+                  "Autofill_ShowedCreditCardSuggestions"),
+              1);
   }
 
   // Simulate showing a credit card suggestion polled from "Credit card number"
@@ -612,8 +613,9 @@ TEST_F(AutofillMetricsTest, CreditCardCheckoutFlowUserActions) {
     base::UserActionTester user_action_tester;
     DidShowAutofillSuggestions(form, /*field_index=*/1,
                                SuggestionType::kCreditCardEntry);
-    EXPECT_EQ(1, user_action_tester.GetActionCount(
-                     "Autofill_ShowedCreditCardSuggestions"));
+    EXPECT_EQ(user_action_tester.GetActionCount(
+                  "Autofill_ShowedCreditCardSuggestions"),
+              1);
   }
 
   // Simulate selecting a credit card suggestions.
@@ -630,8 +632,8 @@ TEST_F(AutofillMetricsTest, CreditCardCheckoutFlowUserActions) {
                                        Suggestion::Guid(kTestLocalCardId)),
         AutofillSuggestionDelegate::SuggestionMetadata{.multi_index = {0}});
 
-    EXPECT_EQ(1,
-              user_action_tester.GetActionCount("Autofill_SelectedSuggestion"));
+    EXPECT_EQ(user_action_tester.GetActionCount("Autofill_SelectedSuggestion"),
+              1);
   }
 
   // Simulate showing a credit card suggestion polled from "Credit card number"
@@ -640,8 +642,9 @@ TEST_F(AutofillMetricsTest, CreditCardCheckoutFlowUserActions) {
     base::UserActionTester user_action_tester;
     DidShowAutofillSuggestions(form, /*field_index=*/1,
                                SuggestionType::kCreditCardEntry);
-    EXPECT_EQ(1, user_action_tester.GetActionCount(
-                     "Autofill_ShowedCreditCardSuggestions"));
+    EXPECT_EQ(user_action_tester.GetActionCount(
+                  "Autofill_ShowedCreditCardSuggestions"),
+              1);
   }
 
 #if !BUILDFLAG(IS_IOS)
@@ -658,7 +661,7 @@ TEST_F(AutofillMetricsTest, CreditCardCheckoutFlowUserActions) {
         AutofillSuggestionDelegate::SuggestionMetadata{.multi_index = {0}});
 
     EXPECT_EQ(
-        1, user_action_tester.GetActionCount("Autofill_UndoPaymentsAutofill"));
+        user_action_tester.GetActionCount("Autofill_UndoPaymentsAutofill"), 1);
   }
 #endif
 
@@ -668,8 +671,9 @@ TEST_F(AutofillMetricsTest, CreditCardCheckoutFlowUserActions) {
     base::UserActionTester user_action_tester;
     DidShowAutofillSuggestions(form, /*field_index=*/1,
                                SuggestionType::kCreditCardEntry);
-    EXPECT_EQ(1, user_action_tester.GetActionCount(
-                     "Autofill_ShowedCreditCardSuggestions"));
+    EXPECT_EQ(user_action_tester.GetActionCount(
+                  "Autofill_ShowedCreditCardSuggestions"),
+              1);
   }
 
   // Simulate selecting a credit card suggestions.
@@ -686,8 +690,8 @@ TEST_F(AutofillMetricsTest, CreditCardCheckoutFlowUserActions) {
                                        Suggestion::Guid(kTestLocalCardId)),
         AutofillSuggestionDelegate::SuggestionMetadata{.multi_index = {0}});
 
-    EXPECT_EQ(1,
-              user_action_tester.GetActionCount("Autofill_SelectedSuggestion"));
+    EXPECT_EQ(user_action_tester.GetActionCount("Autofill_SelectedSuggestion"),
+              1);
   }
 
   // Simulate filling a credit card suggestion.
@@ -698,8 +702,9 @@ TEST_F(AutofillMetricsTest, CreditCardCheckoutFlowUserActions) {
         form.fields().front().global_id(),
         paydm().GetCreditCardByGUID(kTestLocalCardId),
         AutofillTriggerSource::kPopup, /*blocked_fields=*/{});
-    EXPECT_EQ(1, user_action_tester.GetActionCount(
-                     "Autofill_FilledCreditCardSuggestion"));
+    EXPECT_EQ(user_action_tester.GetActionCount(
+                  "Autofill_FilledCreditCardSuggestion"),
+              1);
   }
 
   // Simulate submitting the credit card form.
@@ -708,8 +713,8 @@ TEST_F(AutofillMetricsTest, CreditCardCheckoutFlowUserActions) {
     autofill_manager().OnAskForValuesToFillTest(form,
                                                 form.fields()[0].global_id());
     SubmitForm(form);
-    EXPECT_EQ(1,
-              user_action_tester.GetActionCount("Autofill_OnWillSubmitForm"));
+    EXPECT_EQ(user_action_tester.GetActionCount("Autofill_OnWillSubmitForm"),
+              1);
   }
 
   // Expect one record for a click on the cardholder name field and one record
@@ -792,16 +797,18 @@ TEST_F(AutofillMetricsTest, ProfileCheckoutFlowUserActions) {
   {
     base::UserActionTester user_action_tester;
     DidShowAutofillSuggestions(form);
-    EXPECT_EQ(1, user_action_tester.GetActionCount(
-                     "Autofill_ShowedProfileSuggestions"));
+    EXPECT_EQ(
+        user_action_tester.GetActionCount("Autofill_ShowedProfileSuggestions"),
+        1);
   }
 
   // Simulate showing a profile suggestion polled from "City" field.
   {
     base::UserActionTester user_action_tester;
     DidShowAutofillSuggestions(form, /*field_index=*/1);
-    EXPECT_EQ(1, user_action_tester.GetActionCount(
-                     "Autofill_ShowedProfileSuggestions"));
+    EXPECT_EQ(
+        user_action_tester.GetActionCount("Autofill_ShowedProfileSuggestions"),
+        1);
   }
 
   // Simulate selecting a profile suggestions.
@@ -818,16 +825,17 @@ TEST_F(AutofillMetricsTest, ProfileCheckoutFlowUserActions) {
                                        Suggestion::Guid(kTestProfileId)),
         AutofillSuggestionDelegate::SuggestionMetadata{.multi_index = {0}});
 
-    EXPECT_EQ(1,
-              user_action_tester.GetActionCount("Autofill_SelectedSuggestion"));
+    EXPECT_EQ(user_action_tester.GetActionCount("Autofill_SelectedSuggestion"),
+              1);
   }
 
   // Simulate filling a profile suggestion.
   {
     base::UserActionTester user_action_tester;
     FillTestProfile(form);
-    EXPECT_EQ(1, user_action_tester.GetActionCount(
-                     "Autofill_FilledProfileSuggestion"));
+    EXPECT_EQ(
+        user_action_tester.GetActionCount("Autofill_FilledProfileSuggestion"),
+        1);
   }
 
   // Simulate submitting the profile form.
@@ -836,8 +844,8 @@ TEST_F(AutofillMetricsTest, ProfileCheckoutFlowUserActions) {
     autofill_manager().OnAskForValuesToFillTest(form,
                                                 form.fields()[0].global_id());
     SubmitForm(form);
-    EXPECT_EQ(1,
-              user_action_tester.GetActionCount("Autofill_OnWillSubmitForm"));
+    EXPECT_EQ(user_action_tester.GetActionCount("Autofill_OnWillSubmitForm"),
+              1);
   }
 
   {
@@ -903,7 +911,7 @@ TEST_F(AutofillMetricsTest, LoyaltyCardCheckoutFlowUserActions) {
     autofill_manager().AddSeenForm(
         form, {LOYALTY_MEMBERSHIP_PROGRAM, LOYALTY_MEMBERSHIP_ID});
     EXPECT_EQ(
-        1, user_action_tester.GetActionCount("Autofill_ParsedLoyaltyCardForm"));
+        user_action_tester.GetActionCount("Autofill_ParsedLoyaltyCardForm"), 1);
   }
 
   // Simulate showing a loyalty card suggestion polled from "Loyalty Number"
@@ -911,8 +919,9 @@ TEST_F(AutofillMetricsTest, LoyaltyCardCheckoutFlowUserActions) {
   {
     base::UserActionTester user_action_tester;
     DidShowAutofillSuggestions(form);
-    EXPECT_EQ(1, user_action_tester.GetActionCount(
-                     "Autofill_ShowedLoyaltyCardSuggestions"));
+    EXPECT_EQ(user_action_tester.GetActionCount(
+                  "Autofill_ShowedLoyaltyCardSuggestions"),
+              1);
   }
 }
 
@@ -1662,7 +1671,7 @@ TEST_F(AutofillMetricsTest, AddressSubmittedFormEvents) {
     // Check if FormEvent UKM is logged properly
     auto entries =
         test_ukm_recorder().GetEntriesByName(UkmFormEventType::kEntryName);
-    EXPECT_EQ(3u, entries.size());
+    EXPECT_EQ(entries.size(), 3u);
   }
 }
 
@@ -1756,7 +1765,7 @@ TEST_F(AutofillMetricsTest, AddressWillSubmitFormEvents) {
     // Check if FormEvent UKM is logged properly
     auto entries =
         test_ukm_recorder().GetEntriesByName(UkmFormEventType::kEntryName);
-    EXPECT_EQ(4u, entries.size());
+    EXPECT_EQ(entries.size(), 4u);
   }
 
   // Reset the autofill manager state.
@@ -1786,7 +1795,7 @@ TEST_F(AutofillMetricsTest, AddressWillSubmitFormEvents) {
     // Check if FormEvent UKM is logged properly
     auto entries =
         test_ukm_recorder().GetEntriesByName(UkmFormEventType::kEntryName);
-    EXPECT_EQ(3u, entries.size());
+    EXPECT_EQ(entries.size(), 3u);
   }
 }
 
@@ -2323,11 +2332,7 @@ class AutofillMetricsParseQueryResponseTest : public AutofillMetricsTest {
     AutofillMetricsTest::SetUp();
 
     forms_.push_back(test::GetFormData(
-        {.fields = {{.role = NAME_FULL},
-                    {.role = ADDRESS_HOME_LINE1},
-                    {.label = u"radio_button",
-                     // Checkable fields should be ignored in parsing.
-                     .form_control_type = FormControlType::kInputRadio}}}));
+        {.fields = {{.role = NAME_FULL}, {.role = ADDRESS_HOME_LINE1}}}));
     SeeForm(forms_.back());
 
     forms_.push_back(test::GetFormData(
@@ -2454,8 +2459,8 @@ TEST_F(AutofillMetricsTest, RecordCardUploadDecisionMetric_InvalidUrl) {
   GURL url("");
   test_ukm_recorder().Purge();
   LogCardUploadDecisionsUkm(&test_ukm_recorder(), -1, url, 1);
-  EXPECT_EQ(0ul, test_ukm_recorder().sources_count());
-  EXPECT_EQ(0ul, test_ukm_recorder().entries_count());
+  EXPECT_EQ(test_ukm_recorder().sources_count(), 0ul);
+  EXPECT_EQ(test_ukm_recorder().entries_count(), 0ul);
 }
 
 // Tests that no UKM is logged when the ukm service is null.
@@ -2463,8 +2468,8 @@ TEST_F(AutofillMetricsTest, RecordCardUploadDecisionMetric_NoUkmService) {
   GURL url("https://www.google.com");
   test_ukm_recorder().Purge();
   LogCardUploadDecisionsUkm(nullptr, -1, url, 1);
-  EXPECT_EQ(0ul, test_ukm_recorder().sources_count());
-  EXPECT_EQ(0ul, test_ukm_recorder().entries_count());
+  EXPECT_EQ(test_ukm_recorder().sources_count(), 0ul);
+  EXPECT_EQ(test_ukm_recorder().entries_count(), 0ul);
 }
 
 TEST_F(AutofillMetricsTest, DynamicFormMetrics) {

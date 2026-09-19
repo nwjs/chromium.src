@@ -5,12 +5,13 @@
 #include "components/contextual_tasks/public/features.h"
 
 #include "base/test/scoped_feature_list.h"
+#include "components/contextual_tasks/public/host_override.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace contextual_tasks {
 
 TEST(FeaturesTest, ForcedEmbeddedPageHost_NoOverride) {
-  ASSERT_EQ("", GetForcedEmbeddedPageHost());
+  EXPECT_EQ(std::nullopt, GetForcedEmbeddedPageHost());
 }
 
 TEST(FeaturesTest, ForcedEmbeddedPageHost_OverrideToGoogleHost) {
@@ -19,7 +20,18 @@ TEST(FeaturesTest, ForcedEmbeddedPageHost_OverrideToGoogleHost) {
       kContextualTasks,
       {{"contextual-tasks-forced-embedded-page-host", "corp.google.com"}});
 
-  ASSERT_EQ("corp.google.com", GetForcedEmbeddedPageHost());
+  EXPECT_EQ((HostOverride{"corp.google.com", std::nullopt}),
+            GetForcedEmbeddedPageHost());
+}
+
+TEST(FeaturesTest, ForcedEmbeddedPageHost_OverrideToGoogleHostWithPort) {
+  base::test::ScopedFeatureList scoped_features;
+  scoped_features.InitAndEnableFeatureWithParameters(
+      kContextualTasks, {{"contextual-tasks-forced-embedded-page-host",
+                          "localhost.corp.google.com:8888"}});
+
+  EXPECT_EQ((HostOverride{"localhost.corp.google.com", 8888}),
+            GetForcedEmbeddedPageHost());
 }
 
 TEST(FeaturesTest, ForcedEmbeddedPageHost_OverrideToNonGoogleHost) {
@@ -28,7 +40,16 @@ TEST(FeaturesTest, ForcedEmbeddedPageHost_OverrideToNonGoogleHost) {
       kContextualTasks,
       {{"contextual-tasks-forced-embedded-page-host", "example.com"}});
 
-  ASSERT_EQ("", GetForcedEmbeddedPageHost());
+  EXPECT_EQ(std::nullopt, GetForcedEmbeddedPageHost());
+}
+
+TEST(FeaturesTest, ForcedEmbeddedPageHost_OverrideToNonGoogleHostWithPort) {
+  base::test::ScopedFeatureList scoped_features;
+  scoped_features.InitAndEnableFeatureWithParameters(
+      kContextualTasks,
+      {{"contextual-tasks-forced-embedded-page-host", "example.com:8888"}});
+
+  EXPECT_EQ(std::nullopt, GetForcedEmbeddedPageHost());
 }
 
 TEST(FeaturesTest, ForcedEmbeddedPageHost_OverrideToNonGoogleHost_BadSuffix) {
@@ -37,7 +58,7 @@ TEST(FeaturesTest, ForcedEmbeddedPageHost_OverrideToNonGoogleHost_BadSuffix) {
       kContextualTasks,
       {{"contextual-tasks-forced-embedded-page-host", "corpgoogle.com"}});
 
-  ASSERT_EQ("", GetForcedEmbeddedPageHost());
+  EXPECT_EQ(std::nullopt, GetForcedEmbeddedPageHost());
 }
 
 TEST(FeaturesTest, ForcedEmbeddedPageHost_OverrideToNonGoogleHost_Subdomain) {
@@ -46,7 +67,34 @@ TEST(FeaturesTest, ForcedEmbeddedPageHost_OverrideToNonGoogleHost_Subdomain) {
       kContextualTasks, {{"contextual-tasks-forced-embedded-page-host",
                           "google.com.example.com"}});
 
-  ASSERT_EQ("", GetForcedEmbeddedPageHost());
+  EXPECT_EQ(std::nullopt, GetForcedEmbeddedPageHost());
+}
+
+TEST(FeaturesTest, ForcedEmbeddedPageHost_SetOverrideRuntime) {
+  SetForcedEmbeddedPageHostOverride(
+      HostOverride{"localhost.corp.google.com", 9090});
+  EXPECT_EQ((HostOverride{"localhost.corp.google.com", 9090}),
+            GetForcedEmbeddedPageHost());
+
+  SetForcedEmbeddedPageHostOverride(std::nullopt);
+  EXPECT_EQ(std::nullopt, GetForcedEmbeddedPageHost());
+}
+
+TEST(FeaturesTest, IsContextualTasksUnboundedMenuEnabled_DefaultDisabled) {
+  EXPECT_FALSE(IsContextualTasksUnboundedMenuEnabled());
+}
+
+TEST(FeaturesTest, IsContextualTasksUnboundedMenuEnabled_FlagEnabled) {
+  base::test::ScopedFeatureList scoped_features;
+  scoped_features.InitAndEnableFeature(kContextualTasksUnboundedMenu);
+  EXPECT_TRUE(IsContextualTasksUnboundedMenuEnabled());
+}
+
+TEST(FeaturesTest,
+     IsContextualTasksUnboundedMenuEnabled_SidePanelRearchitectureEnabled) {
+  base::test::ScopedFeatureList scoped_features;
+  scoped_features.InitAndEnableFeature(kContextualTasksSidePanelRearchitecture);
+  EXPECT_TRUE(IsContextualTasksUnboundedMenuEnabled());
 }
 
 }  // namespace contextual_tasks

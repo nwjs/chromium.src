@@ -64,8 +64,26 @@ suite('General', () => {
     return powerBookmarkRowItemElement.$.crUrlListItem;
   }
 
-  function isHidden(element: HTMLElement): boolean {
-    return element.matches('[hidden], [hidden] *');
+  // Checks if the element is hidden. Unlike `element.matches('[hidden] *')`,
+  // this recursively traverses up the tree and crosses Shadow DOM boundaries
+  // via host elements to detect if any shadow boundary ancestor has the hidden
+  // attribute.
+  function isHidden(element: HTMLElement|null): boolean {
+    if (!element) {
+      return true;
+    }
+    if (element.hasAttribute('hidden')) {
+      return true;
+    }
+    const parent = element.parentElement;
+    if (parent) {
+      return isHidden(parent);
+    }
+    const root = element.getRootNode();
+    if (root instanceof ShadowRoot) {
+      return isHidden(root.host as HTMLElement);
+    }
+    return false;
   }
 
   async function performSearch(query: string) {
@@ -90,6 +108,13 @@ suite('General', () => {
     assertTrue(!!bookmark);
     powerBookmarksApp.$.bookmarksList.clickBookmarkRowForTests(bookmark);
     await metricsLogged;
+  }
+
+  // Queries folderEmptyState dynamically. In double-buffered lists, the active
+  // empty state switches between folderEmptyStateA and folderEmptyStateB
+  // elements, so cached references inside tests become stale after navigation.
+  function getFolderEmptyState(): HTMLElement {
+    return powerBookmarksApp.$.bookmarksList.folderEmptyState;
   }
 
   async function selectBookmark(id: string) {
@@ -173,6 +198,77 @@ suite('General', () => {
       assertEquals(
           FOLDERS[1]!.children!.length + 1,
           getBookmarks(powerBookmarksApp).length);
+    });
+
+    test('InactiveListPurgesDomRowsWhenIdle', async () => {
+      const bookmarksList = powerBookmarksApp.$.bookmarksList;
+      const listA = bookmarksList.$.listA;
+      const listB = bookmarksList.$.listB;
+
+      // Add 30 bookmarks to root and 30 bookmarks to folder '5' so both folders
+      // have enough rows to exceed the 500px viewport height (30 * 36px =
+      // 1080px).
+      const NUM_EXTRA_BOOKMARKS = 30;
+      const initialRootCount = listA.items.length;
+      const expectedRootCount = initialRootCount + NUM_EXTRA_BOOKMARKS;
+      const initialFolder5ChildCount = 1;
+      const expectedFolder5Count =
+          initialFolder5ChildCount + NUM_EXTRA_BOOKMARKS;
+
+      for (let i = 0; i < NUM_EXTRA_BOOKMARKS; i++) {
+        bookmarksApi.callbackRouterRemote.onBookmarkNodeAdded({
+          id: `root_extra_${i}`,
+          title: `Root bookmark ${i}`,
+          index: 0,
+          parentId: FOLDERS[1]!.id,
+          url: `http://example.com/${i}`,
+          children: null,
+          dateAdded: null,
+          dateLastUsed: null,
+          unmodifiable: false,
+        });
+      }
+      for (let i = 0; i < NUM_EXTRA_BOOKMARKS; i++) {
+        bookmarksApi.callbackRouterRemote.onBookmarkNodeAdded({
+          id: `folder5_extra_${i}`,
+          title: `Folder 5 bookmark ${i}`,
+          index: 0,
+          parentId: '5',
+          url: `http://example.com/sub/${i}`,
+          children: null,
+          dateAdded: null,
+          dateLastUsed: null,
+          unmodifiable: false,
+        });
+      }
+      await microtasksFinished();
+
+      // On root folder: listA has all items in its model, but virtualizes and
+      // only renders a subset of rows in the DOM (exceeds viewport). listB has
+      // 0 items.
+      assertEquals(expectedRootCount, listA.items.length);
+      assertEquals(0, listB.items.length);
+      const renderedRowsA = listA.querySelectorAll('power-bookmark-row').length;
+      assertTrue(renderedRowsA > 0);
+      assertTrue(renderedRowsA < listA.items.length);
+      assertEquals(0, listB.querySelectorAll('power-bookmark-row').length);
+
+      // Navigate into folder '5' which also has enough items to exceed the
+      // viewport.
+      await openBookmark('5');
+      bookmarksList.shadowRoot.querySelector('#list-b')!.dispatchEvent(
+          new AnimationEvent('animationend'));
+      await microtasksFinished();
+
+      // After transition completes: listB is active with rendered rows
+      // (virtualized), and inactive listA has been completely purged to 0 items
+      // and 0 DOM rows.
+      assertEquals(expectedFolder5Count, listB.items.length);
+      assertEquals(0, listA.items.length);
+      const renderedRowsB = listB.querySelectorAll('power-bookmark-row').length;
+      assertTrue(renderedRowsB > 0);
+      assertTrue(renderedRowsB < listB.items.length);
+      assertEquals(0, listA.querySelectorAll('power-bookmark-row').length);
     });
 
     test('RebuildsKeyboardNavigationOnBookmarkNodeAdded', async () => {
@@ -1110,14 +1206,60 @@ suite('General', () => {
           1, metrics.count('PowerBookmarks.SidePanel.BookmarksShown', 1));
     });
 
+    test('NavigatesBackToParentFolder', async () => {
+      const heading =
+          powerBookmarksApp.$.bookmarksList.shadowRoot.querySelector(
+              'power-bookmarks-list-header');
+      assertTrue(!!heading);
+      const rootHeader = heading.shadowRoot.querySelector('#root-header');
+      assertTrue(!!rootHeader);
+      const folderHeader = heading.shadowRoot.querySelector('#folder-header');
+      assertTrue(!!folderHeader);
+
+      // Initially at root: root-header is active, folder-header is inactive.
+      assertTrue(rootHeader.classList.contains('active'));
+      assertFalse(folderHeader.classList.contains('active'));
+
+      // Navigate forward to folder '5' (contains 1 child).
+      await openBookmark('5');
+      assertEquals(
+          1, metrics.count('PowerBookmarks.SidePanel.BookmarksShown', 1));
+
+      // In folder 5: folder-header is active, root-header is inactive.
+      assertFalse(rootHeader.classList.contains('active'));
+      assertTrue(folderHeader.classList.contains('active'));
+
+      // The active title span shows 'Folder 5'.
+      const activeTitle =
+          heading.shadowRoot.querySelector('#folder-header .title-span.active');
+      assertTrue(!!activeTitle);
+      assertEquals('Child folder', activeTitle.textContent.trim());
+
+      // Click the back button on the list heading.
+      const backButton =
+          folderHeader.shadowRoot!.querySelector<HTMLElement>('#backButton');
+      assertTrue(!!backButton);
+
+      // Wait for back navigation metrics logging to complete.
+      const metricsLogged = eventToPromise(
+          'bookmark-count-recorded', powerBookmarksApp.$.bookmarksList);
+      backButton.click();
+      await metricsLogged;
+
+      // Navigated back to root: root-header is active again, folder-header
+      // is inactive.
+      assertTrue(rootHeader.classList.contains('active'));
+      assertFalse(folderHeader.classList.contains('active'));
+      assertEquals(
+          2, metrics.count('PowerBookmarks.SidePanel.BookmarksShown', 4));
+    });
+
     test('TogglesSectionVisibilityAndEmptyStates', async () => {
       const search = powerBookmarksApp.$.searchField;
       const labels = powerBookmarksApp.$.labels;
       const heading =
           powerBookmarksApp.$.bookmarksList.shadowRoot.querySelector(
               'power-bookmarks-list-header')!;
-      const folderEmptyState =
-          powerBookmarksApp.$.bookmarksList.$.folderEmptyState;
       const bookmarksList = powerBookmarksApp.$.bookmarksList.$.bookmarks;
       const topLevelEmptyState = powerBookmarksApp.$.topLevelEmptyState;
       const footer = powerBookmarksApp.$.footer;
@@ -1130,7 +1272,7 @@ suite('General', () => {
       assertFalse(isHidden(search));
       assertTrue(isHidden(labels));
       assertFalse(isHidden(heading));
-      assertTrue(isHidden(folderEmptyState));
+      assertTrue(isHidden(getFolderEmptyState()));
       assertFalse(isHidden(bookmarksList));
       assertTrue(isHidden(topLevelEmptyState));
       assertFalse(isHidden(footer));
@@ -1141,25 +1283,21 @@ suite('General', () => {
       assertFalse(isHidden(search));
       assertTrue(isHidden(labels));
       assertFalse(isHidden(heading));
-      assertFalse(isHidden(folderEmptyState));
-      assertTrue(isHidden(bookmarksList));
+      assertFalse(isHidden(getFolderEmptyState()));
+      assertFalse(isHidden(bookmarksList));
       assertTrue(isHidden(topLevelEmptyState));
       assertFalse(isHidden(footer));
 
       // A search with no results.
-      const searchField =
-          powerBookmarksApp.shadowRoot.querySelector('cr-toolbar-search-field');
-      assertTrue(!!searchField);
-      searchField.$.searchInput.value = 'abcdef';
-      searchField.onSearchTermSearch();
-      await microtasksFinished();
+      await performSearch('abcdef');
       assertEquals(
           loadTimeData.getString('emptyTitleSearch'),
           topLevelEmptyState.heading);
+
       assertFalse(isHidden(search));
       assertTrue(isHidden(labels));
       assertTrue(isHidden(heading));
-      assertTrue(isHidden(folderEmptyState));
+      assertTrue(isHidden(getFolderEmptyState()));
       assertTrue(isHidden(bookmarksList));
       assertFalse(isHidden(topLevelEmptyState));
       assertTrue(isHidden(footer));

@@ -238,10 +238,6 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(double, kCubicBezierY2);
 CC_BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
                                           kMaxAnimationDuration);
 
-// When enabled, slim will receive CompositorFrameSink messages directly without
-// the intermediate IO-thread hop.
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(kSlimDirectReceiverIpc);
-
 // When enabled, the overscroll effect will display on non-root scrollers.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kOverscrollEffectOnNonRootScrollers);
 
@@ -325,6 +321,11 @@ CC_BASE_EXPORT bool SendEarlyFinalBeginMainFrameIsEnabled();
 // submissions (cc side) and used for point containment checks in HitTestQuery
 // (viz side).
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kVizHitTestRoundedCorners);
+
+// When enabled, ViewTransitionContentLayerImpl does not double-apply pixel
+// alignment offsets for live render passes and preserves exact subpixel
+// alignment offsets for snapshot textures.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kViewTransitionsNewRoundingChange);
 
 }  // namespace features
 

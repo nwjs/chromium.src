@@ -13,6 +13,8 @@
 namespace features {
 
 BASE_FEATURE(kGlicAndroidSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicDragAndDropFileUploadAndroid,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicChromeStatusIcon, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<int> kGlicChromeStatusIconSizePx{
@@ -36,12 +38,10 @@ const base::FeatureParam<int> kGlicOSIconVariantParam{&kGlicOSIconVariant,
 
 BASE_FEATURE(kGlicOrphanedReattachment, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kGlicSelectionPrompt, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicSelectionPrompt, base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<bool> kGlicSelectionPromptUpdatesOnly{
-    &kGlicSelectionPrompt, "updates_only", false};
-const base::FeatureParam<std::string> kGlicSelectionTopCueOnlyList{
-    &kGlicSelectionPrompt, "top_cue_only_list", ""};
+    &kGlicSelectionPrompt, "updates_only", true};
 const base::FeatureParam<bool> kGlicSelectionShowCopyButtons{
     &kGlicSelectionPrompt, "show_copy_buttons", false};
 const base::FeatureParam<bool> kGlicSelectionAutoSendPrompt{
@@ -54,6 +54,15 @@ const base::FeatureParam<std::string> kGlicSelectionPromptInlinePromptTemplate{
     &kGlicSelectionPrompt, "inline_prompt_template", ""};
 const base::FeatureParam<bool> kGlicSelectionPromptSkills{
     &kGlicSelectionPrompt, "skills", true};
+const base::FeatureParam<std::string> kGlicSelectionDefaultBlockedSites{
+    &kGlicSelectionPrompt, "GlicSelectionDefaultBlockedSites", ""};
+
+base::flat_set<std::string> GetGlicSelectionDefaultBlockedSites() {
+  std::string sites_str = kGlicSelectionDefaultBlockedSites.Get();
+  std::vector<std::string> sites = base::SplitString(
+      sites_str, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+  return base::flat_set<std::string>(std::move(sites));
+}
 
 BASE_FEATURE(kGlicClearTurnIdOnPanelWillOpen,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -105,7 +114,7 @@ BASE_FEATURE(kGlicContextMenu,
 #endif
 );
 const base::FeatureParam<std::string> kGlicContextMenuArm{&kGlicContextMenu,
-                                                          "variant", "arm1"};
+                                                          "variant", "arm3"};
 const base::FeatureParam<bool> kGlicContextMenuWithOnboarding{
     &kGlicContextMenu, "WithOnboarding", false};
 
@@ -180,6 +189,9 @@ const base::FeatureParam<int> kGlicReloadMaxLoadingTimeMs{
 BASE_FEATURE(kGlicContextualCueingV2AutoSubmit,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kGlicMessageFirstFreForContextualCue,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kGlicWebDragAndDropFileUpload, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicOptInImpressionMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -197,7 +209,7 @@ BASE_FEATURE(kGlicContentsInitiallyHidden,
 );
 
 BASE_FEATURE(kGlicAnchorEntryPointForOnboardedUsers,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If kGlicShowForSignedOut is enabled, the GiC panel can be shown to signed out
 // users to show the sign-in promotion.
@@ -243,15 +255,20 @@ BASE_FEATURE(kGlicSparkSettingsAccessibleLabels,
 
 BASE_FEATURE(kGlicOptInDialogA11yFix, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicStructuredYieldMetadata, base::FEATURE_DISABLED_BY_DEFAULT);
-// Whether to allow Mojo in the glic guest frame.
-BASE_FEATURE(kGlicEnableMojoJs, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Runs the glic client in a PrivilegedWebContents instead of a webview.
 // This is a work in progress. See b/534807813.
 BASE_FEATURE(kGlicNoWebview, base::FEATURE_DISABLED_BY_DEFAULT);
+// Whether to disallow webview communication directly with the glic host
+// (chrome/browser/resources/glic/glic_api_impl/host). When enabled, some
+// functionality implemented by glic's webview.ts is implemented instead by c++
+// code.
+BASE_FEATURE(kGlicDisconnectedWebview, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicShakeTrigger,
              "GlicShakeTrigger",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicAndroidTablet, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicMarketingAutoOpen, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<std::string> kGlicMarketingUrlAllowlist{
@@ -264,4 +281,12 @@ const base::FeatureParam<std::string> kGlicMarketingUrlAllowlist{
 };
 const base::FeatureParam<int> kGlicMarketingAutoOpenMaxCount{
     &kGlicMarketingAutoOpen, "max_impressions", 1};
+
+BASE_FEATURE(kGlicActionFirstFRE,
+             "GlicActionFirstFRE",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicWarmOnNudge, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicWarmOnIph, base::FEATURE_DISABLED_BY_DEFAULT);
 }  // namespace features

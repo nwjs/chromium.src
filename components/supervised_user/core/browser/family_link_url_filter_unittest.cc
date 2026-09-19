@@ -50,7 +50,7 @@ using safe_search_api::ClassificationDetails;
 class FamilyLinkUrlFilterTest : public testing::Test {
  protected:
   FamilyLinkUrlFilterTest() {
-    EnableParentalControls(*supervised_user_test_environment_.pref_service());
+    supervised_user_test_environment_.EnableSupervisedAccount();
     supervised_user_test_environment_.SetWebFilterType(
         WebFilterType::kCertainSites);
   }
@@ -166,6 +166,8 @@ TEST_F(FamilyLinkUrlFilterTest, HostMatchesPattern) {
       FamilyLinkUrlFilter::HostMatchesPattern("www.google.com", "*google*"));
   EXPECT_FALSE(FamilyLinkUrlFilter::HostMatchesPattern("www.google.com",
                                                        "www.*.google.com"));
+  EXPECT_FALSE(FamilyLinkUrlFilter::HostMatchesPattern("", ".*"));
+  EXPECT_FALSE(FamilyLinkUrlFilter::HostMatchesPattern("www.", ".*"));
 }
 
 TEST_F(FamilyLinkUrlFilterTest, Reason) {
@@ -229,13 +231,12 @@ class FamilyLinkUrlFilterMetricsTest
     : public testing::Test,
       public testing::WithParamInterface<MetricTestParam> {
  protected:
-  FamilyLinkUrlFilterMetricsTest() = default;
+  FamilyLinkUrlFilterMetricsTest() {
+    supervised_user_test_environment_.EnableSupervisedAccount();
+  }
 
   const MetricTestParam& GetTestCase() const { return GetParam(); }
 
-  void SetUp() override {
-    EnableParentalControls(*supervised_user_test_environment_.pref_service());
-  }
   void TearDown() override { supervised_user_test_environment_.Shutdown(); }
 
   base::HistogramTester histogram_tester_;
@@ -309,7 +310,7 @@ TEST_P(FamilyLinkUrlFilterMetricsTest, RecordsTopLevelMetricsForAsyncBlock) {
           base::DoNothing(),
           WebFilterMetricsOptions{.filtering_context = GetTestCase().context});
   supervised_user_test_environment_.family_link_url_checker_client()
-      .RunFirstCallack(safe_search_api::ClientClassification::kRestricted);
+      .RunFrontCallback(safe_search_api::ClientClassification::kRestricted);
 
   histogram_tester_.ExpectBucketCount(
       "ManagedUsers.TopLevelFilteringResult2",
@@ -326,7 +327,7 @@ TEST_P(FamilyLinkUrlFilterMetricsTest, RecordsTopLevelMetricsForAsyncAllow) {
           base::DoNothing(),
           WebFilterMetricsOptions{.filtering_context = GetTestCase().context});
   supervised_user_test_environment_.family_link_url_checker_client()
-      .RunFirstCallack(safe_search_api::ClientClassification::kAllowed);
+      .RunFrontCallback(safe_search_api::ClientClassification::kAllowed);
 
   histogram_tester_.ExpectBucketCount(
       "ManagedUsers.TopLevelFilteringResult2",
@@ -358,9 +359,7 @@ const MetricTestParam kMetricTestParams[] = {
 INSTANTIATE_TEST_SUITE_P(,
                          FamilyLinkUrlFilterMetricsTest,
                          testing::ValuesIn(kMetricTestParams),
-                         [](const auto& info) {
-                           return info.param.label;
-                         });
+                         [](const auto& info) { return info.param.label; });
 
 TEST(FamilyLinkUrlFilterResultTest, IsFromManualList) {
   WebFilteringResult allow{GURL("http://example.com"),

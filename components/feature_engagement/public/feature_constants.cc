@@ -53,6 +53,15 @@ BASE_FEATURE(kIPHComposeMSBBSettingsFeature,
 BASE_FEATURE(kIPHComposeNewBadgeFeature,
              "IPH_ComposeNewBadgeFeature",
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHContextualTasksEphemeralToolbarButtonFeature,
+             "IPH_ContextualTasksEphemeralToolbarButton",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHCriticalActionAppMenuFeature,
+             "IPH_CriticalActionAppMenu",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHCriticalActionFilterChipFeature,
+             "IPH_CriticalActionFilterChip",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHDesktopSharedHighlightingFeature,
              "IPH_DesktopSharedHighlighting",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -77,7 +86,7 @@ BASE_FEATURE(kIPHExplicitBrowserSigninPreferenceRememberedFeature,
 BASE_FEATURE(kIPHHistorySearchFeature,
              "IPH_HistorySearch",
              base::FEATURE_ENABLED_BY_DEFAULT);
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 BASE_FEATURE(kIPHExtensionsMenuFeature,
              "IPH_ExtensionsMenu",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -106,9 +115,18 @@ BASE_FEATURE_ENUM_PARAM(
     "x_iph-variant",
     IPHExtensionsZeroStatePromoVariant::kCustomUiChipIphV2,
     &kIPHExtensionsZeroStatePromoVariantOptions);
-#endif
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 BASE_FEATURE(kIPHFocusHelpBubbleScreenReaderPromoFeature,
              "IPH_FocusHelpBubbleScreenReaderPromo",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHGMCCastStartStopFeature,
+             "IPH_GMCCastStartStop",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHGMCLocalMediaCastingFeature,
+             "IPH_GMCLocalMediaCasting",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHGMCSaveVideoFrameFeature,
+             "IPH_GMCSaveVideoFrame",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHGlicPromoFeature,
              "IPH_GlicPromo",
@@ -119,12 +137,6 @@ BASE_FEATURE(kIPHGlicTrustFirstOnboardingShortcutSnoozePromoFeature,
 BASE_FEATURE(kIPHGlicTryItFeature,
              "IPH_GlicTryIt",
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHGMCCastStartStopFeature,
-             "IPH_GMCCastStartStop",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHGMCLocalMediaCastingFeature,
-             "IPH_GMCLocalMediaCasting",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHMemorySaverModeFeature,
              "IPH_HighEfficiencyMode",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -153,6 +165,9 @@ const base::FeatureParam<base::TimeDelta> kIPHLensOverlayDelayTime{
     base::Seconds(7)};
 BASE_FEATURE(kIPHLensOverlayTranslateButtonFeature,
              "IPH_LensOverlayTranslateButton",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHOmniboxEverywhereLensPromoFeature,
+             "IPH_OmniboxEverywhereLensPromo",
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHTabAudioMutingFeature,
              "IPH_TabAudioMuting",
@@ -229,6 +244,9 @@ BASE_FEATURE(kIPHReadingModePresentationModeFeature,
 BASE_FEATURE(kIPHReadingModeSidePanelFeature,
              "IPH_ReadingModeSidePanel",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHSendTabToSelfTutorialFeature,
+             "IPH_SendTabToSelfTutorial",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHShoppingCollectionFeature,
              "IPH_ShoppingCollectionFeature",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -288,6 +306,9 @@ BASE_FEATURE(kIPHTabGroupsSharedTabChangedFeature,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHTabGroupsSharedTabFeedbackFeature,
              "IPH_TabGroupsSharedTabFeedback",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHTabScrollButtonFeature,
+             "IPH_TabScrollButtonFeature",
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHTabSearchComboButtonFeature,
              "IPH_TabSearchComboButton",
@@ -569,7 +590,7 @@ BASE_FEATURE(kIPHPageInfoStoreInfoFeature,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHPageZoomFeature,
              "IPH_PageZoom",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHPdfPageDownloadFeature,
              "IPH_PdfPageDownload",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -844,6 +865,12 @@ BASE_FEATURE(kIPHiOSPromoSettingsCardDefaultBrowserFeature,
 BASE_FEATURE(kIPHiOSPromoSettingsCellDefaultBrowserFeature,
              "IPH_iOSPromoSettingsCellDefaultBrowser",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHiOSPromoOverflowMenuDestinationDefaultBrowserFeature,
+             "IPH_iOSPromoOverflowMenuDestinationDefaultBrowser",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHiOSPromoOverflowMenuShortcutsDefaultBrowserFeature,
+             "IPH_iOSPromoOverflowMenuShortcutsDefaultBrowser",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSOverflowMenuCustomizationFeature,
              "IPH_iOSOverflowMenuCustomization",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1025,6 +1052,9 @@ BASE_FEATURE(kIPHAutofillEnableLoyaltyCardsFeature,
 BASE_FEATURE(kIPHAutofillOmniboxPaymentChipFeature,
              "IPH_AutofillOmniboxPaymentChip",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHAutofillWalletDirectOffersFeature,
+             "IPH_AutofillWalletDirectOffers",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) ||
         // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
         // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
@@ -1108,8 +1138,30 @@ BASE_FEATURE(kIPHSearchPromotionFeature,
              "IPH_SearchPromotionFeature",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-constinit const base::FeatureParam<std::string> kSearchPromotionArm{
-    &kIPHSearchPromotionFeature, "arm", kSearchPromotionArmDefault};
+constexpr base::FeatureParam<SearchPromotionAction>::Option
+    kSearchPromotionActionOptions[] = {
+        {SearchPromotionAction::kOpen, kSearchPromotionActionOpen},
+        {SearchPromotionAction::kInstall, kSearchPromotionActionInstall},
+        {SearchPromotionAction::kControl, kSearchPromotionActionControl},
+};
+
+constinit const base::FeatureParam<SearchPromotionAction>
+    kSearchPromotionAction{&kIPHSearchPromotionFeature, "action",
+                           SearchPromotionAction::kDisabled,
+                           &kSearchPromotionActionOptions};
+
+constexpr base::FeatureParam<SearchPromotionCohort>::Option
+    kSearchPromotionCohortOptions[] = {
+        {SearchPromotionCohort::kAll, kSearchPromotionCohortAll},
+        {SearchPromotionCohort::kLow, kSearchPromotionCohortLow},
+        {SearchPromotionCohort::kMedium, kSearchPromotionCohortMedium},
+        {SearchPromotionCohort::kPower, kSearchPromotionCohortPower},
+};
+
+constinit const base::FeatureParam<SearchPromotionCohort>
+    kSearchPromotionCohort{&kIPHSearchPromotionFeature, "cohort",
+                           SearchPromotionCohort::kAll,
+                           &kSearchPromotionCohortOptions};
 constinit const base::FeatureParam<std::string> kSearchPromotionStoreUrl{
     &kIPHSearchPromotionFeature, "store_url",
     "https://microsoftedge.microsoft.com/addons/detail/google-search-for-edge/"

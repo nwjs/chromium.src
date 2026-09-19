@@ -15,7 +15,7 @@
 #include "base/test/values_test_util.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "chrome/browser/autofill/at_memory_cross_tab_copy_paste_tracker_factory.h"
+#include "chrome/browser/autofill/cross_tab_copy_paste_tracker_factory.h"
 #include "chrome/browser/autofill/mock_autofill_agent.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/autofill/ui/ui_util.h"
@@ -31,12 +31,11 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/user_education/mock_browser_user_education_interface.h"
-#include "components/autofill/content/browser/autofill_test_utils.h"
+#include "components/autofill/content/browser/autofill_test_util.h"
 #include "components/autofill/content/browser/test_autofill_client_injector.h"
 #include "components/autofill/content/browser/test_autofill_driver_injector.h"
 #include "components/autofill/content/browser/test_autofill_manager_injector.h"
 #include "components/autofill/content/browser/test_content_autofill_driver.h"
-#include "components/autofill/core/browser/at_memory_cross_tab_copy_paste_tracker.h"
 #include "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile_test_api.h"
@@ -48,13 +47,14 @@
 #include "components/autofill/core/browser/foundations/test_autofill_manager_waiter.h"
 #include "components/autofill/core/browser/foundations/test_browser_autofill_manager.h"
 #include "components/autofill/core/browser/integrators/password_form_classification.h"
+#include "components/autofill/core/browser/metrics/cross_tab_copy_paste_tracker.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/browser/ui/mock_autofill_suggestion_delegate.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
-#include "components/autofill/core/common/autofill_test_utils.h"
+#include "components/autofill/core/common/autofill_test_util.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/personal_context/core/personal_context_eligibility_service.h"
@@ -615,6 +615,20 @@ TEST_F(ChromeAutofillClientTest, AutofillImprovedPredictionsIPH_IsShown) {
       FormFieldData{}, AutofillClient::IphFeature::kAutofillAi));
 }
 
+TEST_F(ChromeAutofillClientTest, AutofillWalletDirectOffersFieldIPH_IsShown) {
+  SetUpIphForTesting(feature_engagement::kIPHAutofillWalletDirectOffersFeature);
+
+  InSequence sequence;
+  EXPECT_CALL(*autofill_field_promo_controller(), IsMaybeShowing)
+      .WillOnce(Return(false));
+  EXPECT_CALL(*autofill_field_promo_controller(), Show);
+  EXPECT_CALL(*autofill_field_promo_controller(), IsMaybeShowing)
+      .WillOnce(Return(true));
+
+  EXPECT_TRUE(client()->ShowAutofillFieldIphForFeature(
+      FormFieldData{}, AutofillClient::IphFeature::kWalletDirectOffers));
+}
+
 TEST_F(ChromeAutofillClientTest,
        AutofillFieldIPH_HideOnShowAutofillSuggestions) {
   SetUpIphForTesting(feature_engagement::kIPHAutofillAiOptInFeature);
@@ -728,7 +742,6 @@ class ChromeAutofillClientTestWithMockWindow : public ChromeAutofillClientTest {
   }
 
   void TearDown() override {
-    glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
     manager_injector_.reset();
     ChromeAutofillClientTest::TearDown();
     profile_manager_.reset();
@@ -743,7 +756,7 @@ class ChromeAutofillClientTestWithMockWindow : public ChromeAutofillClientTest {
   }
 
   glic::MockGlicKeyedService* SetUpMockGlicKeyedService() {
-    glic::GlicEnabling::SetBypassEnablementChecksForTesting(true);
+    scoped_glic_bypass_.emplace();
     glic::GlicKeyedServiceFactory::GetInstance()->SetTestingFactory(
         profile(),
         base::BindRepeating(
@@ -812,6 +825,8 @@ class ChromeAutofillClientTestWithMockWindow : public ChromeAutofillClientTest {
   TabAndWindowMocks main_mocks_;
   glic::GlicProfileManager glic_profile_manager_;
   std::unique_ptr<TestingProfileManager> profile_manager_;
+  std::optional<glic::GlicEnabling::ScopedBypassEnablementChecksForTesting>
+      scoped_glic_bypass_;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
@@ -825,6 +840,20 @@ TEST_F(ChromeAutofillClientTestWithMockWindow,
                   Ref(feature_engagement::kIPHAutofillAiOptInFeature),
                   FeaturePromoFeatureUsedAction::kClosePromoIfPresent));
   client()->NotifyIphFeatureUsed(AutofillClient::IphFeature::kAutofillAi);
+}
+
+TEST_F(ChromeAutofillClientTestWithMockWindow,
+       AutofillWalletDirectOffersFieldIPH_NotifyFeatureUsed) {
+  MockBrowserUserEducationInterface mock_user_education(
+      &mock_browser_window_interface());
+
+  EXPECT_CALL(
+      mock_user_education,
+      NotifyFeaturePromoFeatureUsed(
+          Ref(feature_engagement::kIPHAutofillWalletDirectOffersFeature),
+          FeaturePromoFeatureUsedAction::kClosePromoIfPresent));
+  client()->NotifyIphFeatureUsed(
+      AutofillClient::IphFeature::kWalletDirectOffers);
 }
 
 // Tests that `OpenGeminiInSidebar` invokes Glic with the correct options and
@@ -969,9 +998,9 @@ TEST_F(ChromeAutofillClientTestWithMockWindow,
 
   // Verify that for regular profiles, the tracker exists.
   Profile* regular_profile = profile();
-  EXPECT_NE(AtMemoryCrossTabCopyPasteTrackerFactory::GetForBrowserContext(
-                regular_profile),
-            nullptr);
+  EXPECT_NE(
+      CrossTabCopyPasteTrackerFactory::GetForBrowserContext(regular_profile),
+      nullptr);
 
   // Create an `OffTheRecord` (incognito) profile.
   Profile* incognito_profile =
@@ -979,9 +1008,9 @@ TEST_F(ChromeAutofillClientTestWithMockWindow,
   ASSERT_TRUE(incognito_profile);
 
   // Verify that for incognito profile, the tracker factory returns nullptr.
-  EXPECT_EQ(AtMemoryCrossTabCopyPasteTrackerFactory::GetForBrowserContext(
-                incognito_profile),
-            nullptr);
+  EXPECT_EQ(
+      CrossTabCopyPasteTrackerFactory::GetForBrowserContext(incognito_profile),
+      nullptr);
 
   // Create web contents and client for the incognito profile.
   std::unique_ptr<content::WebContents> incognito_main_web_contents =

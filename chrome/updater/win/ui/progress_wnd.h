@@ -64,8 +64,9 @@ class ProgressWnd : public CompleteWnd, public AppInstallProgress {
     CR_MESSAGE_HANDLER_EX(WM_INITDIALOG, OnInitDialog)
     CR_MESSAGE_HANDLER_EX(WM_SIZE, OnSize)
     CR_MESSAGE_HANDLER_EX(WM_ERASEBKGND, OnEraseBkgnd)
-    CR_MESSAGE_HANDLER_EX(WM_SYSCOLORCHANGE, OnSysColorChange)
+    CR_MESSAGE_HANDLER_EX(WM_SYSCOLORCHANGE, OnThemeChanged)
     CR_MESSAGE_HANDLER_EX(WM_SETTINGCHANGE, OnSettingChange)
+    CR_MESSAGE_HANDLER_EX(WM_THEMECHANGED, OnThemeChanged)
     CR_MSG_WM_CTLCOLORSTATIC(OnCtlColorStatic)
     CR_COMMAND_HANDLER_EX(IDC_BUTTON1, BN_CLICKED, OnClickedButton)
     CR_COMMAND_HANDLER_EX(IDC_BUTTON2, BN_CLICKED, OnClickedButton)
@@ -87,6 +88,8 @@ class ProgressWnd : public CompleteWnd, public AppInstallProgress {
   FRIEND_TEST_ALL_PREFIXES(ProgressWndTest, OnComplete);
   FRIEND_TEST_ALL_PREFIXES(ProgressWndTest, LaunchCmdLine);
   FRIEND_TEST_ALL_PREFIXES(ProgressWndTest, FlatButtonSubclass);
+  FRIEND_TEST_ALL_PREFIXES(ProgressWndTest, SetAppLogoDynamicSizing);
+  FRIEND_TEST_ALL_PREFIXES(ProgressWndTest, SetAppLogoThemeSwitching);
 
   enum class States {
     STATE_INIT = 0,
@@ -138,12 +141,14 @@ class ProgressWnd : public CompleteWnd, public AppInstallProgress {
   LRESULT OnSize(UINT msg, WPARAM wparam, LPARAM lparam);
   void OnClickedButton(UINT notify_code, int id, HWND wnd_ctl);
   LRESULT OnEraseBkgnd(UINT msg, WPARAM wparam, LPARAM lparam);
-  LRESULT OnSysColorChange(UINT msg, WPARAM wparam, LPARAM lparam);
   LRESULT OnSettingChange(UINT msg, WPARAM wparam, LPARAM lparam);
+  LRESULT OnThemeChanged(UINT msg, WPARAM wparam, LPARAM lparam);
   HBRUSH OnCtlColorStatic(HDC dc, HWND ctl_hwnd);
 
   void SetControlText(int id, const std::wstring& text);
-  void SetAppLogo(HBITMAP bitmap);
+  void SetAppLogo(HBITMAP light_bitmap, HBITMAP dark_bitmap);
+  void UpdateAppLogo();
+  HBITMAP GetCurrentAppLogoBitmap() const;
 
   // Returns true if this window is closed.
   bool MaybeCloseWindow() override;
@@ -165,6 +170,7 @@ class ProgressWnd : public CompleteWnd, public AppInstallProgress {
   raw_ptr<ProgressWndEvents> events_sink_ = nullptr;
   std::vector<GURL> post_install_urls_;
   bool is_canceled_ = false;
+  std::optional<bool> is_marquee_;
 
   struct ControlState {
    private:
@@ -182,9 +188,25 @@ class ProgressWnd : public CompleteWnd, public AppInstallProgress {
   base::win::ScopedGDIObject<HBITMAP> light_bg_bmp_;
   base::win::ScopedGDIObject<HBITMAP> dark_bg_bmp_;
 
-  base::win::ScopedGDIObject<HBITMAP> app_logo_bmp_;
+  // Cached original app logo bitmaps for light and dark themes received via
+  // WM_SET_APP_LOGO.
+  base::win::ScopedGDIObject<HBITMAP> light_app_logo_bmp_;
+  base::win::ScopedGDIObject<HBITMAP> dark_app_logo_bmp_;
 
-  HBITMAP GetBackgroundBitmap();
+  // Scaled app logo bitmap dynamically sized for the window's current DPI.
+  base::win::ScopedGDIObject<HBITMAP> scaled_app_logo_bmp_;
+
+  // The design-time bottom Y-coordinate of `IDC_APP_BITMAP` normalized to
+  // standard 96-DPI space. The bottom edge is locked to preserve the design
+  // margin above the dialog buttons, allowing taller square logos (e.g. 48x48)
+  // to expand upward into the empty area below the progress bar.
+  int initial_app_logo_base_bottom_y_ = -1;
+
+  // Returns the bounding rectangle of `control` in parent client coordinates,
+  // normalized for right-to-left (RTL) mirrored layouts.
+  RECT GetControlClientRect(HWND control) const;
+
+  HBITMAP GetBackgroundBitmap(bool is_dark_mode);
 
   // The speed by which the progress bar moves in marquee mode.
   static constexpr int kMarqueeModeUpdatesMs = 15;
@@ -198,6 +220,8 @@ class ProgressWnd : public CompleteWnd, public AppInstallProgress {
   FlatButton btn2_;
   FlatButton close_btn_;
   FlatButton get_help_btn_;
+
+  FRIEND_TEST_ALL_PREFIXES(ProgressWndTest, SetAppLogoDynamicSizing);
 
   CR_MSG_MAP_CLASS_DECLARATIONS(ProgressWnd)
 };

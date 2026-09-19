@@ -15,6 +15,9 @@
 #include "base/containers/fixed_flat_set.h"
 #include "base/files/file_path.h"
 #include "base/i18n/base_i18n_switches.h"
+#include "base/i18n/icubridge/default_icu_locale.h"
+#include "base/i18n/language_tag.h"
+#include "base/i18n/tag_converters.h"
 #include "base/logging.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -32,7 +35,6 @@
 #endif
 
 namespace base::i18n {
-
 namespace {
 
 // Extract language, country and variant, but ignore keywords.  For example,
@@ -128,10 +130,22 @@ std::string ICULocaleName(std::string_view locale_string) {
   return std::string(locale_string);
 }
 
-}  // namespace
+TextDirection GetTextDirectionInternal() {
+  TextDirection forced_direction = GetForcedTextDirection();
+  if (forced_direction != UNKNOWN_DIRECTION) {
+    return forced_direction;
+  }
 
-// Represents the locale-specific ICU text direction.
-static TextDirection g_icu_text_direction = UNKNOWN_DIRECTION;
+  static constexpr auto kRtlLanguageTags =
+      std::to_array<std::string_view>({"ar", "fa", "he", "ur"});
+  if (std::ranges::contains(kRtlLanguageTags,
+                            GetDefaultIcuLocale().language_subtag())) {
+    return RIGHT_TO_LEFT;
+  }
+  return LEFT_TO_RIGHT;
+}
+
+}  // namespace
 
 // Convert the ICU default locale to a string.
 std::string GetConfiguredLocale() {
@@ -161,33 +175,18 @@ void SetICUDefaultLocale(std::string_view locale_string) {
                << ". Falling back to en-US.";
     icu::Locale::setDefault(icu::Locale::getUS(), error_code);
   }
-  g_icu_text_direction = UNKNOWN_DIRECTION;
+  // This is being called here while we do not migrate every caller to it.
+  SetDefaultIcuLocale(DefaultIcuLocaleSetterKey(),
+                      LanguageTagConverter::GetInstance().FromIcuLocale(
+                          icu::Locale::getDefault()));
 }
 
 bool IsRTL() {
   return ICUIsRTL();
 }
 
-void SetRTLForTesting(bool rtl) {
-  SetICUDefaultLocale(rtl ? "he" : "en");
-  DCHECK_EQ(rtl, IsRTL());
-}
-
-ScopedRTLForTesting::ScopedRTLForTesting(bool rtl) {
-  previous_rtl_state_ = IsRTL();
-  SetRTLForTesting(rtl);  // IN-TEST
-}
-
-ScopedRTLForTesting::~ScopedRTLForTesting() {
-  SetRTLForTesting(previous_rtl_state_);  // IN-TEST
-}
-
 bool ICUIsRTL() {
-  if (g_icu_text_direction == UNKNOWN_DIRECTION) {
-    const icu::Locale& locale = icu::Locale::getDefault();
-    g_icu_text_direction = GetTextDirectionForLocaleInStartUp(locale.getName());
-  }
-  return g_icu_text_direction == RIGHT_TO_LEFT;
+  return GetTextDirectionInternal() == RIGHT_TO_LEFT;
 }
 
 TextDirection GetForcedTextDirection() {
@@ -213,24 +212,6 @@ TextDirection GetForcedTextDirection() {
   }
 
   return base::i18n::UNKNOWN_DIRECTION;
-}
-
-TextDirection GetTextDirectionForLocaleInStartUp(const char* locale_name) {
-  // Check for direction forcing.
-  TextDirection forced_direction = GetForcedTextDirection();
-  if (forced_direction != UNKNOWN_DIRECTION) {
-    return forced_direction;
-  }
-
-  CHECK(locale_name && locale_name[0]);
-
-  static constexpr auto kRtlLanguageCodes =
-      base::MakeFixedFlatSet<std::string_view>({"ar", "fa", "he", "iw", "ur"});
-  std::vector<std::string_view> locale_split =
-      SplitStringPiece(locale_name, "-_", KEEP_WHITESPACE, SPLIT_WANT_ALL);
-  std::string_view language_code = locale_split[0];
-  return kRtlLanguageCodes.contains(language_code) ? RIGHT_TO_LEFT
-                                                   : LEFT_TO_RIGHT;
 }
 
 TextDirection GetTextDirectionForLocale(const char* locale_name) {

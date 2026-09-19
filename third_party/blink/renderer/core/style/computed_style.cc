@@ -258,8 +258,7 @@ bool ComputedStyle::DiffAffectsContainerQueries(
   if (!old_style || !new_style) {
     return false;
   }
-  if (!base::ValuesEquivalent(old_style->ContainerName(),
-                              new_style->ContainerName()) ||
+  if (old_style->ContainerName() != new_style->ContainerName() ||
       old_style->ContainerType() != new_style->ContainerType()) {
     return true;
   }
@@ -742,6 +741,15 @@ bool ComputedStyle::InheritedEqualIncludingInheritedVariables(
   // pointer comparison, but yields many more MPC hits,
   // so it generally makes up for it.
   return ComputedStyleBase::InheritedEqualIncludingInheritedVariables(other);
+}
+
+ComputedStyle::InheritedPropertyHash
+ComputedStyle::FirstDifferingInheritedProperty(
+    const ComputedStyle& other) const {
+  // We use a by-value check that is a bit more expensive than
+  // pointer comparison, but yields many more MPC hits,
+  // so it generally makes up for it.
+  return ComputedStyleBase::FirstDifferingInheritedProperty(other);
 }
 
 StyleDifference ComputedStyle::VisualInvalidationDiff(
@@ -2561,7 +2569,6 @@ Color ComputedStyle::VisitedDependentColor(const blink::Color& unvisited_color,
 blink::Color ComputedStyle::VisitedDependentGapColor(
     const StyleColor& gap_color,
     bool is_column_rule) const {
-  CHECK(RuntimeEnabledFeatures::CSSGapDecorationEnabled());
   blink::Color unvisited_gap_color;
 
   // `StyleColor::IsCurrentColor()` is used down the pipeline to determine if
@@ -2638,14 +2645,6 @@ blink::Color ComputedStyle::ResolvedColor(const StyleColor& color,
   blink::Color current_color =
       visited_link ? GetInternalVisitedCurrentColor() : GetCurrentColor();
   return color.Resolve(current_color, UsedColorScheme(), is_current_color);
-}
-
-bool ComputedStyle::ColumnRuleEquivalent(
-    const ComputedStyle& other_style) const {
-  return ColumnRuleStyle() == other_style.ColumnRuleStyle() &&
-         ColumnRuleWidth() == other_style.ColumnRuleWidth() &&
-         VisitedDependentColor(GetCSSPropertyColumnRuleColor()) ==
-             other_style.VisitedDependentColor(GetCSSPropertyColumnRuleColor());
 }
 
 TextEmphasisMark ComputedStyle::GetTextEmphasisMark() const {

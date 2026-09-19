@@ -74,7 +74,6 @@ import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
 import org.chromium.components.browser_ui.settings.search.BaseSearchIndexProvider;
 import org.chromium.components.browser_ui.site_settings.AddExceptionPreference.SiteAddedCallback;
-import org.chromium.components.browser_ui.site_settings.AutoDarkMetrics.AutoDarkSettingsChangeSource;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.util.TraceEventVectorDrawableCompat;
 import org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils;
@@ -690,9 +689,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
                 updateNotificationsSecondaryControls();
             } else if (type == SiteSettingsCategory.Type.DEVICE_LOCATION) {
                 updateLocationSecondaryControls();
-            } else if (type == SiteSettingsCategory.Type.AUTO_DARK_WEB_CONTENT) {
-                AutoDarkMetrics.recordAutoDarkSettingsChangeSource(
-                        AutoDarkSettingsChangeSource.SITE_SETTINGS_GLOBAL, toggleValue);
+
             } else if (type == SiteSettingsCategory.Type.REQUEST_DESKTOP_SITE) {
                 recordSiteLayoutChanged(toggleValue);
                 updateDesktopSiteWindowSetting();
@@ -1239,6 +1236,8 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
             return R.string.website_settings_file_editing_page_description;
         } else if (mCategory.getType() == SiteSettingsCategory.Type.SERIAL_PORT) {
             return R.string.website_settings_serial_port_page_description;
+        } else if (mCategory.getType() == SiteSettingsCategory.Type.HID_DEVICES) {
+            return R.string.website_settings_hid_devices_page_description;
         } else if (mCategory.getType() == SiteSettingsCategory.Type.LOCAL_NETWORK) {
             return R.string.website_settings_local_network_page_description;
         } else if (mCategory.getType() == SiteSettingsCategory.Type.LOOPBACK_NETWORK) {
@@ -1710,12 +1709,6 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
                                             browserContextHandle,
                                             contentSettingsType,
                                             ContentSetting.DEFAULT);
-                        }
-                        if (mCategory.getType()
-                                == SiteSettingsCategory.Type.AUTO_DARK_WEB_CONTENT) {
-                            AutoDarkMetrics.recordAutoDarkSettingsChangeSource(
-                                    AutoDarkSettingsChangeSource.SITE_SETTINGS_EXCEPTION_LIST,
-                                    false);
                         }
 
                         getInfoForOrigins();

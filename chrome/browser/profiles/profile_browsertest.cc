@@ -50,7 +50,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_observer.h"
 #include "chrome/browser/profiles/profile_test_util.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/buildflags.h"
@@ -228,6 +228,7 @@ class ProfileBrowserTest : public InProcessBrowserTest {
     std::unique_ptr<Profile> profile =
         Profile::CreateProfile(path, delegate, create_mode);
     EXPECT_TRUE(profile.get());
+    profile->set_lifecycle_state(Profile::LifecycleState::kRegistered);
 
     // Store the Profile's IO task runner so we can wind it down.
     profile_io_task_runner_ = profile->GetIOTaskRunner();
@@ -273,7 +274,7 @@ class ProfileBrowserTest : public InProcessBrowserTest {
   // destroyed.
   static void RunURLLoaderActiveDuringIncognitoTeardownTest(
       net::EmbeddedTestServer* embedded_test_server,
-      Browser* incognito_browser,
+      BrowserWindowInterface* incognito_browser,
       network::mojom::URLLoaderFactory* factory) {
     // Start a hanging request.
     SimpleURLLoaderHelper simple_loader_helper1(
@@ -290,7 +291,7 @@ class ProfileBrowserTest : public InProcessBrowserTest {
     EXPECT_FALSE(simple_loader_helper1.is_complete());
 
     // Close all incognito tabs, starting profile shutdown.
-    incognito_browser->tab_strip_model()->CloseAllTabs();
+    incognito_browser->GetTabStripModel()->CloseAllTabs();
 
     // The request should have been canceled when the Profile shut down.
     simple_loader_helper1.WaitForCompletion();
@@ -520,9 +521,10 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, SyncToSigninMigrationAsynchronous) {
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 #endif  // !BUILDFLAG(IS_ANDROID)
 
+// LINT.IfChange(EndSessionPlatforms)
 // The EndSession IO synchronization is only critical on Windows, but also
-// happens under Ozone. See BrowserProcessImpl::EndSession.
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_OZONE)
+// happens under Ozone and macOS. See BrowserProcessImpl::EndSession.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_OZONE) || BUILDFLAG(IS_MAC)
 
 namespace {
 
@@ -632,7 +634,8 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest,
   ASSERT_TRUE(succeeded) << "profile->EndSession() timed out too often.";
 }
 
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_OZONE)
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_OZONE) || BUILDFLAG(IS_MAC)
+// LINT.ThenChange(//chrome/browser/browser_process_impl.cc:EndSessionPlatforms)
 
 // The following tests make sure that it's safe to shut down while one of the
 // Profile's URLLoaderFactories is in use by a SimpleURLLoader.
@@ -652,7 +655,7 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest,
 IN_PROC_BROWSER_TEST_F(ProfileBrowserTest,
                        SimpleURLLoaderUsingMainContextDuringIncognitoTeardown) {
   ASSERT_TRUE(embedded_test_server()->Start());
-  Browser* incognito_browser =
+  BrowserWindowInterface* incognito_browser =
       OpenURLOffTheRecord(browser()->GetProfile(), GURL("about:blank"));
   RunURLLoaderActiveDuringIncognitoTeardownTest(
       embedded_test_server(), incognito_browser,
@@ -670,7 +673,7 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest,
                        ExtensionURLLoaderFactoryAfterIncognitoTeardown) {
   // Create a mojo::Remote to ExtensionURLLoaderFactory for the incognito
   // profile.
-  Browser* incognito_browser =
+  BrowserWindowInterface* incognito_browser =
       OpenURLOffTheRecord(browser()->GetProfile(), GURL("about:blank"));
   Profile* incognito_profile = incognito_browser->GetProfile();
   mojo::Remote<network::mojom::URLLoaderFactory> url_loader_factory;
@@ -864,7 +867,7 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, DestroyOnOTRProfileAmongMany) {
       browser()->GetProfile()->GetOffTheRecordProfile(
           Profile::OTRProfileID::CreateUniqueForTesting(), true),
   };
-  Browser* incognito_browser =
+  BrowserWindowInterface* incognito_browser =
       OpenURLOffTheRecord(browser()->GetProfile(), GURL(url::kAboutBlankURL));
 
   ProfileDestructionWaiter waiter[3] = {
@@ -1016,7 +1019,7 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest,
   Profile* otr_profile = browser()->GetProfile()->GetOffTheRecordProfile(
       otr_profile_id, /*create_if_needed=*/true);
 
-  EXPECT_EQ(Browser::CreationStatus::kErrorProfileUnsuitable,
+  EXPECT_EQ(BrowserWindowInterface::CreationStatus::kErrorProfileUnsuitable,
             GetBrowserWindowCreationStatusForProfile(*otr_profile));
 }
 
@@ -1040,7 +1043,7 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, TestProfileTypes) {
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
   base::HistogramTester tester;
-  Browser* guest_browser = CreateGuestBrowser();
+  BrowserWindowInterface* guest_browser = CreateGuestBrowser();
 
   EXPECT_EQ(
       profile_metrics::BrowserProfileType::kGuest,
@@ -1052,7 +1055,7 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, TestProfileTypes) {
 
 IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, UnderOneMinute) {
   base::HistogramTester tester;
-  Browser* browser = CreateGuestBrowser();
+  BrowserWindowInterface* browser = CreateGuestBrowser();
   ui_test_utils::BrowserDestroyedObserver close_observer(browser);
 
   chrome::CloseAllBrowsersWithProfile(browser->GetProfile());
@@ -1062,7 +1065,7 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, UnderOneMinute) {
 
 IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, OneHour) {
   base::HistogramTester tester;
-  Browser* browser = CreateGuestBrowser();
+  BrowserWindowInterface* browser = CreateGuestBrowser();
   ui_test_utils::BrowserDestroyedObserver close_observer(browser);
 
   browser->GetProfile()->SetCreationTimeForTesting(base::Time::Now() -

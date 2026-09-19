@@ -845,8 +845,9 @@ void RenderFrameHostManager::InitRoot(
       CreateFrameCase::kInitRoot, site_instance,
       /*frame_routing_id=*/IPC::mojom::kRoutingIdNone,
       mojo::PendingAssociatedRemote<mojom::Frame>(), blink::LocalFrameToken(),
-      blink::DocumentToken(), devtools_frame_token, renderer_initiated_creation,
-      browsing_context_state,
+      blink::DocumentToken(), devtools_frame_token,
+      /*initiator_state_token=*/base::UnguessableToken::Create(),
+      renderer_initiated_creation, browsing_context_state,
       ProcessAllocationContext{ProcessAllocationSource::kRFHInitRoot}));
 
   // Creating a main RenderFrameHost also creates a new Page, so notify the
@@ -860,6 +861,7 @@ void RenderFrameHostManager::InitChild(
     mojo::PendingAssociatedRemote<mojom::Frame> frame_remote,
     const blink::LocalFrameToken& frame_token,
     const blink::DocumentToken& document_token,
+    const base::UnguessableToken& initiator_state_token,
     const base::UnguessableToken& devtools_frame_token,
     blink::FramePolicy frame_policy,
     std::string frame_name,
@@ -874,9 +876,9 @@ void RenderFrameHostManager::InitChild(
               url::Origin(), frame_name, frame_unique_name,
               network::ParsedPermissionsPolicy(),
               network::mojom::WebSandboxFlags::kNone, frame_policy,
-              // should enforce strict mixed content checking
+              // Inherited after RenderFrameHost creation.
               blink::mojom::InsecureRequestPolicy::kLeaveInsecureRequestsAlone,
-              // hashes of hosts for insecure request upgrades
+              // Inherited after RenderFrameHost creation.
               std::vector<uint32_t>(),
               false /* has_potentially_trustworthy_unique_origin */,
               false /* is_secure_context_root */,
@@ -891,7 +893,7 @@ void RenderFrameHostManager::InitChild(
   SetRenderFrameHost(CreateRenderFrameHost(
       CreateFrameCase::kInitChild, site_instance, frame_routing_id,
       std::move(frame_remote), frame_token, document_token,
-      devtools_frame_token,
+      devtools_frame_token, initiator_state_token,
       /*renderer_initiated_creation=*/false, browsing_context_state,
       ProcessAllocationContext{
           ProcessAllocationSource::kNoProcessCreationExpected}));
@@ -1016,12 +1018,11 @@ void RenderFrameHostManager::DidNavigateFrame(
     const blink::FramePolicy& frame_policy,
     bool allow_paint_holding,
     const ViewTransitionCommitInfo& view_transition_commit_info,
-    const base::optional_ref<const GURL> navigation_request_url,
     bool is_backward_navigation) {
   CommitPendingIfNecessary(render_frame_host, was_caused_by_user_gesture,
                            is_same_document_navigation, clear_proxies_on_commit,
                            allow_paint_holding, view_transition_commit_info,
-                           navigation_request_url, is_backward_navigation);
+                           is_backward_navigation);
 
   // Make sure any dynamic changes to this frame's sandbox flags and permissions
   // policy that were made prior to navigation take effect.  This should only
@@ -1063,7 +1064,6 @@ void RenderFrameHostManager::CommitPendingIfNecessary(
     bool clear_proxies_on_commit,
     bool allow_paint_holding,
     const ViewTransitionCommitInfo& view_transition_commit_info,
-    const base::optional_ref<const GURL> navigation_request_url,
     bool is_backward_navigation) {
   if (!speculative_render_frame_host_) {
     // There's no speculative RenderFrameHost so it must be that the current
@@ -1076,7 +1076,7 @@ void RenderFrameHostManager::CommitPendingIfNecessary(
     CommitPending(std::move(speculative_render_frame_host_),
                   std::move(stored_page_to_restore_), clear_proxies_on_commit,
                   allow_paint_holding, view_transition_commit_info,
-                  navigation_request_url, is_backward_navigation);
+                  is_backward_navigation);
 
     // If there are other navigation requests that are ongoing, set their
     // "associated RenderFrameHost type" NONE, as the old type may no longer be
@@ -1364,7 +1364,6 @@ void RenderFrameHostManager::UpdateOpener(
 void RenderFrameHostManager::UnloadOldFrame(
     std::unique_ptr<RenderFrameHostImpl> old_render_frame_host,
     const ViewTransitionCommitInfo& view_transition_commit_info,
-    const base::optional_ref<const GURL> navigation_request_url,
     bool is_backward_navigation,
     FrameTreeNodeId focused_frame_tree_node_id) {
   TRACE_EVENT1("navigation", "RenderFrameHostManager::UnloadOldFrame",
@@ -1464,7 +1463,7 @@ void RenderFrameHostManager::UnloadOldFrame(
           std::make_unique<BackForwardCacheImpl::Entry>(std::move(stored_page));
       // Ensures RenderViewHosts are not reused while they are in the cache.
       for (const auto& rvh : entry->render_view_hosts()) {
-        rvh->EnterBackForwardCache(navigation_request_url);
+        rvh->EnterBackForwardCache();
       }
       back_forward_cache.StoreEntry(std::move(entry));
       return;
@@ -1892,7 +1891,6 @@ void RenderFrameHostManager::PerformEarlyRenderFrameHostSwapIfNeeded(
       /*pending_stored_page=*/nullptr,
       request->browsing_context_group_swap().ShouldClearProxiesOnCommit(),
       /*allow_paint_holding=*/false, view_transition_commit_info,
-      /*navigation_request_url=*/request->GetURL(),
       /*is_backward_navigation=*/false);
   request->SetAssociatedRFHType(
       NavigationRequest::AssociatedRenderFrameHostType::CURRENT);
@@ -3486,6 +3484,10 @@ bool RenderFrameHostManager::InitializeMainRenderFrameForImmediateUse() {
     render_frame_host_->ReinitializeDocumentAssociatedDataForReuseAfterCrash(
         /* passkey */ {});
 
+    // Similarly, we should reinitialize the initiator state token.
+    render_frame_host_->ReinitializeInitiatorStateTokenAfterCrash(
+        /* passkey */ {});
+
     // Since it's possible for the now reinitialized main frame to create new
     // sub-frames/windows we need to also reinitialize the
     // RuntimeFeatureStateDocumentData, since those new frames/windows will
@@ -4343,6 +4345,7 @@ RenderFrameHostManager::CreateRenderFrameHost(
     const blink::LocalFrameToken& frame_token,
     const blink::DocumentToken& document_token,
     base::UnguessableToken devtools_frame_token,
+    const base::UnguessableToken& initiator_state_token,
     bool renderer_initiated_creation,
     scoped_refptr<BrowsingContextState> browsing_context_state,
     const ProcessAllocationContext& process_allocation_context) {
@@ -4443,8 +4446,8 @@ RenderFrameHostManager::CreateRenderFrameHost(
       site_instance, std::move(render_view_host),
       frame_tree.render_frame_delegate(), &frame_tree, frame_tree_node_,
       frame_routing_id, std::move(frame_remote), frame_token, document_token,
-      devtools_frame_token, renderer_initiated_creation, lifecycle_state,
-      std::move(browsing_context_state));
+      devtools_frame_token, initiator_state_token, renderer_initiated_creation,
+      lifecycle_state, std::move(browsing_context_state));
 }
 
 bool RenderFrameHostManager::CreateSpeculativeRenderFrameHost(
@@ -4617,6 +4620,7 @@ RenderFrameHostManager::CreateSpeculativeRenderFrame(
           mojo::PendingAssociatedRemote<mojom::Frame>(),
           blink::LocalFrameToken(), blink::DocumentToken(),
           render_frame_host_->devtools_frame_token(),
+          /*initiator_state_token=*/base::UnguessableToken::Create(),
           /*renderer_initiated_creation=*/false, browsing_context_state,
           ProcessAllocationContext{
               ProcessAllocationSource::kNoProcessCreationExpected});
@@ -5244,7 +5248,6 @@ void RenderFrameHostManager::CommitPending(
     bool clear_proxies_on_commit,
     bool allow_paint_holding,
     const ViewTransitionCommitInfo& view_transition_commit_info,
-    const base::optional_ref<const GURL> navigation_request_url,
     bool is_backward_navigation) {
   TRACE_EVENT1("navigation", "RenderFrameHostManager::CommitPending",
                "FrameTreeNode id", frame_tree_node_->frame_tree_node_id());
@@ -5593,8 +5596,11 @@ void RenderFrameHostManager::CommitPending(
   // valid surface id, because it already has that surface embedded through
   // `RenderFrameHostImpl::WillLeaveBackForwardCache` and the timeout that
   // would be set here will clear that frame (incorrectly).
-  if (is_main_frame && allow_paint_holding && old_view &&
-      old_view != new_view) {
+  // We also don't do this for prerendering frame trees because the page is not
+  // visible and should not start paint-holding or clear graphical output on
+  // activation.
+  if (!frame_tree_node_->frame_tree().is_prerendering() && is_main_frame &&
+      allow_paint_holding && old_view && old_view != new_view) {
     // If allowed, we should take the fallback in any of the following cases:
     //  - We're not coming from BFCache
     //  - We don't have a valid surface id to display.
@@ -5652,8 +5658,7 @@ void RenderFrameHostManager::CommitPending(
   // This will unload it and schedule it for deletion when the unload ack
   // arrives (or immediately if the process isn't live).
   UnloadOldFrame(std::move(old_render_frame_host), view_transition_commit_info,
-                 navigation_request_url, is_backward_navigation,
-                 focused_frame_tree_node_id);
+                 is_backward_navigation, focused_frame_tree_node_id);
 
   // Since the new RenderFrameHost is now committed, there must be no proxies
   // for its SiteInstance. Delete any existing ones.
@@ -6163,7 +6168,6 @@ void RenderFrameHostManager::CreateNewFrameForInnerDelegateAttachIfNecessary() {
                 /*pending_stored_page=*/nullptr,
                 /*clear_proxies_on_commit=*/false,
                 /*allow_paint_holding=*/false, view_transition_commit_info,
-                /*navigation_request_url=*/std::nullopt,
                 /*is_backward_navigation=*/false);
   NotifyPrepareForInnerDelegateAttachComplete(true /* success */);
 }

@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_WEBUI_SEARCHBOX_SEARCHBOX_TEST_UTILS_H_
 
 #include "base/memory/raw_ptr.h"
+#include "build/build_config.h"
 #include "chrome/browser/ui/contextual_search/tab_contextualization_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/test_omnibox_edit_model.h"
@@ -24,27 +25,41 @@
 #include "ui/gfx/geometry/size.h"
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/webui/omnibox_popup/mojom/omnibox_popup.mojom.h"
+#include "components/tabs/public/mock_tab_interface.h"  // nogncheck crbug.com/40147906
+#include "components/tabs/public/tab_interface.h"
+#include "ui/base/unowned_user_data/unowned_user_data_host.h"
+
+class MockBrowserWindowInterface;
+class MockTabListInterface;
 #endif
 
-class MockTabContextualizationController
-    : public lens::TabContextualizationController {
- public:
-  explicit MockTabContextualizationController(
-      tabs::TabInterface* tab_interface);
-  ~MockTabContextualizationController() override;
+class Profile;
 
-  MOCK_METHOD(bool, GetInitialPageContextEligibility, (), (override));
-  MOCK_METHOD(void,
-              GetPageContext,
-              (GetPageContextCallback callback),
-              (override));
-  MOCK_METHOD(void,
-              CaptureScreenshot,
-              (std::optional<lens::ImageEncodingOptions> image_options,
-               CaptureScreenshotCallback callback),
-              (override));
-};
+namespace content {
+class WebContents;
+}
+
+#if !BUILDFLAG(IS_ANDROID)
+void SetupMockBrowserWindowInterface(
+    MockBrowserWindowInterface& window_interface,
+    Profile* profile,
+    BrowserWindowFeatures& features,
+    ui::UnownedUserDataHost& user_data_host,
+    tabs::MockTabInterface* active_tab = nullptr,
+    content::WebContents* web_contents = nullptr);
+
+void SetupMockTabListInterface(MockTabListInterface& tab_list,
+                               tabs::MockTabInterface* active_tab = nullptr);
+
+void SetupMockTabInterface(tabs::MockTabInterface& mock_tab,
+                           content::WebContents* contents,
+                           Profile* profile,
+                           BrowserWindowInterface* window_interface = nullptr,
+                           ui::UnownedUserDataHost* user_data_host = nullptr);
+#endif
 
 using testing::_;
 using testing::DoAll;
@@ -73,7 +88,6 @@ class MockSearchboxPage : public searchbox::mojom::Page {
               (searchbox::mojom::SelectionDirection,
                searchbox::mojom::SelectionStep));
   MOCK_METHOD(void, OpenCurrentSelection, (WindowOpenDisposition));
-  MOCK_METHOD(void, ResetPopupToInitialState, ());
   MOCK_METHOD(void, SetAimButtonVisible, (bool visible));
   MOCK_METHOD(void,
               SetAimButtonConfig,
@@ -82,6 +96,7 @@ class MockSearchboxPage : public searchbox::mojom::Page {
                const std::string&,
                const GURL&));
   MOCK_METHOD(void, SetInputText, (const std::string& input_text));
+  MOCK_METHOD(void, SetKeywordSpaceTriggeringEnabled, (bool));
   MOCK_METHOD(void,
               SetThumbnail,
               (const std::string& thumbnail_url, bool is_deletable));
@@ -121,6 +136,12 @@ class MockSearchboxPage : public searchbox::mojom::Page {
               SetAimThreadRestoredTabs,
               (std::vector<searchbox::mojom::TabInfoPtr> tabs),
               (override));
+  MOCK_METHOD(void, OnScreenshotMenuClosed, (), (override));
+  MOCK_METHOD(void, SetShowFre, (bool show), (override));
+  MOCK_METHOD(void,
+              UpdateProfileInfo,
+              (const GURL&, const std::string&, const std::string&),
+              (override));
 };
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -139,9 +160,10 @@ class MockOmniboxPopupPage : public omnibox_popup::mojom::Page {
               SetInputState,
               (omnibox_popup::mojom::OmniboxInputStatePtr state),
               (override));
-  MOCK_METHOD(void, SetFocus, (bool is_focused), (override));
+  MOCK_METHOD(void, SetFocus, (bool is_focused, bool query_zps), (override));
   MOCK_METHOD(void, ClearAutocompleteMatches, (), (override));
   MOCK_METHOD(void, ClearPopup, (ClearPopupCallback callback), (override));
+  MOCK_METHOD(void, SetDefaultSearchProvider, (const std::string&), (override));
 };
 #endif
 
@@ -207,6 +229,25 @@ class MockLensSearchboxClient : public LensSearchboxClient {
   MOCK_METHOD(void, OnPageBound, (), (override));
   MOCK_METHOD(void, ShowGhostLoaderErrorState, (), (override));
   MOCK_METHOD(void, OnZeroSuggestShown, (), (override));
+};
+
+class MockTabContextualizationController
+    : public lens::TabContextualizationController {
+ public:
+  explicit MockTabContextualizationController(
+      tabs::TabInterface* tab_interface);
+  ~MockTabContextualizationController() override;
+
+  MOCK_METHOD(bool, GetInitialPageContextEligibility, (), (override));
+  MOCK_METHOD(void,
+              GetPageContext,
+              (GetPageContextCallback callback),
+              (override));
+  MOCK_METHOD(void,
+              CaptureScreenshot,
+              (std::optional<lens::ImageEncodingOptions> image_options,
+               CaptureScreenshotCallback callback),
+              (override));
 };
 
 #endif  // CHROME_BROWSER_UI_WEBUI_SEARCHBOX_SEARCHBOX_TEST_UTILS_H_

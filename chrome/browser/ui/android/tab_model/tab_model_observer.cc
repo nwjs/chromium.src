@@ -30,6 +30,12 @@ void TabModelObserver::OnFinishingMultipleTabClosure(
     const std::vector<TabAndroid*>& tabs,
     bool canRestore) {}
 
+void TabModelObserver::OnTabCloseCommitted(
+    const std::vector<TabAndroid*>& tabs,
+    bool is_all_tabs,
+    bool can_restore,
+    TabModel::TabClosingSource source) {}
+
 void TabModelObserver::WillAddTab(TabAndroid* tab,
                                   TabModel::TabLaunchType type) {}
 
@@ -66,5 +72,11 @@ void TabModelObserver::OnTabGroupMoved(tab_groups::TabGroupId group_id,
 
 void TabModelObserver::OnTabGroupVisualsChanged(
     tab_groups::TabGroupId group_id) {}
+
+void TabModelObserver::OnWillActiveStateChange(TabModel& tab_model,
+                                               bool active) {}
+
+void TabModelObserver::OnDidActiveStateChange(TabModel& tab_model,
+                                              bool active) {}
 
 void TabModelObserver::OnTabModelDestroyed(TabModel& tab_model) {}

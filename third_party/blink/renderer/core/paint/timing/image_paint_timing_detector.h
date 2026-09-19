@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/functional/callback_forward.h"
+#include "base/functional/function_ref.h"
 #include "base/time/time.h"
 #include "third_party/blink/public/common/performance/largest_contentful_paint_type.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -30,6 +31,7 @@ struct DOMPaintTimingInfo;
 class LargestContentfulPaintManager;
 class LayoutObject;
 class MediaTiming;
+class PaintTimingClient;
 class PaintTimingDetector;
 class PropertyTreeStateOrAlias;
 class StyleImage;
@@ -92,13 +94,6 @@ class CORE_EXPORT ImagePaintTimingDetector final
   // image is pending.
   void NotifyImageRemoved(const LayoutObject&, const MediaTiming*);
 
-  // Clears `images_queued_for_paint_time_` when hard LCP is stopped due to
-  // input.
-  //
-  // TODO(crbug.com/503691215, crbug.com/454082773): This should be removed and
-  // the decision should be left up to individual clients.
-  void StopRecordEntries();
-
   OptionalPaintTimingDetectorCallback<ImageRecord> TakePaintTimingCallback();
 
   // Called when documentElement changes from zero to nonzero opacity. Makes the
@@ -156,11 +151,6 @@ class CORE_EXPORT ImagePaintTimingDetector final
   // collections.
   ImageRecord* RemoveRecord(MediaRecordIdHash);
 
-  inline ImageRecord* GetPendingImage(MediaRecordIdHash record_id_hash) {
-    auto it = pending_images_.find(record_id_hash);
-    return it == pending_images_.end() ? nullptr : it->value.Get();
-  }
-
   // Sets the first animated frame time for the given `ImageRecord` based on the
   // record's `MediaTiming`, which must be a VideoTiming.
   void SetVideoFirstAnimatedFrameTime(ImageRecord*);
@@ -174,6 +164,8 @@ class CORE_EXPORT ImagePaintTimingDetector final
   void QueueToMeasurePaintTime(ImageRecord*, PresentationReason);
 
   base::TimeTicks LoadTime(MediaRecordIdHash) const;
+
+  void ForEachPaintTimingClient(base::FunctionRef<void(PaintTimingClient*)>);
 
   // Used to decide which frame a record belongs to, monotonically increasing.
   uint32_t frame_index_ = 1;

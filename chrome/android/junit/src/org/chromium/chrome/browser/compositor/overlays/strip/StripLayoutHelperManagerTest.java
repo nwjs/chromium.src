@@ -122,6 +122,7 @@ import org.chromium.components.prefs.PrefChangeRegistrar;
 import org.chromium.components.prefs.PrefChangeRegistrarJni;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
+import org.chromium.components.tabs.TabAlert;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.user_prefs.UserPrefsJni;
 import org.chromium.ui.base.ActivityResultTracker;
@@ -137,7 +138,7 @@ import java.util.List;
 
 /** Tests for {@link StripLayoutHelperManager}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE, qualifiers = "sw600dp")
+@Config(qualifiers = "sw600dp")
 @DisableFeatures({
     ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW,
     ChromeFeatureList.DATA_SHARING,
@@ -210,7 +211,6 @@ public class StripLayoutHelperManagerTest {
     private static final float SCREEN_HEIGHT = 1600.f;
     private static final float VISIBLE_VIEWPORT_Y = 200.f;
     private static final int ORIENTATION = 2;
-    private static final float BUTTON_END_PADDING = 8.f;
     private static final int TAB_STRIP_HEIGHT_PX = 40;
     private static final int FADE_TRANSITION_DURATION_MS = 200;
 
@@ -260,6 +260,7 @@ public class StripLayoutHelperManagerTest {
         }
         TabStripSceneLayer.setTestFlag(false);
         CompositorAnimationHandler.setTestingMode(false);
+        DeviceInfo.resetIsDesktopForTesting();
     }
 
     private void initializeTest() {
@@ -621,24 +622,8 @@ public class StripLayoutHelperManagerTest {
     }
 
     @Test
-    public void testGetFadeTransitionThresholdDp_MsbShown() {
-        when(mStandardTabModel.getCount()).thenReturn(1);
-        int expectedThresholdDp = 284;
-        assertEquals(expectedThresholdDp, mStripLayoutHelperManager.getFadeTransitionThresholdDp());
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
-    public void testGetFadeTransitionThresholdDp_MsbHide_IncognitoMigrationEnabled() {
-        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
-        when(mStandardTabModel.getCount()).thenReturn(1);
-        int expectedThresholdDp = 236;
-        assertEquals(expectedThresholdDp, mStripLayoutHelperManager.getFadeTransitionThresholdDp());
-    }
-
-    @Test
-    public void testGetFadeTransitionThresholdDp_MsbHide_NoIncognitoTabs() {
-        when(mStandardTabModel.getCount()).thenReturn(0);
+    public void testGetFadeTransitionThresholdDp() {
+        // Base Tablet threshold: 2 * minTabWidth(108) - tabOverlap(28) + newTabButton(48) = 236dp.
         int expectedThresholdDp = 236;
         assertEquals(expectedThresholdDp, mStripLayoutHelperManager.getFadeTransitionThresholdDp());
     }
@@ -646,9 +631,27 @@ public class StripLayoutHelperManagerTest {
     @Test
     @EnableFeatures(ChromeFeatureList.TAB_SEARCH_FOR_DESKTOP)
     public void testGetFadeTransitionThresholdDp_TabSearchEnabled() {
-        when(mStandardTabModel.getCount()).thenReturn(0);
         // Base (236) + Tab Search Button (48) = 284
         int expectedThresholdDp = 284;
+        assertEquals(expectedThresholdDp, mStripLayoutHelperManager.getFadeTransitionThresholdDp());
+    }
+
+    @Test
+    public void testGetFadeTransitionThresholdDp_DesktopDensity() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        initializeTest();
+        // Base Desktop threshold: 2 * minTabWidth(68) - tabOverlap(28) + newTabButton(32) = 140dp.
+        int expectedThresholdDp = 140;
+        assertEquals(expectedThresholdDp, mStripLayoutHelperManager.getFadeTransitionThresholdDp());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.TAB_SEARCH_FOR_DESKTOP)
+    public void testGetFadeTransitionThresholdDp_DesktopDensity_TabSearchEnabled() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        initializeTest();
+        // Base (140) + Tab Search Button (32) = 172
+        int expectedThresholdDp = 172;
         assertEquals(expectedThresholdDp, mStripLayoutHelperManager.getFadeTransitionThresholdDp());
     }
 
@@ -1295,18 +1298,6 @@ public class StripLayoutHelperManagerTest {
     }
 
     @Test
-    public void testStripBottomPxSupplier_onLayerYOffsetChanged() {
-        int yOffsetPx = 10;
-        int visibleHeightPx = 40;
-        mStripLayoutHelperManager.onLayerYOffsetChanged(yOffsetPx, visibleHeightPx);
-
-        assertEquals(
-                "Unexpected bottom px value.",
-                (Integer) (yOffsetPx + visibleHeightPx),
-                mStripLayoutHelperManager.getStripBottomPxSupplier().get());
-    }
-
-    @Test
     public void testLoadingStateChanged_toDifferentDocument() throws Exception {
         // Setup: Create a tab and a corresponding StripLayoutTab.
         Tab tab = mock(Tab.class);
@@ -1328,7 +1319,7 @@ public class StripLayoutHelperManagerTest {
                         mUpdateHost,
                         false,
                         false,
-                        /* alertState= */ null);
+                        /* alertState= */ TabAlert.NONE);
 
         // Inject the strip tab into the helper via reflection.
         Field tabsField = StripLayoutHelper.class.getDeclaredField("mStripTabs");
@@ -1417,7 +1408,7 @@ public class StripLayoutHelperManagerTest {
                         mUpdateHost,
                         false,
                         false,
-                        /* alertState= */ null);
+                        /* alertState= */ TabAlert.NONE);
 
         Field tabsField = StripLayoutHelper.class.getDeclaredField("mStripTabs");
         tabsField.setAccessible(true);

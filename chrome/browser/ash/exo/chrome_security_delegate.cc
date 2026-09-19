@@ -41,6 +41,9 @@
 
 namespace ash {
 
+BASE_FEATURE(kChromeSecurityDelegateIgnoreArcVm,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 namespace {
 
 constexpr char kUriListSeparator[] = "\r\n";
@@ -111,6 +114,14 @@ base::FilePath GetVmMount(const std::string& vm_name) {
 // Translate |vm_paths| from |source| VM to host paths.
 std::vector<FileInfo> TranslateVMToHost(const std::string& vm_name,
                                         std::vector<ui::FileInfo> vm_paths) {
+  // Do not expose any paths to unknown VMs or to ArcVm.
+  // Arc doesn't currently support drag-drop or clipboard via exo.
+  // If Arc ever adds support, we must map paths correctly like other VMs.
+  if (vm_name.empty() ||
+      (vm_name == arc::kArcVmName &&
+       base::FeatureList::IsEnabled(kChromeSecurityDelegateIgnoreArcVm))) {
+    return {};
+  }
   std::vector<FileInfo> file_infos;
   Profile* primary_profile = ProfileManager::GetPrimaryUserProfile();
   bool is_crostini = vm_name == crostini::kCrostiniDefaultVmName;
@@ -206,8 +217,8 @@ void ShareAndTranslateHostToVM(
         continue;
       }
     } else {
-      // Use path without conversion as default.
-      file_url = ui::FilePathToFileURL(info.path);
+      // Ignore unknown VMs
+      continue;
     }
     file_urls.push_back(std::move(file_url));
     if (share_required && !share_path->IsPathShared(vm_name, info.path)) {
@@ -309,6 +320,10 @@ bool ChromeSecurityDelegate::CanAccessRemoteShell() const {
 }
 
 bool ChromeSecurityDelegate::CanSetRestoreInfo() const {
+  return true;
+}
+
+bool ChromeSecurityDelegate::CanSetSystemModal() const {
   return true;
 }
 

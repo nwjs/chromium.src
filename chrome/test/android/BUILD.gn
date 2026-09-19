@@ -206,8 +206,10 @@ android_library("chrome_java_transit") {
     "javatests/src/org/chromium/chrome/test/transit/ntp/RegularNewTabPageAppMenuFacility.java",
     "javatests/src/org/chromium/chrome/test/transit/ntp/RegularNewTabPageStation.java",
     "javatests/src/org/chromium/chrome/test/transit/omnibox/FakeOmniboxSuggestions.java",
+    "javatests/src/org/chromium/chrome/test/transit/omnibox/OmniboxDraftingFacility.java",
     "javatests/src/org/chromium/chrome/test/transit/omnibox/OmniboxEnteredTextFacility.java",
     "javatests/src/org/chromium/chrome/test/transit/omnibox/OmniboxFacility.java",
+    "javatests/src/org/chromium/chrome/test/transit/omnibox/OmniboxSuggestionsFacility.java",
     "javatests/src/org/chromium/chrome/test/transit/page/BasePageStation.java",
     "javatests/src/org/chromium/chrome/test/transit/page/CctPageStation.java",
     "javatests/src/org/chromium/chrome/test/transit/page/CtaPageStation.java",
@@ -362,6 +364,7 @@ android_library("chrome_java_integration_test_support") {
 
   sources = [
     "javatests/src/org/chromium/chrome/browser/history/TestBrowsingHistoryObserver.java",
+    "javatests/src/org/chromium/chrome/browser/settings/SettingsSearchTestUtils.java",
     "javatests/src/org/chromium/chrome/browser/toolbar/top/ButtonHighlightMatcher.java",
     "javatests/src/org/chromium/chrome/test/ChromeActivityTestRule.java",
     "javatests/src/org/chromium/chrome/test/ChromeTabbedActivityTestRule.java",
@@ -445,6 +448,7 @@ android_library("chrome_java_integration_test_support") {
     "//chrome/browser/ui/android/theme:java",
     "//chrome/browser/ui/android/toolbar:java",
     "//chrome/browser/ui/messages/android:java",
+    "//chrome/browser/url_constants/android:java",
     "//chrome/browser/util:java",
     "//components/bookmarks/common/android:bookmarks_java",
     "//components/browser_ui/bottomsheet/android:java",

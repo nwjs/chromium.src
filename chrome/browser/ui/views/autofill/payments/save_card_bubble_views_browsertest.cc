@@ -22,9 +22,9 @@
 #include "chrome/browser/sync/test/integration/sync_test.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/autofill/payments/save_card_bubble_controller_impl.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/page_action/page_action_observer.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
@@ -34,7 +34,8 @@
 #include "chrome/browser/ui/views/autofill/payments/save_card_manage_cards_bubble_views.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-#include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
+#include "chrome/browser/ui/views/page_action/page_action_view_interface.h"
+#include "chrome/browser/ui/views/page_action/test_support/page_action_test_accessor.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -51,7 +52,7 @@
 #include "components/autofill/core/browser/metrics/payments/manage_cards_prompt_metrics.h"
 #include "components/autofill/core/browser/payments/credit_card_save_manager.h"
 #include "components/autofill/core/browser/payments/payments_network_interface.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/browser/test_utils/test_autofill_clock.h"
 #include "components/autofill/core/browser/test_utils/test_event_waiter.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
@@ -410,7 +411,7 @@ class SaveCardBubbleViewsFullFormBrowserTest
 
   void CloseAllTabs() {
     closed_all_tabs_ = true;
-    GetBrowser(0)->tab_strip_model()->CloseAllTabs();
+    GetBrowser(0)->GetTabStripModel()->CloseAllTabs();
   }
 
   void NavigateToAndWaitForForm(const std::string& file_path) {
@@ -794,19 +795,22 @@ class SaveCardBubbleViewsFullFormBrowserTest
     return static_cast<SaveCardBubbleViews*>(save_card_bubble_view);
   }
 
-  IconLabelBubbleView* GetSaveCardPageActionView() {
+  page_actions::PageActionTestAccessor GetSaveCardPageActionAccessor() {
+    return page_actions::PageActionTestAccessor(
+        GetBrowser(0), kActionShowPaymentsBubbleOrPage);
+  }
+
+  page_actions::PageActionViewInterface* GetSaveCardPageActionView() {
     BrowserView* browser_view =
         BrowserView::GetBrowserViewForBrowser(GetBrowser(0));
     auto* provider = browser_view->toolbar_button_provider();
-    IconLabelBubbleView* icon = page_actions::GetIconLabelBubbleViewForTesting(
-        provider->GetPageActionViewInterface(kActionShowPaymentsBubbleOrPage),
-        kActionShowPaymentsBubbleOrPage);
-    CHECK(browser_view->GetLocationBarView()->Contains(icon));
+    auto* icon =
+        provider->GetPageActionViewInterface(kActionShowPaymentsBubbleOrPage);
     return icon;
   }
 
   content::WebContents* GetActiveWebContents() {
-    return GetBrowser(0)->tab_strip_model()->GetActiveWebContents();
+    return GetBrowser(0)->GetTabStripModel()->GetActiveWebContents();
   }
 
   void ResetEventWaiterForSequence(std::list<DialogEvent> event_sequence) {
@@ -1936,7 +1940,7 @@ IN_PROC_BROWSER_TEST_P(SaveCardBubbleViewsFullFormBrowserTest,
   SubmitForm();
   ASSERT_TRUE(WaitForObservedEvent());
 
-  EXPECT_FALSE(GetSaveCardPageActionView()->GetVisible());
+  EXPECT_FALSE(GetSaveCardPageActionAccessor().GetVisible());
   EXPECT_FALSE(GetSaveCardBubbleViews());
 
   // Verify that the correct histogram entry was logged.
@@ -1996,7 +2000,7 @@ IN_PROC_BROWSER_TEST_P(
   ASSERT_TRUE(WaitForObservedEvent());
 
   // Post migration, the page action will not show after max strikes.
-  EXPECT_FALSE(GetSaveCardPageActionView()->GetVisible());
+  EXPECT_FALSE(GetSaveCardPageActionAccessor().GetVisible());
   EXPECT_FALSE(GetSaveCardBubbleViews());
 
   // Verify that the correct histogram entry was logged.
@@ -2182,7 +2186,7 @@ IN_PROC_BROWSER_TEST_P(SaveCardBubbleViewsFullFormBrowserTest,
   EXPECT_EQ(nullptr, GetSaveCardBubbleViews());
 
   // Entrypoint for manage card bubble will not show post migration.
-  EXPECT_FALSE(GetSaveCardPageActionView()->GetVisible());
+  EXPECT_FALSE(GetSaveCardPageActionAccessor().GetVisible());
 }
 
 // Tests the local save bubble. Ensures that the bubble always surfaces the

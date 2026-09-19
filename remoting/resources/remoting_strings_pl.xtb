@@ -48,6 +48,7 @@ Jeśli opcja „<ph name="SERVICE_SCRIPT_NAME" />” jest już zaznaczona, odzna
 <translation id="3197730452537982411">Pulpit zdalny</translation>
 <translation id="3236334139428307578">Copyright 2026 Autorzy Chromium. Wszelkie prawa zastrzeżone.</translation>
 <translation id="324272851072175193">Prześlij te instrukcje e-mailem</translation>
+<translation id="3254626532848657899">Przenieś na koniec</translation>
 <translation id="3305934114213025800"><ph name="PRODUCT_NAME" /> chce wprowadzić zmiany.</translation>
 <translation id="3339299787263251426">Bezpieczny dostęp online do komputera</translation>
 <translation id="3385242214819933234">Nieprawidłowy właściciel hosta.</translation>
@@ -166,6 +167,7 @@ Jeśli opcja „<ph name="SERVICE_SCRIPT_NAME" />” jest już zaznaczona, odzna
 <translation id="8073845705237259513">Aby użyć Pulpitu zdalnego Chrome, musisz dodać do urządzenia konto Google.</translation>
 <translation id="809687642899217504">Moje komputery</translation>
 <translation id="8116630183974937060">Wystąpił błąd sieci. Sprawdź, czy urządzenie jest online, i spróbuj jeszcze raz.</translation>
+<translation id="8249310407154411074">Przenieś na początek</translation>
 <translation id="8295077433896346116">Aby korzystać z usługi <ph name="PRODUCT_NAME" />, musisz przyznać uprawnienie „Ułatwienia dostępu”. Umożliwi to przesyłanie danych wejściowych z komputera zdalnego na tego Maca.
 
 Kliknij przycisk „<ph name="BUTTON_NAME" />” poniżej, by otworzyć okienko ustawień „Ułatwienia dostępu”, a potem zaznacz pole obok opcji „<ph name="SERVICE_SCRIPT_NAME" />”.

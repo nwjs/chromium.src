@@ -11,6 +11,7 @@
 #import "ios/chrome/browser/content_suggestions/public/ntp_home_constants.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_constants.h"
 #import "ios/chrome/browser/ntp/search_engine_logo/ui/search_engine_logo_state.h"
+#import "ios/chrome/browser/ntp/ui_bundled/discover_feed_constants.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_constants.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_constants.h"
@@ -79,6 +80,8 @@ constexpr CGFloat kDoodleBottomMarginAdjustment = 10;
 constexpr CGFloat kLogoTopMarginAdjustment = kDoodleLogoDelta -
                                              kDoodleTopMarginAdjustment -
                                              kDoodleBottomMarginAdjustment;
+constexpr CGFloat kCleanupDoodleTopMarginAdjustment = 15;
+constexpr CGFloat kCleanupDoodleBottomMarginAdjustment = 4;
 
 // The size of the symbol image.
 const CGFloat kSymbolContentSuggestionsPointSize = 18;
@@ -163,38 +166,37 @@ void SetUpButtonWithNewFeatureBadge(UIButton* button,
 namespace content_suggestions {
 
 const CGFloat kHintTextScale = 0.15;
+const CGFloat kHintTextScaleUICleanup = 0.0;
 const CGFloat kReturnToRecentTabSectionBottomMargin = 25;
 
 // Tight Padding Arm.
-const CGFloat kLogoTopPaddingTight = 24.0;
-const CGFloat kLogoToFakeboxPaddingTight = 32.0;
+const CGFloat kLogoTopPaddingTight = 9.0;
+const CGFloat kLogoToFakeboxPaddingTight = 36.0;
 const CGFloat kDoodleTopPaddingTight = 16.0;
 const CGFloat kDoodleToFakeboxPaddingTight = 16.0;
-const CGFloat kQuickActionsTopPaddingTight = 12.0;
 const CGFloat kMostVisitedTopPaddingTight = 32.0;
 
 // Medium Padding Arm.
-const CGFloat kLogoTopPaddingMedium = 36.0;
-const CGFloat kLogoToFakeboxPaddingMedium = 36.0;
+const CGFloat kLogoTopPaddingMedium = 21.0;
+const CGFloat kLogoToFakeboxPaddingMedium = 40.0;
 const CGFloat kDoodleTopPaddingMedium = 24.0;
 const CGFloat kDoodleToFakeboxPaddingMedium = 24.0;
-const CGFloat kQuickActionsTopPaddingMedium = 12.0;
 const CGFloat kMostVisitedTopPaddingMedium = 36.0;
 
 // Preferred Padding Arm.
-const CGFloat kLogoTopPaddingPreferred = 48.0;
-const CGFloat kLogoToFakeboxPaddingPreferred = 36.0;
+const CGFloat kLogoTopPaddingPreferred = 33.0;
+const CGFloat kLogoToFakeboxPaddingPreferred = 40.0;
 const CGFloat kDoodleTopPaddingPreferred = 36.0;
 const CGFloat kDoodleToFakeboxPaddingPreferred = 24.0;
-const CGFloat kQuickActionsTopPaddingPreferred = 12.0;
 const CGFloat kMostVisitedTopPaddingPreferred = 36.0;
 
 // Control Padding.
-const CGFloat kQuickActionsTopPaddingControl = 8.0;
-const CGFloat kMostVisitedTopPaddingControl = 20.0;
+const CGFloat kQuickActionsTopPaddingControl = 3.0;
+const CGFloat kMostVisitedTopPaddingControl = 19.0;
 const CGFloat kReducedModuleSpacingControl = 14.0;
 
 // Shared spacing constants.
+const CGFloat kQuickActionsTopPadding = 12.0;
 const CGFloat kReducedModuleSpacing = 12.0;
 const CGFloat kReducedModuleSpacingRegularXRegular = 14.0;
 
@@ -262,7 +264,9 @@ CGFloat SearchFieldTopMargin(SearchEngineLogoState logo_state) {
 
 CGFloat SearchFieldWidth(CGFloat width, UITraitCollection* trait_collection) {
   if (IsRegularXRegularSizeClass(trait_collection)) {
-    return kSearchFieldLarge;
+    return IsNewTabPageUICleanupEnabled()
+               ? kDiscoverFeedContentMaxWidthUICleanup
+               : kSearchFieldLarge;
   }
 
   if (IsNewTabPageUICleanupEnabled()) {
@@ -343,7 +347,7 @@ CGFloat HeightForLogoHeader(SearchEngineLogoState logo_state,
 }
 
 CGFloat HeaderBottomPadding(UITraitCollection* trait_collection) {
-  return IsSplitToolbarMode(trait_collection)
+  return IsSplitToolbarMode(trait_collection) || IsNewTabPageUICleanupEnabled()
              ? 0
              : kNTPShrunkLogoSearchFieldBottomPadding;
 }
@@ -353,67 +357,71 @@ CGFloat LogoTopPadding(SearchEngineLogoState logo_state,
   if (IsRegularXRegularSizeClass(trait_collection)) {
     return kDoodleTopMarginRegularXRegular;
   }
-  if (logo_state == SearchEngineLogoState::kDoodle) {
-    switch (GetNewTabPageUICleanupVariation()) {
-      case NTPUICleanupVariation::kTightPadding:
-        return FakeToolbarHeight() + kDoodleTopPaddingTight;
-      case NTPUICleanupVariation::kMediumPadding:
-        return FakeToolbarHeight() + kDoodleTopPaddingMedium;
-      case NTPUICleanupVariation::kPreferredPadding:
-        return FakeToolbarHeight() + kDoodleTopPaddingPreferred;
-      case NTPUICleanupVariation::kFakeboxBackgroundAndShadow:
-      case NTPUICleanupVariation::kDisabled:
-        return DoodleTopMargin(logo_state, trait_collection);
-    }
-  }
+  const bool is_doodle = (logo_state == SearchEngineLogoState::kDoodle);
+  CGFloat padding = 0;
   switch (GetNewTabPageUICleanupVariation()) {
     case NTPUICleanupVariation::kTightPadding:
-      return FakeToolbarHeight() + kLogoTopPaddingTight;
+      padding = is_doodle ? kDoodleTopPaddingTight : kLogoTopPaddingTight;
+      break;
     case NTPUICleanupVariation::kMediumPadding:
-      return FakeToolbarHeight() + kLogoTopPaddingMedium;
+      padding = is_doodle ? kDoodleTopPaddingMedium : kLogoTopPaddingMedium;
+      break;
     case NTPUICleanupVariation::kPreferredPadding:
-      return FakeToolbarHeight() + kLogoTopPaddingPreferred;
+      padding =
+          is_doodle ? kDoodleTopPaddingPreferred : kLogoTopPaddingPreferred;
+      break;
     case NTPUICleanupVariation::kFakeboxBackgroundAndShadow:
     case NTPUICleanupVariation::kDisabled:
       return DoodleTopMargin(logo_state, trait_collection);
   }
+  padding += FakeToolbarHeight();
+  if (IsConsistentLogoDoodleHeightEnabled() &&
+      ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET && is_doodle) {
+    padding -= kCleanupDoodleTopMarginAdjustment;
+  }
+  return padding;
 }
 
 CGFloat LogoToFakeboxPadding(SearchEngineLogoState logo_state) {
-  if (logo_state == SearchEngineLogoState::kDoodle) {
-    switch (GetNewTabPageUICleanupVariation()) {
-      case NTPUICleanupVariation::kTightPadding:
-        return kDoodleToFakeboxPaddingTight;
-      case NTPUICleanupVariation::kMediumPadding:
-        return kDoodleToFakeboxPaddingMedium;
-      case NTPUICleanupVariation::kPreferredPadding:
-        return kDoodleToFakeboxPaddingPreferred;
-      case NTPUICleanupVariation::kFakeboxBackgroundAndShadow:
-      case NTPUICleanupVariation::kDisabled:
-        return SearchFieldTopMargin(logo_state);
-    }
-  }
+  const bool is_doodle = (logo_state == SearchEngineLogoState::kDoodle);
+  CGFloat padding = 0;
   switch (GetNewTabPageUICleanupVariation()) {
     case NTPUICleanupVariation::kTightPadding:
-      return kLogoToFakeboxPaddingTight;
+      padding =
+          is_doodle ? kDoodleToFakeboxPaddingTight : kLogoToFakeboxPaddingTight;
+      break;
     case NTPUICleanupVariation::kMediumPadding:
-      return kLogoToFakeboxPaddingMedium;
+      padding = is_doodle ? kDoodleToFakeboxPaddingMedium
+                          : kLogoToFakeboxPaddingMedium;
+      break;
     case NTPUICleanupVariation::kPreferredPadding:
-      return kLogoToFakeboxPaddingPreferred;
+      padding = is_doodle ? kDoodleToFakeboxPaddingPreferred
+                          : kLogoToFakeboxPaddingPreferred;
+      break;
     case NTPUICleanupVariation::kFakeboxBackgroundAndShadow:
     case NTPUICleanupVariation::kDisabled:
       return SearchFieldTopMargin(logo_state);
   }
+  if (IsConsistentLogoDoodleHeightEnabled() &&
+      ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET && is_doodle) {
+    padding -= kCleanupDoodleBottomMarginAdjustment;
+  }
+  return padding;
 }
 
 CGFloat QuickActionsTopPadding() {
   switch (GetNewTabPageUICleanupVariation()) {
     case NTPUICleanupVariation::kTightPadding:
-      return kQuickActionsTopPaddingTight;
     case NTPUICleanupVariation::kMediumPadding:
-      return kQuickActionsTopPaddingMedium;
     case NTPUICleanupVariation::kPreferredPadding:
-      return kQuickActionsTopPaddingPreferred;
+      // When NTP Redesign is enabled, Quick Actions is constrained directly to
+      // the fakebox, so the intended 12pt padding is used. Otherwise, subtract
+      // `ntp_header::kScrolledToTopOmniboxBottomMargin` from the intended
+      // padding to offset the header view's bottom margin.
+      return IsNTPRedesignEnabled()
+                 ? kQuickActionsTopPadding
+                 : (kQuickActionsTopPadding -
+                    ntp_header::kScrolledToTopOmniboxBottomMargin);
     case NTPUICleanupVariation::kFakeboxBackgroundAndShadow:
     case NTPUICleanupVariation::kDisabled:
       return kQuickActionsTopPaddingControl;
@@ -560,7 +568,13 @@ UIView* NearestAncestor(UIView* view, Class of_class) {
 
 UIColor* SearchHintLabelColor() {
   if (IsNewTabPageUICleanupEnabled()) {
-    return [UIColor colorNamed:kTextTertiaryColor];
+    return [UIColor colorWithDynamicProvider:^UIColor*(
+                        UITraitCollection* trait_collection) {
+      if (trait_collection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        return [UIColor colorNamed:kTextSecondaryColor];
+      }
+      return [UIColor colorNamed:kTextTertiaryColor];
+    }];
   }
   return [UIColor colorNamed:kGrey800Color];
 }

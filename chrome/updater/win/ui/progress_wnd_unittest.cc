@@ -11,8 +11,11 @@
 #include "base/command_line.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/test/test_reg_util_win.h"
 #include "base/test/test_timeouts.h"
 #include "base/time/time.h"
+#include "base/win/registry.h"
+#include "base/win/scoped_hdc.h"
 #include "chrome/updater/test/test_scope.h"
 #include "chrome/updater/test/unit_test_util.h"
 #include "chrome/updater/test/unit_test_util_win.h"
@@ -438,6 +441,198 @@ TEST_F(ProgressWndTest, FlatButtonSubclass) {
   EXPECT_TRUE(progress_wnd->get_help_btn_.IsWindow());
 
   progress_wnd->DestroyWindow();
+}
+
+// Verifies that the app logo control dynamically resizes to match both
+// theme-specific square logos (48x48) and legacy rectangular logos (92x24),
+// scaling correctly under the window's effective DPI while keeping the bottom
+// edge aligned with the layout baseline.
+TEST_F(ProgressWndTest, SetAppLogoDynamicSizing) {
+  MessageLoop ui_message_loop;
+  std::unique_ptr<ProgressWnd> progress_wnd =
+      MakeProgressWindow(&ui_message_loop);
+
+  const HWND app_bitmap_ctl =
+      ::GetDlgItem(progress_wnd->hwnd(), IDC_APP_BITMAP);
+  base::win::ScopedGetDC dc(nullptr);
+
+  // Test with a 48x48 square logo.
+  base::win::ScopedGDIObject<HBITMAP> square_bitmap(
+      ::CreateCompatibleBitmap(dc, 48, 48));
+  EXPECT_TRUE(square_bitmap.is_valid());
+
+  ::SendMessage(progress_wnd->hwnd(), WM_SET_APP_LOGO,
+                reinterpret_cast<WPARAM>(square_bitmap.release()), 0);
+
+  RECT ctl_rect = progress_wnd->GetControlClientRect(app_bitmap_ctl);
+  const int initial_bottom = ctl_rect.bottom;
+  const int dpi = ::GetDpiForWindow(progress_wnd->hwnd());
+  const int effective_dpi = dpi ? dpi : USER_DEFAULT_SCREEN_DPI;
+  EXPECT_EQ(ctl_rect.right - ctl_rect.left,
+            ::MulDiv(48, effective_dpi, USER_DEFAULT_SCREEN_DPI));
+  EXPECT_EQ(ctl_rect.bottom - ctl_rect.top,
+            ::MulDiv(48, effective_dpi, USER_DEFAULT_SCREEN_DPI));
+
+  // Test with a 92x24 rectangular logo.
+  base::win::ScopedGDIObject<HBITMAP> rect_bitmap(
+      ::CreateCompatibleBitmap(dc, 92, 24));
+  EXPECT_TRUE(rect_bitmap.is_valid());
+
+  ::SendMessage(progress_wnd->hwnd(), WM_SET_APP_LOGO,
+                reinterpret_cast<WPARAM>(rect_bitmap.release()), 0);
+
+  // Verify that the rectangular logo matches expected scaled dimensions and
+  // the bottom coordinate remains locked to the original baseline.
+  ctl_rect = progress_wnd->GetControlClientRect(app_bitmap_ctl);
+  EXPECT_EQ(ctl_rect.right - ctl_rect.left,
+            ::MulDiv(92, effective_dpi, USER_DEFAULT_SCREEN_DPI));
+  EXPECT_EQ(ctl_rect.bottom - ctl_rect.top,
+            ::MulDiv(24, effective_dpi, USER_DEFAULT_SCREEN_DPI));
+  EXPECT_EQ(ctl_rect.bottom, initial_bottom);
+
+  progress_wnd->DestroyWindow();
+}
+
+// Verifies that caching both light and dark logos allows switching the
+// displayed logo when a theme change (WM_SETTINGCHANGE or WM_SYSCOLORCHANGE)
+// occurs without requiring redownloading or resetting the cache.
+TEST_F(ProgressWndTest, SetAppLogoThemeSwitching) {
+  registry_util::RegistryOverrideManager registry_override;
+  ASSERT_NO_FATAL_FAILURE(
+      registry_override.OverrideRegistry(HKEY_CURRENT_USER));
+
+  auto set_dark_mode = [](bool dark) {
+    base::win::RegKey key;
+    EXPECT_EQ(key.Create(HKEY_CURRENT_USER,
+                         L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes"
+                         L"\\Personalize",
+                         KEY_SET_VALUE),
+              ERROR_SUCCESS);
+    EXPECT_EQ(
+        key.WriteValue(L"AppsUseLightTheme", static_cast<DWORD>(dark ? 0 : 1)),
+        ERROR_SUCCESS);
+  };
+
+  // Start with light mode.
+  set_dark_mode(false);
+
+  MessageLoop ui_message_loop;
+  std::unique_ptr<ProgressWnd> progress_wnd =
+      MakeProgressWindow(&ui_message_loop);
+
+  const HWND app_bitmap_ctl =
+      ::GetDlgItem(progress_wnd->hwnd(), IDC_APP_BITMAP);
+  base::win::ScopedGetDC dc(nullptr);
+
+  // Light logo: 32x32, Dark logo: 48x48.
+  base::win::ScopedGDIObject<HBITMAP> light_bitmap(
+      ::CreateCompatibleBitmap(dc, 32, 32));
+  base::win::ScopedGDIObject<HBITMAP> dark_bitmap(
+      ::CreateCompatibleBitmap(dc, 48, 48));
+  EXPECT_TRUE(light_bitmap.is_valid());
+  EXPECT_TRUE(dark_bitmap.is_valid());
+
+  const HBITMAP light_hbitmap = light_bitmap.get();
+  const HBITMAP dark_hbitmap = dark_bitmap.get();
+
+  ::SendMessage(progress_wnd->hwnd(), WM_SET_APP_LOGO,
+                reinterpret_cast<WPARAM>(light_bitmap.release()),
+                reinterpret_cast<LPARAM>(dark_bitmap.release()));
+
+  EXPECT_EQ(progress_wnd->light_app_logo_bmp_.get(), light_hbitmap);
+  EXPECT_EQ(progress_wnd->dark_app_logo_bmp_.get(), dark_hbitmap);
+  EXPECT_EQ(progress_wnd->GetCurrentAppLogoBitmap(), light_hbitmap);
+
+  const int dpi = ::GetDpiForWindow(progress_wnd->hwnd());
+  const int effective_dpi = dpi ? dpi : USER_DEFAULT_SCREEN_DPI;
+
+  RECT ctl_rect = progress_wnd->GetControlClientRect(app_bitmap_ctl);
+  EXPECT_EQ(ctl_rect.right - ctl_rect.left,
+            ::MulDiv(32, effective_dpi, USER_DEFAULT_SCREEN_DPI));
+  EXPECT_EQ(ctl_rect.bottom - ctl_rect.top,
+            ::MulDiv(32, effective_dpi, USER_DEFAULT_SCREEN_DPI));
+
+  // Switch to dark mode and notify the window via WM_SETTINGCHANGE.
+  set_dark_mode(true);
+  ::SendMessage(progress_wnd->hwnd(), WM_SETTINGCHANGE, 0,
+                reinterpret_cast<LPARAM>(L"ImmersiveColorSet"));
+
+  EXPECT_EQ(progress_wnd->GetCurrentAppLogoBitmap(), dark_hbitmap);
+  ctl_rect = progress_wnd->GetControlClientRect(app_bitmap_ctl);
+  EXPECT_EQ(ctl_rect.right - ctl_rect.left,
+            ::MulDiv(48, effective_dpi, USER_DEFAULT_SCREEN_DPI));
+  EXPECT_EQ(ctl_rect.bottom - ctl_rect.top,
+            ::MulDiv(48, effective_dpi, USER_DEFAULT_SCREEN_DPI));
+
+  // Switch back to light mode and notify via WM_SYSCOLORCHANGE.
+  set_dark_mode(false);
+  ::SendMessage(progress_wnd->hwnd(), WM_SYSCOLORCHANGE, 0, 0);
+
+  EXPECT_EQ(progress_wnd->GetCurrentAppLogoBitmap(), light_hbitmap);
+  ctl_rect = progress_wnd->GetControlClientRect(app_bitmap_ctl);
+  EXPECT_EQ(ctl_rect.right - ctl_rect.left,
+            ::MulDiv(32, effective_dpi, USER_DEFAULT_SCREEN_DPI));
+  EXPECT_EQ(ctl_rect.bottom - ctl_rect.top,
+            ::MulDiv(32, effective_dpi, USER_DEFAULT_SCREEN_DPI));
+
+  // Test with only a single fallback logo (light provided, dark is null).
+  base::win::ScopedGDIObject<HBITMAP> fallback_bitmap(
+      ::CreateCompatibleBitmap(dc, 64, 64));
+  EXPECT_TRUE(fallback_bitmap.is_valid());
+  const HBITMAP fallback_hbitmap = fallback_bitmap.get();
+
+  ::SendMessage(progress_wnd->hwnd(), WM_SET_APP_LOGO,
+                reinterpret_cast<WPARAM>(fallback_bitmap.release()), 0);
+
+  EXPECT_EQ(progress_wnd->light_app_logo_bmp_.get(), fallback_hbitmap);
+  EXPECT_EQ(progress_wnd->dark_app_logo_bmp_.get(), nullptr);
+
+  // In light mode, uses fallback logo.
+  EXPECT_EQ(progress_wnd->GetCurrentAppLogoBitmap(), fallback_hbitmap);
+  ctl_rect = progress_wnd->GetControlClientRect(app_bitmap_ctl);
+  EXPECT_EQ(ctl_rect.right - ctl_rect.left,
+            ::MulDiv(64, effective_dpi, USER_DEFAULT_SCREEN_DPI));
+  EXPECT_EQ(ctl_rect.bottom - ctl_rect.top,
+            ::MulDiv(64, effective_dpi, USER_DEFAULT_SCREEN_DPI));
+
+  // In dark mode with no dark logo provided, falls back to light logo.
+  set_dark_mode(true);
+  ::SendMessage(progress_wnd->hwnd(), WM_SETTINGCHANGE, 0,
+                reinterpret_cast<LPARAM>(L"ImmersiveColorSet"));
+  EXPECT_EQ(progress_wnd->GetCurrentAppLogoBitmap(), fallback_hbitmap);
+  ctl_rect = progress_wnd->GetControlClientRect(app_bitmap_ctl);
+  EXPECT_EQ(ctl_rect.right - ctl_rect.left,
+            ::MulDiv(64, effective_dpi, USER_DEFAULT_SCREEN_DPI));
+  EXPECT_EQ(ctl_rect.bottom - ctl_rect.top,
+            ::MulDiv(64, effective_dpi, USER_DEFAULT_SCREEN_DPI));
+
+  // Switch back to light mode and verify fallback logo persists.
+  set_dark_mode(false);
+  ::SendMessage(progress_wnd->hwnd(), WM_SYSCOLORCHANGE, 0, 0);
+  EXPECT_EQ(progress_wnd->GetCurrentAppLogoBitmap(), fallback_hbitmap);
+  ctl_rect = progress_wnd->GetControlClientRect(app_bitmap_ctl);
+  EXPECT_EQ(ctl_rect.right - ctl_rect.left,
+            ::MulDiv(64, effective_dpi, USER_DEFAULT_SCREEN_DPI));
+  EXPECT_EQ(ctl_rect.bottom - ctl_rect.top,
+            ::MulDiv(64, effective_dpi, USER_DEFAULT_SCREEN_DPI));
+
+  progress_wnd->DestroyWindow();
+}
+
+TEST_F(ProgressWndTest, SetCursorArrow) {
+  MessageLoop ui_message_loop;
+  ProgressWnd progress_wnd(&ui_message_loop, nullptr);
+  progress_wnd.SetEventSink(this);
+  progress_wnd.Initialize();
+  progress_wnd.Show();
+
+  // Send WM_SETCURSOR with HTCLIENT and verify it returns TRUE.
+  LRESULT result = ::SendMessage(progress_wnd.hwnd(), WM_SETCURSOR,
+                                 reinterpret_cast<WPARAM>(progress_wnd.hwnd()),
+                                 MAKELPARAM(HTCLIENT, WM_MOUSEMOVE));
+  EXPECT_EQ(result, static_cast<LRESULT>(TRUE));
+
+  progress_wnd.DestroyWindow();
 }
 
 }  // namespace updater::ui

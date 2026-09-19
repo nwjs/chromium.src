@@ -2624,7 +2624,7 @@ const blink::Color ColumnRuleColor::ColorIncludingFallback(
     bool* is_current_color) const {
   DCHECK(!visited_link);
   const StyleColor& column_rule_color =
-      style.ColumnRuleColor().GetLegacyValue();
+      style.ColumnRuleColor().GetSingleValue();
   if (style.ShouldForceColor(column_rule_color)) {
     return style.GetInternalForcedCurrentColor(is_current_color);
   }
@@ -2640,17 +2640,10 @@ const CSSValue* ColumnRuleColor::CSSValueFromComputedStyleInternal(
   // For 'column-rule-color' we only apply :visited styles when one color is
   // supplied by the author rather than a list of colors.
   if (allow_visited_style && style.ColumnRuleColor().HasSingleValue()) {
-    // With GapDecorations enabled, `ColumnRuleColor` is a list. We need to make
-    // sure that when `allow_visited_style` is true, we return a list like we do
-    // when `allow_visited_style` is false.
-    if (RuntimeEnabledFeatures::CSSGapDecorationEnabled()) {
-      CSSValueList* wrapper_list = CSSValueList::CreateCommaSeparated();
-      wrapper_list->Append(
-          *cssvalue::CSSColor::Create(style.VisitedDependentColor(*this)));
-      return wrapper_list;
-    }
-
-    return cssvalue::CSSColor::Create(style.VisitedDependentColor(*this));
+    CSSValueList* wrapper_list = CSSValueList::CreateCommaSeparated();
+    wrapper_list->Append(
+        *cssvalue::CSSColor::Create(style.VisitedDependentColor(*this)));
+    return wrapper_list;
   }
 
   return ComputedStyleUtils::ValueForGapDecorationColorDataList(
@@ -2670,21 +2663,6 @@ const CSSValue* RowRuleColor::ParseSingleValue(
     CSSParserLocalContext& local_context) const {
   return css_parsing_utils::ConsumeGapDecorationPropertyList(
       stream, context, local_context, CSSGapDecorationPropertyType::kColor);
-}
-
-const blink::Color RowRuleColor::ColorIncludingFallback(
-    bool visited_link,
-    const ComputedStyle& style,
-    bool* is_current_color) const {
-  DCHECK(!visited_link);
-  const StyleColor& row_rule_color = style.RowRuleColor().GetLegacyValue();
-  // TODO(crbug.com/357648037): Update to force any colors that appear in a list
-  // value.
-  if (style.ShouldForceColor(row_rule_color)) {
-    return style.GetInternalForcedCurrentColor(is_current_color);
-  }
-  return row_rule_color.Resolve(style.GetCurrentColor(),
-                                style.UsedColorScheme(), is_current_color);
 }
 
 const CSSValue* RowRuleColor::CSSValueFromComputedStyleInternal(
@@ -2738,7 +2716,7 @@ const CSSValue* RowRuleStyle::CSSValueFromComputedStyleInternal(
 
 void ColumnRuleWidth::ApplyInitial(StyleResolverState& state) const {
   int width = state.CssToLengthConversionData().ZoomedComputedPixels(
-      ComputedStyleInitialValues::InitialColumnRuleWidth().GetSingleValue(),
+      ComputedStyleInitialValues::InitialGapRuleWidth(),
       CSSPrimitiveValue::UnitType::kPixels);
   state.StyleBuilder().SetColumnRuleWidth(GapDataList<int>(width));
 }
@@ -2773,7 +2751,7 @@ const CSSValue* ColumnRuleWidth::CSSValueFromComputedStyleInternal(
 
 void RowRuleWidth::ApplyInitial(StyleResolverState& state) const {
   int width = state.CssToLengthConversionData().ZoomedComputedPixels(
-      ComputedStyleInitialValues::InitialRowRuleWidth().GetLegacyValue(),
+      ComputedStyleInitialValues::InitialGapRuleWidth(),
       CSSPrimitiveValue::UnitType::kPixels);
   state.StyleBuilder().SetRowRuleWidth(GapDataList<int>(width));
 }
@@ -2952,15 +2930,14 @@ const CSSValue* ContainerName::CSSValueFromComputedStyleInternal(
     const LayoutObject* layout_object,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  if (!style.ContainerName()) {
+  if (style.ContainerName().empty()) {
     return CSSIdentifierValue::Create(CSSValueID::kNone);
   }
 
   CSSValueList* list = CSSValueList::CreateSpaceSeparated();
 
-  for (const Member<const ScopedCSSName>& name :
-       style.ContainerName()->GetNames()) {
-    list->Append(*ComputedStyleUtils::ValueForCustomIdentOrNone(name.Get()));
+  for (const AtomicString& name : style.ContainerName()) {
+    list->Append(*ComputedStyleUtils::ValueForCustomIdentOrNone(name));
   }
   return list;
 }
@@ -3229,7 +3206,7 @@ void Content::ApplyValue(StyleResolverState& state,
               ? g_empty_atom
               : counter_value->ListStyleName(),
           AtomicString(counter_value->Separator()),
-          counter_value->GetTreeScope(),
+          counter_value->GetPopulatedTreeScope(),
           counter_value->ListStyleIsSymbolsFunction()
               ? &counter_value->ListStyleSymbolsFunction()
               : nullptr);
@@ -3285,7 +3262,7 @@ void Content::ApplyValue(StyleResolverState& state,
                 ? g_empty_atom
                 : counter_value->ListStyleName(),
             AtomicString(counter_value->Separator()),
-            counter_value->GetTreeScope(),
+            counter_value->GetPopulatedTreeScope(),
             counter_value->ListStyleIsSymbolsFunction()
                 ? &counter_value->ListStyleSymbolsFunction()
                 : nullptr);
@@ -5849,8 +5826,12 @@ const blink::Color InternalVisitedColumnRuleColor::ColorIncludingFallback(
     const ComputedStyle& style,
     bool* is_current_color) const {
   DCHECK(visited_link);
+  // Visited column rule colors only support a single value. For multi-value
+  // lists inside links, style resolution uses the default color instead.
+  // TODO(crbug.com/411367099): Remove this restriction once visited styles
+  // support multiple values.
   const StyleColor& visited_column_rule_color =
-      style.InternalVisitedColumnRuleColor().GetLegacyValue();
+      style.InternalVisitedColumnRuleColor().GetSingleValue();
   if (style.ShouldForceColor(visited_column_rule_color)) {
     return style.GetInternalForcedVisitedCurrentColor(is_current_color);
   }
@@ -6698,7 +6679,7 @@ void ListStyleType::ApplyValue(StyleResolverState& state,
     state.SetHasTreeScopedReference();
   }
   builder.SetListStyleType(ListStyleTypeData::CreateCounterStyle(
-      custom_ident_value.Value(), custom_ident_value.GetTreeScope()));
+      custom_ident_value.Value(), custom_ident_value.GetPopulatedTreeScope()));
 }
 
 bool MarginBlockEnd::IsLayoutDependent(const ComputedStyle* style,
@@ -8129,9 +8110,7 @@ const CSSValue* ViewTransitionClass::CSSValueFromComputedStyleInternal(
   }
   CSSValueList* ident_list = CSSValueList::CreateSpaceSeparated();
   for (const auto& class_name : view_transition_class->GetNames()) {
-    auto* value =
-        MakeGarbageCollected<CSSCustomIdentValue>(class_name->GetName());
-    value->EnsureScopedValue(class_name->GetTreeScope());
+    auto* value = MakeGarbageCollected<CSSCustomIdentValue>(*class_name);
     ident_list->Append(*value);
   }
   return ident_list;
@@ -8773,7 +8752,7 @@ const CSSValue* ScrollMarkerGroup::CSSValueFromComputedStyleInternal(
   }
   auto* position = MakeGarbageCollected<CSSIdentifierValue>(
       style.GetScrollMarkerGroup()->Position());
-  if (!RuntimeEnabledFeatures::CSSPseudoScrollMarkersEnabled()) {
+  if (!RuntimeEnabledFeatures::CSSScrollMarkerGroupModesEnabled()) {
     return position;
   }
   auto* mode = MakeGarbageCollected<CSSIdentifierValue>(
@@ -8795,8 +8774,8 @@ const CSSValue* ScrollMarkerGroup::ParseSingleValue(
   if (position->GetValueID() == CSSValueID::kNone || stream.AtEnd()) {
     return position;
   }
-  if (!RuntimeEnabledFeatures::CSSPseudoScrollMarkersEnabled()) {
-    return position;
+  if (!RuntimeEnabledFeatures::CSSScrollMarkerGroupModesEnabled()) {
+    return nullptr;
   }
   const CSSIdentifierValue* mode =
       css_parsing_utils::ConsumeIdent<CSSValueID::kTabs, CSSValueID::kLinks>(

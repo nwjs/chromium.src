@@ -19,7 +19,6 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
-#include "chrome/browser/ui/performance_controls/memory_saver_utils.h"
 #include "chrome/browser/ui/performance_controls/tab_resource_usage_tab_helper.h"
 #include "chrome/browser/ui/performance_controls/test_support/memory_metrics_refresh_waiter.h"
 #include "chrome/browser/ui/performance_controls/test_support/memory_saver_interactive_test_mixin.h"
@@ -168,7 +167,7 @@ class TabHoverCardInteractiveUiTest
 
   TabResourceUsageTabHelper* GetResourceUsageAt(int index) {
     return TabResourceUsageTabHelper::From(
-        browser()->tab_strip_model()->GetTabAtIndex(index));
+        browser()->GetTabStripModel()->GetTabAtIndex(index));
   }
 
   void SetTabData(int index, tabs::TabData data) {
@@ -178,7 +177,7 @@ class TabHoverCardInteractiveUiTest
       if (auto* tab_view = views::AsViewClass<TabView>(
               browser_view->tab_strip_view()->GetTabAnchorView(
                   browser()
-                      ->tab_strip_model()
+                      ->GetTabStripModel()
                       ->GetTabAtIndex(index)
                       ->GetHandle()))) {
         tab_view->SetDataForTesting(std::move(data));
@@ -339,8 +338,10 @@ IN_PROC_BROWSER_TEST_F(TabHoverCardInteractiveUiTest,
       base::FeatureList::IsEnabled(tabs::kTabStripUnification)
           ? BrowserView::GetBrowserViewForBrowser(browser())
                 ->tab_strip_view()
-                ->GetTabAnchorView(
-                    browser()->tab_strip_model()->GetTabAtIndex(1)->GetHandle())
+                ->GetTabAnchorView(browser()
+                                       ->GetTabStripModel()
+                                       ->GetTabAtIndex(1)
+                                       ->GetHandle())
           : static_cast<views::View*>(GetTabStrip(browser())->tab_at(1));
   EXPECT_EQ(expected_anchor, hover_card->GetAnchorView());
 }
@@ -414,7 +415,7 @@ IN_PROC_BROWSER_TEST_F(TabHoverCardBubbleViewInterstitialBrowserTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
   content::WebContents* const tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(chrome_browser_interstitials::IsShowingInterstitial(tab));
 
   // Open another tab.
@@ -437,7 +438,7 @@ IN_PROC_BROWSER_TEST_F(TabHoverCardBubbleViewInterstitialBrowserTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
   content::WebContents* const tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(chrome_browser_interstitials::IsShowingInterstitial(tab));
 
   // Open another tab.
@@ -784,7 +785,7 @@ IN_PROC_BROWSER_TEST_F(TabHoverCardFadeFooterInteractiveUiTest,
 
   tab_groups::CollaborationMessagingTabData* const data =
       tab_groups::CollaborationMessagingTabData::From(
-          browser()->tab_strip_model()->GetTabAtIndex(1));
+          browser()->GetTabStripModel()->GetTabAtIndex(1));
 
   tab_data.collaboration_messaging = data->GetWeakPtr();
 
@@ -873,7 +874,7 @@ IN_PROC_BROWSER_TEST_F(TabHoverCardSystemWebAppTest,
 // hover card tests.
 IN_PROC_BROWSER_TEST_F(TabHoverCardInteractiveUiTest,
                        DISABLED_HoverCardShowsOnGroupHeader) {
-  browser()->tab_strip_model()->AddToNewGroup({0});
+  browser()->GetTabStripModel()->AddToNewGroup({0});
 
   RunTestSequence(
       WaitForShow(kTabGroupHeaderElementId),
@@ -884,7 +885,7 @@ IN_PROC_BROWSER_TEST_F(TabHoverCardInteractiveUiTest,
 
 IN_PROC_BROWSER_TEST_F(TabHoverCardInteractiveUiTest,
                        DISABLED_GroupHoverCardHidesOnMouseExit) {
-  browser()->tab_strip_model()->AddToNewGroup({0});
+  browser()->GetTabStripModel()->AddToNewGroup({0});
   RunTestSequence(
       WaitForShow(kTabGroupHeaderElementId),
       MoveMouseTo(kNewTabButtonElementId),
@@ -896,7 +897,7 @@ IN_PROC_BROWSER_TEST_F(TabHoverCardInteractiveUiTest,
 
 IN_PROC_BROWSER_TEST_F(TabHoverCardInteractiveUiTest,
                        DISABLED_HoverCardShownOnGroupHeaderFocus) {
-  browser()->tab_strip_model()->AddToNewGroup({0});
+  browser()->GetTabStripModel()->AddToNewGroup({0});
   RunTestSequence(
       WaitForShow(kTabGroupHeaderElementId), FinishTabstripAnimations(),
       FocusElement(kTabGroupHeaderElementId),
@@ -908,7 +909,7 @@ IN_PROC_BROWSER_TEST_F(TabHoverCardInteractiveUiTest,
   ASSERT_TRUE(
       AddTabAtIndex(1, GURL(url::kAboutBlankURL), ui::PAGE_TRANSITION_TYPED));
 
-  browser()->tab_strip_model()->AddToNewGroup({0});
+  browser()->GetTabStripModel()->AddToNewGroup({0});
 
   RunTestSequence(
       WaitForShow(kTabGroupHeaderElementId),

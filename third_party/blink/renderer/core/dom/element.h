@@ -113,8 +113,6 @@ class CustomElementRegistry;
 class DisplayLockContext;
 class DisplayStyle;
 class Document;
-class DOMMatrix;
-class DOMMatrixInit;
 class DOMPoint;
 class DOMPointInit;
 class DOMQuad;
@@ -130,6 +128,7 @@ class ElementAnimations;
 class ElementInternals;
 class ElementIntersectionObserverData;
 class ExceptionState;
+class FocusEvent;
 class FocusOptions;
 class GetAnimationsOptions;
 class HTMLCanvasElement;
@@ -291,6 +290,8 @@ enum class CommandEventType {
   kPageInlineEnd,
   // Overscroll,
   kToggleOverscroll,
+  kShowOverscroll,
+  kHideOverscroll,
 };
 
 // Defaults for the `interestfor` API's `normal` value.
@@ -1161,12 +1162,13 @@ class CORE_EXPORT Element : public ContainerNode {
     SetElementFlag(ElementFlags::kStyleAffectedByEmpty);
   }
 
-  // Determine whether the parent or owner of this element is a canvas element
-  // or in a canvas subtree.
+  // Determine whether the parent or owner of this element in the flat tree is a
+  // canvas element or in a canvas subtree.
   bool ComputeIsInCanvasSubtree() const;
   // Recursively sets the IsInCanvasSubtree bit for the element and its subtree.
   void SetIsInCanvasSubtree(bool value);
-  // Is in the subtree of a canvas element, but not the canvas element itself.
+  // Is in the flat subtree of a canvas element, but not the canvas element
+  // itself.
   bool IsInCanvasSubtree() const {
     return HasElementFlag(ElementFlags::kIsInCanvasSubtree);
   }
@@ -1178,21 +1180,23 @@ class CORE_EXPORT Element : public ContainerNode {
   void VerifySubtreeIsInCanvas(bool value);
 #endif
 
+  // Returns the nearest ancestor <canvas layoutsubtree> if this element is
+  // eligible for drawing into it (i.e. is connected, is in a canvas subtree,
+  // is not a pseudo-element, and is an immediate child of the canvas or has
+  // the 'drawable' attribute). Returns nullptr otherwise.
   HTMLCanvasElement* CanvasForDrawing() const;
 
-  DOMMatrix* getCanvasTransform();
-  void setCanvasTransform(DOMMatrixInit* matrix,
-                          ExceptionState& exception_state);
   bool HasCanvasTransform() const;
   // Returns the transform that should be used for mapping the border-box,
-  // before CSS transforms, to the canvas coordinate space. When the element is
-  // in a canvas subtree, this affects the geometry of the element (e.g., for
-  // hit-testing, `getBoundingClientRect()`) and can be used to make the
+  // before CSS transforms, to the canvas coordinate space. When the element
+  // has a CanvasForDrawing, this affects the geometry of the element (e.g.,
+  // for hit-testing, `getBoundingClientRect()`) and can be used to make the
   // element's geometry match its drawn position in a canvas. Returns nullptr
-  // if the element is not in a canvas subtree.
+  // if the element does not have a CanvasForDrawing.
   const gfx::Transform* GetUsedCanvasTransform() const;
-  const gfx::Transform* GetCanvasTransformInternal() const;
-  void SetCanvasTransformInternal(const gfx::Transform& transform);
+  const gfx::Transform* GetCanvasTransform() const;
+  void SetCanvasTransform(const gfx::Transform& transform);
+  void ClearCanvasTransform();
 
   bool IsDefined() const {
     // An element whose custom element state is "uncustomized" or "custom"
@@ -1366,7 +1370,9 @@ class CORE_EXPORT Element : public ContainerNode {
   }
 
   static bool IsOverscrollCommand(CommandEventType command) {
-    return command == CommandEventType::kToggleOverscroll;
+    return command == CommandEventType::kToggleOverscroll ||
+           command == CommandEventType::kShowOverscroll ||
+           command == CommandEventType::kHideOverscroll;
   }
 
   // This allows customization of how Invoker Commands are handled, per element.
@@ -1469,6 +1475,14 @@ class CORE_EXPORT Element : public ContainerNode {
 
   // Lose interest immediately in all elements that currently have interest.
   static void LoseInterestInAllElements(Document&);
+
+  enum class InterestSource {
+    kHover,
+    kDeHover,
+    kFocus,
+    kBlur,
+  };
+  void HandleInterestForHoverOrFocus(InterestSource source);
 
   // Returns true if any of its (non-inclusive) flat tree descendants is
   // keyboard focusable. Note that this is quite slow, since it traverses the
@@ -2018,6 +2032,7 @@ class CORE_EXPORT Element : public ContainerNode {
   InterestInvokerTargetData& EnsureInterestInvokerTargetData();
   InterestInvokerTargetData* GetInterestInvokerTargetData() const;
   void HandlePointerEventsForInterestFor(const AtomicString& event_type);
+  void HandleFocusEventsForInterestFor(FocusEvent* focus_event);
 
   void DefaultEventHandler(Event&) override;
 
@@ -2059,14 +2074,6 @@ class CORE_EXPORT Element : public ContainerNode {
   void UpdateAncestorWithDirAuto(UpdateAncestorTraversal traversal);
   void AdjustDirectionalityIfNeededAfterChildrenChanged(
       const ChildrenChange& change);
-
-  void UpdateDescendantHasContainerTiming(bool has_container_timing);
-  void AdjustContainerTimingIfNeededAfterChildrenChanged(
-      const ChildrenChange& change);
-  bool ShouldAdjustContainerTimingForInsert(const ChildrenChange& change) const;
-  bool DoesChildContainerTimingNeedChange(const Node& node) const;
-
-  bool RecalcSelfOrAncestorHasContainerTiming() const;
 
   // True if this element carries the container timing ignore marker, either
   // spelled `containertimingignore` or with the deprecated dashed
@@ -2726,13 +2733,6 @@ class CORE_EXPORT Element : public ContainerNode {
   // These schedule interest gained/lost events, for `interestfor` invokers.
   void ScheduleInterestGainedTask();
   void ScheduleInterestLostTask();
-  enum class InterestSource {
-    kHover,
-    kDeHover,
-    kFocus,
-    kBlur,
-  };
-  void HandleInterestForHoverOrFocus(InterestSource source);
   void ScheduleInterestChangesIfNeeded(InterestSource source);
 
   // Highlight pseudos inherit all properties from the corresponding highlight

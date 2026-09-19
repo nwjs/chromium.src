@@ -25,11 +25,18 @@ class NoOpMemoryBank : public MemoryBank {
   // MemoryBank:
   void SaveMemoryBankEntry(MemoryBankEntry entry,
                            OperationCompleteCallback callback) override;
+  void UpdateEntryAnnotations(int64_t id,
+                              std::vector<std::string> tags,
+                              std::optional<std::string> note,
+                              std::optional<std::string> collection,
+                              OperationCompleteCallback callback) override;
   void GetAllEntries(GetEntriesCallback callback) const override;
   void GetEntriesByIds(base::span<const int64_t> ids,
                        GetEntriesCallback callback) const override;
   void DeleteEntries(base::span<const int64_t> ids,
                      OperationCompleteCallback callback) override;
+  void GetAllTags(GetStringsCallback callback) const override;
+  void GetAllCollections(GetStringsCallback callback) const override;
 };
 
 }  // namespace context_hub

@@ -59,7 +59,6 @@ public class FormFieldData {
     // The bounds in the container view's coordinates.
     private @Nullable RectF mBoundsInContainerViewCoordinates;
 
-    private boolean mIsChecked;
     private String mValue;
     private boolean mFocusable;
     private final boolean mVisible;
@@ -86,8 +85,6 @@ public class FormFieldData {
             String id,
             String[] optionValues,
             String[] optionContents,
-            boolean isCheckField,
-            boolean isChecked,
             int maxLength,
             String heuristicType,
             String serverType,
@@ -113,7 +110,6 @@ public class FormFieldData {
         mId = id;
         mOptionValues = optionValues;
         mOptionContents = optionContents;
-        mIsChecked = isChecked;
         mDatalistLabels = datalistLabels;
         mDatalistValues = datalistValues;
         mOrigin = origin;
@@ -121,8 +117,6 @@ public class FormFieldData {
             mControlType = ControlType.LIST;
         } else if (mDatalistValues != null && mDatalistValues.length != 0) {
             mControlType = ControlType.DATALIST;
-        } else if (isCheckField) {
-            mControlType = ControlType.TOGGLE;
         } else {
             mControlType = ControlType.TEXT;
         }
@@ -168,11 +162,6 @@ public class FormFieldData {
 
     public void setAutofillValue(String value) {
         mValue = value;
-        updateAutofillState(true);
-    }
-
-    public void setChecked(boolean checked) {
-        mIsChecked = checked;
         updateAutofillState(true);
     }
 
@@ -227,11 +216,6 @@ public class FormFieldData {
         return "NO_SERVER_DATA";
     }
 
-    @CalledByNative
-    public boolean isChecked() {
-        return mIsChecked;
-    }
-
     public boolean hasPreviouslyAutofilled() {
         return mPreviouslyAutofilled;
     }
@@ -267,8 +251,6 @@ public class FormFieldData {
             String id,
             String[] optionValues,
             String[] optionContents,
-            boolean isCheckField,
-            boolean isChecked,
             int maxLength,
             String heuristicType,
             String serverType,
@@ -295,8 +277,6 @@ public class FormFieldData {
                 id,
                 optionValues,
                 optionContents,
-                isCheckField,
-                isChecked,
                 maxLength,
                 heuristicType,
                 serverType,

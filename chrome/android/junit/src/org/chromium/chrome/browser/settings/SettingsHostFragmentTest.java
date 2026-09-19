@@ -6,7 +6,9 @@ package org.chromium.chrome.browser.settings;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -17,7 +19,9 @@ import static org.mockito.Mockito.when;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.content.res.Resources.Theme;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.View;
 
 import androidx.fragment.app.Fragment;
@@ -52,6 +56,7 @@ import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.components.browser_ui.settings.PaddedItemDecorationWithDivider;
+import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.site_settings.BaseSiteSettingsFragment;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.sync.SyncService;
@@ -134,7 +139,30 @@ public class SettingsHostFragmentTest {
         attachHostFragment();
         Context context = mSettingsHostFragment.getContext();
         assertNotNull(context);
-        assertEquals(R.style.Theme_Chromium_Settings, context.getThemeResId());
+        assertEquals(R.style.ThemeOverlay_Chromium_Settings, context.getThemeResId());
+    }
+
+    @Test
+    public void testContextPreservesThemeAttributes() {
+        // Record the default attribute value on the activity theme.
+        TypedValue defaultTv = new TypedValue();
+        mActivity.getTheme().resolveAttribute(android.R.attr.colorAccent, defaultTv, true);
+
+        // Apply a theme overlay to the activity and verify the attribute changes.
+        mActivity.getTheme().applyStyle(R.style.ThemeOverlay_Chromium_Settings_Containment, true);
+        TypedValue customTv = new TypedValue();
+        mActivity.getTheme().resolveAttribute(android.R.attr.colorAccent, customTv, true);
+        assertNotEquals(defaultTv.data, customTv.data);
+
+        // Verify that SettingsHostFragment's themed context preserves the overlaid attribute.
+        attachHostFragment();
+        Context context = mSettingsHostFragment.getContext();
+        assertNotNull(context);
+
+        Theme theme = context.getTheme();
+        TypedValue contextTv = new TypedValue();
+        assertTrue(theme.resolveAttribute(android.R.attr.colorAccent, contextTv, true));
+        assertEquals(customTv.data, contextTv.data);
     }
 
     @Test
@@ -172,6 +200,36 @@ public class SettingsHostFragmentTest {
         assertTrue(
                 "Initial fragment should be MultiColumnSettings",
                 initial instanceof MultiColumnSettings);
+    }
+
+    @Test
+    public void testClearInitialUrl() {
+        mSettingsHostFragment = new TestMultiColumnSettingsHostFragment();
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(
+                        android.R.id.content,
+                        mSettingsHostFragment,
+                        SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+
+        MultiColumnSettings multiColumnSettings =
+                (MultiColumnSettings) mSettingsHostFragment.getActiveFragment();
+        assertNotNull(multiColumnSettings);
+
+        mSettingsHostFragment.setInitialUrl("chrome://settings/appearance");
+        multiColumnSettings.setInitialUrl("chrome://settings/appearance");
+        assertEquals("chrome://settings/appearance", mSettingsHostFragment.getInitialUrl());
+        assertEquals("chrome://settings/appearance", multiColumnSettings.getInitialUrl());
+
+        mSettingsHostFragment.clearInitialUrl();
+        assertNull(
+                "clearInitialUrl should clear initial URL on SettingsHostFragment",
+                mSettingsHostFragment.getInitialUrl());
+        assertNull(
+                "clearInitialUrl should clear initial URL on child MultiColumnSettings",
+                multiColumnSettings.getInitialUrl());
     }
 
     @Test
@@ -247,6 +305,47 @@ public class SettingsHostFragmentTest {
         multiColumnSettings.getChildFragmentManager().executePendingTransactions();
 
         assertEquals(0, multiColumnSettings.getChildFragmentManager().getBackStackEntryCount());
+    }
+
+    @Test
+    @Config(qualifiers = "w320dp")
+    public void testShowFragment_NullFragment_SingleColumn_RemovesDetailFragment() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mSettingsHostFragment = new TestSingleColumnMultiColumnSettingsHostFragment();
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(
+                        android.R.id.content,
+                        mSettingsHostFragment,
+                        SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+
+        MultiColumnSettings multiColumnSettings =
+                (MultiColumnSettings) mSettingsHostFragment.getActiveFragment();
+        assertNotNull(multiColumnSettings);
+
+        // Show a detail fragment.
+        multiColumnSettings.showDetailFragment(
+                new SecondFakeSettingsFragment(), /* addToBackStack= */ false, /* tag= */ null);
+        multiColumnSettings.getChildFragmentManager().executePendingTransactions();
+        assertNotNull(
+                multiColumnSettings
+                        .getChildFragmentManager()
+                        .findFragmentById(R.id.preferences_detail));
+
+        // Now show null fragment, which in single-column mode should remove the detail fragment.
+        boolean shown =
+                mSettingsHostFragment.showFragment(
+                        null, /* addToBackStack= */ false, /* tag= */ null);
+        assertTrue("showFragment should succeed for null fragment", shown);
+        multiColumnSettings.getChildFragmentManager().executePendingTransactions();
+
+        assertNull(
+                "Detail fragment should be removed in single column mode",
+                multiColumnSettings
+                        .getChildFragmentManager()
+                        .findFragmentById(R.id.preferences_detail));
     }
 
     @Test
@@ -334,6 +433,15 @@ public class SettingsHostFragmentTest {
         }
     }
 
+    /** Subclass SettingsHostFragment for single column mode with null initial detail. */
+    public static class TestSingleColumnMultiColumnSettingsHostFragment
+            extends SettingsHostFragment {
+        @Override
+        protected Fragment createInitialFragment(@Nullable Intent intent) {
+            return new TestSingleColumnMultiColumnSettings();
+        }
+    }
+
     @Test
     public void testFinishCurrentSettings() {
         attachHostFragment();
@@ -347,6 +455,37 @@ public class SettingsHostFragmentTest {
         mSettingsHostFragment.finishCurrentSettings(active);
         mSettingsHostFragment.getChildFragmentManager().executePendingTransactions();
         assertTrue(mSettingsHostFragment.getActiveFragment() instanceof FirstFakeSettingsFragment);
+    }
+
+    @Test
+    public void testFinishCurrentSettings_MultiColumnSettings_TwoColumnMode() {
+        // Create a MultiColumnSettings with a FirstFakeSettingsFragment as the initial fragment.
+        mSettingsHostFragment = new TestMultiColumnSettingsHostFragment();
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(
+                        android.R.id.content,
+                        mSettingsHostFragment,
+                        SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+
+        MultiColumnSettings multiColumnSettings =
+                (MultiColumnSettings) mSettingsHostFragment.getActiveFragment();
+        assertNotNull(multiColumnSettings);
+
+        // Show a detail fragment in two-column mode.
+        multiColumnSettings.showDetailFragment(
+                new SecondFakeSettingsFragment(), /* addToBackStack= */ false, /* tag= */ null);
+        multiColumnSettings.getChildFragmentManager().executePendingTransactions();
+
+        Fragment active = mSettingsHostFragment.getMainFragment();
+        assertTrue(active instanceof SecondFakeSettingsFragment);
+
+        // Finishing settings should reset the detail fragment to the initial detail fragment.
+        mSettingsHostFragment.finishCurrentSettings(active);
+        multiColumnSettings.getChildFragmentManager().executePendingTransactions();
+        assertTrue(mSettingsHostFragment.getMainFragment() instanceof FirstFakeSettingsFragment);
     }
 
     @Test
@@ -495,6 +634,91 @@ public class SettingsHostFragmentTest {
         verify(mockHelper).updateContainmentForAttachedFragments(any());
     }
 
+    @Test
+    @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV)
+    public void testSettingsNavigationFactory_createSettingsNavigation() {
+        attachHostFragment();
+        SettingsNavigation mockNavigation = mock(SettingsNavigation.class);
+        mSettingsHostFragment.setSettingsNavigation(mockNavigation);
+
+        SettingsNavigation resolved = SettingsNavigationFactory.createSettingsNavigation(mActivity);
+        assertEquals(
+                "Should resolve the tab-scoped SettingsNavigation when host is attached and URL nav"
+                        + " is enabled",
+                mockNavigation,
+                resolved);
+
+        SettingsNavigation nullResolved = SettingsNavigationFactory.createSettingsNavigation(null);
+        assertNotNull("Should fallback to default instance when context is null", nullResolved);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV)
+    public void testSettingsNavigationFactory_createSettingsNavigation_urlNavDisabled() {
+        attachHostFragment();
+        SettingsNavigation mockNavigation = mock(SettingsNavigation.class);
+        mSettingsHostFragment.setSettingsNavigation(mockNavigation);
+
+        SettingsNavigation resolved = SettingsNavigationFactory.createSettingsNavigation(mActivity);
+        assertNotNull(resolved);
+        assertNotEquals(
+                "Should not resolve tab-scoped delegate when URL nav is disabled",
+                mockNavigation,
+                resolved);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV)
+    public void testOnPreferenceStartFragment_DelegatesToSettingsNavigation() {
+        attachHostFragment();
+        SettingsNavigation mockNavigation = mock(SettingsNavigation.class);
+        mSettingsHostFragment.setSettingsNavigation(mockNavigation);
+
+        Preference preference = mock(Preference.class);
+        when(preference.getFragment()).thenReturn(SecondFakeSettingsFragment.class.getName());
+        Bundle extras = new Bundle();
+        extras.putString("test_key", "test_value");
+        when(preference.getExtras()).thenReturn(extras);
+
+        PreferenceFragmentCompat caller = mock(PreferenceFragmentCompat.class);
+        boolean handled = mSettingsHostFragment.onPreferenceStartFragment(caller, preference);
+
+        assertTrue("Preference start fragment should be handled", handled);
+        verify(mockNavigation)
+                .startSettings(
+                        mSettingsHostFragment.getContext(),
+                        SecondFakeSettingsFragment.class,
+                        extras);
+    }
+
+    @Test
+    public void testSaveAndRestoreInstanceState_invokesCallbackAndStoresBundle() {
+        attachHostFragment();
+        mSettingsHostFragment.setSaveInstanceStateCallback(
+                bundle -> bundle.putString("test_key", "test_value"));
+
+        Bundle savedState = new Bundle();
+        mSettingsHostFragment.onSaveInstanceState(savedState);
+        assertEquals("test_value", savedState.getString("test_key"));
+
+        // Simulate activity recreation with saved state.
+        mActivityScenarios.getScenario().recreate();
+        mActivityScenarios
+                .getScenario()
+                .onActivity(
+                        activity -> {
+                            var manager = activity.getSupportFragmentManager();
+                            SettingsHostFragment restoredHost =
+                                    (SettingsHostFragment)
+                                            manager.findFragmentByTag(
+                                                    SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG);
+                            assertNotNull(restoredHost);
+                            Bundle restoredState = restoredHost.getSavedInstanceState();
+                            assertNotNull(restoredState);
+                            assertEquals("test_value", restoredState.getString("test_key"));
+                        });
+    }
+
     /** A test PreferenceFragmentCompat subclass. */
     public static class TestPreferenceFragment extends PreferenceFragmentCompat {
         @Override
@@ -558,6 +782,16 @@ public class SettingsHostFragmentTest {
         @Override
         public Fragment onCreateInitialDetailFragment() {
             return new FirstFakeSettingsFragment();
+        }
+    }
+
+    /** Subclass of MultiColumnSettings for single column mode. */
+    public static class TestSingleColumnMultiColumnSettings extends MultiColumnSettings {
+        public TestSingleColumnMultiColumnSettings() {}
+
+        @Override
+        public PreferenceFragmentCompat onCreatePreferenceHeader() {
+            return new TestHeaderFragment();
         }
     }
 

@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -387,7 +388,7 @@ IN_PROC_BROWSER_TEST_F(TabStripInternalsObserverBrowserTest,
     EXPECT_CALL(mock_callback, Run()).Times(AtLeast(1));
 
     // Close an existing tab.
-    browser()->tab_strip_model()->CloseWebContentsAt(
+    browser()->GetTabStripModel()->CloseWebContentsAt(
         1, TabCloseTypes::CLOSE_USER_GESTURE);
   }
 }
@@ -414,7 +415,8 @@ IN_PROC_BROWSER_TEST_F(TabStripInternalsObserverBrowserTest,
 // profile browser by the TabRestoreService.
 IN_PROC_BROWSER_TEST_F(TabStripInternalsObserverBrowserTest,
                        TabRestoreService_OTR_Profile_NoCallback) {
-  Browser* otr_browser = CreateIncognitoBrowser(browser()->GetProfile());
+  BrowserWindowInterface* otr_browser =
+      CreateIncognitoBrowser(browser()->GetProfile());
   ASSERT_TRUE(otr_browser);
   Profile* otr_profile = otr_browser->GetProfile();
   ASSERT_TRUE(otr_profile->IsOffTheRecord());
@@ -427,7 +429,7 @@ IN_PROC_BROWSER_TEST_F(TabStripInternalsObserverBrowserTest,
     EXPECT_CALL(mock_callback, Run()).Times(2);
 
     // Close an incognito browser tab.
-    otr_browser->tab_strip_model()->CloseWebContentsAt(
+    otr_browser->GetTabStripModel()->CloseWebContentsAt(
         0, TabCloseTypes::CLOSE_USER_GESTURE);
   }
   CloseBrowserSynchronously(otr_browser);

@@ -40,11 +40,12 @@
 #include "components/search_engines/enterprise/enterprise_search_manager.h"
 #include "components/search_engines/template_url_data.h"
 #include "components/search_engines/template_url_starter_pack_data.h"
+#include "components/strings/grit/components_strings.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "net/base/url_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/omnibox_proto/answer_type.pb.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "third_party/omnibox_proto/chrome_searchbox_stats.pb.h"
 #include "third_party/omnibox_proto/rich_answer_template.pb.h"
 
@@ -1189,18 +1190,10 @@ TEST_F(AutocompleteControllerTest, MlRanking_PiecewiseMappedSearchBlending) {
   // Calculator and Answer suggestions should not be ML scored at this time,
   // since the ML model doesn't assign accurate scores to such suggestions
   // (due to the fact that they have a low click-through rate).
-  std::string answer_json =
-      "{ \"l\": ["
-      "  { \"il\": { \"t\": [{ \"t\": \"text\", \"tt\": 8 }] } }, "
-      "  { \"il\": { \"t\": [{ \"t\": \"sunny with a chance of hail\", "
-      "\"tt\": "
-      "5 }] } }] }";
   EXPECT_THAT(
       controller_.SimulateCleanAutocompletePass({
           // Final score: 1100 (!= 1300)
-          CreateAnswerMlScoredMatch("answer 1100 0.75",
-                                    omnibox::ANSWER_TYPE_WEATHER, answer_json,
-                                    false, 1100, 0.75),
+          CreateAnswerMlScoredMatch("answer 1100 0.75", false, 1100, 0.75),
           // Final score: 1000 (!= 1500)
           CreateMlScoredMatch("calculator 1000 0.95",
                               AutocompleteMatchType::CALCULATOR, false, 1000,
@@ -2160,6 +2153,43 @@ TEST_F(AutocompleteControllerTest, UpdateResult_ContextualSuggestionsAndLens) {
                                          provider_matches, zps_input);
     check_results(/*expect_contextual=*/true, /*expect_lens=*/true);
   }
+}
+
+TEST_F(AutocompleteControllerTest, UpdateResult_HasContextualChips) {
+  AutocompleteInput zps_input(u"", 0u, metrics::OmniboxEventProto::OTHER,
+                              TestSchemeClassifier());
+  zps_input.set_current_url(GURL("https://google.com"));
+  zps_input.set_focus_type(metrics::OmniboxFocusType::INTERACTION_FOCUS);
+
+  EXPECT_CALL(*provider_client(), IsOmniboxNextAimPopupEnabled())
+      .WillRepeatedly(testing::Return(true));
+  EXPECT_CALL(*provider_client(), IsPagePaywalled())
+      .WillRepeatedly(testing::Return(true));
+  EXPECT_CALL(*provider_client(), IsLensEnabled())
+      .WillRepeatedly(testing::Return(false));
+
+  // When neither Lens nor AskG is enabled and page is paywalled, has_contextual_chips is false.
+  EXPECT_CALL(*provider_client(), IsAskGShowChipEnabled())
+      .WillRepeatedly(testing::Return(false));
+  controller_.SimulateAutocompletePass(/*sync=*/true, /*done=*/true, {},
+                                       zps_input);
+  EXPECT_FALSE(controller_.result().has_contextual_chips());
+
+  // When IsAskGShowChipEnabled is true, has_contextual_chips is true.
+  EXPECT_CALL(*provider_client(), IsAskGShowChipEnabled())
+      .WillRepeatedly(testing::Return(true));
+  controller_.SimulateAutocompletePass(/*sync=*/true, /*done=*/true, {},
+                                       zps_input);
+  EXPECT_TRUE(controller_.result().has_contextual_chips());
+
+  // When IsLensEnabled is true, has_contextual_chips is true.
+  EXPECT_CALL(*provider_client(), IsAskGShowChipEnabled())
+      .WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(*provider_client(), IsLensEnabled())
+      .WillRepeatedly(testing::Return(true));
+  controller_.SimulateAutocompletePass(/*sync=*/true, /*done=*/true, {},
+                                       zps_input);
+  EXPECT_TRUE(controller_.result().has_contextual_chips());
 }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
@@ -3445,3 +3475,53 @@ TEST_F(AutocompleteControllerTest,
   EXPECT_EQ(match.destination_url,
             provider_client()->last_reset_geolocation_url());
 }
+
+// Mobile has different handling.
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+TEST_F(AutocompleteControllerTest,
+       UpdateKeywordDescriptions_StaticContextualSearchSuggestion) {
+  TemplateURLData turl_data;
+  turl_data.SetShortName(u"Google");
+  turl_data.SetKeyword(u"google.com");
+  turl_data.SetURL("https://google.com/search?q={searchTerms}");
+  controller_.template_url_service_->Add(
+      std::make_unique<TemplateURL>(turl_data));
+
+  AutocompleteMatch match(nullptr, 1100, false,
+                          AutocompleteMatchType::SEARCH_SUGGEST);
+  match.keyword = u"google.com";
+  match.subtypes = {omnibox::SuggestSubtype::SUBTYPE_CONTEXTUAL_SEARCH,
+                    omnibox::SuggestSubtype::SUBTYPE_CONTEXTUAL_SEARCH_STATIC};
+  SetAutocompleteMatches({match});
+
+  // When IsAskGShowChipEnabled is false, description is empty for static suggestions.
+  EXPECT_CALL(*provider_client(), IsAskGShowChipEnabled())
+      .WillRepeatedly(testing::Return(false));
+  controller_.UpdateKeywordDescriptions(&controller_.internal_result_);
+  EXPECT_TRUE(
+      controller_.internal_result_.match_at(0)->description.empty());
+
+  // When IsAskGShowChipEnabled is true, description is populated for static suggestions.
+  EXPECT_CALL(*provider_client(), IsAskGShowChipEnabled())
+      .WillRepeatedly(testing::Return(true));
+  controller_.UpdateKeywordDescriptions(&controller_.internal_result_);
+  EXPECT_EQ(
+      l10n_util::GetStringUTF16(IDS_CONTEXTUAL_SEARCH_OPEN_LENS_ACTION_LABEL),
+      controller_.internal_result_.match_at(0)->description);
+
+  // Non-static contextual suggestions always have description populated.
+  AutocompleteMatch non_static_match(nullptr, 1100, false,
+                                     AutocompleteMatchType::SEARCH_SUGGEST);
+  non_static_match.keyword = u"google.com";
+  non_static_match.subtypes = {
+      omnibox::SuggestSubtype::SUBTYPE_CONTEXTUAL_SEARCH};
+  SetAutocompleteMatches({non_static_match});
+
+  EXPECT_CALL(*provider_client(), IsAskGShowChipEnabled())
+      .WillRepeatedly(testing::Return(false));
+  controller_.UpdateKeywordDescriptions(&controller_.internal_result_);
+  EXPECT_EQ(
+      l10n_util::GetStringUTF16(IDS_CONTEXTUAL_SEARCH_OPEN_LENS_ACTION_LABEL),
+      controller_.internal_result_.match_at(0)->description);
+}
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)

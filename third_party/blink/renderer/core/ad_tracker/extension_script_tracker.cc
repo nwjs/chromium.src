@@ -47,8 +47,8 @@ bool ExtensionScriptTracker::IsExtensionScriptInStack(
     return false;
   }
   LazyStackTrace stack_trace(isolate);
-  return IsMarkedScriptInStack(stack_type, stack_trace, nullptr,
-                               ignore_monkey_patch);
+  return GetMarkedScriptInStack(stack_type, stack_trace, ignore_monkey_patch)
+      .has_value();
 }
 
 void ExtensionScriptTracker::Shutdown() {
@@ -77,6 +77,7 @@ void ExtensionScriptTracker::OnScriptRegistered(
     std::optional<V8ScriptId> marked_script_id) {
   if (IsExtensionScriptUrl(url) ||
       GetScriptInitiationMonitor()->IsExecutingInjectedExtensionScript() ||
+      IsMarkedExecutionContext(&execution_context) ||
       marked_script_id.has_value()) {
     extension_scripts_.insert(script_id);
     if (!url.empty() &&

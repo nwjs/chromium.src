@@ -6,9 +6,9 @@
 #include "base/test/mock_callback.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_ui_util.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/test/base/in_process_browser_test.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/signin/public/identity_manager/accounts_mutator.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
@@ -82,7 +82,7 @@ IN_PROC_BROWSER_TEST_F(SigninPromoTabHelperTest,
   // Set a new refresh token for the primary account, which verifies the
   // user's identity and signs them back in. The callback will be executed.
   identity_manager()->GetAccountsMutator()->AddOrUpdateAccount(
-      info.gaia, info.email, "dummy_refresh_token",
+      info.GetGaiaId(), std::string(info.GetEmail()), "dummy_refresh_token",
       /*is_under_advanced_protection=*/false,
       signin_metrics::AccessPoint::kAddressBubble,
       signin_metrics::SourceForRefreshTokenOperation::

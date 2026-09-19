@@ -13,6 +13,7 @@
 #include "base/strings/string_view_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
+#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/ash/bruschetta/bruschetta_util.h"
 #include "chrome/browser/ash/crostini/crostini_manager.h"
 #include "chrome/browser/ash/crostini/crostini_security_delegate.h"
@@ -188,6 +189,14 @@ TEST_F(ChromeSecurityDelegateTest, CanLockPointer) {
   EXPECT_FALSE(security_delegate->CanLockPointer(crostini_toplevel.get()));
 }
 
+TEST_F(ChromeSecurityDelegateTest, CanSetSystemModal) {
+  ChromeSecurityDelegate chrome_security_delegate;
+  EXPECT_TRUE(chrome_security_delegate.CanSetSystemModal());
+
+  guest_os::GuestOsSecurityDelegate crostini_security_delegate("termina");
+  EXPECT_FALSE(crostini_security_delegate.CanSetSystemModal());
+}
+
 TEST_F(ChromeSecurityDelegateTest, GetFilenames) {
   ChromeSecurityDelegate security_delegate;
   base::FilePath shared_path = myfiles_dir_.Append("shared");
@@ -198,24 +207,43 @@ TEST_F(ChromeSecurityDelegateTest, GetFilenames) {
   guest_os_share_path->RegisterSharedPath(bruschetta::kBruschettaVmName,
                                           shared_path);
 
-  // Multiple lines should be parsed.
-  // Arc should not translate paths.
-  std::vector<ui::FileInfo> files = security_delegate.GetFilenames(
-      ui::EndpointType::kArc,
-      Data("\n\tfile:///file1\t\r\n#ignore\r\nfile:///file2\r\n"));
-  EXPECT_EQ(2u, files.size());
-  EXPECT_EQ("/file1", files[0].path.value());
-  EXPECT_EQ("", files[0].display_name.value());
-  EXPECT_EQ("/file2", files[1].path.value());
-  EXPECT_EQ("", files[1].display_name.value());
+  std::vector<ui::FileInfo> files;
+  // When kChromeSecurityDelegateIgnoreArcVm is enabled, Arc paths and unknown
+  // VMs should be ignored.
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeature(kChromeSecurityDelegateIgnoreArcVm);
+    files = security_delegate.GetFilenames(
+        ui::EndpointType::kArc, Data("file:///file1\r\nfile:///file2"));
+    EXPECT_TRUE(files.empty());
+    files = security_delegate.GetFilenames(
+        ui::EndpointType::kUnknownVm, Data("file:///file1\r\nfile:///file2"));
+    EXPECT_TRUE(files.empty());
+  }
+
+  // When feature is disabled, Arc should not translate paths.
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndDisableFeature(kChromeSecurityDelegateIgnoreArcVm);
+    files = security_delegate.GetFilenames(
+        ui::EndpointType::kArc, Data("file:///file1\r\nfile:///file2"));
+    EXPECT_EQ(2u, files.size());
+    EXPECT_EQ("/file1", files[0].path.value());
+    EXPECT_EQ("", files[0].display_name.value());
+    EXPECT_EQ("/file2", files[1].path.value());
+    EXPECT_EQ("", files[1].display_name.value());
+  }
 
   // Crostini shared paths should be mapped.
+  // Multiple lines should be parsed.
   guest_os::GuestOsSecurityDelegate crostini_security_delegate("termina");
   files = crostini_security_delegate.GetFilenames(
       ui::EndpointType::kCrostini,
-      Data("file:///mnt/chromeos/MyFiles/shared/file"));
-  EXPECT_EQ(1u, files.size());
-  EXPECT_EQ(shared_path.Append("file"), files[0].path);
+      Data("\n\tfile:///mnt/chromeos/MyFiles/shared/file1\t\r\n"
+           "#ignore\r\nfile:///mnt/chromeos/MyFiles/shared/file2\r\n"));
+  EXPECT_EQ(2u, files.size());
+  EXPECT_EQ(shared_path.Append("file1"), files[0].path);
+  EXPECT_EQ(shared_path.Append("file2"), files[1].path);
 
   // Crostini homedir should be mapped.
   files = crostini_security_delegate.GetFilenames(
@@ -305,8 +333,14 @@ TEST_F(ChromeSecurityDelegateTest, SendFileInfoConvertPaths) {
   ui::FileInfo file1(myfiles_dir_.Append("file1"), base::FilePath());
   ui::FileInfo file2(myfiles_dir_.Append("file2"), base::FilePath());
 
-  // Arc should convert path to UTF16 URL.
+  // Unknown VMs should be ignored.
   std::string data;
+  security_delegate.SendFileInfo(ui::EndpointType::kUnknownVm, {file1},
+                                 base::BindOnce(&CaptureUTF16, &data));
+  task_environment_.RunUntilIdle();
+  EXPECT_EQ("", data);
+
+  // Arc should convert path to UTF16 URL.
   security_delegate.SendFileInfo(ui::EndpointType::kArc, {file1},
                                  base::BindOnce(&CaptureUTF16, &data));
   task_environment_.RunUntilIdle();

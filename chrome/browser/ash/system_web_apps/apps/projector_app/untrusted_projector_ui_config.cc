@@ -6,16 +6,17 @@
 
 #include "ash/constants/ash_features.h"
 #include "ash/webui/projector_app/public/cpp/projector_app_constants.h"
+#include "base/check_deref.h"
 #include "base/feature_list.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/ui/ash/projector/projector_utils.h"
+#include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
 #include "chromeos/ash/components/channel/channel_info.h"
+#include "chromeos/ash/components/signin/identity_manager_provider.h"
+#include "components/account_id/account_id.h"
 #include "components/version_info/channel.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_ui_data_source.h"
-#include "content/public/common/url_constants.h"
 #include "third_party/blink/public/common/features.h"
 
 ChromeUntrustedProjectorUIDelegate::ChromeUntrustedProjectorUIDelegate() =
@@ -46,25 +47,24 @@ void ChromeUntrustedProjectorUIDelegate::PopulateLoadTimeData(
 }
 
 UntrustedProjectorUIConfig::UntrustedProjectorUIConfig()
-    : WebUIConfig(content::kChromeUIUntrustedScheme,
-                  ash::kChromeUIProjectorAppHost) {}
+    : SystemWebAppUntrustedUIConfig(ash::kChromeUIProjectorAppHost,
+                                    ash::SystemWebAppType::PROJECTOR) {}
 
 UntrustedProjectorUIConfig::~UntrustedProjectorUIConfig() = default;
-
-bool UntrustedProjectorUIConfig::IsWebUIEnabled(
-    content::BrowserContext* browser_context) {
-  Profile* profile = Profile::FromBrowserContext(browser_context);
-  return IsProjectorAppEnabled(profile);
-}
 
 std::unique_ptr<content::WebUIController>
 UntrustedProjectorUIConfig::CreateWebUIController(content::WebUI* web_ui,
                                                   const GURL& url) {
   ChromeUntrustedProjectorUIDelegate delegate;
   Profile* profile = Profile::FromWebUI(web_ui);
+  // Projector is only enabled for profiles with a GAIA account (see
+  // IsProjectorAllowedForProfile()), so this profile is guaranteed to have
+  // an annotated account.
+  const AccountId& account_id =
+      CHECK_DEREF(ash::AnnotatedAccountId::Get(profile));
   return std::make_unique<ash::UntrustedProjectorUI>(
       web_ui, &delegate, profile->GetPrefs(),
-      IdentityManagerFactory::GetForProfile(profile),
+      ash::IdentityManagerProvider::Get().Find(account_id),
       profile->GetDefaultStoragePartition()
           ->GetURLLoaderFactoryForBrowserProcess()
           .get());

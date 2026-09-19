@@ -480,6 +480,15 @@ MinMaxSizesResult BlockLayoutAlgorithm::ComputeMinMaxSizes(
 
     MinMaxSizesResult child_result;
     if (child.IsInline()) {
+      if (child.Style().IsInShrinkToFitSubtree() &&
+          GetConstraintSpace().AvailableSize().inline_size != kIndefiniteSize) {
+        // TODO(crbgu.com/537526308): Constrain the size with a call to
+        // ComputeMinMaxInlineSizes to support `max-width`, etc.
+        child_float_input.constrained_inline_size =
+            (GetConstraintSpace().AvailableSize().inline_size -
+             BorderScrollbarPadding().InlineSum())
+                .ClampNegativeToZero();
+      }
       // From |BlockLayoutAlgorithm| perspective, we can handle |InlineNode|
       // almost the same as |BlockNode|, because an |InlineNode| includes
       // all inline nodes following |child| and their descendants, and produces
@@ -3703,22 +3712,33 @@ ConstraintSpace BlockLayoutAlgorithm::CreateConstraintSpaceForChild(
     }
   }
 
-  const bool has_stretch =
-      IsHorizontalWritingMode(constraint_space.GetWritingMode())
-          ? child_style.Height().HasStretch() ||
-                child_style.MinHeight().HasStretch() ||
-                child_style.MaxHeight().HasStretch()
-          : child_style.Width().HasStretch() ||
-                child_style.MinWidth().HasStretch() ||
-                child_style.MaxWidth().HasStretch();
+  if (!constraint_space.IsNewFormattingContext()) {
+    if (Node().IsAnonymousBlockFlow()) {
+      // If we are anonymous propagate our "ignore-margins" flags to our child.
+      builder.SetIgnoreMarginsForStretch(
+          constraint_space.GetWritingDirection(),
+          constraint_space.IgnoreMarginsForStretch());
+    } else {
+      const bool has_stretch =
+          IsHorizontalWritingMode(constraint_space.GetWritingMode())
+              ? child_style.Height().HasStretch() ||
+                    child_style.MinHeight().HasStretch() ||
+                    child_style.MaxHeight().HasStretch()
+              : child_style.Width().HasStretch() ||
+                    child_style.MinWidth().HasStretch() ||
+                    child_style.MaxWidth().HasStretch();
 
-  if (has_stretch && !constraint_space.IsNewFormattingContext()) {
-    const LineLogicalBoxSides sides(BorderPadding().block_start == LayoutUnit(),
-                                    /* line_right */ false,
-                                    BorderPadding().block_end == LayoutUnit(),
-                                    /* line_left */ false);
-    builder.SetIgnoreMarginsForStretch(constraint_space.GetWritingMode(),
-                                       sides);
+      if (has_stretch || child.IsAnonymousBlockFlow() || child.IsInline()) {
+        // If we have no block start/end border-padding and don't establish a
+        // new formatting context, ignore margins for stretch sizing purposes.
+        builder.SetIgnoreMarginsForStretch(
+            constraint_space.GetWritingDirection(),
+            LogicalBoxSides(/*inline_start=*/false,
+                            /*inline_end=*/false,
+                            BorderPadding().block_start == LayoutUnit(),
+                            BorderPadding().block_end == LayoutUnit()));
+      }
+    }
   }
 
   return builder.ToConstraintSpace();

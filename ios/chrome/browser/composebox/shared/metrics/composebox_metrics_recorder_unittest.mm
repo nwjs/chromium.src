@@ -4,12 +4,16 @@
 
 #import "ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h"
 
+#import "components/omnibox/browser/searchbox_utils.h"
+
 #import "base/test/metrics/histogram_tester.h"
 #import "components/contextual_search/contextual_search_metrics_recorder.h"
 #import "ios/chrome/browser/composebox/public/composebox_entrypoint.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
+
+using searchbox::FocusResultedInNavigationType;
 
 class ComposeboxMetricsRecorderTest : public PlatformTest {
  protected:
@@ -305,4 +309,52 @@ TEST_F(ComposeboxMetricsRecorderTest, ModelSelected) {
   histogram_tester_.ExpectBucketCount(
       "ContextualSearch.Models.Selected.Unknown",
       static_cast<int>(omnibox::ModelMode::MODEL_MODE_GEMINI_PRO), 1);
+}
+
+// Tests recording picker outcomes for various attachment types.
+TEST_F(ComposeboxMetricsRecorderTest, PickerOutcome) {
+  [recorder_ recordPickerOutcome:MobileFuseboxPickerOutcome::kAttachmentAdded
+               forAttachmentType:MobileFuseboxPickerAttachmentType::kCamera];
+  histogram_tester_.ExpectBucketCount(
+      "Omnibox.MobileFusebox.PickerOutcome",
+      static_cast<int>(MobileFuseboxPickerOutcome::kAttachmentAdded), 1);
+  histogram_tester_.ExpectBucketCount(
+      "Omnibox.MobileFusebox.PickerOutcome.Camera",
+      static_cast<int>(MobileFuseboxPickerOutcome::kAttachmentAdded), 1);
+
+  [recorder_ recordPickerOutcome:MobileFuseboxPickerOutcome::kManualUserExit
+               forAttachmentType:MobileFuseboxPickerAttachmentType::kGallery];
+  histogram_tester_.ExpectBucketCount(
+      "Omnibox.MobileFusebox.PickerOutcome",
+      static_cast<int>(MobileFuseboxPickerOutcome::kManualUserExit), 1);
+  histogram_tester_.ExpectBucketCount(
+      "Omnibox.MobileFusebox.PickerOutcome.Gallery",
+      static_cast<int>(MobileFuseboxPickerOutcome::kManualUserExit), 1);
+
+  [recorder_ recordPickerOutcome:MobileFuseboxPickerOutcome::kPermissionDenied
+               forAttachmentType:MobileFuseboxPickerAttachmentType::kFile];
+  histogram_tester_.ExpectBucketCount(
+      "Omnibox.MobileFusebox.PickerOutcome",
+      static_cast<int>(MobileFuseboxPickerOutcome::kPermissionDenied), 1);
+  histogram_tester_.ExpectBucketCount(
+      "Omnibox.MobileFusebox.PickerOutcome.File",
+      static_cast<int>(MobileFuseboxPickerOutcome::kPermissionDenied), 1);
+
+  [recorder_ recordPickerOutcome:MobileFuseboxPickerOutcome::kLocalError
+               forAttachmentType:MobileFuseboxPickerAttachmentType::kDrive];
+  histogram_tester_.ExpectBucketCount(
+      "Omnibox.MobileFusebox.PickerOutcome",
+      static_cast<int>(MobileFuseboxPickerOutcome::kLocalError), 1);
+  histogram_tester_.ExpectBucketCount(
+      "Omnibox.MobileFusebox.PickerOutcome.Drive",
+      static_cast<int>(MobileFuseboxPickerOutcome::kLocalError), 1);
+
+  [recorder_ recordPickerOutcome:MobileFuseboxPickerOutcome::kAttachmentAdded
+               forAttachmentType:MobileFuseboxPickerAttachmentType::kTabs];
+  histogram_tester_.ExpectBucketCount(
+      "Omnibox.MobileFusebox.PickerOutcome",
+      static_cast<int>(MobileFuseboxPickerOutcome::kAttachmentAdded), 2);
+  histogram_tester_.ExpectBucketCount(
+      "Omnibox.MobileFusebox.PickerOutcome.Tabs",
+      static_cast<int>(MobileFuseboxPickerOutcome::kAttachmentAdded), 1);
 }

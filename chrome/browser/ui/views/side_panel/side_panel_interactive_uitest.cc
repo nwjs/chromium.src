@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ui/views/side_panel/side_panel.h"
+
 #include <memory>
 
 #include "base/test/bind.h"
@@ -9,12 +11,12 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
+#include "chrome/browser/ui/read_anything/read_anything_prefs.h"
 #include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
@@ -24,13 +26,13 @@
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_prefs.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/toolbar/bookmark_sub_menu_model.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_resize_area.h"
 #include "chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h"
@@ -38,6 +40,7 @@
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
+#include "chrome/common/read_anything/read_anything.mojom.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/interaction/interaction_test_util_browser.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
@@ -45,6 +48,7 @@
 #include "chrome/test/interaction/webcontents_interaction_test_util.h"
 #include "chrome/test/user_education/interactive_feature_promo_test.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "components/prefs/pref_service.h"
 #include "components/reading_list/core/reading_list_entry.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -158,12 +162,12 @@ IN_PROC_BROWSER_TEST_F(SidePanelInteractiveTest, SidePanelNotShownOnPwa) {
       // Add a second tab to the tab strip
       AddInstrumentedTab(kSecondTabElementId, second_tab_url),
       CheckResult(
-          ([&]() { return browser()->tab_strip_model()->active_index(); }), 1),
+          ([&]() { return browser()->GetTabStripModel()->active_index(); }), 1),
       // Ensure the side panel isn't open
       EnsureNotPresent(kSidePanelElementId),
       CheckResult(([&]() {
                     return browser()
-                        ->tab_strip_model()
+                        ->GetTabStripModel()
                         ->GetActiveWebContents()
                         ->GetLastCommittedURL();
                   }),
@@ -194,12 +198,11 @@ IN_PROC_BROWSER_TEST_F(SidePanelInteractiveTest, SidePanelNotShownOnPwa) {
   // picker.
   BrowserWindowInterface* app_browser =
       web_app::ReparentWebContentsIntoAppBrowser(
-          browser()->tab_strip_model()->GetActiveWebContents(), app_id);
+          browser()->GetTabStripModel()->GetActiveWebContents(), app_id);
   EXPECT_TRUE(app_browser->GetType() == BrowserWindowInterface::TYPE_APP);
 
   // App does not show side panel.
-  EXPECT_FALSE(BrowserView::GetBrowserViewForBrowser(
-                   app_browser->GetBrowserForMigrationOnly())
+  EXPECT_FALSE(BrowserView::GetBrowserViewForBrowser(app_browser)
                    ->side_panel()
                    ->GetVisible());
 }
@@ -277,8 +280,6 @@ class PinnedSidePanelInteractiveTest : public InteractiveFeaturePromoTest {
   PinnedSidePanelInteractiveTest()
       : InteractiveFeaturePromoTest(UseDefaultTrackerAllowingPromos(
             {feature_engagement::kIPHSidePanelGenericPinnableFeature})) {
-    scoped_feature_list_.InitWithFeatures({},
-                                          {features::kImmersiveReadAnything});
   }
   ~PinnedSidePanelInteractiveTest() override = default;
 
@@ -343,6 +344,14 @@ class PinnedSidePanelInteractiveTest : public InteractiveFeaturePromoTest {
   auto OpenReadingModeSidePanel() {
     return Steps(
         Do(([&]() {
+          // Reading mode opens in "Immersive" / full-screen view by default.
+          // In order to test that the side panel view of reading mode in side
+          // panel tests, set its presentation state to side panel.
+          browser()->GetProfile()->GetPrefs()->SetInteger(
+              prefs::kAccessibilityReadAnythingLastOpenedPresentationState,
+              static_cast<int>(
+                  read_anything::mojom::ReadAnythingPresentationState::
+                      kInSidePanel));
           chrome::ExecuteCommandWithContext(
               browser(), IDC_SHOW_READING_MODE_SIDE_PANEL,
               actions::ActionInvocationContext::Builder()
@@ -386,9 +395,6 @@ class PinnedSidePanelInteractiveTest : public InteractiveFeaturePromoTest {
   auto ShowSidePanelForKey(SidePanelEntryKey key) {
     return Do(([&]() { browser()->GetFeatures().side_panel_ui()->Show(key); }));
   }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Verify that we can open the ReadingMode side panel from the 3dot -> More
@@ -495,7 +501,7 @@ IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest,
 
 IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest,
                        SidePanelPinButtonsHideInIncognitoMode) {
-  Browser* const incognito = CreateIncognitoBrowser();
+  BrowserWindowInterface* const incognito = CreateIncognitoBrowser();
   RunTestSequence(
       InContext(BrowserElements::From(incognito)->GetContext(),
                 WaitForShow(kBrowserViewElementId)),
@@ -627,7 +633,7 @@ IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest,
       // Add a second tab to the tab strip
       AddInstrumentedTab(kSecondTabElementId, GURL(url::kAboutBlankURL)),
       CheckResult(
-          ([&]() { return browser()->tab_strip_model()->active_index(); }),
+          ([&]() { return browser()->GetTabStripModel()->active_index(); }),
           testing::Eq(1)),
       // Ensure the side panel isn't open
       EnsureNotPresent(kSidePanelElementId),

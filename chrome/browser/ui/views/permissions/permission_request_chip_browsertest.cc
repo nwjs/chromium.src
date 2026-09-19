@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/functional/callback.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -10,9 +11,9 @@
 #include "build/build_config.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
@@ -49,20 +50,21 @@
 
 namespace {
 
-void RequestPermission(Browser* browser) {
+void RequestPermission(BrowserWindowInterface* browser) {
   test::PermissionRequestManagerTestApi test_api(browser);
   permissions::PermissionRequestObserver observer(
-      browser->tab_strip_model()->GetActiveWebContents());
+      browser->GetTabStripModel()->GetActiveWebContents());
 
   EXPECT_NE(nullptr, test_api.manager());
-  test_api.AddSimpleRequest(
-      browser->tab_strip_model()->GetActiveWebContents()->GetPrimaryMainFrame(),
-      permissions::RequestType::kGeolocation);
+  test_api.AddSimpleRequest(browser->GetTabStripModel()
+                                ->GetActiveWebContents()
+                                ->GetPrimaryMainFrame(),
+                            permissions::RequestType::kGeolocation);
 
   observer.Wait();
 }
 
-LocationBar* GetLocationBar(Browser* browser) {
+LocationBar* GetLocationBar(BrowserWindowInterface* browser) {
   return BrowserView::GetBrowserViewForBrowser(browser)->GetLocationBar();
 }
 
@@ -147,7 +149,7 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestChipGestureSensitiveBrowserTest,
   base::HistogramTester histograms;
 
   content::WebContents* embedder_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(embedder_contents);
   const GURL url(embedded_test_server()->GetURL("/empty.html"));
   content::RenderFrameHost* main_rfh =
@@ -230,7 +232,7 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestChipGestureSensitiveBrowserTest,
   const GURL url(embedded_test_server()->GetURL("/empty.html"));
 
   // Setup: open 2 tabs at the same origin
-  TabStripModel* tab_strip = browser()->tab_strip_model();
+  TabStripModel* tab_strip = browser()->GetTabStripModel();
   content::WebContents* embedder_contents_tab_0 =
       tab_strip->GetActiveWebContents();
   ASSERT_TRUE(embedder_contents_tab_0);
@@ -252,7 +254,7 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestChipGestureSensitiveBrowserTest,
       ui_test_utils::NavigateToURLBlockUntilNavigationsComplete(browser(), url,
                                                                 1);
   content::WebContents* embedder_contents_tab_1 =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   auto* manager_tab_1 = permissions::PermissionRequestManager::FromWebContents(
       embedder_contents_tab_1);
   permissions::PermissionRequestObserver observer_tab_1(
@@ -456,7 +458,7 @@ class PermissionRequestChipSensorBrowserTest
 IN_PROC_BROWSER_TEST_F(PermissionRequestChipSensorBrowserTest,
                        SensorsIndicatorCDP) {
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   AttachToWebContents(web_contents);
 
   // Navigate to secure page.
@@ -501,11 +503,10 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestChipSensorBrowserTest,
   EXPECT_TRUE(
       base::test::RunUntil([&]() { return indicator_chip->GetVisible(); }));
 
-  PermissionChipView* chip_view =
-      static_cast<PermissionChipView*>(indicator_chip);
-  EXPECT_EQ(chip_view->GetText(),
+  EXPECT_EQ(indicator_chip->GetTextForTesting(),
             l10n_util::GetStringUTF16(IDS_SENSORS_IN_USE));
-  EXPECT_EQ(chip_view->theme(), PermissionChipTheme::kInUseActivityIndicator);
+  EXPECT_EQ(indicator_chip->GetThemeForTesting(),
+            PermissionChipTheme::kInUseActivityIndicator);
 
   // Navigate away to destroy the document and close Mojo pipes.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")));
@@ -520,7 +521,7 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestChipSensorBrowserTest,
 IN_PROC_BROWSER_TEST_F(PermissionRequestChipSensorBrowserTest,
                        SensorsIndicatorSuppressedByMediaCDP) {
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   AttachToWebContents(web_contents);
 
   // Navigate to secure page.
@@ -563,9 +564,8 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestChipSensorBrowserTest,
       base::test::RunUntil([&]() { return indicator_chip->GetVisible(); }));
 
   // Verify that the active chip text displays Camera usage.
-  PermissionChipView* chip_view =
-      static_cast<PermissionChipView*>(indicator_chip);
-  EXPECT_EQ(chip_view->GetText(), l10n_util::GetStringUTF16(IDS_CAMERA_IN_USE));
+  EXPECT_EQ(indicator_chip->GetTextForTesting(),
+            l10n_util::GetStringUTF16(IDS_CAMERA_IN_USE));
 
   // Reset capturing state and navigate away to clean up.
   content_settings::PageSpecificContentSettings::GetForFrame(
@@ -579,7 +579,7 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestChipSensorBrowserTest,
 IN_PROC_BROWSER_TEST_F(PermissionRequestChipSensorBrowserTest,
                        SensorsBlockedIndicatorCDP) {
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   AttachToWebContents(web_contents);
 
   // Navigate to secure page.
@@ -626,11 +626,10 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestChipSensorBrowserTest,
   EXPECT_TRUE(
       base::test::RunUntil([&]() { return indicator_chip->GetVisible(); }));
 
-  PermissionChipView* chip_view =
-      static_cast<PermissionChipView*>(indicator_chip);
-  EXPECT_EQ(chip_view->GetText(),
+  EXPECT_EQ(indicator_chip->GetTextForTesting(),
             l10n_util::GetStringUTF16(IDS_SENSORS_BLOCKED));
-  EXPECT_EQ(chip_view->theme(), PermissionChipTheme::kBlockedActivityIndicator);
+  EXPECT_EQ(indicator_chip->GetThemeForTesting(),
+            PermissionChipTheme::kBlockedActivityIndicator);
 
   // Navigate away to destroy the document and close Mojo pipes.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")));

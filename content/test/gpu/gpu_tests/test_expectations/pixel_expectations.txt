@@ -286,13 +286,7 @@ crbug.com/42240193 [ win10 nvidia target-cpu-32 ] Pixel_WebGPU* [ Skip ]
 # point. This is for things like tests that fail in a way that negatively and
 # significantly impacts other tests, e.g. killing the test device.
 
-# WebGPU pixel tests crash on multiple mac fyi  bots.
-crbug.com/1213170 [ mac asan intel-0x3e9b ] Pixel_WebGPUImport* [ Skip ]
-
-crbug.com/1213170 [ mac asan intel-0x3e9b ] Pixel_WebGPUCanvas* [ Skip ]
-
 crbug.com/1213170 [ mac asan ] Pixel_WebGPUWebGL* [ Skip ]
-crbug.com/1213170 [ mac asan intel-0x3e9b ] Pixel_WebGPUCopyExternalImage* [ Skip ]
 
 crbug.com/1203317 [ mac ] Pixel_OffscreenCanvasWebGLPaintAfterResize [ Skip ]
 
@@ -368,10 +362,8 @@ crbug.com/486121429 [ android android-sm-s911u1 ] Pixel_SVGHuge [ Slow ]
 # Mac
 crbug.com/1356246 [ mac nvidia ] Pixel_SVGHuge [ Skip ]
 crbug.com/1356246 [ mac intel debug ] Pixel_SVGHuge [ Skip ]
-crbug.com/1356246 [ mac intel release asan ] Pixel_SVGHuge [ Skip ]
 crbug.com/486121429 [ mac intel release no-asan ] Pixel_SVGHuge [ Slow ]
 crbug.com/1356246 [ mac amd debug ] Pixel_SVGHuge [ Skip ]
-crbug.com/1356246 [ mac amd release asan ] Pixel_SVGHuge [ Skip ]
 crbug.com/1474637 [ mac amd release no-asan graphite-disabled ] Pixel_SVGHuge [ Skip ]
 crbug.com/381211724 [ mac amd release no-asan graphite-enabled ] Pixel_SVGHuge [ Slow ]
 crbug.com/486121429 [ mac apple ] Pixel_SVGHuge [ Slow ]
@@ -389,16 +381,13 @@ crbug.com/486121429 [ linux intel ] Pixel_SVGHuge [ Slow ]
 crbug.com/486121429 [ linux amd ] Pixel_SVGHuge [ Slow ]
 
 # Mac Asan timeouts
-crbug.com/338200323 [ mac angle-opengl asan graphite-disabled intel-0x3e9b passthrough ] Pixel_WebGPUToDataURL [ Slow ]
 crbug.com/338200323 crbug.com/479387364 [ mac angle-metal asan passthrough ] Pixel_WebGLSadCanvas [ Failure ]
 crbug.com/338200323 [ sonoma angle-metal asan passthrough ] Pixel_OffscreenCanvasWebGLSoftwareCompositing [ Slow ]
 crbug.com/338200323 [ sonoma angle-metal asan passthrough ] Pixel_OffscreenCanvasWebGLSoftwareCompositingWorker [ Slow ]
 crbug.com/338200323 [ mac angle-metal asan passthrough ] Pixel_OffscreenCanvasTransferToImageBitmapSoftwareCompositing [ Slow ]
-crbug.com/338200323 [ mac angle-metal asan intel-0x3e9b passthrough ] Pixel_RepeatedWebGLTo2D_SoftwareCompositing [ Slow ]
 crbug.com/338200323 [ mac angle-metal asan passthrough ] Pixel_Video_Context_Loss_VP9 [ Slow ]
 crbug.com/338200323 [ mac angle-metal asan passthrough ] Pixel_Video_Context_Loss_MP4 [ Slow ]
 crbug.com/338200323 [ mac angle-metal asan passthrough ] Pixel_WebGLContextRestored [ Slow ]
-crbug.com/403252788 [ mac angle-metal asan graphite-enabled intel-0x3e9b passthrough ] Pixel_2DCanvasWebGL [ Slow ]
 
 # Flakily hits heartbeat timeout, context restoration likely just slow on these
 # devices
@@ -440,6 +429,9 @@ crbug.com/1290953 [ android android-pixel-4 android-webview-instrumentation ] Pi
 crbug.com/1290953 [ android android-pixel-4 android-webview-instrumentation ] Pixel_CanvasLowLatency2DImageData [ Failure ]
 
 crbug.com/1477318 [ mac ] Pixel_WebGLPreservedAfterTabSwitch [ RetryOnFailure ]
+
+crbug.com/546131821 [ android android-pixel-6 angle-opengles passthrough renderer-skia-vulkan ] Pixel_VideoStreamFrom2DCanvas [ RetryOnFailure ]
+crbug.com/546131821 [ android android-pixel-6 angle-opengles passthrough renderer-skia-vulkan ] Pixel_VideoStreamFromWebGLAlphaCanvas [ RetryOnFailure ]
 
 
 # Fails with hung renderer
@@ -548,6 +540,7 @@ crbug.com/446861923 [ android android-pixel-10 android-chromium ] Pixel_Video_VP
 crbug.com/286989320 [ linux nvidia ] Pixel_MeetEffects_rainbow_wig_and_eyelashes [ Failure Slow ]
 crbug.com/286989320 [ linux amd-0x7340 ] Pixel_MeetEffects_rainbow_wig_and_eyelashes [ Failure Slow ]
 crbug.com/286989320 [ mac no-clang-coverage no-asan  ] Pixel_MeetEffects_rainbow_wig_and_eyelashes [ Failure Slow ]
+crbug.com/545524954 [ win target-cpu-32 ] Pixel_MeetEffects_rainbow_wig_and_eyelashes [ Failure ]
 
 # Mac AMD flaky directory failures
 crbug.com/444653106 [ mac amd-0x7340 graphite-enabled angle-metal ] Pixel_CSSFilterEffects [ Slow ]
@@ -564,6 +557,9 @@ crbug.com/536089774 [ android android-pixel-10 android-webview-instrumentation ]
 crbug.com/536089774 [ android android-pixel-10 android-webview-instrumentation ] Pixel_Video_MP4_FourColors_Aspect_4x3 [ RetryOnFailure ]
 crbug.com/536089774 [ android android-pixel-10 android-webview-instrumentation ] Pixel_Video_MP4_FourColors_Rot_180 [ RetryOnFailure ]
 crbug.com/536089774 [ android android-pixel-10 android-webview-instrumentation ] Pixel_ViewTransitionsCapture [ RetryOnFailure ]
+
+# M2/ASAN has flaky timeout issues in pixel tests.
+crbug.com/536977902 [ mac apple-angle-metal-renderer:-apple-m2 asan ] * [ RetryOnFailure ]
 
 crbug.com/544795245 [ mac apple-angle-metal-renderer:-apple-m2 asan ] Pixel_ViewTransitionsCapture [ Failure ]
 

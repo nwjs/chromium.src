@@ -366,8 +366,8 @@ bool PermissionsData::HasAPIPermission(APIPermissionID permission,
   return (allow_all_override_ && !ignore_override) || active_permissions_unsafe_->HasAPIPermission(permission, ignore_override);
 }
 
-bool PermissionsData::HasAPIPermission(
-    const std::string& permission_name, bool ignore_override) const {
+bool PermissionsData::HasAPIPermission(std::string_view permission_name,
+                                       bool ignore_override) const {
   base::AutoLock auto_lock(runtime_lock_);
   return (allow_all_override_ && !ignore_override) || active_permissions_unsafe_->HasAPIPermission(permission_name, ignore_override);
 }

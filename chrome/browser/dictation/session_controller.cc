@@ -14,6 +14,8 @@
 #include "base/state_transitions.h"
 #include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/time/time.h"
+#include "chrome/browser/dictation/features.h"
 #include "chrome/browser/dictation/logging.h"
 #include "chrome/browser/dictation/metrics.h"
 #include "chrome/browser/dictation/session_controller_delegate.h"
@@ -58,7 +60,7 @@ SessionController::~SessionController() {
   CHECK(state_ != SessionState::kInactive ||
         (!attached_stream_provider_ && finalizing_stream_providers_.empty()));
   if (attached_stream_provider_) {
-    EndDictationStream();
+    EndDictationStream(DictationStreamEndTrigger::kDestructor);
   }
   VT_LOG(GetBrowserContext()) << "=== Session Ended";
 }
@@ -82,6 +84,7 @@ void SessionController::StartDictationStream(
   if (is_shutting_down_) {
     VT_LOG(GetBrowserContext()) << "\tAborting session shutdown";
     is_shutting_down_ = false;
+    auto_session_end_timer_.Stop();
   }
 
   Observe(content::WebContents::FromRenderFrameHost(
@@ -121,7 +124,7 @@ void SessionController::DidGetUserInteraction(
 
   if (key_event.windows_key_code == ui::VKEY_ESCAPE) {
     if (attached_stream_provider_) {
-      EndDictationStream();
+      EndDictationStream(DictationStreamEndTrigger::kEscapeKey);
     } else {
       FinalizeAndShutdown();
     }
@@ -132,7 +135,7 @@ void SessionController::DidGetUserInteraction(
   const bool event_has_text = !base::IsUnicodeControl(key_event.text[0]);
   if (attached_stream_provider_ && web_contents()->IsFocusedElementEditable() &&
       event_has_text) {
-    EndDictationStream();
+    EndDictationStream(DictationStreamEndTrigger::kUserTyping);
   }
 }
 
@@ -153,7 +156,12 @@ void SessionController::OnFocusChangedInPage(
   }
 
   if (attached_stream_provider_) {
-    EndDictationStream();
+    EndDictationStream(DictationStreamEndTrigger::kFocusChange);
+  }
+
+  if (kSessionEndsOnStreamEnd.Get()) {
+    // Do not start additional streams, if we only do one stream in a session.
+    return;
   }
 
   if (details.editable_level == content::EditableLevel::kNotEditable ||
@@ -198,12 +206,26 @@ void SessionController::PrimaryPageChanged(content::Page& page) {
   EndSessionAsynchronously();
 }
 
-void SessionController::EndDictationStream() {
+void SessionController::PrimaryMainFrameRenderProcessGone(
+    base::TerminationStatus status) {
+  // If the page crashes, immediately end the session.
+  if (ui_) {
+    ui_->OnStopped();
+  }
+  EndSessionAsynchronously();
+}
+
+void SessionController::EndDictationStream(DictationStreamEndTrigger trigger) {
   VT_LOG(GetBrowserContext()) << __func__;
   CHECK(attached_stream_provider_);
   CHECK(state_ == SessionState::kStreamInitializing ||
         state_ == SessionState::kTranscribing);
-  attached_stream_provider_->Stop();
+  if (kSessionEndsOnStreamEnd.Get()) {
+    // If ending a stream also ends the session, trigger shutdown after this one
+    // finalizes.
+    is_shutting_down_ = true;
+  }
+  attached_stream_provider_->Stop(trigger);
   // TODO(b/525943882): Consider whether an initializing stream should be
   // immediately moved to deletion, rather than finalizing.
   finalizing_stream_providers_.insert(std::move(attached_stream_provider_));
@@ -217,20 +239,23 @@ void SessionController::UpdateAudioLevel(float audio_level) {
 }
 
 void SessionController::UiRequestEndSession() {
+  if (attached_stream_provider_) {
+    EndDictationStream(DictationStreamEndTrigger::kCancelButton);
+  }
   // EndSession will destroy `this` which owns other objects that call into here
   // so PostTask to avoid destroying objects in the callstack.
   EndSessionAsynchronously();
 }
 
 void SessionController::UiRequestEndActiveStream() {
-  EndDictationStream();
+  EndDictationStream(DictationStreamEndTrigger::kDoneButton);
 }
 
 void SessionController::FinalizeAndShutdown() {
   VT_LOG(GetBrowserContext()) << __func__;
   is_shutting_down_ = true;
   if (attached_stream_provider_) {
-    EndDictationStream();
+    EndDictationStream(DictationStreamEndTrigger::kShutdown);
   } else if (state_ == SessionState::kInactive) {
     // EndSession will destroy `this` which owns other objects that call into
     // here so PostTask to avoid destroying objects in the callstack.
@@ -258,13 +283,14 @@ SessionState SessionController::GetState() const {
 void SessionController::HostTabDidClose() {
   // Intentionally end the session synchronously in this path to avoid dangling
   // pointers to deleted UI components.
-  delegate_->EndSession();
+  EndSessionSynchronously();
   // WARNING: `this` is deleted, do not add code below here.
 }
 
 void SessionController::DidUpdateStreamProviderState(
     StreamProvider& stream_provider,
-    StreamProvider::StreamState old_state) {
+    StreamProvider::StreamState old_state,
+    StreamErrorReason reason) {
   using StreamState = StreamProvider::StreamState;
 
   const bool is_attached = attached_stream_provider_.get() == &stream_provider;
@@ -322,7 +348,7 @@ void SessionController::DidUpdateStreamProviderState(
         is_attached ? SessionUi::StreamType::kAttached
                     : SessionUi::StreamType::kFinalizing;
     if (ui_) {
-      ui_->OnError(stream_type);
+      ui_->OnError(stream_type, reason);
     }
   }
 }
@@ -356,23 +382,37 @@ void SessionController::MoveToState(SessionState new_state) {
   session_state_changed_callback_list_.Notify(new_state);
 
   if (state_ == SessionState::kInactive && is_shutting_down_) {
-    // EndSession destroys `this` so do this async so callers to MoveToState
-    // don't have to avoid the UAF landmine.
-    EndSessionAsynchronously();
+    if (kSessionEndsOnStreamEnd.Get()) {
+      auto_session_end_timer_.Start(
+          FROM_HERE, kAutoSessionEndDelay.Get(),
+          base::BindOnce(&SessionController::EndSessionSynchronously,
+                         weak_ptr_factory_.GetWeakPtr()));
+    } else {
+      // EndSession destroys `this` so do this async so callers to MoveToState
+      // don't have to avoid the UAF landmine.
+      EndSessionAsynchronously();
+    }
   }
 }
 
 void SessionController::EndSessionAsynchronously() {
+  auto_session_end_timer_.Stop();
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(
                      [](base::WeakPtr<SessionController> this_ptr) {
                        if (!this_ptr) {
                          return;
                        }
-                       this_ptr->delegate_->EndSession();
+                       this_ptr->EndSessionSynchronously();
                        CHECK(!this_ptr);
                      },
                      weak_ptr_factory_.GetWeakPtr()));
+}
+
+void SessionController::EndSessionSynchronously() {
+  auto_session_end_timer_.Stop();
+  delegate_->EndSession();
+  // WARNING: `this` is deleted, do not add code below here.
 }
 
 void SessionController::PurgeToDeleteStreamProviders() {

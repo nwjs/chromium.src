@@ -1,0 +1,436 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+package org.chromium.chrome.browser.actor;
+
+import static org.chromium.base.ThreadUtils.assertOnUiThread;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.util.ArrayMap;
+import android.util.ArraySet;
+
+import androidx.annotation.VisibleForTesting;
+
+import org.chromium.base.ContextUtils;
+import org.chromium.base.Log;
+import org.chromium.base.lifetime.Destroyable;
+import org.chromium.base.task.PostTask;
+import org.chromium.base.task.TaskTraits;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.app.tabmodel.TabCache;
+import org.chromium.chrome.browser.app.tabmodel.TabCacheKey;
+import org.chromium.chrome.browser.app.tabmodel.TabCacheManager;
+import org.chromium.chrome.browser.tab.StorageLoadedData.LoadedTabState;
+import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabId;
+import org.chromium.chrome.browser.tab.TabState;
+import org.chromium.chrome.browser.tab.TabStateAttributes;
+import org.chromium.chrome.browser.tab.TabStateAttributes.DirtinessState;
+import org.chromium.chrome.browser.tab.TabStateAttributesRegistry;
+import org.chromium.chrome.browser.tab.TabStateExtractor;
+import org.chromium.chrome.browser.tabmodel.TabPersistentStoreImpl;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * Profile-scoped pool managing background actor tabs.
+ *
+ * <p>Encapsulates in-memory {@link LiveBackgroundTab} instances and persisted cold tabs via {@link
+ * TabCache}.
+ */
+@NullMarked
+public class BackgroundTabPool
+        implements Destroyable, TabStateAttributes.Observer, TabStateAttributes.StoreKey {
+    private static final String TAG = "BgTabPool";
+    private static final String ACTOR_DIR_TAG_PREFIX = "actor_tabs_";
+
+    private final String mProfileToken;
+    private final TabCache mTabCache;
+    private final Runnable mOnEmptyCallback;
+    private final ArrayMap<@TabId Integer, LiveBackgroundTab> mLiveEntries = new ArrayMap<>();
+    private final ArrayMap<@TabId Integer, @TabId Integer> mPlaceholderToTabId = new ArrayMap<>();
+    private final PlaceholderAssociationStore mAssociationStore;
+    private boolean mIsDestroyed;
+
+    /**
+     * Constructs a {@link BackgroundTabPool} for the given profile token and on-empty callback.
+     *
+     * @param profileToken The token string associated with the profile.
+     * @param onEmptyCallback Callback invoked when the pool transitions to empty.
+     */
+    public BackgroundTabPool(String profileToken, Runnable onEmptyCallback) {
+        assertOnUiThread();
+        mProfileToken = profileToken;
+        mTabCache =
+                TabCacheManager.create(
+                        ACTOR_DIR_TAG_PREFIX + profileToken, /* cipherFactory= */ null);
+        mOnEmptyCallback = onEmptyCallback;
+        mAssociationStore = new PlaceholderAssociationStore(profileToken);
+        populatePlaceholderAssociations();
+    }
+
+    private void populatePlaceholderAssociations() {
+        for (@TabId int cachedTabId : mTabCache.getAllTabIds()) {
+            @TabId int placeholderTabId = mAssociationStore.getPlaceholderTabId(cachedTabId);
+            if (placeholderTabId != Tab.INVALID_TAB_ID) {
+                mPlaceholderToTabId.put(placeholderTabId, cachedTabId);
+            }
+        }
+    }
+
+    /** Returns the profile token associated with this pool. */
+    public String getProfileToken() {
+        checkNotDestroyed();
+        return mProfileToken;
+    }
+
+    /** Returns whether the pool has zero live in-memory tabs and zero placeholder associations. */
+    public boolean isEmpty() {
+        checkNotDestroyed();
+        return mLiveEntries.isEmpty() && mPlaceholderToTabId.isEmpty();
+    }
+
+    /** Returns the number of active live in-memory tabs in the pool. */
+    public int getLiveTabCount() {
+        checkNotDestroyed();
+        return mLiveEntries.size();
+    }
+
+    /**
+     * Adds a live in-memory tab to the pool, attaching {@link TabStateAttributes.Observer} and
+     * saving its state if dirty.
+     *
+     * @param liveTab The {@link LiveBackgroundTab} to add.
+     */
+    public void addLiveTab(LiveBackgroundTab liveTab) {
+        checkNotDestroyed();
+        @TabId int placeholderTabId = liveTab.getPlaceholderTabId();
+        assert placeholderTabId == Tab.INVALID_TAB_ID
+                        || !mPlaceholderToTabId.containsKey(placeholderTabId)
+                : "Placeholder already associated: " + placeholderTabId;
+        Tab tab = liveTab.getTab();
+        @TabId int tabId = tab.getId();
+
+        // Clean up any existing observer and entry before inserting.
+        removeTabObserver(tab);
+        mLiveEntries.put(tabId, liveTab);
+        if (placeholderTabId != Tab.INVALID_TAB_ID) {
+            mPlaceholderToTabId.put(placeholderTabId, tabId);
+            mAssociationStore.storePlaceholderTabId(tabId, placeholderTabId);
+        }
+
+        TabStateAttributes attributes = getTabStateAttributes(tab);
+        if (attributes != null) {
+            if (attributes.addObserver(this) != DirtinessState.CLEAN) {
+                saveTabToCache(tab);
+            }
+        } else {
+            saveTabToCache(tab);
+        }
+    }
+
+    /**
+     * Returns the {@link LiveBackgroundTab} for the given tab ID, or null if not live in memory.
+     *
+     * @param tabId The ID of the live tab to retrieve.
+     * @return The {@link LiveBackgroundTab}, or null if not live.
+     */
+    public @Nullable LiveBackgroundTab getLiveTab(@TabId int tabId) {
+        checkNotDestroyed();
+        return mLiveEntries.get(tabId);
+    }
+
+    /**
+     * Returns a set of all tab IDs managed by this pool (both in-memory live tabs and cached tabs).
+     *
+     * @return A {@link Set} of all {@link TabId} integers in the pool.
+     */
+    public Set<@TabId Integer> getAllTabIds() {
+        checkNotDestroyed();
+        Set<@TabId Integer> cachedIds = mTabCache.getAllTabIds();
+        ArraySet<@TabId Integer> allIds = new ArraySet<>(cachedIds.size() + mLiveEntries.size());
+        allIds.addAll(cachedIds);
+        allIds.addAll(mLiveEntries.keySet());
+        return Collections.unmodifiableSet(allIds);
+    }
+
+    /**
+     * Returns whether the pool has a background tab associated with the given placeholder tab ID.
+     *
+     * @param placeholderTabId The placeholder tab ID.
+     * @return True if the placeholder tab ID exists in the pool.
+     */
+    public boolean hasPlaceholder(@TabId int placeholderTabId) {
+        checkNotDestroyed();
+        return mPlaceholderToTabId.containsKey(placeholderTabId);
+    }
+
+    /**
+     * Returns an unmodifiable set of all placeholder tab IDs managed by this pool.
+     *
+     * @return A {@link Set} of all placeholder {@link TabId} integers.
+     */
+    public Set<@TabId Integer> getAllPlaceholderTabIds() {
+        checkNotDestroyed();
+        return Collections.unmodifiableSet(mPlaceholderToTabId.keySet());
+    }
+
+    /**
+     * Loads a tab from the pool by its placeholder tab ID, returning either a {@link
+     * LiveBackgroundTab} or a deserialized {@link ColdBackgroundTab}.
+     *
+     * @param placeholderTabId The placeholder tab ID of the tab to load.
+     * @return The {@link BackgroundPoolTab}, or null if loading failed.
+     */
+    public @Nullable BackgroundPoolTab loadTab(@TabId int placeholderTabId) {
+        checkNotDestroyed();
+        Integer tabId = mPlaceholderToTabId.get(placeholderTabId);
+        if (tabId == null) {
+            return null;
+        }
+
+        LiveBackgroundTab liveTab = mLiveEntries.remove(tabId);
+        if (liveTab != null) {
+            removeTabObserver(liveTab.getTab());
+            notifyIfEmptied();
+            return liveTab;
+        }
+
+        TabCacheKey key = getCacheKey(tabId);
+        LoadedTabState loaded = mTabCache.getPreLoadedTabOrLoad(key);
+        if (loaded != null && loaded.tabState != null) {
+            return new ColdBackgroundTab(this, tabId, loaded.tabState, placeholderTabId);
+        }
+        Log.w(TAG, "Failed to load background tab %d from TabCache. Loaded: %s", tabId, loaded);
+        return null;
+    }
+
+    /**
+     * Removes a tab by its associated placeholder tab ID from live entries, placeholder mappings,
+     * and cached state.
+     *
+     * @param placeholderTabId The placeholder ID of the tab to remove.
+     */
+    // TODO(b/542694245): Refactor callers to use removeTabById directly and remove this method.
+    public void removeTab(@TabId int placeholderTabId) {
+        checkNotDestroyed();
+        Integer tabId = mPlaceholderToTabId.get(placeholderTabId);
+        if (tabId != null) {
+            removeTabById(tabId);
+        }
+    }
+
+    /**
+     * Removes a tab by its unique tab ID completely from live in-memory entries, placeholder
+     * mappings, association storage, and the persistent TabCache.
+     *
+     * @param tabId The tab ID to remove.
+     */
+    public void removeTabById(@TabId int tabId) {
+        checkNotDestroyed();
+        LiveBackgroundTab tab = mLiveEntries.remove(tabId);
+        if (tab != null) {
+            removeTabObserver(tab.getTab());
+        }
+        @TabId int placeholderTabId = mAssociationStore.getPlaceholderTabId(tabId);
+        if (placeholderTabId != Tab.INVALID_TAB_ID) {
+            mPlaceholderToTabId.remove(placeholderTabId);
+            mAssociationStore.deletePlaceholderTabId(tabId);
+        }
+        mPlaceholderToTabId.values().remove(tabId);
+        mTabCache.clear(getCacheKey(tabId));
+        notifyIfEmptied();
+    }
+
+    /**
+     * Asynchronously preloads tab states for a list of tab IDs.
+     *
+     * @param tabIds The list of {@link TabId}s to prefetch.
+     */
+    public void prefetchTabs(List<@TabId Integer> tabIds) {
+        checkNotDestroyed();
+        for (int i = 0; i < tabIds.size(); i++) {
+            @TabId int tabId = tabIds.get(i);
+            if (!mLiveEntries.containsKey(tabId)) {
+                mTabCache.preloadTab(getCacheKey(tabId));
+            }
+        }
+    }
+
+    /** Clears all live and cached tabs in the pool. */
+    public void clearAll() {
+        checkNotDestroyed();
+        for (int i = 0; i < mLiveEntries.size(); i++) {
+            LiveBackgroundTab liveTab = mLiveEntries.valueAt(i);
+            removeTabObserver(liveTab.getTab());
+        }
+        mLiveEntries.clear();
+        mPlaceholderToTabId.clear();
+        mTabCache.clearAll();
+        mAssociationStore.clearAll();
+        notifyIfEmptied();
+    }
+
+    /** Cleans up on-disk persisted cache post restoration. */
+    public void cleanupPostRestore() {
+        checkNotDestroyed();
+        mTabCache.clearAll();
+        mAssociationStore.clearAll();
+    }
+
+    /**
+     * Returns the association store for testing.
+     *
+     * @return The {@link PlaceholderAssociationStore} instance.
+     */
+    @VisibleForTesting
+    public PlaceholderAssociationStore getAssociationStoreForTesting() {
+        checkNotDestroyed();
+        return mAssociationStore;
+    }
+
+    @Override
+    public void onTabStateDirtinessChanged(Tab tab, @DirtinessState int dirtiness) {
+        checkNotDestroyed();
+        if (dirtiness == DirtinessState.DIRTY) {
+            saveTabToCache(tab);
+        }
+    }
+
+    @Override
+    public void destroy() {
+        checkNotDestroyed();
+        mIsDestroyed = true;
+        for (int i = 0; i < mLiveEntries.size(); i++) {
+            LiveBackgroundTab liveTab = mLiveEntries.valueAt(i);
+            removeTabObserver(liveTab.getTab());
+        }
+        mLiveEntries.clear();
+        mPlaceholderToTabId.clear();
+    }
+
+    /** Returns whether this pool has been destroyed. */
+    public boolean isDestroyed() {
+        return mIsDestroyed;
+    }
+
+    private void notifyIfEmptied() {
+        if (isEmpty() && !mIsDestroyed) {
+            PostTask.postTask(TaskTraits.UI_DEFAULT, mOnEmptyCallback);
+        }
+    }
+
+    private void checkNotDestroyed() {
+        assertOnUiThread();
+        assert !mIsDestroyed : "BackgroundTabPool has already been destroyed.";
+    }
+
+    private void removeTabObserver(Tab tab) {
+        if (!tab.isDestroyed()) {
+            TabStateAttributes attributes = getTabStateAttributes(tab);
+            if (attributes != null) {
+                attributes.removeObserver(this);
+            }
+        }
+    }
+
+    private static @Nullable TabStateAttributes getTabStateAttributes(Tab tab) {
+        if (tab.getUserDataHost() == null) {
+            return null;
+        }
+        TabStateAttributes attributes =
+                TabStateAttributesRegistry.getAttributesFor(tab, BackgroundTabPool.class);
+        if (attributes == null) {
+            attributes =
+                    TabStateAttributesRegistry.getAttributesFor(
+                            tab, TabStateAttributes.StoreKey.class);
+        }
+        if (attributes == null) {
+            attributes =
+                    TabStateAttributesRegistry.getAttributesFor(tab, TabPersistentStoreImpl.class);
+        }
+        return attributes;
+    }
+
+    private void saveTabToCache(Tab tab) {
+        TabState tabState = TabStateExtractor.from(tab);
+        if (tabState == null) {
+            return;
+        }
+        mTabCache.saveTabState(getCacheKey(tab.getId()), tab.getId(), tabState);
+    }
+
+    private static TabCacheKey getCacheKey(@TabId int tabId) {
+        return new TabCacheKey(String.valueOf(tabId), /* isIncognito= */ false);
+    }
+
+    /**
+     * Internal store encapsulating profile-scoped SharedPreferences persistence for
+     * tab-to-placeholder associations.
+     */
+    @VisibleForTesting
+    public static class PlaceholderAssociationStore {
+        private static final String FILE_NAME_PREFIX = "background_tab_data_";
+        private static final String KEY_PLACEHOLDER_TAB_ID = "placeholder_tab_id_";
+
+        private final String mProfileToken;
+
+        /**
+         * Constructs a {@link PlaceholderAssociationStore} for the given profile token.
+         *
+         * @param profileToken The profile token used to scope the SharedPreferences file.
+         */
+        public PlaceholderAssociationStore(String profileToken) {
+            mProfileToken = profileToken;
+        }
+
+        private SharedPreferences getSharedPreferences() {
+            return ContextUtils.getApplicationContext()
+                    .getSharedPreferences(FILE_NAME_PREFIX + mProfileToken, Context.MODE_PRIVATE);
+        }
+
+        /**
+         * Stores the association between an original tab ID and a placeholder tab ID.
+         *
+         * @param originalTabId The ID of the original background tab.
+         * @param placeholderTabId The ID of the placeholder tab.
+         */
+        public void storePlaceholderTabId(@TabId int originalTabId, @TabId int placeholderTabId) {
+            getSharedPreferences()
+                    .edit()
+                    .putInt(KEY_PLACEHOLDER_TAB_ID + originalTabId, placeholderTabId)
+                    .apply();
+        }
+
+        /**
+         * Retrieves the placeholder tab ID associated with an original tab ID.
+         *
+         * @param originalTabId The ID of the original background tab.
+         * @return The stored placeholder tab ID, or {@link Tab#INVALID_TAB_ID} if not found.
+         */
+        public @TabId int getPlaceholderTabId(@TabId int originalTabId) {
+            return getSharedPreferences()
+                    .getInt(KEY_PLACEHOLDER_TAB_ID + originalTabId, Tab.INVALID_TAB_ID);
+        }
+
+        /**
+         * Deletes the stored placeholder tab ID associated with an original tab ID.
+         *
+         * @param originalTabId The ID of the original background tab.
+         */
+        public void deletePlaceholderTabId(@TabId int originalTabId) {
+            getSharedPreferences().edit().remove(KEY_PLACEHOLDER_TAB_ID + originalTabId).apply();
+        }
+
+        /** Clears all stored placeholder tab associations for this profile. */
+        public void clearAll() {
+            ContextUtils.getApplicationContext()
+                    .deleteSharedPreferences(FILE_NAME_PREFIX + mProfileToken);
+        }
+    }
+}

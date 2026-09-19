@@ -4,21 +4,84 @@
 
 import("//build/config/ui.gni")
 
+assert(toolkit_views)
+
 source_set("horizontal") {
   sources = [
-    "horizontal_tab_strip_overflow_indicator_view.cc",
+    "horizontal_tab_closing_helper.h",
     "horizontal_tab_strip_overflow_indicator_view.h",
+    "tab_scroll_button_container.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//chrome/browser/ui/views/tabs:tab_strip_button",
+    "//chrome/browser/ui/views/tabs/shared",
+    "//ui/base/interaction",
+    "//ui/gfx/animation",
+    "//ui/menus",
+    "//ui/views",
   ]
 
   deps = [
-    "//base",
+    "//base:i18n",
     "//cc/paint",
     "//chrome/browser/ui/color:color_headers",
+    "//chrome/browser/ui/tabs:tab_strip",
     "//skia",
     "//ui/base/metadata",
     "//ui/color",
     "//ui/gfx",
     "//ui/gfx/geometry",
+  ]
+}
+
+# Not merged into a single source_set with :horizontal despite having no
+# circular dependency into ui:ui left: common:impl depends on :horizontal
+# (headers only), and this :impl needs common/common:impl back, so merging
+# would create a peer-target cycle (common:impl -> horizontal -> common:impl).
+source_set("impl") {
+  sources = [
+    "horizontal_tab_closing_helper.cc",
+    "horizontal_tab_strip_overflow_indicator_view.cc",
+    "tab_scroll_button_container.cc",
+  ]
+
+  deps = [
+    ":horizontal",
+    "//base",
+    "//base:i18n",
+    "//cc/paint",
+    "//chrome/app:command_ids",
+    "//chrome/app:generated_resources",
+    "//chrome/app/vector_icons",
+    "//chrome/browser/ui:browser_actions",
+    "//chrome/browser/ui/actions:actions_headers",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/color:color_headers",
+    "//chrome/browser/ui/tabs:tab_strip",
+    "//chrome/browser/ui/user_education",
+    "//chrome/browser/ui/views/tabs/common",
+    "//chrome/browser/ui/views/tabs/common:impl",
+    "//components/feature_engagement/public:feature_constants",
+    "//skia",
+    "//ui/actions",
+    "//ui/base",
+    "//ui/base/metadata",
+    "//ui/color",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
     "//ui/views",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "horizontal_tab_strip_layout_unittest.cc" ]
+  deps = [
+    "//base",
+    "//chrome/browser/ui/tabs",
+    "//chrome/browser/ui/views/tabs/common:impl",
+    "//testing/gtest",
   ]
 }

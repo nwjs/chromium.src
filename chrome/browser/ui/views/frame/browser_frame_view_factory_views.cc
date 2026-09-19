@@ -103,7 +103,7 @@ std::unique_ptr<BrowserFrameView> CreateBrowserFrameViewWin(
                                                               browser_view);
   }
 
-  if (widget->ShouldUseNativeFrame() && !browser_view->browser()->is_transparent()) {
+  if (widget->ShouldUseNativeFrame() && !browser_view->browser()->GetBrowserForMigrationOnly()->is_transparent()) {
     return std::make_unique<BrowserFrameViewWin>(widget, browser_view);
   }
 

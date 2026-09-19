@@ -5,20 +5,26 @@
 #include "base/strings/strcat.h"
 #include "base/task/current_thread.h"
 #include "base/test/bind.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/test/values_test_util.h"
+#include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_task_metadata.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/execution_engine.h"
+#include "chrome/browser/actor/tools/wait_tool.h"
 #include "chrome/browser/actor/ui/event_dispatcher.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/glic_features.mojom.h"
 #include "chrome/browser/glic/test_support/interactive_test_util.h"
 #include "chrome/browser/glic/test_support/non_interactive_glic_test.h"
 #include "chrome/browser/optimization_guide/browser_test_util.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/common/chrome_features.h"
 #include "components/actor/core/actor_features.h"
 #include "components/actor/core/actor_switches.h"
 #include "components/actor/core/aggregated_journal.h"
@@ -28,9 +34,11 @@
 #include "components/optimization_guide/core/filters/optimization_hints_component_update_listener.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/ukm/test_ukm_recorder.h"
+#include "content/public/test/back_forward_cache_util.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test_utils.h"
+#include "content/public/test/prerender_test_util.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
@@ -140,19 +148,34 @@ constexpr std::string_view kSameSiteInitiatorHistogram =
 class ExecutionEngineOriginGatingBrowserTestBase
     : public glic::NonInteractiveGlicTest {
  public:
-  ExecutionEngineOriginGatingBrowserTestBase() {
-    scoped_feature_list_.InitWithFeaturesAndParameters(
-        /*enabled_features=*/
-        {
-            {features::kGlic, {}},
-            {features::kGlicActor,
-             {{features::kGlicActorPolicyControlExemption.name, "true"}}},
-            {kGlicCrossOriginNavigationGating,
-             {
-                 {"confirm_navigation_to_new_origins", "true"},
-             }},
-        },
-        /*disabled_features=*/{features::kGlicWarming});
+  ExecutionEngineOriginGatingBrowserTestBase()
+      : ExecutionEngineOriginGatingBrowserTestBase(
+            /*additional_enabled_features=*/{},
+            /*additional_disabled_features=*/{}) {}
+
+  ExecutionEngineOriginGatingBrowserTestBase(
+      const std::vector<base::test::FeatureRefAndParams>&
+          additional_enabled_features,
+      const std::vector<base::test::FeatureRef>& additional_disabled_features) {
+    std::vector<base::test::FeatureRefAndParams> enabled_features = {
+        {features::kGlic, {}},
+        {features::kGlicActor,
+         {{features::kGlicActorPolicyControlExemption.name, "true"}}},
+        {kGlicCrossOriginNavigationGating,
+         {
+             {"confirm_navigation_to_new_origins", "true"},
+         }},
+    };
+    for (const auto& feat : additional_enabled_features) {
+      enabled_features.push_back(feat);
+    }
+    std::vector<base::test::FeatureRef> disabled_features = {
+        features::kGlicWarming};
+    for (const auto& feat : additional_disabled_features) {
+      disabled_features.push_back(feat);
+    }
+    scoped_feature_list_.InitWithFeaturesAndParameters(enabled_features,
+                                                       disabled_features);
   }
   ~ExecutionEngineOriginGatingBrowserTestBase() override = default;
 
@@ -184,7 +207,7 @@ class ExecutionEngineOriginGatingBrowserTestBase
   }
 
   content::WebContents* web_contents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   [[nodiscard]] InteractiveTestApi::MultiStep CreateMockWebClientRequest(
@@ -291,7 +314,7 @@ class ExecutionEngineOriginGatingBrowserTestBase
   }
   ActorTask& actor_task() { return *actor_keyed_service().GetTask(task_id_); }
   tabs::TabInterface* active_tab() {
-    return browser()->tab_strip_model()->GetActiveTab();
+    return browser()->GetActiveTabInterface();
   }
 
   void StopAllTasks() {
@@ -336,7 +359,11 @@ class ExecutionEngineOriginGatingBrowserTestBase
   void OpenGlicAndCreateTask() {
     RunTestSequence(OpenGlic());
     TrackGlicInstanceWithTabIndex(
-        InProcessBrowserTest::browser()->tab_strip_model()->active_index());
+        InProcessBrowserTest::browser()->GetTabStripModel()->active_index());
+    CreateTaskForActiveTab();
+  }
+
+  void CreateTaskForActiveTab() {
     base::test::TestFuture<
         base::expected<int32_t, glic::mojom::CreateTaskErrorReason>>
         create_task_future;
@@ -368,11 +395,18 @@ class ExecutionEngineOriginGatingBrowserTestBase
 class ExecutionEngineOriginGatingBrowserTest
     : public ExecutionEngineOriginGatingBrowserTestBase {
  public:
-  ExecutionEngineOriginGatingBrowserTest() {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{},
-        /*disabled_features=*/{});
-  }
+  ExecutionEngineOriginGatingBrowserTest()
+      : ExecutionEngineOriginGatingBrowserTest(
+            /*additional_enabled_features=*/{},
+            /*additional_disabled_features=*/{}) {}
+
+  ExecutionEngineOriginGatingBrowserTest(
+      const std::vector<base::test::FeatureRefAndParams>&
+          additional_enabled_features,
+      const std::vector<base::test::FeatureRef>& additional_disabled_features)
+      : ExecutionEngineOriginGatingBrowserTestBase(
+            additional_enabled_features,
+            additional_disabled_features) {}
   ~ExecutionEngineOriginGatingBrowserTest() override = default;
 
   void PreRunTestOnMainThread() override {
@@ -385,7 +419,6 @@ class ExecutionEngineOriginGatingBrowserTest
   }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_;
   std::unique_ptr<ukm::TestAutoSetUkmRecorder> test_ukm_recorder_;
 };
 
@@ -490,6 +523,269 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
   test_ukm_recorder()->ExpectEntryMetric(
       ukm_entries[0], "EngineState", /*expected_value=*/
       static_cast<int64_t>(ExecutionEngine::State::kToolInvoke));
+}
+
+class ExecutionEngineOriginGatingBFCacheBrowserTest
+    : public ExecutionEngineOriginGatingBrowserTest {
+ public:
+  ExecutionEngineOriginGatingBFCacheBrowserTest()
+      : ExecutionEngineOriginGatingBrowserTest(
+            content::GetDefaultEnabledBackForwardCacheFeaturesForTesting(),
+            content::GetDefaultDisabledBackForwardCacheFeaturesForTesting()) {}
+};
+
+IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBFCacheBrowserTest,
+                       ConfirmNavigationToNewOrigin_BFCacheRestore_Denied) {
+  base::HistogramTester histogram_tester;
+  const GURL first_url =
+      embedded_https_test_server().GetURL("foo.com", "/actor/link.html");
+  const GURL second_url =
+      embedded_https_test_server().GetURL("example.com", "/actor/link.html");
+
+  RunTestSequence(OpenGlic());
+  TrackGlicInstanceWithTabIndex(browser()->tab_strip_model()->active_index());
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), first_url));
+  content::RenderFrameHostWrapper rfh(web_contents()->GetPrimaryMainFrame());
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), second_url));
+  ASSERT_TRUE(rfh);
+  ASSERT_EQ(rfh->GetLifecycleState(),
+            content::RenderFrameHost::LifecycleState::kInBackForwardCache);
+
+  CreateTaskForActiveTab();
+
+  ASSERT_TRUE(rfh);
+  ASSERT_EQ(rfh->GetLifecycleState(),
+            content::RenderFrameHost::LifecycleState::kInBackForwardCache);
+
+  // Deny restoring foo.com.
+  RunTestSequence(CreateMockWebClientRequest(
+      content::JsReplace(kHandleNavigationConfirmationTempl, false)));
+
+  EXPECT_TRUE(content::ExecJs(
+      web_contents(),
+      "document.getElementById('link').removeAttribute('href');"
+      "document.getElementById('link').onclick = () => { history.back(); };"));
+
+  content::TestNavigationObserver observer(web_contents());
+  ClickTarget("#link", mojom::ActionResultCode::kTriggeredNavigationBlocked);
+  observer.Wait();
+
+  EXPECT_EQ(web_contents()->GetURL(), second_url);
+
+  histogram_tester.ExpectUniqueSample(
+      "Actor.NavigationGating.PermissionGranted", false, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBFCacheBrowserTest,
+                       ConfirmNavigationToNewOrigin_BFCacheRestore_Granted) {
+  base::HistogramTester histogram_tester;
+  const GURL first_url =
+      embedded_https_test_server().GetURL("foo.com", "/actor/link.html");
+  const GURL second_url =
+      embedded_https_test_server().GetURL("example.com", "/actor/link.html");
+
+  RunTestSequence(OpenGlic());
+  TrackGlicInstanceWithTabIndex(browser()->tab_strip_model()->active_index());
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), first_url));
+  content::RenderFrameHostWrapper rfh(web_contents()->GetPrimaryMainFrame());
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), second_url));
+  ASSERT_TRUE(rfh);
+  ASSERT_EQ(rfh->GetLifecycleState(),
+            content::RenderFrameHost::LifecycleState::kInBackForwardCache);
+
+  CreateTaskForActiveTab();
+
+  ASSERT_TRUE(rfh);
+  ASSERT_EQ(rfh->GetLifecycleState(),
+            content::RenderFrameHost::LifecycleState::kInBackForwardCache);
+
+  // Allow restoring foo.com.
+  RunTestSequence(CreateMockWebClientRequest(
+      content::JsReplace(kHandleNavigationConfirmationTempl, true)));
+
+  EXPECT_TRUE(content::ExecJs(
+      web_contents(),
+      "document.getElementById('link').removeAttribute('href');"
+      "document.getElementById('link').onclick = () => { history.back(); };"));
+
+  content::TestNavigationObserver observer(web_contents());
+  ClickTarget("#link", mojom::ActionResultCode::kOk);
+  observer.Wait();
+
+  EXPECT_EQ(web_contents()->GetURL(), first_url);
+
+  histogram_tester.ExpectUniqueSample(
+      "Actor.NavigationGating.PermissionGranted", true, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ExecutionEngineOriginGatingBFCacheBrowserTest,
+    PausedTask_ConfirmNavigationToNewOrigin_BFCacheRestore_Denied) {
+  base::HistogramTester histogram_tester;
+  const GURL first_url =
+      embedded_https_test_server().GetURL("foo.com", "/actor/link.html");
+  const GURL second_url =
+      embedded_https_test_server().GetURL("example.com", "/actor/link.html");
+
+  RunTestSequence(OpenGlic());
+  TrackGlicInstanceWithTabIndex(browser()->tab_strip_model()->active_index());
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), first_url));
+  content::RenderFrameHostWrapper rfh(web_contents()->GetPrimaryMainFrame());
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), second_url));
+  ASSERT_TRUE(rfh);
+  ASSERT_EQ(rfh->GetLifecycleState(),
+            content::RenderFrameHost::LifecycleState::kInBackForwardCache);
+
+  CreateTaskForActiveTab();
+  actor_task().AddTab(active_tab()->GetHandle(), /*stop_task_on_detach=*/true,
+                      base::DoNothing());
+  ASSERT_TRUE(actor_task().HasTab(active_tab()->GetHandle()));
+
+  // Pause the task so that it is under user control.
+  actor_task().Pause(/*from_actor=*/true);
+  ASSERT_TRUE(actor_task().IsUnderUserControl());
+  ASSERT_FALSE(actor_task().IsActingOnTab(active_tab()->GetHandle()));
+  ASSERT_TRUE(actor_task().HasTab(active_tab()->GetHandle()));
+
+  ASSERT_TRUE(rfh);
+  ASSERT_EQ(rfh->GetLifecycleState(),
+            content::RenderFrameHost::LifecycleState::kInBackForwardCache);
+
+  // Deny restoring foo.com.
+  RunTestSequence(CreateMockWebClientRequest(
+      content::JsReplace(kHandleNavigationConfirmationTempl, false)));
+
+  content::TestNavigationObserver observer(web_contents());
+  EXPECT_TRUE(content::ExecJs(web_contents(), "history.back();",
+                              content::EXECUTE_SCRIPT_NO_USER_GESTURE));
+  observer.Wait();
+
+  EXPECT_FALSE(observer.last_navigation_succeeded());
+  EXPECT_EQ(web_contents()->GetLastCommittedURL(), second_url);
+
+  histogram_tester.ExpectUniqueSample(
+      "Actor.NavigationGating.PermissionGranted", false, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ExecutionEngineOriginGatingBFCacheBrowserTest,
+    PausedTask_ConfirmNavigationToNewOrigin_BFCacheRestore_Granted) {
+  base::HistogramTester histogram_tester;
+  const GURL first_url =
+      embedded_https_test_server().GetURL("foo.com", "/actor/link.html");
+  const GURL second_url =
+      embedded_https_test_server().GetURL("example.com", "/actor/link.html");
+
+  RunTestSequence(OpenGlic());
+  TrackGlicInstanceWithTabIndex(browser()->tab_strip_model()->active_index());
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), first_url));
+  content::RenderFrameHostWrapper rfh(web_contents()->GetPrimaryMainFrame());
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), second_url));
+  ASSERT_TRUE(rfh);
+  ASSERT_EQ(rfh->GetLifecycleState(),
+            content::RenderFrameHost::LifecycleState::kInBackForwardCache);
+
+  CreateTaskForActiveTab();
+  actor_task().AddTab(active_tab()->GetHandle(), /*stop_task_on_detach=*/true,
+                      base::DoNothing());
+  ASSERT_TRUE(actor_task().HasTab(active_tab()->GetHandle()));
+
+  // Pause the task so that it is under user control.
+  actor_task().Pause(/*from_actor=*/true);
+  ASSERT_TRUE(actor_task().IsUnderUserControl());
+  ASSERT_FALSE(actor_task().IsActingOnTab(active_tab()->GetHandle()));
+  ASSERT_TRUE(actor_task().HasTab(active_tab()->GetHandle()));
+
+  ASSERT_TRUE(rfh);
+  ASSERT_EQ(rfh->GetLifecycleState(),
+            content::RenderFrameHost::LifecycleState::kInBackForwardCache);
+
+  // Allow restoring foo.com.
+  RunTestSequence(CreateMockWebClientRequest(
+      content::JsReplace(kHandleNavigationConfirmationTempl, true)));
+
+  content::TestNavigationObserver observer(web_contents());
+  EXPECT_TRUE(content::ExecJs(web_contents(), "history.back();",
+                              content::EXECUTE_SCRIPT_NO_USER_GESTURE));
+  observer.Wait();
+
+  EXPECT_TRUE(observer.last_navigation_succeeded());
+  EXPECT_EQ(web_contents()->GetLastCommittedURL(), first_url);
+
+  histogram_tester.ExpectUniqueSample(
+      "Actor.NavigationGating.PermissionGranted", true, 1);
+}
+
+class ExecutionEngineOriginGatingPrerenderBrowserTest
+    : public ExecutionEngineOriginGatingBrowserTest {
+ public:
+  ExecutionEngineOriginGatingPrerenderBrowserTest()
+      : prerender_helper_(base::BindRepeating(
+            &ExecutionEngineOriginGatingPrerenderBrowserTest::web_contents,
+            base::Unretained(this))) {}
+
+ protected:
+  content::test::PrerenderTestHelper prerender_helper_;
+};
+
+IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingPrerenderBrowserTest,
+                       ConfirmNavigationToNewOrigin_Prerender_Denied) {
+  base::HistogramTester histogram_tester;
+  const GURL start_url =
+      embedded_https_test_server().GetURL("example.com", "/actor/link.html");
+  const GURL second_url = embedded_https_test_server().GetURL(
+      "sub.example.com", "/actor/blank.html");
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), start_url));
+
+  // Prerender second_url before the task starts.
+  prerender_helper_.AddPrerender(second_url);
+
+  OpenGlicAndCreateTask();
+
+  RunTestSequence(CreateMockWebClientRequest(
+      content::JsReplace(kHandleNavigationConfirmationTempl, false)));
+
+  EXPECT_TRUE(content::ExecJs(web_contents(),
+                              content::JsReplace("setLink($1);", second_url)));
+
+  // Navigation to prerendered page should be blocked by origin gating.
+  ClickTarget("#link", mojom::ActionResultCode::kTriggeredNavigationBlocked);
+
+  histogram_tester.ExpectUniqueSample(
+      "Actor.NavigationGating.PermissionGranted", false, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingPrerenderBrowserTest,
+                       ConfirmNavigationToNewOrigin_Prerender_Granted) {
+  base::HistogramTester histogram_tester;
+  const GURL start_url =
+      embedded_https_test_server().GetURL("example.com", "/actor/link.html");
+  const GURL second_url = embedded_https_test_server().GetURL(
+      "sub.example.com", "/actor/blank.html");
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), start_url));
+
+  // Prerender second_url before the task starts.
+  prerender_helper_.AddPrerender(second_url);
+
+  OpenGlicAndCreateTask();
+
+  RunTestSequence(CreateMockWebClientRequest(
+      content::JsReplace(kHandleNavigationConfirmationTempl, true)));
+
+  EXPECT_TRUE(content::ExecJs(web_contents(),
+                              content::JsReplace("setLink($1);", second_url)));
+
+  // Navigation to prerendered page should be allowed.
+  ClickTarget("#link", mojom::ActionResultCode::kOk);
+
+  histogram_tester.ExpectUniqueSample(
+      "Actor.NavigationGating.PermissionGranted", true, 1);
 }
 
 class ExecutionEngineOriginGatingExplicitGrantBrowserTest
@@ -631,12 +927,10 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingUserPromptingBrowserTest,
   RunTestSequence(CreateMockWebClientRequest(
       content::JsReplace(kHandleUserConfirmationDialogTempl, true)));
   ASSERT_TRUE(content::NavigateToURL(web_contents(), start_url));
-  RunTestSequence(VerifyUserConfirmationDialogRequest(base::test::ParseJsonDict(
-      content::JsReplace(R"({
-    "navigationOrigin": $1,
-    "forBlocklistedOrigin": false
-  })",
-                         url::Origin::Create(start_url)))));
+  // Note: we expect *no* user confirmation dialog when navigating back to
+  // `start_url`, because the actor has already actuated on that origin (the
+  // `ClickTarget` call above) so such a confirmation would be confusing at best
+  // (or misleading).
 
   // Now this should proceed without a user confirmation or a server
   // confirmation, since the user has already confirmed it.
@@ -690,12 +984,10 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingUserPromptingBrowserTest,
   RunTestSequence(CreateMockWebClientRequest(
       content::JsReplace(kHandleUserConfirmationDialogTempl, true)));
   ASSERT_TRUE(content::NavigateToURL(web_contents(), start_url));
-  RunTestSequence(VerifyUserConfirmationDialogRequest(base::test::ParseJsonDict(
-      content::JsReplace(R"({
-    "navigationOrigin": $1,
-    "forBlocklistedOrigin": false
-  })",
-                         url::Origin::Create(start_url)))));
+  // Note: we expect *no* user confirmation dialog when navigating back to
+  // `start_url`, because the actor has already actuated on that origin (the
+  // `ClickTarget` call above) so such a confirmation would be confusing at best
+  // (or misleading).
 
   // Now this should proceed without a user confirmation or a server
   // confirmation, since the user has already confirmed it.
@@ -1089,7 +1381,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
       ToRequestList(MakeNavigateRequest(*active_tab(), start_url.spec())),
       result.GetCallback());
   ExpectErrorResult(result,
-                    mojom::ActionResultCode::kTriggeredNavigationBlocked);
+                    mojom::ActionResultCode::kActionsBlockedForSiteRisk);
 
   histogram_tester.ExpectUniqueSample(
       "Actor.NavigationGating.GatingDecision2",
@@ -1129,7 +1421,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
 
   EXPECT_TRUE(content::ExecJs(web_contents(),
                               content::JsReplace("setLink($1);", blocked_url)));
-  ClickTarget("#link", mojom::ActionResultCode::kTriggeredNavigationBlocked);
+  ClickTarget("#link", mojom::ActionResultCode::kActionsBlockedForSiteRisk);
 
   histogram_tester.ExpectUniqueSample(
       "Actor.NavigationGating.GatingDecision2",
@@ -1167,7 +1459,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
   ActResultFuture result;
   actor_task().Act(ToRequestList(navigate_to_blocked), result.GetCallback());
   ExpectErrorResult(result,
-                    mojom::ActionResultCode::kTriggeredNavigationBlocked);
+                    mojom::ActionResultCode::kActionsBlockedForSiteRisk);
 
   StopAllTasks();
 
@@ -1248,7 +1540,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
 
   EXPECT_TRUE(content::ExecJs(web_contents(),
                               content::JsReplace("setLink($1);", blocked_url)));
-  ClickTarget("#link", mojom::ActionResultCode::kTriggeredNavigationBlocked);
+  ClickTarget("#link", mojom::ActionResultCode::kActionsBlockedForSiteRisk);
 
   // First navigation should be allowed due to same origin.
   histogram_tester.ExpectBucketCount(
@@ -1335,7 +1627,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
   ActResultFuture result;
   actor_task().Act(ToRequestList(navigate_blocked), result.GetCallback());
   ExpectErrorResult(result,
-                    mojom::ActionResultCode::kTriggeredNavigationBlocked);
+                    mojom::ActionResultCode::kActionsBlockedForSiteRisk);
   // Second navigation should be blocked by static blocklist = 3.
   histogram_tester.ExpectBucketCount(
       "Actor.NavigationGating.GatingDecision2",
@@ -1371,7 +1663,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingBrowserTest,
 
   EXPECT_TRUE(content::ExecJs(
       web_contents(), content::JsReplace("setLink($1);", sandboxed_url)));
-  ClickTarget("#link", mojom::ActionResultCode::kTriggeredNavigationBlocked);
+  ClickTarget("#link", mojom::ActionResultCode::kActionsBlockedForSiteRisk);
 
   // First navigation should be allowed due to same origin.
   histogram_tester.ExpectBucketCount(
@@ -1644,8 +1936,8 @@ IN_PROC_BROWSER_TEST_P(ExecutionEngineOriginGatingParamBrowserTest,
   // Trigger ExecutionEngine destructor for metrics.
   StopAllTasks();
 
-  // Should add the origin to the allowlist.
-  histogram_tester.ExpectBucketCount("Actor.NavigationGating.AllowListSize", 1,
+  // Should have added both origins to the allowlist.
+  histogram_tester.ExpectBucketCount("Actor.NavigationGating.AllowListSize", 2,
                                      1);
 }
 
@@ -2367,6 +2659,49 @@ IN_PROC_BROWSER_TEST_P(OutOfTurnNavigationBrowserTest,
   }
 }
 
+IN_PROC_BROWSER_TEST_P(OutOfTurnNavigationBrowserTest,
+                       PausedTask_OutOfTurnNavigation) {
+  const OutOfTurnTestParam& param = GetParam();
+  const GURL start_url =
+      embedded_https_test_server().GetURL("example.com", "/actor/link.html");
+  const GURL target_url = embedded_https_test_server().GetURL(
+      param.target_host, "/actor/blank.html");
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), start_url));
+  OpenGlicAndCreateTask();
+  actor_task().AddTab(active_tab()->GetHandle(), /*stop_task_on_detach=*/true,
+                      base::DoNothing());
+  CHECK(actor_task().HasTab(active_tab()->GetHandle()));
+
+  // Pause the task so that it is in user control / paused state.
+  actor_task().Pause(/*from_actor=*/true);
+  ASSERT_TRUE(actor_task().IsUnderUserControl());
+  ASSERT_FALSE(actor_task().IsActingOnTab(active_tab()->GetHandle()));
+  ASSERT_TRUE(actor_task().HasTab(active_tab()->GetHandle()));
+
+  SetUpUiPrompt(param.ui_prompt_type);
+
+  content::TestNavigationObserver nav_observer(web_contents());
+
+  // Trigger out-of-turn navigation via JavaScript while paused.
+  EXPECT_TRUE(content::ExecJs(
+      web_contents(),
+      content::JsReplace("window.location.href = $1;", target_url)));
+
+  WaitAndResolveUiPromptIfNeeded(param.ui_prompt_type, target_url,
+                                 param.expects_permission_granted);
+
+  nav_observer.Wait();
+
+  if (param.expects_permission_granted) {
+    EXPECT_TRUE(nav_observer.last_navigation_succeeded());
+    EXPECT_EQ(web_contents()->GetLastCommittedURL(), target_url);
+  } else {
+    EXPECT_FALSE(nav_observer.last_navigation_succeeded());
+    EXPECT_EQ(web_contents()->GetLastCommittedURL(), start_url);
+  }
+}
+
 // TODO(crbug.com/482434165): Flaky test on win-asan builder.
 #if BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER)
 #define MAYBE_InterleavedAction_OutOfTurnNavigation \
@@ -2520,5 +2855,136 @@ INSTANTIATE_TEST_SUITE_P(All,
                          [](const auto& info) {
                            return std::string(info.param.test_name);
                          });
+
+struct LocalhostTestParam {
+  const char* test_name;
+  const char* host;
+};
+
+class ExecutionEngineLocalhostUrlGatingBrowserTest
+    : public ExecutionEngineOriginGatingBrowserTestBase,
+      public testing::WithParamInterface<LocalhostTestParam> {
+ public:
+  ExecutionEngineLocalhostUrlGatingBrowserTest() {
+    scoped_feature_list_.InitAndEnableFeature(kGlicActorLocalhostIsSensitive);
+  }
+
+  ~ExecutionEngineLocalhostUrlGatingBrowserTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_P(ExecutionEngineLocalhostUrlGatingBrowserTest,
+                       LocalhostPageActionAllowedByUser) {
+  const GURL localhost_url =
+      embedded_test_server()->GetURL(GetParam().host, "/title1.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), localhost_url));
+  OpenGlicAndCreateTask();
+
+  RunTestSequence(CreateMockWebClientRequest(
+      content::JsReplace(kHandleUserConfirmationDialogTempl, true)));
+
+  WaitTool::SetNoDelayForTesting();
+  std::unique_ptr<ToolRequest> tool_request = MakeWaitRequest(active_tab());
+  ASSERT_TRUE(tool_request->RequiresUrlCheckInCurrentTab());
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(tool_request), result.GetCallback());
+  ExpectOkResult(result);
+
+  RunTestSequence(VerifyUserConfirmationDialogRequest(
+      base::test::ParseJsonDict(content::JsReplace(
+          R"({"navigationOrigin": $1, "forBlocklistedOrigin": true})",
+          url::Origin::Create(localhost_url)))));
+
+  // Subsequent check for the same origin is allowed via cache without
+  // re-prompting.
+  std::unique_ptr<ToolRequest> tool_request2 = MakeWaitRequest(active_tab());
+  ActResultFuture result2;
+  actor_task().Act(ToRequestList(tool_request2), result2.GetCallback());
+  ExpectOkResult(result2);
+}
+
+IN_PROC_BROWSER_TEST_P(ExecutionEngineLocalhostUrlGatingBrowserTest,
+                       LocalhostPageActionDeniedByUser) {
+  const GURL localhost_url =
+      embedded_test_server()->GetURL(GetParam().host, "/title1.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), localhost_url));
+  OpenGlicAndCreateTask();
+
+  RunTestSequence(CreateMockWebClientRequest(
+      content::JsReplace(kHandleUserConfirmationDialogTempl, false)));
+
+  WaitTool::SetNoDelayForTesting();
+  std::unique_ptr<ToolRequest> tool_request = MakeWaitRequest(active_tab());
+  ASSERT_TRUE(tool_request->RequiresUrlCheckInCurrentTab());
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(tool_request), result.GetCallback());
+  ExpectErrorResult(result, mojom::ActionResultCode::kUrlBlocked);
+}
+
+IN_PROC_BROWSER_TEST_P(ExecutionEngineLocalhostUrlGatingBrowserTest,
+                       LocalhostNavigateAllowedByUser) {
+  const GURL start_url =
+      embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), start_url));
+  OpenGlicAndCreateTask();
+
+  RunTestSequence(CreateMockWebClientRequest(
+      content::JsReplace(kHandleUserConfirmationDialogTempl, true)));
+
+  const GURL localhost_url =
+      embedded_test_server()->GetURL(GetParam().host, "/title1.html");
+  std::unique_ptr<ToolRequest> tool_request =
+      MakeNavigateRequest(*active_tab(), localhost_url.spec());
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(tool_request), result.GetCallback());
+  ExpectOkResult(result);
+  EXPECT_EQ(web_contents()->GetLastCommittedURL(), localhost_url);
+
+  RunTestSequence(VerifyUserConfirmationDialogRequest(
+      base::test::ParseJsonDict(content::JsReplace(
+          R"({"navigationOrigin": $1, "forBlocklistedOrigin": true})",
+          url::Origin::Create(localhost_url)))));
+}
+
+IN_PROC_BROWSER_TEST_P(ExecutionEngineLocalhostUrlGatingBrowserTest,
+                       LocalhostNavigateDeniedByUser) {
+  const GURL start_url =
+      embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), start_url));
+  OpenGlicAndCreateTask();
+
+  RunTestSequence(CreateMockWebClientRequest(
+      content::JsReplace(kHandleUserConfirmationDialogTempl, false)));
+
+  const GURL localhost_url =
+      embedded_test_server()->GetURL(GetParam().host, "/title1.html");
+  std::unique_ptr<ToolRequest> tool_request =
+      MakeNavigateRequest(*active_tab(), localhost_url.spec());
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(tool_request), result.GetCallback());
+  ExpectErrorResult(result,
+                    mojom::ActionResultCode::kTriggeredNavigationBlocked);
+  EXPECT_EQ(web_contents()->GetLastCommittedURL(), start_url);
+}
+
+constexpr LocalhostTestParam kLocalhostTestParams[] = {
+    {.test_name = "LocalhostDomain", .host = "localhost"},
+    {.test_name = "Ipv4Loopback", .host = "127.0.0.1"},
+    {.test_name = "SubdomainLocalhost", .host = "foo.localhost"},
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    ExecutionEngineLocalhostUrlGatingBrowserTest,
+    testing::ValuesIn(kLocalhostTestParams),
+    [](const testing::TestParamInfo<LocalhostTestParam>& info) {
+      return info.param.test_name;
+    });
 
 }  // namespace actor

@@ -10,6 +10,8 @@ import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 
 import type {SettingsPrefs} from '../content/read_anything_types.js';
 import {DEFAULT_SETTINGS} from '../content/read_anything_types.js';
+import type {AudioBrowserProxy} from '../read_aloud/audio_browser_proxy.js';
+import {AudioBrowserProxyImpl} from '../read_aloud/audio_browser_proxy.js';
 import {ReadAloudSettingsChange} from '../shared/metrics_browser_proxy.js';
 import {ReadAnythingLogger} from '../shared/read_anything_logger.js';
 
@@ -55,14 +57,13 @@ export class RateMenuElement extends RateMenuElementBase {
     return {
       settingsPrefs: {type: Object},
       options_: {type: Array},
-      isImmersiveEnabled_: {type: Boolean},
     };
   }
 
   accessor settingsPrefs: SettingsPrefs = DEFAULT_SETTINGS;
 
-  protected accessor isImmersiveEnabled_: boolean =
-      chrome.readingMode.isImmersiveEnabled;
+  private audioBrowserProxy_: AudioBrowserProxy =
+      AudioBrowserProxyImpl.getInstance();
 
   protected accessor options_: Array<MenuStateItem<number>> =
       RATE_OPTIONS.map(rate => {
@@ -83,7 +84,7 @@ export class RateMenuElement extends RateMenuElementBase {
   }
 
   protected onRateChange_(event: CustomEvent<{data: number}>) {
-    chrome.readingMode.onSpeechRateChange(event.detail.data);
+    this.audioBrowserProxy_.onSpeechRateChange(event.detail.data);
     this.logger_.logSpeechSettingsChange(
         ReadAloudSettingsChange.VOICE_SPEED_CHANGE);
     // Log which rate is chosen by index rather than the rate value itself.

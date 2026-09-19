@@ -9,7 +9,6 @@ source_set("infobars") {
   public = [
     "confirm_infobar_creator.h",
     "infobar_features.h",
-    "infobar_responder.h",
     "infobar_spec.h",
     "simple_alert_infobar_creator.h",
   ]
@@ -17,7 +16,6 @@ source_set("infobars") {
   sources = [
     "confirm_infobar_creator.cc",
     "infobar_features.cc",
-    "infobar_responder.cc",
     "infobar_spec.cc",
     "simple_alert_infobar_creator.cc",
   ]
@@ -66,10 +64,13 @@ source_set("test_support") {
   sources = [
     "test_support/infobar_observer.cc",
     "test_support/infobar_observer.h",
+    "test_support/infobar_responder.cc",
+    "test_support/infobar_responder.h",
   ]
 
   deps = [
     "//base",
+    "//components/infobars/content",
     "//components/infobars/core",
   ]
 }
@@ -108,6 +109,7 @@ if (!is_android) {
       "//chrome/browser/ui",
       "//chrome/browser/ui:collected_cookies_infobar_delegate",
       "//chrome/browser/ui:ui_features",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/page_info",
       "//chrome/browser/ui/select_file_policy",
       "//chrome/browser/ui/startup",
@@ -125,7 +127,10 @@ if (!is_android) {
     ]
 
     if (is_win || is_mac || is_linux) {
-      deps += [ "//chrome/browser/ui/startup/default_browser_prompt" ]
+      deps += [
+        "//chrome/browser/ui/startup/default_browser_prompt",
+        "//chrome/browser/ui/views/session_restore_infobar",
+      ]
     }
 
     if (toolkit_views) {

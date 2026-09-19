@@ -537,6 +537,7 @@ struct Suggestion {
       case SuggestionType::kTroubleSigningInEntry:
         return std::holds_alternative<PasswordSuggestionDetails>(payload);
       case SuggestionType::kSeePromoCodeDetails:
+      case SuggestionType::kAutofillAiSourceAttribution:
         return std::holds_alternative<GURL>(payload);
       case SuggestionType::kIbanEntry:
         return std::holds_alternative<Guid>(payload) ||
@@ -560,7 +561,7 @@ struct Suggestion {
         return std::holds_alternative<PaymentsPayload>(payload);
       case SuggestionType::kAtMemorySearchResult:
         return std::holds_alternative<AtMemoryPayload>(payload);
-      case SuggestionType::kOpenGemini:
+      case SuggestionType::kAtMemoryOpenGemini:
         return std::holds_alternative<OpenGeminiPayload>(payload);
       case SuggestionType::kDevtoolsTestAddressEntry:
       default:

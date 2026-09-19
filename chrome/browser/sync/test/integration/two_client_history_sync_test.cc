@@ -35,7 +35,7 @@
 #include "url/gurl.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #endif
 
@@ -98,24 +98,6 @@ class TwoClientHistorySyncTest
     host_resolver()->AddRule("*", "127.0.0.1");
 
     SyncTest::SetUpOnMainThread();
-  }
-
-  bool SetupClients() override {
-    if (!SyncTest::SetupClients()) {
-      return false;
-    }
-
-    // SyncTest doesn't create any tabs in the profiles/browsers it creates.
-    // Create an "empty" tab here, so that NavigateToURL() will have a non-null
-    // WebContents to navigate in.
-    for (int i = 0; i < num_clients(); ++i) {
-      if (!AddTabAtIndexToBrowser(GetBrowser(i), 0, GURL("about:blank"),
-                                  ui::PAGE_TRANSITION_AUTO_TOPLEVEL)) {
-        return false;
-      }
-    }
-
-    return true;
   }
 
   void NavigateToURL(

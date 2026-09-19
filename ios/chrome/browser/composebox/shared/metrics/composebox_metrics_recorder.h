@@ -50,16 +50,6 @@ enum class AutocompleteRequestType {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/enums.xml:AutocompleteRequestType)
 
-// LINT.IfChange(FocusResultedInNavigationType)
-enum class FocusResultedInNavigationType {
-  kNoNavigationNoAttachments = 0,
-  kNavigationNoAttachments = 1,
-  kNoNavigationWithAttachments = 2,
-  kNavigationWithAttachments = 3,
-  kMaxValue = kNavigationWithAttachments
-};
-// LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/enums.xml:FocusResultedInNavigationTypes)
-
 // LINT.IfChange(ComposeboxDragAndDropType)
 enum class ComposeboxDragAndDropType {
   kText = 0,
@@ -78,6 +68,26 @@ enum class ComposeboxMetricsAttachmentType {
   kTab,
   kRawFile,
 };
+
+// LINT.IfChange(MobileFuseboxPickerAttachmentType)
+enum class MobileFuseboxPickerAttachmentType {
+  kDrive,
+  kGallery,
+  kCamera,
+  kFile,
+  kTabs,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/histograms.xml:MobileFuseboxPickerAttachmentType)
+
+// LINT.IfChange(MobileFuseboxPickerOutcome)
+enum class MobileFuseboxPickerOutcome {
+  kAttachmentAdded = 0,
+  kManualUserExit = 1,
+  kPermissionDenied = 2,
+  kLocalError = 3,
+  kMaxValue = kLocalError,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/enums.xml:MobileFuseboxPickerOutcome)
 
 namespace contextual_search {
 class ContextualSearchMetricsRecorder;
@@ -167,6 +177,10 @@ enum class ComposeboxEntrypoint;
 
 // Records the model explicitly selected in the menu.
 - (void)recordModelSelected:(ComposeboxModelOption)model;
+
+// Records the outcome of a picker session.
+- (void)recordPickerOutcome:(MobileFuseboxPickerOutcome)outcome
+          forAttachmentType:(MobileFuseboxPickerAttachmentType)attachmentType;
 
 @end
 

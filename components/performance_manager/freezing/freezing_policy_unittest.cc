@@ -1105,17 +1105,17 @@ TEST_F(FreezingPolicyTest, DiscardGrowingPrivateMemory_Basic) {
   base::test::ScopedFeatureList feature_list{
       features::kDiscardFrozenBrowsingInstancesWithGrowingPMF};
   const base::ByteSize growth_threshold =
-      base::KiBU(base::checked_cast<uint64_t>(
+      base::KiB(base::checked_cast<uint64_t>(
           features::kFreezingMemoryGrowthThresholdToDiscardKb.Get()));
   // Pretend that the page is frozen.
   page_node()->SetLifecycleStateForTesting(PageNode::LifecycleState::kFrozen);
 
   // First memory measurement after freezing.
-  constexpr base::ByteSize kInitialPMF = base::KiBU(10);
+  constexpr base::ByteSize kInitialPMF = base::KiB(10);
   ReportMemoryUsage(kContext, kInitialPMF);
 
   // Another memory measurement, *not* crossing the growth threshold.
-  constexpr base::ByteSize kSecondPMF = base::KiBU(20);
+  constexpr base::ByteSize kSecondPMF = base::KiB(20);
   ASSERT_LT(kSecondPMF - kInitialPMF, growth_threshold);
   ReportMemoryUsage(kContext, kSecondPMF);
 
@@ -1123,7 +1123,7 @@ TEST_F(FreezingPolicyTest, DiscardGrowingPrivateMemory_Basic) {
   // be discarded.
   EXPECT_CALL(*discarder(),
               DiscardPages(testing::_, testing::ElementsAre(page_node())));
-  ReportMemoryUsage(kContext, kInitialPMF + growth_threshold + base::KiBU(1));
+  ReportMemoryUsage(kContext, kInitialPMF + growth_threshold + base::KiB(1));
   VerifyDiscarderExpectations();
 }
 
@@ -1134,13 +1134,13 @@ TEST_F(FreezingPolicyTest, DiscardGrowingPrivateMemory_PageAddedAfterFreezing) {
   base::test::ScopedFeatureList feature_list{
       features::kDiscardFrozenBrowsingInstancesWithGrowingPMF};
   const base::ByteSize growth_threshold =
-      base::KiBU(base::checked_cast<uint64_t>(
+      base::KiB(base::checked_cast<uint64_t>(
           features::kFreezingMemoryGrowthThresholdToDiscardKb.Get()));
   // Pretend that the page is frozen.
   page_node()->SetLifecycleStateForTesting(PageNode::LifecycleState::kFrozen);
 
   // First memory measurement after freezing.
-  constexpr base::ByteSize kInitialPMF = base::KiBU(10);
+  constexpr base::ByteSize kInitialPMF = base::KiB(10);
   ReportMemoryUsage(kContext, kInitialPMF);
 
   // Add a (non-frozen) page to the browsing instance.
@@ -1150,7 +1150,7 @@ TEST_F(FreezingPolicyTest, DiscardGrowingPrivateMemory_PageAddedAfterFreezing) {
   // Memory measurement crossing the growth threshold. This should not result in
   // discarding (or crash) since post-freezing memory estimates were cleared.
   const base::ByteSize kSecondPMF =
-      kInitialPMF + growth_threshold + base::KiBU(1);
+      kInitialPMF + growth_threshold + base::KiB(1);
   ReportMemoryUsage(kContext, kSecondPMF);
 
   // Pretend that the new page is frozen.
@@ -1158,14 +1158,13 @@ TEST_F(FreezingPolicyTest, DiscardGrowingPrivateMemory_PageAddedAfterFreezing) {
 
   // Memory measurement crossing the growth threshold. Should not result in
   // discarding since it's the first measurement since the new page was added.
-  const base::ByteSize kThirdPMF =
-      kSecondPMF + growth_threshold + base::KiBU(1);
+  const base::ByteSize kThirdPMF = kSecondPMF + growth_threshold + base::KiB(1);
   ReportMemoryUsage(kContext, kThirdPMF);
 
   // Memory measurement crossing the growth threshold. This should result in
   // discarding.
   const base::ByteSize kFourthPMFKb =
-      kThirdPMF + growth_threshold + base::KiBU(1);
+      kThirdPMF + growth_threshold + base::KiB(1);
   EXPECT_CALL(*discarder(),
               DiscardPages(testing::_, testing::UnorderedElementsAre(
                                            page_node(), page2.get())));
@@ -1179,18 +1178,18 @@ TEST_F(FreezingPolicyTest, DiscardGrowingPrivateMemory_FeatureDisabled) {
       features::kDiscardFrozenBrowsingInstancesWithGrowingPMF);
 
   const base::ByteSize growth_threshold =
-      base::KiBU(base::checked_cast<uint64_t>(
+      base::KiB(base::checked_cast<uint64_t>(
           features::kFreezingMemoryGrowthThresholdToDiscardKb.Get()));
   // Pretend that the page is frozen.
   page_node()->SetLifecycleStateForTesting(PageNode::LifecycleState::kFrozen);
 
   // First memory measurement after freezing.
-  constexpr base::ByteSize kInitialPMF = base::KiBU(10);
+  constexpr base::ByteSize kInitialPMF = base::KiB(10);
   ReportMemoryUsage(kContext, kInitialPMF);
 
   // Another memory measurement, crossing the growth threshold. The page should
   // not be discarded since the feature is disabled.
-  ReportMemoryUsage(kContext, kInitialPMF + growth_threshold + base::KiBU(1));
+  ReportMemoryUsage(kContext, kInitialPMF + growth_threshold + base::KiB(1));
   VerifyDiscarderExpectations();
 }
 
@@ -1199,7 +1198,7 @@ TEST_F(FreezingPolicyTest,
   base::test::ScopedFeatureList feature_list{
       features::kDiscardFrozenBrowsingInstancesWithGrowingPMF};
   const base::ByteSize growth_threshold =
-      base::KiBU(base::checked_cast<uint64_t>(
+      base::KiB(base::checked_cast<uint64_t>(
           features::kFreezingMemoryGrowthThresholdToDiscardKb.Get()));
   auto [page2, frame2] =
       CreatePageAndFrameWithBrowsingInstanceId(kBrowsingInstanceA);
@@ -1209,7 +1208,7 @@ TEST_F(FreezingPolicyTest,
   page2->SetLifecycleStateForTesting(PageNode::LifecycleState::kFrozen);
 
   // First memory measurement after freezing.
-  constexpr base::ByteSize kInitialPMF = base::KiBU(10);
+  constexpr base::ByteSize kInitialPMF = base::KiB(10);
   ReportMemoryUsage(kContext, kInitialPMF);
 
   // Another memory measurement, crossing the growth threshold. The 2 pages
@@ -1217,7 +1216,7 @@ TEST_F(FreezingPolicyTest,
   EXPECT_CALL(*discarder(),
               DiscardPages(testing::_, testing::UnorderedElementsAre(
                                            page_node(), page2.get())));
-  ReportMemoryUsage(kContext, kInitialPMF + growth_threshold + base::KiBU(1));
+  ReportMemoryUsage(kContext, kInitialPMF + growth_threshold + base::KiB(1));
   VerifyDiscarderExpectations();
 }
 
@@ -1226,7 +1225,7 @@ TEST_F(FreezingPolicyTest,
   base::test::ScopedFeatureList feature_list{
       features::kDiscardFrozenBrowsingInstancesWithGrowingPMF};
   const base::ByteSize growth_threshold =
-      base::KiBU(base::checked_cast<uint64_t>(
+      base::KiB(base::checked_cast<uint64_t>(
           features::kFreezingMemoryGrowthThresholdToDiscardKb.Get()));
   auto [page2, frame2] =
       CreatePageAndFrameWithBrowsingInstanceId(kBrowsingInstanceA);
@@ -1235,7 +1234,7 @@ TEST_F(FreezingPolicyTest,
   page_node()->SetLifecycleStateForTesting(PageNode::LifecycleState::kFrozen);
 
   // First memory measurement after freezing the page (2nd page still unfrozen).
-  constexpr base::ByteSize kInitialPMF = base::KiBU(10);
+  constexpr base::ByteSize kInitialPMF = base::KiB(10);
   ReportMemoryUsage(kContext, kInitialPMF);
 
   // Pretend that the 2nd page is frozen.
@@ -1244,7 +1243,7 @@ TEST_F(FreezingPolicyTest,
   // Another memory measurement, crossing the growth threshold since the first
   // page was frozen (but not since *all* pages were frozen). No discarding
   // expected.
-  ReportMemoryUsage(kContext, kInitialPMF + growth_threshold + base::KiBU(1));
+  ReportMemoryUsage(kContext, kInitialPMF + growth_threshold + base::KiB(1));
 
   // Another memory measurement, crossing the growth threshold since all pages
   // were frozen.  The 2 pages should be discarded.
@@ -1252,7 +1251,7 @@ TEST_F(FreezingPolicyTest,
               DiscardPages(testing::_, testing::UnorderedElementsAre(
                                            page_node(), page2.get())));
   ReportMemoryUsage(kContext,
-                    kInitialPMF + 2 * (growth_threshold + base::KiBU(1)));
+                    kInitialPMF + 2 * (growth_threshold + base::KiB(1)));
   VerifyDiscarderExpectations();
 }
 
@@ -1260,13 +1259,13 @@ TEST_F(FreezingPolicyTest, DiscardGrowingPrivateMemory_Unfreeze) {
   base::test::ScopedFeatureList feature_list{
       features::kDiscardFrozenBrowsingInstancesWithGrowingPMF};
   const base::ByteSize growth_threshold =
-      base::KiBU(base::checked_cast<uint64_t>(
+      base::KiB(base::checked_cast<uint64_t>(
           features::kFreezingMemoryGrowthThresholdToDiscardKb.Get()));
   // Pretend that the page is frozen.
   page_node()->SetLifecycleStateForTesting(PageNode::LifecycleState::kFrozen);
 
   // First memory measurement after freezing.
-  constexpr base::ByteSize kInitialPMF = base::KiBU(10);
+  constexpr base::ByteSize kInitialPMF = base::KiB(10);
   ReportMemoryUsage(kContext, kInitialPMF);
 
   // Pretend that the page is unfrozen and re-frozen.
@@ -1276,14 +1275,14 @@ TEST_F(FreezingPolicyTest, DiscardGrowingPrivateMemory_Unfreeze) {
   // Another memory measurement, crossing the growth threshold since the
   // measurement taken before unfreezing. The page should not be discarded,
   // because this is the first measurement since re-freezing.
-  ReportMemoryUsage(kContext, kInitialPMF + growth_threshold + base::KiBU(1));
+  ReportMemoryUsage(kContext, kInitialPMF + growth_threshold + base::KiB(1));
 
   // Another memory measurement, crossing the growth threshold since the
   // measurement taken after re-freezing. The page should be discarded.
   EXPECT_CALL(*discarder(),
               DiscardPages(testing::_, testing::ElementsAre(page_node())));
   ReportMemoryUsage(kContext,
-                    kInitialPMF + 2 * (growth_threshold + base::KiBU(1)));
+                    kInitialPMF + 2 * (growth_threshold + base::KiB(1)));
   VerifyDiscarderExpectations();
 }
 
@@ -1293,7 +1292,7 @@ TEST_F(
   base::test::ScopedFeatureList feature_list{
       features::kDiscardFrozenBrowsingInstancesWithGrowingPMF};
   const base::ByteSize growth_threshold =
-      base::KiBU(base::checked_cast<uint64_t>(
+      base::KiB(base::checked_cast<uint64_t>(
           features::kFreezingMemoryGrowthThresholdToDiscardKb.Get()));
   const resource_attribution::OriginInBrowsingInstanceContext kOtherContext{
       url::Origin(), kBrowsingInstanceA};
@@ -1302,20 +1301,20 @@ TEST_F(
   page_node()->SetLifecycleStateForTesting(PageNode::LifecycleState::kFrozen);
 
   // First memory measurement after freezing.
-  constexpr base::ByteSize kInitialPMF = base::KiBU(10);
+  constexpr base::ByteSize kInitialPMF = base::KiB(10);
   ReportMemoryUsage(kContext, kInitialPMF);
 
   // A memory measurement below the growth threshold for an origin not seen in
   // the first measurement. Nothing should happen.
   ReportMemoryUsage(kOtherContext,
-                    (growth_threshold - base::KiBU(1)).AsByteSize());
+                    (growth_threshold - base::KiB(1)).AsByteSize());
   VerifyDiscarderExpectations();
 
   // A second memory measurement above the growth threshold for an origin not
   // seen in the first measurement. The browsing instance should be discarded.
   EXPECT_CALL(*discarder(),
               DiscardPages(testing::_, testing::ElementsAre(page_node())));
-  ReportMemoryUsage(kOtherContext, growth_threshold + base::KiBU(1));
+  ReportMemoryUsage(kOtherContext, growth_threshold + base::KiB(1));
   VerifyDiscarderExpectations();
 }
 
@@ -1325,7 +1324,7 @@ TEST_F(
   base::test::ScopedFeatureList feature_list{
       features::kDiscardFrozenBrowsingInstancesWithGrowingPMF};
   const base::ByteSize growth_threshold =
-      base::KiBU(base::checked_cast<uint64_t>(
+      base::KiB(base::checked_cast<uint64_t>(
           features::kFreezingMemoryGrowthThresholdToDiscardKb.Get()));
   const resource_attribution::OriginInBrowsingInstanceContext kOtherContext{
       url::Origin(), kBrowsingInstanceA};
@@ -1334,14 +1333,14 @@ TEST_F(
   page_node()->SetLifecycleStateForTesting(PageNode::LifecycleState::kFrozen);
 
   // First memory measurement after freezing.
-  constexpr base::ByteSize kInitialPMF = base::KiBU(10);
+  constexpr base::ByteSize kInitialPMF = base::KiB(10);
   ReportMemoryUsage(kContext, kInitialPMF);
 
   // A memory measurement above the growth threshold for an origin not seen in
   // the first measurement. The browsing instance should be discarded.
   EXPECT_CALL(*discarder(),
               DiscardPages(testing::_, testing::ElementsAre(page_node())));
-  ReportMemoryUsage(kOtherContext, growth_threshold + base::KiBU(1));
+  ReportMemoryUsage(kOtherContext, growth_threshold + base::KiB(1));
   VerifyDiscarderExpectations();
 }
 
@@ -1350,7 +1349,7 @@ TEST_F(FreezingPolicyTest,
   base::test::ScopedFeatureList feature_list{
       features::kDiscardFrozenBrowsingInstancesWithGrowingPMF};
   const base::ByteSize growth_threshold =
-      base::KiBU(base::checked_cast<uint64_t>(
+      base::KiB(base::checked_cast<uint64_t>(
           features::kFreezingMemoryGrowthThresholdToDiscardKb.Get()));
 
   const resource_attribution::OriginInBrowsingInstanceContext
@@ -1361,10 +1360,10 @@ TEST_F(FreezingPolicyTest,
 
   // Simulate memory usage growth above the threshold for a browsing instance
   // not known to the `FreezingPolicy`. This should be gracefully ignored.
-  constexpr base::ByteSize kInitialPMF = base::KiBU(10);
+  constexpr base::ByteSize kInitialPMF = base::KiB(10);
   ReportMemoryUsage(kUnknownBrowsingInstanceContext, kInitialPMF);
   ReportMemoryUsage(kUnknownBrowsingInstanceContext,
-                    kInitialPMF + growth_threshold + base::KiBU(1));
+                    kInitialPMF + growth_threshold + base::KiB(1));
 }
 
 namespace {
@@ -1996,10 +1995,10 @@ TEST_F(FreezingPolicyOptOutTest, OptOutPolicyChanges) {
 
 namespace {
 
-class FreezingPolicyInfiniteTabsTest
+class FreezingPolicyPeriodicUnfreezeTestBase
     : public FreezingPolicyTest_BaseWithNoPage {
  protected:
-  FreezingPolicyInfiniteTabsTest() = default;
+  FreezingPolicyPeriodicUnfreezeTestBase() = default;
 
   void OnGraphCreated(GraphImpl* graph) override {
     FreezingPolicyTest_BaseWithNoPage::OnGraphCreated(graph);
@@ -2032,12 +2031,152 @@ class FreezingPolicyInfiniteTabsTest
 
   std::vector<TestNodeWrapper<PageNodeImpl>> pages_;
   std::vector<TestNodeWrapper<FrameNodeImpl>> frames_;
+};
+
+// Tests with only the always-active Infinite Tabs feature enabled.
+class FreezingPolicyInfiniteTabsTest
+    : public FreezingPolicyPeriodicUnfreezeTestBase {
+ protected:
+  FreezingPolicyInfiniteTabsTest() {
+    feature_list_.InitWithFeatures(
+        {features::kInfiniteTabsFreezing},
+        {features::kInfiniteTabsFreezingOnMemoryPressure});
+  }
 
  private:
-  base::test::ScopedFeatureList feature_list_{features::kInfiniteTabsFreezing};
+  base::test::ScopedFeatureList feature_list_;
+};
+
+class FreezingPolicyPeriodicUnfreezeDisabledTest
+    : public FreezingPolicyPeriodicUnfreezeTestBase {
+ protected:
+  FreezingPolicyPeriodicUnfreezeDisabledTest() {
+    feature_list_.InitWithFeatures(
+        {}, {features::kInfiniteTabsFreezing,
+             features::kInfiniteTabsFreezingOnMemoryPressure});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Tests with only the memory-pressure-gated Infinite Tabs feature enabled.
+class FreezingPolicyInfiniteTabsMemoryPressureTest
+    : public FreezingPolicyPeriodicUnfreezeTestBase {
+ protected:
+  FreezingPolicyInfiniteTabsMemoryPressureTest() {
+    // Keep the Windows-only automatic memory check from overriding pressure
+    // transitions injected by this fixture.
+    feature_list_.InitWithFeaturesAndParameters(
+        {{features::kInfiniteTabsFreezingOnMemoryPressure,
+          {{features::kInfiniteTabsFreezingOnMemoryPressureInterval.name,
+            "1d"}}}},
+        {features::kInfiniteTabsFreezing});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+class FreezingPolicyInfiniteTabsBothFeaturesTest
+    : public FreezingPolicyPeriodicUnfreezeTestBase {
+ protected:
+  FreezingPolicyInfiniteTabsBothFeaturesTest() {
+    feature_list_.InitWithFeatures(
+        {features::kInfiniteTabsFreezing,
+         features::kInfiniteTabsFreezingOnMemoryPressure},
+        {});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
 };
 
 }  // namespace
+
+TEST_F(FreezingPolicyPeriodicUnfreezeDisabledTest, TimerIsNotStarted) {
+  auto [page, frame] =
+      CreatePageAndFrameWithBrowsingInstanceId(kBrowsingInstanceA);
+  ASSERT_FALSE(page->IsVisible());
+
+  EXPECT_FALSE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
+
+  AdvanceClock(features::kInfiniteTabsFreezing_UnfreezeInterval.Get() * 2);
+  VerifyFreezerExpectations();
+}
+
+TEST_F(FreezingPolicyInfiniteTabsMemoryPressureTest, PressureTransitions) {
+  auto [page, frame] =
+      CreatePageAndFrameWithBrowsingInstanceId(kBrowsingInstanceA);
+  ASSERT_FALSE(page->IsVisible());
+
+  EXPECT_FALSE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
+
+  EXPECT_CALL(*freezer(), MaybeFreezePageNode(pages_[0].get()));
+  policy()->SetIsUnderMemoryPressureForTesting(true);
+  VerifyFreezerExpectations();
+  EXPECT_TRUE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
+
+  EXPECT_CALL(*freezer(), UnfreezePageNode(pages_[0].get()));
+  policy()->SetIsUnderMemoryPressureForTesting(false);
+  VerifyFreezerExpectations();
+  EXPECT_FALSE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
+
+  // Enter pressure at the beginning of an unfreeze period. The page should
+  // remain unfrozen until the end of the window.
+  AdvanceToAlignedTime(features::kInfiniteTabsFreezing_UnfreezeInterval.Get());
+  policy()->SetIsUnderMemoryPressureForTesting(true);
+  EXPECT_TRUE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
+
+  EXPECT_CALL(*freezer(), MaybeFreezePageNode(pages_[0].get()));
+  AdvanceClock(features::kInfiniteTabsFreezing_UnfreezeDuration.Get());
+  VerifyFreezerExpectations();
+  EXPECT_TRUE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
+
+  EXPECT_CALL(*freezer(), UnfreezePageNode(pages_[0].get()));
+  policy()->SetIsUnderMemoryPressureForTesting(false);
+  VerifyFreezerExpectations();
+  EXPECT_FALSE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
+}
+
+TEST_F(FreezingPolicyInfiniteTabsBothFeaturesTest,
+       TimerRemainsRunningAcrossPressureTransitions) {
+  EXPECT_CALL(*freezer(), MaybeFreezePageNode(pages_[0].get()));
+  auto [page, frame] =
+      CreatePageAndFrameWithBrowsingInstanceId(kBrowsingInstanceA);
+  ASSERT_FALSE(page->IsVisible());
+  VerifyFreezerExpectations();
+
+  // A page that never had a reason change doesn't have a timer. Pressure
+  // transitions shouldn't start one because the always-active feature already
+  // controls periodic unfreezing.
+  auto page_without_timer = CreateNode<PageNodeImpl>(
+      /*web_contents=*/nullptr,
+      /*browsing_context_id=*/base::UnguessableToken());
+
+  EXPECT_TRUE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
+  EXPECT_FALSE(policy()->IsPeriodicUnfreezeTimerRunningForTesting(
+      page_without_timer.get()));
+  policy()->SetIsUnderMemoryPressureForTesting(true);
+  EXPECT_TRUE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
+  EXPECT_FALSE(policy()->IsPeriodicUnfreezeTimerRunningForTesting(
+      page_without_timer.get()));
+  policy()->SetIsUnderMemoryPressureForTesting(false);
+  EXPECT_TRUE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
+  EXPECT_FALSE(policy()->IsPeriodicUnfreezeTimerRunningForTesting(
+      page_without_timer.get()));
+  VerifyFreezerExpectations();
+}
 
 // Verify that under "Infinite Tabs Freezing", tabs are frozen if not in the
 // list of most recently used.
@@ -2218,29 +2357,39 @@ TEST_F(FreezingPolicyInfiniteTabsTest, PeriodicUnfreeze) {
   auto [page, frame] =
       CreatePageAndFrameWithBrowsingInstanceId(kBrowsingInstanceA);
   ASSERT_FALSE(page->IsVisible());
+  EXPECT_TRUE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
 
   // Advance to the end of the periodic unfreeze period. `pages_[0]` should be
   // frozen.
   EXPECT_CALL(*freezer(), MaybeFreezePageNode(pages_[0].get()));
   AdvanceClock(features::kInfiniteTabsFreezing_UnfreezeDuration.Get());
   VerifyFreezerExpectations();
+  EXPECT_TRUE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
 
   // Advance to the beginning of the next periodic unfreeze period. `pages_[0]`
   // should be unfrozen.
   EXPECT_CALL(*freezer(), UnfreezePageNode(pages_[0].get()));
   AdvanceClock(kTimeBetweenUnfreezePeriods);
   VerifyFreezerExpectations();
+  EXPECT_TRUE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
 
   // Advance to the end of the periodic unfreeze period. `pages_[0]` should be
   // frozen again.
   EXPECT_CALL(*freezer(), MaybeFreezePageNode(pages_[0].get()));
   AdvanceClock(features::kInfiniteTabsFreezing_UnfreezeDuration.Get());
   VerifyFreezerExpectations();
+  EXPECT_TRUE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
 
   // Add a `CannotFreezeReason`. `pages_[0]` is unfrozen.
   EXPECT_CALL(*freezer(), UnfreezePageNode(pages_[0].get()));
   pages_[0]->SetUsesWebRTCForTesting(true);
   VerifyFreezerExpectations();
+  EXPECT_FALSE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
 
   // At the next periodic unfreeze period, `pages_[0]` remains unfrozen.
   AdvanceClock(kTimeBetweenUnfreezePeriods);
@@ -2251,6 +2400,55 @@ TEST_F(FreezingPolicyInfiniteTabsTest, PeriodicUnfreeze) {
   // When the `CannotFreezeReason` is removed, `pages_[0]` is frozen.
   EXPECT_CALL(*freezer(), MaybeFreezePageNode(pages_[0].get()));
   pages_[0]->SetUsesWebRTCForTesting(false);
+  VerifyFreezerExpectations();
+  EXPECT_TRUE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
+
+  // The restarted timer keeps the page's original phase.
+  EXPECT_CALL(*freezer(), UnfreezePageNode(pages_[0].get()));
+  AdvanceClock(kTimeBetweenUnfreezePeriods);
+  VerifyFreezerExpectations();
+}
+
+TEST_F(FreezingPolicyInfiniteTabsTest, ConnectedPagesPeriodicUnfreeze) {
+  EXPECT_CALL(*freezer(), MaybeFreezePageNode(pages_[0].get()));
+  auto [page, frame] =
+      CreatePageAndFrameWithBrowsingInstanceId(kBrowsingInstanceA);
+  VerifyFreezerExpectations();
+
+  auto connected_page = CreateNode<PageNodeImpl>(
+      /*web_contents=*/nullptr,
+      /*browsing_context_id=*/base::UnguessableToken());
+  connected_page->SetType(PageType::kExtension);
+  EXPECT_CALL(*freezer(), MaybeFreezePageNode(connected_page.get()));
+  auto connected_frame = CreateFrameNodeAutoId(
+      process_node(), connected_page.get(),
+      /*parent_frame_node=*/nullptr, frames_[0]->GetBrowsingInstanceId());
+  VerifyFreezerExpectations();
+
+  EXPECT_CALL(*freezer(), UnfreezePageNode(pages_[0].get()));
+  EXPECT_CALL(*freezer(), UnfreezePageNode(connected_page.get()));
+  AdvanceToAlignedTime(features::kInfiniteTabsFreezing_UnfreezeInterval.Get());
+  VerifyFreezerExpectations();
+
+  EXPECT_CALL(*freezer(), MaybeFreezePageNode(pages_[0].get()));
+  EXPECT_CALL(*freezer(), MaybeFreezePageNode(connected_page.get()));
+  AdvanceClock(features::kInfiniteTabsFreezing_UnfreezeDuration.Get());
+  VerifyFreezerExpectations();
+}
+
+TEST_F(FreezingPolicyInfiniteTabsTest, DestroyPageWithArmedTimer) {
+  EXPECT_CALL(*freezer(), MaybeFreezePageNode(pages_[0].get()));
+  auto [page, frame] =
+      CreatePageAndFrameWithBrowsingInstanceId(kBrowsingInstanceA);
+  VerifyFreezerExpectations();
+
+  EXPECT_TRUE(
+      policy()->IsPeriodicUnfreezeTimerRunningForTesting(pages_[0].get()));
+  frames_[0].reset();
+  pages_[0].reset();
+
+  AdvanceClock(features::kInfiniteTabsFreezing_UnfreezeInterval.Get() * 2);
   VerifyFreezerExpectations();
 }
 
@@ -2481,6 +2679,45 @@ TEST_F(FreezingPolicyInfiniteTabsTest, NonTabWebUI) {
   // Now it should only have the kWebUI cannot freeze reason.
   ExpectCannotFreezeReasons(webui_page.get(), FreezingType::kInfiniteTabs,
                             ElementsAre(CannotFreezeReason::kWebUI));
+}
+
+// Verify that disabling tab freezing by user unfreezes tabs frozen for
+// infinite tabs freezing, and re-enabling re-freezes them.
+TEST_F(FreezingPolicyInfiniteTabsTest, SetFreezingEnabledByUser) {
+  // Create a new page which pushes pages_[0] out of the protected list,
+  // freezing it.
+  EXPECT_CALL(*freezer(), MaybeFreezePageNode(pages_[0].get()));
+  auto [page5, frame5] =
+      CreatePageAndFrameWithBrowsingInstanceId(kBrowsingInstanceA);
+  AdvanceClock(base::Milliseconds(1));
+  VerifyFreezerExpectations();
+
+  // User disables tab freezing. pages_[0] should be unfrozen.
+  EXPECT_CALL(*freezer(), UnfreezePageNode(pages_[0].get()));
+  policy()->SetFreezingEnabledByUser(false);
+  VerifyFreezerExpectations();
+
+  // User re-enables tab freezing. pages_[0] should be frozen again.
+  EXPECT_CALL(*freezer(), MaybeFreezePageNode(pages_[0].get()));
+  policy()->SetFreezingEnabledByUser(true);
+  VerifyFreezerExpectations();
+}
+
+// Verify that freeze votes (kVoting) continue to freeze pages even when user
+// tab freezing is disabled.
+TEST_F(FreezingPolicyInfiniteTabsTest,
+       SetFreezingEnabledByUser_FreezeVotePreserved) {
+  policy()->SetFreezingEnabledByUser(false);
+
+  // Adding a freeze vote on a protected tab should still freeze it.
+  EXPECT_CALL(*freezer(), MaybeFreezePageNode(pages_[1].get()));
+  policy()->AddFreezeVote(pages_[1].get());
+  VerifyFreezerExpectations();
+
+  // Removing the freeze vote unfreezes it.
+  EXPECT_CALL(*freezer(), UnfreezePageNode(pages_[1].get()));
+  policy()->RemoveFreezeVote(pages_[1].get());
+  VerifyFreezerExpectations();
 }
 
 }  // namespace performance_manager

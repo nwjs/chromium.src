@@ -16,6 +16,7 @@
 #include <wrl.h>
 
 #include <algorithm>
+#include <optional>
 #include <string_view>
 
 #include "base/check_op.h"
@@ -931,8 +932,6 @@ Microsoft::WRL::ComPtr<IMFSample> CreateSampleFromTexture(
                        "subsampled format.";
         return nullptr;
       }
-    } else {
-      NOTREACHED();
     }
     D3D11_TEXTURE2D_DESC desc;
     input_texture->GetDesc(&desc);
@@ -949,6 +948,18 @@ Microsoft::WRL::ComPtr<IMFSample> CreateSampleFromTexture(
       LOG(ERROR) << "Failed to create d3d11 texture: "
                  << logging::SystemErrorCodeToString(hr);
       return nullptr;
+    }
+    std::optional<gpu::DXGIScopedReleaseKeyedMutex> release_keyed_mutex;
+    Microsoft::WRL::ComPtr<IDXGIKeyedMutex> keyed_mutex;
+    if (SUCCEEDED(input_texture.As(&keyed_mutex))) {
+      constexpr int kMaxSyncTimeMs = 100;
+      hr = keyed_mutex->AcquireSync(0, kMaxSyncTimeMs);
+      if (hr != S_OK) {
+        LOG(ERROR) << "Failed to acquire keyed mutex: "
+                   << logging::SystemErrorCodeToString(hr);
+        return nullptr;
+      }
+      release_keyed_mutex.emplace(std::move(keyed_mutex), 0);
     }
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> device_context;
     device->GetImmediateContext(&device_context);
@@ -1211,8 +1222,6 @@ void GenerateResourceOnSyncTokenReleased(
             "Source visible_rect is not properly aligned for "
             "4:2:0 subsampled format.");
       }
-    } else {
-      NOTREACHED();
     }
     TRACE_EVENT0("media", "CopyTextureOnCreateSharedHandleFailed");
     texture_desc.Usage = D3D11_USAGE_DEFAULT;

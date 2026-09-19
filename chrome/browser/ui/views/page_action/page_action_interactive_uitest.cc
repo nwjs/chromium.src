@@ -7,12 +7,15 @@
 #include <optional>
 #include <string>
 
+#include "base/i18n/rtl.h"
+#include "base/i18n/test/scoped_rtl_for_testing.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/page_action/page_action_controller.h"
 #include "chrome/browser/ui/page_action/page_action_enums.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
@@ -145,7 +148,7 @@ class PageActionUiTestBase {
 
   virtual ~PageActionUiTestBase() = default;
 
-  virtual Browser* GetBrowser() const = 0;
+  virtual BrowserWindowInterface* GetBrowser() const = 0;
 
   page_actions::PageActionController* page_action_controller() const {
     return GetBrowser()
@@ -302,7 +305,7 @@ class PageActionInteractiveUiTest : public InteractiveBrowserTest,
   ~PageActionInteractiveUiTest() override = default;
 
   // PageActionUiTestBase:
-  Browser* GetBrowser() const override { return browser(); }
+  BrowserWindowInterface* GetBrowser() const override { return browser(); }
 };
 
 // Tests that switching from a full available space to a reduced available space
@@ -573,7 +576,7 @@ IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
   //         old page context that already had ephemeral actions shown/logged.
   //         Therefore, re-showing the ephemeral action now should NOT increment
   //         the histogram again.
-  PerformBackNavigation(browser()->tab_strip_model()->GetActiveWebContents());
+  PerformBackNavigation(browser()->GetTabStripModel()->GetActiveWebContents());
 
   ShowPageAction(kActionShowTranslate);
 
@@ -626,7 +629,7 @@ IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
   // respective actions.
   ASSERT_TRUE(
       AddTabAtIndex(1, GURL("chrome://version"), ui::PAGE_TRANSITION_LINK));
-  browser()->tab_strip_model()->ActivateTabAt(1);
+  browser()->GetTabStripModel()->ActivateTabAt(1);
 
   // Show ephemeral Translate action in tab[1].
   ShowPageAction(kActionShowTranslate);
@@ -643,7 +646,7 @@ IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
   // 5) Switch back to tab[0] (where the Translate action was already shown
   // after navigation). Re-showing the ephemeral icon should NOT increment the
   // metric, since it's the same context in tab[0].
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
   ShowPageAction(kActionShowTranslate);
   histogram_tester.ExpectBucketCount("PageActionController.ActionTypeShown2",
                                      PageActionIconType::kTranslate, 3);
@@ -678,7 +681,7 @@ IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
   // 4. Open a new tab → brand-new context.
   ASSERT_TRUE(
       AddTabAtIndex(1, GURL("chrome://version"), ui::PAGE_TRANSITION_LINK));
-  browser()->tab_strip_model()->ActivateTabAt(1);
+  browser()->GetTabStripModel()->ActivateTabAt(1);
 
   // 4-a) First show of Translate in tab[1] logs again.
   ShowPageAction(kActionShowTranslate);
@@ -686,7 +689,7 @@ IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
                                      PageActionCTREvent::kShown, 3);
 
   // 5. Switch back to tab[0] and show again → no additional logging.
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
   ShowPageAction(kActionShowTranslate);
   histogram_tester.ExpectBucketCount(kTranslateHistogram,
                                      PageActionCTREvent::kShown, 3);
@@ -704,7 +707,7 @@ class PageActionMetricsInteractiveUiTest : public InteractiveBrowserTest,
   ~PageActionMetricsInteractiveUiTest() override = default;
 
   // PageActionUiTestBase:
-  Browser* GetBrowser() const override { return browser(); }
+  BrowserWindowInterface* GetBrowser() const override { return browser(); }
 
  protected:
   void SetZoomLevel(content::PageZoom zoom_level) {
@@ -853,7 +856,7 @@ class PageActionPixelTestBase : public UiBrowserTest,
   ~PageActionPixelTestBase() override = default;
 
   // PageActionUiTestBase:
-  Browser* GetBrowser() const final { return browser(); }
+  BrowserWindowInterface* GetBrowser() const final { return browser(); }
 
   // UiBrowserTest:
   void ShowUi(const std::string& /*name*/) override {
@@ -1027,7 +1030,7 @@ class AnchoredMessageInteractiveTestBase : public InteractiveBrowserTest,
   ~AnchoredMessageInteractiveTestBase() override = default;
 
   // Implements PageActionUiTestBase:
-  Browser* GetBrowser() const override { return browser(); }
+  BrowserWindowInterface* GetBrowser() const override { return browser(); }
 
   void ShowTestAnchoredMessage(
       std::u16string text,
@@ -1233,9 +1236,11 @@ class PageActionAnchoredMessagePixelTest
 
   void SetUpOnMainThread() override {
     InteractiveBrowserTest::SetUpOnMainThread();
-    if (GetParam().rtl) {
-      base::i18n::SetRTLForTesting(true);
-    }
+    scoped_rtl_.emplace(GetParam().rtl);
+  }
+  void TearDownOnMainThread() override {
+    scoped_rtl_.reset();
+    InteractiveBrowserTest::TearDownOnMainThread();
   }
 
   std::optional<AnchoredMessageExpandableContent> GetExpandableContent() const {
@@ -1279,6 +1284,7 @@ class PageActionAnchoredMessagePixelTest
 
  private:
   ui::MockOsSettingsProvider os_settings_provider_;
+  std::optional<base::i18n::ScopedRTLForTesting> scoped_rtl_;
 };
 
 INSTANTIATE_TEST_SUITE_P(

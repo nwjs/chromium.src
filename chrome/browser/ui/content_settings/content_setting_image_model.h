@@ -16,13 +16,14 @@
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model_delegate.h"
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom-shared.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/gfx/image/image.h"
 
 namespace content {
 class Page;
 class WebContents;
-}
+}  // namespace content
 
 namespace gfx {
 struct VectorIcon;
@@ -66,6 +67,9 @@ class ContentSettingImageModel {
   // Generates a vector of all image models to be used within one window.
   static std::vector<std::unique_ptr<ContentSettingImageModel>>
   GenerateContentSettingImageModels();
+
+  // Returns all element identifiers for all content setting image models.
+  static std::vector<ui::ElementIdentifier> GetAllElementIdentifiers();
 
   // Returns the corresponding index into the above vector for the given
   // ContentSettingsType. For testing.

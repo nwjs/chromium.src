@@ -17,10 +17,12 @@
 #import "ios/chrome/browser/settings/autofill/autofill_and_passwords/ui/autofill_ai_base_item_type.h"
 #import "ios/chrome/browser/settings/autofill/autofill_and_passwords/ui/travel_info_mutator.h"
 #import "ios/chrome/browser/settings/autofill/utils/autofill_settings_ui_util.h"
+#import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_settings_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/elements/enterprise_info_popover_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_root_table_view_controller+toolbar_add.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_info_button_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_link_header_footer_item.h"
+#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_multi_detail_text_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_switch_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_header_footer_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
@@ -32,6 +34,7 @@
 namespace {
 enum class SectionIdentifier {
   kToggleSection = kSectionIdentifierEnumZero,
+  kSuggestionsFromGeminiSection,
   kFlightReservationsSection,
   kKnownTravelerNumbersSection,
   kRedressNumbersSection,
@@ -41,6 +44,8 @@ enum class SectionIdentifier {
 enum class ItemType {
   kToggleItem = kAutofillAIBaseItemTypeEntity + 1,
   kFooterItem,
+  kSuggestionsFromGeminiItem,
+  kSuggestionsFromGeminiFooterItem,
 };
 }  // namespace
 
@@ -61,6 +66,8 @@ enum class ItemType {
   BOOL _travelInfoEnabled;
   BOOL _travelInfoToggleEnabled;
   BOOL _travelInfoToggleManaged;
+  BOOL _shouldShowSuggestionsFromGemini;
+  BOOL _suggestionsFromGeminiEnabled;
 }
 
 - (instancetype)init {
@@ -90,123 +97,22 @@ enum class ItemType {
 - (void)loadModel {
   [super loadModel];
 
-  TableViewModel* model = self.tableViewModel;
+  [self loadToggleSection];
+  [self loadSuggestionsFromGeminiSection];
 
-  [model addSectionWithIdentifier:static_cast<NSInteger>(
-                                      SectionIdentifier::kToggleSection)];
-  if (_travelInfoToggleManaged) {
-    TableViewInfoButtonItem* managedItem = [[TableViewInfoButtonItem alloc]
-        initWithType:static_cast<NSInteger>(ItemType::kToggleItem)];
-    managedItem.text =
-        l10n_util::GetNSString(IDS_AUTOFILL_TRAVEL_OPT_IN_TOGGLE_LABEL);
-    managedItem.statusText = l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
-    managedItem.accessibilityHint = l10n_util::GetNSString(
-        IDS_IOS_TOGGLE_SETTING_MANAGED_ACCESSIBILITY_HINT);
-    managedItem.target = self;
-    managedItem.selector = @selector(didTapManagedUIInfoButton:);
-    [model addItem:managedItem
-        toSectionWithIdentifier:static_cast<NSInteger>(
-                                    SectionIdentifier::kToggleSection)];
-  } else {
-    TableViewSwitchItem* toggleItem = [[TableViewSwitchItem alloc]
-        initWithType:static_cast<NSInteger>(ItemType::kToggleItem)];
-    toggleItem.text =
-        l10n_util::GetNSString(IDS_AUTOFILL_TRAVEL_OPT_IN_TOGGLE_LABEL);
-    toggleItem.on = _travelInfoToggleEnabled && _travelInfoEnabled;
-    toggleItem.enabled = _travelInfoToggleEnabled;
-    toggleItem.target = self;
-    toggleItem.selector = @selector(travelInfoToggleChanged:);
-    [model addItem:toggleItem
-        toSectionWithIdentifier:static_cast<NSInteger>(
-                                    SectionIdentifier::kToggleSection)];
-  }
-
-  TableViewLinkHeaderFooterItem* footer = [[TableViewLinkHeaderFooterItem alloc]
-      initWithType:static_cast<NSInteger>(ItemType::kFooterItem)];
-  footer.text =
-      l10n_util::GetNSString(IDS_AUTOFILL_TRAVEL_OPT_IN_TOGGLE_SUB_LABEL);
-  [model setFooter:footer
-      forSectionWithIdentifier:static_cast<NSInteger>(
-                                   SectionIdentifier::kToggleSection)];
-
-  if (_flightReservations.count > 0) {
-    [model addSectionWithIdentifier:
-               static_cast<NSInteger>(
-                   SectionIdentifier::kFlightReservationsSection)];
-    TableViewTextHeaderFooterItem* header =
-        [[TableViewTextHeaderFooterItem alloc]
-            initWithType:kAutofillAIBaseItemTypeHeader];
-    header.text =
-        l10n_util::GetNSString(IDS_AUTOFILL_AI_FLIGHT_RESERVATIONS_TITLE);
-    [model setHeader:header
-        forSectionWithIdentifier:
-            static_cast<NSInteger>(
-                SectionIdentifier::kFlightReservationsSection)];
-    for (TableViewItem* item in _flightReservations) {
-      [model addItem:item
-          toSectionWithIdentifier:
-              static_cast<NSInteger>(
-                  SectionIdentifier::kFlightReservationsSection)];
-    }
-  }
-
-  if (_knownTravelerNumbers.count > 0) {
-    [model addSectionWithIdentifier:
-               static_cast<NSInteger>(
-                   SectionIdentifier::kKnownTravelerNumbersSection)];
-    TableViewTextHeaderFooterItem* header =
-        [[TableViewTextHeaderFooterItem alloc]
-            initWithType:kAutofillAIBaseItemTypeHeader];
-    header.text = l10n_util::GetNSString(
-        IDS_AUTOFILL_AI_KNOWN_TRAVELER_NUMBER_ENTITY_NAME);
-    [model setHeader:header
-        forSectionWithIdentifier:
-            static_cast<NSInteger>(
-                SectionIdentifier::kKnownTravelerNumbersSection)];
-    for (TableViewItem* item in _knownTravelerNumbers) {
-      [model addItem:item
-          toSectionWithIdentifier:
-              static_cast<NSInteger>(
-                  SectionIdentifier::kKnownTravelerNumbersSection)];
-    }
-  }
-
-  if (_redressNumbers.count > 0) {
-    [model
-        addSectionWithIdentifier:
-            static_cast<NSInteger>(SectionIdentifier::kRedressNumbersSection)];
-    TableViewTextHeaderFooterItem* header =
-        [[TableViewTextHeaderFooterItem alloc]
-            initWithType:kAutofillAIBaseItemTypeHeader];
-    header.text =
-        l10n_util::GetNSString(IDS_AUTOFILL_AI_REDRESS_NUMBER_ENTITY_NAME);
-    [model setHeader:header
-        forSectionWithIdentifier:
-            static_cast<NSInteger>(SectionIdentifier::kRedressNumbersSection)];
-    for (TableViewItem* item in _redressNumbers) {
-      [model addItem:item
-          toSectionWithIdentifier:
-              static_cast<NSInteger>(
-                  SectionIdentifier::kRedressNumbersSection)];
-    }
-  }
-
-  if (_vehicles.count > 0) {
-    [model addSectionWithIdentifier:static_cast<NSInteger>(
-                                        SectionIdentifier::kVehiclesSection)];
-    TableViewTextHeaderFooterItem* header =
-        [[TableViewTextHeaderFooterItem alloc]
-            initWithType:kAutofillAIBaseItemTypeHeader];
-    header.text = l10n_util::GetNSString(IDS_AUTOFILL_AI_VEHICLES_TITLE);
-    [model setHeader:header
-        forSectionWithIdentifier:static_cast<NSInteger>(
-                                     SectionIdentifier::kVehiclesSection)];
-    for (TableViewItem* item in _vehicles) {
-      [model addItem:item
-          toSectionWithIdentifier:static_cast<NSInteger>(
-                                      SectionIdentifier::kVehiclesSection)];
-    }
-  }
+  [self addSectionWithIdentifier:SectionIdentifier::kFlightReservationsSection
+                   headerTitleID:IDS_AUTOFILL_AI_FLIGHT_RESERVATIONS_TITLE
+                           items:_flightReservations];
+  [self
+      addSectionWithIdentifier:SectionIdentifier::kKnownTravelerNumbersSection
+                 headerTitleID:IDS_AUTOFILL_AI_KNOWN_TRAVELER_NUMBER_ENTITY_NAME
+                         items:_knownTravelerNumbers];
+  [self addSectionWithIdentifier:SectionIdentifier::kRedressNumbersSection
+                   headerTitleID:IDS_AUTOFILL_AI_REDRESS_NUMBER_ENTITY_NAME
+                           items:_redressNumbers];
+  [self addSectionWithIdentifier:SectionIdentifier::kVehiclesSection
+                   headerTitleID:IDS_AUTOFILL_AI_VEHICLES_TITLE
+                           items:_vehicles];
 }
 
 #pragma mark - TravelInfoConsumer
@@ -229,6 +135,42 @@ enum class ItemType {
     }
     [self updateUIForEditState];
     [self reloadData];
+  }
+}
+
+- (void)setShouldShowSuggestionsFromGemini:(BOOL)shouldShow
+                                   enabled:(BOOL)enabled {
+  BOOL reload = NO;
+  if (_shouldShowSuggestionsFromGemini != shouldShow) {
+    _shouldShowSuggestionsFromGemini = shouldShow;
+    reload = YES;
+  }
+
+  BOOL suggestionsFromGeminiEnabledChanged =
+      (_suggestionsFromGeminiEnabled != enabled);
+  _suggestionsFromGeminiEnabled = enabled;
+
+  if (reload) {
+    if (self.viewLoaded) {
+      [self reloadData];
+    }
+  } else if (suggestionsFromGeminiEnabledChanged && self.viewLoaded &&
+             _shouldShowSuggestionsFromGemini) {
+    TableViewModel* model = self.tableViewModel;
+    NSIndexPath* suggestionsFromGeminiPath =
+        [model indexPathForItemType:static_cast<NSInteger>(
+                                        ItemType::kSuggestionsFromGeminiItem)
+                  sectionIdentifier:
+                      static_cast<NSInteger>(
+                          SectionIdentifier::kSuggestionsFromGeminiSection)];
+    if (suggestionsFromGeminiPath) {
+      TableViewMultiDetailTextItem* suggestionsFromGeminiItem =
+          base::apple::ObjCCastStrict<TableViewMultiDetailTextItem>(
+              [model itemAtIndexPath:suggestionsFromGeminiPath]);
+      suggestionsFromGeminiItem.trailingDetailText = l10n_util::GetNSString(
+          enabled ? IDS_IOS_SETTING_ON : IDS_IOS_SETTING_OFF);
+      [self reconfigureCellsForItems:@[ suggestionsFromGeminiItem ]];
+    }
   }
 }
 
@@ -488,6 +430,12 @@ enum class ItemType {
   [tableView deselectRowAtIndexPath:indexPath animated:YES];
 
   TableViewItem* item = [self.tableViewModel itemAtIndexPath:indexPath];
+  if (item.type ==
+      static_cast<NSInteger>(ItemType::kSuggestionsFromGeminiItem)) {
+    [self.delegate
+        travelInfoTableViewControllerDidSelectSuggestionsFromGemini:self];
+    return;
+  }
   [self.mutator didSelectEntityItem:item];
 }
 
@@ -541,6 +489,117 @@ enum class ItemType {
 }
 
 #pragma mark - Private
+
+// Returns the toggle item based on management state.
+- (TableViewItem*)toggleItem {
+  if (_travelInfoToggleManaged) {
+    TableViewInfoButtonItem* managedItem = [[TableViewInfoButtonItem alloc]
+        initWithType:static_cast<NSInteger>(ItemType::kToggleItem)];
+    managedItem.text =
+        l10n_util::GetNSString(IDS_AUTOFILL_TRAVEL_OPT_IN_TOGGLE_LABEL);
+    managedItem.statusText = l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
+    managedItem.accessibilityHint = l10n_util::GetNSString(
+        IDS_IOS_TOGGLE_SETTING_MANAGED_ACCESSIBILITY_HINT);
+    managedItem.target = self;
+    managedItem.selector = @selector(didTapManagedUIInfoButton:);
+    return managedItem;
+  }
+
+  TableViewSwitchItem* toggleItem = [[TableViewSwitchItem alloc]
+      initWithType:static_cast<NSInteger>(ItemType::kToggleItem)];
+  toggleItem.text =
+      l10n_util::GetNSString(IDS_AUTOFILL_TRAVEL_OPT_IN_TOGGLE_LABEL);
+  toggleItem.on = _travelInfoToggleEnabled && _travelInfoEnabled;
+  toggleItem.enabled = _travelInfoToggleEnabled;
+  toggleItem.target = self;
+  toggleItem.selector = @selector(travelInfoToggleChanged:);
+  return toggleItem;
+}
+
+// Returns the footer for the toggle section.
+- (TableViewHeaderFooterItem*)toggleFooter {
+  TableViewLinkHeaderFooterItem* footer = [[TableViewLinkHeaderFooterItem alloc]
+      initWithType:static_cast<NSInteger>(ItemType::kFooterItem)];
+  footer.text =
+      l10n_util::GetNSString(IDS_AUTOFILL_TRAVEL_OPT_IN_TOGGLE_SUB_LABEL);
+  return footer;
+}
+
+// Populates the toggle section.
+- (void)loadToggleSection {
+  TableViewModel* model = self.tableViewModel;
+  NSInteger section = static_cast<NSInteger>(SectionIdentifier::kToggleSection);
+  [model addSectionWithIdentifier:section];
+  [model addItem:[self toggleItem] toSectionWithIdentifier:section];
+  [model setFooter:[self toggleFooter] forSectionWithIdentifier:section];
+}
+
+// Populates the Suggestions from Gemini section if enabled.
+- (void)loadSuggestionsFromGeminiSection {
+  if (!_shouldShowSuggestionsFromGemini) {
+    return;
+  }
+
+  TableViewModel* model = self.tableViewModel;
+  NSInteger section =
+      static_cast<NSInteger>(SectionIdentifier::kSuggestionsFromGeminiSection);
+  [model addSectionWithIdentifier:section];
+  [model addItem:[self suggestionsFromGeminiItem]
+      toSectionWithIdentifier:section];
+  [model setFooter:[self suggestionsFromGeminiFooter]
+      forSectionWithIdentifier:section];
+}
+
+// Adds an entity section with `items` and a header to the table view model if
+// `items` is not empty.
+- (void)addSectionWithIdentifier:(SectionIdentifier)sectionIdentifier
+                   headerTitleID:(int)headerTitleID
+                           items:(NSArray<TableViewItem*>*)items {
+  if (items.count == 0) {
+    return;
+  }
+
+  TableViewModel* model = self.tableViewModel;
+  NSInteger section = static_cast<NSInteger>(sectionIdentifier);
+  [model addSectionWithIdentifier:section];
+
+  TableViewTextHeaderFooterItem* header = [[TableViewTextHeaderFooterItem alloc]
+      initWithType:kAutofillAIBaseItemTypeHeader];
+  header.text = l10n_util::GetNSString(headerTitleID);
+  [model setHeader:header forSectionWithIdentifier:section];
+
+  for (TableViewItem* item in items) {
+    [model addItem:item toSectionWithIdentifier:section];
+  }
+}
+
+// Returns the table view item for the Suggestions from Gemini section.
+- (TableViewItem*)suggestionsFromGeminiItem {
+  TableViewMultiDetailTextItem* suggestionsFromGeminiItem =
+      [[TableViewMultiDetailTextItem alloc]
+          initWithType:static_cast<NSInteger>(
+                           ItemType::kSuggestionsFromGeminiItem)];
+  suggestionsFromGeminiItem.text =
+      l10n_util::GetNSString(IDS_IOS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_TITLE);
+  suggestionsFromGeminiItem.trailingDetailText = l10n_util::GetNSString(
+      _suggestionsFromGeminiEnabled ? IDS_IOS_SETTING_ON : IDS_IOS_SETTING_OFF);
+  suggestionsFromGeminiItem.accessoryType =
+      UITableViewCellAccessoryDisclosureIndicator;
+  suggestionsFromGeminiItem.accessibilityTraits |= UIAccessibilityTraitButton;
+  suggestionsFromGeminiItem.accessibilityIdentifier =
+      kSuggestionsFromGeminiTableViewId;
+  return suggestionsFromGeminiItem;
+}
+
+// Returns the footer for the Suggestions from Gemini section.
+- (TableViewHeaderFooterItem*)suggestionsFromGeminiFooter {
+  TableViewLinkHeaderFooterItem* footer = [[TableViewLinkHeaderFooterItem alloc]
+      initWithType:static_cast<NSInteger>(
+                       ItemType::kSuggestionsFromGeminiFooterItem)];
+  footer.text = l10n_util::GetNSString(
+      IDS_IOS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_SUBPAGE_SUMMARY);
+  return footer;
+}
 
 // Confirms the deletion of the given `items` by resetting the swipe-to-delete
 // state if needed and informing the mutator.

@@ -25,6 +25,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/single_thread_task_runner_thread_mode.h"
 #include "base/task/thread_pool.h"
 #include "components/dbus/menu/menu.h"
 #include "components/dbus/properties/dbus_properties.h"
@@ -81,6 +82,7 @@ const char kMethodContextMenu[] = "ContextMenu";
 const char kMethodScroll[] = "Scroll";
 const char kMethodSecondaryActivate[] = "SecondaryActivate";
 const char kMethodGet[] = "Get";
+const char kMethodProvideXdgActivationToken[] = "ProvideXdgActivationToken";
 
 // Properties.
 const char kPropertyIsStatusNotifierHostRegistered[] =
@@ -138,11 +140,6 @@ int NextServiceId() {
 
 std::string PropertyIdFromId(int service_id) {
   return "chrome_status_icon_" + base::NumberToString(service_id);
-}
-
-dbus::ObjectPath ObjectPathFromId(const std::string& path, int service_id) {
-  return dbus::ObjectPath(
-      base::StrCat({path, "/", base::NumberToString(service_id)}));
 }
 
 using DbusImage = std::tuple</*width=*/int32_t,
@@ -230,10 +227,31 @@ base::FilePath WriteIconFile(size_t icon_file_id,
   return file_path;
 }
 
+bool g_shared_bus_in_use = false;
+
+scoped_refptr<dbus::Bus> CreateSessionBus() {
+  dbus::Bus::Options options;
+  options.bus_type = dbus::Bus::SESSION;
+  options.connection_type = dbus::Bus::PRIVATE;
+  options.dbus_task_runner = base::ThreadPool::CreateSingleThreadTaskRunner(
+      {base::MayBlock(), base::TaskPriority::USER_BLOCKING},
+      base::SingleThreadTaskRunnerThreadMode::SHARED);
+  return base::MakeRefCounted<dbus::Bus>(std::move(options));
+}
+
+scoped_refptr<dbus::Bus> GetBusForNewStatusIcon() {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  if (!g_shared_bus_in_use) {
+    g_shared_bus_in_use = true;
+    return dbus_thread_linux::GetSharedSessionBus();
+  }
+  return CreateSessionBus();
+}
+
 }  // namespace
 
 StatusIconLinuxDbus::StatusIconLinuxDbus()
-    : StatusIconLinuxDbus(dbus_thread_linux::GetSharedSessionBus()) {}
+    : StatusIconLinuxDbus(GetBusForNewStatusIcon()) {}
 
 StatusIconLinuxDbus::StatusIconLinuxDbus(scoped_refptr<dbus::Bus> bus)
     : bus_(std::move(bus)),
@@ -322,26 +340,33 @@ StatusIconLinuxDbus::~StatusIconLinuxDbus() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   CleanupIconFile();
 
-  if (!service_name_.empty()) {
-    bus_->GetDBusTaskRunner()->PostTask(
-        FROM_HERE,
-        base::BindOnce(
-            [](scoped_refptr<dbus::Bus> bus, const std::string& service_name) {
-              bus->ReleaseOwnership(service_name);
-            },
-            bus_, service_name_));
-  }
-
-  if (item_) {
-    bus_->UnregisterExportedObject(
-        ObjectPathFromId(kPathStatusNotifierItem, service_id_));
-    item_ = nullptr;
-  }
-
   if (menu_) {
     menu_.reset();
-    bus_->UnregisterExportedObject(
-        ObjectPathFromId(kPathDbusMenu, service_id_));
+  }
+  item_ = nullptr;
+  watcher_ = nullptr;
+
+  if (bus_) {
+    if (bus_ == dbus_thread_linux::GetSharedSessionBus()) {
+      g_shared_bus_in_use = false;
+      bus_->UnregisterExportedObject(dbus::ObjectPath(kPathStatusNotifierItem));
+      bus_->UnregisterExportedObject(dbus::ObjectPath(kPathDbusMenu));
+      if (!service_name_.empty()) {
+        bus_->GetDBusTaskRunner()->PostTask(
+            FROM_HERE, base::BindOnce(
+                           [](scoped_refptr<dbus::Bus> bus,
+                              const std::string& service_name) {
+                             bus->ReleaseOwnership(service_name);
+                           },
+                           bus_, service_name_));
+      }
+    } else {
+      bus_->GetDBusTaskRunner()->PostTask(
+          FROM_HERE,
+          base::BindOnce(
+              [](scoped_refptr<dbus::Bus> bus) { bus->ShutdownAndBlock(); },
+              bus_));
+    }
   }
 }
 
@@ -395,8 +420,7 @@ void StatusIconLinuxDbus::OnHostRegisteredResponse(
                     base::NumberToString(base::Process::Current().Pid()), "-",
                     base::NumberToString(service_id_)});
 
-  item_ = bus_->GetExportedObject(
-      ObjectPathFromId(kPathStatusNotifierItem, service_id_));
+  item_ = bus_->GetExportedObject(dbus::ObjectPath(kPathStatusNotifierItem));
 
   for (const char* interface : {kInterfaceStatusNotifierItem,
                                 kInterfaceStatusNotifierItemFreedesktop}) {
@@ -421,6 +445,12 @@ void StatusIconLinuxDbus::OnHostRegisteredResponse(
             &StatusIconLinuxDbus::OnSecondaryActivate,
             weak_factory_.GetWeakPtr()),
         base::DoNothing());
+    dbus_utils::ExportMethod<"s", "">(
+        item_, interface, kMethodProvideXdgActivationToken,
+        dbus_utils::BindWeakPtrForExportMethod(
+            &StatusIconLinuxDbus::OnProvideXdgActivationToken,
+            weak_factory_.GetWeakPtr()),
+        base::DoNothing());
   }
 
   item_->ExportMethod(DBUS_INTERFACE_PROPERTIES, "Get",
@@ -434,7 +464,7 @@ void StatusIconLinuxDbus::OnHostRegisteredResponse(
       base::DoNothing());
 
   menu_ = std::make_unique<DbusMenu>(
-      bus_->GetExportedObject(ObjectPathFromId(kPathDbusMenu, service_id_)),
+      bus_->GetExportedObject(dbus::ObjectPath(kPathDbusMenu)),
       base::BindOnce(&StatusIconLinuxDbus::OnInitialized,
                      weak_factory_.GetWeakPtr()));
   UpdateMenuImpl(delegate_->GetMenuModel(), false);
@@ -442,8 +472,7 @@ void StatusIconLinuxDbus::OnHostRegisteredResponse(
   // Initialize properties map.
   SetProperty<"b">(kPropertyItemIsMenu, false, false);
   SetProperty<"i">(kPropertyWindowId, 0, false);
-  SetProperty<"o">(kPropertyMenu, ObjectPathFromId(kPathDbusMenu, service_id_),
-                   false);
+  SetProperty<"o">(kPropertyMenu, dbus::ObjectPath(kPathDbusMenu), false);
   SetProperty<"s">(kPropertyAttentionIconName, "", false);
   SetProperty<"s">(kPropertyAttentionMovieName, "", false);
   SetProperty<"s">(kPropertyCategory, kPropertyValueCategory, false);
@@ -498,9 +527,7 @@ void StatusIconLinuxDbus::RegisterStatusNotifierItem() {
       kMethodRegisterStatusNotifierItem,
       base::BindOnce(&StatusIconLinuxDbus::OnRegistered,
                      weak_factory_.GetWeakPtr()),
-      base::StrCat(
-          {service_name_,
-           ObjectPathFromId(kPathStatusNotifierItem, service_id_).value()}));
+      service_name_);
 }
 
 void StatusIconLinuxDbus::OnRegistered(
@@ -558,6 +585,13 @@ dbus_utils::ExportMethodResult<> StatusIconLinuxDbus::OnSecondaryActivate(
   // which is non-obvious, so allow middle-click to activate which is slightly
   // more obvious.
   delegate_->OnClick();
+  return std::make_tuple();
+}
+
+dbus_utils::ExportMethodResult<>
+StatusIconLinuxDbus::OnProvideXdgActivationToken(std::string token) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  base::nix::SetActivationToken(token);
   return std::make_tuple();
 }
 

@@ -17,12 +17,13 @@
 #include "build/build_config.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
-#include "chrome/browser/ash/shimless_rma/chrome_shimless_rma_delegate.h"
 #include "chrome/browser/bluetooth/bluetooth_chooser_context_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/engagement/important_sites_util.h"
+#include "chrome/browser/hid/hid_chooser_context.h"
+#include "chrome/browser/hid/hid_chooser_context_factory.h"
 #include "chrome/browser/infobars/browser_infobar_manager.h"
 #include "chrome/browser/infobars/infobar_features.h"
 #include "chrome/browser/media/webrtc/media_stream_device_permissions.h"
@@ -98,8 +99,9 @@
 #include "components/permissions/android/permissions_android_feature_map.h"
 #include "components/permissions/permission_request_manager.h"
 #else
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/permission_bubble/permission_prompt.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/vector_icons/vector_icons.h"
 #endif
 
@@ -109,6 +111,7 @@
 #include "chrome/browser/ash/app_mode/isolated_web_app/kiosk_iwa_manager.h"
 #include "chrome/browser/ash/app_mode/web_app/kiosk_web_app_data.h"
 #include "chrome/browser/ash/app_mode/web_app/kiosk_web_app_manager.h"
+#include "chrome/browser/ash/shimless_rma/chrome_shimless_rma_delegate.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "chromeos/components/kiosk/kiosk_utils.h"
 #include "components/user_manager/user.h"
@@ -312,6 +315,9 @@ ChromePermissionsClient::GetChooserContext(
           Profile::FromBrowserContext(browser_context));
     case ContentSettingsType::SERIAL_CHOOSER_DATA:
       return SerialChooserContextFactory::GetForProfile(
+          Profile::FromBrowserContext(browser_context));
+    case ContentSettingsType::HID_CHOOSER_DATA:
+      return HidChooserContextFactory::GetForProfile(
           Profile::FromBrowserContext(browser_context));
     default:
       NOTREACHED();
@@ -880,8 +886,8 @@ bool ChromePermissionsClient::IsFromNewTabPage(
   // `requesting_origin` is equal to 'Google' URL after overriding the requester
   // origin is allowed.
   if (already_overrode_requester &&
-      ChromePermissionsClient::
-          AllowEmbeddedPermissionPromptForAllowlistedSurfaces()) {
+      ChromePermissionsClient::AllowEmbeddedPermissionPromptForSurface(
+          web_contents)) {
     return requesting_origin == GetGoogleURLOrigin();
   }
   // Since the embedder is from the new tab page at this point, a page
@@ -898,17 +904,18 @@ bool ChromePermissionsClient::IsPrivilegedInternalWebUI(
   url::Origin embedding_origin = GetEmbeddingOrigin(web_contents);
   url::Origin requesting_origin = url::Origin::Create(requester);
 
-  // Check that the embedding origin is the Omnibox Popup or Contextual Tasks.
+  // Check that the embedding origin is the Omnibox Popup, Contextual Tasks, or
+  // Omnibox Everywhere.
   if (!IsPrivilegedInternalWebUIForUIRouting(embedding_origin)) {
     return false;
   }
 
-  // If the PEPC flag is enabled, then checking that the final
-  // `requesting_origin` is equal to 'Google' URL after overriding the requester
-  // origin is allowed.
+  // If the PEPC flag is enabled (or for Omnibox Everywhere, regardless of PEPC
+  // flag), then check that the final `requesting_origin` is equal to 'Google'
+  // URL after overriding the requester origin is allowed.
   if (already_overrode_requester &&
-      ChromePermissionsClient::
-          AllowEmbeddedPermissionPromptForAllowlistedSurfaces()) {
+      ChromePermissionsClient::AllowEmbeddedPermissionPromptForSurface(
+          web_contents)) {
     return requesting_origin == GetGoogleURLOrigin();
   }
   return embedding_origin == requesting_origin;
@@ -926,6 +933,12 @@ bool ChromePermissionsClient::
   return embedding_origin == GetContextualTasksOrigin() ||
          embedding_origin == GetOmniboxPopupOrigin() ||
          embedding_origin == GetOmniboxEverywhereOrigin();
+}
+
+bool ChromePermissionsClient::IsOmniboxEverywhere(
+    content::WebContents* web_contents) {
+  url::Origin embedding_origin = GetEmbeddingOrigin(web_contents);
+  return embedding_origin == GetOmniboxEverywhereOrigin();
 }
 
 #if BUILDFLAG(IS_ANDROID)

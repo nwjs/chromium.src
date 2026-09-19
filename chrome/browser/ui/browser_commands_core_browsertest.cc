@@ -1,0 +1,715 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include <stddef.h>
+
+#include <memory>
+
+#include "base/functional/callback_helpers.h"
+#include "base/test/scoped_feature_list.h"
+#include "build/build_config.h"
+#include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/resource_coordinator/tab_helper.h"
+#include "chrome/browser/resource_coordinator/tab_lifecycle_unit_external.h"
+#include "chrome/browser/resource_coordinator/tab_lifecycle_unit_source.h"
+#include "chrome/browser/resource_coordinator/utils.h"
+#include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
+#include "chrome/browser/ui/browser_command_controller.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_sync_service_initialized_observer.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/zoom/chrome_zoom_level_prefs.h"
+#include "chrome/common/pref_names.h"
+#include "chrome/common/url_constants.h"
+#include "chrome/test/base/in_process_browser_test.h"
+#include "chrome/test/base/ui_test_utils.h"
+#include "components/bookmarks/browser/bookmark_model.h"
+#include "components/bookmarks/test/bookmark_test_helpers.h"
+#include "components/prefs/pref_service.h"
+#include "components/saved_tab_groups/public/tab_group_sync_service.h"
+#include "components/zoom/page_zoom.h"
+#include "components/zoom/zoom_controller.h"
+#include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/common/page_zoom.h"
+#include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
+#include "net/test/embedded_test_server/embedded_test_server.h"
+#include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/page/page_zoom.h"
+#include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
+
+namespace {
+
+using bookmarks::BookmarkModel;
+using content::OpenURLParams;
+using content::Referrer;
+using content::WebContents;
+using zoom::ZoomController;
+
+class BrowserCommandsCoreTest : public InProcessBrowserTest {
+ public:
+  BrowserCommandsCoreTest() {
+    scoped_feature_list_.InitAndEnableFeature(features::kCtrlTabMru);
+  }
+  ~BrowserCommandsCoreTest() override = default;
+
+  void SetUpOnMainThread() override {
+    InProcessBrowserTest::SetUpOnMainThread();
+    ASSERT_TRUE(embedded_test_server()->Start());
+  }
+
+  Profile* profile() { return browser()->GetProfile(); }
+
+  void WaitForTabGroupSyncServiceInitialized() {
+    auto observer =
+        std::make_unique<tab_groups::TabGroupSyncServiceInitializedObserver>(
+            tab_groups::TabGroupSyncServiceFactory::GetForProfile(
+                browser()->GetProfile()));
+    observer->Wait();
+  }
+
+  void AddTab(BrowserWindowInterface* browser, const GURL& url) {
+    ui_test_utils::NavigateToURLWithDisposition(
+        browser, url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+        ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+
+    if (!initial_tab_closed_) {
+      browser->GetTabStripModel()->CloseWebContentsAt(
+          0, TabCloseTypes::CLOSE_NONE);
+      initial_tab_closed_ = true;
+    }
+  }
+
+  void NavigateAndCommitActiveTab(const GURL& url) {
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+  bool initial_tab_closed_ = false;
+};
+
+// Tests IDC_SELECT_TAB_0, IDC_SELECT_NEXT_TAB, IDC_SELECT_PREVIOUS_TAB and
+// IDC_SELECT_LAST_TAB.
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest, TabNavigationAccelerators) {
+  GURL about_blank(url::kAboutBlankURL);
+
+  // Create three tabs.
+  AddTab(browser(), about_blank);
+  AddTab(browser(), about_blank);
+  AddTab(browser(), about_blank);
+
+  // Select the second tab.
+  browser()->GetTabStripModel()->ActivateTabAt(1);
+
+  CommandUpdater* updater = chrome::BrowserCommandController::From(browser());
+
+  // Navigate to the first tab using an accelerator.
+  updater->ExecuteCommand(IDC_SELECT_TAB_0);
+  ASSERT_EQ(0, browser()->GetTabStripModel()->active_index());
+
+  // Navigate to the second tab using the next accelerators.
+  updater->ExecuteCommand(IDC_SELECT_NEXT_TAB);
+  ASSERT_EQ(1, browser()->GetTabStripModel()->active_index());
+
+  // Navigate back to the first tab using the previous accelerators.
+  updater->ExecuteCommand(IDC_SELECT_PREVIOUS_TAB);
+  ASSERT_EQ(0, browser()->GetTabStripModel()->active_index());
+
+  // Navigate to the last tab using the select last accelerator.
+  updater->ExecuteCommand(IDC_SELECT_LAST_TAB);
+  ASSERT_EQ(2, browser()->GetTabStripModel()->active_index());
+}
+
+// Tests IDC_CYCLE_TO_NEXT_TAB and IDC_CYCLE_TO_PREV_TAB with MRU enabled.
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest, CycleToMruTab) {
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kCtrlTabMru, true);
+
+  // Force the TabLifecycleUnitSource to consider our tab strip as focused,
+  // otherwise it might ignore activations because the window is not active at
+  // OS level.
+  base::ScopedClosureRunner scoped_focus =
+      resource_coordinator::GetTabLifecycleUnitSource()
+          ->SetFocusedTabStripModelForTesting(browser()->GetTabStripModel());
+
+  GURL about_blank(url::kAboutBlankURL);
+
+  // Create three tabs.
+  AddTab(browser(), about_blank);
+  AddTab(browser(), about_blank);
+  AddTab(browser(), about_blank);
+
+  // We start with tab 2 active (index 2).
+  // Activate tab 1 to put it in MRU.
+  browser()->GetTabStripModel()->ActivateTabAt(1);
+  // Activate tab 0 to make it more recent than 1.
+  browser()->GetTabStripModel()->ActivateTabAt(0);
+  // Activate tab 2 to make it active again.
+  browser()->GetTabStripModel()->ActivateTabAt(2);
+
+  CommandUpdater* updater = chrome::BrowserCommandController::From(browser());
+
+  // If MRU is active, the most recently used tab before 2 is 0.
+  updater->ExecuteCommand(IDC_CYCLE_TO_NEXT_TAB);
+  EXPECT_EQ(0, browser()->GetTabStripModel()->active_index());
+}
+
+// Tests that IDC_SELECT_NEXT_TAB and IDC_SELECT_PREVIOUS_TAB perform
+// linear/adjacent tab selection even when MRU feature is enabled.
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest,
+                       DirectionalTabSelectionIgnoresMru) {
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kCtrlTabMru, true);
+
+  GURL about_blank(url::kAboutBlankURL);
+
+  AddTab(browser(), about_blank);
+  AddTab(browser(), about_blank);
+  AddTab(browser(), about_blank);
+
+  // Start at tab 0.
+  browser()->GetTabStripModel()->ActivateTabAt(0);
+
+  CommandUpdater* updater = chrome::BrowserCommandController::From(browser());
+
+  // Directional IDC_SELECT_NEXT_TAB should move to tab 1.
+  updater->ExecuteCommand(IDC_SELECT_NEXT_TAB);
+  EXPECT_EQ(1, browser()->GetTabStripModel()->active_index());
+
+  // Directional IDC_SELECT_PREVIOUS_TAB should move back to tab 0.
+  updater->ExecuteCommand(IDC_SELECT_PREVIOUS_TAB);
+  EXPECT_EQ(0, browser()->GetTabStripModel()->active_index());
+}
+
+// Tests IDC_DUPLICATE_TAB.
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest, DuplicateTab) {
+  GURL url1 = embedded_test_server()->GetURL("/title1.html");
+  GURL url2 = embedded_test_server()->GetURL("/title2.html");
+  GURL url3 = embedded_test_server()->GetURL("/title3.html");
+  GURL url4 = embedded_test_server()->GetURL("/hung");
+
+  // Navigate to three urls, plus a pending URL that hasn't committed.
+  AddTab(browser(), url1);
+  NavigateAndCommitActiveTab(url2);
+  NavigateAndCommitActiveTab(url3);
+  content::NavigationController& orig_controller =
+      browser()->GetTabStripModel()->GetWebContentsAt(0)->GetController();
+  orig_controller.LoadURL(url4, content::Referrer(), ui::PAGE_TRANSITION_LINK,
+                          std::string());
+  EXPECT_EQ(3, orig_controller.GetEntryCount());
+  EXPECT_TRUE(orig_controller.GetPendingEntry());
+
+  size_t initial_window_count =
+      GlobalBrowserCollection::GetInstance()->GetSize();
+
+  // Duplicate the tab.
+  chrome::ExecuteCommand(browser(), IDC_DUPLICATE_TAB);
+  content::WaitForLoadStop(browser()->GetTabStripModel()->GetWebContentsAt(1));
+
+  // The duplicated tab should not end up in a new window.
+  size_t window_count = GlobalBrowserCollection::GetInstance()->GetSize();
+  ASSERT_EQ(initial_window_count, window_count);
+
+  // And we should have a newly duplicated tab.
+  ASSERT_EQ(2, browser()->GetTabStripModel()->count());
+
+  // Verify the stack of urls.
+  content::NavigationController& controller =
+      browser()->GetTabStripModel()->GetWebContentsAt(1)->GetController();
+  EXPECT_EQ(3, controller.GetEntryCount());
+  EXPECT_EQ(2, controller.GetCurrentEntryIndex());
+  EXPECT_EQ(url1, controller.GetEntryAtIndex(0)->GetURL());
+  EXPECT_EQ(url2, controller.GetEntryAtIndex(1)->GetURL());
+  EXPECT_EQ(url3, controller.GetEntryAtIndex(2)->GetURL());
+  EXPECT_FALSE(controller.GetPendingEntry());
+}
+
+// Tests IDC_VIEW_SOURCE (See http://crbug.com/40245175).
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest, ViewSource) {
+  GURL url1 = embedded_test_server()->GetURL("/title1.html");
+  GURL url1_subframe = embedded_test_server()->GetURL("/title2.html");
+  GURL url2 = embedded_test_server()->GetURL("/hung");
+
+  // Navigate to a URL and simulate a subframe committing.
+  AddTab(browser(), url1);
+  content::WebContents* web_contents =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+  std::string script =
+      "var iframe = document.createElement('iframe');"
+      "iframe.src = '" +
+      url1_subframe.spec() +
+      "';"
+      "document.body.appendChild(iframe);";
+  ASSERT_TRUE(content::ExecJs(web_contents, script));
+  ASSERT_TRUE(content::WaitForLoadStop(web_contents));
+
+  // Now start a pending navigation that hasn't committed.
+  content::NavigationController& orig_controller =
+      browser()->GetTabStripModel()->GetWebContentsAt(0)->GetController();
+  orig_controller.LoadURL(url2, content::Referrer(), ui::PAGE_TRANSITION_LINK,
+                          std::string());
+  EXPECT_EQ(1, orig_controller.GetEntryCount());
+  EXPECT_TRUE(orig_controller.GetPendingEntry());
+
+  size_t initial_window_count =
+      GlobalBrowserCollection::GetInstance()->GetSize();
+
+  // View Source.
+  chrome::ExecuteCommand(browser(), IDC_VIEW_SOURCE);
+  content::WaitForLoadStop(browser()->GetTabStripModel()->GetWebContentsAt(1));
+
+  // The view source tab should not end up in a new window.
+  size_t window_count = GlobalBrowserCollection::GetInstance()->GetSize();
+  ASSERT_EQ(initial_window_count, window_count);
+
+  // And we should have a newly duplicated tab.
+  ASSERT_EQ(2, browser()->GetTabStripModel()->count());
+
+  // Verify we are viewing the source of the last committed entry.
+  GURL view_source_url("view-source:" + url1.spec());
+  content::NavigationController& controller =
+      browser()->GetTabStripModel()->GetWebContentsAt(1)->GetController();
+  EXPECT_EQ(1, controller.GetEntryCount());
+  EXPECT_EQ(0, controller.GetCurrentEntryIndex());
+  EXPECT_EQ(url1, controller.GetEntryAtIndex(0)->GetURL());
+  EXPECT_EQ(view_source_url, controller.GetEntryAtIndex(0)->GetVirtualURL());
+  EXPECT_FALSE(controller.GetPendingEntry());
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest, BookmarkCurrentTab) {
+  BookmarkModel* model = BookmarkModelFactory::GetForBrowserContext(profile());
+  bookmarks::test::WaitForBookmarkModelToLoad(model);
+
+  // Navigate to a url.
+  GURL url1 = embedded_test_server()->GetURL("/title1.html");
+  AddTab(browser(), url1);
+  browser()->OpenURL(
+      OpenURLParams(url1, Referrer(), WindowOpenDisposition::CURRENT_TAB,
+                    ui::PAGE_TRANSITION_TYPED, false),
+      /*navigation_handle_callback=*/{});
+
+  chrome::BookmarkCurrentTab(browser());
+
+  // It should now be bookmarked in the bookmark model.
+  EXPECT_EQ(profile(), browser()->GetProfile());
+  EXPECT_TRUE(model->IsBookmarked(url1));
+}
+
+// Tests back/forward in new tab (Control + Back/Forward button in the UI).
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest, BackForwardInNewTab) {
+  GURL url1 = embedded_test_server()->GetURL("/title1.html");
+  GURL url2 = embedded_test_server()->GetURL("/title2.html");
+
+  // Make a tab with the two pages navigated in it.
+  AddTab(browser(), url1);
+  NavigateAndCommitActiveTab(url2);
+
+  // Go back in a new background tab.
+  chrome::GoBack(browser(), WindowOpenDisposition::NEW_BACKGROUND_TAB);
+  EXPECT_EQ(0, browser()->GetTabStripModel()->active_index());
+  ASSERT_EQ(2, browser()->GetTabStripModel()->count());
+
+  WebContents* zeroth = browser()->GetTabStripModel()->GetWebContentsAt(0);
+  WebContents* first = browser()->GetTabStripModel()->GetWebContentsAt(1);
+
+  // The original tab should be unchanged.
+  EXPECT_EQ(url2, zeroth->GetLastCommittedURL());
+  EXPECT_TRUE(zeroth->GetController().CanGoBack());
+  EXPECT_FALSE(zeroth->GetController().CanGoForward());
+
+  // The new tab should be like the first one but navigated back. Since we
+  // didn't wait for the load to complete, we can't use GetLastCommittedURL.
+  EXPECT_EQ(url1, first->GetVisibleURL());
+  EXPECT_FALSE(first->GetController().CanGoBack());
+  EXPECT_TRUE(first->GetController().CanGoForward());
+
+  // Select the second tab and make it go forward in a new background tab.
+  browser()->GetTabStripModel()->ActivateTabAt(
+      1, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
+  // TODO(crbug.com/40705856): It should not be necessary to commit the load
+  // here, but because of this bug, it will assert later if we don't. When the
+  // bug is fixed, one of the three commits here related to this bug should be
+  // removed (to test both codepaths).
+  content::WaitForLoadStop(first);
+  EXPECT_EQ(1, browser()->GetTabStripModel()->active_index());
+  chrome::GoForward(browser(), WindowOpenDisposition::NEW_BACKGROUND_TAB);
+
+  // The previous tab should be unchanged and still in the foreground.
+  EXPECT_EQ(url1, first->GetLastCommittedURL());
+  EXPECT_FALSE(first->GetController().CanGoBack());
+  EXPECT_TRUE(first->GetController().CanGoForward());
+  EXPECT_EQ(1, browser()->GetTabStripModel()->active_index());
+
+  // There should be a new tab navigated forward.
+  ASSERT_EQ(3, browser()->GetTabStripModel()->count());
+  WebContents* second = browser()->GetTabStripModel()->GetWebContentsAt(2);
+  // Since we didn't wait for load to complete, we can't use
+  // GetLastCommittedURL.
+  EXPECT_EQ(url2, second->GetVisibleURL());
+  EXPECT_TRUE(second->GetController().CanGoBack());
+  EXPECT_FALSE(second->GetController().CanGoForward());
+
+  // Now do back in a new foreground tab. Don't bother re-checking every sngle
+  // thing above, just validate that it's opening properly.
+  browser()->GetTabStripModel()->ActivateTabAt(
+      2, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
+  // TODO(crbug.com/40705856): see the comment above about why we need this.
+  content::WaitForLoadStop(second);
+  chrome::GoBack(browser(), WindowOpenDisposition::NEW_FOREGROUND_TAB);
+  ASSERT_EQ(3, browser()->GetTabStripModel()->active_index());
+  ASSERT_EQ(
+      url1,
+      browser()->GetTabStripModel()->GetActiveWebContents()->GetVisibleURL());
+
+  // Same thing again for forward.
+  // TODO(crbug.com/40705856): see the comment above about why we need this.
+  content::WaitForLoadStop(
+      browser()->GetTabStripModel()->GetActiveWebContents());
+  chrome::GoForward(browser(), WindowOpenDisposition::NEW_FOREGROUND_TAB);
+  ASSERT_EQ(4, browser()->GetTabStripModel()->active_index());
+  ASSERT_EQ(
+      url2,
+      browser()->GetTabStripModel()->GetActiveWebContents()->GetVisibleURL());
+}
+
+// Tests back/forward in new tab (Control + Back/Forward button in the UI)
+// with Tab Groups enabled.
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest, BackForwardInNewTabWithGroup) {
+  GURL url1 = embedded_test_server()->GetURL("/title1.html");
+  GURL url2 = embedded_test_server()->GetURL("/title2.html");
+  ASSERT_TRUE(browser()->GetTabStripModel()->SupportsTabGroups());
+
+  // Make a tab with the two pages navigated in it.
+  AddTab(browser(), url1);
+  NavigateAndCommitActiveTab(url2);
+
+  // Ensure the service is initialized before making any changes to tab groups.
+  WaitForTabGroupSyncServiceInitialized();
+
+  // Add the tab to a Tab Group.
+  const tab_groups::TabGroupId group_id =
+      browser()->GetTabStripModel()->AddToNewGroup({0});
+
+  // Go back in a new background tab.
+  chrome::GoBack(browser(), WindowOpenDisposition::NEW_BACKGROUND_TAB);
+  ASSERT_EQ(0, browser()->GetTabStripModel()->active_index());
+  ASSERT_EQ(2, browser()->GetTabStripModel()->count());
+
+  // The new tab should have inherited the tab group from the old tab.
+  EXPECT_EQ(group_id, browser()->GetTabStripModel()->GetTabGroupForTab(1));
+
+  // Select the second tab and make it go forward in a new background tab.
+  browser()->GetTabStripModel()->ActivateTabAt(
+      1, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
+  // TODO(crbug.com/40705856): see the comment above about why we need this.
+  content::WaitForLoadStop(
+      browser()->GetTabStripModel()->GetActiveWebContents());
+  chrome::GoForward(browser(), WindowOpenDisposition::NEW_BACKGROUND_TAB);
+
+  // The new tab should have inherited the tab group from the old tab.
+  EXPECT_EQ(group_id, browser()->GetTabStripModel()->GetTabGroupForTab(2));
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest, GroupAllUngroupedTabs) {
+  GURL url("http://www.google.com");
+
+  TabStripModel* tab_strip_model = browser()->GetTabStripModel();
+
+  ASSERT_TRUE(tab_strip_model->SupportsTabGroups());
+
+  AddTab(browser(), url);
+  AddTab(browser(), url);
+  AddTab(browser(), url);
+  AddTab(browser(), url);
+
+  // Ensure the service is initialized before making any changes to tab groups.
+  WaitForTabGroupSyncServiceInitialized();
+
+  ASSERT_EQ(tab_strip_model->count(), 4);
+
+  // Group the middle two tabs. The outer two tabs are ungrouped for now.
+  const tab_groups::TabGroupId group_1 = tab_strip_model->AddToNewGroup({1, 2});
+
+  const tabs::TabInterface* ungrouped_tab_0 = tab_strip_model->GetTabAtIndex(0);
+  const tabs::TabInterface* ungrouped_tab_1 = tab_strip_model->GetTabAtIndex(3);
+
+  chrome::GroupAllUngroupedTabs(browser());
+
+  // Get the new group and make sure it is distinct from
+  // the first group.
+  std::optional<tab_groups::TabGroupId> group_2_opt =
+      ungrouped_tab_0->GetGroup();
+  ASSERT_TRUE(group_2_opt.has_value());
+  const tab_groups::TabGroupId group_2 = *group_2_opt;
+  EXPECT_NE(group_1, group_2);
+
+  EXPECT_TRUE(ungrouped_tab_1->GetGroup());
+  EXPECT_EQ(group_2, *ungrouped_tab_1->GetGroup());
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest,
+                       GroupAllUngroupedTabsWithPinnedTabs) {
+  GURL url("http://www.google.com");
+  TabStripModel* tab_strip_model = browser()->GetTabStripModel();
+
+  ASSERT_TRUE(tab_strip_model->SupportsTabGroups());
+
+  AddTab(browser(), url);
+  AddTab(browser(), url);
+  AddTab(browser(), url);
+  AddTab(browser(), url);
+  ASSERT_EQ(tab_strip_model->count(), 4);
+
+  // Ensure the service is initialized before making any changes to tab groups.
+  WaitForTabGroupSyncServiceInitialized();
+
+  // Pin the first and third tabs. Then call group ungrouped tabs.
+  tab_strip_model->SetTabPinned(0, true);
+  tab_strip_model->SetTabPinned(1, true);
+
+  chrome::GroupAllUngroupedTabs(browser());
+  // Get the new group made from |GroupAllUngroupedTabs| and make sure it is
+  // distinct from the previous group.
+  std::optional<tab_groups::TabGroupId> group_opt =
+      tab_strip_model->GetTabGroupForTab(2);
+  ASSERT_TRUE(group_opt.has_value());
+  const tab_groups::TabGroupId group = *group_opt;
+
+  // Check the groups of the tab strip. Pinned tabs should not have a group.
+  EXPECT_EQ(std::nullopt, tab_strip_model->GetTabGroupForTab(0));
+  EXPECT_EQ(std::nullopt, tab_strip_model->GetTabGroupForTab(1));
+  EXPECT_EQ(group, tab_strip_model->GetTabGroupForTab(2));
+  EXPECT_EQ(group, tab_strip_model->GetTabGroupForTab(3));
+
+  // Check the pinned tabs are still pinned.
+  EXPECT_TRUE(tab_strip_model->IsTabPinned(0));
+  EXPECT_TRUE(tab_strip_model->IsTabPinned(1));
+  EXPECT_FALSE(tab_strip_model->IsTabPinned(2));
+  EXPECT_FALSE(tab_strip_model->IsTabPinned(3));
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest, OnMaxZoomIn) {
+  TabStripModel* tab_strip_model = browser()->GetTabStripModel();
+
+  GURL url("http://www.google.com");
+  AddTab(browser(), url);
+  WebContents* first_tab = tab_strip_model->GetWebContentsAt(0);
+
+  // Continue to zoom in until zoom percent reaches 500.
+  for (int i = 0; i < 9; ++i) {
+    zoom::PageZoom::Zoom(first_tab, content::PAGE_ZOOM_IN);
+  }
+
+  // TODO(a.sarkar.arun@gmail.com): Figure out why Zoom-In menu item is not
+  // disabled after Max-zoom is reached. Force disable Zoom-In menu item
+  // from the context menu since it breaks try jobs on bots.
+  if (chrome::IsCommandEnabled(browser(), IDC_ZOOM_PLUS)) {
+    chrome::UpdateCommandEnabled(browser(), IDC_ZOOM_PLUS, false);
+  }
+
+  ZoomController* zoom_controller = ZoomController::FromWebContents(first_tab);
+  EXPECT_FLOAT_EQ(500.0f, zoom_controller->GetZoomPercent());
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_PLUS));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_NORMAL));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_MINUS));
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest, OnMaxZoomOut) {
+  TabStripModel* tab_strip_model = browser()->GetTabStripModel();
+
+  GURL url("http://www.google.com");
+  AddTab(browser(), url);
+  WebContents* first_tab = tab_strip_model->GetWebContentsAt(0);
+
+  // Continue to zoom out until zoom percent reaches 25.
+  for (int i = 0; i < 7; ++i) {
+    zoom::PageZoom::Zoom(first_tab, content::PAGE_ZOOM_OUT);
+  }
+
+  ZoomController* zoom_controller = ZoomController::FromWebContents(first_tab);
+  EXPECT_FLOAT_EQ(25.0f, zoom_controller->GetZoomPercent());
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_PLUS));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_NORMAL));
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_MINUS));
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest, OnZoomReset) {
+  TabStripModel* tab_strip_model = browser()->GetTabStripModel();
+
+  GURL url("http://www.google.com");
+  AddTab(browser(), url);
+  WebContents* first_tab = tab_strip_model->GetWebContentsAt(0);
+
+  // Change the zoom percentage to 100.
+  zoom::PageZoom::Zoom(first_tab, content::PAGE_ZOOM_RESET);
+
+  ZoomController* zoom_controller = ZoomController::FromWebContents(first_tab);
+  EXPECT_FLOAT_EQ(100.0f, zoom_controller->GetZoomPercent());
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_PLUS));
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_NORMAL));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_MINUS));
+
+  // Changing the page scale factor will re-enable IDC_ZOOM_NORMAL
+  zoom_controller->SetPageScaleFactorIsOneForTesting(false);
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_NORMAL));
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest, OnZoomLevelChanged) {
+  TabStripModel* tab_strip_model = browser()->GetTabStripModel();
+
+  GURL url("http://www.google.com");
+  AddTab(browser(), url);
+  WebContents* first_tab = tab_strip_model->GetWebContentsAt(0);
+
+  // Changing zoom percentage from default should enable all the zoom
+  // NSMenuItems.
+  zoom::PageZoom::Zoom(first_tab, content::PAGE_ZOOM_IN);
+
+  ZoomController* zoom_controller = ZoomController::FromWebContents(first_tab);
+  EXPECT_FLOAT_EQ(110.0f, zoom_controller->GetZoomPercent());
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_PLUS));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_NORMAL));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_MINUS));
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest, OnZoomChangedForActiveTab) {
+  TabStripModel* tab_strip_model = browser()->GetTabStripModel();
+
+  GURL url("http://www.google.com");
+  GURL url1("http://code.google.com");
+
+  // Add First tab.
+  AddTab(browser(), url);
+  AddTab(browser(), url1);
+  WebContents* first_tab = tab_strip_model->GetWebContentsAt(0);
+
+  ZoomController* zoom_controller = ZoomController::FromWebContents(first_tab);
+  EXPECT_FLOAT_EQ(100.0f, zoom_controller->GetZoomPercent());
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_PLUS));
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_NORMAL));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_MINUS));
+
+  // Add Second tab.
+  WebContents* second_tab = tab_strip_model->GetWebContentsAt(1);
+
+  tab_strip_model->ActivateTabAt(
+      1, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
+  EXPECT_TRUE(tab_strip_model->IsTabSelected(1));
+  zoom::PageZoom::Zoom(second_tab, content::PAGE_ZOOM_OUT);
+
+  zoom_controller = ZoomController::FromWebContents(second_tab);
+  EXPECT_FLOAT_EQ(90.0f, zoom_controller->GetZoomPercent());
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_PLUS));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_NORMAL));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_MINUS));
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest, OnDefaultZoomLevelChanged) {
+  TabStripModel* tab_strip_model = browser()->GetTabStripModel();
+  GURL url("http://code.google.com");
+  AddTab(browser(), url);
+  WebContents* tab = tab_strip_model->GetWebContentsAt(0);
+  ZoomController* zoom_controller = ZoomController::FromWebContents(tab);
+
+  // Set the default zoom level to 125.
+  profile()->GetZoomLevelPrefs()->SetDefaultZoomLevelPref(
+      blink::ZoomFactorToZoomLevel(1.25));
+  EXPECT_FLOAT_EQ(125.0f, zoom_controller->GetZoomPercent());
+
+  // Actual Size from context menu should be disabled now.
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_PLUS));
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_NORMAL));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_MINUS));
+
+  // Change the zoom level.
+  zoom::PageZoom::Zoom(tab, content::PAGE_ZOOM_IN);
+
+  EXPECT_FLOAT_EQ(150.0f, zoom_controller->GetZoomPercent());
+
+  // Tab no longer at default zoom hence actual size should be enabled.
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_PLUS));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_NORMAL));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_MINUS));
+}
+
+// TODO(crbug.com/514729759): Re-enable once caretbrowsing shortcut simulation
+// is fixed in browser_tests.
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest, DISABLED_ToggleCaretBrowsing) {
+  // Set initial known state for browser process TestingProfile.
+  PrefService* pref_service = profile()->GetPrefs();
+  pref_service->SetBoolean(prefs::kCaretBrowsingEnabled, false);
+  pref_service->SetBoolean(prefs::kShowCaretBrowsingDialog, false);
+
+#if BUILDFLAG(IS_MAC)
+  // On Mac, caret browsing should be disabled unless focus is in web content.
+  // Make sure it's disabled initially and doesn't toggle if executed.
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_CARET_BROWSING_TOGGLE));
+  chrome::ExecuteCommand(browser(), IDC_CARET_BROWSING_TOGGLE);
+  EXPECT_FALSE(pref_service->GetBoolean(prefs::kCaretBrowsingEnabled));
+#endif
+
+  // Create multiple tabs to test if caret browsing mode gets broadcast to all
+  // tabs when toggled. (For the purposes of testing, this simulates
+  // putting focus in web contents as a side effect.)
+  GURL about_blank(url::kAboutBlankURL);
+  int tab_count = 3;
+  for (int i = 0; i < tab_count; ++i) {
+    AddTab(browser(), about_blank);
+  }
+
+  // Toggle on caret browsing.
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_CARET_BROWSING_TOGGLE));
+  chrome::ExecuteCommand(browser(), IDC_CARET_BROWSING_TOGGLE);
+  EXPECT_TRUE(pref_service->GetBoolean(prefs::kCaretBrowsingEnabled));
+
+  // Add another tab after toggling caret browsing mode--it should also have
+  // caret browsing mode set.
+  AddTab(browser(), about_blank);
+  tab_count++;
+
+  // Check renderer preferences for each tab.
+  for (int i = 0; i < tab_count; ++i) {
+    WebContents* web_contents =
+        browser()->GetTabStripModel()->GetWebContentsAt(i);
+    blink::RendererPreferences* renderer_preferences =
+        web_contents->GetMutableRendererPrefs();
+    EXPECT_TRUE(renderer_preferences->caret_browsing_enabled);
+  }
+
+  // Toggle off caret browsing.
+  chrome::ExecuteCommand(browser(), IDC_CARET_BROWSING_TOGGLE);
+  EXPECT_FALSE(pref_service->GetBoolean(prefs::kCaretBrowsingEnabled));
+
+  // Add another tab after toggling caret browsing mode--it should also have
+  // caret browsing mode unset.
+  AddTab(browser(), about_blank);
+  tab_count++;
+
+  // Check renderer preferences for each tab.
+  for (int i = 0; i < tab_count; ++i) {
+    WebContents* web_contents =
+        browser()->GetTabStripModel()->GetWebContentsAt(i);
+    blink::RendererPreferences* renderer_preferences =
+        web_contents->GetMutableRendererPrefs();
+    EXPECT_FALSE(renderer_preferences->caret_browsing_enabled);
+  }
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserCommandsCoreTest, TabSearchCommandStatus) {
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_TAB_SEARCH));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_TAB_SEARCH_CLOSE));
+}
+
+}  // namespace

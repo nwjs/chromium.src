@@ -82,6 +82,8 @@ class PopupViewViews : public PopupBaseView,
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(
       kAutofillCreditCardSuggestionEntryElementId);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kAutofillAiOptInIphElementId);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(
+      kAutofillWalletDirectOffersIphElementId);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kAutofillAiValuablesElementId);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(
       kAutofillStandaloneCvcSuggestionElementId);
@@ -103,7 +105,10 @@ class PopupViewViews : public PopupBaseView,
   // The maximum width of the popup.
   static constexpr int kAutofillPopupMaxWidth = 456;
 
-  // The width of the @memory popup.
+  // The maximum width of an Autofill AI sub-popup.
+  static constexpr int kAutofillAiSubPopupMaxWidth = 320;
+
+  // The width of the AtMemory popup.
   static constexpr int kAtMemoryPopupWidth = 320;
 
   // The maximum number of entries shown before making the popup scrollable. A
@@ -208,12 +213,8 @@ class PopupViewViews : public PopupBaseView,
   // metadata.
   void ShowIPHFeaturePromos();
 
-  // Automatically selects the first interactive row in the popup (or
-  // clears/skips selection) if required by trigger source or suggestion type
-  // default.
-  void MaybeAutoSelectSuggestion(
-      AutoselectFirstSuggestion force_by_trigger_source =
-          AutoselectFirstSuggestion(false));
+  // Automatically selects the first interactive row in the popup.
+  void AutoSelectFirstSuggestion();
 
   // If the current suggestions are for password recovery, announces it to the
   // user.
@@ -302,7 +303,7 @@ class PopupViewViews : public PopupBaseView,
       const input::NativeWebKeyboardEvent& event);
 
   // Reacts to key events under the assumption that the currently shown popup
-  // contains @memory content.
+  // contains AtMemory content.
   bool HandleKeyPressEventForAtMemory(
       const input::NativeWebKeyboardEvent& event);
 

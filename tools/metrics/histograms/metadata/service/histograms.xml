@@ -226,6 +226,31 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="ServiceWorker.AutoPreload.MainFrame.Dispatched" enum="Boolean"
+    expires_after="2027-06-01">
+  <owner>sisidovski@chromium.org</owner>
+  <owner>chrome-worker@google.com</owner>
+  <summary>
+    Records whether ServiceWorkerAutoPreload is dispatched or not for outermost
+    main frames only.
+
+    This metric is recorded for the main resource.
+  </summary>
+</histogram>
+
+<histogram name="ServiceWorker.AutoPreload.MainFrame.DispatchResult"
+    enum="ServiceWorkerAutoPreloadDispatchResult" expires_after="2027-06-01">
+  <owner>sisidovski@chromium.org</owner>
+  <owner>chrome-worker@google.com</owner>
+  <summary>
+    Records the result of attempting to dispatch ServiceWorkerAutoPreload for
+    outermost main frames only. If it was not dispatched, records the specific
+    reason why it was blocked.
+
+    This metric is recorded for the main resource.
+  </summary>
+</histogram>
+
 <histogram name="ServiceWorker.CacheStorageInstalledScript.CachedMetadataSize"
     units="bytes" expires_after="2026-07-05">
   <owner>yyanagisawa@chromium.org</owner>
@@ -513,7 +538,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ServiceWorker.FetchEvent.{Resource}.FetchResponseFrom"
-    enum="ServiceWorkerFetchResponseFrom" expires_after="2026-12-13">
+    enum="ServiceWorkerFetchResponseFrom" expires_after="2027-02-14">
   <owner>sisidovski@chromium.org</owner>
   <owner>chrome-worker@google.com</owner>
   <summary>
@@ -653,9 +678,87 @@ chromium-metrics-reviews@google.com.
   <owner>yyanagisawa@chromium.org</owner>
   <owner>chrome-worker@google.com</owner>
   <summary>
-    Records net::Error code (as a positive integer) when a Service Worker race
-    network request fetch fails after its matching respondWith observer has
-    already settled/been erased.
+    Records net::Error code (as a positive integer) when a Service Worker fetch
+    request with a race network request token fails after its matching
+    respondWith observer has already settled/been erased. Note that this
+    includes requests that fell back to the regular network loader (e.g. due to
+    pipe disconnection).
+  </summary>
+</histogram>
+
+<histogram
+    name="ServiceWorker.FetchInFetchHandler.PostRespondWithRaceURLLoaderNetError"
+    enum="NetErrorCodes" expires_after="2027-07-01">
+  <owner>yyanagisawa@chromium.org</owner>
+  <owner>chrome-worker@google.com</owner>
+  <summary>
+    Records net::Error code (as a positive integer) when a Service Worker fetch
+    fails after its matching respondWith observer has already settled/been
+    erased, specifically when the RaceNetworkRequest URLLoaderFactory (the pipe
+    to the browser process) was actually used for the fetch.
+  </summary>
+</histogram>
+
+<histogram name="ServiceWorker.FetchInFetchHandler.RaceFetchNetError"
+    enum="NetErrorCodes" expires_after="2027-07-01">
+  <owner>yyanagisawa@chromium.org</owner>
+  <owner>chrome-worker@google.com</owner>
+  <summary>
+    Records net::Error code (as a positive integer, where 0 is net::OK for
+    success) when any Service Worker fetch request with a race network request
+    token completes (both during and after respondWith). Note that this includes
+    requests that fell back to the regular network loader (e.g. due to pipe
+    disconnection).
+  </summary>
+</histogram>
+
+<histogram
+    name="ServiceWorker.FetchInFetchHandler.RaceNetworkRequestLoaderState"
+    enum="ServiceWorkerRaceNetworkRequestLoaderState"
+    expires_after="2027-07-01">
+  <owner>yyanagisawa@chromium.org</owner>
+  <owner>chrome-worker@google.com</owner>
+  <summary>
+    Records the loader state (e.g. race loader used, or reason for fallback)
+    when a fetch request with a Service Worker race network request token is
+    initiated in the Service Worker fetch handler.
+  </summary>
+</histogram>
+
+<histogram
+    name="ServiceWorker.FetchInFetchHandler.RaceNetworkRequestLoaderState.Failure"
+    enum="ServiceWorkerRaceNetworkRequestLoaderState"
+    expires_after="2027-07-01">
+  <owner>yyanagisawa@chromium.org</owner>
+  <owner>chrome-worker@google.com</owner>
+  <summary>
+    Records the loader state when a fetch request with a Service Worker race
+    network request token fails.
+  </summary>
+</histogram>
+
+<histogram
+    name="ServiceWorker.FetchInFetchHandler.RaceNetworkRequestLoaderState.Success"
+    enum="ServiceWorkerRaceNetworkRequestLoaderState"
+    expires_after="2027-07-01">
+  <owner>yyanagisawa@chromium.org</owner>
+  <owner>chrome-worker@google.com</owner>
+  <summary>
+    Records the loader state when a fetch request with a Service Worker race
+    network request token completes successfully.
+  </summary>
+</histogram>
+
+<histogram name="ServiceWorker.FetchInFetchHandler.RaceURLLoaderNetError"
+    enum="NetErrorCodes" expires_after="2027-07-01">
+  <owner>yyanagisawa@chromium.org</owner>
+  <owner>chrome-worker@google.com</owner>
+  <summary>
+    Records net::Error code (as a positive integer, where 0 is net::OK for
+    success) when a Service Worker fetch request completes (both during and
+    after respondWith), specifically when the RaceNetworkRequest
+    URLLoaderFactory (the pipe to the browser process) was actually used for the
+    fetch.
   </summary>
 </histogram>
 
@@ -778,6 +881,17 @@ chromium-metrics-reviews@google.com.
     <variant name="WithFetch"
         summary="install events that made network fetches"/>
   </token>
+</histogram>
+
+<histogram name="ServiceWorker.LiveRegistrationKeyMatched" enum="Boolean"
+    expires_after="2027-01-03">
+  <owner>sisidovski@chromium.org</owner>
+  <owner>chrome-worker@google.com</owner>
+  <summary>
+    Records whether the StorageKey of an existing in-memory live registration
+    matched the StorageKey of the data fetched from disk in
+    ServiceWorkerRegistry::GetOrCreateRegistration.
+  </summary>
 </histogram>
 
 <histogram
@@ -1507,7 +1621,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ServiceWorker.ResourceChecksumMatch" enum="Boolean"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>elkurin@chromium.org</owner>
   <owner>chrome-storage-team-tokyo@google.com</owner>
   <summary>
@@ -1520,7 +1634,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ServiceWorker.RouterEvaluator.Error"
-    enum="ServiceWorkerRouterEvaluatorErrorEnums" expires_after="2026-12-16">
+    enum="ServiceWorkerRouterEvaluatorErrorEnums" expires_after="2027-02-14">
   <owner>yyanagisawa@chromium.org</owner>
   <owner>chrome-worker@google.com</owner>
   <summary>
@@ -2233,7 +2347,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ServiceWorker.SyntheticResponse.WriteFallbackBodyResult"
-    enum="MojoResult" expires_after="2026-12-16">
+    enum="MojoResult" expires_after="2027-02-14">
   <owner>sisidovski@google.com</owner>
   <owner>chrome-worker@google.com</owner>
   <summary>

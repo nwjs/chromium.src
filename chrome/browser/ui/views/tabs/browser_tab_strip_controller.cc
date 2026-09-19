@@ -37,6 +37,7 @@
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_group_theme.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
+#include "chrome/browser/ui/tabs/tab_menu_model_delegate.h"
 #include "chrome/browser/ui/tabs/tab_muted_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
@@ -69,6 +70,7 @@
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "components/tabs/public/split_tab_data.h"
+#include "components/tabs/public/tab_context_menu_command.h"
 #include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/tabs/public/tab_network_state.h"
@@ -119,20 +121,12 @@ TabStripUserGestureDetails GetGestureDetail(const ui::Event& event) {
 ////////////////////////////////////////////////////////////////////////////////
 // BrowserTabStripController, public:
 
-BrowserTabStripController::BrowserTabStripController(
-    TabStripModel* model,
-    BrowserView* browser_view,
-    std::unique_ptr<TabMenuModelFactory> menu_model_factory_override)
+BrowserTabStripController::BrowserTabStripController(TabStripModel* model,
+                                                     BrowserView* browser_view)
     : model_(model),
       tabstrip_(nullptr),
       browser_view_(browser_view),
-      hover_tab_selector_(model),
-      menu_model_factory_(std::move(menu_model_factory_override)) {
-  if (!menu_model_factory_) {
-    // Use the default one.
-    menu_model_factory_ = std::make_unique<TabMenuModelFactory>();
-  }
-}
+      hover_tab_selector_(model) {}
 
 BrowserTabStripController::~BrowserTabStripController() {
   // When we get here the TabStrip is being deleted. We need to explicitly
@@ -200,7 +194,9 @@ void BrowserTabStripController::InitFromModel(TabStrip* tabstrip) {
         service->IsBrowserWindowEligible(browser_view_->browser()));
   }
 
-  UpdateAllTabsFocusFreezing();
+  if (base::FeatureList::IsEnabled(features::kTabGroupsFocusing)) {
+    UpdateAllTabsFocusFreezing();
+  }
 }
 
 void BrowserTabStripController::Reset() {
@@ -435,14 +431,13 @@ void BrowserTabStripController::ShowContextMenuForTab(
   context_menu_controller_ = std::make_unique<TabContextMenuController>(
       model_->GetTabAtIndex(tab_index.value())->GetHandle(), this);
 
-  auto model = menu_model_factory_->Create(
+  auto model = std::make_unique<TabMenuModel>(
       context_menu_controller_.get(),
-      GetBrowserWindowInterface()->GetFeatures().tab_menu_model_delegate(),
-      model_, tab_index.value());
+      TabMenuModelDelegate::From(GetBrowserWindowInterface()), model_,
+      tab_index.value());
 
-  ui::SimpleMenuModel* model_ptr = model.get();
-  context_menu_controller_->LoadModel(
-      std::move(model), menu_model_factory_->AsTabMenuModel(model_ptr));
+  TabMenuModel* model_ptr = model.get();
+  context_menu_controller_->LoadModel(std::move(model), model_ptr);
 
   context_menu_controller_->RunMenuAt(p, source_type, tabstrip_->GetWidget());
   base::UmaHistogramEnumeration("TabStrip.Tab.Views.ActivationAction",
@@ -797,12 +792,18 @@ void BrowserTabStripController::OnSplitTabChanged(
 void BrowserTabStripController::OnTabGroupFocusChanged(
     std::optional<tab_groups::TabGroupId> new_group_id,
     std::optional<tab_groups::TabGroupId> old_group_id) {
-  browser_view_->tab_strip_view()->OnTabGroupFocusChanged(new_group_id,
-                                                          old_group_id);
+  CHECK(browser_view_);
 
-  UpdateFocusModeTheme(new_group_id);
-  browser_view_->browser_widget()->ThemeChanged();
-  browser_view_->GetWidget()->non_client_view()->frame_view()->SchedulePaint();
+  if (auto* tab_strip_view = browser_view_->tab_strip_view()) {
+    tab_strip_view->OnTabGroupFocusChanged(new_group_id, old_group_id);
+  }
+  if (auto* browser_widget = browser_view_->browser_widget()) {
+    UpdateFocusModeTheme(new_group_id);
+    browser_widget->ThemeChanged();
+    if (auto* frame_view = browser_widget->GetFrameView()) {
+      frame_view->SchedulePaint();
+    }
+  }
 
   UpdateAllTabsFocusFreezing();
 }
@@ -833,7 +834,7 @@ void BrowserTabStripController::UpdateTabFocusFreezing(int model_index) {
   if (!features::IsTabGroupsFocusFreezingEnabled()) {
     return;
   }
-  if (!model_->ContainsIndex(model_index)) {
+  if (!tabstrip_ || !model_->ContainsIndex(model_index)) {
     return;
   }
   Tab* tab = tabstrip_->tab_at(model_index);
@@ -849,7 +850,7 @@ void BrowserTabStripController::UpdateTabFocusFreezing(int model_index) {
 }
 
 void BrowserTabStripController::UpdateAllTabsFocusFreezing() {
-  if (!features::IsTabGroupsFocusFreezingEnabled()) {
+  if (!features::IsTabGroupsFocusFreezingEnabled() || !tabstrip_) {
     return;
   }
   for (int i = 0; i < tabstrip_->GetTabCount(); ++i) {
@@ -904,9 +905,9 @@ bool BrowserTabStripController::GetContextMenuAccelerator(
   auto* const app_controller =
       web_app::AppBrowserController::From(GetBrowserWindowInterface());
   auto* system_app = app_controller ? app_controller->system_app() : nullptr;
-  if (system_app &&
-      !system_app->ShouldShowTabContextMenuShortcut(
-          GetBrowserWindowInterface()->GetProfile(), command_id)) {
+  if (system_app && !system_app->ShouldShowTabContextMenuShortcut(
+                        GetBrowserWindowInterface()->GetProfile(),
+                        static_cast<tabs::TabContextMenuCommand>(command_id))) {
     return false;
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)

@@ -36,7 +36,6 @@
 #include "third_party/skia/include/core/SkTypes.h"
 #include "third_party/skia/include/private/SkXmp.h"
 #include "ui/gfx/color_space.h"
-#include "ui/gfx/icc_profile.h"
 
 #if defined(ARCH_CPU_BIG_ENDIAN)
 #error Blink assumes a little-endian target.
@@ -891,9 +890,8 @@ bool AVIFImageDecoder::UpdateDemuxer() {
         return false;
       }
 
-      skcms_ICCProfile profile;
-      sk_color_space->toProfile(&profile);
-      SetEmbeddedColorProfile(skia::ColorProfile::Make(profile));
+      SetEmbeddedColorProfile(
+          skia::ColorProfile::Make(std::move(sk_color_space)));
     }
   }
 

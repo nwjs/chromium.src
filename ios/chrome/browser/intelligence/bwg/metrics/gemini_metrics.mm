@@ -7,6 +7,7 @@
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
+#import "components/contextual_cueing/contextual_cueing_enums.h"
 #import "components/optimization_guide/core/hints/optimization_guide_decision.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/public/provider/chrome/browser/bwg/gemini_api.h"
@@ -149,6 +150,12 @@ const char kPromptLongPressImageIncludedHistogram[] =
 const char kPromptContextAttachmentHistogram[] =
     "IOS.Gemini.Prompt.ContextAttachment";
 
+const char kPromptChatContextAttachmentHistogram[] =
+    "IOS.Gemini.Prompt.Chat.ContextAttachment";
+
+const char kPromptLiveContextAttachmentHistogram[] =
+    "IOS.Gemini.Prompt.Live.ContextAttachment";
+
 const char kPromptTabsAttachedCountHistogram[] =
     "IOS.Gemini.Prompt.TabsAttachedCount";
 
@@ -243,6 +250,9 @@ const char kEditMenuSelectedTextLengthHistogram[] =
 
 const char kGlicContextualCueDecisionHistogram[] =
     "IOS.Gemini.GlicContextualCue.Decision";
+
+const char kContextualCueingDecisionHistogram[] =
+    "IOS.ContextualCueing.Decision";
 
 void RecordFirstRunPromoAction(IOSGeminiFirstRunAction action) {
   switch (action) {
@@ -675,6 +685,7 @@ void RecordGeminiPromptSent(bool is_nano_banana_enabled,
                             int tabs_attached_count,
                             bool was_multi_tab_used) {
   base::RecordAction(base::UserMetricsAction("MobileGeminiPromptSent"));
+  base::RecordAction(base::UserMetricsAction("MobileGeminiChatPromptSent"));
   base::UmaHistogramBoolean(kPromptImageRemixEnabledHistogram,
                             is_nano_banana_enabled);
   base::UmaHistogramCounts100(kPromptImagesAttachedCountHistogram,
@@ -682,6 +693,8 @@ void RecordGeminiPromptSent(bool is_nano_banana_enabled,
   base::UmaHistogramBoolean(kPromptLongPressImageIncludedHistogram,
                             long_press_image_included);
   base::UmaHistogramBoolean(kPromptContextAttachmentHistogram,
+                            has_page_context);
+  base::UmaHistogramBoolean(kPromptChatContextAttachmentHistogram,
                             has_page_context);
   base::UmaHistogramCounts100(kPromptTabsAttachedCountHistogram,
                               tabs_attached_count);
@@ -820,6 +833,11 @@ void RecordGeminiGlicContextualCueDecision(
   base::UmaHistogramEnumeration(kGlicContextualCueDecisionHistogram, decision);
 }
 
+void RecordContextualCueingDecision(
+    contextual_cueing::ContextualCueingDecision decision) {
+  base::UmaHistogramEnumeration(kContextualCueingDecisionHistogram, decision);
+}
+
 void RecordGeminiLiveDormantReason(ios::provider::GeminiDormantReason reason) {
   IOSGeminiDormantReason uma_reason = IOSGeminiDormantReason::kUnknown;
   switch (reason) {
@@ -872,6 +890,15 @@ void RecordGeminiLiveTurnCount(int turn_count) {
 void RecordGeminiLiveAccumulatedDuration(base::TimeDelta duration) {
   base::UmaHistogramLongTimes(kGeminiLiveAccumulatedDurationHistogram,
                               duration);
+}
+
+void RecordGeminiLivePromptSent(bool has_page_context) {
+  base::RecordAction(base::UserMetricsAction("MobileGeminiPromptSent"));
+  base::RecordAction(base::UserMetricsAction("MobileGeminiLivePromptSent"));
+  base::UmaHistogramBoolean(kPromptContextAttachmentHistogram,
+                            has_page_context);
+  base::UmaHistogramBoolean(kPromptLiveContextAttachmentHistogram,
+                            has_page_context);
 }
 
 void RecordBlockQuerySubmissionWhileLoading(bool block_submission) {

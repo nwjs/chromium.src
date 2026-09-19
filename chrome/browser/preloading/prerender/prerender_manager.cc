@@ -15,6 +15,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/after_startup_task_utils.h"
 #include "chrome/browser/browser_features.h"
+#include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/headless/headless_mode_util.h"
 #include "chrome/browser/page_load_metrics/chrome_initiator_location.h"
 #include "chrome/browser/preloading/chrome_preloading.h"
@@ -23,8 +24,8 @@
 #include "chrome/browser/preloading/prefetch/search_prefetch/search_prefetch_service_factory.h"
 #include "chrome/browser/preloading/preloading_features.h"
 #include "chrome/browser/preloading/prerender/prerender_utils.h"
-#include "chrome/browser/preloading/prerender/search_prewarm_progress_service.h"
-#include "chrome/browser/preloading/prerender/search_prewarm_progress_service_factory.h"
+#include "chrome/browser/preloading/prerender/search_preload_progress_service.h"
+#include "chrome/browser/preloading/prerender/search_preload_progress_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "components/omnibox/browser/autocomplete_match.h"
@@ -51,7 +52,7 @@
 #include "url/gurl.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #endif
 
@@ -315,7 +316,7 @@ bool PrerenderManager::MaybeStartPrewarmSearchResult() {
       search_prewarm_handle_->IsWaitingForResponseHeaders()) {
     auto* profile =
         Profile::FromBrowserContext(web_contents()->GetBrowserContext());
-    auto* service = SearchPrewarmProgressServiceFactory::GetForProfile(profile);
+    auto* service = SearchPreloadProgressServiceFactory::GetForProfile(profile);
     if (service) {
       service->OnSearchPrewarmStarted(
           search_prewarm_handle_->GetPrerenderHostId());
@@ -336,7 +337,7 @@ void PrerenderManager::NotifySearchPrewarmFinished(
   }
   auto* profile =
       Profile::FromBrowserContext(web_contents()->GetBrowserContext());
-  auto* service = SearchPrewarmProgressServiceFactory::GetForProfile(profile);
+  auto* service = SearchPreloadProgressServiceFactory::GetForProfile(profile);
   if (service) {
     service->OnSearchPrewarmFinished(
         search_prewarm_handle_->GetPrerenderHostId(), result);
@@ -521,7 +522,7 @@ PrerenderManager::PrewarmDecision PrerenderManager::ShouldPrewarm(
       !AfterStartupTaskUtils::IsBrowserStartupComplete()) {
     return PrewarmDecision::kDisabledOnStartup;
   }
-  auto* service = SearchPrewarmProgressServiceFactory::GetForProfile(
+  auto* service = SearchPreloadProgressServiceFactory::GetForProfile(
       Profile::FromBrowserContext(web_contents()->GetBrowserContext()));
   if (service && service->ShouldBlockPrewarm()) {
     return PrewarmDecision::kDisabledByBlackout;
@@ -539,8 +540,8 @@ PrerenderManager::PrewarmDecision PrerenderManager::ShouldPrewarm(
     // is implemented in the CDP.
     return PrewarmDecision::kDebuggerAttached;
   }
-  prewarm_url =
-      prewarm_url_for_testing_.value_or(GURL(features::kPrewarmUrl.Get()));
+  prewarm_url = prewarm_url_for_testing_.value_or(
+      ChromeContentBrowserClient::GetPrewarmUrl());
   if (!prewarm_url.is_valid()) {
     // A valid URL would not be provided if the feature is enabled from
     // chrome://flags, or arbitrary command line options.

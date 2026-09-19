@@ -28,7 +28,7 @@
 #include "components/autofill/core/browser/payments/wallet_reminder_notice_manager.h"
 #include "components/autofill/core/browser/single_field_fillers/payments/merchant_promo_code_manager.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/browser/ui/payments/autofill_progress_ui_type.h"
 #include "components/autofill/core/browser/ui/payments/bnpl_ui_delegate.h"
 #include "components/autofill/core/common/autofill_prefs.h"
@@ -350,7 +350,12 @@ MockIbanAccessManager* TestPaymentsAutofillClient::GetIbanAccessManager() {
 
 MockMerchantPromoCodeManager*
 TestPaymentsAutofillClient::GetMerchantPromoCodeManager() {
-  return &mock_merchant_promo_code_manager_;
+  if (!mock_merchant_promo_code_manager_) {
+    mock_merchant_promo_code_manager_ =
+        std::make_unique<testing::NiceMock<MockMerchantPromoCodeManager>>(
+            &client_.get());
+  }
+  return mock_merchant_promo_code_manager_.get();
 }
 
 void TestPaymentsAutofillClient::OpenPromoCodeOfferDetailsURL(const GURL& url) {

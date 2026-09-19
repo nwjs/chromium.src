@@ -146,7 +146,7 @@ BASE_FEATURE(kAndroidSurfaceControl, base::FEATURE_ENABLED_BY_DEFAULT);
 // Hardware Overlays for WebView.
 BASE_FEATURE(kWebViewSurfaceControl, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kWebViewSurfaceControlForTV, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebViewSurfaceControlForTV, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // This is used as default state because it's different for webview and chrome.
 // WebView hardcodes this as enabled in AwMainDelegate.
@@ -177,7 +177,7 @@ const base::FeatureParam<std::string>
     kRelaxLimitAImageReaderMaxSizeToOneManufacturerBlocklist{
         &kRelaxLimitAImageReaderMaxSizeToOne,
         "RelaxLimitAImageReaderMaxSizeToOneManufacturerBlocklist",
-        "*Broadcom*"};
+        "*Broadcom*|*Google*"};
 const base::FeatureParam<std::string>
     kRelaxLimitAImageReaderMaxSizeToOneDeviceBlocklist{
         &kRelaxLimitAImageReaderMaxSizeToOne,
@@ -403,7 +403,12 @@ BASE_FEATURE(kUseDynamicBackingAllocations, base::FEATURE_DISABLED_BY_DEFAULT);
 // scoped_refptr to SharedImageInterface, instead of the raw_ptr as used in
 // SharedImageInterfaceHolder.
 BASE_FEATURE(kUseStrongRefToSharedImageInterface,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_CHROMEOS)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
 
 // When enabled, this feature lets ClientSharedImage handle all SyncToken
 // management (i.e. generation, waiting and storing) internally. All SyncTokens
@@ -444,6 +449,10 @@ BASE_FEATURE(kSkiaGraphiteUsePersistentCache,
 bool SkiaGraphiteUsesPersistentCache() {
   return base::FeatureList::IsEnabled(kSkiaGraphiteUsePersistentCache);
 }
+
+// Enables switching Graphite from the sort-based draw ordering to the
+// layer-based system.
+BASE_FEATURE(kSkiaGraphiteDrawListLayer, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kConditionallySkipGpuChannelFlush,
 // To enable on ChromeOS, test failures must be investigated
@@ -843,7 +852,7 @@ bool IncreaseBufferCountForHighFrameRate() {
   // of buffers. So these checks, espeically the RAM one, is to limit the impact
   // of more buffers to devices that can handle them.
   // 8GB of ram with large margin for error.
-  constexpr base::ByteSize RAM_8GB_CUTOFF = base::MiBU(7200);
+  constexpr base::ByteSize RAM_8GB_CUTOFF = base::MiB(7200);
   static bool increase =
       base::android::android_info::sdk_int() >=
           base::android::android_info::SDK_VERSION_R &&

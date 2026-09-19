@@ -4,7 +4,6 @@
 
 package org.chromium.components.page_info;
 
-import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.components.content_settings.PrefNames.IN_CONTEXT_COOKIE_CONTROLS_OPENED;
 
 import android.view.View;
@@ -154,7 +153,7 @@ public class PageInfoCookiesController extends PageInfoPreferenceSubpageControll
         RecordHistogram.recordEnumeratedHistogram(
                 "Privacy.DeleteBrowsingData.Action",
                 DeleteBrowsingDataAction.COOKIES_IN_USE_DIALOG,
-                DeleteBrowsingDataAction.MAX_VALUE);
+                DeleteBrowsingDataAction.MAX_VALUE + 1);
 
         SiteDataCleaner.clearData(
                 getDelegate().getSiteSettingsDelegate(), mWebsite, mMainController::exitSubpage);
@@ -230,7 +229,7 @@ public class PageInfoCookiesController extends PageInfoPreferenceSubpageControll
     }
 
     void destroy() {
-        assumeNonNull(mBridge);
+        if (mBridge == null) return;
         mBridge.onUiClosing();
         mBridge.destroy();
         mBridge = null;

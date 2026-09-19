@@ -46,7 +46,6 @@
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -54,6 +53,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/global_error/global_error.h"
@@ -62,10 +62,13 @@
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
+#include "chrome/browser/ui/page_action/action_ids.h"
+#include "chrome/browser/ui/page_action/page_action_controller.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_ids.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
@@ -78,6 +81,7 @@
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/location_bar/webui_location_bar.h"
+#include "chrome/browser/ui/views/page_action/webui_page_action_control.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view_base.h"
 #include "chrome/browser/ui/views/performance_controls/battery_saver_bubble_view.h"
 #include "chrome/browser/ui/views/toolbar/home_button.h"
@@ -116,6 +120,7 @@
 #include "components/permissions/test/permission_request_observer.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/tabs/public/tab_interface.h"
 #include "components/translate/core/browser/translate_step.h"
 #include "components/translate/core/common/translate_errors.h"
 #include "components/vector_icons/vector_icons.h"
@@ -573,7 +578,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewPixelBrowserTest, Accessibility) {
 
   // Trigger content blocked.
   content::WebContents* active_web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   Profile* profile =
       Profile::FromBrowserContext(active_web_contents->GetBrowserContext());
   HostContentSettingsMapFactory::GetForProfile(profile)
@@ -1009,12 +1014,12 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewPixelBrowserTest,
     // Click Back.
     {
       content::TestNavigationObserver nav_observer(
-          browser()->tab_strip_model()->GetActiveWebContents());
+          browser()->GetTabStripModel()->GetActiveWebContents());
       EXPECT_TRUE(
           content::ExecJs(web_view->GetWebContents(), test_case.back_script));
       nav_observer.Wait();
       EXPECT_EQ(url1, browser()
-                          ->tab_strip_model()
+                          ->GetTabStripModel()
                           ->GetActiveWebContents()
                           ->GetLastCommittedURL());
     }
@@ -1026,12 +1031,12 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewPixelBrowserTest,
     // Click Forward.
     {
       content::TestNavigationObserver nav_observer(
-          browser()->tab_strip_model()->GetActiveWebContents());
+          browser()->GetTabStripModel()->GetActiveWebContents());
       EXPECT_TRUE(content::ExecJs(web_view->GetWebContents(),
                                   test_case.forward_script));
       nav_observer.Wait();
       EXPECT_EQ(url2, browser()
-                          ->tab_strip_model()
+                          ->GetTabStripModel()
                           ->GetActiveWebContents()
                           ->GetLastCommittedURL());
     }
@@ -1057,7 +1062,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewPixelBrowserTest,
   // Wait for the back button to be enabled.
   ASSERT_TRUE(WaitForButtonEnabled(web_view->GetWebContents(), kBackSelector));
 
-  int initial_tab_count = browser()->tab_strip_model()->count();
+  int initial_tab_count = browser()->GetTabStripModel()->count();
 
 #if BUILDFLAG(IS_MAC)
   // Ctrl+Click Back button.
@@ -1081,10 +1086,10 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewPixelBrowserTest,
   back_control->menu_runner_->Cancel();
 
   // Verify no new tab was opened.
-  EXPECT_EQ(initial_tab_count, browser()->tab_strip_model()->count());
+  EXPECT_EQ(initial_tab_count, browser()->GetTabStripModel()->count());
   // Verify we didn't navigate away.
   EXPECT_EQ(url2, browser()
-                      ->tab_strip_model()
+                      ->GetTabStripModel()
                       ->GetActiveWebContents()
                       ->GetLastCommittedURL());
 #else
@@ -1100,17 +1105,17 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewPixelBrowserTest,
   nav_observer.Wait();
 
   // Verify new tab was opened.
-  EXPECT_EQ(initial_tab_count + 1, browser()->tab_strip_model()->count());
+  EXPECT_EQ(initial_tab_count + 1, browser()->GetTabStripModel()->count());
   EXPECT_EQ(url1, nav_observer.last_navigation_url());
 
   // Switch back to the first tab.
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
 #endif  // BUILDFLAG(IS_MAC)
 
   // Navigate back to enable the forward button.
   {
     content::TestNavigationObserver back_nav_observer(
-        browser()->tab_strip_model()->GetActiveWebContents());
+        browser()->GetTabStripModel()->GetActiveWebContents());
     chrome::GoBack(browser(), WindowOpenDisposition::CURRENT_TAB);
     back_nav_observer.Wait();
   }
@@ -1127,12 +1132,12 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewPixelBrowserTest,
       DispatchPointerDownAndUp(kForwardSelector, "mouse",
                                "detail: 1, button: 0, shiftKey: true")));
 
-  Browser* new_browser = new_browser_observer.Wait();
+  BrowserWindowInterface* new_browser = new_browser_observer.Wait();
   ASSERT_TRUE(new_browser);
 
   // Wait for the navigation in the new browser's active tab.
   content::WebContents* new_tab =
-      new_browser->tab_strip_model()->GetActiveWebContents();
+      new_browser->GetTabStripModel()->GetActiveWebContents();
   content::TestNavigationObserver observer(new_tab);
   if (new_tab->GetLastCommittedURL() != url2) {
     observer.WaitForNavigationFinished();
@@ -1153,7 +1158,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewPixelBrowserTest,
 
   // Release the pointer over the button.
   NavigationCounter nav_observer(
-      browser()->tab_strip_model()->GetActiveWebContents());
+      browser()->GetTabStripModel()->GetActiveWebContents());
   std::string script = base::StringPrintf(
       R"((() => {
           const home = %s;
@@ -1574,7 +1579,7 @@ class WebUIToolbarWebViewRaceTest : public InProcessBrowserTest {
 IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewRaceTest,
                        BindInterfaceAfterCloseRace) {
   // 1. Setup: Create a new browser window.
-  Browser* new_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* new_browser = CreateBrowser(browser()->GetProfile());
   ui_test_utils::WaitForBrowserSetLastActive(new_browser);
 
   WebUIToolbarWebView* toolbar_view = ::GetWebUIToolbarWebView(new_browser);
@@ -1710,7 +1715,7 @@ class WebUIToolbarLifecycleBrowserTest : public InProcessBrowserTest {
   };
 
   struct LifecycleTestSetup {
-    explicit LifecycleTestSetup(Browser* browser) {
+    explicit LifecycleTestSetup(BrowserWindowInterface* browser) {
       profile = browser->GetProfile();
       EXPECT_CALL(mock_browser, GetProfile())
           .WillRepeatedly(testing::Return(profile));
@@ -1720,8 +1725,6 @@ class WebUIToolbarLifecycleBrowserTest : public InProcessBrowserTest {
           .WillRepeatedly(testing::ReturnRef(user_data_host));
       EXPECT_CALL(mock_browser, GetFeatures())
           .WillRepeatedly(testing::ReturnRef(browser->GetFeatures()));
-      EXPECT_CALL(mock_browser, GetBrowserForMigrationOnly())
-          .WillRepeatedly(testing::Return(browser));
 
       browser_elements = std::make_unique<TestBrowserElements>(
           mock_browser, BrowserElements::From(browser)->GetContext());
@@ -2342,11 +2345,11 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewStabilityTest,
 
   // Add a beforeunload handler to the active tab to pause the close process.
   ASSERT_TRUE(
-      content::ExecJs(browser()->tab_strip_model()->GetActiveWebContents(),
+      content::ExecJs(browser()->GetTabStripModel()->GetActiveWebContents(),
                       "window.addEventListener('beforeunload', "
                       "function(event) { event.returnValue = 'Foo'; });"));
   content::PrepContentsForBeforeUnloadTest(
-      browser()->tab_strip_model()->GetActiveWebContents());
+      browser()->GetTabStripModel()->GetActiveWebContents());
 
   // Close the window. This should trigger the beforeunload dialog and set the
   // browser into the "attempting to close" state.
@@ -2380,7 +2383,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewStabilityTest,
   // Cleanup: Accept the beforeunload dialog to allow the browser to close.
   ui_test_utils::WaitForAppModalDialog();
   content::WebContents* active_web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   content::JavaScriptDialogManager* dialog_manager =
       BrowserWebContentsDelegate::From(browser())->GetJavaScriptDialogManager(
           active_web_contents);
@@ -2476,13 +2479,7 @@ class WebUIToolbarWebViewBrowserTest : public WebUIToolbarWebViewTestBase {
     });
   }
 
-  WebUIToolbarWebView* GetWebUIToolbar() {
-    return GetToolbarView()->GetWebUIToolbarViewForTesting();
-  }
 
-  content::WebContents* GetWebUIWebContents() {
-    return GetWebUIToolbar()->GetWebContents();
-  }
 };
 
 class WebUIAppMenuBrowserTest : public WebUIToolbarWebViewBrowserTest {
@@ -3049,7 +3046,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest,
   base::HistogramTester histogram_tester;
 
   // Open a new one to capture the initial metric if it was already recorded.
-  Browser* new_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* new_browser = CreateBrowser(browser()->GetProfile());
   ui_test_utils::WaitForBrowserSetLastActive(new_browser);
   WebUIToolbarWebView* webui_toolbar_view = GetWebUIToolbarWebView(new_browser);
   ASSERT_TRUE(webui_toolbar_view);
@@ -3370,7 +3367,7 @@ IN_PROC_BROWSER_TEST_F(WebUIReloadButtonBrowserTest, ClickReloadButton) {
 
     // Create a navigation observer on the active tab.
     content::WebContents* active_contents =
-        browser()->tab_strip_model()->GetActiveWebContents();
+        browser()->GetTabStripModel()->GetActiveWebContents();
     content::TestNavigationObserver nav_observer(active_contents);
 
     EXPECT_TRUE(content::ExecJs(webui_contents, script));
@@ -3412,7 +3409,7 @@ IN_PROC_BROWSER_TEST_F(WebUIReloadButtonBrowserTest, FrameCacheUsage) {
 #define MAYBE_EndToEndTabSwitchMitigation EndToEndTabSwitchMitigation
 #endif
 IN_PROC_BROWSER_TEST_F(WebUIReloadButtonBrowserTest,
-                       EndToEndTabSwitchMitigation) {
+                       MAYBE_EndToEndTabSwitchMitigation) {
   // Set max saved frames to 2 (1 for the active tab + 1 for 1 background tab).
   content::SetMaxUnlockedCompositorFramesForTesting(2);
 
@@ -3431,7 +3428,7 @@ IN_PROC_BROWSER_TEST_F(WebUIReloadButtonBrowserTest,
   ASSERT_TRUE(AddTabAtIndexToBrowser(browser(), 1, GURL("chrome://version/"),
                                      ui::PAGE_TRANSITION_TYPED));
   content::WebContents* tab1 =
-      browser()->tab_strip_model()->GetWebContentsAt(1);
+      browser()->GetTabStripModel()->GetWebContentsAt(1);
   ASSERT_TRUE(tab1);
   content::RenderFrameSubmissionObserver frame_observer1(tab1);
   if (frame_observer1.render_frame_count() == 0) {
@@ -3439,7 +3436,7 @@ IN_PROC_BROWSER_TEST_F(WebUIReloadButtonBrowserTest,
   }
 
   // Background tab 1 by activating tab 0.
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
   EXPECT_EQ(content::GetUnlockedCompositorFrameCount(), baseline_unlocked + 1);
   EXPECT_EQ(content::GetLockedCompositorFrameCount(), baseline_locked);
   EXPECT_TRUE(tab1->GetRenderWidgetHostView()->HasSavedCompositorFrame());
@@ -3515,7 +3512,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewSplitTabsBrowserTest,
   // Create split [A, B].
   chrome::NewSplitTab(browser(), split_tabs::SplitTabLayout::kSideBySide,
                       split_tabs::SplitTabCreatedSource::kToolbarButton);
-  auto* tab_strip_model = browser()->tab_strip_model();
+  auto* tab_strip_model = browser()->GetTabStripModel();
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return tab_strip_model->GetActiveTab()->IsSplit(); }));
 
@@ -3587,7 +3584,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewSplitTabsBrowserTest,
   EXPECT_TRUE(
       WaitForButtonVisible(web_view->GetWebContents(), kSplitTabsSelector));
 
-  auto* tab_strip_model = browser()->tab_strip_model();
+  auto* tab_strip_model = browser()->GetTabStripModel();
 
   const struct {
     const char* name;
@@ -3641,7 +3638,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewSplitTabsBrowserTest,
   EXPECT_TRUE(content::ExecJs(web_contents,
                               DispatchPointerDownAndUp(kSplitTabsSelector)));
 
-  auto* tab_strip_model = browser()->tab_strip_model();
+  auto* tab_strip_model = browser()->GetTabStripModel();
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return tab_strip_model->GetActiveTab()->IsSplit(); }));
 
@@ -3664,7 +3661,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewSplitTabsBrowserTest,
   // Create a split tab group manually to simulate being in split mode.
   chrome::NewSplitTab(browser(), split_tabs::SplitTabLayout::kSideBySide,
                       split_tabs::SplitTabCreatedSource::kToolbarButton);
-  auto* tab_strip_model = browser()->tab_strip_model();
+  auto* tab_strip_model = browser()->GetTabStripModel();
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return tab_strip_model->GetActiveTab()->IsSplit(); }));
 
@@ -3696,7 +3693,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewSplitTabsBrowserTest,
   // Create split [A, B]. A is active.
   chrome::NewSplitTab(browser(), split_tabs::SplitTabLayout::kSideBySide,
                       split_tabs::SplitTabCreatedSource::kToolbarButton);
-  auto* tab_strip_model = browser()->tab_strip_model();
+  auto* tab_strip_model = browser()->GetTabStripModel();
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return tab_strip_model->GetActiveTab()->IsSplit(); }));
 
@@ -3785,13 +3782,13 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest, DropUrlOnToolbar) {
 
   GURL new_url("https://www.example.test/");
   content::TestNavigationObserver navigation_observer(
-      browser()->tab_strip_model()->GetActiveWebContents());
+      browser()->GetTabStripModel()->GetActiveWebContents());
 
   SimulateUriListDropOnToolbar(web_contents, new_url.spec());
 
   navigation_observer.Wait();
   EXPECT_EQ(new_url, browser()
-                         ->tab_strip_model()
+                         ->GetTabStripModel()
                          ->GetActiveWebContents()
                          ->GetLastCommittedURL());
 }
@@ -3810,7 +3807,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")));
 
   content::WebContents* active_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   NavigationCounter counter(active_contents);
 
   // Verify initial title is empty.
@@ -3852,7 +3849,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")));
 
   content::WebContents* active_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   NavigationCounter counter(active_contents);
 
   // Verify initial title is empty.
@@ -3894,7 +3891,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")));
 
   content::WebContents* active_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   NavigationCounter counter(active_contents);
 
   // Verify initial title is empty.
@@ -3927,7 +3924,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")));
 
   content::WebContents* active_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   NavigationCounter counter(active_contents);
 
   // Verify initial title is empty.
@@ -3958,14 +3955,14 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest, DropUrlTextOnToolbar) {
   GURL test_url("https://www.example.test/");
 
   content::TestNavigationObserver navigation_observer(
-      browser()->tab_strip_model()->GetActiveWebContents());
+      browser()->GetTabStripModel()->GetActiveWebContents());
 
   SimulateDropOnToolbar(web_contents, test_url.spec());
 
   // Wait for the navigation to finish and assert.
   navigation_observer.Wait();
   EXPECT_EQ(test_url, browser()
-                          ->tab_strip_model()
+                          ->GetTabStripModel()
                           ->GetActiveWebContents()
                           ->GetLastCommittedURL());
 }
@@ -3982,7 +3979,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest,
 
   std::string search_term = "hello world";
   content::TestNavigationObserver navigation_observer(
-      browser()->tab_strip_model()->GetActiveWebContents());
+      browser()->GetTabStripModel()->GetActiveWebContents());
 
   SimulateDropOnToolbar(web_contents, search_term);
 
@@ -3990,7 +3987,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest,
   navigation_observer.Wait();
 
   GURL committed_url = browser()
-                           ->tab_strip_model()
+                           ->GetTabStripModel()
                            ->GetActiveWebContents()
                            ->GetLastCommittedURL();
 
@@ -4029,7 +4026,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest, DropFileOnToolbar) {
       drop_data, gfx::PointF(click_point));
 
   content::TestNavigationObserver navigation_observer(
-      browser()->tab_strip_model()->GetActiveWebContents());
+      browser()->GetTabStripModel()->GetActiveWebContents());
 
   EXPECT_TRUE(content::ExecJs(
       web_contents, base::StringPrintf(R"(
@@ -4049,7 +4046,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest, DropFileOnToolbar) {
 
   navigation_observer.Wait();
   EXPECT_EQ(file_url, browser()
-                          ->tab_strip_model()
+                          ->GetTabStripModel()
                           ->GetActiveWebContents()
                           ->GetLastCommittedURL());
 }
@@ -4723,12 +4720,12 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewHomeButtonBrowserTest,
 
     // Click the button.
     content::TestNavigationObserver nav_observer(
-        browser()->tab_strip_model()->GetActiveWebContents());
+        browser()->GetTabStripModel()->GetActiveWebContents());
     EXPECT_TRUE(content::ExecJs(web_view->GetWebContents(), script));
     nav_observer.Wait();
 
     EXPECT_EQ(home_url, browser()
-                            ->tab_strip_model()
+                            ->GetTabStripModel()
                             ->GetActiveWebContents()
                             ->GetLastCommittedURL());
   }
@@ -4743,7 +4740,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewHomeButtonBrowserTest,
 
   GURL home_url = GetHomeURL();
 
-  int initial_tab_count = browser()->tab_strip_model()->count();
+  int initial_tab_count = browser()->GetTabStripModel()->count();
   ui_test_utils::TabAddedWaiter tab_add_waiter(browser());
 
 #if BUILDFLAG(IS_MAC)
@@ -4760,12 +4757,12 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewHomeButtonBrowserTest,
 
   tab_add_waiter.Wait();
 
-  EXPECT_EQ(initial_tab_count + 1, browser()->tab_strip_model()->count());
+  EXPECT_EQ(initial_tab_count + 1, browser()->GetTabStripModel()->count());
   // Verify new tab is in the background.
-  EXPECT_EQ(0, browser()->tab_strip_model()->active_index());
+  EXPECT_EQ(0, browser()->GetTabStripModel()->active_index());
 
   content::WebContents* new_tab =
-      browser()->tab_strip_model()->GetWebContentsAt(initial_tab_count);
+      browser()->GetTabStripModel()->GetWebContentsAt(initial_tab_count);
   content::TestNavigationObserver observer(new_tab);
   if (new_tab->GetLastCommittedURL() != home_url) {
     observer.WaitForNavigationFinished();
@@ -4780,7 +4777,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewHomeButtonBrowserTest,
 
   GURL home_url = GetHomeURL();
 
-  int initial_tab_count = browser()->tab_strip_model()->count();
+  int initial_tab_count = browser()->GetTabStripModel()->count();
   ui_test_utils::TabAddedWaiter tab_add_waiter(browser());
 
 #if BUILDFLAG(IS_MAC)
@@ -4797,12 +4794,12 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewHomeButtonBrowserTest,
 
   tab_add_waiter.Wait();
 
-  EXPECT_EQ(initial_tab_count + 1, browser()->tab_strip_model()->count());
+  EXPECT_EQ(initial_tab_count + 1, browser()->GetTabStripModel()->count());
   // Verify new tab is in the foreground.
-  EXPECT_EQ(initial_tab_count, browser()->tab_strip_model()->active_index());
+  EXPECT_EQ(initial_tab_count, browser()->GetTabStripModel()->active_index());
 
   content::WebContents* new_tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   content::TestNavigationObserver observer(new_tab);
   if (new_tab->GetLastCommittedURL() != home_url) {
     observer.WaitForNavigationFinished();
@@ -4825,7 +4822,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewHomeButtonBrowserTest,
 
   // Release the pointer over the button.
   NavigationCounter nav_observer(
-      browser()->tab_strip_model()->GetActiveWebContents());
+      browser()->GetTabStripModel()->GetActiveWebContents());
   std::string script = base::StringPrintf(
       R"((() => {
           const target = %s;
@@ -4844,7 +4841,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewHomeButtonBrowserTest,
   nav_observer.WaitForNoNavigations();
 
   EXPECT_EQ(other_url, browser()
-                           ->tab_strip_model()
+                           ->GetTabStripModel()
                            ->GetActiveWebContents()
                            ->GetLastCommittedURL());
 }
@@ -4906,11 +4903,11 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewHomeButtonBrowserTest,
       DispatchPointerDownAndUp(kHomeSelector, "mouse",
                                "detail: 1, button: 0, shiftKey: true")));
 
-  Browser* new_browser = new_browser_observer.Wait();
+  BrowserWindowInterface* new_browser = new_browser_observer.Wait();
   ASSERT_TRUE(new_browser);
 
   content::WebContents* new_tab =
-      new_browser->tab_strip_model()->GetActiveWebContents();
+      new_browser->GetTabStripModel()->GetActiveWebContents();
   content::TestNavigationObserver observer(new_tab);
   if (new_tab->GetLastCommittedURL() != home_url) {
     observer.WaitForNavigationFinished();
@@ -5049,6 +5046,64 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewHomeButtonBrowserTest,
   EXPECT_EQ(prefs->GetBoolean(prefs::kHomePageIsNewTabPage), old_is_ntp);
 }
 
+class WebUIPageActionBrowserTest : public WebUIToolbarWebViewBrowserTest {
+ public:
+  WebUIPageActionBrowserTest()
+      : WebUIToolbarWebViewBrowserTest(
+            {features::kInitialWebUI, features::kWebUILocationBar,
+             features::kSkipIPCChannelPausingForNonGuests,
+             features::kWebUIInProcessResourceLoadingV2},
+            {}) {}
+};
+
+IN_PROC_BROWSER_TEST_F(WebUIPageActionBrowserTest,
+                       AnchoredMessageShowsAndCloses) {
+  ui::TrackedElement* element = nullptr;
+  WebUIToolbarWebView* toolbar_webview = nullptr;
+  views::WebView* web_view = nullptr;
+  ASSERT_NO_FATAL_FAILURE(SetUpWebUI(kWebUIToolbarElementIdentifier, &element,
+                                     &toolbar_webview, &web_view, browser()));
+  ASSERT_TRUE(toolbar_webview);
+
+  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* webui_location_bar = toolbar_webview->GetLocationBar();
+  ASSERT_TRUE(webui_location_bar);
+  webui_location_bar->Update(web_contents);
+
+  tabs::TabInterface* tab =
+      tabs::TabInterface::MaybeGetFromContents(web_contents);
+  ASSERT_TRUE(tab);
+  page_actions::PageActionController* controller =
+      page_actions::PageActionController::From(tab);
+  ASSERT_TRUE(controller);
+
+  actions::ActionId target_action_id = kActionShowTranslate;
+  auto* action_item = actions::ActionManager::Get().FindAction(
+      target_action_id, BrowserActions::From(browser())->root_action_item());
+  ASSERT_TRUE(action_item);
+  action_item->SetEnabled(true);
+
+  controller->Show(target_action_id);
+
+  controller->SetAnchoredMessageText(target_action_id, u"Test Message");
+  controller->ShowAnchoredMessage(target_action_id,
+                                  page_actions::AnchoredMessageConfig{});
+
+  auto& control = webui_location_bar->page_action_control();
+
+  ASSERT_TRUE(base::test::RunUntil([&]() -> bool {
+    return control.IsAnchoredMessageShowing(target_action_id);
+  }));
+
+  auto* bubble = control.GetAnchoredMessageForTesting(target_action_id);
+  ASSERT_TRUE(bubble);
+
+  controller->HideAnchoredMessage(target_action_id);
+
+  ASSERT_TRUE(base::test::RunUntil([&]() -> bool {
+    return !control.IsAnchoredMessageShowing(target_action_id);
+  }));
+}
 
 struct DragTestParam {
   const char* test_name;
@@ -5268,7 +5323,8 @@ IN_PROC_BROWSER_TEST_P(WebUIToolbarAlreadyExistsForTheSameProfileOnInitTest,
   // Create a second browser window. This will trigger the creation of a new
   // toolbar process for that window.
   base::HistogramTester histograms;
-  Browser* second_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
   ASSERT_TRUE(second_browser);
 
   content::FetchHistogramsFromChildProcesses();
@@ -5352,7 +5408,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewContentSettingsBrowserTest,
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetTestURL()));
   content::WebContents* active_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   // Block images.
   TriggerContentBlocked(active_contents, ContentSettingsType::IMAGES);
@@ -5389,7 +5445,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewContentSettingsBrowserTest,
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetTestURL()));
   content::WebContents* active_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   // Block ads, which has explanatory text.
   TriggerContentBlocked(active_contents, ContentSettingsType::ADS);
@@ -5426,7 +5482,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewContentSettingsBrowserTest,
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetTestURL()));
   content::WebContents* active_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   TriggerContentBlocked(active_contents, ContentSettingsType::COOKIES);
   TriggerContentBlocked(active_contents, ContentSettingsType::GEOLOCATION);
@@ -5450,7 +5506,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewContentSettingsBrowserTest,
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetTestURL()));
   content::WebContents* active_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   TriggerContentBlocked(active_contents, ContentSettingsType::COOKIES);
 
@@ -5476,7 +5532,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewContentSettingsBrowserTest,
   auto* location_bar = webui_toolbar_view->GetLocationBar();
   ASSERT_TRUE(location_bar);
   location_bar->content_setting_image_control()
-      .SetSuppressionThresholdForTesting(base::Seconds(1));
+      .SetSuppressionThresholdForTesting(base::Seconds(30));
 
   // Second click (simulating clicking to close)
   views::test::WidgetDestroyedWaiter destroyed_waiter(bubble_widget);
@@ -5527,7 +5583,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarSurfaceSyncBrowserTest, SetsDeadlineOnInit) {
   ASSERT_TRUE(toolbar_rwhv);
 
   content::WebContents* active_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(active_contents);
   content::RenderWidgetHostView* main_rwhv =
       active_contents->GetRenderWidgetHostView();
@@ -5576,11 +5632,11 @@ IN_PROC_BROWSER_TEST_P(WebUIToolbarWebViewPermissionBrowserTest,
 
   test::PermissionRequestManagerTestApi test_api(browser());
   permissions::PermissionRequestObserver observer(
-      browser()->tab_strip_model()->GetActiveWebContents());
+      browser()->GetTabStripModel()->GetActiveWebContents());
 
   EXPECT_NE(nullptr, test_api.manager());
   test_api.AddSimpleRequest(browser()
-                                ->tab_strip_model()
+                                ->GetTabStripModel()
                                 ->GetActiveWebContents()
                                 ->GetPrimaryMainFrame(),
                             GetParam());
@@ -5600,17 +5656,21 @@ IN_PROC_BROWSER_TEST_P(WebUIToolbarWebViewPermissionBrowserTest,
         .ExtractBool();
   }));
 
-  // Once the chip finishes its expand animation, it will automatically trigger
-  // the bubble to open. We do not need to manually click the chip.
-  views::NamedWidgetShownWaiter widget_waiter(
-      views::test::AnyWidgetTestPasskey{}, "PermissionPromptBubbleBaseView");
-
-  views::Widget* bubble_widget = widget_waiter.WaitIfNeededAndGet();
-  EXPECT_TRUE(bubble_widget);
-  EXPECT_TRUE(bubble_widget->IsVisible());
-
   auto* location_bar = webui_toolbar_view->GetLocationBar();
   ASSERT_TRUE(location_bar);
+
+  // Once the chip finishes its expand animation, it will automatically trigger
+  // the bubble to open. We do not need to manually click the chip.
+  views::Widget* bubble_widget = nullptr;
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    auto* chip_controller = location_bar->GetChipController();
+    if (!chip_controller) {
+      return false;
+    }
+    bubble_widget = chip_controller->GetBubbleWidget();
+    return bubble_widget && bubble_widget->IsVisible();
+  }));
+
   ASSERT_TRUE(location_bar->GetPermissionDashboardController());
   location_bar->GetPermissionDashboardController()
       ->SetSuppressionThresholdForTesting(base::Seconds(1));
@@ -5655,7 +5715,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewPermissionBrowserTest,
       "document.querySelector('toolbar-app')?.shadowRoot?"
       ".querySelector('location-bar')?.shadowRoot?"
       ".querySelector('location-icon')?.shadowRoot?"
-      ".querySelector('#container')";
+      ".querySelector('#button')";
 
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return content::EvalJs(web_contents,
@@ -5677,7 +5737,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewPermissionBrowserTest,
 
   auto* location_bar = webui_toolbar_view->GetLocationBar();
   ASSERT_TRUE(location_bar);
-  location_bar->SetSuppressionThresholdForTesting(base::Seconds(1));
+  location_bar->SetSuppressionThresholdForTesting(base::Seconds(30));
 
   // Second click (simulating clicking to close): the pointerdown should trigger
   // OnLhsChipMousePressed which sets suppress_lhs_chip_clicked_, and then
@@ -5771,7 +5831,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarSynchronousStartupBrowserTest,
   // Move Tab 0 (with history) to a new browser window.
   ui_test_utils::BrowserCreatedObserver browser_created_observer;
   chrome::MoveTabsToNewWindow(browser(), {0});
-  Browser* new_browser = browser_created_observer.Wait();
+  BrowserWindowInterface* new_browser = browser_created_observer.Wait();
   ASSERT_TRUE(new_browser);
 
   // Set up WebUI on the new window and get views.
@@ -5950,35 +6010,6 @@ class WebUIToolbarFullyEnabledBrowserTest
                               "JSON.stringify(window.__caughtJsErrors)")
                   .ExtractString(),
               "[]");
-  }
-
-  // Sets the size of a test-only element on the toolbar-app with the provided
-  // size, which should cause responsive controls to be asynchronously laid out
-  // to accommodate it. Does not wait for that layout to occur. Adds the element
-  // on the first call, and resizes it on subsequent calls.
-  //
-  // This is more flexible than resizing the window due to the window having a
-  // min size. It also provides test coverage that adding/sizing
-  // non-ResponsiveControls to the toolbar-app correctly causes
-  // layoutResponsiveControls() to be invoked.
-  //
-  // Note that first adding the spacer will likely add some extra
-  // margins/padding in addition to `width`.
-  [[nodiscard]] content::EvalJsResult SetSpacerWidth(int width) {
-    return content::EvalJs(GetWebUIWebContents(), content::JsReplace(
-                                                      R"((() => {
-          const app = document.querySelector('toolbar-app');
-          let spacer = app.shadowRoot.querySelector('#test-spacer');
-          if (!spacer) {
-            spacer = document.createElement('div');
-            spacer.id = 'test-spacer';
-            spacer.style.flexShrink = '0';
-            app.shadowRoot.appendChild(spacer);
-          }
-          spacer.style.width = $1 + 'px';
-          return true;
-        })();)",
-                                                      width));
   }
 
   // Sizing information about an individual ResponsiveControl, along with its
@@ -6593,6 +6624,96 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarFullyEnabledBrowserTest,
   ASSERT_TRUE(SetWindowWidth(1200));
 
   AssertNoJsErrors();
+}
+
+// Check that the toolbar is laid out again before it's visibly redrawn. To
+// check this, the test installs a ResizeObserver on the toolbar-app and makes
+// sure it's never called with a size other than the window size. Since
+// ResizeObservers are invoked just before redraw, this should detect if there's
+// a redraw before the controls have been resized appropriately.
+IN_PROC_BROWSER_TEST_F(WebUIToolbarFullyEnabledBrowserTest,
+                       ToolbarAlwaysLaidoutBeforeDraw) {
+  int expected_width = GetWebUIToolbar()->bounds().width();
+
+  // Wait until the toolbar-app's width matches that of the WebUIToolbarWebView,
+  // signalling that toolbar has been initialized.
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return content::EvalJs(GetWebUIWebContents(),
+                           content::JsReplace(R"(
+          (() => {
+            const app = document.querySelector('toolbar-app');
+            return app && app.getBoundingClientRect().width === $1;
+          })()
+        )",
+                                              expected_width))
+        .ExtractBool();
+  }));
+
+  // Add a ResizeObserver for toolbar-app that appends to a global string if
+  // it's ever notified of an unexpected width.
+  ASSERT_TRUE(content::ExecJs(GetWebUIWebContents(),
+                              content::JsReplace(R"(
+        window.__toolbarResizeObservations = '';
+        (() => {
+          const app = document.querySelector('toolbar-app');
+          const observer = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+              let toolbarWidth = app.getBoundingClientRect().width;
+              if (toolbarWidth === $1 &&
+                  window.__toolbarResizeObservations === '') {
+                continue;
+              }
+              window.__toolbarResizeObservations +=
+                  `${toolbarWidth},${window.innerWidth},$1\n`;
+            }
+          });
+          observer.observe(app);
+        })();
+      )",
+                                                 expected_width)));
+
+  // Enable the home button and wait for it to be displayed.
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kShowHomeButton, true);
+  ASSERT_TRUE(WaitUntilResponsiveControlsAreVisible({kHomeSelector}));
+
+  // Enable the bookmarks side panel button and wait for it to be displayed.
+  auto* model = PinnedToolbarActionsModel::Get(browser()->GetProfile());
+  model->UpdatePinnedState(kActionSidePanelShowBookmarks, true);
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return content::EvalJs(GetWebUIWebContents(), R"(
+          (() => {
+            const app = document.querySelector('toolbar-app');
+            const pinnedContainer =
+                app?.shadowRoot?.querySelector('#pinnedToolbarActions');
+            if (!pinnedContainer || !pinnedContainer.checkVisibility()) {
+              return false;
+            }
+            const actionButton =
+                pinnedContainer.shadowRoot?.querySelector(
+                    'pinned-toolbar-action');
+            return actionButton && actionButton.checkVisibility();
+          })()
+        )")
+        .ExtractBool();
+  }));
+
+  // Call into JS and wait two animation frames for any ResizeObserver callbacks
+  // to run, and return the observations string to C++. Have to wait two
+  // animation frames because ResizeObservers are only notified after the
+  // animation frame callback, so there may be a pending ResizeObserver call if
+  // we wait for only one animation frame.
+  std::string observations = content::EvalJs(GetWebUIWebContents(), R"(
+        new Promise((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              resolve(window.__toolbarResizeObservations);
+            });
+          });
+        })
+      )")
+                                 .ExtractString();
+
+  EXPECT_EQ(observations, "");
 }
 
 // Test fixture that enables all WebUI toolbar controls, but disables

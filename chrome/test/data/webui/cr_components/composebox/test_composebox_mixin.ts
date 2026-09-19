@@ -14,6 +14,7 @@ import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 
 import {getCss} from 'chrome://resources/cr_components/composebox/composebox.css.js';
 import type {ComposeboxDropdownElement} from 'chrome://resources/cr_components/composebox/composebox_dropdown.js';
+import type {ComposeboxFileInputsElement} from 'chrome://resources/cr_components/composebox/composebox_file_inputs.js';
 import type {ComposeboxInputElement} from 'chrome://resources/cr_components/composebox/composebox_input.js';
 import {ComposeboxEmbedderMixin} from 'chrome://resources/cr_components/composebox/composebox_mixin.js';
 import {ComposeboxProxyImpl} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
@@ -31,6 +32,7 @@ export interface TestComposeboxMixinElement {
     animatedSearchElement: SearchAnimatedGlowElement,
     composebox: HTMLElement,
     contextEntrypoint: ContextualEntrypointAndMenuElement,
+    fileInputs: ComposeboxFileInputsElement,
     input: ComposeboxInputElement,
     inputWrapper: HTMLElement,
     matches: ComposeboxDropdownElement,
@@ -140,6 +142,12 @@ export class TestComposeboxMixinElement extends TestElementBase {
     // clang-format on
   }
 
+  suggestionFuseboxActionsEnabled = false;
+
+  override shouldHandleSuggestionFuseboxActions(): boolean {
+    return this.suggestionFuseboxActionsEnabled;
+  }
+
   override getInputElement(): ComposeboxInputElement {
     return this.$.input;
   }
@@ -177,6 +185,10 @@ export class TestComposeboxMixinElement extends TestElementBase {
 
   override getContextEntrypointElement(): ContextualEntrypointAndMenuElement {
     return this.$.contextEntrypoint;
+  }
+
+  override getFileInputsElement(): ComposeboxFileInputsElement|null {
+    return this.shouldDisableFileInputs() ? null : this.$.fileInputs;
   }
 }
 

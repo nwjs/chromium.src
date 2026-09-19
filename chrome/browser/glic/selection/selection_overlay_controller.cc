@@ -14,6 +14,7 @@
 #include "chrome/browser/page_content_annotations/multi_source_page_context_fetcher.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
@@ -44,8 +45,6 @@ std::ostream& operator<<(std::ostream& os, OverlayBaseController::State value) {
       return os << "kOff";
     case OverlayBaseController::State::kClosingOpenedSidePanel:
       return os << "kClosingOpenedSidePanel";
-    case OverlayBaseController::State::kWaitingForOpeningSidePanelReflow:
-      return os << "kWaitingForOpeningSidePanelReflow";
     case OverlayBaseController::State::kScreenshot:
       return os << "kScreenshot";
     case OverlayBaseController::State::kStartingWebUI:

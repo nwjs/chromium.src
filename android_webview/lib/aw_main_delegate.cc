@@ -34,8 +34,12 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/i18n/icu_util.h"
+#include "base/i18n/icubridge/default_icu_locale.h"
+#include "base/i18n/language_tag.h"
 #include "base/i18n/rtl.h"
+#include "base/i18n/tag_converters.h"
 #include "base/posix/global_descriptors.h"
+#include "base/sampling_heap_profiler/sampling_heap_profiler.h"
 #include "base/scoped_add_feature_flags.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
@@ -55,7 +59,6 @@
 #include "components/metrics/unsent_log_store_metrics.h"
 #include "components/safe_browsing/android/safe_browsing_api_handler_bridge.h"
 #include "components/sampling_profiler/process_type.h"
-#include "components/services/heap_profiling/public/cpp/profiling_client.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
 #include "components/variations/variations_ids_provider.h"
 #include "components/version_info/android/channel_getter.h"
@@ -244,7 +247,7 @@ std::optional<int> AwMainDelegate::BasicStartupComplete() {
   // order to allocate storage for a higher slot number. Since malloc is hooked,
   // this causes re-entrancy into the allocator shim, while the TLS object is
   // partially-initialized, which the TLS object is supposed to protect again.
-  heap_profiling::InitTLSSlot();
+  base::SamplingHeapProfiler::Init();
 
   // Have the network service in the browser process even if we have separate
   // renderer processes. See also: switches::kInProcessGPU above.
@@ -265,8 +268,13 @@ void AwMainDelegate::PreSandboxStartup() {
       command_line.GetSwitchValueASCII(switches::kProcessType);
   const bool is_browser_process = process_type.empty();
   if (!is_browser_process) {
-    base::i18n::SetICUDefaultLocale(
-        command_line.GetSwitchValueASCII(switches::kLang));
+    std::string locale_string =
+        command_line.GetSwitchValueASCII(switches::kLang);
+    std::optional<base::i18n::LanguageTag> locale_tag =
+        base::i18n::GetLanguageTagFromString(locale_string);
+    base::i18n::SetDefaultIcuLocale(
+        base::i18n::DefaultIcuLocaleSetterKey(),
+        locale_tag.value_or(base::i18n::GetKnownLanguageTag("en-US")));
   }
 
   if (process_type == switches::kRendererProcess) {

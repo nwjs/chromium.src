@@ -12,6 +12,8 @@
 #include <vector>
 
 #include "base/functional/bind.h"
+#include "base/i18n/rtl.h"
+#include "base/i18n/test/scoped_rtl_for_testing.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string_util.h"
 #include "base/test/bind.h"
@@ -411,12 +413,15 @@ class PopupViewViewsTest : public ChromeViewsTestBase {
   std::pair<std::unique_ptr<NiceMock<MockAutofillPopupController>>,
             PopupViewViews*>
   OpenSubView(PopupViewViews& view,
-              const std::vector<Suggestion>& suggestions = {
-                  Suggestion(u"Suggestion",
-                             SuggestionType::kAutocompleteEntry)}) {
+              const std::vector<Suggestion>& suggestions = {Suggestion(
+                  u"Suggestion",
+                  SuggestionType::kAutocompleteEntry)},
+              FillingProduct filling_product = FillingProduct::kNone) {
     auto sub_controller =
         std::make_unique<NiceMock<MockAutofillPopupController>>();
     sub_controller->set_suggestions(suggestions);
+    ON_CALL(*sub_controller, GetMainFillingProduct)
+        .WillByDefault(Return(filling_product));
     ON_CALL(*sub_controller, OpenSubPopup)
         .WillByDefault(Return(autofill_popup_sub_controller_.GetWeakPtr()));
     base::WeakPtr<AutofillPopupView> sub_view_ptr =
@@ -1021,7 +1026,7 @@ TEST_F(PopupViewViewsTest, KeyboardFocusIsNotCapturedAutomaticallyForSubPopup) {
 
 TEST_F(PopupViewViewsTest,
        KeyboardFocusIsNotCapturedAutomaticallyForSubPopupRTL) {
-  base::i18n::SetRTLForTesting(true);
+  base::i18n::ScopedRTLForTesting scoped_rtl(true);
 
   CreateAndShowView({SuggestionType::kAddressEntry});
   auto [sub_controller, sub_view] = OpenSubView(view());
@@ -1030,8 +1035,6 @@ TEST_F(PopupViewViewsTest,
   SimulateKeyPress(ui::VKEY_LEFT, *sub_view);
   SimulateKeyPress(ui::VKEY_DOWN, *sub_view);
   EXPECT_TRUE(sub_view->GetSelectedCell().has_value());
-
-  base::i18n::SetRTLForTesting(false);
 }
 
 TEST_F(PopupViewViewsTest, CursorUpDownForSelectableCells) {
@@ -1212,7 +1215,7 @@ TEST_F(PopupViewViewsTest, LeftAndRightKeyEventsAreHandled) {
 }
 
 TEST_F(PopupViewViewsTest, LeftAndRightKeyEventsAreHandledForRTL) {
-  base::i18n::SetRTLForTesting(true);
+  base::i18n::ScopedRTLForTesting scoped_rtl(true);
 
   // The control cell is present in suggestions with children.
   controller().set_suggestions({CreateSuggestionWithChildren(
@@ -1235,8 +1238,6 @@ TEST_F(PopupViewViewsTest, LeftAndRightKeyEventsAreHandledForRTL) {
 
   EXPECT_FALSE(SimulateKeyPress(ui::VKEY_LEFT));
   EXPECT_EQ(view().GetSelectedCell()->second, CellType::kControl);
-
-  base::i18n::SetRTLForTesting(false);
 }
 
 TEST_F(PopupViewViewsTest, LeftAndRightKeyEventsAreHandledWithoutControl) {
@@ -1377,7 +1378,7 @@ TEST_F(PopupViewViewsTest, TabbedPane_HorizontalKeyEventsSwitchTabs) {
 }
 
 TEST_F(PopupViewViewsTest, TabbedPane_HorizontalKeyEventsSwitchTabs_RTL) {
-  base::i18n::SetRTLForTesting(true);
+  base::i18n::ScopedRTLForTesting scoped_rtl(true);
 
   AutofillPopupView::TabbedPaneConfig tabbed_pane_config(
       {{TabbedPaneTabType::kPayNow, u"Pay Now Test"},
@@ -1399,8 +1400,6 @@ TEST_F(PopupViewViewsTest, TabbedPane_HorizontalKeyEventsSwitchTabs_RTL) {
   // In RTL, pressing right should navigate to the previous tab.
   EXPECT_CALL(controller(), OnTabSelected(0, TabbedPaneTabType::kPayNow));
   SimulateKeyPress(ui::VKEY_RIGHT);
-
-  base::i18n::SetRTLForTesting(false);
 }
 
 TEST_F(PopupViewViewsTest, MovingSelectionSkipsSeparator) {
@@ -1741,7 +1740,7 @@ TEST_F(PopupViewViewsTest, ComposeSuggestion_LeftAndRightKeyEventsAreHandled) {
 
 TEST_F(PopupViewViewsTest,
        ComposeSuggestion_LeftAndRightKeyEventsAreHandledForRTL) {
-  base::i18n::SetRTLForTesting(true);
+  base::i18n::ScopedRTLForTesting scoped_rtl(true);
 
   controller().set_suggestions({CreateSuggestionWithChildren(
       SuggestionType::kComposeProactiveNudge,
@@ -1765,8 +1764,6 @@ TEST_F(PopupViewViewsTest,
 
   EXPECT_FALSE(SimulateKeyPress(ui::VKEY_LEFT));
   EXPECT_EQ(view().GetSelectedCell()->second, CellType::kControl);
-
-  base::i18n::SetRTLForTesting(false);
 }
 
 TEST_F(
@@ -3324,7 +3321,7 @@ TEST_F(PopupViewViewsTest, TabbedPane_InitialWidthMaintainedWhenSwitchingTabs) {
 
 TEST_F(PopupViewViewsTest, WarningOnShowA11yFocus) {
   views::test::AXEventCounter counter(views::AXUpdateNotifier::Get());
-  CreateAndShowView({SuggestionType::kMixedFormMessage});
+  CreateAndShowView({SuggestionType::kInsecureContextPaymentDisabledMessage});
 
   ASSERT_EQ(1u, test_api(view()).rows().size());
   auto* const* row_view =
@@ -3336,7 +3333,8 @@ TEST_F(PopupViewViewsTest, WarningOnShowA11yFocus) {
 
 TEST_F(PopupViewViewsTest, WarningOnShow_DestroyOnA11yFocus) {
   CreateView();
-  controller().set_suggestions({SuggestionType::kMixedFormMessage});
+  controller().set_suggestions(
+      {SuggestionType::kInsecureContextPaymentDisabledMessage});
   view().DestroyOnNotifyAxSelection();
 
   // This should not crash!
@@ -3750,6 +3748,19 @@ TEST_F(PopupViewViewsHeightLimitTest, CutOffLastEntryForPopupSuggestionLimit) {
   // ... but not show the full entry.
   EXPECT_LT(second_resize_height, first_resize_height + full_entry_height -
                                       kNoticableChangeThreshold);
+}
+
+TEST_F(PopupViewViewsTest, SubPopupMaxWidth) {
+  Suggestion suggestion(
+      u"Very long suggestion text that would exceed the default submenu max "
+      u"width and force multi-line text wrapping",
+      SuggestionType::kAutofillAiSourceAttribution);
+  controller().set_suggestions({suggestion});
+  CreateAndShowView();
+  auto [sub_controller, sub_view] =
+      OpenSubView(view(), {suggestion}, FillingProduct::kAutofillAi);
+  EXPECT_LE(sub_view->GetWidget()->GetWindowBoundsInScreen().width(),
+            PopupViewViews::kAutofillAiSubPopupMaxWidth);
 }
 
 }  // namespace

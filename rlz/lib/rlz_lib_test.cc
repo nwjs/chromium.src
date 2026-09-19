@@ -740,6 +740,20 @@ TEST_F(RlzLibTest, SendFinancialPingDuringShutdown) {
 
   EXPECT_TRUE(rlz_lib::test::WasSendFinancialPingInterrupted());
   rlz_lib::test::ResetSendFinancialPingInterrupted();
+
+  io_thread.Stop();
+
+  // If PingRlzServer started before SetURLLoaderFactory(nullptr) was called on
+  // io_thread, a pending request was created on base::ThreadPool. Simulate a
+  // response to complete the SimpleURLLoader, then run until idle to ensure all
+  // ThreadPool tasks and Mojo receiver cleanups finish on their own sequence
+  // before `test_url_loader_factory` is destroyed on the main thread.
+  while (test_url_loader_factory.NumPending() > 0) {
+    test_url_loader_factory.SimulateResponseForPendingRequest(
+        test_url_loader_factory.GetPendingRequest(0)->request.url.spec(), "",
+        net::HTTP_NOT_FOUND);
+  }
+  RunUntilIdle();
 }
 
 TEST_F(RlzLibTest, ClearProductState) {
@@ -1094,7 +1108,17 @@ TEST_F(ReadonlyRlzDirectoryTest, SupplementaryBrandingDoesNotCrash) {
 }
 
 // Regression test for http://crbug.com/141108
-TEST_F(RlzLibTest, ConcurrentStoreAccessWithProcessExitsWhileLockHeld) {
+#if BUILDFLAG(IS_APPLE)
+// Calling fork() without exec() in a multi-threaded process is not supported on
+// Apple platforms (macOS/iOS) by Apple's Foundation/libdispatch runtime and
+// causes child processes calling Cocoa APIs to crash or deadlock.
+#define MAYBE_ConcurrentStoreAccessWithProcessExitsWhileLockHeld \
+  DISABLED_ConcurrentStoreAccessWithProcessExitsWhileLockHeld
+#else
+#define MAYBE_ConcurrentStoreAccessWithProcessExitsWhileLockHeld \
+  ConcurrentStoreAccessWithProcessExitsWhileLockHeld
+#endif
+TEST_F(RlzLibTest, MAYBE_ConcurrentStoreAccessWithProcessExitsWhileLockHeld) {
   // See the comment at the top of WriteFails.
   if (!rlz_lib::SupplementaryBranding::GetBrand().empty())
     return;

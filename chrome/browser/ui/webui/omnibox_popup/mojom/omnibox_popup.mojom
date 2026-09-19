@@ -14,6 +14,8 @@ struct OmniboxInputState {
   // selection changes sent back from WebUI during asynchronous state
   // restoration.
   uint32 sequence_number;
+  // The tab ID associated with this input state.
+  int32 tab_id;
   // The text that should be displayed in the Omnibox input field.
   string text;
   // The selection range (or cursor position if start == end) in the input
@@ -60,7 +62,7 @@ interface PageHandler {
 
   // Called when the selection changes in the WebUI.
   OnSelectionChanged(
-    gfx.mojom.Range selection, uint32 sequence_number, bool show_full_url);
+      gfx.mojom.Range selection, uint32 sequence_number, bool show_full_url);
 
   // Reverts the omnibox edit model.
   // Discards the call if `sequence_number` is stale.
@@ -93,6 +95,9 @@ interface PageHandler {
 
   // Updates the client-side edit history undo/redo availability state.
   SetEditHistoryState(bool can_undo, bool can_redo);
+
+  // Opens DevTools to inspect the Omnibox popup WebUI.
+  OpenDevTools();
 };
 
 // The WebUI page for the Omnibox Popup.
@@ -107,8 +112,9 @@ interface Page {
   // and selection range) of the WebUI Omnibox.
   SetInputState(OmniboxInputState state);
 
-  // Called by the browser when focus changes within the active tab.
-  SetFocus(bool is_focused);
+  // Called by the browser when focus changes within the active tab. `query_zps`
+  // indicates whether to issue a Zero-Suggest autocomplete query upon focus.
+  SetFocus(bool is_focused, bool query_zps);
 
   // Clears autocomplete results and resets active query ID in WebUI.
   ClearAutocompleteMatches();
@@ -116,4 +122,7 @@ interface Page {
   // Called when the popup is hidden. The page is expected to perform any
   // necessary cleanup and complete the callback.
   ClearPopup() => ();
+
+  // Updates the default search provider's icon path.
+  SetDefaultSearchProvider(string default_icon_path);
 };

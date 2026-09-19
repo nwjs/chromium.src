@@ -45,6 +45,7 @@ import org.chromium.chrome.browser.signin.SigninAndHistorySyncActivityLauncherIm
 import org.chromium.chrome.browser.sync.settings.ManageSyncSettings;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.native_page.BasicNativePage;
+import org.chromium.chrome.browser.ui.signin.PersonalizedSigninPromoView;
 import org.chromium.chrome.browser.ui.signin.signin_promo.BookmarkSigninPromoDelegate;
 import org.chromium.chrome.browser.ui.signin.signin_promo.SigninPromoCoordinator;
 import org.chromium.components.bookmarks.BookmarkId;
@@ -86,9 +87,6 @@ import java.util.function.Supplier;
 @NullMarked
 public class BookmarkManagerCoordinator
         implements SearchDelegate, BackPressHandler, OnAttachStateChangeListener {
-
-    private static final int WIDE_DISPLAY_THRESHOLD_DP = 840;
-
     private final SelectionDelegate<BookmarkId> mSelectionDelegate =
             new SelectionDelegate<>() {
                 @Override
@@ -212,6 +210,14 @@ public class BookmarkManagerCoordinator
                 mMainView.findViewById(R.id.selectable_list);
         mSelectableListLayout = selectableList;
 
+        mMainView.setFocusable(false);
+        mMainView.setFocusableInTouchMode(false);
+        mMainView.setDefaultFocusHighlightEnabled(false);
+
+        mSelectableListLayout.setFocusable(false);
+        mSelectableListLayout.setFocusableInTouchMode(false);
+        mSelectableListLayout.setDefaultFocusHighlightEnabled(false);
+
         mModelList = new ModelList();
         DragTouchHandler dragTouchHandler = new DragTouchHandler(mContext, mModelList);
 
@@ -327,16 +333,8 @@ public class BookmarkManagerCoordinator
         bookmarkDelegateSupplier.set(/* object= */ mMediator);
 
         if (isDesktopLayoutEnabled) {
-            BookmarkSearchBoxRow searchBoxView =
-                    mMainView.findViewById(R.id.desktop_search_box_row);
-            PropertyModel searchBoxPropertyModel = mMediator.getOrCreateSearchBoxPropertyModel();
-            mSearchBoxChangeProcessor =
-                    PropertyModelChangeProcessor.create(
-                            searchBoxPropertyModel,
-                            searchBoxView,
-                            BookmarkSearchBoxRowViewBinder.createViewBinder());
-
             updateDesktopSearchBoxMargins();
+            updateDesktopSearchBoxPosition(activity.getResources().getConfiguration());
         }
 
         mMainView.addOnAttachStateChangeListener(this);
@@ -360,7 +358,7 @@ public class BookmarkManagerCoordinator
                                 this::openSettings));
         dragReorderableRecyclerViewAdapter.registerType(
                 ViewType.SIGNIN_PROMO,
-                mSigninPromoCoordinator::buildPromoView,
+                this::buildSigninPromoView,
                 // SigninPromoCoordinator owns the model and keys for the promo inside it.
                 // The PropertyModel and BookmarkManagerProperties key passed to this binder
                 // method are thus not needed.
@@ -427,6 +425,11 @@ public class BookmarkManagerCoordinator
 
                             updateNavigationPaneVisibility(newConfig);
                             updateDesktopSearchBoxMargins();
+                            updateDesktopSearchBoxPosition(newConfig);
+
+                            if (mDesktopNavigationCoordinator != null) {
+                                mDesktopNavigationCoordinator.onConfigurationChanged(newConfig);
+                            }
 
                             mBookmarkToolbarCoordinator.onConfigurationChanged(newConfig);
                         }
@@ -547,6 +550,19 @@ public class BookmarkManagerCoordinator
     }
 
     @VisibleForTesting
+    View buildSigninPromoView(ViewGroup parent) {
+        View view = mSigninPromoCoordinator.buildPromoView(parent);
+        if (BookmarkUtils.isDesktopBookmarksLayoutEnabled()) {
+            PersonalizedSigninPromoView promoView =
+                    view.findViewById(R.id.signin_promo_view_container);
+            if (promoView != null) {
+                promoView.setCardBackgroundResource(R.drawable.bookmark_promo_desktop_background);
+            }
+        }
+        return view;
+    }
+
+    @VisibleForTesting
     View buildBatchUploadCardView(ViewGroup parent) {
         // The signin_settings_card_view is used for Batch Upload Cards.
         return inflate(parent, R.layout.signin_settings_card_view);
@@ -582,6 +598,7 @@ public class BookmarkManagerCoordinator
     View buildEmptyStateView(ViewGroup parent) {
         ViewGroup emptyStateView = (ViewGroup) inflate(parent, R.layout.empty_state_view);
         emptyStateView.setTouchscreenBlocksFocus(true);
+        emptyStateView.setFocusable(false);
         // Adjust the empty state view height dynamically to fill the remaining space in the
         // RecyclerView. Since R.layout.empty_state_view is a shared layout of height match_parent,
         // displaying it alongside the search box in the RecyclerView would exceed the viewport
@@ -720,7 +737,9 @@ public class BookmarkManagerCoordinator
         View navigationPane = mMainView.findViewById(R.id.navigation_pane);
         if (navigationPane != null) {
             navigationPane.setVisibility(
-                    config.screenWidthDp < WIDE_DISPLAY_THRESHOLD_DP ? View.GONE : View.VISIBLE);
+                    config.screenWidthDp < BookmarkUtils.WIDE_DISPLAY_THRESHOLD_DP
+                            ? View.GONE
+                            : View.VISIBLE);
         }
     }
 
@@ -741,6 +760,34 @@ public class BookmarkManagerCoordinator
         }
     }
 
+    private void updateDesktopSearchBoxPosition(Configuration config) {
+        if (!BookmarkUtils.isDesktopBookmarksLayoutEnabled()) {
+            return;
+        }
+        BookmarkSearchBoxRow searchBoxView = mMainView.findViewById(R.id.desktop_search_box_row);
+        boolean isSmallScreen = config.screenWidthDp < BookmarkUtils.WIDE_DISPLAY_THRESHOLD_DP;
+        if (searchBoxView != null) {
+            searchBoxView.setVisibility(isSmallScreen ? View.GONE : View.VISIBLE);
+            if (isSmallScreen) {
+                if (mSearchBoxChangeProcessor != null) {
+                    mSearchBoxChangeProcessor.destroy();
+                    mSearchBoxChangeProcessor = null;
+                }
+            } else {
+                if (mSearchBoxChangeProcessor == null) {
+                    PropertyModel searchBoxPropertyModel =
+                            mMediator.getOrCreateSearchBoxPropertyModel();
+                    mSearchBoxChangeProcessor =
+                            PropertyModelChangeProcessor.create(
+                                    searchBoxPropertyModel,
+                                    searchBoxView,
+                                    BookmarkSearchBoxRowViewBinder.createViewBinder());
+                }
+            }
+        }
+        mMediator.setSearchBoxInline(isSmallScreen);
+    }
+
     private void openSettings() {
         SettingsNavigationFactory.createSettingsNavigation()
                 .startSettings(mContext, ManageSyncSettings.class);
@@ -748,6 +795,10 @@ public class BookmarkManagerCoordinator
 
     @Nullable BackPressManager getBackPressManagerForTesting() {
         return mBackPressManager;
+    }
+
+    @Nullable PropertyModelChangeProcessor getSearchBoxChangeProcessorForTesting() {
+        return mSearchBoxChangeProcessor;
     }
 
     ComponentCallbacks getComponentCallbacksForTesting() {

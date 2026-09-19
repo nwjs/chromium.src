@@ -52,10 +52,10 @@ class SocketPermissionData {
   bool Check(const APIPermission::CheckParam* param) const;
 
   // Convert `this` into a base::Value.
-  std::unique_ptr<base::Value> ToValue() const;
+  base::Value ToValue() const;
 
   // Populate `this` from a base::Value.
-  bool FromValue(const base::Value* value);
+  bool FromValue(const base::Value& value);
 
   // TODO(bryeung): SocketPermissionData should be encoded as a base::Value
   // instead of a string.  Until that is done, expose these methods for

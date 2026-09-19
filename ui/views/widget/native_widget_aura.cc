@@ -48,6 +48,7 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/native_theme/native_theme_aura.h"
 #include "ui/views/buildflags.h"
 #include "ui/views/drag_utils.h"
@@ -1014,6 +1015,10 @@ gfx::Rect NativeWidgetAura::GetWorkAreaBoundsInScreen() const {
   }
   return display::Screen::Get()->GetDisplayNearestWindow(window_).work_area();
 }
+
+void NativeWidgetAura::PrepareForMoveLoop(Widget::MoveLoopSource source) {}
+
+void NativeWidgetAura::SetBypassWindowManager(bool bypass) {}
 
 Widget::MoveLoopResult NativeWidgetAura::RunMoveLoop(
     const gfx::Vector2d& drag_offset,

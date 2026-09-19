@@ -23,6 +23,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
+#include "base/values.h"
 #include "build/build_config.h"
 #include "net/base/address_list.h"
 #include "net/base/features.h"
@@ -202,7 +203,11 @@ int TCPSocketPosix::BindToNetwork(handles::NetworkHandle network) {
   DCHECK(IsValid());
   DCHECK(!IsConnected());
 #if BUILDFLAG(IS_ANDROID)
-  return net::android::BindToNetwork(socket_->socket_fd(), network);
+  int rv = net::android::BindToNetwork(socket_->socket_fd(), network);
+  if (rv == OK) {
+    bound_network_ = network;
+  }
+  return rv;
 #else
   NOTIMPLEMENTED();
   return ERR_NOT_IMPLEMENTED;
@@ -280,14 +285,19 @@ int TCPSocketPosix::Connect(const IPEndPoint& address,
                             CompletionOnceCallback callback) {
   DCHECK(socket_);
 
-  if (!logging_multiple_connect_attempts_)
-    LogConnectBegin(AddressList(address));
+  IPEndPoint target_address =
+      handles::MaybeTranslateEmulatedNetworkAddressForTesting(address,
+                                                              bound_network_);
 
-  net_log_.BeginEvent(NetLogEventType::TCP_CONNECT_ATTEMPT,
-                      [&] { return CreateNetLogIPEndPointParams(&address); });
+  if (!logging_multiple_connect_attempts_)
+    LogConnectBegin(AddressList(target_address));
+
+  net_log_.BeginEvent(NetLogEventType::TCP_CONNECT_ATTEMPT, [&] {
+    return CreateNetLogIPEndPointParams(&target_address);
+  });
 
   SockaddrStorage storage;
-  if (!address.ToSockAddr(storage.addr(), &storage.addr_len)) {
+  if (!target_address.ToSockAddr(storage.addr(), &storage.addr_len)) {
     return ERR_ADDRESS_INVALID;
   }
 
@@ -298,33 +308,53 @@ int TCPSocketPosix::Connect(const IPEndPoint& address,
         EphemeralPortRandomizer::GetInstance();
     constexpr int kMaxBindAttempts = 5;
     for (int attempt = 0; attempt < kMaxBindAttempts; ++attempt) {
-      std::optional<uint16_t> port = randomizer.PickPort(address);
+      net_log_.BeginEvent(NetLogEventType::TCP_RANDOMIZER_BIND_ATTEMPT, [&] {
+        return randomizer.CreateNetLogTCPBindAttemptStartParams(target_address,
+                                                                attempt);
+      });
+
+      std::optional<uint16_t> port = randomizer.PickPort(target_address);
       if (!port) {
+        net_log_.EndEvent(NetLogEventType::TCP_RANDOMIZER_BIND_ATTEMPT);
         break;
       }
 
-      IPAddress local_ip = address.address().IsIPv6()
+      IPAddress local_ip = target_address.address().IsIPv6()
                                ? IPAddress::IPv6AllZeros()
                                : IPAddress::IPv4AllZeros();
       IPEndPoint local_endpoint(local_ip, *port);
       SockaddrStorage local_storage;
       if (!local_endpoint.ToSockAddr(local_storage.addr(),
                                      &local_storage.addr_len)) {
+        net_log_.EndEvent(NetLogEventType::TCP_RANDOMIZER_BIND_ATTEMPT, [&] {
+          return base::DictValue()
+              .Set("local_address", local_ip.ToString())
+              .Set("attempted_port", *port);
+        });
         break;
       }
 
       int bind_result = HANDLE_EINTR(bind(
           socket_->socket_fd(), local_storage.addr(), local_storage.addr_len));
       if (bind_result == 0) {
-        port_randomization_data_ = {address, *port};
+        port_randomization_data_ = {target_address, *port};
+        net_log_.EndEvent(NetLogEventType::TCP_RANDOMIZER_BIND_ATTEMPT, [&] {
+          return base::DictValue().Set("local_endpoint",
+                                       local_endpoint.ToString());
+        });
         break;
       }
 
       int bind_error = errno;
+      net_log_.EndEvent(NetLogEventType::TCP_RANDOMIZER_BIND_ATTEMPT, [&] {
+        return base::DictValue()
+            .Set("attempted_local_endpoint", local_endpoint.ToString())
+            .Set("os_error", bind_error);
+      });
       if (bind_error == EADDRINUSE || bind_error == EACCES) {
         // Someone else is using this port. Record it as used so we won't
         // try it again in the near future.
-        randomizer.RecordPortUse(address, *port);
+        randomizer.RecordPortUse(target_address, *port);
         continue;
       }
       if (bind_error != EINVAL) {

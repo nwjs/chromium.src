@@ -16,22 +16,33 @@
 #include "chrome/browser/extensions/api/developer_private/developer_private_functions.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
+#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/chrome_paths.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/test/base/chrome_test_utils.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/service_worker_test_helpers.h"
+#include "content/public/test/test_navigation_observer.h"
 #include "extensions/browser/api_test_utils.h"
 #include "extensions/browser/browsertest_util.h"
 #include "extensions/browser/extension_host_test_helper.h"
+#include "extensions/browser/extension_prefs.h"
+#include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/offscreen_document_host.h"
+#include "extensions/browser/permissions/permissions_updater.h"
 #include "extensions/buildflags/buildflags.h"
+#include "extensions/common/extension_builder.h"
+#include "extensions/common/extension_features.h"
 #include "extensions/common/manifest_handlers/background_info.h"
+#include "extensions/common/mojom/manifest.mojom-shared.h"
 #include "extensions/common/mojom/view_type.mojom.h"
 #include "extensions/test/result_catcher.h"
 #include "extensions/test/test_extension_dir.h"
@@ -45,7 +56,6 @@
 #endif  // BUILDFLAG(ENABLE_PLATFORM_APPS)
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/browser.h"
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/window/dialog_delegate.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -532,6 +542,114 @@ IN_PROC_BROWSER_TEST_F(DeveloperPrivateApiTest, UninstallMultipleExtensions) {
       extension_0_id, ExtensionRegistry::EVERYTHING));
   EXPECT_FALSE(extension_registry()->GetExtensionById(
       extension_1_id, ExtensionRegistry::EVERYTHING));
+}
+
+class DeveloperPrivateApiRateExtensionTest : public DeveloperPrivateApiTest {
+ private:
+  base::test::ScopedFeatureList feature_list_{
+      extensions_features::kCWSReviewPromptingNativeUI};
+};
+
+IN_PROC_BROWSER_TEST_F(DeveloperPrivateApiRateExtensionTest,
+                       OpenReviewPage_NavigatesToCWS) {
+  scoped_refptr<const Extension> cws_extension =
+      ExtensionBuilder("CWS Extension")
+          .SetLocation(mojom::ManifestLocation::kInternal)
+          .AddFlags(Extension::FROM_WEBSTORE)
+          .Build();
+  PermissionsUpdater updater(profile());
+  updater.InitializePermissions(cws_extension.get());
+  updater.GrantActivePermissions(cws_extension.get());
+  extension_registrar()->AddExtension(cws_extension.get());
+
+  base::DictValue cws_info_dict;
+  cws_info_dict.Set("is-present", true);
+  cws_info_dict.Set("is-live", true);
+  cws_info_dict.Set("violation-type", 0);
+  ExtensionPrefs::Get(profile())->UpdateExtensionPref(
+      cws_extension->id(), "cws-info", base::Value(std::move(cws_info_dict)));
+
+  content::WebContents* web_contents = GetActiveWebContents();
+  ASSERT_TRUE(web_contents);
+
+  TabListInterface* tab_list =
+      TabListInterface::From(browser_window_interface());
+  ASSERT_TRUE(tab_list);
+  int initial_tab_count = tab_list->GetTabCount();
+
+  GURL expected_url = extensions::util::GetCWSWritingReviewUrl(
+      cws_extension->id(), extensions::util::CWSReviewSource::kExtensionsPage);
+
+  content::TestNavigationObserver observer(expected_url);
+  observer.StartWatchingNewWebContents();
+
+  auto function =
+      base::MakeRefCounted<api::DeveloperPrivateOpenReviewPageFunction>();
+  function->SetRenderFrameHost(web_contents->GetPrimaryMainFrame());
+
+  std::string args =
+      base::StringPrintf(R"(["%s"])", cws_extension->id().c_str());
+  EXPECT_TRUE(api_test_utils::RunFunction(function.get(), args, profile()));
+
+  observer.Wait();
+
+  EXPECT_EQ(initial_tab_count + 1, tab_list->GetTabCount());
+  content::WebContents* new_tab = tab_list->GetActiveTab()->GetContents();
+  EXPECT_NE(web_contents, new_tab);
+
+  EXPECT_EQ(expected_url, new_tab->GetLastCommittedURL());
+}
+
+IN_PROC_BROWSER_TEST_F(DeveloperPrivateApiRateExtensionTest,
+                       OpenReviewPage_IncognitoIneligible) {
+  content::WebContents* incognito_contents =
+      PlatformOpenURLOffTheRecord(profile(), GURL("about:blank"));
+  ASSERT_TRUE(incognito_contents);
+
+  Profile* incognito_profile =
+      Profile::FromBrowserContext(incognito_contents->GetBrowserContext());
+
+  scoped_refptr<const Extension> cws_extension =
+      ExtensionBuilder("CWS Extension")
+          .SetLocation(mojom::ManifestLocation::kInternal)
+          .AddFlags(Extension::FROM_WEBSTORE)
+          .Build();
+  PermissionsUpdater updater(profile());
+  updater.InitializePermissions(cws_extension.get());
+  updater.GrantActivePermissions(cws_extension.get());
+  extension_registrar()->AddExtension(cws_extension.get());
+
+  auto function =
+      base::MakeRefCounted<api::DeveloperPrivateOpenReviewPageFunction>();
+  function->SetRenderFrameHost(incognito_contents->GetPrimaryMainFrame());
+
+  std::string args =
+      base::StringPrintf(R"(["%s"])", cws_extension->id().c_str());
+  std::string error = api_test_utils::RunFunctionAndReturnError(
+      function.get(), args, incognito_profile);
+  EXPECT_EQ("The extension is ineligible for review prompts.", error);
+}
+
+IN_PROC_BROWSER_TEST_F(DeveloperPrivateApiRateExtensionTest,
+                       ExtensionsUI_CwsReviewPromptingEnabled) {
+  static constexpr char kScript[] =
+      "import('chrome://resources/js/load_time_data.js').then(m => "
+      "m.loadTimeData.getBoolean('cwsReviewPromptingEnabled'))";
+
+  content::WebContents* web_contents = GetActiveWebContents();
+  ASSERT_TRUE(web_contents);
+
+  // 1. Regular profile with policy allowed: cwsReviewPromptingEnabled is true.
+  ASSERT_TRUE(
+      content::NavigateToURL(web_contents, GURL("chrome://extensions")));
+  EXPECT_EQ(true, content::EvalJs(web_contents, kScript));
+
+  // 2. Enterprise policy disabled: cwsReviewPromptingEnabled is false.
+  profile()->GetPrefs()->SetBoolean(prefs::kExtensionReviewPromptsAllowed,
+                                    false);
+  ASSERT_TRUE(
+      content::NavigateToURL(web_contents, GURL("chrome://extensions")));
+  EXPECT_EQ(false, content::EvalJs(web_contents, kScript));
 }
 
 }  // namespace extensions

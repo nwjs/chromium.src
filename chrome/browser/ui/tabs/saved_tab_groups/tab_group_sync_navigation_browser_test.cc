@@ -8,11 +8,12 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_tab_state.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_web_contents_listener.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_action_context_desktop.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/saved_tab_groups/internal/tab_group_sync_service_impl.h"
@@ -130,7 +131,7 @@ class TabGroupSyncNavigationIntegrationTest : public InProcessBrowserTest {
 
     content::WebContents* web_contents_ptr = web_contents.get();
 
-    browser()->tab_strip_model()->AddWebContents(
+    browser()->GetTabStripModel()->AddWebContents(
         std::move(web_contents), index,
         ui::PageTransition::PAGE_TRANSITION_TYPED, AddTabTypes::ADD_ACTIVE);
 
@@ -163,11 +164,11 @@ IN_PROC_BROWSER_TEST_F(TabGroupSyncNavigationIntegrationTest,
   SetupSyncBridgeModelObserver();
 
   EXPECT_EQ(0u, service()->GetAllGroups().size());
-  TabStripModel* const tabstrip = browser()->tab_strip_model();
+  TabStripModel* const tabstrip = browser()->GetTabStripModel();
   ASSERT_EQ(1, tabstrip->count());
 
   // Create a local tab group with one tab.
-  TabGroupId local_group_id = browser()->tab_strip_model()->AddToNewGroup({0});
+  TabGroupId local_group_id = browser()->GetTabStripModel()->AddToNewGroup({0});
   VerifyWrittenToSync(/*write_events_since_last=*/1);
 
   // Ensure the group was saved.
@@ -179,8 +180,8 @@ IN_PROC_BROWSER_TEST_F(TabGroupSyncNavigationIntegrationTest,
   // Close the group. The mapping should be dropped. Add an extra tab to prevent
   // the browser from closing due to having zero tabs.
   AddTabToBrowser(0);
-  browser()->tab_strip_model()->CloseAllTabsInGroup(local_group_id);
-  EXPECT_FALSE(browser()->tab_strip_model()->group_model()->ContainsTabGroup(
+  browser()->GetTabStripModel()->CloseAllTabsInGroup(local_group_id);
+  EXPECT_FALSE(browser()->GetTabStripModel()->group_model()->ContainsTabGroup(
       local_group_id));
 
   // Reopen the group. The group shouldn't send a write event to sync.
@@ -192,7 +193,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupSyncNavigationIntegrationTest,
 
   EXPECT_TRUE(group_id.has_value());
   EXPECT_NE(local_group_id, group_id);
-  EXPECT_TRUE(browser()->tab_strip_model()->group_model()->ContainsTabGroup(
+  EXPECT_TRUE(browser()->GetTabStripModel()->group_model()->ContainsTabGroup(
       group_id.value()));
 
   // There should be no write event back to sync.
@@ -206,7 +207,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupSyncNavigationIntegrationTest,
       static_cast<TabGroupSyncServiceImpl*>(service());
   SavedTabGroupModel* model = service_impl->GetModel();
 
-  TabStripModel* const tabstrip = browser()->tab_strip_model();
+  TabStripModel* const tabstrip = browser()->GetTabStripModel();
 
   // Create a local tab group with one tab.
   ASSERT_EQ(1, tabstrip->count());
@@ -242,7 +243,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupSyncNavigationIntegrationTest,
       static_cast<TabGroupSyncServiceImpl*>(service());
   SavedTabGroupModel* model = service_impl->GetModel();
 
-  TabStripModel* const tabstrip = browser()->tab_strip_model();
+  TabStripModel* const tabstrip = browser()->GetTabStripModel();
 
   // Create a local tab group with one tab.
   ASSERT_EQ(1, tabstrip->count());
@@ -285,7 +286,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupSyncNavigationIntegrationTest,
 IN_PROC_BROWSER_TEST_F(TabGroupSyncNavigationIntegrationTest,
                        AddTabLocallyDoesPropagateToSync) {
   SetupSyncBridgeModelObserver();
-  TabStripModel* const tabstrip = browser()->tab_strip_model();
+  TabStripModel* const tabstrip = browser()->GetTabStripModel();
 
   // Create a local tab group.
   ASSERT_EQ(1, tabstrip->count());
@@ -312,7 +313,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupSyncNavigationIntegrationTest,
   TabGroupSyncServiceImpl* service_impl =
       static_cast<TabGroupSyncServiceImpl*>(service());
   SavedTabGroupModel* model = service_impl->GetModel();
-  TabStripModel* const tabstrip = browser()->tab_strip_model();
+  TabStripModel* const tabstrip = browser()->GetTabStripModel();
 
   // Create a local tab group with one tab.
   ASSERT_EQ(1, tabstrip->count());
@@ -349,7 +350,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupSyncNavigationIntegrationTest,
   TabGroupSyncServiceImpl* service_impl =
       static_cast<TabGroupSyncServiceImpl*>(service());
   SavedTabGroupModel* model = service_impl->GetModel();
-  TabStripModel* const tabstrip = browser()->tab_strip_model();
+  TabStripModel* const tabstrip = browser()->GetTabStripModel();
 
   // Create a local tab group with one tab.
   ASSERT_EQ(1, tabstrip->count());
@@ -385,7 +386,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupSyncNavigationIntegrationTest,
   TabGroupSyncServiceImpl* service_impl =
       static_cast<TabGroupSyncServiceImpl*>(service());
   SavedTabGroupModel* model = service_impl->GetModel();
-  TabStripModel* const tabstrip = browser()->tab_strip_model();
+  TabStripModel* const tabstrip = browser()->GetTabStripModel();
 
   // Create a local tab group with one tab.
   ASSERT_EQ(1, tabstrip->count());
@@ -416,7 +417,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupSyncNavigationIntegrationTest,
   TabGroupSyncServiceImpl* service_impl =
       static_cast<TabGroupSyncServiceImpl*>(service());
   SavedTabGroupModel* model = service_impl->GetModel();
-  TabStripModel* const tabstrip = browser()->tab_strip_model();
+  TabStripModel* const tabstrip = browser()->GetTabStripModel();
 
   // Create a local tab group with one tab.
   ASSERT_EQ(1, tabstrip->count());
@@ -459,7 +460,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupSyncNavigationIntegrationTest,
   TabGroupSyncServiceImpl* service_impl =
       static_cast<TabGroupSyncServiceImpl*>(service());
   SavedTabGroupModel* model = service_impl->GetModel();
-  TabStripModel* const tabstrip = browser()->tab_strip_model();
+  TabStripModel* const tabstrip = browser()->GetTabStripModel();
 
   // Create a local tab group with one tab.
   ASSERT_EQ(1, tabstrip->count());
@@ -493,7 +494,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupSyncNavigationIntegrationTest,
   TabGroupSyncServiceImpl* service_impl =
       static_cast<TabGroupSyncServiceImpl*>(service());
   SavedTabGroupModel* model = service_impl->GetModel();
-  TabStripModel* const tabstrip = browser()->tab_strip_model();
+  TabStripModel* const tabstrip = browser()->GetTabStripModel();
 
   // Create a local tab group with one tab.
   ASSERT_EQ(1, tabstrip->count());
@@ -541,7 +542,7 @@ IN_PROC_BROWSER_TEST_F(TabGroupSyncNavigationIntegrationTest,
   TabGroupSyncServiceImpl* service_impl =
       static_cast<TabGroupSyncServiceImpl*>(service());
   SavedTabGroupModel* model = service_impl->GetModel();
-  TabStripModel* const tabstrip = browser()->tab_strip_model();
+  TabStripModel* const tabstrip = browser()->GetTabStripModel();
 
   // Create a local tab group with one tab.
   ASSERT_EQ(1, tabstrip->count());

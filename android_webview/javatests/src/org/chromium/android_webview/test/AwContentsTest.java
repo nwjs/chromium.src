@@ -51,6 +51,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.UseParametersRunnerFactory;
 
 import org.chromium.android_webview.AwContents;
+import org.chromium.android_webview.AwDarkMode;
 import org.chromium.android_webview.AwRenderProcess;
 import org.chromium.android_webview.AwSettings;
 import org.chromium.android_webview.AwViewAndroidDelegate;
@@ -65,7 +66,6 @@ import org.chromium.base.FakeTimeTestRule;
 import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TimeUtils;
-
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
@@ -157,6 +157,11 @@ public class AwContentsTest extends AwParameterizedTest {
     @Feature({"AndroidWebView"})
     public void testUpdateContextAndAdopt() throws Throwable {
         mActivityTestRule.startBrowserProcess();
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.WebView.WebContent.AdoptResult",
+                        AwContents.AdoptResult.SUCCESS);
+
         MutableContextWrapper oldContext =
                 new MutableContextWrapper(mActivityTestRule.getActivity());
         AwTestContainerView testContainer =
@@ -182,6 +187,7 @@ public class AwContentsTest extends AwParameterizedTest {
         TouchCommon.longPressView(testContainer);
 
         AwTestContainerView newContainer = mActivityTestRule.reparentAwContents(testContainer);
+        histogramWatcher.assertExpected();
         oldContext.setBaseContext(null);
 
         ThreadUtils.runOnUiThreadBlocking(
@@ -378,31 +384,36 @@ public class AwContentsTest extends AwParameterizedTest {
     @SmallTest
     @Feature({"AndroidWebView"})
     public void testBackgroundColorInDarkMode() throws Throwable {
-        mActivityTestRule.startBrowserProcess();
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    AwContents awContents =
-                            mActivityTestRule
-                                    .createAwTestContainerView(mContentsClient)
-                                    .getAwContents();
-                    AwSettings awSettings = awContents.getSettings();
+        AwDarkMode.enableLegacyDarkMode();
+        try {
+            mActivityTestRule.startBrowserProcess();
+            ThreadUtils.runOnUiThreadBlocking(
+                    () -> {
+                        AwContents awContents =
+                                mActivityTestRule
+                                        .createAwTestContainerView(mContentsClient)
+                                        .getAwContents();
+                        AwSettings awSettings = awContents.getSettings();
 
-                    Assert.assertEquals(
-                            Color.WHITE, awContents.getEffectiveBackgroundColorForTesting());
+                        Assert.assertEquals(
+                                Color.WHITE, awContents.getEffectiveBackgroundColorForTesting());
 
-                    awSettings.setForceDarkMode(AwSettings.FORCE_DARK_ON);
-                    Assert.assertTrue(awSettings.isForceDarkApplied());
-                    Assert.assertEquals(
-                            Color.BLACK, awContents.getEffectiveBackgroundColorForTesting());
+                        awSettings.setForceDarkMode(AwSettings.FORCE_DARK_ON);
+                        Assert.assertTrue(awSettings.isForceDarkApplied());
+                        Assert.assertEquals(
+                                Color.BLACK, awContents.getEffectiveBackgroundColorForTesting());
 
-                    awContents.setBackgroundColor(Color.RED);
-                    Assert.assertEquals(
-                            Color.RED, awContents.getEffectiveBackgroundColorForTesting());
+                        awContents.setBackgroundColor(Color.RED);
+                        Assert.assertEquals(
+                                Color.RED, awContents.getEffectiveBackgroundColorForTesting());
 
-                    awContents.destroy();
-                    Assert.assertEquals(
-                            Color.RED, awContents.getEffectiveBackgroundColorForTesting());
-                });
+                        awContents.destroy();
+                        Assert.assertEquals(
+                                Color.RED, awContents.getEffectiveBackgroundColorForTesting());
+                    });
+        } finally {
+            AwDarkMode.resetForTesting();
+        }
     }
 
     private int callDocumentHasImagesSync(final AwContents awContents)
@@ -1967,6 +1978,7 @@ public class AwContentsTest extends AwParameterizedTest {
     @MediumTest
     @Feature({"AndroidWebView"})
     @MinAndroidSdkLevel(Build.VERSION_CODES.R)
+    @DisabledTest(message = "crbug.com/546435821")
     public void testBottomInsets() throws Exception {
         mActivityTestRule.startBrowserProcess();
         AwTestContainerView containerView =
@@ -2109,14 +2121,25 @@ public class AwContentsTest extends AwParameterizedTest {
         AwTestContainerView oldView =
                 mActivityTestRule.createAwTestContainerViewOnMainSync(client, false);
 
-        ThreadUtils.runOnUiThreadBlocking(() -> {
-            oldView.getAwContents().getViewAndroidDelegateForTesting().acquireView();
-        });
+        View anchorView =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> {
+                            return oldView.getAwContents()
+                                    .getViewAndroidDelegateForTesting()
+                                    .acquireView();
+                        });
 
         AwTestContainerView newView =
                 mActivityTestRule.reparentAwContents(oldView, android.R.style.Theme_Black);
 
         Assert.assertNotNull(newView);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    newView.getAwContents()
+                            .getViewAndroidDelegateForTesting()
+                            .removeView(anchorView);
+                });
     }
 
     @Test
@@ -2137,4 +2160,60 @@ public class AwContentsTest extends AwParameterizedTest {
 
         Assert.assertNotNull(newView);
     }
+
+    /**
+     * Regression test for b/547720473. Ensures that evaluating JavaScript and executing callbacks
+     * immediately upon bringing a backgrounded (frozen) WebView to the foreground succeeds without
+     * dropping execution.
+     */
+    @Test
+    @MediumTest
+    @Feature({"AndroidWebView"})
+    @CommandLineFlags.Add(
+            "enable-features=stop-in-background:DelayForBackgroundTabFreezingMills/50")
+    public void testImmediateJsOnForegroundAfterBackgroundFreezing() throws Throwable {
+        mActivityTestRule.startBrowserProcess();
+        AwContents awContents =
+                mActivityTestRule
+                        .createAwTestContainerViewOnMainSync(mContentsClient)
+                        .getAwContents();
+        AwActivityTestRule.enableJavaScriptOnUiThread(awContents);
+        mActivityTestRule.loadUrlSync(
+                awContents,
+                mContentsClient.getOnPageFinishedHelper(),
+                ContentUrlConstants.ABOUT_BLANK_DISPLAY_URL);
+
+        // 1. Move to background and wait for more than the freezing timeout (50ms).
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> awContents.getViewMethods().onWindowVisibilityChanged(View.INVISIBLE));
+        Thread.sleep(150);
+
+        // 2. Bring to foreground and evaluate JavaScript with a WebIDL callback in the same UI
+        // task. This ensures the JS executes before WebView's asynchronously posted unfreeze
+        // runnable completes.
+        final String script =
+                """
+                (() => {
+                  try {
+                    const policy =
+                        window.trustedTypes.createPolicy('p', {createScriptURL: s => s});
+                    policy.createScriptURL('https://example.com');
+                    return 'success';
+                  } catch (e) {
+                    return 'error: ' + e.message;
+                  }
+                })()
+                """;
+
+        SettableFuture<String> resultFuture = SettableFuture.create();
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    awContents.getViewMethods().onWindowVisibilityChanged(View.VISIBLE);
+                    awContents.evaluateJavaScript(script, resultFuture::set);
+                });
+
+        Assert.assertEquals(
+                "\"success\"", resultFuture.get(WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS));
+    }
 }
+

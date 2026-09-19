@@ -23,6 +23,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/common/chrome_features.h"
@@ -135,6 +136,11 @@ GlicInvokeHandler::ResolvedTarget GlicInvokeHandler::ResolveTargetSurface(
   if (const auto* tab_handle = std::get_if<tabs::TabHandle>(&target.surface)) {
     tabs::TabInterface* tab = tab_handle->Get();
     if (tab) {
+      BrowserWindowInterface* browser = tab->GetBrowserWindowInterface();
+      if (!browser ||
+          browser->GetType() != BrowserWindowInterface::Type::TYPE_NORMAL) {
+        return {TabSurface{/*tab=*/nullptr, /*is_new=*/false}};
+      }
       return {TabSurface{tab, /*is_new=*/false}};
     }
   }
@@ -163,13 +169,15 @@ GlicInvokeHandler::GlicInvokeHandler(
     GlicInvokeOptions options,
     GlicInvokeWithAutoSubmitOptions auto_submit_options,
     std::optional<InvokeWithAutoSubmitPasskey> auto_submit_passkey,
+    std::unique_ptr<GlicInvokeMetrics> invoke_metrics,
     CompletionCallback completion_callback)
     : instance_(instance),
       resolved_target_(std::move(resolved_target)),
       options_(std::move(options)),
       auto_submit_passkey_(auto_submit_passkey),
       auto_submit_options_(std::move(auto_submit_options)),
-      completion_callback_(std::move(completion_callback)) {
+      completion_callback_(std::move(completion_callback)),
+      metrics_(std::move(invoke_metrics)) {
   if (const auto* tab_surface = std::get_if<TabSurface>(&resolved_target_)) {
     CHECK(tab_surface->tab);
 
@@ -396,7 +404,7 @@ void GlicInvokeHandler::OnSuccess() {
     main_task_->NotifySequenceCompleted(/*success=*/true);
   }
 
-  RecordInvokeSuccess(options_.GetInvocationSource());
+  metrics_->RecordSuccess();
 
   if (options_.on_success) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -414,7 +422,7 @@ void GlicInvokeHandler::OnError(GlicInvokeError error) {
     main_task_->NotifySequenceCompleted(/*success=*/false);
   }
 
-  RecordInvokeError(options_.GetInvocationSource(), error);
+  metrics_->RecordError(error);
 
   if (options_.on_error) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(

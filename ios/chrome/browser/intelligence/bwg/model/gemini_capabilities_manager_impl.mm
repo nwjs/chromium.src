@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_capabilities_manager_impl.h"
 
+#import "base/check.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_availability.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
@@ -20,8 +21,6 @@ GeminiCapabilitiesManagerImpl::GeminiCapabilitiesManagerImpl(
   if (gemini_service_) {
     gemini_service_observation_.Observe(gemini_service_);
   }
-  // Update capabilities immediately upon initialization.
-  UpdateCapabilities();
 }
 
 GeminiCapabilitiesManagerImpl::~GeminiCapabilitiesManagerImpl() = default;
@@ -37,40 +36,20 @@ void GeminiCapabilitiesManagerImpl::OnGeminiEligibilityChanged() {
 }
 
 void GeminiCapabilitiesManagerImpl::UpdateCapabilities() {
+  CHECK(IsAppSwitcherAISummarizationEnabled());
+
   NSUserDefaults* shared_defaults = app_group::GetCommonGroupUserDefaults();
-
-  // If the feature is disabled, clean up all capabilities and return early.
-  if (!IsAppSwitcherAISummarizationEnabled()) {
-    UpdateHashedUserID(shared_defaults, /*has_primary_identity=*/false);
-
-    NSDictionary* existing_capabilities = [shared_defaults
-        dictionaryForKey:app_group::kChromeCapabilitiesPreference];
-    if (existing_capabilities) {
-      NSMutableDictionary* capabilities = [existing_capabilities mutableCopy];
-      [capabilities removeObjectForKey:
-                        app_group::kChromeSupportsAISummarizationCapability];
-      [capabilities removeObjectForKey:
-                        app_group::kChromeUserIsEligibleForGeminiCapability];
-      if (![existing_capabilities isEqualToDictionary:capabilities]) {
-        [shared_defaults setObject:capabilities
-                            forKey:app_group::kChromeCapabilitiesPreference];
-      }
-    }
-    return;
-  }
-
   NSDictionary* existing_capabilities = [shared_defaults
       dictionaryForKey:app_group::kChromeCapabilitiesPreference];
   NSMutableDictionary* capabilities = existing_capabilities
                                           ? [existing_capabilities mutableCopy]
-                                          : [NSMutableDictionary dictionary];
+                                          : [[NSMutableDictionary alloc] init];
 
   bool has_primary_identity =
       authentication_service_ && authentication_service_->HasPrimaryIdentity();
   bool user_eligible =
       gemini_service_ && gemini_service_->IsProfileEligibleForGemini();
   UpdateSupportsAISummarization(capabilities);
-  UpdateHashedUserID(shared_defaults, has_primary_identity);
   UpdateUserEligibility(capabilities, user_eligible, has_primary_identity);
 
   if (![existing_capabilities isEqualToDictionary:capabilities]) {
@@ -85,24 +64,6 @@ void GeminiCapabilitiesManagerImpl::UpdateSupportsAISummarization(
     NSMutableDictionary* capabilities) {
   capabilities[app_group::kChromeSupportsAISummarizationCapability] =
       @(IsAppSwitcherAISummarizationEnabled());
-}
-
-void GeminiCapabilitiesManagerImpl::UpdateHashedUserID(
-    NSUserDefaults* shared_defaults,
-    bool has_primary_identity) {
-  if (!has_primary_identity) {
-    if ([shared_defaults objectForKey:app_group::kAppSwitcherHashedUserID]) {
-      [shared_defaults removeObjectForKey:app_group::kAppSwitcherHashedUserID];
-    }
-    return;
-  }
-  id<SystemIdentity> identity = authentication_service_->GetPrimaryIdentity();
-  NSString* existing_hashed_uid =
-      [shared_defaults stringForKey:app_group::kAppSwitcherHashedUserID];
-  if (![existing_hashed_uid isEqualToString:identity.hashedGaiaID]) {
-    [shared_defaults setObject:identity.hashedGaiaID
-                        forKey:app_group::kAppSwitcherHashedUserID];
-  }
 }
 
 void GeminiCapabilitiesManagerImpl::UpdateUserEligibility(

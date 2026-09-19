@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "base/base64.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "remoting/signaling/content_description.h"
@@ -144,51 +145,58 @@ TEST(JingleMessageXmlConverterTest, JingleMessageReply_Result) {
   EXPECT_FALSE(parsed_reply.error_type.has_value());
 }
 
-TEST(JingleMessageXmlConverterTest, JingleMessageReply_Error) {
-  struct ErrorTestCase {
-    JingleMessageReply::ErrorType type;
-    const char* expected_error_xml;
-  };
-  ErrorTestCase test_cases[] = {
-      {JingleMessageReply::BAD_REQUEST,
-       "<error type='modify'><bad-request/></error>"},
-      {JingleMessageReply::NOT_IMPLEMENTED,
-       "<error type='cancel'><feature-bad-request/></error>"},
-      {JingleMessageReply::INVALID_SID,
-       "<error type='modify'><item-not-found/><text xml:lang='en' "
-       "xmlns='jabber:client'>Invalid SID</text></error>"},
-      {JingleMessageReply::UNEXPECTED_REQUEST,
-       "<error type='modify'><unexpected-request/></error>"},
-      {JingleMessageReply::UNSUPPORTED_INFO,
-       "<error type='modify'><feature-not-implemented/></error>"},
-      {JingleMessageReply::UNSPECIFIED,
-       "<error type='cancel'><unspecified-error/></error>"},
-  };
+struct XmlErrorTestCase {
+  JingleMessageReply::ErrorType type;
+  const char* expected_error_xml;
+};
 
-  for (const auto& test_case : test_cases) {
-    JingleMessageReply reply(test_case.type);
-    reply.message_id = "test_id";
-    reply.to = SignalingAddress("to_jid");
-    reply.from = SignalingAddress("from_jid");
+class JingleMessageXmlConverterErrorReplyTest
+    : public testing::TestWithParam<XmlErrorTestCase> {};
 
-    std::unique_ptr<XmlElement> xml = JingleMessageReplyToXml(reply);
-    ASSERT_TRUE(xml);
+TEST_P(JingleMessageXmlConverterErrorReplyTest, ErrorReplyConversion) {
+  const XmlErrorTestCase& test_case = GetParam();
+  JingleMessageReply reply(test_case.type);
+  reply.message_id = "test_id";
+  reply.to = SignalingAddress("to_jid");
+  reply.from = SignalingAddress("from_jid");
 
-    std::string expected_xml_str = base::ReplaceStringPlaceholders(
-        "<iq type='error' id='test_id' to='to_jid' from='from_jid' "
-        "xmlns='jabber:client'>$1</iq>",
-        {test_case.expected_error_xml}, nullptr);
-    std::unique_ptr<XmlElement> expected(XmlElement::ForStr(expected_xml_str));
-    std::string error;
-    EXPECT_TRUE(VerifyXml(expected.get(), xml.get(), &error))
-        << "Error type: " << test_case.type << " - " << error;
+  std::unique_ptr<XmlElement> xml = JingleMessageReplyToXml(reply);
+  ASSERT_TRUE(xml);
 
-    JingleMessageReply parsed_reply;
-    EXPECT_TRUE(JingleMessageReplyFromXml(xml.get(), &parsed_reply));
-    EXPECT_EQ(parsed_reply.reply_type, JingleMessageReply::REPLY_ERROR);
-    EXPECT_EQ(parsed_reply.error_type, test_case.type);
-  }
+  std::string expected_xml_str = base::ReplaceStringPlaceholders(
+      "<iq type='error' id='test_id' to='to_jid' from='from_jid' "
+      "xmlns='jabber:client'>$1</iq>",
+      {test_case.expected_error_xml}, nullptr);
+  std::unique_ptr<XmlElement> expected(XmlElement::ForStr(expected_xml_str));
+  std::string error;
+  EXPECT_TRUE(VerifyXml(expected.get(), xml.get(), &error))
+      << "Error type: " << static_cast<int>(test_case.type) << " - " << error;
+
+  JingleMessageReply parsed_reply;
+  EXPECT_TRUE(JingleMessageReplyFromXml(xml.get(), &parsed_reply));
+  EXPECT_EQ(parsed_reply.reply_type, JingleMessageReply::REPLY_ERROR);
+  EXPECT_EQ(parsed_reply.error_type, test_case.type);
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    AllConditions,
+    JingleMessageXmlConverterErrorReplyTest,
+    testing::Values(
+        XmlErrorTestCase{JingleMessageReply::BAD_REQUEST,
+                         "<error type='modify'><bad-request/></error>"},
+        XmlErrorTestCase{JingleMessageReply::NOT_IMPLEMENTED,
+                         "<error type='cancel'><feature-bad-request/></error>"},
+        XmlErrorTestCase{JingleMessageReply::INVALID_SID,
+                         "<error type='modify'><item-not-found/><text "
+                         "xml:lang='en' xmlns='jabber:client'>Invalid "
+                         "SID</text></error>"},
+        XmlErrorTestCase{JingleMessageReply::UNEXPECTED_REQUEST,
+                         "<error type='modify'><unexpected-request/></error>"},
+        XmlErrorTestCase{
+            JingleMessageReply::UNSUPPORTED_INFO,
+            "<error type='modify'><feature-not-implemented/></error>"},
+        XmlErrorTestCase{JingleMessageReply::UNSPECIFIED,
+                         "<error type='cancel'><unspecified-error/></error>"}));
 
 TEST(JingleMessageXmlConverterTest, Attachment_RoundTrip) {
   Attachment attachment;
@@ -223,9 +231,9 @@ TEST(JingleMessageXmlConverterTest, JingleAuthentication_RoundTrip) {
       AuthenticationMethod::PAIRED_SPAKE2_CURVE25519};
   auth.method = AuthenticationMethod::SHARED_SECRET_SPAKE2_CURVE25519;
   auth.id = "auth_id";
-  auth.spake_message = {1, 2, 3};
-  auth.verification_hash = {4, 5, 6};
-  auth.certificate = {7, 8, 9};
+  auth.spake_message = std::vector<uint8_t>(32, 0x01);
+  auth.verification_hash = std::vector<uint8_t>(32, 0xAA);
+  auth.certificate = std::vector<uint8_t>(32, 0xBB);
   auth.session_authz_host_token = "host_token";
   auth.session_authz_session_token = "session_token";
   auth.pairing_info.emplace();
@@ -462,6 +470,67 @@ TEST(JingleMessageXmlConverterTest, JingleMessage_SessionAccept) {
             AuthenticationMethod::SHARED_SECRET_SPAKE2_CURVE25519);
   EXPECT_EQ(parsed_accept->authentication->spake_message, auth.spake_message);
   ASSERT_TRUE(parsed_accept->transport_info.has_value());
+}
+
+TEST(JingleMessageXmlConverterTest,
+     JingleMessage_SessionAccept_Spake2HostCertificate) {
+  constexpr char kTestCertificateBase64[] =
+      "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyN3rL6u+eG8H9o3F7w4f1mK2s8u1"
+      "v9X0y5z6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8"
+      "c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4"
+      "c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
+      "c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9IDAQAB";
+  std::string decoded_cert;
+  ASSERT_TRUE(base::Base64Decode(kTestCertificateBase64, &decoded_cert));
+
+  JingleMessage message = CreateBaseJingleMessage();
+  message.message_id = "msg_accept_003b";
+  message.sid = "crd_sess_987654321";
+
+  JingleAuthentication auth;
+  auth.method = AuthenticationMethod::SHARED_SECRET_SPAKE2_CURVE25519;
+  auth.certificate.assign(decoded_cert.begin(), decoded_cert.end());
+  auth.spake_message = std::vector<uint8_t>(32, 0x01);
+  message.description = std::make_unique<ContentDescription>(auth);
+
+  SessionAccept accept;
+  accept.authentication = auth;
+  message.SetPayload(std::move(accept));
+
+  std::unique_ptr<XmlElement> xml = JingleMessageToXml(message);
+  ASSERT_TRUE(xml);
+
+  XmlElement* jingle = xml->FirstNamed(QName("urn:xmpp:jingle:1", "jingle"));
+  ASSERT_TRUE(jingle);
+  XmlElement* content =
+      jingle->FirstNamed(QName("urn:xmpp:jingle:1", "content"));
+  ASSERT_TRUE(content);
+  XmlElement* desc =
+      content->FirstNamed(QName("google:remoting", "description"));
+  ASSERT_TRUE(desc);
+  XmlElement* auth_el =
+      desc->FirstNamed(QName("google:remoting", "authentication"));
+  ASSERT_TRUE(auth_el);
+  EXPECT_EQ(auth_el->Attr(QName("", "method")), "spake2_curve25519");
+  XmlElement* cert_el =
+      auth_el->FirstNamed(QName("google:remoting", "certificate"));
+  ASSERT_TRUE(cert_el);
+  EXPECT_EQ(cert_el->BodyText(), kTestCertificateBase64);
+
+  JingleMessage parsed_message;
+  std::string error;
+  ASSERT_TRUE(JingleMessageFromXml(xml.get(), &parsed_message, &error))
+      << error;
+
+  EXPECT_EQ(parsed_message.message_id, "msg_accept_003b");
+  EXPECT_EQ(parsed_message.sid, "crd_sess_987654321");
+  auto* parsed_accept = std::get_if<SessionAccept>(&parsed_message.payload());
+  ASSERT_TRUE(parsed_accept);
+  ASSERT_TRUE(parsed_accept->authentication.has_value());
+  EXPECT_EQ(parsed_accept->authentication->method,
+            AuthenticationMethod::SHARED_SECRET_SPAKE2_CURVE25519);
+  EXPECT_EQ(parsed_accept->authentication->certificate, auth.certificate);
+  EXPECT_EQ(parsed_accept->authentication->spake_message, auth.spake_message);
 }
 
 TEST(JingleMessageXmlConverterTest, JingleMessage_SessionTerminate) {

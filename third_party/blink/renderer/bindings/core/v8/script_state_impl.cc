@@ -5,38 +5,22 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_state_impl.h"
 
 #include "third_party/blink/renderer/bindings/core/v8/v8_initializer.h"
+#include "third_party/blink/renderer/core/execution_context/agent.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/platform/bindings/dom_wrapper_world.h"
+#include "third_party/blink/renderer/platform/instrumentation/resource_coordinator/renderer_resource_coordinator.h"
+#include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
 
 namespace blink {
 
-// static
-void ScriptStateImpl::Init() {
-  ScriptState::SetCreateCallback(ScriptStateImpl::Create);
-}
-
-// static
-ScriptState* ScriptStateImpl::Create(v8::Local<v8::Context> context,
-                                     DOMWrapperWorld* world,
-                                     ExecutionContext* execution_context) {
-  // Prevent accidentally creating a context without the Temporal clamping
-  // mitigation in place. The RegExp world is the only context allowed to bypass
-  // this mitigation as it is internally restricted and cannot execute arbitrary
-  // JavaScript.
-  DCHECK(execution_context ||
-         world->GetWorldType() == DOMWrapperWorld::WorldType::kRegExp);
-  if (execution_context) {
-    V8Initializer::InitializeContext(context, execution_context);
-  }
-  return MakeGarbageCollected<ScriptStateImpl>(context, std::move(world),
-                                               execution_context);
-}
-
 ScriptStateImpl::ScriptStateImpl(v8::Local<v8::Context> context,
                                  DOMWrapperWorld* world,
-                                 ExecutionContext* execution_context)
-    : ScriptState(context, world, execution_context),
-      execution_context_(execution_context) {}
+                                 ExecutionContext& execution_context)
+    : ScriptState(context, world, execution_context.GetAgent()->event_loop()),
+      execution_context_(&execution_context) {
+  V8Initializer::InitializeContext(context, execution_context);
+  RendererResourceCoordinator::Get()->OnScriptStateCreated(this);
+}
 
 void ScriptStateImpl::Trace(Visitor* visitor) const {
   ScriptState::Trace(visitor);

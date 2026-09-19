@@ -6,7 +6,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/strings/strcat.h"
 #include "base/test/metrics/histogram_tester.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/content_setting_bubble_contents.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -248,7 +248,7 @@ class PermissionChipBrowserTest : public InProcessBrowserTest {
     ASSERT_TRUE(embedded_test_server()->Start());
     ASSERT_TRUE(ui_test_utils::NavigateToURL(
         browser(), embedded_test_server()->GetURL("/title1.html")));
-    web_contents_ = browser()->tab_strip_model()->GetActiveWebContents();
+    web_contents_ = browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   BrowserView* browser_view() {
@@ -256,14 +256,7 @@ class PermissionChipBrowserTest : public InProcessBrowserTest {
   }
 
   void ClickOnChip(ChipController* controller) {
-    views::test::ButtonTestApi(
-        views::AsViewClass<views::Button>(
-            views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
-                PermissionChipView::kPermissionRequestChipElementId,
-                views::ElementTrackerViews::GetContextForView(browser_view()))))
-        .NotifyClick(ui::MouseEvent(ui::EventType::kMousePressed, gfx::Point(),
-                                    gfx::Point(), ui::EventTimeForNow(),
-                                    ui::EF_LEFT_MOUSE_BUTTON, 0));
+    controller->chip()->ExecuteForTesting();
     base::RunLoop().RunUntilIdle();
   }
 
@@ -324,7 +317,7 @@ IN_PROC_BROWSER_TEST_F(PermissionChipBrowserTest, AccessibleName) {
 
   std::u16string tab_title =
       WindowMetadataController::From(browser())->GetTitleForTab(
-          browser()->tab_strip_model()->GetTabAtIndex(0)->GetHandle());
+          browser()->GetTabStripModel()->GetTabAtIndex(0)->GetHandle());
   std::u16string permission_title = l10n_util::GetStringFUTF16(
       IDS_TAB_AX_LABEL_PERMISSION_REQUESTED_FORMAT, tab_title);
 
@@ -334,7 +327,7 @@ IN_PROC_BROWSER_TEST_F(PermissionChipBrowserTest, AccessibleName) {
   browser_view()
       ->tab_strip_view()
       ->GetTabAnchorView(
-          browser()->tab_strip_model()->GetTabAtIndex(0)->GetHandle())
+          browser()->GetTabStripModel()->GetTabAtIndex(0)->GetHandle())
       ->GetViewAccessibility()
       .GetAccessibleNodeData(&data);
   EXPECT_TRUE(chip_controller->IsPermissionPromptChipVisible());
@@ -346,7 +339,7 @@ IN_PROC_BROWSER_TEST_F(PermissionChipBrowserTest, AccessibleName) {
   browser_view()
       ->tab_strip_view()
       ->GetTabAnchorView(
-          browser()->tab_strip_model()->GetTabAtIndex(0)->GetHandle())
+          browser()->GetTabStripModel()->GetTabAtIndex(0)->GetHandle())
       ->GetViewAccessibility()
       .GetAccessibleNodeData(&data);
   EXPECT_FALSE(chip_controller->IsPermissionPromptChipVisible());
@@ -369,11 +362,8 @@ IN_PROC_BROWSER_TEST_F(PermissionChipBrowserTest, ClickOnRequestChipTest) {
   EXPECT_FALSE(chip_controller->is_dismiss_timer_running_for_testing());
 
   EXPECT_TRUE(chip_controller->IsAnimating());
-  views::AsViewClass<PermissionChipView>(
-      views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
-          PermissionChipView::kPermissionRequestChipElementId,
-          views::ElementTrackerViews::GetContextForView(browser_view())))
-      ->StopAnimationForTesting();
+  chip_controller->chip()->ResetAnimation(
+      PermissionChipInterface::AnimationState::kExpanded);
   chip_controller->OnExpandAnimationEnded();
   EXPECT_FALSE(chip_controller->IsAnimating());
 
@@ -416,11 +406,8 @@ IN_PROC_BROWSER_TEST_F(PermissionChipBrowserTest,
   EXPECT_FALSE(chip_controller->is_dismiss_timer_running_for_testing());
 
   EXPECT_TRUE(chip_controller->IsAnimating());
-  views::AsViewClass<PermissionChipView>(
-      views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
-          PermissionChipView::kPermissionRequestChipElementId,
-          views::ElementTrackerViews::GetContextForView(browser_view())))
-      ->StopAnimationForTesting();
+  chip_controller->chip()->ResetAnimation(
+      PermissionChipInterface::AnimationState::kExpanded);
   chip_controller->OnExpandAnimationEnded();
   EXPECT_FALSE(chip_controller->IsAnimating());
 
@@ -459,11 +446,8 @@ IN_PROC_BROWSER_TEST_F(PermissionChipBrowserTest,
   ChipController* chip_controller =
       chip_prompt.get_chip_controller_for_testing();
 
-  views::AsViewClass<PermissionChipView>(
-      views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
-          PermissionChipView::kPermissionRequestChipElementId,
-          views::ElementTrackerViews::GetContextForView(browser_view())))
-      ->StopAnimationForTesting();
+  chip_controller->chip()->ResetAnimation(
+      PermissionChipInterface::AnimationState::kExpanded);
   chip_controller->OnExpandAnimationEnded();
 
   // Open a permission popup bubble.

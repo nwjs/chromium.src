@@ -44,10 +44,10 @@ extension ObjectGroup {
             ] => .undefined,
             "getUnion": [
                 .plain(.boolean),
-            ] => .jsPromise(resolvingTo: .jsGoldenPrimary_GetUnionResponse),
+            ] => .jsPromise(resolvingTo: .jsGoldenPrimary_GetUnion_ResponseParams),
             "syncGetUnion": [
                 .plain(.boolean),
-            ] => .jsGoldenPrimary_SyncGetUnionResponse,
+            ] => .jsGoldenPrimary_SyncGetUnion_ResponseParams,
         ]
     )
 
@@ -82,13 +82,13 @@ extension ILType {
     fileprivate static let jsGoldenTokenConstructor: ILType = .constructor([
         .plain(.integer),
     ] => .jsGoldenToken)
-    fileprivate static let jsGoldenPrimary_GetUnionResponse: ILType = .object(
-        ofGroup: "golden.Primary_GetUnionResponse",
+    fileprivate static let jsGoldenPrimary_GetUnion_ResponseParams: ILType = .object(
+        ofGroup: "golden.Primary_GetUnion_ResponseParams",
         withProperties: [
             "result",
         ])
-    fileprivate static let jsGoldenPrimary_SyncGetUnionResponse: ILType = .object(
-        ofGroup: "golden.Primary_SyncGetUnionResponse",
+    fileprivate static let jsGoldenPrimary_SyncGetUnion_ResponseParams: ILType = .object(
+        ofGroup: "golden.Primary_SyncGetUnion_ResponseParams",
         withProperties: [
             "result",
         ])
@@ -103,17 +103,17 @@ extension ObjectGroup {
         ],
         methods: [:]
     )
-    fileprivate static let goldenPrimaryGetUnionResponse = ObjectGroup(
-        name: "golden.Primary_GetUnionResponse",
-        instanceType: .jsGoldenPrimary_GetUnionResponse,
+    fileprivate static let goldenPrimaryGetUnionResponseParams = ObjectGroup(
+        name: "golden.Primary_GetUnion_ResponseParams",
+        instanceType: .jsGoldenPrimary_GetUnion_ResponseParams,
         properties: [
             "result": .jsGoldenSimpleUnion,
         ],
         methods: [:]
     )
-    fileprivate static let goldenPrimarySyncGetUnionResponse = ObjectGroup(
-        name: "golden.Primary_SyncGetUnionResponse",
-        instanceType: .jsGoldenPrimary_SyncGetUnionResponse,
+    fileprivate static let goldenPrimarySyncGetUnionResponseParams = ObjectGroup(
+        name: "golden.Primary_SyncGetUnion_ResponseParams",
+        instanceType: .jsGoldenPrimary_SyncGetUnion_ResponseParams,
         properties: [
             "result": .jsGoldenSimpleUnion,
         ],
@@ -125,22 +125,32 @@ extension ObjectGroup {
 /// Arrays
 ///
 extension ILType {
-    fileprivate static let jsIntegerArray: ILType =
-        .createJsArrayType(ofElementType: .jsIntegerElement)
+    fileprivate static let jsInt64Array: ILType =
+        .createJsArrayType(ofElementType: .jsInt64Element)
 }
 
-/// Generate an array with only one element. As Fuzzilli runs, the
-/// OperationMutator and VariadicInputReducer will modify the
-/// `CreateArray` operation to increase  or decrease the element count.
-private let MojoIntegerArrayGenerator = CodeGenerator(
-    "MojoIntegerArrayGenerator",
-    inputs: .required(.integer),
-    produces: [.jsIntegerArray]
-) { b, elem in
+/// As Fuzzilli runs, the OperationMutator and VariadicInputReducer will modify
+/// the `CreateArray` operation to increase or decrease the element count. This
+/// allows arrays to be arbitrarily long.
+///
+/// `findOrGenerateType` is preferred over specifying `inputs` because
+/// Fuzzilli only uses CodeGenerators to produce types in `inputs`, while
+/// `findOrGenerateType` uses a variety of sources (e.g. `builtins`, other
+/// method properties and methods). An input is specified (i.e. `.one`)
+/// to prevent the CodeGenerator from being scheduled first when there are
+/// no visible variables, as `findOrGenerateType` causes a crash if there
+/// are no visibile variables.
+private let MojoInt64ArrayGenerator = CodeGenerator(
+    "MojoInt64ArrayGenerator",
+    inputs: .one,
+    produces: [.jsInt64Array]
+) { b, _ in
+    let elem = b.findOrGenerateType(.bigint)
+    var elements: [Variable] = [elem]
     b.createArray(
-        with: [elem],
+        with: elements,
         elementGroupName:
-            ObjectGroup.integerElement.name)
+            ObjectGroup.int64Element.name)
 }
 
 ///
@@ -155,7 +165,7 @@ extension OptionsBag {
     fileprivate static let goldenSimpleUnion = OptionsBag(
         name: "golden.SimpleUnion",
         properties: [
-            "arr": .jsIntegerArray,
+            "arr": .jsInt64Array,
             "token": .jsGoldenToken,
             "flag": .boolean,
         ],
@@ -266,7 +276,7 @@ let mojoPrimaryProfile = Profile(
     additionalCodeGenerators: [
         (MojoMethodCallGenerator, 10000),
         (MojoPropertyRetrievalGenerator, 10000),
-        (MojoIntegerArrayGenerator, 1),
+        (MojoInt64ArrayGenerator, 1),
     ] + commonMojoCodeGenerators,
     additionalProgramTemplates: WeightedList([]),
     disabledCodeGenerators: mojoDisabledGenerators,
@@ -279,11 +289,13 @@ let mojoPrimaryProfile = Profile(
         .goldenPrimaryRemoteWrapper,
         .goldenPrimaryPendingReceiver,
         .goldenToken,
-        .goldenPrimaryGetUnionResponse,
-        .goldenPrimarySyncGetUnionResponse,
+        .goldenPrimaryGetUnionResponseParams,
+        .goldenPrimarySyncGetUnionResponseParams,
     ] + commonMojoObjectGroups,
     additionalEnumerations: [
     ] + commonMojoEnumerations,
-    additionalOptionsBags: [] + commonMojoOptionsBags,
+    additionalOptionsBags: [
+        .goldenSimpleUnion,
+    ] + commonMojoOptionsBags,
     optionalPostProcessor: nil
 )

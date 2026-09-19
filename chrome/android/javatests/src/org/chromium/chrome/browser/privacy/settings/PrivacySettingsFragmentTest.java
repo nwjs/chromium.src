@@ -32,6 +32,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.espresso.contrib.RecyclerViewActions;
 import androidx.test.filters.LargeTest;
+import androidx.test.filters.MediumTest;
 
 import org.hamcrest.Matcher;
 import org.junit.After;
@@ -66,7 +67,7 @@ import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.privacy_guide.PrivacyGuideInteractions;
 import org.chromium.chrome.browser.profiles.ProfileManager;
-import org.chromium.chrome.browser.settings.SettingsActivityTestRule;
+import org.chromium.chrome.browser.settings.SettingsTestRule;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.signin.SigninCheckerProvider;
 import org.chromium.chrome.browser.sync.settings.GoogleServicesSettings;
@@ -75,11 +76,13 @@ import org.chromium.chrome.test.util.AdvancedProtectionTestRule;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
+import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 import org.chromium.components.browser_ui.site_settings.SingleCategorySettings;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
 import org.chromium.components.content_settings.ContentSetting;
 import org.chromium.components.content_settings.ContentSettingsType;
 import org.chromium.components.policy.test.annotations.Policies;
+import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.browser.test.NativeLibraryTestUtils;
 import org.chromium.ui.text.SpanApplier;
@@ -98,8 +101,8 @@ public class PrivacySettingsFragmentTest {
     // Name of the histogram to record the entry on Privacy Guide via the S&P link-row.
     public static final String ENTRY_EXIT_HISTOGRAM = "Settings.PrivacyGuide.EntryExit";
 
-    public final SettingsActivityTestRule<PrivacySettings> mSettingsActivityTestRule =
-            new SettingsActivityTestRule<>(PrivacySettings.class);
+    public final SettingsTestRule<PrivacySettings> mSettingsActivityTestRule =
+            new SettingsTestRule<>(PrivacySettings.class);
 
     public final SigninTestRule mSigninTestRule = new SigninTestRule();
     private static final int RENDER_TEST_REVISION = 2;
@@ -125,6 +128,8 @@ public class PrivacySettingsFragmentTest {
 
     private UserActionTester mActionTester;
     @Mock private SettingsNavigation mSettingsNavigation;
+
+    @Mock private SettingsIndexData mSearchIndexDataMock;
 
     private void waitForOptionsMenu() {
         CriteriaHelper.pollUiThread(
@@ -589,5 +594,108 @@ public class PrivacySettingsFragmentTest {
                                     return "javascript_optimizer".equals(category);
                                 }),
                         eq(true));
+    }
+
+    @Test
+    @LargeTest
+    @EnableFeatures(ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS)
+    public void testUniversalOptOutSettingsVisible_EligibleAndTurnedOn() {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ENABLED, true);
+                    getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ELIGIBLE, true);
+                });
+        mSettingsActivityTestRule.startSettingsActivity();
+        scrollToSetting(withText(R.string.universal_opt_out_title));
+        onView(withText(R.string.universal_opt_out_title)).check(matches(isDisplayed()));
+    }
+
+    @Test
+    @LargeTest
+    @EnableFeatures(ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS)
+    public void testUniversalOptOutSettingsVisible_EligibleAndTurnedOff() {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ENABLED, false);
+                    getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ELIGIBLE, true);
+                });
+        mSettingsActivityTestRule.startSettingsActivity();
+        scrollToSetting(withText(R.string.universal_opt_out_title));
+        onView(withText(R.string.universal_opt_out_title)).check(matches(isDisplayed()));
+    }
+
+    @Test
+    @LargeTest
+    @EnableFeatures(ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS)
+    public void testUniversalOptOutSettingsVisible_NotEligibleAndTurnedOn() {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ENABLED, true);
+                    getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ELIGIBLE, false);
+                });
+        mSettingsActivityTestRule.startSettingsActivity();
+        scrollToSetting(withText(R.string.universal_opt_out_title));
+        onView(withText(R.string.universal_opt_out_title)).check(matches(isDisplayed()));
+    }
+
+    @Test
+    @LargeTest
+    @EnableFeatures(ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS)
+    public void testUniversalOptOutSettingsHidden_NotEligibleAndTurnedOff() {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ENABLED, false);
+                    getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ELIGIBLE, false);
+                });
+        mSettingsActivityTestRule.startSettingsActivity();
+        onView(withText(R.string.universal_opt_out_title)).check(doesNotExist());
+    }
+
+    @Test
+    @LargeTest
+    @DisableFeatures(ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS)
+    public void testUniversalOptOutSettingsHidden_FeatureDisabled() {
+        mSettingsActivityTestRule.startSettingsActivity();
+        onView(withText(R.string.universal_opt_out_title)).check(doesNotExist());
+    }
+
+    private PrefService getPrefService() {
+        return UserPrefs.get(ProfileManager.getLastUsedRegularProfile());
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures(ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS)
+    public void testSearchableIndex_UniversalOptOutSettings_RemovedWhenNonEligible() {
+        var indexProvider = PrivacySettings.SEARCH_INDEX_DATA_PROVIDER;
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ENABLED, false);
+                    getPrefService().setBoolean(Pref.UNIVERSAL_OPT_OUT_ELIGIBLE, false);
+                    indexProvider.updateDynamicPreferences(
+                            mSettingsActivityTestRule.getActivity(),
+                            mSearchIndexDataMock,
+                            ProfileManager.getLastUsedRegularProfile());
+                });
+
+        verify(mSearchIndexDataMock)
+                .removeEntry(indexProvider.getUniqueId(PrivacySettings.PREF_UNIVERSAL_OPT_OUT));
+    }
+
+    @Test
+    @MediumTest
+    @DisableFeatures(ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS)
+    public void testSearchableIndex_UniversalOptOutSettings_RemovedWhenFeatureDisabled() {
+        var indexProvider = PrivacySettings.SEARCH_INDEX_DATA_PROVIDER;
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    indexProvider.updateDynamicPreferences(
+                            mSettingsActivityTestRule.getActivity(),
+                            mSearchIndexDataMock,
+                            ProfileManager.getLastUsedRegularProfile());
+                });
+
+        verify(mSearchIndexDataMock)
+                .removeEntry(indexProvider.getUniqueId(PrivacySettings.PREF_UNIVERSAL_OPT_OUT));
     }
 }

@@ -38,7 +38,6 @@
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/recently_audible_helper.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
-#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_sync_service_initialized_observer.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
@@ -215,15 +214,18 @@ class TabSearchPageHandlerTest : public InProcessBrowserTest {
         g_browser_process->profile_manager(), path);
 #endif
 
-    browser2_ = CreateBrowserForTest(profile1(), Browser::TYPE_NORMAL);
+    browser2_ =
+        CreateBrowserForTest(profile1(), BrowserWindowInterface::TYPE_NORMAL);
     browser3_ =
         CreateBrowserForTest(browser()->GetProfile()->GetPrimaryOTRProfile(
                                  /*create_if_needed=*/true),
-                             Browser::TYPE_NORMAL);
+                             BrowserWindowInterface::TYPE_NORMAL);
 #if !BUILDFLAG(IS_CHROMEOS)
-    browser4_ = CreateBrowserForTest(profile2_, Browser::TYPE_NORMAL);
+    browser4_ =
+        CreateBrowserForTest(profile2_, BrowserWindowInterface::TYPE_NORMAL);
 #endif
-    browser5_ = CreateBrowserForTest(profile1(), Browser::TYPE_POPUP);
+    browser5_ =
+        CreateBrowserForTest(profile1(), BrowserWindowInterface::TYPE_POPUP);
 
     browser1()->GetWindow()->Activate();
 
@@ -369,8 +371,8 @@ class TabSearchPageHandlerTest : public InProcessBrowserTest {
   std::unique_ptr<TabSearchUI> webui_controller_;
 };
 
-#if BUILDFLAG(IS_LINUX) && (!defined(NDEBUG) || defined(ADDRESS_SANITIZER) || \
-                            defined(MEMORY_SANITIZER))
+// TODO(crbug.com/537538766): Flaky on Linux and ChromeOS.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_GetTabs DISABLED_GetTabs
 #else
 #define MAYBE_GetTabs GetTabs
@@ -887,8 +889,8 @@ IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, MAYBE_TabsNotChanged) {
 
 // Verify tab update event is called correctly with data
 // TODO(https://crbug.com/537538766): Fails on Linux MSan Tests and looks
-// flaky on Linux, generally.
-#if BUILDFLAG(IS_LINUX)
+// flaky on Linux and ChromeOS, generally.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_TabUpdated DISABLED_TabUpdated
 #else
 #define MAYBE_TabUpdated TabUpdated
@@ -1187,8 +1189,17 @@ IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest,
   EXPECT_EQ(1, found_ungrouped);
 }
 
+// TODO(crbug.com/537538766): Flaky on Linux and ChromeOS.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
+    (BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER))
+#define MAYBE_RecentlyClosedTabEntriesFilterOpenTabUrls \
+  DISABLED_RecentlyClosedTabEntriesFilterOpenTabUrls
+#else
+#define MAYBE_RecentlyClosedTabEntriesFilterOpenTabUrls \
+  RecentlyClosedTabEntriesFilterOpenTabUrls
+#endif
 IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest,
-                       RecentlyClosedTabEntriesFilterOpenTabUrls) {
+                       MAYBE_RecentlyClosedTabEntriesFilterOpenTabUrls) {
   AddTabWithTitle(browser1(), tab_url1_, kTabName1);
   AddTabWithTitle(browser1(), tab_url1_, kTabName1);
 
@@ -1282,7 +1293,15 @@ IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest,
   handler()->GetProfileData(std::move(callback2));
 }
 
-IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, RecentlyClosedTabInFuture) {
+// TODO(crbug.com/537538766): Flaky on Linux and ChromeOS.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
+    (BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER))
+#define MAYBE_RecentlyClosedTabInFuture DISABLED_RecentlyClosedTabInFuture
+#else
+#define MAYBE_RecentlyClosedTabInFuture RecentlyClosedTabInFuture
+#endif
+IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest,
+                       MAYBE_RecentlyClosedTabInFuture) {
   AddTabWithTitle(browser1(), tab_url1_, kTabName1);
   AddTabWithTitle(browser1(), tab_url2_, kTabName2);
 
@@ -1317,7 +1336,13 @@ IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, RecentlyClosedTabInFuture) {
   handler()->GetProfileData(std::move(callback));
 }
 
-IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, ReplaceActiveSplitTab) {
+// TODO(crbug.com/537538766): Flaky on Linux and ChromeOS.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_ReplaceActiveSplitTab DISABLED_ReplaceActiveSplitTab
+#else
+#define MAYBE_ReplaceActiveSplitTab ReplaceActiveSplitTab
+#endif
+IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, MAYBE_ReplaceActiveSplitTab) {
   AddTabWithTitle(browser(), tab_url1_, kTabName1);
   AddTabWithTitle(browser(), tab_url2_, kTabName2);
   AddTabWithTitle(browser(), tab_url3_, kTabName3);
@@ -1368,8 +1393,9 @@ IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, ReplaceActiveSplitTab) {
             tabs_in_split_after_replacement[1]->GetContents()->GetURL().spec());
 }
 
-// TODO(crbug.com/537538766): Re-enable test
-#if BUILDFLAG(IS_LINUX) && defined(MEMORY_SANITIZER)
+// TODO(crbug.com/537538766): Flaky on Linux and ChromeOS.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
+    (BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER))
 #define MAYBE_TabSearchUsedPref DISABLED_TabSearchUsedPref
 #else
 #define MAYBE_TabSearchUsedPref TabSearchUsedPref
@@ -1453,7 +1479,13 @@ IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, MAYBE_TabSearchUsedPref) {
   EXPECT_TRUE(prefs->GetBoolean(tab_search_prefs::kTabSearchUsed));
 }
 
-IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, RemoveSplit_NTP) {
+// TODO(crbug.com/537538766): Flaky on Linux and ChromeOS.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_RemoveSplit_NTP DISABLED_RemoveSplit_NTP
+#else
+#define MAYBE_RemoveSplit_NTP RemoveSplit_NTP
+#endif
+IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, MAYBE_RemoveSplit_NTP) {
   EXPECT_CALL(page_, HostWindowChanged()).Times(testing::AnyNumber());
   EXPECT_CALL(page_, TabsChanged(_)).Times(testing::AnyNumber());
   EXPECT_CALL(page_, TabUpdated(_)).Times(testing::AnyNumber());
@@ -1509,18 +1541,7 @@ IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, RemoveSplit_OtherPage) {
   page_.receiver_.FlushForTesting();
 }
 
-class TabSearchPageHandlerSplitViewTest : public TabSearchPageHandlerTest {
- public:
-  TabSearchPageHandlerSplitViewTest() {
-    feature_list_.InitAndEnableFeature(tabs::kSplitViewTabRestore);
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerSplitViewTest,
-                       RecentlyClosedSplitView) {
+IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, RecentlyClosedSplitView) {
   AddTabWithTitle(browser1(), tab_url1_, kTabName1);
   AddTabWithTitle(browser1(), tab_url2_, kTabName2);
 

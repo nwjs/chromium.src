@@ -14,7 +14,6 @@
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/profiles/profile_io_data.h"
 #include "chrome/browser/ui/ash/test_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -129,7 +128,7 @@ class ImmersiveModeControllerChromeosWebAppBrowserTest
               ink_drop_api.ink_drop_mode());
   }
 
-  Browser* browser() { return browser_; }
+  BrowserWindowInterface* browser() { return browser_; }
   BrowserView* browser_view() {
     return BrowserView::GetBrowserViewForBrowser(browser_);
   }
@@ -140,7 +139,7 @@ class ImmersiveModeControllerChromeosWebAppBrowserTest
 
  private:
   webapps::AppId app_id;
-  raw_ptr<Browser, DanglingUntriaged> browser_ = nullptr;
+  raw_ptr<BrowserWindowInterface, DanglingUntriaged> browser_ = nullptr;
   raw_ptr<ImmersiveModeController, DanglingUntriaged> controller_ = nullptr;
 
   std::unique_ptr<ImmersiveRevealedLock> revealed_lock_;
@@ -331,13 +330,14 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosWebAppBrowserTest,
 IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosWebAppBrowserTest,
                        DISABLED_PermissionsBubbleAnchor) {
   LaunchAppBrowser();
-  auto test_api =
-      std::make_unique<test::PermissionRequestManagerTestApi>(browser());
+  auto test_api = std::make_unique<test::PermissionRequestManagerTestApi>(
+      permissions::PermissionRequestManager::FromWebContents(
+          browser()->GetTabStripModel()->GetActiveWebContents()));
   EXPECT_TRUE(test_api->manager());
 
   // Add a permission bubble using the test api.
   test_api->AddSimpleRequest(browser()
-                                 ->tab_strip_model()
+                                 ->GetTabStripModel()
                                  ->GetActiveWebContents()
                                  ->GetPrimaryMainFrame(),
                              permissions::RequestType::kGeolocation);
@@ -377,7 +377,7 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosWebAppBrowserTest,
 
   // Opening a new permission bubble should not cause the header to reveal.
   test_api->AddSimpleRequest(browser()
-                                 ->tab_strip_model()
+                                 ->GetTabStripModel()
                                  ->GetActiveWebContents()
                                  ->GetPrimaryMainFrame(),
                              permissions::RequestType::kMicStream);

@@ -37,12 +37,6 @@ bool IsShowAutofillSignaturesEnabled();
 bool IsPrefixOfEmailEndingWithAtSign(std::u16string_view full_string,
                                      std::u16string_view prefix);
 
-bool IsCheckable(const FormFieldData::CheckStatus& check_status);
-bool IsChecked(const FormFieldData::CheckStatus& check_status);
-void SetCheckStatus(FormFieldData* form_field_data,
-                    bool is_checkable,
-                    bool is_checked);
-
 // Returns the index of the shortest entry in the given select field of which
 // |value| is a substring. Returns -1 if no such entry exists.
 std::optional<size_t> FindShortestSubstringMatchInSelect(
@@ -85,7 +79,7 @@ GURL StripAuthAndParams(const GURL& gurl);
 IsPasswordRequestManuallyTriggered IsPasswordsAutofillManuallyTriggered(
     AutofillSuggestionTriggerSource trigger_source);
 
-// Checks if the user triggered @memory on a field.
+// Checks if the user triggered AtMemory on a field.
 bool IsAtMemoryTriggerSource(AutofillSuggestionTriggerSource trigger_source);
 
 // Returns whether the feature `kAutofillPaymentsFieldSwapping` is enabled

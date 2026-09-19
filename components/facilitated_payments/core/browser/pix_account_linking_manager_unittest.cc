@@ -14,7 +14,7 @@
 #include "components/autofill/core/browser/data_manager/payments/test_payments_data_manager.h"
 #include "components/autofill/core/browser/payments/payments_customer_data.h"
 #include "components/autofill/core/browser/strike_databases/payments/test_strike_database.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/facilitated_payments/core/browser/device_delegate.h"
 #include "components/facilitated_payments/core/browser/mock_device_delegate.h"
@@ -914,30 +914,7 @@ TEST_F(PixAccountLinkingManagerTest, DoOnAccountLinkingResult_Success) {
       /*expected_bucket_count=*/1);
 }
 
-TEST_F(PixAccountLinkingManagerTest,
-       DoOnAccountLinkingResult_MissingInstrumentId) {
-  base::HistogramTester histogram_tester;
-  manager()->MaybeShowPixAccountLinkingPrompt(kPixPaymentPageOrigin);
-  task_environment_.FastForwardBy(kShowPromptDelay);
 
-  EXPECT_CALL(client(), DismissPrompt());
-  EXPECT_CALL(client(), ShowPixAccountLinkingSuccessScreen()).Times(0);
-  EXPECT_CALL(client(), ShowAccountLinkingFailureNotification(
-                            FacilitatedPaymentsType::kPix));
-
-  test_api().DoOnAccountLinkingResult(
-      AccountLinkingResult{/*is_successful=*/true, /*instrument_id=*/0,
-                           AccountLinkingResultCode::kResultOk});
-
-  histogram_tester.ExpectUniqueSample(
-      "FacilitatedPayments.Pix.AccountLinking.Result",
-      /*sample=*/false,
-      /*expected_bucket_count=*/1);
-  histogram_tester.ExpectUniqueSample(
-      "FacilitatedPayments.Pix.AccountLinking.FlowExitedReason",
-      /*sample=*/AccountLinkingFlowExitedReason::kGmsCoreFlowFailed,
-      /*expected_bucket_count=*/1);
-}
 
 TEST_F(PixAccountLinkingManagerTest, DoOnAccountLinkingResult_Canceled) {
   base::HistogramTester histogram_tester;
@@ -955,10 +932,6 @@ TEST_F(PixAccountLinkingManagerTest, DoOnAccountLinkingResult_Canceled) {
   histogram_tester.ExpectUniqueSample(
       "FacilitatedPayments.Pix.AccountLinking.Result",
       /*sample=*/false,
-      /*expected_bucket_count=*/1);
-  histogram_tester.ExpectBucketCount(
-      "FacilitatedPayments.Pix.AccountLinking.FlowExitedReason",
-      /*sample=*/AccountLinkingFlowExitedReason::kUserCanceledInGmsCore,
       /*expected_bucket_count=*/1);
 }
 
@@ -978,10 +951,6 @@ TEST_F(PixAccountLinkingManagerTest, DoOnAccountLinkingResult_Failure) {
       "FacilitatedPayments.Pix.AccountLinking.Result",
       /*sample=*/false,
       /*expected_bucket_count=*/1);
-  histogram_tester.ExpectUniqueSample(
-      "FacilitatedPayments.Pix.AccountLinking.FlowExitedReason",
-      /*sample=*/AccountLinkingFlowExitedReason::kGmsCoreFlowFailed,
-      /*expected_bucket_count=*/1);
 }
 
 TEST_F(PixAccountLinkingManagerTest, CreateAccountLinkingParams) {
@@ -994,14 +963,17 @@ TEST_F(PixAccountLinkingManagerTest, GetStrikeDatabase_ReturnsValidInstance) {
   EXPECT_EQ(strike_db->GetStrikes(), 0);
 }
 
-TEST_F(PixAccountLinkingManagerTest, GetStrikeDatabase_IncognitoReturnsNullptr) {
+TEST_F(PixAccountLinkingManagerTest,
+       GetStrikeDatabase_IncognitoReturnsNullptr) {
   EXPECT_CALL(client(), GetStrikeDatabase).WillOnce(testing::Return(nullptr));
   EXPECT_EQ(test_api().GetStrikeDatabase(), nullptr);
 }
 
-TEST_F(PixAccountLinkingManagerTest,
-       MaybeShowPixAccountLinkingPrompt_IncognitoNullStrikeDatabase_PromptShown) {
-  EXPECT_CALL(client(), GetStrikeDatabase).WillRepeatedly(testing::Return(nullptr));
+TEST_F(
+    PixAccountLinkingManagerTest,
+    MaybeShowPixAccountLinkingPrompt_IncognitoNullStrikeDatabase_PromptShown) {
+  EXPECT_CALL(client(), GetStrikeDatabase)
+      .WillRepeatedly(testing::Return(nullptr));
   EXPECT_CALL(client(), ShowPixAccountLinkingPrompt);
 
   manager()->MaybeShowPixAccountLinkingPrompt(kPixPaymentPageOrigin);
@@ -1010,20 +982,24 @@ TEST_F(PixAccountLinkingManagerTest,
 
 TEST_F(PixAccountLinkingManagerTest,
        OnAccepted_IncognitoNullStrikeDatabase_DoesNotCrash) {
-  EXPECT_CALL(client(), GetStrikeDatabase).WillRepeatedly(testing::Return(nullptr));
+  EXPECT_CALL(client(), GetStrikeDatabase)
+      .WillRepeatedly(testing::Return(nullptr));
   test_api().OnAccepted();
 }
 
 TEST_F(PixAccountLinkingManagerTest,
        OnDeclined_IncognitoNullStrikeDatabase_DoesNotCrash) {
-  EXPECT_CALL(client(), GetStrikeDatabase).WillRepeatedly(testing::Return(nullptr));
+  EXPECT_CALL(client(), GetStrikeDatabase)
+      .WillRepeatedly(testing::Return(nullptr));
   test_api().OnDeclined();
 }
 
-TEST_F(PixAccountLinkingManagerTest,
-       MaybeShowPixAccountLinkingPrompt_StrictCheckOrder_StrikeLimitTakesPrecedence) {
+TEST_F(
+    PixAccountLinkingManagerTest,
+    MaybeShowPixAccountLinkingPrompt_StrictCheckOrder_StrikeLimitTakesPrecedence) {
   base::HistogramTester histogram_tester;
-  // Set up 3 strikes (max limit) AND disable user preference AND disable screenlock.
+  // Set up 3 strikes (max limit) AND disable user preference AND disable
+  // screenlock.
   PixAccountLinkingStrikeDatabase strike_database(test_strike_database_.get());
   strike_database.AddStrikes(3);
   autofill::prefs::SetFacilitatedPaymentsPixAccountLinking(pref_service_.get(),

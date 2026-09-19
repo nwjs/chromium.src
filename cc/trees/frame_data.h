@@ -5,14 +5,17 @@
 #ifndef CC_TREES_FRAME_DATA_H_
 #define CC_TREES_FRAME_DATA_H_
 
+#include <optional>
 #include <string>
 #include <vector>
 
+#include "base/memory/raw_ptr.h"
 #include "base/trace_event/traced_value.h"
 #include "cc/cc_export.h"
 #include "cc/layers/layer_collections.h"
 #include "cc/trees/damage_reason.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
+#include "components/viz/common/quads/compositor_frame_metadata.h"
 #include "components/viz/common/quads/compositor_render_pass.h"
 #include "components/viz/common/quads/trees_in_viz_timing.h"
 #include "components/viz/common/surfaces/surface_id.h"
@@ -47,15 +50,18 @@ struct CC_EXPORT FrameData {
   bool checkerboarded_needs_raster = false;
   bool checkerboarded_needs_record = false;
 
-  std::vector<viz::SurfaceId> activation_dependencies;
+  std::vector<viz::SurfaceIdAndDeadline> activation_dependencies;
   std::optional<uint32_t> deadline_in_frames;
   bool use_default_lower_bound_deadline = false;
   viz::CompositorRenderPassList render_passes;
   viz::CompositorRenderPassList unbounded_render_passes;
-  // RAW_PTR_EXCLUSION: Renderer performance: visible in sampling profiler
-  // stacks.
-  RAW_PTR_EXCLUSION const RenderSurfaceList* render_surface_list = nullptr;
-  RAW_PTR_EXCLUSION LayerImplList will_draw_layers;
+
+  // List of effect node IDs for render surfaces in the active tree.
+  raw_ptr<const RenderSurfaceList> render_surface_list = nullptr;
+
+  // List of layer IDs for layers in the active tree that will draw in this
+  // frame.
+  std::vector<int> will_draw_layers;
   bool has_no_damage = false;
   viz::BeginFrameAck begin_frame_ack;
   // The original BeginFrameArgs that triggered the latest update from the

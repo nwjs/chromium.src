@@ -7,9 +7,11 @@
 #include <vector>
 
 #include "base/check.h"
+#include "base/containers/flat_map.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/uuid.h"
 #include "build/build_config.h"
 #include "chrome/browser/context_hub/auto_todos/auto_todo_entry.h"
 #include "chrome/browser/context_hub/context_hub_service.h"
@@ -94,12 +96,19 @@ void ContextHubPageHandler::GetAutoTodos(GetAutoTodosCallback callback) {
   context_hub::ContextHubService* service =
       ContextHubServiceFactory::GetForProfile(profile_);
   if (!service) {
-    std::move(callback).Run({}, {});
+    std::move(callback).Run({}, {}, base::Time(), base::Time());
     return;
   }
 
+  base::Time last_first_party_generation_time =
+      service->GetLastFirstPartyGenerationTime();
+  base::Time last_third_party_generation_time =
+      service->GetLastThirdPartyGenerationTime();
+
   service->GetAutoTodos(base::BindOnce(
       [](GetAutoTodosCallback callback,
+         base::Time last_first_party_generation_time,
+         base::Time last_third_party_generation_time,
          std::vector<context_hub::AutoTodoEntry> entries) {
         std::vector<context_hub::AutoTodoEntry> first_party_todos;
         std::vector<context_hub::AutoTodoEntry> third_party_todos;
@@ -113,10 +122,12 @@ void ContextHubPageHandler::GetAutoTodos(GetAutoTodosCallback callback) {
             third_party_todos.push_back(std::move(entry));
           }
         }
-        std::move(callback).Run(std::move(first_party_todos),
-                                std::move(third_party_todos));
+        std::move(callback).Run(
+            std::move(first_party_todos), std::move(third_party_todos),
+            last_first_party_generation_time, last_third_party_generation_time);
       },
-      std::move(callback)));
+      std::move(callback), last_first_party_generation_time,
+      last_third_party_generation_time));
 }
 
 void ContextHubPageHandler::UpdateAutoTodo(
@@ -130,6 +141,28 @@ void ContextHubPageHandler::UpdateAutoTodo(
   }
 
   service->UpdateAutoTodo(todo, std::move(callback));
+}
+
+void ContextHubPageHandler::ClearFirstPartyAutoTodos(
+    ClearFirstPartyAutoTodosCallback callback) {
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(profile_);
+  if (service) {
+    service->ClearFirstPartyAutoTodos(std::move(callback));
+    return;
+  }
+  std::move(callback).Run(false);
+}
+
+void ContextHubPageHandler::ClearThirdPartyAutoTodos(
+    ClearThirdPartyAutoTodosCallback callback) {
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(profile_);
+  if (service) {
+    service->ClearThirdPartyAutoTodos(std::move(callback));
+    return;
+  }
+  std::move(callback).Run(false);
 }
 
 void ContextHubPageHandler::SetTodoFeedback(
@@ -176,6 +209,35 @@ void ContextHubPageHandler::GetTodoFeedbacks(
   std::move(callback).Run({});
 }
 
+void ContextHubPageHandler::GetSaveToMemoryBankContext(
+    GetSaveToMemoryBankContextCallback callback) {
+  auto* service = ContextHubServiceFactory::GetForProfile(profile_);
+  if (service) {
+    if (auto pending = service->GetPendingMemoryBankEntry()) {
+      auto mojo_context =
+          browser::context_hub::mojom::SaveToMemoryBankContext::New();
+      mojo_context->url = pending->url;
+      mojo_context->tab_title = pending->tab_title;
+      bool is_text_selection =
+          pending->type == context_hub::MemoryBankType::kTextSelection;
+      if (is_text_selection && pending->selected_text.has_value()) {
+        // Truncate the snippet to a reasonable length since we only need a
+        // preview in the UI.
+        static constexpr size_t kMaxSnippetPreviewLength = 300;
+        std::string preview = *pending->selected_text;
+        if (preview.length() > kMaxSnippetPreviewLength) {
+          preview.resize(kMaxSnippetPreviewLength);
+        }
+        mojo_context->selected_text = std::move(preview);
+      }
+      mojo_context->is_text_selection = is_text_selection;
+      std::move(callback).Run(std::move(mojo_context));
+      return;
+    }
+  }
+  std::move(callback).Run(nullptr);
+}
+
 void ContextHubPageHandler::GetAllMemoryBankEntries(
     GetAllMemoryBankEntriesCallback callback) {
   auto* service = ContextHubServiceFactory::GetForProfile(profile_);
@@ -206,6 +268,8 @@ void ContextHubPageHandler::GetAllMemoryBankEntries(
           mojo_entry->tab_title = entry.tab_title;
           mojo_entry->selected_text = entry.selected_text;
           mojo_entry->tags = entry.tags;
+          mojo_entry->note = entry.note;
+          mojo_entry->collection = entry.collection;
           mojo_entries.push_back(std::move(mojo_entry));
         }
         std::move(callback).Run(std::move(mojo_entries));
@@ -222,7 +286,45 @@ void ContextHubPageHandler::DeleteMemoryBankEntries(
     return;
   }
 
-  service->DeleteEntries(ids, std::move(callback));
+  service->DeleteEntries(ids, base::IgnoreArgs<bool>(std::move(callback)));
+}
+
+void ContextHubPageHandler::SaveMemoryBankEntry(
+    browser::context_hub::mojom::MemoryBankEntryAnnotationsPtr annotations,
+    SaveMemoryBankEntryCallback callback) {
+  auto* service = ContextHubServiceFactory::GetForProfile(profile_);
+  if (service && annotations) {
+    std::vector<std::string> tags =
+        std::move(annotations->tags).value_or(std::vector<std::string>{});
+    bool success = service->SavePendingMemoryBankEntry(
+        std::move(tags), std::move(annotations->note),
+        std::move(annotations->collection));
+    std::move(callback).Run(success);
+    return;
+  }
+  std::move(callback).Run(/*success=*/false);
+}
+
+void ContextHubPageHandler::GetAllMemoryBankTags(
+    GetAllMemoryBankTagsCallback callback) {
+  auto* service = ContextHubServiceFactory::GetForProfile(profile_);
+  if (!service) {
+    std::move(callback).Run({});
+    return;
+  }
+
+  service->GetAllMemoryBankTags(std::move(callback));
+}
+
+void ContextHubPageHandler::GetAllMemoryBankCollections(
+    GetAllMemoryBankCollectionsCallback callback) {
+  auto* service = ContextHubServiceFactory::GetForProfile(profile_);
+  if (!service) {
+    std::move(callback).Run({});
+    return;
+  }
+
+  service->GetAllMemoryBankCollections(std::move(callback));
 }
 
 namespace {
@@ -234,8 +336,7 @@ std::vector<context_hub::TabData> GetOpenUngroupedTabs(
   if (tab_provider) {
     for (content::WebContents* tab_contents :
          tab_provider->GetUngroupedTabs()) {
-      SessionID session_id =
-          sessions::SessionTabHelper::IdForTab(tab_contents);
+      SessionID session_id = sessions::SessionTabHelper::IdForTab(tab_contents);
       if (session_id.is_valid()) {
         tabs.push_back({session_id.id(),
                         base::UTF16ToUTF8(tab_contents->GetTitle()),
@@ -299,7 +400,8 @@ void ContextHubPageHandler::GenerateTabBasedTodos(
 }
 
 void ContextHubPageHandler::GetTabs(GetTabsCallback callback) {
-  std::move(callback).Run(ToMojoTabs(GetOpenUngroupedTabs(tab_provider_.get())));
+  std::move(callback).Run(
+      ToMojoTabs(GetOpenUngroupedTabs(tab_provider_.get())));
 }
 
 void ContextHubPageHandler::RetrieveAndGroupTabs(
@@ -316,8 +418,9 @@ void ContextHubPageHandler::RetrieveAndGroupTabs(
       GetOpenUngroupedTabs(tab_provider_.get()), user_command,
       base::BindOnce(
           [](RetrieveAndGroupTabsCallback callback,
-              std::vector<context_hub::TabGroupEntry> groups,
-              std::vector<context_hub::TabData> ungrouped_tabs) {
+             std::vector<context_hub::TabGroupEntry> groups,
+             std::vector<context_hub::TabData> ungrouped_tabs,
+             std::string text_response) {
             std::vector<browser::context_hub::mojom::TabGroupPtr> mojo_groups;
             for (const auto& group : groups) {
               auto mojo_group = browser::context_hub::mojom::TabGroup::New();
@@ -326,10 +429,18 @@ void ContextHubPageHandler::RetrieveAndGroupTabs(
               mojo_groups.push_back(std::move(mojo_group));
             }
 
-            // TODO(crbug.com/535675010): Add LLM Response.
+            browser::context_hub::mojom::ChatMessagePtr mojo_llm_response;
+            if (!text_response.empty()) {
+              mojo_llm_response =
+                  browser::context_hub::mojom::ChatMessage::New();
+              mojo_llm_response->role =
+                  browser::context_hub::mojom::ChatRole::kAssistant;
+              mojo_llm_response->content = std::move(text_response);
+            }
+
             std::move(callback).Run(std::move(mojo_groups),
                                     ToMojoTabs(ungrouped_tabs),
-                                    /*llm_response=*/nullptr);
+                                    std::move(mojo_llm_response));
           },
           std::move(callback)));
 }
@@ -463,4 +574,115 @@ void ContextHubPageHandler::AskGeminiWithContext(
             std::move(callback).Run(std::move(response));
           },
           std::move(callback)));
+}
+
+void ContextHubPageHandler::ConfirmAllTabGroups(
+    ConfirmAllTabGroupsCallback callback) {
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(profile_);
+  if (!service || !tab_provider_) {
+    std::move(callback).Run(false);
+    return;
+  }
+
+  service->GetTabGroups(base::BindOnce(
+      [](base::WeakPtr<ContextHubPageHandler> handler,
+         base::WeakPtr<context_hub::ContextHubService> service,
+         ConfirmAllTabGroupsCallback callback,
+         std::vector<context_hub::TabGroupEntry> groups) {
+        if (!handler || !service) {
+          std::move(callback).Run(false);
+          return;
+        }
+        bool success = handler->tab_provider_->ConfirmTabGroups(groups);
+        service->DeleteAllTabGroups(
+            base::BindOnce(std::move(callback), success));
+      },
+      weak_factory_.GetWeakPtr(), service->GetWeakPtr(), std::move(callback)));
+}
+
+void ContextHubPageHandler::GetConfirmedTabGroups(
+    GetConfirmedTabGroupsCallback callback) {
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(profile_);
+  if (!service) {
+    std::move(callback).Run({});
+    return;
+  }
+
+  std::vector<context_hub::TabGroupEntry> entries =
+      service->GetConfirmedTabGroups();
+  std::vector<browser::context_hub::mojom::TabGroupPtr> groups;
+  groups.reserve(entries.size());
+  for (const auto& entry : entries) {
+    auto mojo_group = browser::context_hub::mojom::TabGroup::New();
+    base::Uuid parsed_guid = base::Uuid::ParseCaseInsensitive(entry.id);
+    if (parsed_guid.is_valid()) {
+      mojo_group->saved_guid = parsed_guid;
+    }
+    mojo_group->label = entry.label;
+    mojo_group->tabs = ToMojoTabs(entry.tabs);
+    groups.push_back(std::move(mojo_group));
+  }
+  std::move(callback).Run(std::move(groups));
+}
+
+void ContextHubPageHandler::RemoveConfirmedTabGroup(
+    const base::Uuid& saved_guid,
+    RemoveConfirmedTabGroupCallback callback) {
+  if (!saved_guid.is_valid()) {
+    std::move(callback).Run();
+    return;
+  }
+
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(profile_);
+  if (!service || !tab_provider_) {
+    std::move(callback).Run();
+    return;
+  }
+
+  tab_provider_->UngroupGroupFromTabstripIfOpen(saved_guid);
+  service->RemoveConfirmedTabGroup(saved_guid);
+  std::move(callback).Run();
+}
+
+void ContextHubPageHandler::CloseConfirmedTabGroup(
+    const base::Uuid& saved_guid,
+    CloseConfirmedTabGroupCallback callback) {
+  if (!saved_guid.is_valid()) {
+    std::move(callback).Run();
+    return;
+  }
+
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(profile_);
+  if (!service || !tab_provider_) {
+    std::move(callback).Run();
+    return;
+  }
+
+  tab_provider_->RemoveGroupFromTabstripIfOpen(saved_guid);
+  std::move(callback).Run();
+}
+
+void ContextHubPageHandler::RemoveAllConfirmedTabGroups(
+    RemoveAllConfirmedTabGroupsCallback callback) {
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(profile_);
+  if (!service || !tab_provider_) {
+    std::move(callback).Run();
+    return;
+  }
+
+  for (const context_hub::TabGroupEntry& entry :
+       service->GetConfirmedTabGroups()) {
+    base::Uuid guid = base::Uuid::ParseCaseInsensitive(entry.id);
+    if (guid.is_valid()) {
+      tab_provider_->UngroupGroupFromTabstripIfOpen(guid);
+    }
+  }
+
+  service->RemoveAllConfirmedTabGroups();
+  std::move(callback).Run();
 }

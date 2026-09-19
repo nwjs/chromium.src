@@ -15,8 +15,12 @@ inline constexpr std::string_view kIsEnabledOnProfileInitHistogramName =
     "VoiceTyping.IsEnabledOnProfileInit";
 inline constexpr std::string_view kSessionStartSourceHistogramName =
     "VoiceTyping.SessionStartSource";
+inline constexpr std::string_view kSessionUrlCategoryHistogramName =
+    "VoiceTyping.SessionUrlCategory";
 inline constexpr std::string_view kStreamStartTriggerHistogramName =
     "VoiceTyping.StreamStartTrigger";
+inline constexpr std::string_view kStreamExitReasonHistogramName =
+    "VoiceTyping.StreamExitReason";
 
 // Exit status of the Dictation First Run Experience (FRE) dialog.
 // These values are persisted to logs. Entries should not be renumbered and
@@ -40,6 +44,17 @@ enum class DictationSessionEntryPoint {
   kMaxValue = kHotkeyToggle,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/voice_typing/enums.xml:DictationSessionEntryPoint)
+
+// Active UI surface or URL context where Voice Typing was engaged.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(DictationUrlCategory)
+enum class DictationUrlCategory {
+  kWeb = 0,   // Standard Web page loaded in a browser tab.
+  kGlic = 1,  // Gemini in Chrome UI surface.
+  kMaxValue = kGlic,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/voice_typing/enums.xml:DictationUrlCategory)
 
 // Triggers for starting a Dictation stream.
 // These values are persisted to logs. Entries should not be renumbered and
@@ -68,6 +83,32 @@ enum class DictationStreamStartTrigger {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/voice_typing/enums.xml:DictationStreamStartTrigger)
 
+// Exit status of a Voice Typing stream.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(DictationStreamExitStatus)
+enum class DictationStreamExitStatus {
+  // Explicit user completion (clicked 'Done', toggled hotkey off, or
+  // pressed Esc during listening state).
+  kUserDone = 0,
+
+  // Explicit user cancellation (clicked 'X' / 'Cancel').
+  kUserCancelled = 1,
+
+  // Automatic completion via natural timeout or workflow action (silence
+  // timeout, tab switch, focus change, user typing, or new session).
+  kAutoDone = 2,
+
+  // Automatic cancellation (e.g. abrupt stream destruction before stop).
+  kAutoCancelled = 3,
+
+  // Server-sent speech recognition error / failure.
+  kSpeechError = 4,
+
+  kMaxValue = kSpeechError,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/voice_typing/enums.xml:DictationStreamExitStatus)
+
 // Records how the Dictation FRE dialog was exited.
 void RecordDictationFirstRunExitStatus(DictationFirstRunExitStatus status);
 
@@ -78,8 +119,14 @@ void RecordDictationIsEnabledOnProfileInit(bool is_enabled);
 // Records the entry point for starting a Dictation session.
 void RecordDictationSessionStartSource(DictationSessionEntryPoint entry_point);
 
+// Records the active UI surface where a Dictation session was engaged.
+void RecordDictationSessionUrlCategory(DictationUrlCategory category);
+
 // Records the trigger for starting a Dictation stream.
 void RecordDictationStreamStartTrigger(DictationStreamStartTrigger trigger);
+
+// Records how a Voice Typing stream concluded.
+void RecordDictationStreamExitStatus(DictationStreamExitStatus status);
 
 }  // namespace dictation
 

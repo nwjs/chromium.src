@@ -124,7 +124,8 @@ bool LayoutView::HitTest(const HitTestLocation& location,
                          HitTestResult& result) {
   NOT_DESTROYED();
   TRACE_EVENT0("blink", "LayoutView::HitTest");
-  if (HasSVGTextDescendants()) {
+  if (!RuntimeEnabledFeatures::SvgIgnoreOuterTransformsEnabled() &&
+      HasSVGTextDescendants()) {
     // This is necessary because SVG <text> might have obsolete geometry after
     // scale-only changes.  See crbug.com/1296089#c16
     auto it = svg_text_descendants_.find(this);
@@ -1007,13 +1008,13 @@ gfx::SizeF LayoutView::PaginationViewportSizeForMediaQueries() const {
   return size;
 }
 
-void LayoutView::WillBeDestroyed() {
+void LayoutView::WillBeDestroyed(const ComputedStyle* style) {
   NOT_DESTROYED();
   // TODO(wangxianzhu): This is a workaround of crbug.com/570706.
   // Should find and fix the root cause.
   if (PaintLayer* layer = Layer())
     layer->SetNeedsRepaint();
-  LayoutBlockFlow::WillBeDestroyed();
+  LayoutBlockFlow::WillBeDestroyed(style);
 }
 
 void LayoutView::UpdateFromStyle() {

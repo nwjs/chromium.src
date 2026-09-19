@@ -45,9 +45,8 @@
 #include "chrome/browser/ui/waap/initial_web_ui_manager.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
-#include "chrome/test/base/chrome_test_utils.h"
+#include "chrome/test/base/chrome_test_path_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/collaboration/public/messaging/empty_messaging_backend_service.h"
@@ -79,6 +78,10 @@
 
 #if BUILDFLAG(IS_OZONE)
 #include "ui/ozone/public/ozone_platform.h"
+#endif
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "ash/constants/ash_switches.h"
 #endif
 
 namespace sessions {
@@ -222,7 +225,7 @@ class EncryptedSessionStorageBrowserTestBase : public InProcessBrowserTest {
   }
 #if BUILDFLAG(IS_CHROMEOS)
   void SetUpCommandLine(base::CommandLine* command_line) override {
-    command_line->AppendSwitch(switches::kCreateBrowserOnStartupForTests);
+    command_line->AppendSwitch(ash::switches::kCreateBrowserOnStartupForTests);
   }
 #endif
 
@@ -333,9 +336,9 @@ class EncryptedSessionStorageBrowserTestBase : public InProcessBrowserTest {
         }
       }
       if (target_id.is_valid()) {
-        service->RestoreEntryById(
-            target_browser->GetFeatures().live_tab_context(), target_id,
-            WindowOpenDisposition::NEW_FOREGROUND_TAB);
+        service->RestoreEntryById(BrowserLiveTabContext::From(target_browser),
+                                  target_id,
+                                  WindowOpenDisposition::NEW_FOREGROUND_TAB);
       } else {
         chrome::RestoreTab(target_browser);
       }
@@ -604,7 +607,7 @@ IN_PROC_BROWSER_TEST_P(TabRestoreWithEncryptionTest, LargeSessionRestore) {
   ui_test_utils::BrowserCreatedObserver observer;
   TabRestoreService* service =
       TabRestoreServiceFactory::GetForProfile(browser2->GetProfile());
-  service->RestoreMostRecentEntry(browser2->GetFeatures().live_tab_context());
+  service->RestoreMostRecentEntry(BrowserLiveTabContext::From(browser2));
   BrowserWindowInterface* restored_browser = observer.Wait();
 
   EXPECT_EQ(starting_tab_count, restored_browser->GetTabStripModel()->count());

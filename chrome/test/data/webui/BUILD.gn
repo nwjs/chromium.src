@@ -59,6 +59,11 @@ source_set("browser_tests") {
     deps += [ "//chrome/browser/ui/webui/net_internals:test_support" ]
   }
 
+  if (enable_webui_ntp) {
+    sources += [ "new_tab_page/new_tab_page_a11y_browsertest.cc" ]
+    deps += [ "//components/search" ]
+  }
+
   data = []
 
   if (!is_android) {
@@ -94,10 +99,8 @@ source_set("browser_tests") {
       "multistep_filter_internals/multistep_filter_internals_browsertest.cc",
       "net_internals/net_internals_browsertest.cc",
       "new_tab_footer/new_tab_footer_browsertest.cc",
-      "new_tab_page/new_tab_page_a11y_browsertest.cc",
       "new_tab_page/new_tab_page_browsertest.cc",
       "new_tab_shared/new_tab_shared_browsertest.cc",
-      "omnibox_everywhere/omnibox_everywhere_browsertest.cc",
       "omnibox_popup/omnibox_popup_browsertest.cc",
       "optimization_guide_internals/optimization_guide_internals_browsertest.cc",
       "organizer_panel/organizer_panel_browsertest.cc",
@@ -261,6 +264,10 @@ source_set("browser_tests") {
     sources += [ "inline_login/inline_login_browsertest.cc" ]
   }
 
+  if (is_win || is_mac) {
+    sources += [ "omnibox_everywhere/omnibox_everywhere_browsertest.cc" ]
+  }
+
   if (is_win || is_mac || is_linux || is_chromeos) {
     sources += [
       "discards/discards_browsertest.cc",
@@ -322,6 +329,7 @@ source_set("browser_tests") {
       "//components/lens:enterprise_policy",
       "//components/lens:features",
       "//components/multistep_filter/core",
+      "//components/multistep_filter/core:features",
       "//components/optimization_guide/core",
       "//components/optimization_guide/optimization_guide_internals/webui:url_constants",
       "//components/password_manager/content/browser",
@@ -546,14 +554,18 @@ webui_ts_library("build_ts") {
     "trusted_html.ts",
   ]
 
+  if (!is_android || enable_webui_ntp) {
+    in_files += [ "polymer_test_util.ts" ]
+  }
+
   if (!is_android) {
     in_files += [
       "fake_settings_private.ts",
       "mocked_metrics_reporter.ts",
       "mouse_mock_interactions.ts",
-      "polymer_test_util.ts",
       "test_api.ts",
       "test_store.ts",
+      "test_user_education_mixed_trust_handler.ts",
     ]
   }
 
@@ -565,9 +577,12 @@ webui_ts_library("build_ts") {
     "//tools/typescript/definitions/metrics_private.d.ts",
   ]
 
-  if (!is_android) {
+  if (!is_android || enable_webui_ntp) {
     deps += [ "//third_party/polymer/v3_0:library" ]
+  }
 
+  if (!is_android) {
+    deps += [ "//ui/webui/resources/mojo:build_ts" ]
     definitions += [
       "//tools/typescript/definitions/chrome_event.d.ts",
       "//tools/typescript/definitions/chrome_send.d.ts",
@@ -622,6 +637,17 @@ generate_grd("build_grd") {
     "$target_gen_dir/usb_internals/resources.grdp",
   ]
 
+  if (enable_webui_ntp) {
+    deps += [
+      "cr_components/searchbox:build_grdp",
+      "new_tab_page:build_grdp",
+    ]
+    grdp_files += [
+      "$target_gen_dir/cr_components/searchbox/resources.grdp",
+      "$target_gen_dir/new_tab_page/resources.grdp",
+    ]
+  }
+
   if (!is_android) {
     # Needed by the ExtensionWebUIListenersTest which needs to load a dummy
     # HTML file from a chrome://webui-test URL.
@@ -639,7 +665,6 @@ generate_grd("build_grd") {
       "cr_components/help_bubble:build_grdp",
       "cr_components/history_clusters:build_grdp",
       "cr_components/history_embeddings:build_grdp",
-      "cr_components/searchbox:build_grdp",
       "cr_components/theme_color_picker:build_grdp",
       "css:build_grdp",
       "data_sharing:build_grdp",
@@ -649,6 +674,7 @@ generate_grd("build_grd") {
       "drive_picker:build_grdp",
       "engagement:build_grdp",
       "feedback:build_grdp",
+      "glic:build_glic_api_grdp",
       "glic:build_grdp",
       "histograms:build_grdp",
       "history:build_grdp",
@@ -665,7 +691,6 @@ generate_grd("build_grd") {
       "multistep_filter_internals:build_grdp",
       "net_internals:build_grdp",
       "new_tab_footer:build_grdp",
-      "new_tab_page:build_grdp",
       "new_tab_shared:build_grdp",
       "omnibox_everywhere:build_grdp",
       "omnibox_popup:build_grdp",
@@ -701,7 +726,6 @@ generate_grd("build_grd") {
       "$target_gen_dir/cr_components/help_bubble/resources.grdp",
       "$target_gen_dir/cr_components/history_clusters/resources.grdp",
       "$target_gen_dir/cr_components/history_embeddings/resources.grdp",
-      "$target_gen_dir/cr_components/searchbox/resources.grdp",
       "$target_gen_dir/cr_components/theme_color_picker/resources.grdp",
       "$target_gen_dir/css/resources.grdp",
       "$target_gen_dir/data_sharing/resources.grdp",
@@ -711,6 +735,7 @@ generate_grd("build_grd") {
       "$target_gen_dir/drive_picker/resources.grdp",
       "$target_gen_dir/engagement/resources.grdp",
       "$target_gen_dir/feedback/resources.grdp",
+      "$target_gen_dir/glic/glic_api_resources.grdp",
       "$target_gen_dir/glic/resources.grdp",
       "$target_gen_dir/histograms/resources.grdp",
       "$target_gen_dir/history/resources.grdp",
@@ -728,7 +753,6 @@ generate_grd("build_grd") {
       "$target_gen_dir/net_internals/resources.grdp",
       "$target_gen_dir/new_tab_footer/resources.grdp",
       "$target_gen_dir/new_tab_shared/resources.grdp",
-      "$target_gen_dir/new_tab_page/resources.grdp",
       "$target_gen_dir/omnibox_everywhere/resources.grdp",
       "$target_gen_dir/omnibox_popup/resources.grdp",
       "$target_gen_dir/optimization_guide_internals/resources.grdp",

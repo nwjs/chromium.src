@@ -148,7 +148,7 @@ class SupervisedUserTestEnvironment {
   MockUrlCheckerClient& family_link_url_checker_client();
   MockUrlCheckerClient& device_parental_controls_url_checker_client();
 
-  FamilyLinkUrlFilter* family_link_url_filter() const;
+  const FamilyLinkUrlFilter* family_link_url_filter() const;
   FamilyLinkSettingsService* family_link_settings_service();
   ChildAccountService* child_account_service() const;
 
@@ -161,6 +161,10 @@ class SupervisedUserTestEnvironment {
   // Simulators of parental controls. Instance methods use services from this
   // test environment, while static methods are suitable for heavier testing
   // profile use.
+  void EnableSupervisedAccount();
+  void DisableSupervisedAccount();
+  static void EnableSupervisedAccount(
+      signin::IdentityManager* identity_manager);
 
   // SetWebFilterType methods simulate the custodian modifying "Google Chrome
   // and Web" settings.

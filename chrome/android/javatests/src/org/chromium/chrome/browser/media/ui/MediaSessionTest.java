@@ -20,7 +20,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import org.chromium.base.DeviceInfo;
 import org.chromium.base.FakeTimeTestRule;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
@@ -28,8 +27,8 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.CriteriaNotSatisfiedException;
-import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.ntp.NewTabPage;
@@ -49,6 +48,7 @@ import org.chromium.content_public.browser.test.util.DOMUtils;
 import org.chromium.content_public.browser.test.util.JavaScriptUtils;
 import org.chromium.media.MediaSwitches;
 import org.chromium.net.test.EmbeddedTestServer;
+import org.chromium.ui.base.DeviceFormFactor;
 
 import java.util.concurrent.TimeoutException;
 
@@ -82,9 +82,9 @@ public class MediaSessionTest {
 
     @Test
     @LargeTest
+    @Restriction(DeviceFormFactor.PHONE_OR_TABLET)
     public void testPauseOnHeadsetUnplug_NonDesktopDevice()
             throws IllegalArgumentException, TimeoutException {
-        DeviceInfo.setIsDesktopForTesting(false);
         mActivityTestRule.startOnTestServerUrl(TEST_PATH);
         Tab tab = mActivityTestRule.getActivityTab();
 
@@ -99,9 +99,9 @@ public class MediaSessionTest {
 
     @Test
     @LargeTest
+    @Restriction(DeviceFormFactor.DESKTOP)
     public void testNoPauseOnHeadsetUnplug_DesktopDevice()
             throws IllegalArgumentException, TimeoutException {
-        DeviceInfo.setIsDesktopForTesting(true);
         mActivityTestRule.startOnTestServerUrl(TEST_PATH);
         Tab tab = mActivityTestRule.getActivityTab();
 
@@ -222,8 +222,8 @@ public class MediaSessionTest {
 
     @Test
     @LargeTest
+    @Restriction(DeviceFormFactor.DESKTOP)
     public void testPauseOnScreenOff_DesktopDevice() throws Exception {
-        DeviceInfo.setIsDesktopForTesting(true);
         mActivityTestRule.startOnTestServerUrl(TEST_PATH);
         Tab tab = mActivityTestRule.getActivityTab();
 
@@ -247,8 +247,8 @@ public class MediaSessionTest {
 
     @Test
     @LargeTest
+    @Restriction(DeviceFormFactor.PHONE_OR_TABLET)
     public void testNoPauseOnScreenOff_NonDesktopDevice() throws Exception {
-        DeviceInfo.setIsDesktopForTesting(false);
         mActivityTestRule.startOnTestServerUrl(TEST_PATH);
         Tab tab = mActivityTestRule.getActivityTab();
 
@@ -299,7 +299,7 @@ public class MediaSessionTest {
 
     @Test
     @LargeTest
-    @DisableFeatures("NoPauseMediaOnHeadphoneUnplug")
+    @Restriction(DeviceFormFactor.PHONE_OR_TABLET)
     public void testNoAudioBecomingNoisyPausedMetricWhenAlreadyPaused() throws Exception {
         mActivityTestRule.startOnTestServerUrl(TEST_PATH);
         Tab tab = mActivityTestRule.getActivityTab();

@@ -13,7 +13,7 @@
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_test_util.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
-#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/pref_names.h"
@@ -25,6 +25,7 @@
 #include "content/public/test/browser_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/context_menu/context_menu.mojom.h"
+#include "ui/base/base_window.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
 
@@ -83,6 +84,44 @@ IN_PROC_BROWSER_TEST_F(GlicContextMenuBrowserTest, GlicItemAbsentForImage) {
   EXPECT_FALSE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_GLIC));
 }
 
+IN_PROC_BROWSER_TEST_F(GlicContextMenuBrowserTest, GlicItemAbsentForLink) {
+  glic::GlicEnabling::ScopedBypassEnablementChecksForTesting scoped_glic_bypass;
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetSimpleTestUrl()));
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::ContextMenuParams params;
+  params.page_url = web_contents->GetVisibleURL();
+  params.link_url = GURL("https://example.com");
+  params.unfiltered_link_url = GURL("https://example.com");
+
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      *web_contents->GetPrimaryMainFrame(), params);
+  menu->Init();
+
+  EXPECT_FALSE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_GLIC));
+}
+
+IN_PROC_BROWSER_TEST_F(GlicContextMenuBrowserTest,
+                       GlicItemPresentForLinkWithTextSelection) {
+  glic::GlicEnabling::ScopedBypassEnablementChecksForTesting scoped_glic_bypass;
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetSimpleTestUrl()));
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::ContextMenuParams params;
+  params.page_url = web_contents->GetVisibleURL();
+  params.link_url = GURL("https://example.com");
+  params.unfiltered_link_url = GURL("https://example.com");
+  params.selection_text = u"selected text";
+
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      *web_contents->GetPrimaryMainFrame(), params);
+  menu->Init();
+
+  EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_GLIC));
+}
+
 class GlicContextMenuShareImageDisabledBrowserTest
     : public GlicContextMenuBrowserTestBase {
  public:
@@ -98,7 +137,7 @@ class GlicContextMenuShareImageDisabledBrowserTest
 
 IN_PROC_BROWSER_TEST_F(GlicContextMenuShareImageDisabledBrowserTest,
                        GlicItemAbsentForImage) {
-  glic::GlicEnabling::SetBypassEnablementChecksForTesting(true);
+  glic::GlicEnabling::ScopedBypassEnablementChecksForTesting scoped_glic_bypass;
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetSimpleTestUrl()));
 
   content::WebContents* web_contents =
@@ -113,12 +152,11 @@ IN_PROC_BROWSER_TEST_F(GlicContextMenuShareImageDisabledBrowserTest,
   menu->Init();
 
   EXPECT_FALSE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_GLIC));
-  glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
 }
 
 IN_PROC_BROWSER_TEST_F(GlicContextMenuBrowserTest,
                        GlicItemPresentForTextSelection) {
-  glic::GlicEnabling::SetBypassEnablementChecksForTesting(true);
+  glic::GlicEnabling::ScopedBypassEnablementChecksForTesting scoped_glic_bypass;
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetSimpleTestUrl()));
 
   content::WebContents* web_contents =
@@ -132,12 +170,11 @@ IN_PROC_BROWSER_TEST_F(GlicContextMenuBrowserTest,
   menu->Init();
 
   EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_GLIC));
-  glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
 }
 
 IN_PROC_BROWSER_TEST_F(GlicContextMenuBrowserTest,
                        GlicItemPresentForImageInTextSelection) {
-  glic::GlicEnabling::SetBypassEnablementChecksForTesting(true);
+  glic::GlicEnabling::ScopedBypassEnablementChecksForTesting scoped_glic_bypass;
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetSimpleTestUrl()));
 
   content::WebContents* web_contents =
@@ -153,7 +190,6 @@ IN_PROC_BROWSER_TEST_F(GlicContextMenuBrowserTest,
   menu->Init();
 
   EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_GLIC));
-  glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
 }
 
 IN_PROC_BROWSER_TEST_F(GlicContextMenuBrowserTest,
@@ -602,7 +638,7 @@ IN_PROC_BROWSER_TEST_F(GlicContextMenuStandardBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(GlicContextMenuStandardBrowserTest,
-                       GlicItemPresentForLink) {
+                       GlicItemAbsentForLink) {
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetSimpleTestUrl()));
 
   content::WebContents* web_contents =
@@ -611,6 +647,25 @@ IN_PROC_BROWSER_TEST_F(GlicContextMenuStandardBrowserTest,
   params.page_url = web_contents->GetVisibleURL();
   params.link_url = GURL("https://example.com");
   params.unfiltered_link_url = GURL("https://example.com");
+
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      *web_contents->GetPrimaryMainFrame(), params);
+  menu->Init();
+
+  EXPECT_FALSE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_GLIC));
+}
+
+IN_PROC_BROWSER_TEST_F(GlicContextMenuStandardBrowserTest,
+                       GlicItemPresentForLinkWithTextSelection) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetSimpleTestUrl()));
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::ContextMenuParams params;
+  params.page_url = web_contents->GetVisibleURL();
+  params.link_url = GURL("https://example.com");
+  params.unfiltered_link_url = GURL("https://example.com");
+  params.selection_text = u"test query";
 
   auto menu = std::make_unique<TestRenderViewContextMenu>(
       *web_contents->GetPrimaryMainFrame(), params);

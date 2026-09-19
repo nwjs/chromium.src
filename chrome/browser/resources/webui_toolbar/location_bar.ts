@@ -8,10 +8,13 @@ import './content_settings_icons.js';
 import './page_action_icons.js';
 import './selected_keyword.js';
 import '/shared/permission_dashboard.js';
+import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 
-import {TrackedElementManager} from '//resources/js/tracked_element/tracked_element_manager.js';
+import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
+import type {OverflowMenuItem} from '/shared/toolbar_ui_api.mojom-webui.js';
+import {SecurityChipRole} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 import type {LocationBarState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
 import type {ToolbarAppElement} from './app.js';
@@ -22,6 +25,7 @@ import {getHtml} from './location_bar.html.js';
 import type {PageActionIconsElement} from './page_action_icons.js';
 import type {ReadonlyOmniboxElement} from './readonly_omnibox.js';
 import type {ResponsiveControl} from './responsive_control.js';
+import {PressHandler} from './toolbar_button.js';
 
 export interface LocationBarElement {
   $: {
@@ -62,6 +66,7 @@ export class LocationBarElement extends CrLitElement implements
     return {
       locationBarState: {type: Object},
       isPopupOpen: {type: Boolean},
+      touchUi: {type: Boolean},
     };
   }
 
@@ -83,6 +88,7 @@ export class LocationBarElement extends CrLitElement implements
       userInputInProgress: false,
       popupOpen: false,
       forceAimButtonFocusRing: false,
+      isVirtualKeyboardVisible: false,
     },
     selectedKeyword: null,
     lhsChipsState: {
@@ -92,12 +98,14 @@ export class LocationBarElement extends CrLitElement implements
         text: '',
         tooltip: '',
         accessibilityState: {
+          role: SecurityChipRole.kButton,
           label: '',
           description: '',
         },
         isClickable: false,
         isTextDangerous: false,
         isVisible: true,
+        isContextMenuVisible: false,
       },
       activityIndicators: [],
       permissionDashboard: null,
@@ -107,20 +115,17 @@ export class LocationBarElement extends CrLitElement implements
   };
 
   accessor isPopupOpen: boolean = false;
+  accessor touchUi: boolean = false;
 
-  private trackedElementManager_: TrackedElementManager;
   private browserProxy_: BrowserProxy = BrowserProxyImpl.getInstance();
   private focusState_: boolean = false;
 
   constructor() {
     super();
-    this.trackedElementManager_ = TrackedElementManager.getInstance();
   }
 
   override connectedCallback() {
     super.connectedCallback();
-    this.trackedElementManager_.startTracking(
-        this.$.omnibox, 'kOmniboxElementId');
     // Need to use focusin/focusout and not focus/blur here since we
     // specifically want the events from child elements.
     this.addEventListener('focusin', this.onFocusin_.bind(this));
@@ -131,7 +136,6 @@ export class LocationBarElement extends CrLitElement implements
 
   override disconnectedCallback() {
     super.disconnectedCallback();
-    this.trackedElementManager_.stopTracking(this.$.omnibox);
   }
 
   override willUpdate(changedProperties: PropertyValues<this>): void {
@@ -236,13 +240,8 @@ export class LocationBarElement extends CrLitElement implements
     this.style.width = `${width}px`;
   }
 
-  controlsToAddToOverflowMenu(): string[] {
+  controlsToAddToOverflowMenu(): OverflowMenuItem[] {
     return [];
-  }
-
-  consumeNeedsLayout(): boolean {
-    // The minimum and preferred sizes of this control do not change.
-    return false;
   }
 
   // Sets the width to include all remaining unclaimed space on the toolbar.
@@ -261,6 +260,40 @@ export class LocationBarElement extends CrLitElement implements
       this.focusState_ = hasFocus;
       this.browserProxy_.toolbarUIHandler.onLocationBarFocusWithinChanged(
           hasFocus);
+    }
+  }
+
+  protected getClearButtonTitle_(): string {
+    return loadTimeData.getString('clearButtonTooltip');
+  }
+
+  protected getClearButtonIcon_(): string {
+    return this.touchUi ? 'webui-toolbar:backspace_filled' :
+                          'webui-toolbar:close';
+  }
+
+  protected shouldShowClearButton_(): boolean {
+    return this.locationBarState.locationBarFlags.userInputInProgress &&
+        this.locationBarState.omniboxViewState.textPieces.some(
+            piece => piece.text.length > 0) &&
+        this.locationBarState.locationBarFlags.isVirtualKeyboardVisible;
+  }
+
+  protected clearPressHandler_: PressHandler = new PressHandler(
+      /*onLongPress=*/ () => {},
+      /*onShortPress=*/ () => this.clearInput_(),
+      /*enableContextMenu=*/ false,
+  );
+
+  private clearInput_() {
+    this.$.omnibox.clearInput();
+  }
+
+  protected onClearClick_(e: MouseEvent) {
+    // Only keyboard `click` (Enter/Space) are handled here, which triggers a
+    // left-click equivalent. Keyboard 'click' has detail === 0.
+    if (e.detail === 0) {
+      this.clearInput_();
     }
   }
 }

@@ -10,6 +10,7 @@
 
 #include <array>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -28,6 +29,7 @@
 #include "base/debug/stack_trace.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/i18n/icu_util.h"
 #include "base/lazy_instance.h"
@@ -46,6 +48,7 @@
 #include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/task/execution_fence.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool/environment_config.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
@@ -120,6 +123,8 @@
 #include "services/tracing/public/cpp/perfetto/perfetto_traced_process.h"
 #include "services/tracing/public/cpp/trace_startup.h"
 #include "services/tracing/public/cpp/tracing_features.h"
+#include "services/webnn/public/cpp/webnn_sandbox_init.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "third_party/blink/public/common/origin_trials/trial_token_validator.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "third_party/tflite/buildflags.h"
@@ -162,9 +167,13 @@
 #endif  // BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#include <fcntl.h>
+
 #include "base/environment.h"
 #include "base/files/file_path_watcher_inotify.h"
+#include "base/files/scoped_file.h"
 #include "base/native_library.h"
+#include "base/posix/eintr_wrapper.h"
 #include "base/rand_util.h"
 #include "content/public/common/zygote/sandbox_support_linux.h"
 #include "sandbox/policy/linux/sandbox_linux.h"
@@ -387,6 +396,35 @@ void PreloadLibraryCdms() {
 }
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
 
+// The kernel starts every process with a 64-entry file descriptor table and
+// grows it in powers of two on demand (see alloc_fdtable() in fs/file.c). Once
+// the process has more than one thread, each growth goes through
+// synchronize_rcu() in expand_fdtable(), which blocks the thread allocating the
+// descriptor - and any other thread of the process that allocates a descriptor
+// in the meantime - for a full RCU grace period. That is typically 10-50 ms and
+// has been measured at over 100 ms on large, busy machines. The browser process
+// crosses 64 and 128 descriptors during startup (the first crossing has been
+// observed on the main thread, with several other threads' openat(), recvmsg()
+// and dup() calls stalled behind it), and the GPU and network processes cross
+// 64 under load.
+//
+// Zygote-forked children avoid this by growing the table right after fork(),
+// while they are still single-threaded (see Zygote::ReadArgsAndFork()). This
+// does the same for the browser process and exec'ed children before their first
+// thread is created: asking for a descriptor >= 512 makes the kernel allocate a
+// 1024-entry table (8 KiB) once, without RCU synchronization. This is purely a
+// performance optimization, so failures (e.g. a soft RLIMIT_NOFILE of 512 or
+// less) are ignored.
+void PreallocateFileDescriptorTable() {
+  base::ScopedFD dev_null(
+      HANDLE_EINTR(open("/dev/null", O_RDONLY | O_CLOEXEC)));
+  if (!dev_null.is_valid()) {
+    return;
+  }
+  base::ScopedFD high_fd(
+      HANDLE_EINTR(fcntl(dev_null.get(), F_DUPFD_CLOEXEC, 512)));
+}
+
 void PreSandboxInit() {
   // Ensure the /dev/urandom is opened.
   base::GetUrandomFD();
@@ -410,6 +448,7 @@ void PreSandboxInit() {
   PreloadLibraryCdms();
 #endif
   InitializeWebRtcModuleBeforeSandbox();
+  webnn::PreSandboxWebNNInitialization();
 
 #if BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
   // cpuinfo needs to parse /proc/cpuinfo, or its equivalent.
@@ -509,6 +548,12 @@ void CreateChildThreadPool(const std::string& process_type) {
     thread_pool_name = "ContentChild";
   }
   base::ThreadPoolInstance::Create(thread_pool_name, record_lock_contention);
+}
+
+// Indicates whether BEST_EFFORT tasks are disabled by a command line switch.
+bool HasDisableBestEffortTasksSwitch() {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kDisableBestEffortTasks);
 }
 
 }  // namespace
@@ -626,6 +671,13 @@ NO_STACK_PROTECTOR int RunZygote(ContentMainDelegate* delegate) {
     InitializeMojoCore();
   }
   delegate->PostEarlyInitialization(invoked_in_child);
+
+  // The Zygote must use a local scoped fence, otherwise the scoped object
+  // would live across the fork.
+  std::optional<base::ScopedBestEffortExecutionFence> best_effort_fence;
+  if (HasDisableBestEffortTasksSwitch()) {
+    best_effort_fence.emplace();
+  }
 
   base::allocator::PartitionAllocSupport::Get()
       ->ReconfigureAfterFeatureListInit(process_type);
@@ -816,6 +868,16 @@ int ContentMainRunnerImpl::Initialize(ContentMainParams params) {
       *base::CommandLine::ForCurrentProcess();
   std::string process_type =
       command_line.GetSwitchValueASCII(switches::kProcessType);
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+  // Must run while the process is still single-threaded, i.e. before the
+  // thread pool (and, in Chrome, the stack sampling profiler) is created below.
+  // Zygotes fork their children with a right-sized copy of the table and grow
+  // it themselves after fork().
+  if (process_type != switches::kZygoteProcess) {
+    PreallocateFileDescriptorTable();
+  }
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_ANDROID)
   // Initialize the background threadpool field trial before creating the
@@ -1100,6 +1162,13 @@ NO_STACK_PROTECTOR int ContentMainRunnerImpl::Run() {
   base::debug::AsanService::GetInstance()->AddErrorCallback(AsanProcessInfoCB);
 #endif
 
+  // Returning from this function begins the shutdown phase which should start
+  // best-effort tasks running, no matter where `best_effort_fence_` is
+  // initialized.
+  absl::Cleanup remove_best_effort_fence = [this] {
+    best_effort_fence_.reset();
+  };
+
   // Run this logic on all child processes.
   bool needs_startup_tracing_after_sandbox_init = false;
   if (!process_type.empty()) {
@@ -1139,6 +1208,10 @@ NO_STACK_PROTECTOR int ContentMainRunnerImpl::Run() {
       }
       delegate_->PostEarlyInitialization(
           ContentMainDelegate::InvokedInChildProcess());
+
+      if (HasDisableBestEffortTasksSwitch()) {
+        best_effort_fence_.emplace();
+      }
 
       if (delegate_->ShouldReconfigurePartitionAlloc()) {
         base::allocator::PartitionAllocSupport::Get()
@@ -1183,8 +1256,9 @@ NO_STACK_PROTECTOR int ContentMainRunnerImpl::Run() {
 
   RegisterMainThreadFactories();
 
-  if (process_type.empty())
+  if (process_type.empty()) {
     return RunBrowser(std::move(main_params), start_minimal_browser);
+  }
 
   return RunOtherNamedProcessTypeMain(process_type, std::move(main_params),
                                       delegate_);
@@ -1254,6 +1328,10 @@ int ContentMainRunnerImpl::RunBrowser(MainFunctionParams main_params,
         delegate_->PostEarlyInitialization(invoked_in_browser);
     if (post_early_initialization_exit_code.has_value())
       return post_early_initialization_exit_code.value();
+
+    if (HasDisableBestEffortTasksSwitch()) {
+      best_effort_fence_.emplace();
+    }
 
     if (!delegate_->IsInitFeatureListEarly()) {
       // Re-evaluate feature state now that FeatureList has been initialized, as

@@ -5,8 +5,8 @@
 #include <string>
 
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/test/test_browser_ui.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
@@ -17,6 +17,7 @@
 #include "components/contextual_tasks/public/features.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/signin/public/base/signin_switches.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
@@ -112,7 +113,7 @@ class SearchAIModeSignInPromoViewPixelTest
   void ShowUi(const std::string& name) override {
     ShowPromoView(std::make_unique<SearchAIModeSignInPromoView>(
         GetAvatarBubbleAnchor(),
-        browser()->tab_strip_model()->GetActiveWebContents(),
+        browser()->GetActiveTabInterface()->GetContents(),
         /*controller=*/nullptr));
   }
 
@@ -143,7 +144,7 @@ class ComposeboxDriveSignInPromoViewPixelTest
   void ShowUi(const std::string& name) override {
     ShowPromoView(std::make_unique<ComposeboxDriveSignInPromoView>(
         GetAvatarBubbleAnchor(),
-        browser()->tab_strip_model()->GetActiveWebContents(),
+        browser()->GetActiveTabInterface()->GetContents(),
         /*controller=*/nullptr));
   }
 

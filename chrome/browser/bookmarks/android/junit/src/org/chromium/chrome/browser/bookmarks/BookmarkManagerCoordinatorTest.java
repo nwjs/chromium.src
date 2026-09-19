@@ -6,11 +6,15 @@ package org.chromium.chrome.browser.bookmarks;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 
 import android.app.Activity;
+import android.view.FocusFinder;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -28,6 +32,7 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.ParameterizedRobolectricTestRunner;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 import org.robolectric.RuntimeEnvironment;
+import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
@@ -37,7 +42,6 @@ import org.chromium.base.FeatureOverrides;
 import org.chromium.base.test.BaseRobolectricTestRule;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Features;
-import org.chromium.chrome.R;
 import org.chromium.chrome.browser.commerce.ShoppingServiceFactory;
 import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -51,6 +55,7 @@ import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelperJni;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.browser.ui.signin.PersonalizedSigninPromoView;
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.commerce.core.CommerceFeatureUtils;
@@ -81,9 +86,13 @@ import java.util.Collection;
 })
 @Features.EnableFeatures({
     ChromeFeatureList.ENABLE_ESCAPE_HANDLING_FOR_SECONDARY_ACTIVITIES,
-    SigninFeatures.ENABLE_SEAMLESS_SIGNIN
+    SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
+    SigninFeatures.ENABLE_ACCOUNT_PREVIEW_PREFERRED_ACCOUNT
 })
-@Features.DisableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+@Features.DisableFeatures({
+    ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT,
+    ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_DIALOG
+})
 public class BookmarkManagerCoordinatorTest {
 
     @Rule(order = Rule.DEFAULT_ORDER - 1)
@@ -185,8 +194,21 @@ public class BookmarkManagerCoordinatorTest {
         View mainView = mCoordinator.getView();
 
         assertNotNull(mainView);
-        assertNotNull(mainView.findViewById(R.id.selectable_list));
+        assertFalse(mainView.isFocusable());
+        assertFalse(mainView.isFocusableInTouchMode());
+        assertFalse(mainView.getDefaultFocusHighlightEnabled());
+
+        View selectableList = mainView.findViewById(R.id.selectable_list);
+        assertNotNull(selectableList);
+        assertFalse(selectableList.isFocusable());
+        assertFalse(selectableList.isFocusableInTouchMode());
+        assertFalse(selectableList.getDefaultFocusHighlightEnabled());
+
         assertNotNull(mainView.findViewById(R.id.action_bar));
+        BookmarkToolbar toolbar = mCoordinator.getToolbarForTesting();
+        assertNotNull(toolbar);
+        assertFalse(toolbar.isFocusable());
+        assertFalse(toolbar.isFocusableInTouchMode());
     }
 
     @Test
@@ -198,6 +220,51 @@ public class BookmarkManagerCoordinatorTest {
         assertNotNull(BookmarkManagerCoordinator.buildCompactImprovedBookmarkRow(parent));
         assertNotNull(BookmarkManagerCoordinator.buildVisualImprovedBookmarkRow(parent));
         assertNotNull(mCoordinator.buildSearchBoxRow(parent));
+        assertNotNull(mCoordinator.buildSigninPromoView(parent));
+    }
+
+    @Test
+    public void testBuildSigninPromoView_default() {
+        FrameLayout parent = new FrameLayout(mActivity);
+        View view = mCoordinator.buildSigninPromoView(parent);
+        assertNotNull(view);
+        PersonalizedSigninPromoView promoView = view.findViewById(R.id.signin_promo_view_container);
+        assertNotNull(promoView);
+        View cardWrapper = promoView.findViewById(R.id.signin_promo_view_wrapper);
+        assertNotNull(cardWrapper);
+        if (cardWrapper.getBackground() != null) {
+            assertNotEquals(
+                    R.drawable.bookmark_promo_desktop_background,
+                    Shadows.shadowOf(cardWrapper.getBackground()).getCreatedFromResId());
+        }
+    }
+
+    @Test
+    @Features.EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testBuildSigninPromoView_desktop() {
+        recreateCoordinatorForDesktop();
+        FrameLayout parent = new FrameLayout(mActivity);
+        View view = mCoordinator.buildSigninPromoView(parent);
+        assertNotNull(view);
+        PersonalizedSigninPromoView promoView = view.findViewById(R.id.signin_promo_view_container);
+        assertNotNull(promoView);
+        View cardWrapper = promoView.findViewById(R.id.signin_promo_view_wrapper);
+        assertNotNull(cardWrapper);
+        assertEquals(
+                R.drawable.bookmark_promo_desktop_background,
+                Shadows.shadowOf(cardWrapper.getBackground()).getCreatedFromResId());
+
+        View searchBoxRow = mCoordinator.buildSearchBoxRow(parent);
+        assertNotNull(searchBoxRow);
+        assertFalse(searchBoxRow.isFocusable());
+        assertFalse(searchBoxRow.isFocusableInTouchMode());
+        assertFalse(searchBoxRow.isClickable());
+
+        View searchText = searchBoxRow.findViewById(R.id.search_text);
+        assertNotNull(searchText);
+        assertTrue(searchText.isFocusable());
+        assertFalse(searchText.isFocusableInTouchMode());
+        assertTrue(searchText.isEnabled());
     }
 
     @Test
@@ -396,5 +463,213 @@ public class BookmarkManagerCoordinatorTest {
         View navigationPane = mCoordinator.getView().findViewById(R.id.navigation_pane);
         assertNotNull(navigationPane);
         assertEquals(View.VISIBLE, navigationPane.getVisibility());
+    }
+
+    @Test
+    @Config(qualifiers = "w839dp")
+    @Features.EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopSearchBoxPosition_belowThreshold() {
+        recreateCoordinatorForDesktop();
+        View searchBoxView = mCoordinator.getView().findViewById(R.id.desktop_search_box_row);
+        assertNotNull(searchBoxView);
+        assertEquals(View.GONE, searchBoxView.getVisibility());
+        assertNull(mCoordinator.getSearchBoxChangeProcessorForTesting());
+    }
+
+    @Test
+    @Config(qualifiers = "w840dp")
+    @Features.EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopSearchBoxPosition_atThreshold() {
+        recreateCoordinatorForDesktop();
+        View searchBoxView = mCoordinator.getView().findViewById(R.id.desktop_search_box_row);
+        assertNotNull(searchBoxView);
+        assertEquals(View.VISIBLE, searchBoxView.getVisibility());
+        assertNotNull(mCoordinator.getSearchBoxChangeProcessorForTesting());
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h1000dp")
+    @Features.EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopSearchBox_resize() {
+        recreateCoordinatorForDesktop();
+        View searchBoxView = mCoordinator.getView().findViewById(R.id.desktop_search_box_row);
+        assertNotNull(searchBoxView);
+        assertEquals(View.GONE, searchBoxView.getVisibility());
+        assertNull(mCoordinator.getSearchBoxChangeProcessorForTesting());
+
+        // Resize to wide screen (1200dp).
+        RuntimeEnvironment.setQualifiers("w1200dp-h1000dp");
+        mCoordinator
+                .getComponentCallbacksForTesting()
+                .onConfigurationChanged(mActivity.getResources().getConfiguration());
+        assertEquals(View.VISIBLE, searchBoxView.getVisibility());
+        assertNotNull(mCoordinator.getSearchBoxChangeProcessorForTesting());
+
+        // Resize back to narrow screen (800dp).
+        RuntimeEnvironment.setQualifiers("w800dp-h1000dp");
+        mCoordinator
+                .getComponentCallbacksForTesting()
+                .onConfigurationChanged(mActivity.getResources().getConfiguration());
+        assertEquals(View.GONE, searchBoxView.getVisibility());
+        assertNull(mCoordinator.getSearchBoxChangeProcessorForTesting());
+    }
+
+    @Test
+    @Config(qualifiers = "w839dp")
+    @Features.EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopToolbarSmallScreen_belowThreshold() {
+        recreateCoordinatorForDesktop();
+        assertTrue(
+                mCoordinator
+                        .getToolbarCoordinatorForTesting()
+                        .getMediatorForTesting()
+                        .isSmallScreenForTesting());
+    }
+
+    @Test
+    @Config(qualifiers = "w840dp")
+    @Features.EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopToolbarSmallScreen_atThreshold() {
+        recreateCoordinatorForDesktop();
+        assertFalse(
+                mCoordinator
+                        .getToolbarCoordinatorForTesting()
+                        .getMediatorForTesting()
+                        .isSmallScreenForTesting());
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h1000dp")
+    @Features.EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopToolbarSmallScreen_resize() {
+        recreateCoordinatorForDesktop();
+        assertTrue(
+                mCoordinator
+                        .getToolbarCoordinatorForTesting()
+                        .getMediatorForTesting()
+                        .isSmallScreenForTesting());
+
+        // Resize to wide screen (1200dp).
+        RuntimeEnvironment.setQualifiers("w1200dp-h1000dp");
+        mCoordinator
+                .getComponentCallbacksForTesting()
+                .onConfigurationChanged(mActivity.getResources().getConfiguration());
+        assertFalse(
+                mCoordinator
+                        .getToolbarCoordinatorForTesting()
+                        .getMediatorForTesting()
+                        .isSmallScreenForTesting());
+
+        // Resize back to narrow screen (800dp).
+        RuntimeEnvironment.setQualifiers("w800dp-h1000dp");
+        mCoordinator
+                .getComponentCallbacksForTesting()
+                .onConfigurationChanged(mActivity.getResources().getConfiguration());
+        assertTrue(
+                mCoordinator
+                        .getToolbarCoordinatorForTesting()
+                        .getMediatorForTesting()
+                        .isSmallScreenForTesting());
+    }
+
+    @Test
+    @Config(qualifiers = "w1000dp-h1000dp")
+    @Features.EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopContainerFocusability() {
+        recreateCoordinatorForDesktop();
+
+        View mainView = mCoordinator.getView();
+        assertNotNull(mainView);
+        assertFalse(mainView.isFocusable());
+        assertFalse(mainView.isFocusableInTouchMode());
+        assertFalse(mainView.getDefaultFocusHighlightEnabled());
+
+        View selectableList = mainView.findViewById(R.id.selectable_list);
+        assertNotNull(selectableList);
+        assertFalse(selectableList.isFocusable());
+        assertFalse(selectableList.isFocusableInTouchMode());
+        assertFalse(selectableList.getDefaultFocusHighlightEnabled());
+
+        BookmarkToolbar toolbar = mCoordinator.getToolbarForTesting();
+        assertNotNull(toolbar);
+        assertFalse(toolbar.isFocusable());
+        assertFalse(toolbar.isFocusableInTouchMode());
+
+        View desktopSearchBoxRow = mainView.findViewById(R.id.desktop_search_box_row);
+        assertNotNull(desktopSearchBoxRow);
+        assertFalse(desktopSearchBoxRow.isFocusable());
+        assertFalse(desktopSearchBoxRow.isFocusableInTouchMode());
+        assertFalse(desktopSearchBoxRow.isClickable());
+
+        View searchText = desktopSearchBoxRow.findViewById(R.id.search_text);
+        assertNotNull(searchText);
+        assertTrue(searchText.isFocusable());
+        assertFalse(searchText.isFocusableInTouchMode());
+        assertTrue(searchText.isEnabled());
+    }
+
+    @Test
+    @Config(qualifiers = "w700dp-h1000dp")
+    @Features.EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testResponsiveContainerFocusability() {
+        recreateCoordinatorForDesktop();
+
+        View mainView = mCoordinator.getView();
+        assertNotNull(mainView);
+        assertFalse(mainView.isFocusable());
+        assertFalse(mainView.isFocusableInTouchMode());
+        assertFalse(mainView.getDefaultFocusHighlightEnabled());
+
+        View selectableList = mainView.findViewById(R.id.selectable_list);
+        assertNotNull(selectableList);
+        assertFalse(selectableList.isFocusable());
+        assertFalse(selectableList.isFocusableInTouchMode());
+        assertFalse(selectableList.getDefaultFocusHighlightEnabled());
+
+        BookmarkToolbar toolbar = mCoordinator.getToolbarForTesting();
+        assertNotNull(toolbar);
+        assertFalse(toolbar.isFocusable());
+        assertFalse(toolbar.isFocusableInTouchMode());
+
+        // In responsive mode (< 840dp), desktop search box row is gone and inline search is used.
+        View desktopSearchBoxRow = mainView.findViewById(R.id.desktop_search_box_row);
+        assertNotNull(desktopSearchBoxRow);
+        assertEquals(View.GONE, desktopSearchBoxRow.getVisibility());
+
+        FrameLayout parent = new FrameLayout(mActivity);
+        View inlineSearchBoxRow = mCoordinator.buildSearchBoxRow(parent);
+        assertNotNull(inlineSearchBoxRow);
+        assertFalse(inlineSearchBoxRow.isFocusable());
+        assertFalse(inlineSearchBoxRow.isFocusableInTouchMode());
+        assertFalse(inlineSearchBoxRow.isClickable());
+
+        View searchText = inlineSearchBoxRow.findViewById(R.id.search_text);
+        assertNotNull(searchText);
+        assertTrue(searchText.isFocusable());
+        assertFalse(searchText.isFocusableInTouchMode());
+        assertTrue(searchText.isEnabled());
+    }
+
+    @Test
+    @Config(qualifiers = "w1000dp-h1000dp")
+    @Features.EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testKeyboardFocusTraversalDoesNotFocusContainers() {
+        recreateCoordinatorForDesktop();
+
+        ViewGroup mainView = (ViewGroup) mCoordinator.getView();
+        View desktopSearchBoxRow = mainView.findViewById(R.id.desktop_search_box_row);
+        View searchText = desktopSearchBoxRow.findViewById(R.id.search_text);
+        assertNotNull(searchText);
+
+        // Verify that navigating forward from the search text does not focus any intermediate
+        // containers.
+        View nextFocus =
+                FocusFinder.getInstance().findNextFocus(mainView, searchText, View.FOCUS_FORWARD);
+        if (nextFocus != null) {
+            assertNotEquals(mainView, nextFocus);
+            assertNotEquals(desktopSearchBoxRow, nextFocus);
+            assertNotEquals(mainView.findViewById(R.id.selectable_list), nextFocus);
+            assertNotEquals(mCoordinator.getToolbarForTesting(), nextFocus);
+        }
     }
 }

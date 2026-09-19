@@ -9,12 +9,14 @@
 #include "base/check_op.h"
 #include "base/containers/span.h"
 #include "base/logging.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
+#include "base/timer/elapsed_timer.h"
 #include "third_party/blink/renderer/platform/image-decoders/fast_shared_buffer_reader.h"
 #include "third_party/blink/renderer/platform/image-decoders/image_frame.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
-#include "third_party/rust/jxl/v0_5/wrapper/lib.rs.h"
+#include "third_party/rust/jxl/v0_6/wrapper/lib.rs.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/core/SkTypes.h"
 
@@ -158,17 +160,15 @@ void JXLImageDecoder::ScanFrames() {
 
   FastSharedBufferReader reader(data_.get());
   const size_t data_size = reader.size();
-  if (data_size < scanner_input_offset_) {
-    // In some cases, the input buffer may shrink. This in particular seems to
-    // happen when changing tabs during a partial decode of the image. If that
-    // happens, we cannot possibly make progress, so wait to be called again
-    // with a bigger buffer.
+  // If we did not receive any new data since the last call, we have nothing to
+  // do.
+  // Note that in some cases, the input buffer may shrink. This in particular
+  // seems to happen when changing tabs during a partial decode of the image.
+  if (scanner_input_offset_ >= data_size && !IsAllDataReceived()) {
     return;
   }
 
-  while (!scanner_done_ &&
-         (scanner_input_offset_ < data_size ||
-          (IsAllDataReceived() && scanner_input_offset_ == data_size))) {
+  while (!scanner_done_) {
     base::span<const uint8_t> data_span =
         scanner_input_offset_ < data_size
             ? reader.GetSomeData(scanner_input_offset_)
@@ -189,22 +189,27 @@ void JXLImageDecoder::ScanFrames() {
     scanner_input_offset_ += result.bytes_consumed;
     CHECK_LE(scanner_input_offset_, data_size);
 
+    // Extract basic info from scanner as soon as it is available.
+    if ((*scanner_)->has_basic_info()) {
+      if (!SetBasicInfo()) {
+        return;
+      }
+    }
+
     if (result.status == JxlRsStatus::NeedMoreInput) {
       // If more data is available in the buffer, continue feeding.
       if (result.bytes_consumed > 0 && scanner_input_offset_ < data_size) {
         continue;
       }
       if (!all_input) {
-        return;
+        // Record frames found so far.
+        break;
       }
 
       // A truncated still image can contain enough data to render a partial
       // frame. Let the pixel decoder try to output that partial frame.
       if (!(*scanner_)->has_basic_info()) {
         SetFailed();
-        return;
-      }
-      if (!SetBasicInfo()) {
         return;
       }
       if (basic_info_->have_animation) {
@@ -217,13 +222,6 @@ void JXLImageDecoder::ScanFrames() {
 
     if (!(*scanner_)->has_more_frames()) {
       scanner_done_ = true;
-    }
-  }
-
-  // Extract basic info from scanner if not yet available.
-  if ((*scanner_)->has_basic_info()) {
-    if (!SetBasicInfo()) {
-      return;
     }
   }
 
@@ -369,8 +367,10 @@ void JXLImageDecoder::Decode(wtf_size_t index, bool only_size) {
 
     const size_t buffer_size = row_stride * basic_info_->height;
     rust::Slice<uint8_t> output_slice(frame_pixels, buffer_size);
+    const base::ElapsedTimer flush_timer;
     JxlRsProcessResult flush_result = (*decoder_)->flush_pixels(
         output_slice, basic_info_->width, basic_info_->height, row_stride);
+    current_frame_decode_time_ += flush_timer.Elapsed();
     if (flush_result.status == JxlRsStatus::Error) {
       return false;
     }
@@ -387,9 +387,6 @@ void JXLImageDecoder::Decode(wtf_size_t index, bool only_size) {
   // buffer segment at a time, avoiding copies across segment boundaries.
   while (decoder_state_ != DecoderState::kDone) {
     CHECK_LE(decoder_input_offset_, data_size);
-    if (decoder_input_offset_ == data_size && !IsAllDataReceived()) {
-      return;
-    }
 
     base::span<const uint8_t> data_span =
         decoder_input_offset_ < data_size
@@ -441,8 +438,10 @@ void JXLImageDecoder::Decode(wtf_size_t index, bool only_size) {
 
     // Decode directly into the frame buffer.
     // Premultiplication is handled by jxl-rs based on premultiply_alpha_.
+    const base::ElapsedTimer process_timer;
     JxlRsProcessResult result = (*decoder_)->process(input_slice, output_slice,
                                                      width, height, row_stride);
+    current_frame_decode_time_ += process_timer.Elapsed();
 
     if (result.status == JxlRsStatus::Error) {
       SetFailed();
@@ -497,6 +496,16 @@ void JXLImageDecoder::Decode(wtf_size_t index, bool only_size) {
         ImageFrame& frame = frame_buffer_cache_[next_frame_to_decode_];
         frame.SetPixelsChanged(true);
         frame.SetStatus(ImageFrame::kFrameComplete);
+
+        if (current_frame_decode_time_.is_positive()) {
+          const double megapixels = static_cast<double>(basic_info_->width) *
+                                    basic_info_->height / 1e6;
+          const int throughput = static_cast<int>(
+              megapixels / current_frame_decode_time_.InSecondsF());
+          base::UmaHistogramCustomCounts("Blink.Jxl.DecodeThroughput",
+                                         throughput, 1, 10000, 100);
+        }
+        current_frame_decode_time_ = base::TimeDelta();
 
         CHECK_LT(next_frame_to_decode_, frame_timings_.size());
         const FrameTiming& timing = frame_timings_[next_frame_to_decode_];

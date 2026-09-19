@@ -77,7 +77,10 @@ import java.util.function.BooleanSupplier;
 /** Unit tests for {@link BookmarkToolbarMediator}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
-@DisableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+@DisableFeatures({
+    ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT,
+    ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_DIALOG
+})
 public class BookmarkToolbarMediatorTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -210,18 +213,14 @@ public class BookmarkToolbarMediatorTest {
     public void onStateChangedUpdatesModel() {
         mMediator.onUiModeChanged(BookmarkUiMode.LOADING);
         assertEquals(
-                BookmarkUiMode.LOADING,
-                mModel.get(BookmarkToolbarProperties.BOOKMARK_UI_MODE).intValue());
+                BookmarkUiMode.LOADING, mModel.get(BookmarkToolbarProperties.BOOKMARK_UI_MODE));
 
         mMediator.onUiModeChanged(BookmarkUiMode.SEARCHING);
         assertEquals(
-                BookmarkUiMode.SEARCHING,
-                mModel.get(BookmarkToolbarProperties.BOOKMARK_UI_MODE).intValue());
+                BookmarkUiMode.SEARCHING, mModel.get(BookmarkToolbarProperties.BOOKMARK_UI_MODE));
 
         mMediator.onUiModeChanged(BookmarkUiMode.FOLDER);
-        assertEquals(
-                BookmarkUiMode.FOLDER,
-                mModel.get(BookmarkToolbarProperties.BOOKMARK_UI_MODE).intValue());
+        assertEquals(BookmarkUiMode.FOLDER, mModel.get(BookmarkToolbarProperties.BOOKMARK_UI_MODE));
     }
 
     @Test
@@ -250,7 +249,10 @@ public class BookmarkToolbarMediatorTest {
     }
 
     @Test
-    @DisableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    @DisableFeatures({
+        ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT,
+        ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_DIALOG
+    })
     public void testNavigationButton_topLevelFolder_mobile() {
         DeviceInfo.setIsDesktopForTesting(false);
         mMediator.onFolderStateSet(mBookmarkModel.getMobileFolderId());
@@ -259,28 +261,218 @@ public class BookmarkToolbarMediatorTest {
 
     @Test
     @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
-    public void testNavigationButton_topLevelFolder_desktop() {
+    public void testNavigationButton_topLevelFolder_desktop_wideScreen() {
         DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(false);
         mMediator.onFolderStateSet(mBookmarkModel.getMobileFolderId());
         assertTrue(navigationButtonMatchesModel(NavigationButton.NONE));
     }
 
     @Test
     @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
-    public void testNavigationButton_readingListFolder_desktop() {
+    public void testNavigationButton_topLevelFolder_desktop_smallScreen() {
         DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(true);
+        mMediator.onFolderStateSet(mBookmarkModel.getMobileFolderId());
+        assertTrue(navigationButtonMatchesModel(NavigationButton.NORMAL_VIEW_BACK));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testNavigationButton_readingListFolder_desktop_wideScreen() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(false);
         mMediator.onFolderStateSet(mBookmarkModel.getLocalOrSyncableReadingListFolder());
         assertTrue(navigationButtonMatchesModel(NavigationButton.NONE));
     }
 
     @Test
     @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
-    public void testNavigationButton_subFolder_desktop() {
+    public void testNavigationButton_readingListFolder_desktop_smallScreen() {
         DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(true);
+        mMediator.onFolderStateSet(mBookmarkModel.getLocalOrSyncableReadingListFolder());
+        assertTrue(navigationButtonMatchesModel(NavigationButton.NORMAL_VIEW_BACK));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testNavigationButton_subFolder_desktop_wideScreen() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(false);
         BookmarkId subFolderId =
                 mBookmarkModel.addFolder(mBookmarkModel.getDesktopFolderId(), 0, "subfolder");
         mMediator.onFolderStateSet(subFolderId);
         assertTrue(navigationButtonMatchesModel(NavigationButton.NORMAL_VIEW_BACK));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testNavigationButton_subFolder_desktop_smallScreen() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(true);
+        BookmarkId subFolderId =
+                mBookmarkModel.addFolder(mBookmarkModel.getDesktopFolderId(), 0, "subfolder");
+        mMediator.onFolderStateSet(subFolderId);
+        assertTrue(navigationButtonMatchesModel(NavigationButton.NORMAL_VIEW_BACK));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopBookmarksBar_smallScreen() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(true);
+        mMediator.onFolderStateSet(mBookmarkModel.getDesktopFolderId());
+        assertEquals("Bookmarks bar", mModel.get(BookmarkToolbarProperties.TITLE));
+        assertFalse(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+        assertTrue(navigationButtonMatchesModel(NavigationButton.NORMAL_VIEW_BACK));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopBookmarksBar_wideScreen() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(false);
+        mMediator.onFolderStateSet(mBookmarkModel.getDesktopFolderId());
+        assertEquals("Bookmarks bar", mModel.get(BookmarkToolbarProperties.TITLE));
+        assertFalse(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+        assertTrue(navigationButtonMatchesModel(NavigationButton.NONE));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopBookmarksBar_accountDesktopFolder_smallScreen() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(true);
+        mMediator.onFolderStateSet(mBookmarkModel.getAccountDesktopFolderId());
+        assertEquals("Bookmarks bar", mModel.get(BookmarkToolbarProperties.TITLE));
+        assertFalse(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+        assertTrue(navigationButtonMatchesModel(NavigationButton.NORMAL_VIEW_BACK));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopBookmarksBar_accountDesktopFolder_wideScreen() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(false);
+        mMediator.onFolderStateSet(mBookmarkModel.getAccountDesktopFolderId());
+        assertEquals("Bookmarks bar", mModel.get(BookmarkToolbarProperties.TITLE));
+        assertFalse(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+        assertTrue(navigationButtonMatchesModel(NavigationButton.NONE));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopOtherFolder_smallScreen() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(true);
+        mMediator.onFolderStateSet(mBookmarkModel.getOtherFolderId());
+        assertEquals(
+                FakeBookmarkModel.OTHER_FOLDER_TITLE, mModel.get(BookmarkToolbarProperties.TITLE));
+        assertFalse(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+        assertTrue(navigationButtonMatchesModel(NavigationButton.NORMAL_VIEW_BACK));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopOtherFolder_wideScreen() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(false);
+        mMediator.onFolderStateSet(mBookmarkModel.getOtherFolderId());
+        assertEquals(
+                FakeBookmarkModel.OTHER_FOLDER_TITLE, mModel.get(BookmarkToolbarProperties.TITLE));
+        assertFalse(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+        assertTrue(navigationButtonMatchesModel(NavigationButton.NONE));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopRootFolder_resize() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(true);
+        mMediator.onFolderStateSet(mBookmarkModel.getRootFolderId());
+        assertEquals("Bookmarks", mModel.get(BookmarkToolbarProperties.TITLE));
+        assertTrue(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+
+        // Resize to wide screen.
+        mMediator.setSmallScreen(false);
+        assertEquals("Bookmarks", mModel.get(BookmarkToolbarProperties.TITLE));
+        assertFalse(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+
+        // Resize back to small screen.
+        mMediator.setSmallScreen(true);
+        assertEquals("Bookmarks", mModel.get(BookmarkToolbarProperties.TITLE));
+        assertTrue(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopRootFolder_selectionModeHidesChromeIcon() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(true);
+        mMediator.onFolderStateSet(mBookmarkModel.getRootFolderId());
+        assertTrue(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+
+        BookmarkId bookmarkId =
+                mBookmarkModel.addBookmark(
+                        mBookmarkModel.getDesktopFolderId(), 0, "Test", JUnitTestGURLs.URL_1);
+        setCurrentSelection(bookmarkId);
+        mMediator.onSelectionStateChange(Collections.singletonList(bookmarkId));
+        assertFalse(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+
+        doReturn(false).when(mSelectionDelegate).isSelectionEnabled();
+        mMediator.onSelectionStateChange(Collections.emptyList());
+        assertTrue(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopRootFolder_searchModeHidesChromeIcon() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(true);
+        mMediator.onFolderStateSet(mBookmarkModel.getRootFolderId());
+        assertTrue(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+
+        mMediator.onUiModeChanged(BookmarkUiMode.SEARCHING);
+        assertFalse(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+
+        mMediator.onUiModeChanged(BookmarkUiMode.FOLDER);
+        assertTrue(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+    }
+
+    @Test
+    @DisableFeatures({
+        ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT,
+        ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_DIALOG
+    })
+    public void testNonDesktop_doesNotShowChromeIcon() {
+        DeviceInfo.setIsDesktopForTesting(false);
+        mMediator.setSmallScreen(true);
+        mMediator.onFolderStateSet(mBookmarkModel.getRootFolderId());
+        assertEquals("Bookmarks", mModel.get(BookmarkToolbarProperties.TITLE));
+        assertFalse(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopRootFolderTitleAndChromeIcon_smallScreen() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(true);
+        mMediator.onFolderStateSet(mBookmarkModel.getRootFolderId());
+        assertEquals("Bookmarks", mModel.get(BookmarkToolbarProperties.TITLE));
+        assertTrue(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+        assertTrue(navigationButtonMatchesModel(NavigationButton.NONE));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopRootFolderTitleAndChromeIcon_wideScreen() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.setSmallScreen(false);
+        mMediator.onFolderStateSet(mBookmarkModel.getRootFolderId());
+        assertEquals("Bookmarks", mModel.get(BookmarkToolbarProperties.TITLE));
+        assertFalse(mModel.get(BookmarkToolbarProperties.CHROME_ICON_VISIBLE));
+        assertTrue(navigationButtonMatchesModel(NavigationButton.NONE));
     }
 
     @Test

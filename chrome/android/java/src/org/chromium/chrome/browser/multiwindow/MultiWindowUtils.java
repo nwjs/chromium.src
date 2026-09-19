@@ -45,6 +45,7 @@ import org.chromium.base.DeviceInfo;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.TimeUtils;
+import org.chromium.base.TriState;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.NullMarked;
@@ -58,7 +59,6 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.homepage.HomepageManager;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.CloseWindowAppSource;
-import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.InstanceAllocationType;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
 import org.chromium.chrome.browser.tab.Tab;
@@ -135,9 +135,9 @@ public class MultiWindowUtils implements ActivityStateListener {
     private static @Nullable Boolean sIsMultiInstanceApi31Enabled;
     private static @Nullable Set<Integer> sAppTaskIdsForTesting;
 
-    // Used to keep track of whether ChromeTabbedActivity2 is running. A tri-state Boolean is
+    // Used to keep track of whether ChromeTabbedActivity2 is running. A tri-state int is
     // used in case both activities die in the background and MultiWindowUtils is recreated.
-    private @Nullable Boolean mTabbedActivity2TaskRunning;
+    private @TriState int mTabbedActivity2TaskRunning;
     private @Nullable WeakReference<ChromeTabbedActivity> mLastResumedTabbedActivity;
     private boolean mIsInMultiWindowModeForTesting;
 
@@ -334,9 +334,9 @@ public class MultiWindowUtils implements ActivityStateListener {
             @PersistedInstanceType int instanceType = PersistedInstanceType.ACTIVE;
             if (IncognitoUtils.shouldOpenIncognitoAsWindow()) {
                 instanceType |=
-                        (tabModelSelector.isIncognitoBrandedModelSelected()
+                        tabModelSelector.isIncognitoBrandedModelSelected()
                                 ? PersistedInstanceType.OFF_THE_RECORD
-                                : PersistedInstanceType.REGULAR);
+                                : PersistedInstanceType.REGULAR;
             }
             return getInstanceCount(instanceType) > 1;
         }
@@ -455,7 +455,7 @@ public class MultiWindowUtils implements ActivityStateListener {
             ApplicationStatus.registerStateListenerForAllActivities(sInstance);
             return ChromeTabbedActivity.class;
         } else if (current instanceof ChromeTabbedActivity) {
-            mTabbedActivity2TaskRunning = true;
+            mTabbedActivity2TaskRunning = TriState.TRUE;
             ApplicationStatus.registerStateListenerForAllActivities(sInstance);
             return ChromeTabbedActivity2.class;
         } else {
@@ -965,7 +965,7 @@ public class MultiWindowUtils implements ActivityStateListener {
         if (isMultiInstanceApi31Enabled()) return ChromeTabbedActivity.class;
 
         // 1. Exit early if ChromeTabbedActivity2 isn't running.
-        if (mTabbedActivity2TaskRunning != null && !mTabbedActivity2TaskRunning) {
+        if (mTabbedActivity2TaskRunning == TriState.FALSE) {
             return ChromeTabbedActivity.class;
         }
 
@@ -982,7 +982,7 @@ public class MultiWindowUtils implements ActivityStateListener {
 
         // Exit early if ChromeTabbedActivity2 isn't running.
         if (!tabbed2TaskRunning) {
-            mTabbedActivity2TaskRunning = false;
+            mTabbedActivity2TaskRunning = TriState.FALSE;
             return ChromeTabbedActivity.class;
         }
 
@@ -1109,7 +1109,7 @@ public class MultiWindowUtils implements ActivityStateListener {
     }
 
     @VisibleForTesting
-    public @Nullable Boolean getTabbedActivity2TaskRunning() {
+    public @TriState int getTabbedActivity2TaskRunning() {
         return mTabbedActivity2TaskRunning;
     }
 
@@ -1545,12 +1545,10 @@ public class MultiWindowUtils implements ActivityStateListener {
      * Record the number of running ChromeTabbedActivity's as well as the total number of Chrome
      * instances when a new ChromeTabbedActivity is created in a desktop window.
      *
-     * @param instanceAllocationType The {@link InstanceAllocationType} for the new activity.
      * @param isColdStart Whether app startup is a cold start.
      */
     public static void maybeRecordDesktopWindowCountHistograms(
             @Nullable DesktopWindowStateManager desktopWindowStateManager,
-            @InstanceAllocationType int instanceAllocationType,
             boolean isColdStart) {
         if (!isMultiInstanceApi31Enabled()) return;
 
@@ -1677,11 +1675,7 @@ public class MultiWindowUtils implements ActivityStateListener {
                                     primaryActionRunnable.run();
                                     return PrimaryActionClickBehavior.DISMISS_IMMEDIATELY;
                                 })
-                        .with(
-                                MessageBannerProperties.ON_DISMISSED,
-                                (dismissReason) -> {
-                                    dismissCallback.run();
-                                })
+                        .with(MessageBannerProperties.ON_DISMISSED, _ -> dismissCallback.run())
                         .build();
 
         messageDispatcher.enqueueWindowScopedMessage(message, false);
@@ -1692,23 +1686,22 @@ public class MultiWindowUtils implements ActivityStateListener {
      *
      * @param activity The activity to move.
      * @param bounds The bounds to move the activity to.
-     * @return Whether the activity was moved.
      */
-    public static boolean moveActivityToBounds(Activity activity, Rect bounds) {
+    public static void moveActivityToBounds(Activity activity, Rect bounds) {
         final AconfigFlaggedApiDelegate delegate = AconfigFlaggedApiDelegate.getInstance();
         if (delegate == null) {
-            return false;
+            return;
         }
 
         final AppTask appTask = AndroidTaskUtils.getAppTaskFromId(activity, activity.getTaskId());
         if (appTask == null) {
-            return false;
+            return;
         }
 
         final Pair<DisplayAndroid, Rect> localCoordinates =
                 DisplayUtil.convertGlobalDipToLocalPxCoordinates(bounds);
         if (localCoordinates == null) {
-            return false;
+            return;
         }
 
         final DisplayAndroid display = localCoordinates.first;
@@ -1718,7 +1711,6 @@ public class MultiWindowUtils implements ActivityStateListener {
                 appTask,
                 display.getDisplayId(),
                 DisplayUtil.clampWindowToDisplay(localBounds, display));
-        return true;
     }
 
     /**
@@ -1756,6 +1748,15 @@ public class MultiWindowUtils implements ActivityStateListener {
      */
     public static boolean isRestoreOnStartupPrefSyncEnabled() {
         return ChromeFeatureList.sSyncRestoreOnStartupPref.isEnabled() && DeviceInfo.isDesktop();
+    }
+
+    /**
+     * Returns whether session restore after crash is enabled.
+     *
+     * @return {@code true} if the feature is enabled; {@code false} otherwise.
+     */
+    public static boolean isSessionRestoreAfterCrashEnabled() {
+        return ChromeFeatureList.sSessionRestoreAfterCrash.isEnabled() || DeviceInfo.isDesktop();
     }
 
     /* package */ static int getRunningTabbedActivityCount() {

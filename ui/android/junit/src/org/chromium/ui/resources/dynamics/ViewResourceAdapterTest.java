@@ -24,11 +24,13 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.CallbackHelper;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.ui.base.UiAndroidFeatures;
 import org.chromium.ui.resources.Resource;
 import org.chromium.ui.resources.ResourceFactory;
 import org.chromium.ui.resources.ResourceFactoryJni;
@@ -37,7 +39,6 @@ import java.lang.ref.WeakReference;
 
 /** Tests for {@link ViewResourceAdapter}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class ViewResourceAdapterTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     private int mViewWidth;
@@ -213,6 +214,29 @@ public class ViewResourceAdapterTest {
         mAdapter.invalidate(null);
         assertTrue(mAdapter.isDirty());
         assertEquals(bitmap, getBitmap());
+    }
+
+    @Test
+    @DisableFeatures(UiAndroidFeatures.ANDROID_RESOURCE_MEMORY_OPTIMIZATION)
+    public void testAndroidResourceMemoryOptimization_Disabled() {
+        Bitmap bitmap = getBitmap();
+        assertNotNull(bitmap);
+
+        mAdapter.invalidate(null);
+        assertTrue(mAdapter.isDirty());
+        assertEquals(bitmap, getBitmap());
+    }
+
+    @Test
+    @EnableFeatures(UiAndroidFeatures.ANDROID_RESOURCE_MEMORY_OPTIMIZATION)
+    public void testAndroidResourceMemoryOptimization_Enabled() {
+        WeakReference<Bitmap> bitmapWeakReference = new WeakReference<>(getBitmap());
+        assertNotNull(bitmapWeakReference.get());
+        assertTrue(canBeGarbageCollected(bitmapWeakReference));
+
+        mAdapter.invalidate(null);
+        assertTrue(mAdapter.isDirty());
+        assertNotEquals(bitmapWeakReference.get(), getBitmap());
     }
 
     @Test

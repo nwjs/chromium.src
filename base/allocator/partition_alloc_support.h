@@ -24,12 +24,12 @@
 #endif
 
 namespace base {
-class LockMetricTag;
+class LockMetricTagList;
 }
 
 namespace base::allocator {
 
-BASE_EXPORT const LockMetricTag& GetPartitionAllocLockMetricTag();
+BASE_EXPORT const LockMetricTagList& GetPartitionAllocLockMetricTagList();
 
 // Starts a periodic timer on the current thread to purge all thread caches.
 BASE_EXPORT void StartThreadCachePeriodicPurge();
@@ -63,6 +63,15 @@ BASE_EXPORT bool IsSchedulerLoopQuarantineEnabled(
 // thread.
 BASE_EXPORT void ReconfigureSchedulerLoopQuarantineBranch(
     SchedulerLoopQuarantineBranchType branch_type);
+
+// Returns a "process type identifier" for the current process.
+// It is the process type (e.g. "renderer", "gpu-process") for non-utility
+// processes. For the browser process, it is "browser".
+// For utility processes, it is "utility" followed by "." and the utility
+// sub-type name (e.g. "utility.network.mojom.NetworkService").
+//
+// Must be called after `CommandLine::Init()`.
+BASE_EXPORT std::string GetProcessTypeIdentifier();
 
 // Configuration for `ReconfigureAfterFeatureListInit()`.
 struct BASE_EXPORT FeatureListConfiguration {
@@ -182,13 +191,6 @@ class BASE_EXPORT MemoryReclaimerSupport {
   bool in_foreground_ = true;
   bool has_pending_task_ = false;
 };
-
-// Utility function to detect Double-Free or Out-of-Bounds writes.
-// This function can be called to memory assumed to be valid.
-// If not, this may crash (not guaranteed).
-// This is useful if you want to investigate crashes at `free()`,
-// to know which point at execution it goes wrong.
-BASE_EXPORT void CheckHeapIntegrity(const void* ptr);
 
 // The function here is called right before crashing with
 // `DoubleFreeOrCorruptionDetected()`. We provide an address for the slot start

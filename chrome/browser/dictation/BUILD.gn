@@ -2,6 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+source_set("features") {
+  public = [ "features.h" ]
+  sources = [ "features.cc" ]
+  public_deps = [ "//base" ]
+}
+
 source_set("metrics") {
   public = [ "metrics.h" ]
   sources = [ "metrics.cc" ]
@@ -15,7 +21,6 @@ source_set("dictation") {
     "dictation_keyed_service.h",
     "dictation_keyed_service_factory.h",
     "dictation_multiplexer.h",
-    "features.h",
     "local_hotkey_manager.h",
     "logging.h",
     "onboarding_manager.h",
@@ -29,6 +34,7 @@ source_set("dictation") {
     "target.h",
   ]
   public_deps = [
+    ":features",
     "//base",
     "//chrome/browser/profiles:profile",
     "//content/public/browser",
@@ -51,7 +57,6 @@ source_set("impl") {
     "dictation_keyed_service.cc",
     "dictation_keyed_service_factory.cc",
     "dictation_multiplexer.cc",
-    "features.cc",
     "listener_stream_provider.cc",
     "listener_stream_provider.h",
     "local_hotkey_manager.cc",
@@ -161,6 +166,8 @@ source_set("browser_tests") {
     ":impl",
     ":metrics",
     ":test_support",
+    "//chrome/browser/glic/browser_ui",
+    "//chrome/browser/glic/browser_ui:glow",
     "//chrome/browser/glic/test_support",
     "//chrome/browser/policy:test_support",
     "//chrome/browser/profiles:profile",
@@ -168,6 +175,7 @@ source_set("browser_tests") {
     "//chrome/browser/ui/toasts",
     "//chrome/browser/ui/toasts/api:toasts",
     "//chrome/browser/ui/views/dictation",
+    "//chrome/browser/ui/views/tabs:tab",
     "//chrome/test:test_support",
     "//components/tabs:test_support",
     "//content/test:test_support",
@@ -177,7 +185,10 @@ source_set("browser_tests") {
 source_set("interactive_ui_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
-  sources = [ "session_ui_impl_interactive_uitest.cc" ]
+  sources = [
+    "dictation_onboarding_interactive_uitest.cc",
+    "session_ui_impl_interactive_uitest.cc",
+  ]
   deps = [
     ":impl",
     ":test_support",

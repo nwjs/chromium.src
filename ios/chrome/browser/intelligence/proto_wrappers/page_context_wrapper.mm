@@ -682,7 +682,8 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
         _config->extract_paid_content(),
         _config->attempt_paid_content_json_fixing(),
         _config->include_sensitive_payments_for_redaction(),
-        _config->extract_autofill_otp_redactions(), nonce, jsTimeout,
+        _config->extract_autofill_otp_redactions(),
+        _config->extract_password_screenshot_redactions(), nonce, jsTimeout,
         base::BindOnce(
             callbackJson, weakSelf, annotatedPageContentBarrier, isMainFrame,
             frame->GetSecurityOrigin(),
@@ -713,7 +714,8 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
         _config->extract_paid_content(),
         _config->attempt_paid_content_json_fixing(),
         _config->include_sensitive_payments_for_redaction(),
-        _config->extract_autofill_otp_redactions(), nonce, jsTimeout,
+        _config->extract_autofill_otp_redactions(),
+        _config->extract_password_screenshot_redactions(), nonce, jsTimeout,
         base::BindOnce(
             callback, weakSelf, annotatedPageContentBarrier, isMainFrame,
             frame->GetSecurityOrigin(),
@@ -955,9 +957,6 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
     response = base::unexpected(PageContextWrapperError::kPDFDataError);
     completionStatus = PageContextCompletionStatus::kFailure;
   } else {
-    // TODO(crbug.com/483989948): Make screenshot failure blocking once
-    // 'aw, snap' snackbar is fixed.
-
     // TODO(crbug.com/509589346): CHECK `registrar` since it is known here that
     // there is a `_webState`.
     // Set the focused frame based on the collected data on the same origin and
@@ -977,8 +976,13 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
     if (_rawScreenshotImage) {
       [self applyRedactionsAndEncodeScreenshot:_rawScreenshotImage];
     }
-    response = base::ok(std::move(_pageContext));
-    completionStatus = PageContextCompletionStatus::kSuccess;
+    if (_shouldGetSnapshot && !_pageContext->has_tab_screenshot()) {
+      response = base::unexpected(PageContextWrapperError::kScreenshotError);
+      completionStatus = PageContextCompletionStatus::kFailure;
+    } else {
+      response = base::ok(std::move(_pageContext));
+      completionStatus = PageContextCompletionStatus::kSuccess;
+    }
   }
 
   [_pageContextMetrics executionFinishedForTask:PageContextTask::kOverall
@@ -1028,10 +1032,27 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
     (optimization_guide::proto::RedactionDecision)decision {
   switch (decision) {
     case optimization_guide::proto::
+        REDACTION_DECISION_REDACTED_HAS_BEEN_PASSWORD:
+    case optimization_guide::proto::
+        REDACTION_DECISION_REDACTED_CUSTOM_PASSWORD_CSS:
+    case optimization_guide::proto::
+        REDACTION_DECISION_REDACTED_CUSTOM_PASSWORD_JS:
+      return _config->extract_password_screenshot_redactions();
+    case optimization_guide::proto::
         REDACTION_DECISION_REDACTED_IS_SENSITIVE_PAYMENT_FIELD:
       return _config->include_sensitive_payments_for_redaction();
     case optimization_guide::proto::REDACTION_DECISION_REDACTED_IS_OTP:
       return _config->extract_autofill_otp_redactions();
+    case optimization_guide::proto::REDACTION_DECISION_NO_REDACTION_NECESSARY:
+    case optimization_guide::proto::
+        REDACTION_DECISION_UNREDACTED_EMPTY_PASSWORD:
+    case optimization_guide::proto::
+        REDACTION_DECISION_UNREDACTED_EMPTY_CUSTOM_PASSWORD:
+    case optimization_guide::proto::
+        REDACTION_DECISION_UNREDACTED_EMPTY_PAYMENT_FIELD:
+    case optimization_guide::proto::
+        REDACTION_DECISION_UNREDACTED_EMPTY_OTP_FIELD:
+      return NO;
     default:
       return NO;
   }
@@ -1193,6 +1214,10 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
   // Pick the destinations for the APC node content and frame data.
   if (isMainFrame) {
     // Main frame: Use the root node as the destination.
+    if (!_rootAPCNode) {
+      _rootAPCNode =
+          std::make_unique<optimization_guide::proto::AnnotatedPageContent>();
+    }
     destinationContentNode = _rootAPCNode->mutable_root_node();
     destinationFrameData = _rootAPCNode->mutable_main_frame_data();
 
@@ -1220,16 +1245,9 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
     destinationContentNode = &content->content;
     destinationFrameData = &content->frame_data;
   } else {
-    // Grafting not possible: Add new child to the root node as the default
-    // location for the iframe node. Set that node to be an iframe node.
-    destinationContentNode =
-        _rootAPCNode->mutable_root_node()->add_children_nodes();
-    destinationContentNode->mutable_content_attributes()->set_attribute_type(
-        optimization_guide::proto::ContentAttributeType::
-            CONTENT_ATTRIBUTE_IFRAME);
-    destinationFrameData = destinationContentNode->mutable_content_attributes()
-                               ->mutable_iframe_data()
-                               ->mutable_frame_data();
+    // Grafting not possible: Drop the frame content to avoid duplicate
+    // node_id collisions and untranslated local coordinate distortion.
+    return;
   }
 
   // Destination placeholders must be set to something even if their content
@@ -1343,7 +1361,10 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
   optimization_guide::proto::ContentNode* destinationContentNode;
 
   // Pick a destination ContentNode to fill with the iframe content.
-  if (_config->graft_cross_origin_frame_content() && localFrameToken) {
+  if (_config->graft_cross_origin_frame_content()) {
+    if (!localFrameToken) {
+      return;
+    }
     // Grafting possible: Populate iframe content by respecting the DOM
     // structure.
 
@@ -1788,7 +1809,22 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
 }
 
 - (optimization_guide::proto::PageContext*)pageContextForTesting {
+  if (_rootAPCNode) {
+    _pageContext->mutable_annotated_page_content()->CopyFrom(*_rootAPCNode);
+  }
   return _pageContext.get();
+}
+
+- (optimization_guide::proto::AnnotatedPageContent*)rootAPCNodeForTesting {
+  if (!_rootAPCNode) {
+    _rootAPCNode =
+        std::make_unique<optimization_guide::proto::AnnotatedPageContent>();
+  }
+  return _rootAPCNode.get();
+}
+
+- (FrameGrafter&)grafterForTesting {
+  return _grafter;
 }
 
 @end

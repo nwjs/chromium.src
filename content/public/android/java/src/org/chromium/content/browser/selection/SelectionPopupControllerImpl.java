@@ -87,6 +87,7 @@ import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.ViewAndroidDelegate;
 import org.chromium.ui.base.ViewAndroidDelegate.ContainerViewObserver;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.listmenu.ListItemType;
 import org.chromium.ui.listmenu.ListMenuItemProperties;
 import org.chromium.ui.listmenu.ListMenuSubmenuItemProperties;
 import org.chromium.ui.listmenu.MenuModelBridge;
@@ -404,6 +405,7 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
 
     private void reset() {
         dropFocus();
+        mSelectionMenuCachedResult = null;
         mContext = null;
         mWindowAndroid = null;
     }
@@ -580,7 +582,7 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
         mShowMenuStartTimeMs = SystemClock.elapsedRealtime();
         mMenuModelBridge = menuModelBridge;
         RecordHistogram.recordEnumeratedHistogram(
-                "Android.ShowSelectionMenuSourceType", sourceType, MenuSourceType.MAX_VALUE);
+                "Android.ShowSelectionMenuSourceType", sourceType, MenuSourceType.MAX_VALUE + 1);
 
         int offsetBottom = bottom;
         offsetBottom += handleHeight;
@@ -855,6 +857,28 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
             }
             items.add(insertIndex, extraItem);
         }
+        sanitizeDividers(items);
+    }
+
+    private static void sanitizeDividers(MVCListAdapter.ModelList items) {
+        // Remove any leading divider or consecutive duplicate dividers.
+        boolean previousWasDivider = true;
+        for (int i = 0; i < items.size(); ) {
+            if (items.get(i).type == ListItemType.DIVIDER) {
+                if (previousWasDivider) {
+                    items.removeAt(i);
+                    continue;
+                }
+                previousWasDivider = true;
+            } else {
+                previousWasDivider = false;
+            }
+            i++;
+        }
+        // Remove any trailing divider.
+        if (!items.isEmpty() && items.get(items.size() - 1).type == ListItemType.DIVIDER) {
+            items.removeAt(items.size() - 1);
+        }
     }
 
     private static boolean hasOrder(ListItem item) {
@@ -948,6 +972,7 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
 
     @Override
     public void onWindowAndroidChanged(@Nullable WindowAndroid newWindowAndroid) {
+        mSelectionMenuCachedResult = null;
         if (newWindowAndroid == null) {
             reset();
             return;
@@ -2084,7 +2109,6 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
             }
         }
     }
-    ;
 
     @Override
     public void destroySelectActionMode() {

@@ -7,6 +7,7 @@
 
 #include <vector>
 
+#include "base/containers/span.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 
 namespace autofill {
@@ -40,6 +41,11 @@ bool SuppressSuggestionsForAutocompleteUnrecognizedField(
     const AutofillField& field,
     AutocompleteUnrecognizedBehavior behavior);
 
+// Returns the main filling product based on the `trigger_source` and `types`.
+FillingProduct GetFillingProductFromSuggestionTypes(
+    base::span<const SuggestionType> types,
+    AutofillSuggestionTriggerSource trigger_source);
+
 // Updates and returns `current_suggestions` such that a root-level suggestion
 // is marked as "loading" if either it is `selected_suggestion` or any of its
 // descendants are. Otherwise, root-level suggestions are deactivated. All child
@@ -48,12 +54,24 @@ std::vector<Suggestion> PrepareLoadingStateSuggestions(
     std::vector<Suggestion> current_suggestions,
     const Suggestion& selected_suggestion);
 
+// Returns whether undoing the last filling operation on the given field is
+// supported.
+bool ShouldOfferUndoOnField(const AutofillField& field);
+
 // Returns the "Undo Autofill" suggestion.
 Suggestion CreateUndoSuggestion();
 
 // Returns true if `suggestion` is a management footer option (e.g., "Manage
 // addresses...", "Manage payment methods...", etc.).
 bool IsManagementFooterOption(const Suggestion& suggestion);
+
+// Extend the list of suggestions by inserting the new suggestions just
+// before the footer and add a new separator between existing and new
+// suggestions. The position of the footer is determined by the last separator
+// in `suggestions`. Thus, there may be no separators between footer items.
+// TODO(crbug.com/550171676): Improve logic for finding position of footer.
+void InsertBeforeFooter(std::vector<Suggestion>& suggestions,
+                        std::vector<Suggestion> suggestions_to_be_added);
 
 }  // namespace autofill
 

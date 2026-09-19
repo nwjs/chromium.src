@@ -125,6 +125,13 @@ class TabCollectionAnimatingLayoutManager
 
   bool is_animating() const { return animation_.is_animating(); }
 
+  views::LayoutManagerBase* target_layout_manager() {
+    return &*target_layout_manager_;
+  }
+  const views::LayoutManagerBase* target_layout_manager() const {
+    return &*target_layout_manager_;
+  }
+
  protected:
   // LayoutManagerBase:
   views::ProposedLayout CalculateProposedLayout(
@@ -150,7 +157,20 @@ class TabCollectionAnimatingLayoutManager
 
   // Interpolates between `starting_layout_` and `target_layout_` based on
   // current `animation_` value.
+  // TODO(crbug.com/552080931): Reconsider how this function works, so that
+  // `current_layout_content_size_` and `closing_views_target_x_` don't have to
+  // be mutable.
   views::ProposedLayout InterpolateLayout(double value) const;
+
+  // For horizontal tabs, the positions of adding views shift based on the
+  // surrounding views. Precompute the starting x-position for those views.
+  // Needs to be called after the starting or target layouts change.
+  void CalculateAddingViewsStartX() const;
+
+  // For horizontal tabs, the positions of closing views shift based on the
+  // surrounding views. Precompute the target x-position for those views. Needs
+  // to be called after the starting or target layouts change.
+  void CalculateClosingViewsTargetX() const;
 
   // Returns true if the animation axis is vertical or wraps vertically.
   bool IsVerticalOrWrappingVertically() const;
@@ -186,6 +206,16 @@ class TabCollectionAnimatingLayoutManager
       base::flat_map<raw_ptr<const views::View>, views::ChildLayout>;
   ChildViewLayoutMap start_view_layout_map_;
   ChildViewLayoutMap target_view_layout_map_;
+
+  using ChildViewXMap = base::flat_map<raw_ptr<const views::View>, int>;
+  // Precomputed starting x values for adding tabs. When this is std::nullopt,
+  // it represents an invalidated cache that needs to be recomputed. Only used
+  // when `animation_axis_` is `kHorizontal`.
+  mutable std::optional<ChildViewXMap> adding_views_start_x_ = std::nullopt;
+  // Precomputed target x values for closing tabs. When this is std::nullopt, it
+  // represents an invalidated cache that needs to be recomputed. Only used when
+  // `animation_axis_` is `kHorizontal`.
+  mutable std::optional<ChildViewXMap> closing_views_target_x_ = std::nullopt;
 
   // Where in the animation the last layout recalculation happened.
   double starting_offset_ = 0.0;

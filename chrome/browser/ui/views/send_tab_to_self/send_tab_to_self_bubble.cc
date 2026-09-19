@@ -14,12 +14,8 @@ namespace send_tab_to_self {
 void ShowBubble(content::WebContents* web_contents,
                 ShareEntryPoint entry_point,
                 bool show_back_button) {
-  return SendTabToSelfBubbleController::GetOrCreateForWebContents(web_contents)
+  SendTabToSelfBubbleController::GetOrCreateForWebContents(web_contents)
       ->ShowBubble(entry_point, show_back_button);
-}
-
-void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* user_prefs) {
-  SendTabToSelfBubbleController::RegisterProfilePrefs(user_prefs);
 }
 
 }  // namespace send_tab_to_self

@@ -40,7 +40,7 @@ void ParseAndReportIOErrorDetails(const std::string& histogram_name,
       ->Add(method);
 
   if (result == leveldb_env::METHOD_AND_BFE) {
-    DCHECK_LT(error, 0);
+    CHECK_LT(error, 0, base::NotFatalUntil::M158);
     base::LinearHistogram::FactoryGet(
         base::StrCat(
             {histogram_name, ".BFE.", leveldb_env::MethodIDToString(method)}),
@@ -53,7 +53,7 @@ void ParseAndReportIOErrorDetails(const std::string& histogram_name,
 void ParseAndReportCorruptionDetails(const std::string& histogram_name,
                                      const leveldb::Status& status) {
   int error = leveldb_env::GetCorruptionCode(status);
-  DCHECK_GE(error, 0);
+  CHECK_GE(error, 0, base::NotFatalUntil::M158);
   const int kNumPatterns = leveldb_env::GetNumCorruptionCodes();
   base::LinearHistogram::FactoryGet(
       base::StrCat({histogram_name, ".Corruption"}), 1, kNumPatterns,
@@ -118,6 +118,18 @@ void ReportLevelDBError(const std::string& histogram_name,
     ParseAndReportIOErrorDetails(histogram_name, s);
   else
     ParseAndReportCorruptionDetails(histogram_name, s);
+}
+
+void ReportBadMessage(
+    BadMessageReason reason,
+    std::string_view message,
+    base::OnceCallback<void(std::string_view)> report_bad_message_callback) {
+  base::UmaHistogramEnumeration("IndexedDB.BadMessageReason", reason);
+  if (report_bad_message_callback) {
+    std::move(report_bad_message_callback).Run(message);
+  } else {
+    mojo::ReportBadMessage(message);
+  }
 }
 
 }  // namespace content::indexed_db

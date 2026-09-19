@@ -218,6 +218,18 @@ WebViewImpl.prototype.executeCode = function(func, args) {
   return true;
 };
 
+WebViewImpl.prototype.captureVisibleRegion = function(options, callback) {
+  if (location.protocol === 'chrome-untrusted:') {
+    throw new Error(
+        WebViewConstants.ERROR_MSG_UNSUPPORTED_API_IN_CHROME_UNTRUSTED);
+  }
+  if (!this.guest.getId()) {
+    return false;
+  }
+  WebViewInternal.captureVisibleRegion(this.guest.getId(), options, callback);
+  return true;
+};
+
 WebViewImpl.prototype.setUserAgentOverride = function(userAgentOverride) {
   this.userAgentOverride = userAgentOverride;
   if (!this.guest.getId()) {
@@ -253,6 +265,10 @@ WebViewImpl.prototype.inspectElementAt = function(x, y) {
 
 WebViewImpl.prototype.loadDataWithBaseUrl = function(
     dataUrl, baseUrl, virtualUrl) {
+  if (location.protocol === 'chrome-untrusted:') {
+    throw new Error(
+        WebViewConstants.ERROR_MSG_UNSUPPORTED_API_IN_CHROME_UNTRUSTED);
+  }
   if (!this.guest.getId()) {
     return;
   }

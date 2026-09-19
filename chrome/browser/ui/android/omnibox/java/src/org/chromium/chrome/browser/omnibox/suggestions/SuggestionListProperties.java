@@ -6,9 +6,9 @@ package org.chromium.chrome.browser.omnibox.suggestions;
 
 import org.chromium.base.Callback;
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
+import org.chromium.chrome.browser.omnibox.suggestions.SelectionController.TraversalMode;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyKey;
@@ -27,8 +27,8 @@ import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
      */
     WritableBooleanPropertyKey ACTIVITY_WINDOW_FOCUSED = new WritableBooleanPropertyKey();
 
-    WritableIntDefPropertyKey<SelectionController.Mode> SELECTION_MODE =
-            new WritableIntDefPropertyKey<>(SelectionController.Mode.SATURATING);
+    WritableIntDefPropertyKey<TraversalMode> SELECTION_MODE =
+            new WritableIntDefPropertyKey<>(TraversalMode.SATURATING);
 
     WritableFloatPropertyKey ALPHA = new WritableFloatPropertyKey();
 
@@ -108,10 +108,6 @@ import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
     /** The list of models controlling the state of the suggestion items. */
     ReadableObjectPropertyKey<ModelList> SUGGESTION_MODELS = new ReadableObjectPropertyKey<>();
 
-    /** On-screen placement of the Toolbar. */
-    WritableIntDefPropertyKey<ControlsPosition> TOOLBAR_POSITION =
-            new WritableIntDefPropertyKey<>(ControlsPosition.TOP);
-
     /** Whether to apply a left margin offset to the suggestions container. */
     WritableBooleanPropertyKey APPLY_MARGIN_FOR_LEFT_SIDE_BAR = new WritableBooleanPropertyKey();
 
@@ -149,7 +145,6 @@ import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
                 ROUND_TOP_CORNERS,
                 SELECTION_MODE,
                 SUGGESTION_MODELS,
-                TOOLBAR_POSITION,
                 // keep-sorted end
             };
 }

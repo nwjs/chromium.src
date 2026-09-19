@@ -201,9 +201,6 @@ const base::FeatureParam<base::TimeDelta>
         &kNetworkQualityEstimator,
         "EffectiveConnectionTypeRecomputationInterval", base::Seconds(10)};
 
-BASE_FEATURE(kOnlyParseFirstContentDisposition,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kSplitCacheByIncludeCredentials,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -346,10 +343,27 @@ BASE_FEATURE(kAsyncQuicSession,
 // HostResolver::ServiceEndpointRequest, for direct QUIC sessions.
 BASE_FEATURE(kAsyncDnsQuicJob, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE_PARAM(bool, kAsyncDnsQuicJobFastFail, &kAsyncDnsQuicJob, false);
+
+BASE_FEATURE(kAdjustQuicSlowTimerDelay, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(base::TimeDelta,
-                   kAsyncDnsQuicJobSlowTimerDelay,
-                   &kAsyncDnsQuicJob,
+                   kQuicSlowTimerDelay,
+                   &kAdjustQuicSlowTimerDelay,
                    TcpConnectJob::kIPv6FallbackTime);
+
+BASE_FEATURE(kQuicSlowTimerBasedOnRTT, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(double,
+                   kQuicSlowTimerRTTMultiplier,
+                   &kQuicSlowTimerBasedOnRTT,
+                   1.5);
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kQuicSlowTimerMin,
+                   &kQuicSlowTimerBasedOnRTT,
+                   base::Milliseconds(50));
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kQuicSlowTimerMax,
+                   &kQuicSlowTimerBasedOnRTT,
+                   base::Milliseconds(1500));
 
 // A flag to make multiport context creation asynchronous.
 BASE_FEATURE(kAsyncMultiPortPath,
@@ -383,10 +397,6 @@ inline constexpr auto kMigrateSessionsOnNetworkChangeV2Default =
 #endif  // BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kMigrateSessionsOnNetworkChangeV2,
              kMigrateSessionsOnNetworkChangeV2Default);
-
-#if BUILDFLAG(IS_LINUX)
-BASE_FEATURE(kAddressTrackerLinuxIsProxied, base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_LINUX)
 
 // Enables binding of cookies to the port that originally set them by default.
 BASE_FEATURE(kEnablePortBoundCookies, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -438,7 +448,7 @@ BASE_FEATURE(kUseNetworkPathMonitorForNetworkChangeNotifier,
 );
 #endif  // BUILDFLAG(IS_APPLE)
 
-#if BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 BASE_FEATURE(kDeviceBoundSessions, base::FEATURE_ENABLED_BY_DEFAULT);
 #else
 BASE_FEATURE(kDeviceBoundSessions, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -461,7 +471,15 @@ BASE_FEATURE_PARAM(int,
                    kDeviceBoundSessionsSchemaVersion,
                    &kDeviceBoundSessions,
                    "SchemaVersion",
-                   3);
+#if BUILDFLAG(IS_MAC)
+                   // Schema version on Mac has been set to 4 to 100% of clients
+                   // via Finch, so it should be kept at this value to avoid
+                   // wiping user data.
+                   4
+#else
+                   3
+#endif
+);
 
 BASE_FEATURE(kDeviceBoundSessionsFederatedRegistration,
              base::FEATURE_ENABLED_BY_DEFAULT);

@@ -51,6 +51,12 @@ class OmniboxPopupViewFullWebUI : public OmniboxPopupViewWebUI {
   bool IsReverting() const override;
   void SetIsReverting(bool reverting) override;
 
+  // True if this has focus, reckoned by OnFocus/OnBlur. This may be slightly
+  // out-of-sync with the model's when doing auto-focus, since the timings of
+  // OnTabChanged() and LocationBar::FocusLocation(/*user_initiated=*/false) are
+  // messy.
+  bool is_focused() { return focused_; }
+
  private:
   // Gets the OmniboxPopupHandler associated with this view's WebUI.
   OmniboxPopupHandler* GetPopupHandler();
@@ -60,7 +66,9 @@ class OmniboxPopupViewFullWebUI : public OmniboxPopupViewWebUI {
   std::optional<std::u16string> last_sent_text_;
   // Caches the last focus state sent to the WebUI to detect focus transitions.
   std::optional<bool> last_sent_focus_;
+  bool has_completed_first_tab_changed_ = false;
   bool is_reverting_ = false;
+  bool focused_ = false;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_OMNIBOX_OMNIBOX_POPUP_VIEW_FULL_WEBUI_H_

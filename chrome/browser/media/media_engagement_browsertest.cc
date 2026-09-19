@@ -27,10 +27,11 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/sessions/session_restore_test_helper.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/recently_audible_helper.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -227,7 +228,7 @@ class MediaEngagementBrowserTest : public InProcessBrowserTest {
   }
 
   content::WebContents* GetWebContents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   void ExecuteScript(const std::string& script) {
@@ -242,9 +243,9 @@ class MediaEngagementBrowserTest : public InProcessBrowserTest {
   }
 
   void CloseTab() {
-    const int previous_tab_count = browser()->tab_strip_model()->count();
-    browser()->tab_strip_model()->CloseWebContentsAt(0, 0);
-    EXPECT_EQ(previous_tab_count - 1, browser()->tab_strip_model()->count());
+    const int previous_tab_count = browser()->GetTabStripModel()->count();
+    browser()->GetTabStripModel()->CloseWebContentsAt(0, 0);
+    EXPECT_EQ(previous_tab_count - 1, browser()->GetTabStripModel()->count());
   }
 
   void LoadSubFrame(const GURL& url) {
@@ -653,7 +654,7 @@ IN_PROC_BROWSER_TEST_F(MediaEngagementBrowserTest,
   LoadTestPageAndWaitForPlayAndAudible(url, false);
   AdvanceMeaningfulPlaybackTime();
 
-  browser()->tab_strip_model()->CloseAllTabs();
+  browser()->GetTabStripModel()->CloseAllTabs();
 
   ExpectScores(2, 2);
 }
@@ -673,7 +674,7 @@ IN_PROC_BROWSER_TEST_F(MediaEngagementBrowserTest, MAYBE_SessionNewTabSameURL) {
   OpenTabAndWaitForPlayAndAudible(url);
   AdvanceMeaningfulPlaybackTime();
 
-  browser()->tab_strip_model()->CloseAllTabs();
+  browser()->GetTabStripModel()->CloseAllTabs();
 
   ExpectScores(1, 1);
 }
@@ -695,7 +696,7 @@ IN_PROC_BROWSER_TEST_F(MediaEngagementBrowserTest,
   OpenTabAndWaitForPlayAndAudible(other_url);
   AdvanceMeaningfulPlaybackTime();
 
-  browser()->tab_strip_model()->CloseAllTabs();
+  browser()->GetTabStripModel()->CloseAllTabs();
 
   ExpectScores(1, 1);
 }
@@ -710,7 +711,7 @@ IN_PROC_BROWSER_TEST_F(MediaEngagementBrowserTest, SessionNewTabCrossOrigin) {
   OpenTabAndWaitForPlayAndAudible(other_url);
   AdvanceMeaningfulPlaybackTime();
 
-  browser()->tab_strip_model()->CloseAllTabs();
+  browser()->GetTabStripModel()->CloseAllTabs();
 
   ExpectScores(http_server().base_url(), 1, 1);
   ExpectScores(http_server_origin2().base_url(), 1, 1);
@@ -740,7 +741,7 @@ IN_PROC_BROWSER_TEST_F(MediaEngagementBrowserTest,
   OpenTabAndWaitForPlayAndAudible(url);
   AdvanceMeaningfulPlaybackTime();
 
-  browser()->tab_strip_model()->CloseAllTabs();
+  browser()->GetTabStripModel()->CloseAllTabs();
 
   ExpectScores(1, 1);
 }
@@ -776,7 +777,7 @@ IN_PROC_BROWSER_TEST_F(MediaEngagementBrowserTest,
   WaitForWasRecentlyAudible();
   AdvanceMeaningfulPlaybackTime();
 
-  browser()->tab_strip_model()->CloseAllTabs();
+  browser()->GetTabStripModel()->CloseAllTabs();
 
   // The new tab should only count as the same visit if we visited that tab
   // through a link or reload (duplicate tab).
@@ -881,7 +882,8 @@ IN_PROC_BROWSER_TEST_F(MediaEngagementSessionRestoreBrowserTest,
 }
 
 // TODO(crbug.com/541174985): Flaky on LSAN builders.
-#if defined(LEAK_SANITIZER)
+// TODO(crbug.com/551552509): Flaky on Linux.
+#if defined(LEAK_SANITIZER) || BUILDFLAG(IS_LINUX)
 #define MAYBE_RestoredSession_Playback_MEI DISABLED_RestoredSession_Playback_MEI
 #else
 #define MAYBE_RestoredSession_Playback_MEI RestoredSession_Playback_MEI

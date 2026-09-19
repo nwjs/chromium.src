@@ -665,5 +665,353 @@ class CheckNoNewBrowserWindowMemberCallTest(unittest.TestCase):
         self.assertEqual(0, len(results))
 
 
+class CheckNoNewBrowserUsageTest(unittest.TestCase):
+
+    def testWarnsOnBrowserHeaderInclude(self):
+        input_api = MockInputApi()
+        input_api.files = [
+            MockAffectedFile('chrome/browser/ui/include_quotes.cc',
+                             ['#include "chrome/browser/ui/browser.h"']),
+            MockAffectedFile('chrome/browser/ui/include_brackets.h',
+                             ['#include <chrome/browser/ui/browser.h>']),
+            MockAffectedFile('chrome/browser/ui/include_spaces.mm',
+                             ['#include   "chrome/browser/ui/browser.h"']),
+        ]
+        results = PRESUBMIT._CheckNoNewBrowserUsage(input_api, MockOutputApi())
+        self.assertEqual(1, len(results))
+        message = results[0].message
+        self.assertIn('chrome/browser/ui/include_quotes.cc', message)
+        self.assertIn('chrome/browser/ui/include_brackets.h', message)
+        self.assertIn('chrome/browser/ui/include_spaces.mm', message)
+
+    def testWarnsOnBrowserClassUsage(self):
+        input_api = MockInputApi()
+        input_api.files = [
+            MockAffectedFile('chrome/browser/ui/ptr.cc',
+                             ['Browser* browser = nullptr;']),
+            MockAffectedFile('chrome/browser/ui/const_ptr.cc',
+                             ['const Browser* browser = nullptr;']),
+            MockAffectedFile('chrome/browser/ui/ref.cc',
+                             ['Browser& browser = *b;']),
+            MockAffectedFile('chrome/browser/ui/const_ref.cc',
+                             ['const Browser& browser = *b;']),
+            MockAffectedFile('chrome/browser/ui/fwd_decl.h',
+                             ['class Browser;']),
+            MockAffectedFile('chrome/browser/ui/struct_decl.h',
+                             ['struct Browser;']),
+            MockAffectedFile('chrome/browser/ui/static_method.cc',
+                             ['Browser::Create(params);']),
+            MockAffectedFile('chrome/browser/ui/unique_ptr.cc',
+                             ['std::unique_ptr<Browser> browser;']),
+            MockAffectedFile('chrome/browser/ui/raw_ptr.h',
+                             ['raw_ptr<Browser> browser_;']),
+            MockAffectedFile('chrome/browser/ui/raw_ref.h',
+                             ['raw_ref<Browser> browser_;']),
+            MockAffectedFile('chrome/browser/ui/scoped_refptr.h',
+                             ['scoped_refptr<Browser> browser_;']),
+            MockAffectedFile('chrome/browser/ui/cast.cc',
+                             ['auto* b = static_cast<Browser*>(window);']),
+            MockAffectedFile('chrome/browser/ui/new_expr.cc',
+                             ['auto* b = new Browser(profile);']),
+            MockAffectedFile('chrome/browser/ui/func_sig.h',
+                             ['Browser* GetBrowser();',
+                              'void SetBrowser(Browser* b);']),
+        ]
+        results = PRESUBMIT._CheckNoNewBrowserUsage(input_api, MockOutputApi())
+        self.assertEqual(1, len(results))
+        message = results[0].message
+        self.assertIn('chrome/browser/ui/ptr.cc', message)
+        self.assertIn('chrome/browser/ui/const_ptr.cc', message)
+        self.assertIn('chrome/browser/ui/ref.cc', message)
+        self.assertIn('chrome/browser/ui/const_ref.cc', message)
+        self.assertIn('chrome/browser/ui/fwd_decl.h', message)
+        self.assertIn('chrome/browser/ui/struct_decl.h', message)
+        self.assertIn('chrome/browser/ui/static_method.cc', message)
+        self.assertIn('chrome/browser/ui/unique_ptr.cc', message)
+        self.assertIn('chrome/browser/ui/raw_ptr.h', message)
+        self.assertIn('chrome/browser/ui/raw_ref.h', message)
+        self.assertIn('chrome/browser/ui/scoped_refptr.h', message)
+        self.assertIn('chrome/browser/ui/cast.cc', message)
+        self.assertIn('chrome/browser/ui/new_expr.cc', message)
+        self.assertIn('chrome/browser/ui/func_sig.h', message)
+
+    def testWarnsOnBannedHeadersInDesktopUnitTests(self):
+        input_api = MockInputApi()
+        input_api.files = [
+            MockAffectedFile(
+                'chrome/browser/ui/foo_unittest.cc',
+                ['#include "chrome/test/base/browser_with_test_window_test.h"'
+                 ]),
+            MockAffectedFile(
+                'chrome/browser/ui/views/bar_unittest.cc',
+                ['#include "chrome/browser/ui/views/frame/test_with_browser_view.h"'
+                 ]),
+            MockAffectedFile(
+                'chrome/browser/baz_unittest.cc',
+                ['#include "chrome/test/base/test_browser_window.h"']),
+            MockAffectedFile(
+                'chrome/browser/qux_unittest.cc',
+                ['#include "chrome/browser/ui/browser.h"']),
+            MockAffectedFile(
+                'chrome/browser/ui/header_unittest.h',
+                ['#include <chrome/browser/ui/browser.h>']),
+        ]
+        results = PRESUBMIT._CheckNoNewBrowserUsage(input_api, MockOutputApi())
+        self.assertEqual(1, len(results))
+        self.assertEqual('warning', results[0].type)
+        message = results[0].message
+        self.assertIn('chrome/browser/ui/foo_unittest.cc', message)
+        self.assertIn('chrome/browser/ui/views/bar_unittest.cc', message)
+        self.assertIn('chrome/browser/baz_unittest.cc', message)
+        self.assertIn('chrome/browser/qux_unittest.cc', message)
+        self.assertIn('chrome/browser/ui/header_unittest.h', message)
+
+    def testWarnsOnBannedFixturesInDesktopUnitTests(self):
+        input_api = MockInputApi()
+        input_api.files = [
+            MockAffectedFile(
+                'chrome/browser/ui/foo_unittest.cc',
+                ['class FooTest : public BrowserWithTestWindowTest {};']),
+            MockAffectedFile(
+                'chrome/browser/ui/bar_unittest.cc',
+                ['class BarTest : public TestWithBrowserView {};']),
+            MockAffectedFile(
+                'chrome/browser/ui/baz_unittest.cc',
+                ['class BazTest : public ::BrowserWithTestWindowTest {};']),
+            MockAffectedFile(
+                'chrome/browser/ui/qux_unittest.cc',
+                ['class QuxTest : public ::TestWithBrowserView {};']),
+            MockAffectedFile(
+                'chrome/browser/ui/multiple_inheritance_unittest.cc',
+                ['class MultiTest : public testing::Test, public BrowserWithTestWindowTest {};'
+                 ]),
+        ]
+        results = PRESUBMIT._CheckNoNewBrowserUsage(input_api, MockOutputApi())
+        self.assertEqual(1, len(results))
+        self.assertEqual('warning', results[0].type)
+        message = results[0].message
+        self.assertIn('chrome/browser/ui/foo_unittest.cc', message)
+        self.assertIn('chrome/browser/ui/bar_unittest.cc', message)
+        self.assertIn('chrome/browser/ui/baz_unittest.cc', message)
+        self.assertIn('chrome/browser/ui/qux_unittest.cc', message)
+        self.assertIn(
+            'chrome/browser/ui/multiple_inheritance_unittest.cc',
+            message)
+
+    def testAshAndChromeOsExcluded(self):
+        input_api = MockInputApi()
+        input_api.files = [
+            MockAffectedFile(
+                'chrome/browser/ash/foo_unittest.cc',
+                [
+                    '#include "chrome/test/base/browser_with_test_window_test.h"',
+                    'class FooTest : public BrowserWithTestWindowTest {};',
+                ]),
+            MockAffectedFile(
+                'chrome/browser/ui/ash/bar_unittest.cc',
+                [
+                    '#include "chrome/browser/ui/views/frame/test_with_browser_view.h"',
+                    'class BarTest : public TestWithBrowserView {};',
+                ]),
+            MockAffectedFile(
+                'chrome/browser/chromeos/baz_unittest.cc',
+                [
+                    '#include "chrome/test/base/test_browser_window.h"',
+                ]),
+            MockAffectedFile(
+                'chrome/browser/ui/chromeos/qux_unittest.cc',
+                [
+                    'class QuxTest : public BrowserWithTestWindowTest {};',
+                ]),
+        ]
+        results = PRESUBMIT._CheckNoNewBrowserUsage(input_api, MockOutputApi())
+        self.assertEqual(0, len(results))
+
+    def testNonUnittestFilesPassBannedTestFixturesAndHeaders(self):
+        input_api = MockInputApi()
+        input_api.files = [
+            MockAffectedFile(
+                'chrome/browser/ui/foo_browsertest.cc',
+                [
+                    '#include "chrome/test/base/browser_with_test_window_test.h"',
+                    'class FooTest : public BrowserWithTestWindowTest {};',
+                ]),
+            MockAffectedFile(
+                'chrome/browser/ui/foo_interactive_uitest.cc',
+                [
+                    '#include "chrome/test/base/browser_with_test_window_test.h"',
+                ]),
+            MockAffectedFile(
+                'chrome/browser/ui/foo.cc',
+                [
+                    '#include "chrome/test/base/test_browser_window.h"',
+                    '#include "chrome/browser/ui/views/frame/test_with_browser_view.h"',
+                ]),
+            MockAffectedFile(
+                'chrome/browser/ui/foo.h',
+                [
+                    'class Foo : public BrowserWithTestWindowTest {};',
+                ]),
+        ]
+        results = PRESUBMIT._CheckNoNewBrowserUsage(input_api, MockOutputApi())
+        self.assertEqual(0, len(results))
+
+    def testDoesNotWarnOnBrowserWindowInterface(self):
+        input_api = MockInputApi()
+        input_api.files = [
+            MockAffectedFile(
+                'chrome/browser/ui/bwi_include.cc',
+                ['#include "chrome/browser/ui/browser_window/public/'
+                 'browser_window_interface.h"']
+            ),
+            MockAffectedFile(
+                'chrome/browser/ui/bwi_ptr.cc',
+                ['BrowserWindowInterface* browser_window = nullptr;']
+            ),
+            MockAffectedFile('chrome/browser/ui/bwi_ref.cc',
+                             ['const BrowserWindowInterface& bwi = *window;']),
+            MockAffectedFile('chrome/browser/ui/bwi_fwd.h',
+                             ['class BrowserWindowInterface;']),
+            MockAffectedFile('chrome/browser/ui/bwi_uptr.h',
+                             ['std::unique_ptr<BrowserWindowInterface> bwi;']),
+            MockAffectedFile('chrome/browser/ui/bwi_rawptr.h',
+                             ['raw_ptr<BrowserWindowInterface> bwi_;']),
+            MockAffectedFile('chrome/browser/ui/bwi_enum.cc',
+                             ['BrowserWindowInterface::Type type;']),
+        ]
+        results = PRESUBMIT._CheckNoNewBrowserUsage(input_api, MockOutputApi())
+        self.assertEqual(0, len(results))
+
+    def testDoesNotWarnOnOtherBrowserPrefixedClasses(self):
+        input_api = MockInputApi()
+        input_api.files = [
+            MockAffectedFile('chrome/browser/ui/other_classes.cc', [
+                'BrowserWindow* window = nullptr;',
+                'BrowserView* view = nullptr;',
+                'BrowserList* list = nullptr;',
+                'BrowserContext* context = nullptr;',
+                'BrowserThread::UI;',
+                'BrowserWindowFeatures* features = nullptr;',
+                'InProcessBrowserTest* test = nullptr;',
+                'browser_->DoSomething();',
+                'browser()->DoSomething();',
+                'my_browser->DoSomething();',
+            ]),
+        ]
+        results = PRESUBMIT._CheckNoNewBrowserUsage(input_api, MockOutputApi())
+        self.assertEqual(0, len(results))
+
+    def testDoesNotWarnOnModernHeadersAndFixtures(self):
+        input_api = MockInputApi()
+        input_api.files = [
+            MockAffectedFile(
+                'chrome/browser/ui/modern_unittest.cc',
+                [
+                    '#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"',
+                    '#include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"',
+                    '#include "chrome/browser/ui/tabs/public/tab_interface.h"',
+                    '#include "content/public/test/test_renderer_host.h"',
+                    'class ModernTest : public ChromeRenderViewHostTestHarness {};',
+                    'class StandardTest : public testing::Test {};',
+                ]),
+        ]
+        results = PRESUBMIT._CheckNoNewBrowserUsage(input_api, MockOutputApi())
+        self.assertEqual(0, len(results))
+
+    def testDoesNotWarnOnCommentsAndStrings(self):
+        input_api = MockInputApi()
+        input_api.files = [
+            MockAffectedFile('chrome/browser/ui/comments_and_strings.cc', [
+                '// #include "chrome/browser/ui/browser.h"',
+                '// Browser* browser = nullptr;',
+                '/* Browser* browser = nullptr; */',
+                ' * Use Browser here',
+                'void Foo();  // TODO: Browser refactoring',
+                'LOG(INFO) << "Browser started";',
+                'base::UmaHistogramBoolean("Browser.State", true);',
+                'std::string name = "Browser";',
+                '// #include "chrome/test/base/browser_with_test_window_test.h"',
+                '// class FooTest : public BrowserWithTestWindowTest {};',
+                '/* #include "chrome/browser/ui/views/frame/test_with_browser_view.h" */',
+                ' * class BarTest : public TestWithBrowserView {};',
+                'int x = 0; // #include "chrome/test/base/test_browser_window.h"',
+                'int y = 0; // class BazTest : public BrowserWithTestWindowTest {};',
+            ]),
+        ]
+        results = PRESUBMIT._CheckNoNewBrowserUsage(input_api, MockOutputApi())
+        self.assertEqual(0, len(results))
+
+    def testDoesNotWarnOnNocheck(self):
+        input_api = MockInputApi()
+        input_api.files = [
+            MockAffectedFile('chrome/browser/ui/nocheck_include.cc', [
+                '#include "chrome/browser/ui/browser.h"  // nocheck',
+            ]),
+            MockAffectedFile('chrome/browser/ui/nocheck_class.cc', [
+                'Browser* browser = nullptr;  // nocheck',
+            ]),
+            MockAffectedFile('chrome/browser/ui/nocheck_unittest.cc', [
+                '#include "chrome/test/base/browser_with_test_window_test.h"  // nocheck',
+                '#include "chrome/browser/ui/views/frame/test_with_browser_view.h" // nocheck',
+                '#include "chrome/test/base/test_browser_window.h" //nocheck',
+                'class FooTest : public BrowserWithTestWindowTest {};  // nocheck',
+                'class BarTest : public TestWithBrowserView {}; // nocheck',
+            ]),
+        ]
+        results = PRESUBMIT._CheckNoNewBrowserUsage(input_api, MockOutputApi())
+        self.assertEqual(0, len(results))
+
+    def testDoesNotWarnOnExcludedFiles(self):
+        input_api = MockInputApi()
+        input_api.files = [
+            MockAffectedFile('chrome/browser/ui/browser.h',
+                             ['class Browser;']),
+            MockAffectedFile('chrome/browser/ui/browser.cc',
+                             ['Browser::Browser() {}']),
+            MockAffectedFile(
+                ('chrome/browser/ui/browser_window/public/'
+                 'browser_window_interface.h'),
+                ['class Browser;']
+            ),
+            MockAffectedFile(
+                ('chrome/browser/ui/browser_window/public/'
+                 'create_browser_window.h'),
+                ['class Browser;']
+            ),
+            MockAffectedFile(
+                ('chrome/browser/ui/browser_window/internal/'
+                 'create_browser_window_non_android.cc'),
+                ['#include "chrome/browser/ui/browser.h"',
+                 'return Browser::Create(std::move(create_params));']
+            ),
+            MockAffectedFile(
+                'chrome/browser/ui/views/frame/browser_window_factory.cc',
+                ['#include "chrome/browser/ui/browser.h"']
+            ),
+        ]
+        results = PRESUBMIT._CheckNoNewBrowserUsage(input_api, MockOutputApi())
+        self.assertEqual(0, len(results))
+
+    def testDoesNotWarnOnNonCppFiles(self):
+        input_api = MockInputApi()
+        input_api.files = [
+            MockAffectedFile('chrome/browser/BUILD.gn',
+                             ['sources = [ "browser.h" ]']),
+            MockAffectedFile('chrome/browser/README.md',
+                             ['Use Browser class']),
+        ]
+        results = PRESUBMIT._CheckNoNewBrowserUsage(input_api, MockOutputApi())
+        self.assertEqual(0, len(results))
+
+    def testNoChangesProducesNoWarnings(self):
+        input_api = MockInputApi()
+        input_api.files = [
+            MockAffectedFile('chrome/browser/ui/old_file.cc', []),
+            MockAffectedFile('chrome/browser/ui/old_unittest.cc', []),
+        ]
+        results = PRESUBMIT._CheckNoNewBrowserUsage(input_api, MockOutputApi())
+        self.assertEqual(0, len(results))
+
+
 if __name__ == '__main__':
     unittest.main()

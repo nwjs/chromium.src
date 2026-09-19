@@ -11,6 +11,7 @@
 
 #include "base/functional/callback.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_split.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
@@ -20,7 +21,6 @@
 #include "components/omnibox/browser/autocomplete_scheme_classifier.h"
 #include "components/omnibox/browser/mock_autocomplete_provider_client.h"
 #include "components/omnibox/browser/search_suggestion_parser.h"
-#include "components/omnibox/browser/suggestion_answer.h"
 #include "components/omnibox/browser/test_scheme_classifier.h"
 #include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
@@ -30,9 +30,8 @@
 #include "components/search_engines/template_url_service_client.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/omnibox_proto/answer_type.pb.h"
-#include "third_party/omnibox_proto/entity_info.pb.h"
 #include "third_party/omnibox_proto/rich_answer_template.pb.h"
+#include "third_party/omnibox_proto/suggest_template_info.pb.h"
 
 namespace {
 
@@ -44,8 +43,17 @@ SearchSuggestionParser::SuggestResult BuildSuggestion(
     const std::string& additional_query_params,
     int relevance,
     bool should_prerender) {
-  omnibox::EntityInfo entity_info;
-  entity_info.set_suggest_search_parameters(additional_query_params);
+  std::optional<omnibox::SuggestTemplateInfo> suggest_template_info;
+  if (!additional_query_params.empty()) {
+    suggest_template_info.emplace();
+    base::StringPairs kv_pairs;
+    base::SplitStringIntoKeyValuePairs(additional_query_params, '=', '&',
+                                       &kv_pairs);
+    for (const auto& pair : kv_pairs) {
+      (*suggest_template_info
+            ->mutable_default_search_parameters())[pair.first] = pair.second;
+    }
+  }
 
   return SearchSuggestionParser::SuggestResult(
       /*suggestion=*/query,
@@ -55,7 +63,6 @@ SearchSuggestionParser::SuggestResult BuildSuggestion(
       /*match_contents=*/query,
       /*match_contents_prefix=*/u"",
       /*annotation=*/std::u16string(),
-      /*entity_info=*/entity_info,
       /*deletion_url=*/std::string(),
       /*from_keyword=*/false,
       /*navigational_intent=*/omnibox::NAV_INTENT_LOW,
@@ -63,7 +70,7 @@ SearchSuggestionParser::SuggestResult BuildSuggestion(
       /*relevance_from_server=*/true,
       /*should_prefetch=*/false,
       /*should_prerender=*/should_prerender,
-      /*input_text=*/query);
+      /*input_text=*/query, suggest_template_info);
 }
 
 }  // namespace
@@ -130,8 +137,6 @@ TEST_F(BaseSearchProviderTest, PreserveAnswersWhenDeduplicating) {
   std::u16string query = u"weather los angeles";
 
   omnibox::RichAnswerTemplate answer_template;
-  answer_template.add_answers();
-  answer_template.mutable_answers(0)->mutable_headline()->set_text("headline");
 
   SearchSuggestionParser::SuggestResult more_relevant(
       query, AutocompleteMatchType::SEARCH_HISTORY, omnibox::TYPE_NATIVE_CHROME,
@@ -160,15 +165,9 @@ TEST_F(BaseSearchProviderTest, PreserveAnswersWhenDeduplicating) {
   AutocompleteMatch match = map.begin()->second;
   ASSERT_EQ(1U, match.duplicate_matches.size());
   AutocompleteMatch duplicate = match.duplicate_matches[0];
-  EXPECT_EQ(answer_template.answers(0).headline().text(),
-            match.answer_template->answers(0).headline().text());
 
   // Ensure answers are not copied over existing answers.
   map.clear();
-  omnibox::RichAnswerTemplate answer_template2;
-  answer_template2.add_answers();
-  answer_template2.mutable_answers(0)->mutable_headline()->set_text(
-      "headline2");
   more_relevant = SearchSuggestionParser::SuggestResult(
       query, AutocompleteMatchType::SEARCH_HISTORY, omnibox::TYPE_NATIVE_CHROME,
       /*subtypes=*/{}, /*from_keyword=*/false,
@@ -176,6 +175,7 @@ TEST_F(BaseSearchProviderTest, PreserveAnswersWhenDeduplicating) {
       /*relevance=*/1300,
       /*relevance_from_server=*/true,
       /*input_text=*/query);
+  omnibox::RichAnswerTemplate answer_template2;
   more_relevant.SetRichAnswerTemplate(answer_template2);
   provider_->AddMatchToMap(
       more_relevant, AutocompleteInput(), template_url.get(),
@@ -189,15 +189,9 @@ TEST_F(BaseSearchProviderTest, PreserveAnswersWhenDeduplicating) {
   match = map.begin()->second;
   ASSERT_EQ(1U, match.duplicate_matches.size());
   duplicate = match.duplicate_matches[0];
-
-  EXPECT_EQ(answer_template2.answers(0).headline().text(),
-            match.answer_template->answers(0).headline().text());
   EXPECT_EQ(AutocompleteMatchType::SEARCH_HISTORY, match.type);
   EXPECT_EQ(omnibox::TYPE_NATIVE_CHROME, match.suggest_type);
   EXPECT_EQ(1300, match.relevance);
-
-  EXPECT_EQ(answer_template.answers(0).headline().text(),
-            duplicate.answer_template->answers(0).headline().text());
   EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST, duplicate.type);
   EXPECT_EQ(omnibox::TYPE_QUERY, duplicate.suggest_type);
   EXPECT_EQ(850, duplicate.relevance);
@@ -210,8 +204,8 @@ TEST_F(BaseSearchProviderTest, PreserveImageWhenDeduplicating) {
 
   TestBaseSearchProvider::MatchMap map;
   std::u16string query = u"wrist wa";
-  omnibox::EntityInfo entity_info;
-  entity_info.set_image_url("https://picsum.photos/200");
+  omnibox::SuggestTemplateInfo entity_info;
+  entity_info.mutable_image()->set_url("https://picsum.photos/200");
 
   SearchSuggestionParser::SuggestResult more_relevant(
       query, AutocompleteMatchType::SEARCH_HISTORY, omnibox::TYPE_NATIVE_CHROME,
@@ -231,7 +225,7 @@ TEST_F(BaseSearchProviderTest, PreserveImageWhenDeduplicating) {
       /*navigational_intent=*/omnibox::NAV_INTENT_LOW,
       /*relevance=*/850, /*relevance_from_server=*/true,
       /*input_text=*/query);
-  less_relevant.SetEntityInfo(entity_info);
+  less_relevant.SetSuggestTemplateInfo(entity_info);
   provider_->AddMatchToMap(
       less_relevant, AutocompleteInput(), template_url.get(),
       client_->GetTemplateURLService()->search_terms_data(),
@@ -240,22 +234,22 @@ TEST_F(BaseSearchProviderTest, PreserveImageWhenDeduplicating) {
   ASSERT_EQ(1U, map.size());
 
   AutocompleteMatch match = map.begin()->second;
-  EXPECT_EQ(entity_info.image_url(), match.image_url.spec());
+  EXPECT_EQ(entity_info.image().url(), match.image_url.spec());
   EXPECT_EQ(AutocompleteMatchType::SEARCH_HISTORY, match.type);
   EXPECT_EQ(omnibox::TYPE_NATIVE_CHROME, match.suggest_type);
   EXPECT_EQ(1300, match.relevance);
 
   ASSERT_EQ(1U, match.duplicate_matches.size());
   AutocompleteMatch duplicate = match.duplicate_matches[0];
-  EXPECT_EQ(entity_info.image_url(), duplicate.image_url.spec());
+  EXPECT_EQ(entity_info.image().url(), duplicate.image_url.spec());
   EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST_ENTITY, duplicate.type);
   EXPECT_EQ(omnibox::TYPE_CATEGORICAL_QUERY, duplicate.suggest_type);
   EXPECT_EQ(850, duplicate.relevance);
 
   // Ensure images are not copied over existing images.
   map.clear();
-  omnibox::EntityInfo entity_info2;
-  entity_info2.set_image_url("https://picsum.photos/300");
+  omnibox::SuggestTemplateInfo entity_info2;
+  entity_info2.mutable_image()->set_url("https://picsum.photos/300");
   more_relevant = SearchSuggestionParser::SuggestResult(
       query, AutocompleteMatchType::SEARCH_SUGGEST_ENTITY,
       omnibox::TYPE_CATEGORICAL_QUERY,
@@ -263,7 +257,7 @@ TEST_F(BaseSearchProviderTest, PreserveImageWhenDeduplicating) {
       /*navigational_intent=*/omnibox::NAV_INTENT_LOW,
       /*relevance=*/1300, /*relevance_from_server=*/true,
       /*input_text=*/query);
-  more_relevant.SetEntityInfo(entity_info2);
+  more_relevant.SetSuggestTemplateInfo(entity_info2);
   provider_->AddMatchToMap(
       more_relevant, AutocompleteInput(), template_url.get(),
       client_->GetTemplateURLService()->search_terms_data(),
@@ -276,14 +270,14 @@ TEST_F(BaseSearchProviderTest, PreserveImageWhenDeduplicating) {
   ASSERT_EQ(1U, map.size());
 
   match = map.begin()->second;
-  EXPECT_EQ(entity_info2.image_url(), match.image_url.spec());
+  EXPECT_EQ(entity_info2.image().url(), match.image_url.spec());
   EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST_ENTITY, match.type);
   EXPECT_EQ(omnibox::TYPE_CATEGORICAL_QUERY, match.suggest_type);
   EXPECT_EQ(1300, match.relevance);
 
   ASSERT_EQ(1U, match.duplicate_matches.size());
   duplicate = match.duplicate_matches[0];
-  EXPECT_EQ(entity_info.image_url(), duplicate.image_url.spec());
+  EXPECT_EQ(entity_info.image().url(), duplicate.image_url.spec());
   EXPECT_EQ(AutocompleteMatchType::SEARCH_SUGGEST_ENTITY, duplicate.type);
   EXPECT_EQ(omnibox::TYPE_CATEGORICAL_QUERY, duplicate.suggest_type);
   EXPECT_EQ(850, duplicate.relevance);
@@ -816,17 +810,49 @@ TEST_F(BaseSearchProviderTest, SuggestTemplateInfoPopulatesMatch) {
   AutocompleteMatch match = map.begin()->second;
   EXPECT_EQ(suggest_template_info.image().dominant_color(),
             match.image_dominant_color);
-  EXPECT_EQ("gs_ssp=abc", match.search_terms_args->additional_query_params);
+  EXPECT_EQ(omnibox::SuggestTemplateInfo::DEFAULT,
+            match.suggest_template->style());
+}
+
+TEST_F(BaseSearchProviderTest, SuggestTemplateInfoRichImagePopulatesMatch) {
+  TemplateURLData data;
+  data.SetURL("https://www.google.com/search?q={searchTerms}");
+  auto template_url = std::make_unique<TemplateURL>(data);
+
+  TestBaseSearchProvider::MatchMap map;
+  std::u16string query = u"cute cat";
+
+  omnibox::SuggestTemplateInfo suggest_template_info;
+  suggest_template_info.set_style(omnibox::SuggestTemplateInfo::RICH_IMAGE);
+  suggest_template_info.mutable_image()->set_url("http://example.com/cat.png");
+
+  SearchSuggestionParser::SuggestResult result(
+      query, AutocompleteMatchType::SEARCH_SUGGEST, omnibox::TYPE_NATIVE_CHROME,
+      /*subtypes=*/{}, /*from_keyword=*/false,
+      /*navigational_intent=*/omnibox::NAV_INTENT_NONE,
+      /*relevance=*/1300, /*relevance_from_server=*/true,
+      /*input_text=*/query);
+  result.SetSuggestTemplateInfo(suggest_template_info);
+  provider_->AddMatchToMap(
+      result, AutocompleteInput(), template_url.get(),
+      client_->GetTemplateURLService()->search_terms_data(),
+      TemplateURLRef::NO_SUGGESTION_CHOSEN, false, false, &map);
+
+  ASSERT_EQ(1U, map.size());
+  const AutocompleteMatch& match = map.begin()->second;
+  ASSERT_TRUE(match.suggest_template.has_value());
+  EXPECT_EQ(omnibox::SuggestTemplateInfo::RICH_IMAGE,
+            match.suggest_template->style());
+  EXPECT_EQ("http://example.com/cat.png", match.image_url.spec());
 }
 
 TEST_F(BaseSearchProviderTest, AnswerAndImageOnlyPopulatedForGoogle) {
   std::u16string query = u"weather";
   omnibox::RichAnswerTemplate answer_template;
-  answer_template.add_answers()->mutable_headline()->set_text("72°F");
 
-  omnibox::EntityInfo entity_info;
-  entity_info.set_image_url("https://example.com/image.png");
-  entity_info.set_dominant_color("#ffffff");
+  omnibox::SuggestTemplateInfo entity_info;
+  entity_info.mutable_image()->set_url("https://example.com/image.png");
+  entity_info.mutable_image()->set_dominant_color("#ffffff");
 
   SearchSuggestionParser::SuggestResult result(
       query, AutocompleteMatchType::SEARCH_SUGGEST, omnibox::TYPE_QUERY,
@@ -835,7 +861,7 @@ TEST_F(BaseSearchProviderTest, AnswerAndImageOnlyPopulatedForGoogle) {
       /*relevance=*/1300, /*relevance_from_server=*/true,
       /*input_text=*/query);
   result.SetRichAnswerTemplate(answer_template);
-  result.SetEntityInfo(entity_info);
+  result.SetSuggestTemplateInfo(entity_info);
 
   // 1. Non-Google search engine: fields should NOT be populated.
   {
@@ -866,5 +892,75 @@ TEST_F(BaseSearchProviderTest, AnswerAndImageOnlyPopulatedForGoogle) {
     EXPECT_TRUE(map.begin()->second.answer_template.has_value());
     EXPECT_EQ("https://example.com/image.png",
               map.begin()->second.image_url.spec());
+  }
+}
+
+TEST_F(BaseSearchProviderTest, EntityImageMustBeHostedBySearchEngine) {
+  // A search engine may supply an entity image that it hosts itself: while it
+  // is in use it already observes what is typed into the omnibox, so fetching
+  // such an image tells it nothing new. Naming a host it does not control is a
+  // different matter, and stays blocked.
+  struct {
+    const char* search_url;
+    const char* image_url;
+    bool expected_allowed;
+  } kCases[] = {
+      // Images are commonly served from a dedicated subdomain, so the
+      // comparison is by registrable domain rather than by origin.
+      {"https://search.brave.com/search?q={searchTerms}",
+       "https://imgs.search.brave.com/a.png", true},
+      {"https://search.brave.com/search?q={searchTerms}",
+       "https://search.brave.com/a.png", true},
+      // A different site, however it is dressed up.
+      {"https://search.brave.com/search?q={searchTerms}",
+       "https://evil.com/a.png", false},
+      {"https://search.brave.com/search?q={searchTerms}",
+       "https://brave.com.evil.com/a.png", false},
+      // Not https. Requests like the second one are the reason for the check.
+      {"https://search.brave.com/search?q={searchTerms}",
+       "http://search.brave.com/a.png", false},
+      {"https://search.brave.com/search?q={searchTerms}",
+       "http://192.168.0.1/a.png", false},
+      {"https://search.brave.com/search?q={searchTerms}", "not a url", false},
+      {"https://search.brave.com/search?q={searchTerms}", "", false},
+  };
+
+  for (const auto& test_case : kCases) {
+    SCOPED_TRACE(test_case.image_url);
+
+    omnibox::SuggestTemplateInfo suggest_template_info;
+    suggest_template_info.mutable_image()->set_url(test_case.image_url);
+    suggest_template_info.mutable_image()->set_dominant_color("#ffffff");
+
+    std::u16string query = u"weather";
+    SearchSuggestionParser::SuggestResult result(
+        query, AutocompleteMatchType::SEARCH_SUGGEST, omnibox::TYPE_QUERY,
+        /*subtypes=*/{}, /*from_keyword=*/false,
+        /*navigational_intent=*/omnibox::NAV_INTENT_NONE,
+        /*relevance=*/1300, /*relevance_from_server=*/true,
+        /*input_text=*/query);
+    result.SetSuggestTemplateInfo(suggest_template_info);
+
+    TemplateURLData data;
+    data.SetURL(test_case.search_url);
+    auto turl = std::make_unique<TemplateURL>(data);
+
+    TestBaseSearchProvider::MatchMap map;
+    provider_->AddMatchToMap(
+        result, AutocompleteInput(), turl.get(),
+        client_->GetTemplateURLService()->search_terms_data(),
+        TemplateURLRef::NO_SUGGESTION_CHOSEN, false, false, &map);
+    ASSERT_EQ(1U, map.size());
+    const AutocompleteMatch& match = map.begin()->second;
+
+    EXPECT_EQ(test_case.expected_allowed, !match.image_url.is_empty());
+    if (test_case.expected_allowed) {
+      EXPECT_EQ(test_case.image_url, match.image_url.spec());
+      EXPECT_EQ("#ffffff", match.image_dominant_color);
+    } else {
+      EXPECT_TRUE(match.image_dominant_color.empty());
+    }
+    // Answers remain Google-only.
+    EXPECT_FALSE(match.answer_template.has_value());
   }
 }

@@ -88,6 +88,13 @@ class MockNetworkChangeNotifier : public NetworkChangeNotifier {
   std::unique_ptr<SystemDnsConfigChangeNotifier> dns_config_notifier_;
 };
 
+template <typename ObserverType>
+scoped_refptr<base::ObserverListThreadSafe<ObserverType>>
+MakeObserverListThreadSafe() {
+  return base::MakeRefCounted<base::ObserverListThreadSafe<ObserverType>>(
+      base::ObserverListPolicy::EXISTING_ONLY);
+}
+
 }  // namespace
 
 // static
@@ -190,62 +197,43 @@ class NetworkChangeNotifier::ObserverList {
  public:
   ObserverList()
       : ip_address_observer_list_(
-            base::MakeRefCounted<base::ObserverListThreadSafe<
-                NetworkChangeNotifier::IPAddressObserver>>(
-                base::ObserverListPolicy::EXISTING_ONLY)),
+            MakeObserverListThreadSafe<IPAddressObserver>()),
         connection_type_observer_list_(
-            base::MakeRefCounted<base::ObserverListThreadSafe<
-                NetworkChangeNotifier::ConnectionTypeObserver>>(
-                base::ObserverListPolicy::EXISTING_ONLY)),
+            MakeObserverListThreadSafe<ConnectionTypeObserver>()),
         resolver_state_observer_list_(
-            base::MakeRefCounted<base::ObserverListThreadSafe<
-                NetworkChangeNotifier::DNSObserver>>(
-                base::ObserverListPolicy::EXISTING_ONLY)),
+            MakeObserverListThreadSafe<DNSObserver>()),
         network_change_observer_list_(
-            base::MakeRefCounted<base::ObserverListThreadSafe<
-                NetworkChangeNotifier::NetworkChangeObserver>>(
-                base::ObserverListPolicy::EXISTING_ONLY)),
+            MakeObserverListThreadSafe<NetworkChangeObserver>()),
+        low_latency_network_change_observer_list_(
+            MakeObserverListThreadSafe<LowLatencyNetworkChangeObserver>()),
         max_bandwidth_observer_list_(
-            base::MakeRefCounted<base::ObserverListThreadSafe<
-                NetworkChangeNotifier::MaxBandwidthObserver>>(
-                base::ObserverListPolicy::EXISTING_ONLY)),
-        network_observer_list_(
-            base::MakeRefCounted<base::ObserverListThreadSafe<
-                NetworkChangeNotifier::NetworkObserver>>(
-                base::ObserverListPolicy::EXISTING_ONLY)),
+            MakeObserverListThreadSafe<MaxBandwidthObserver>()),
+        network_observer_list_(MakeObserverListThreadSafe<NetworkObserver>()),
         connection_cost_observer_list_(
-            base::MakeRefCounted<base::ObserverListThreadSafe<
-                NetworkChangeNotifier::ConnectionCostObserver>>(
-                base::ObserverListPolicy::EXISTING_ONLY)),
+            MakeObserverListThreadSafe<ConnectionCostObserver>()),
         default_network_active_observer_list_(
-            base::MakeRefCounted<
-                base::ObserverListThreadSafe<DefaultNetworkActiveObserver>>(
-                base::ObserverListPolicy::EXISTING_ONLY)) {}
+            MakeObserverListThreadSafe<DefaultNetworkActiveObserver>()) {}
 
   ObserverList(const ObserverList&) = delete;
   ObserverList& operator=(const ObserverList&) = delete;
   ~ObserverList() = default;
 
-  const scoped_refptr<
-      base::ObserverListThreadSafe<NetworkChangeNotifier::IPAddressObserver>>
+  const scoped_refptr<base::ObserverListThreadSafe<IPAddressObserver>>
       ip_address_observer_list_;
-  const scoped_refptr<base::ObserverListThreadSafe<
-      NetworkChangeNotifier::ConnectionTypeObserver>>
+  const scoped_refptr<base::ObserverListThreadSafe<ConnectionTypeObserver>>
       connection_type_observer_list_;
-  const scoped_refptr<
-      base::ObserverListThreadSafe<NetworkChangeNotifier::DNSObserver>>
+  const scoped_refptr<base::ObserverListThreadSafe<DNSObserver>>
       resolver_state_observer_list_;
-  const scoped_refptr<base::ObserverListThreadSafe<
-      NetworkChangeNotifier::NetworkChangeObserver>>
+  const scoped_refptr<base::ObserverListThreadSafe<NetworkChangeObserver>>
       network_change_observer_list_;
   const scoped_refptr<
-      base::ObserverListThreadSafe<NetworkChangeNotifier::MaxBandwidthObserver>>
+      base::ObserverListThreadSafe<LowLatencyNetworkChangeObserver>>
+      low_latency_network_change_observer_list_;
+  const scoped_refptr<base::ObserverListThreadSafe<MaxBandwidthObserver>>
       max_bandwidth_observer_list_;
-  const scoped_refptr<
-      base::ObserverListThreadSafe<NetworkChangeNotifier::NetworkObserver>>
+  const scoped_refptr<base::ObserverListThreadSafe<NetworkObserver>>
       network_observer_list_;
-  const scoped_refptr<base::ObserverListThreadSafe<
-      NetworkChangeNotifier::ConnectionCostObserver>>
+  const scoped_refptr<base::ObserverListThreadSafe<ConnectionCostObserver>>
       connection_cost_observer_list_;
   const scoped_refptr<
       base::ObserverListThreadSafe<DefaultNetworkActiveObserver>>
@@ -290,8 +278,8 @@ void NetworkChangeNotifier::SetFactory(
 
 // static
 std::unique_ptr<NetworkChangeNotifier> NetworkChangeNotifier::CreateIfNeeded(
-    NetworkChangeNotifier::ConnectionType initial_type,
-    NetworkChangeNotifier::ConnectionSubtype initial_subtype) {
+    ConnectionType initial_type,
+    ConnectionSubtype initial_subtype) {
   {
     base::AutoLock auto_lock(NetworkChangeNotifierCreationLock());
     if (g_network_change_notifier)
@@ -582,6 +570,7 @@ bool NetworkChangeNotifier::IsConnectionCellular(ConnectionType type) {
   return is_cellular;
 }
 
+#if !BUILDFLAG(IS_IOS)
 // static
 NetworkChangeNotifier::ConnectionType
 NetworkChangeNotifier::ConnectionTypeFromInterfaces() {
@@ -590,7 +579,9 @@ NetworkChangeNotifier::ConnectionTypeFromInterfaces() {
     return CONNECTION_UNKNOWN;
   return ConnectionTypeFromInterfaceList(interfaces);
 }
+#endif
 
+#if !BUILDFLAG(IS_IOS)
 // static
 NetworkChangeNotifier::ConnectionType
 NetworkChangeNotifier::ConnectionTypeFromInterfaceList(
@@ -625,6 +616,7 @@ NetworkChangeNotifier::ConnectionTypeFromInterfaceList(
   }
   return result;
 }
+#endif
 
 // static
 std::unique_ptr<NetworkChangeNotifier>
@@ -655,6 +647,11 @@ NetworkChangeNotifier::DNSObserver::~DNSObserver() = default;
 NetworkChangeNotifier::NetworkChangeObserver::NetworkChangeObserver() = default;
 NetworkChangeNotifier::NetworkChangeObserver::~NetworkChangeObserver() =
     default;
+
+NetworkChangeNotifier::LowLatencyNetworkChangeObserver::
+    LowLatencyNetworkChangeObserver() = default;
+NetworkChangeNotifier::LowLatencyNetworkChangeObserver::
+    ~LowLatencyNetworkChangeObserver() = default;
 
 NetworkChangeNotifier::MaxBandwidthObserver::MaxBandwidthObserver() = default;
 NetworkChangeNotifier::MaxBandwidthObserver::~MaxBandwidthObserver() = default;
@@ -695,6 +692,14 @@ void NetworkChangeNotifier::AddNetworkChangeObserver(
     NetworkChangeObserver* observer) {
   DCHECK(!observer->observer_list_);
   observer->observer_list_ = GetObserverList().network_change_observer_list_;
+  observer->observer_list_->AddObserver(observer);
+}
+
+void NetworkChangeNotifier::AddLowLatencyNetworkChangeObserver(
+    LowLatencyNetworkChangeObserver* observer) {
+  DCHECK(!observer->observer_list_);
+  observer->observer_list_ =
+      GetObserverList().low_latency_network_change_observer_list_;
   observer->observer_list_->AddObserver(observer);
 }
 
@@ -767,6 +772,14 @@ void NetworkChangeNotifier::RemoveNetworkChangeObserver(
   }
 }
 
+void NetworkChangeNotifier::RemoveLowLatencyNetworkChangeObserver(
+    LowLatencyNetworkChangeObserver* observer) {
+  if (observer->observer_list_) {
+    observer->observer_list_->RemoveObserver(observer);
+    observer->observer_list_.reset();
+  }
+}
+
 void NetworkChangeNotifier::RemoveMaxBandwidthObserver(
     MaxBandwidthObserver* observer) {
   if (observer->observer_list_) {
@@ -829,6 +842,13 @@ void NetworkChangeNotifier::NotifyObserversOfNetworkChangeForTests(
     ConnectionType type) {
   if (g_network_change_notifier)
     g_network_change_notifier->NotifyObserversOfNetworkChangeImpl(type);
+}
+
+// static
+void NetworkChangeNotifier::NotifyObserversOfLowLatencyNetworkChangeForTests() {
+  if (g_network_change_notifier) {
+    g_network_change_notifier->NotifyObserversOfLowLatencyNetworkChangeImpl();
+  }
 }
 
 // static
@@ -985,6 +1005,14 @@ void NetworkChangeNotifier::NotifyObserversOfNetworkChange(
 }
 
 // static
+void NetworkChangeNotifier::NotifyObserversOfLowLatencyNetworkChange() {
+  if (g_network_change_notifier &&
+      !NetworkChangeNotifier::test_notifications_only_) {
+    g_network_change_notifier->NotifyObserversOfLowLatencyNetworkChangeImpl();
+  }
+}
+
+// static
 void NetworkChangeNotifier::NotifyObserversOfMaxBandwidthChange(
     double max_bandwidth_mbps,
     ConnectionType type) {
@@ -1046,6 +1074,7 @@ void NetworkChangeNotifier::NotifyObserversOfIPAddressChangeImpl(
   TRACE_EVENT_INSTANT("net", "NetworkChangeNotifier::IPAddressChange", track_);
   GetObserverList().ip_address_observer_list_->Notify(
       FROM_HERE, &IPAddressObserver::OnIPAddressChanged, change_type);
+  NotifyObserversOfLowLatencyNetworkChangeImpl();
 }
 
 void NetworkChangeNotifier::NotifyObserversOfConnectionTypeChangeImpl(
@@ -1054,6 +1083,7 @@ void NetworkChangeNotifier::NotifyObserversOfConnectionTypeChangeImpl(
                       track_, "type", type);
   GetObserverList().connection_type_observer_list_->Notify(
       FROM_HERE, &ConnectionTypeObserver::OnConnectionTypeChanged, type);
+  NotifyObserversOfLowLatencyNetworkChangeImpl();
 }
 
 void NetworkChangeNotifier::NotifyObserversOfNetworkChangeImpl(
@@ -1062,6 +1092,13 @@ void NetworkChangeNotifier::NotifyObserversOfNetworkChangeImpl(
                       "type", type);
   GetObserverList().network_change_observer_list_->Notify(
       FROM_HERE, &NetworkChangeObserver::OnNetworkChanged, type);
+}
+
+void NetworkChangeNotifier::NotifyObserversOfLowLatencyNetworkChangeImpl() {
+  TRACE_EVENT_INSTANT("net", "NetworkChangeNotifier::LowLatencyNetworkChange",
+                      track_);
+  GetObserverList().low_latency_network_change_observer_list_->Notify(
+      FROM_HERE, &LowLatencyNetworkChangeObserver::OnLowLatencyNetworkChanged);
 }
 
 void NetworkChangeNotifier::NotifyObserversOfDNSChangeImpl() {

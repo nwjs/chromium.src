@@ -25,7 +25,6 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerProvider;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
-import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.WindowAndroid;
 
@@ -50,7 +49,7 @@ class AuthenticatorIncognitoConfirmationBottomsheet {
     @VisibleForTesting boolean mIsShowing;
 
     private final BottomSheetObserver mBottomSheetObserver =
-            new EmptyBottomSheetObserver() {
+            new BottomSheetObserver() {
                 @Override
                 public void onSheetStateChanged(int newState, int reason) {
                     if (newState == BottomSheetController.SheetState.HIDDEN) {
@@ -123,6 +122,11 @@ class AuthenticatorIncognitoConfirmationBottomsheet {
                 @Override
                 public @StringRes int getSheetClosedAccessibilityStringId() {
                     return R.string.webauthn_incognito_confirmation_sheet_closed;
+                }
+
+                @Override
+                public boolean showHandlebar() {
+                    return true;
                 }
             };
 

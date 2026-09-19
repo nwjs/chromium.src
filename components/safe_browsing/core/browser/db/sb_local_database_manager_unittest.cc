@@ -13,6 +13,7 @@
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
+#include "base/notreached.h"
 #include "base/run_loop.h"
 #include "base/strings/string_tokenizer.h"
 #include "base/strings/string_view_util.h"
@@ -442,6 +443,11 @@ class TestAllowlistClient : public SafeBrowsingDatabaseManager::Client {
 
   bool callback_called() { return callback_called_; }
 
+  base::WeakPtr<V5GetHashProtocolManager> GetV5GetHashProtocolManager()
+      override {
+    NOTREACHED();
+  }
+
  private:
   const SBThreatType expected_sb_threat_type_;
   const bool match_expected_;
@@ -462,6 +468,11 @@ class TestExtensionClient : public SafeBrowsingDatabaseManager::Client {
 
   bool on_check_extensions_result_called() {
     return on_check_extensions_result_called_;
+  }
+
+  base::WeakPtr<V5GetHashProtocolManager> GetV5GetHashProtocolManager()
+      override {
+    NOTREACHED();
   }
 
  private:
@@ -729,7 +740,7 @@ class SBLocalDatabaseManagerTest_V4V5
       public ::testing::WithParamInterface<bool> {
  public:
   SBLocalDatabaseManagerTest_V4V5() {
-    if (GetParam()) {
+    if (IsV5()) {
       feature_list_.InitAndEnableFeature(kLocalListsUseSBv5);
     } else {
       feature_list_.InitAndDisableFeature(kLocalListsUseSBv5);
@@ -753,8 +764,8 @@ class SBLocalDatabaseManagerTest_V4V5
 TEST_P(SBLocalDatabaseManagerTest_V4V5, TestGetThreatSource) {
   WaitForTasksOnTaskRunner();
   ThreatSource expected_threat_source =
-      GetParam() ? ThreatSource::LOCAL_PVER5_LOCAL_BLOCKLIST
-                 : ThreatSource::LOCAL_PVER4;
+      IsV5() ? ThreatSource::LOCAL_PVER5_LOCAL_BLOCKLIST
+             : ThreatSource::LOCAL_PVER4;
   EXPECT_EQ(expected_threat_source,
             sb_local_database_manager_->GetBrowseUrlThreatSource(
                 CheckBrowseUrlType::kHashDatabase));
@@ -828,7 +839,7 @@ TEST_P(SBLocalDatabaseManagerTest_V4V5,
               std::vector<SBThreatType>{SB_THREAT_TYPE_URL_MALWARE});
   }
 
-  if (GetParam()) {
+  if (IsV5()) {
     histograms.ExpectTotalCount("SafeBrowsing.V5CheckUrl.TimeTaken.LocalLookup",
                                 1);
     histograms.ExpectTotalCount(
@@ -869,6 +880,16 @@ class SBLocalDatabaseManagerTest_V5 : public SBLocalDatabaseManagerTest {
  public:
   SBLocalDatabaseManagerTest_V5() {
     feature_list_.InitAndEnableFeature(kLocalListsUseSBv5);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+class SBLocalDatabaseManagerTest_V4 : public SBLocalDatabaseManagerTest {
+ public:
+  SBLocalDatabaseManagerTest_V4() {
+    feature_list_.InitAndDisableFeature(kLocalListsUseSBv5);
   }
 
  private:
@@ -1070,12 +1091,9 @@ TEST_P(SBLocalDatabaseManagerTest_V4V5, TestCheckCsdAllowlistWithPrefixMatch) {
 
 // This is like CsdAllowlistWithPrefixMatch, but we also verify the
 // full-hash-match results in an appropriate callback value.
-TEST_F(SBLocalDatabaseManagerTest,
+// v4-only because v5's get full hash manager does not support CSD allowlist.
+TEST_F(SBLocalDatabaseManagerTest_V4,
        TestCheckCsdAllowlistWithPrefixTheFullMatch) {
-  // v5's get full hash manager does not support CSD allowlist.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(kLocalListsUseSBv5);
-
   std::string url_safe_no_scheme("example.com/safe/");
   FullHashStr safe_full_hash(std::string(
       base::as_string_view(crypto::hash::Sha256(url_safe_no_scheme))));
@@ -1409,7 +1427,10 @@ TEST_P(SBLocalDatabaseManagerTest_V4V5,
   EXPECT_FALSE(future2.Get<1>());
 }
 
-TEST_F(SBLocalDatabaseManagerTest, TestGetSeverestThreatTypeAndMetadata) {
+// v4-only because the database manager's `GetSeverestThreatTypeAndMetadata` is
+// not used by v5 (the severity is determined in the hash protocol manager
+// directly)
+TEST_F(SBLocalDatabaseManagerTest_V4, TestGetSeverestThreatTypeAndMetadata) {
   WaitForTasksOnTaskRunner();
 
   FullHashStr fh_malware("Malware");
@@ -1472,7 +1493,7 @@ TEST_P(SBLocalDatabaseManagerTest_V4V5, TestChecksAreQueued) {
   // Wait for the DB thread search and UI thread reply callback to execute.
   WaitForTasksOnTaskRunner();
 
-  if (GetParam()) {
+  if (IsV5()) {
     histograms.ExpectTotalCount(
         "SafeBrowsing.V5CheckUrl.TimeTaken.DatabaseNotReadyQueueDelay", 1);
     histograms.ExpectTotalCount("SafeBrowsing.V5CheckUrl.TimeTaken.LocalLookup",
@@ -1930,15 +1951,23 @@ TEST_P(SBLocalDatabaseManagerTest_V4V5, TestSubresourceFilterCallback) {
   }
 }
 
-TEST_F(SBLocalDatabaseManagerTest,
-       TestCheckExtensionIDsNothingBlocklisted_WithNetworkCheck) {
-  // Explicitly disable the features allowing network bypass.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      /*enabled_features=*/{},
-      /*disabled_features=*/{kExtensionBlocklistSkipNetworkQuery,
-                             kLocalListsUseSBv5});
+class SBLocalDatabaseManagerTest_ExtensionNetworkQuery
+    : public SBLocalDatabaseManagerTest {
+ public:
+  SBLocalDatabaseManagerTest_ExtensionNetworkQuery() {
+    // Explicitly disable the features allowing network bypass.
+    feature_list_.InitWithFeatures(
+        /*enabled_features=*/{},
+        /*disabled_features=*/{kExtensionBlocklistSkipNetworkQuery,
+                               kLocalListsUseSBv5});
+  }
 
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_F(SBLocalDatabaseManagerTest_ExtensionNetworkQuery,
+       TestCheckExtensionIDsNothingBlocklisted_WithNetworkCheck) {
   // Setup to receive full-hash misses.
   ScopedFakeGetHashProtocolManagerFactory pin(FullHashInfos({}));
 
@@ -2018,15 +2047,8 @@ TEST_P(SBLocalDatabaseManagerTest_ExtensionSkipNetworkQuery,
   EXPECT_TRUE(client.on_check_extensions_result_called());
 }
 
-TEST_F(SBLocalDatabaseManagerTest,
+TEST_F(SBLocalDatabaseManagerTest_ExtensionNetworkQuery,
        TestCheckExtensionIDsOneIsBlocklisted_WithNetworkCheck) {
-  // Explicitly disable the features allowing network bypass.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      /*enabled_features=*/{},
-      /*disabled_features=*/{kExtensionBlocklistSkipNetworkQuery,
-                             kLocalListsUseSBv5});
-
   // bad_extension_id is in the local DB and the full hash will match.
   const FullHashStr bad_extension_id("aapbdbdomjkkjkaonfhkkikfgjllcleb"),
       good_extension_id("aapbdbdomjkkjkaonfhkkikfgjllclec");
@@ -2089,15 +2111,8 @@ TEST_P(SBLocalDatabaseManagerTest_ExtensionSkipNetworkQuery,
 // real |V4GetHashProtocolManager| instead of |FakeGetHashProtocolManager|. This
 // tests that the values passed into the protocol manager are usable.
 TEST_F(
-    SBLocalDatabaseManagerTest,
+    SBLocalDatabaseManagerTest_ExtensionNetworkQuery,
     TestCheckExtensionIDsOneIsBlocklisted_RealProtocolManager_WithNetworkCheck) {
-  // Explicitly disable the features allowing network bypass.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      /*enabled_features=*/{},
-      /*disabled_features=*/{kExtensionBlocklistSkipNetworkQuery,
-                             kLocalListsUseSBv5});
-
   // bad_extension_id is in the local DB and the full hash will match.
   const FullHashStr bad_extension_id("aapbdbdomjkkjkaonfhkkikfgjllcleb"),
       good_extension_id("aapbdbdomjkkjkaonfhkkikfgjllclec");
@@ -2451,6 +2466,11 @@ class MultipleArtificialMatchesTestClient
 
   bool called() const { return called_; }
 
+  base::WeakPtr<V5GetHashProtocolManager> GetV5GetHashProtocolManager()
+      override {
+    NOTREACHED();
+  }
+
  private:
   GURL expected_url_;
   bool called_ = false;
@@ -2611,7 +2631,7 @@ TEST_P(SBLocalDatabaseManagerTest_V4V5, DatabaseInitializationHistograms) {
   ResetLocalDatabaseManager();
   WaitForTasksOnTaskRunner();
 
-  if (GetParam()) {
+  if (IsV5()) {
     histograms.ExpectTotalCount("SafeBrowsing.V4DatabaseInitializationTime", 0);
     histograms.ExpectTotalCount("SafeBrowsing.V5DatabaseInitializationTime", 1);
   } else {
@@ -2637,22 +2657,16 @@ TEST_P(SBLocalDatabaseManagerTest_V4V5, TimeSinceLastUpdateResponseHistograms) {
 
   histograms.ExpectTotalCount(
       "SafeBrowsing.V5LocalDatabaseManager.TimeSinceLastUpdateResponse",
-      GetParam() ? 1 : 0);
+      IsV5() ? 1 : 0);
   histograms.ExpectTotalCount(
       "SafeBrowsing.V4LocalDatabaseManager.TimeSinceLastUpdateResponse",
-      GetParam() ? 0 : 1);
+      IsV5() ? 0 : 1);
   histograms.ExpectTotalCount(
       "SafeBrowsing.SBLocalDatabaseManager.TimeSinceLastUpdateResponse", 1);
 }
 
-TEST_F(SBLocalDatabaseManagerTest, V5UpdateRequestCompleted) {
+TEST_F(SBLocalDatabaseManagerTest_V5, V5UpdateRequestCompleted) {
   WaitForTasksOnTaskRunner();
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(kLocalListsUseSBv5);
-
-  ResetLocalDatabaseManager();
-  WaitForTasksOnTaskRunner();
-
   ASSERT_TRUE(sb_local_database_manager_->IsDatabaseReady());
 
   std::unique_ptr<StoreStateMap> state_map =

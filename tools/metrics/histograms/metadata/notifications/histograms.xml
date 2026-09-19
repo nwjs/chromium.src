@@ -134,14 +134,25 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Notifications.Android.ImageMemorySizeInKB" units="KB"
+<histogram name="Notifications.Android.ChannelMigration.Result"
+    enum="ChannelMigrationResult" expires_after="2027-09-02">
+  <owner>dibyapal@chromium.org</owner>
+  <owner>pwa-team@chromium.org</owner>
+  <summary>
+    Recorded when notification channels for a site are queried on Android (e.g.
+    when displaying a notification or requesting notification permissions).
+    Measures the migration result of the channel from default priority to high
+    priority, or vice versa, or whether no migration was needed.
+  </summary>
+</histogram>
+
+<histogram name="Notifications.Android.ImageMemorySizeInKB2" units="KB"
     expires_after="2027-05-31">
   <owner>peilinwang@google.com</owner>
   <owner>clank-performance-team@google.com</owner>
   <summary>
-    Record the memory size in KB of notification images. Recorded whenever we
-    try to display a notification with an image on Android with API level
-    greater than or equal to 19.
+    Record the memory size in KB of notification images. Recorded when setting
+    BigPictureStyle in ChromeNotificationWrapperBuilder on Android.
   </summary>
 </histogram>
 
@@ -769,7 +780,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Engagement.{Type}.Volume{Volume}"
-    units="site-engagement-score*2" expires_after="2026-12-16">
+    units="site-engagement-score*2" expires_after="2027-02-14">
   <owner>antoniosartori@chromium.org</owner>
   <owner>feuunk@chromium.org</owner>
   <summary>
@@ -1134,7 +1145,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="Notifications.Scheduler.NotificationLifeCycleEvent{NotificationSchedulerClientType}"
     enum="NotificationSchedulerNotificationLifeCycleEvent"
-    expires_after="2026-12-13">
+    expires_after="2027-02-14">
   <owner>shaktisahu@chromium.org</owner>
   <owner>nyquist@chromium.org</owner>
   <summary>
@@ -1161,7 +1172,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Notifications.Scheduler.Tips.FeatureTypeAction{NotificationTipsFeatureType}"
-    enum="NotificationSchedulerUserActionType" expires_after="2026-12-16">
+    enum="NotificationSchedulerUserActionType" expires_after="2027-02-14">
   <owner>wylieb@google.com</owner>
   <owner>bjfong@google.com</owner>
   <summary>
@@ -1184,7 +1195,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Scheduler.Tips.FeatureTypeShown"
-    enum="TipsNotificationsFeatureType" expires_after="2026-12-16">
+    enum="TipsNotificationsFeatureType" expires_after="2027-02-14">
   <owner>wylieb@google.com</owner>
   <owner>bjfong@google.com</owner>
   <summary>
@@ -1196,7 +1207,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Notifications.Tips.FeatureTipPromo.EventType{NotificationTipsFeatureType}"
-    enum="TipsNotificationsFeatureTipPromoEventType" expires_after="2026-12-16">
+    enum="TipsNotificationsFeatureTipPromoEventType" expires_after="2027-02-14">
   <owner>wylieb@google.com</owner>
   <owner>bjfong@google.com</owner>
   <summary>
@@ -1242,6 +1253,19 @@ chromium-metrics-reviews@google.com.
   <summary>
     Indicates if Chrome is using system notifications or the Chrome notification
     center. Logged on each start up.
+  </summary>
+</histogram>
+
+<histogram name="Notifications.Webapk.ChannelMigration.Result"
+    enum="ChannelMigrationResult" expires_after="2027-09-02">
+  <owner>dibyapal@chromium.org</owner>
+  <owner>pwa-team@chromium.org</owner>
+  <summary>
+    Recorded when a notification channel for a WebAPK is resolved on Android
+    (e.g. when displaying a WebAPK notification or requesting notification
+    permissions). Measures whether the WebAPK's notification channel migrated
+    from default priority to high priority, from high priority to default
+    priority, or whether no migration was needed.
   </summary>
 </histogram>
 

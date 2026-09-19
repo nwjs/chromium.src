@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/side_panel/side_panel_enums.h"
@@ -61,19 +60,18 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, SpeechPresentationRules) {
                    "mocha.run()");
 }
 
-// TODO(crbug.com/502069860): Re-enable after fixing flakiness.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_NodeStore DISABLED_NodeStore
-#else
-#define MAYBE_NodeStore NodeStore
-#endif
-IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, MAYBE_NodeStore) {
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, NodeStore) {
   RunSidePanelTest("side_panel/read_anything/node_store_test.js",
                    "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, SpeechControllerContent) {
   RunSidePanelTest("side_panel/read_anything/speech_controller_content_test.js",
+                   "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, AudioMenu) {
+  RunSidePanelTest("side_panel/read_anything/audio_menu_test.js",
                    "mocha.run()");
 }
 
@@ -107,12 +105,6 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, WordBoundariesUsedForSpeech) {
                    "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, UpdateContentIntegration) {
-  RunSidePanelTest(
-      "side_panel/read_anything/update_content_integration_test.js",
-      "mocha.run()");
-}
-
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, Highlighter) {
   RunSidePanelTest("side_panel/read_anything/highlighter_test.js",
                    "mocha.run()");
@@ -138,23 +130,11 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, SpeechController) {
                    "mocha.run()");
 }
 
-// TODO(crbug.com/502069860): Re-enable after fixing flakiness.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_Common DISABLED_Common
-#else
-#define MAYBE_Common Common
-#endif
-IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, MAYBE_Common) {
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, Common) {
   RunSidePanelTest("side_panel/read_anything/common_test.js", "mocha.run()");
 }
 
-// TODO(crbug.com/502069860): Re-enable after fixing flakiness.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_RectCalculations DISABLED_RectCalculations
-#else
-#define MAYBE_RectCalculations RectCalculations
-#endif
-IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, MAYBE_RectCalculations) {
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, RectCalculations) {
   RunSidePanelTest("side_panel/read_anything/rect_calculations_test.js",
                    "mocha.run()");
 }
@@ -243,8 +223,7 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, LineSpacing) {
                    "mocha.run()");
 }
 
-// TODO(crbug.com/501840500): It is flaky on all platforms.
-IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, DISABLED_Movement) {
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, Movement) {
   RunSidePanelTest("side_panel/read_anything/movement_test.js", "mocha.run()");
 }
 
@@ -263,6 +242,16 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, AppStyleUpdater) {
                    "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, LanguageDisplay) {
+  RunSidePanelTest("side_panel/read_anything/language_display_test.js",
+                   "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, AccentMenu) {
+  RunSidePanelTest("side_panel/read_anything/accent_menu_test.js",
+                   "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, LanguageMenu) {
   RunSidePanelTest("side_panel/read_anything/language_menu_test.js",
                    "mocha.run()");
@@ -277,20 +266,10 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, RateMenu) {
   RunSidePanelTest("side_panel/read_anything/rate_menu_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, ToolbarOverflow) {
-  RunSidePanelTest("side_panel/read_anything/toolbar_overflow_test.js",
-                   "mocha.run()");
-}
-
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, SpeechUsesMaxTextLength) {
   RunSidePanelTest(
       "side_panel/read_anything/speech_uses_max_text_length_test.js",
       "mocha.run()");
-}
-
-IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, ReadAloudHighlight) {
-  RunSidePanelTest("side_panel/read_anything/read_aloud_highlighting_test.js",
-                   "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, LineFocusController) {
@@ -303,13 +282,7 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, LineFocusStyleMode) {
                    "mocha.run()");
 }
 
-// TODO(crbug.com/502069860): Re-enable after fixing flakiness.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_LineFocusMoveMode DISABLED_LineFocusMoveMode
-#else
-#define MAYBE_LineFocusMoveMode LineFocusMoveMode
-#endif
-IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, MAYBE_LineFocusMoveMode) {
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, LineFocusMoveMode) {
   RunSidePanelTest("side_panel/read_anything/line_focus_move_mode_test.js",
                    "mocha.run()");
 }
@@ -354,11 +327,6 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, SettingsMenu) {
                    "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, ToolbarSettingsMenu) {
-  RunSidePanelTest("side_panel/read_anything/toolbar_settings_menu_test.js",
-                   "mocha.run()");
-}
-
 class ReadAnythingWithReadabilityMochaTest
     : public ReadAnythingMochaBrowserTest {
  protected:
@@ -371,14 +339,8 @@ class ReadAnythingWithReadabilityMochaTest
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-// TODO(https://crbug.com/502274118): Flaky on some windows builders.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_ReadabilityImageClassifier DISABLED_ReadabilityImageClassifier
-#else
-#define MAYBE_ReadabilityImageClassifier ReadabilityImageClassifier
-#endif
 IN_PROC_BROWSER_TEST_F(ReadAnythingWithReadabilityMochaTest,
-                       MAYBE_ReadabilityImageClassifier) {
+                       ReadabilityImageClassifier) {
   RunSidePanelTest(
       "side_panel/read_anything/readability_image_classifier_test.js",
       "mocha.run()");
@@ -388,12 +350,5 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingWithReadabilityMochaTest,
                        ReadabilityContentProcessing) {
   RunSidePanelTest(
       "side_panel/read_anything/readability_content_processing_test.js",
-      "mocha.run()");
-}
-
-IN_PROC_BROWSER_TEST_F(ReadAnythingWithReadabilityMochaTest,
-                       ReadabilityAnchorsIntegration) {
-  RunSidePanelTest(
-      "side_panel/read_anything/readability_anchors_integration_test.js",
       "mocha.run()");
 }

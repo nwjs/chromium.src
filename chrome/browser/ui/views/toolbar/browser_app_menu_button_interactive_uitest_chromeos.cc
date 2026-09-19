@@ -5,12 +5,12 @@
 #include "base/files/file_path.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar/app_menu_control.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
-#include "chrome/test/base/chrome_test_utils.h"
+#include "chrome/test/base/chrome_test_path_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -64,7 +64,7 @@ class BrowserAppMenuButtonVirtualKeyboardBrowserTest
         base::FilePath("chromeos/virtual_keyboard"),
         base::FilePath("form.html"));
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), test_url));
-    web_contents_ = browser()->tab_strip_model()->GetActiveWebContents();
+    web_contents_ = browser()->GetTabStripModel()->GetActiveWebContents();
     ASSERT_TRUE(web_contents_);
 
     // TODO(crbug.com/40233608): Make it work without needing a fake controller.

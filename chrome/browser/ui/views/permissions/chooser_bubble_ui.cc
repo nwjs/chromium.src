@@ -21,18 +21,20 @@
 #include "chrome/browser/ui/views/location_bar/location_bar_bubble_delegate_view.h"
 #include "chrome/browser/ui/views/title_origin_label.h"
 #include "components/permissions/chooser_controller.h"
+#include "components/tabs/public/tab_interface.h"
 #include "extensions/buildflags/buildflags.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/display/types/display_constants.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/bubble/bubble_frame_view.h"
+#include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/table/table_view_observer.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/widget/widget.h"
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "chrome/browser/ui/extensions/extensions_dialogs.h"
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "chrome/browser/ui/views/extensions/chooser_dialog_view.h"
 #include "chrome/browser/ui/views/extensions/extensions_container_views.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
@@ -224,7 +226,7 @@ namespace chrome {
 
 namespace {
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 base::OnceClosure ShowDeviceChooserDialogForExtension(
     content::RenderFrameHost* owner,
     const extensions::Extension* extension,
@@ -236,7 +238,8 @@ base::OnceClosure ShowDeviceChooserDialogForExtension(
     return base::DoNothing();
   }
 
-  if (browser->GetTabStripModel()->GetActiveWebContents() != contents) {
+  if (!browser->GetActiveTabInterface() ||
+      browser->GetActiveTabInterface()->GetContents() != contents) {
     return base::DoNothing();
   }
 
@@ -265,7 +268,7 @@ base::OnceClosure ShowDeviceChooserDialogForExtension(
       extension->id());
   return close_closure;
 }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 }  // namespace
 
@@ -274,7 +277,7 @@ base::OnceClosure ShowDeviceChooserDialog(
     std::unique_ptr<permissions::ChooserController> controller) {
   auto* contents = content::WebContents::FromRenderFrameHost(owner);
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   auto* browser_context = owner->GetBrowserContext();
   if (extensions::AppWindowRegistry::Get(browser_context)
           ->GetAppWindowForWebContents(contents)) {
@@ -310,7 +313,7 @@ base::OnceClosure ShowDeviceChooserDialog(
                                                  std::move(controller));
     }
   }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
   auto* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
@@ -318,7 +321,8 @@ base::OnceClosure ShowDeviceChooserDialog(
     return base::DoNothing();
   }
 
-  if (browser->GetTabStripModel()->GetActiveWebContents() != contents) {
+  if (!browser->GetActiveTabInterface() ||
+      browser->GetActiveTabInterface()->GetContents() != contents) {
     return base::DoNothing();
   }
 

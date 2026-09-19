@@ -163,8 +163,8 @@ inline bool Quarantine(void* object, size_t object_size, size_t alignment) {
     return false;
   }
 
-  partition_alloc::internal::UntaggedSlotStart slot_start =
-      partition_alloc::internal::SlotStart::Unchecked(object).Untag();
+  partition_alloc::UntaggedSlotStart slot_start =
+      partition_alloc::SlotStart::Unchecked(object).Untag();
 
   // TODO(yukishiino): It may and may not be more performative to get the root
   // via `FromAddrInFirstSuperpage(internal::ObjectPtr2Addr(object))`.
@@ -271,6 +271,7 @@ AllocatorDispatch allocator_dispatch = {
     nullptr,  // alloc_zero_initialized_function
     nullptr,  // alloc_zero_initialized_unchecked_function
     nullptr,  // alloc_aligned_function
+    nullptr,  // alloc_aligned_unchecked_function
     // realloc doesn't always deallocate memory, so the Extreme LUD doesn't
     // support realloc.
     nullptr,                     // realloc_function

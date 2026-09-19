@@ -15,7 +15,7 @@
 #include "chrome/browser/autofill/android/entity_type_android.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
-#include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
+#include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_util.h"
 #include "third_party/jni_zero/jni_zero.h"
 
 class GoogleGroupsManager;
@@ -137,6 +137,12 @@ class EntityDataManagerAndroid : public EntityDataManager::Observer {
   // TODO(crbug.com/468236777): Return `ModelExecutionEnterprisePolicyValue`
   // enum instead of having a specific method to check the policy pref state.
   bool GetIsAutofillAiDisabledByEnterprisePolicy(JNIEnv* env);
+
+  // Checks whether a specific Autofill AI entity type is disabled by enterprise
+  // policy.
+  bool GetIsAutofillAiEntityTypeDisabledByEnterprisePolicy(
+      JNIEnv* env,
+      int entity_type_name);
 
   // Checks whether Autofill AI is enabled by enterprise policy including
   // logging.

@@ -24,6 +24,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/page_content_annotations/page_content_annotations_service_factory.h"
+#include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -31,6 +32,8 @@
 #include "components/optimization_guide/proto/features/contextual_cueing.pb.h"
 #include "components/pdf/common/constants.h"
 #include "components/prefs/pref_service.h"
+#include "components/sync/service/sync_service.h"
+#include "components/sync/service/sync_user_settings.h"
 #include "components/tabs/public/tab_handle_factory.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
@@ -78,6 +81,10 @@ GlicCueTarget::~GlicCueTarget() = default;
 
 contextual_cueing::CueTargetType GlicCueTarget::GetType() const {
   return contextual_cueing::CueTargetType::kGlic;
+}
+
+bool GlicCueTarget::RequiresModelExecution() const {
+  return true;
 }
 
 void GlicCueTarget::CheckEligibility(
@@ -142,15 +149,26 @@ bool GlicCueTarget::IsEligible() const {
   if (!window) {
     return false;
   }
+  syncer::SyncService* sync_service =
+      SyncServiceFactory::GetForProfile(tab_->GetProfile());
+  if (!sync_service || !sync_service->GetUserSettings()->GetSelectedTypes().Has(
+                           syncer::UserSelectableType::kHistory)) {
+    return false;
+  }
   return GlicEnabling::IsEnabledForProfile(tab_->GetProfile()) &&
          tab_->GetProfile()->GetPrefs()->GetBoolean(
              prefs::kGlicPinnedToTabstrip) &&
          !glic_keyed_service_->IsPanelShowingForBrowser(*window);
 }
 
-void GlicCueTarget::OnClick(contextual_cueing::CueActionData data) {
+void GlicCueTarget::OnAnchoredMessageClicked(
+    contextual_cueing::CueActionData data) {
   InvokeGlic(std::move(data), base::FeatureList::IsEnabled(
                                   features::kGlicContextualCueingV2AutoSubmit));
+}
+
+bool GlicCueTarget::SupportsEditPrompt() const {
+  return true;
 }
 
 void GlicCueTarget::OnEditPrompt(contextual_cueing::CueActionData data) {
@@ -178,6 +196,11 @@ void GlicCueTarget::InvokeGlic(contextual_cueing::CueActionData data,
                                           GlicPinTrigger::kContextualCue);
 
   if (should_autosubmit) {
+    if (!GlicEnabling::HasConsentedForProfile(glic_keyed_service_->profile()) &&
+        base::FeatureList::IsEnabled(
+            features::kGlicMessageFirstFreForContextualCue)) {
+      options.fre_override = mojom::FreOverride::kTrustFirstInline;
+    }
     glic_keyed_service_->InvokeWithAutoSubmit(
         InvokeWithAutoSubmitPasskeyProvider::GetPassKey(), std::move(options));
   } else {
@@ -202,7 +225,7 @@ ui::ImageModel GlicCueTarget::GetOmniboxChipIcon() const {
 #else
   return ui::ImageModel::FromVectorIcon(
       glic::GlicVectorIconManager::GetVectorIcon(IDR_GLIC_BUTTON_VECTOR_ICON),
-      ui::kColorSysOnSurface, 18);
+      ui::kColorSysOnSurface, 16);
 #endif
 }
 

@@ -108,6 +108,7 @@ android_library("java") {
     "java/src/org/chromium/components/browser_ui/widget/image_tiles/TileViewHolderFactory.java",
     "java/src/org/chromium/components/browser_ui/widget/impression/ImpressionTracker.java",
     "java/src/org/chromium/components/browser_ui/widget/impression/OneShotImpressionListener.java",
+    "java/src/org/chromium/components/browser_ui/widget/list_view/AppMenuListView.java",
     "java/src/org/chromium/components/browser_ui/widget/list_view/ListViewTouchTracker.java",
     "java/src/org/chromium/components/browser_ui/widget/list_view/TouchTrackingListView.java",
     "java/src/org/chromium/components/browser_ui/widget/loading/LoadingFullscreenCoordinator.java",
@@ -156,6 +157,7 @@ android_library("java") {
   deps = [
     ":java_resources",
     "//base:base_java",
+    "//base:tristate_java",
     "//build/android:build_java",
     "//chrome/browser/flags:java",
     "//components/browser_ui/styles/android:java",
@@ -431,11 +433,13 @@ android_library("unit_device_javatests") {
     "java/src/org/chromium/components/browser_ui/widget/containment/ContainmentItemControllerTest.java",
     "java/src/org/chromium/components/browser_ui/widget/dragreorder/DragReorderableRecyclerViewAdapterTest.java",
     "java/src/org/chromium/components/browser_ui/widget/highlight/ViewHighlighterTest.java",
+    "java/src/org/chromium/components/browser_ui/widget/list_view/AppMenuListViewTest.java",
     "java/src/org/chromium/components/browser_ui/widget/list_view/TouchTrackingListViewTest.java",
     "java/src/org/chromium/components/browser_ui/widget/listmenu/BrowserUiListMenuRenderTest.java",
     "java/src/org/chromium/components/browser_ui/widget/promo/PromoCardImpressionTest.java",
     "java/src/org/chromium/components/browser_ui/widget/promo/PromoCardViewRenderTest.java",
     "java/src/org/chromium/components/browser_ui/widget/scrim/ScrimTest.java",
+    "java/src/org/chromium/components/browser_ui/widget/search/SearchBoxViewRenderTest.java",
   ]
   deps = [
     ":java",

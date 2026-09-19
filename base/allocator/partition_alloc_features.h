@@ -126,13 +126,6 @@ enum class MemtagMode {
   kAsync,
 };
 
-enum class RetagMode {
-  // Allocations are retagged by incrementing the current tag.
-  kIncrement,
-
-  // Allocations are retagged with a random tag.
-  kRandom,
-};
 
 using MemoryTaggingEnabledProcesses = internal::PAFeatureEnabledProcesses;
 
@@ -156,7 +149,6 @@ BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
     kBackupRefPtrSuppressCorruptionDetectedCrash);
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocMemoryTagging);
 BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(MemtagMode, kMemtagModeParam);
-BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(RetagMode, kRetagModeParam);
 BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(MemoryTaggingEnabledProcesses,
                                        kMemoryTaggingEnabledProcessesParam);
 // Kill switch for memory tagging. Skips any code related to memory tagging when
@@ -196,10 +188,6 @@ BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocSortSmallerSlotSpanFreeLists);
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocSortActiveSlotSpans);
 
-#if BUILDFLAG(IS_WIN)
-BASE_EXPORT BASE_DECLARE_FEATURE(kPageAllocatorRetryOnCommitFailure);
-#endif
-
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
 BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
     bool,
@@ -226,6 +214,7 @@ BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocUseSmallSingleSlotSpans);
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocUsePriorityInheritanceLocks);
 #endif  // PA_BUILDFLAG(ENABLE_PARTITION_LOCK_PRIORITY_INHERITANCE)
 
+BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocTighterAlignedAllocBound);
 
 }  // namespace base::features
 

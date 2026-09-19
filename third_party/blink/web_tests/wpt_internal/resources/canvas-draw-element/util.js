@@ -136,24 +136,21 @@ void main(){
     const internalformat = gl.RGBA8;
 
     const config = {};
-    let hasConfig = false;
     if (explicitSourceRect) {
       config.sx = sx;
       config.sy = sy;
       config.swidth = swidth;
       config.sheight = sheight;
-      hasConfig = true;
     }
     if (explicitScale) {
       config.width = destWidth;
       config.height = destHeight;
-      hasConfig = true;
     }
-    if (hasConfig) {
-      gl.texElementImage2D(gl.TEXTURE_2D, internalformat, target, config);
-    } else {
-      gl.texElementImage2D(gl.TEXTURE_2D, internalformat, target);
-    }
+    // Allocate texture backing
+    gl.texImage2D(gl.TEXTURE_2D, 0, internalformat, destWidth, destHeight, 0,
+                  gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texElementSubImage2D(gl.TEXTURE_2D, /*level*/ 0, /*xoffset*/ 0,
+                            /*yoffset*/ 0, target, config);
 
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -212,24 +209,21 @@ void main(){
 
     if (target instanceof Element) {
       const config = {};
-      let hasConfig = false;
       if (explicitSourceRect) {
         config.sx = sx;
         config.sy = sy;
         config.swidth = swidth;
         config.sheight = sheight;
-        hasConfig = true;
       }
       if (explicitScale) {
         config.width = destWidth;
         config.height = destHeight;
-        hasConfig = true;
       }
-      if (hasConfig) {
-        gl.texElementImage2D(gl.TEXTURE_2D, internalformat, target, config);
-      } else {
-        gl.texElementImage2D(gl.TEXTURE_2D, internalformat, target);
-      }
+      // Allocate texture backing
+      gl.texImage2D(gl.TEXTURE_2D, 0, internalformat, destWidth, destHeight, 0,
+                    gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texElementSubImage2D(gl.TEXTURE_2D, /*level*/ 0, /*xoffset*/ 0,
+                              /*yoffset*/ 0, target, config);
     }
 
     if (target instanceof ImageData) {
@@ -249,10 +243,14 @@ void main(){
 function copyElementImageToWebGPUCanvas(queue, ctx, target, scaleX, scaleY,
                                         sx, sy, swidth, sheight) {
   const sourceDict = { source: target };
-  if (sx !== undefined) sourceDict.sx = sx;
-  if (sy !== undefined) sourceDict.sy = sy;
-  if (swidth !== undefined) sourceDict.swidth = swidth;
-  if (sheight !== undefined) sourceDict.sheight = sheight;
+  if (sx !== undefined)
+    sourceDict.sourceX = sx;
+  if (sy !== undefined)
+    sourceDict.sourceY = sy;
+  if (swidth !== undefined)
+    sourceDict.sourceWidth = swidth;
+  if (sheight !== undefined)
+    sourceDict.sourceHeight = sheight;
 
   const destDict = { destination: { texture: ctx.getCurrentTexture() } };
 
@@ -270,7 +268,7 @@ function copyElementImageToWebGPUCanvas(queue, ctx, target, scaleX, scaleY,
     destDict.height = destHeight;
   }
 
-  queue.copyElementImageToTexture(sourceDict, destDict);
+  queue.drawElementImageToTexture(sourceDict, destDict);
 }
 
 export { getPixelFromImageData,

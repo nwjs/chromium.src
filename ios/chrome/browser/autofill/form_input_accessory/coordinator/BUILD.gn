@@ -16,6 +16,7 @@ source_set("coordinator") {
     "//base",
     "//components/autofill/core/browser",
     "//components/autofill/ios/browser",
+    "//components/autofill/ios/common",
     "//components/autofill/ios/form_util",
     "//components/feature_engagement/public",
     "//components/omnibox/browser",
@@ -73,6 +74,7 @@ source_set("coordinator") {
     "//ios/web/common",
     "//ios/web/public",
     "//ios/web/public/js_messaging",
+    "//url",
   ]
 }
 

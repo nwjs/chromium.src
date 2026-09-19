@@ -75,6 +75,10 @@
 #include "ui/views/test/widget_activation_waiter.h"
 #include "ui/views/widget/widget.h"
 
+#if BUILDFLAG(IS_OZONE)
+#include "ui/ozone/public/ozone_platform.h"
+#endif
+
 #if BUILDFLAG(IS_MAC)
 #include "base/mac/mac_util.h"
 #endif
@@ -246,7 +250,7 @@ class BrowserFocusTest : public InteractiveBrowserTest {
     return focus_manager;
   }
 
-  views::Widget* GetWidgetForBrowser(Browser* browser) {
+  views::Widget* GetWidgetForBrowser(BrowserWindowInterface* browser) {
     BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
     CHECK(browser_view);
     views::Widget* widget = browser_view->GetWidget();
@@ -258,6 +262,43 @@ class BrowserFocusTest : public InteractiveBrowserTest {
   base::test::ScopedFeatureList scoped_feature_list_;
   constexpr static size_t kMaxIterations = 20;
 };
+
+// Test that adding a new foreground tab to a background (inactive) window
+// activates that window, while adding a background tab does not.
+IN_PROC_BROWSER_TEST_F(BrowserFocusTest,
+                       BackgroundWindowActivatedOnNewForegroundTab) {
+#if BUILDFLAG(IS_OZONE)
+  // TODO(crbug.com/430097333): Wayland doesn't support programmatic window
+  // activation. Re-enable when activation is supported.
+  if (::ui::OzonePlatform::RunningOnWaylandForTest()) {
+    GTEST_SKIP() << "Wayland doesn't support programmatic window activation";
+  }
+#endif
+
+  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
+  EXPECT_TRUE(browser()->GetWindow()->IsActive());
+
+  // Create a second browser window and activate it.
+  BrowserWindowInterface* browser2 =
+      chrome::OpenEmptyWindow(browser()->GetProfile());
+  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser2));
+  EXPECT_TRUE(browser2->GetWindow()->IsActive());
+  EXPECT_FALSE(browser()->GetWindow()->IsActive());
+
+  // Adding a background tab to the inactive window should not activate it.
+  chrome::AddTabAt(browser(), GURL(chrome::kChromeUINewTabURL), -1,
+                   /*foreground=*/false);
+  EXPECT_FALSE(browser()->GetWindow()->IsActive());
+  EXPECT_TRUE(browser2->GetWindow()->IsActive());
+
+  // Adding a foreground tab to the inactive window should activate it.
+  ui_test_utils::BrowserActivationWaiter activation_waiter(browser());
+  chrome::AddTabAt(browser(), GURL(chrome::kChromeUINewTabURL), -1,
+                   /*foreground=*/true, std::nullopt, /*pinned=*/false,
+                   NavigateParams::WindowAction::kShowWindow);
+  activation_waiter.WaitForActivation();
+  EXPECT_TRUE(browser()->GetWindow()->IsActive());
+}
 
 IN_PROC_BROWSER_TEST_F(BrowserFocusTest, ClickingMovesFocus) {
   RunTestSequence(
@@ -434,10 +475,9 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, BackgroundBrowserDontStealFocus) {
   ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
 
   // Open a new browser window.
-  Browser* background_browser =
-      CreateBrowserWindow(BrowserWindowCreateParams(browser()->GetProfile(),
-                                                    /*from_user_gesture=*/true))
-          ->GetBrowserForMigrationOnly();
+  BrowserWindowInterface* background_browser =
+      CreateBrowserWindow(BrowserWindowCreateParams(
+          browser()->GetProfile(), /*from_user_gesture=*/true));
   chrome::AddTabAt(background_browser, GURL(), -1, true);
   background_browser->GetWindow()->Show();
 
@@ -457,7 +497,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, BackgroundBrowserDontStealFocus) {
   ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
   EXPECT_TRUE(browser()->GetWindow()->IsActive());
   ASSERT_TRUE(content::ExecJs(
-      background_browser->tab_strip_model()->GetActiveWebContents(),
+      background_browser->GetTabStripModel()->GetActiveWebContents(),
       "stealFocus();"));
 
   // Try flushing tasks. Note that on Mac and Desktop Linux, window activation
@@ -510,7 +550,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, FocusTraversal) {
   ASSERT_TRUE(IsViewFocused(VIEW_ID_OMNIBOX));
 
   // Simulate ESC being pressed to close the omnibox suggestions popup.
-  browser()->GetFeatures().omnibox_popup_closer()->CloseWithReason(
+  omnibox::OmniboxPopupCloser::From(browser())->CloseWithReason(
       omnibox::PopupCloseReason::kEscapeKeyPressed);
 
   // Loop through the focus chain twice in each direction for good measure.
@@ -816,7 +856,8 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, NoFocusForBackgroundNTP) {
 // TODO(crbug.com/40794922): Flaky on Linux.
 // TODO(crbug.com/41493632): Broken since CR2023.
 IN_PROC_BROWSER_TEST_F(BrowserFocusTest, DISABLED_PopupLocationBar) {
-  Browser* popup_browser = CreateBrowserForPopup(browser()->GetProfile());
+  BrowserWindowInterface* popup_browser =
+      CreateBrowserForPopup(browser()->GetProfile());
 
   // Make sure the popup is in the front. Otherwise the test is flaky.
   ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(popup_browser));
@@ -848,7 +889,8 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, DISABLED_PopupLocationBar) {
 // Tests that the location bar is not focusable when hidden, which is the case
 // in app windows.
 IN_PROC_BROWSER_TEST_F(BrowserFocusTest, AppLocationBar) {
-  Browser* app_browser = CreateBrowserForApp("foo", browser()->GetProfile());
+  BrowserWindowInterface* app_browser =
+      CreateBrowserForApp("foo", browser()->GetProfile());
 
   // Make sure the app window is in the front. Otherwise the test is flaky.
   ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(app_browser));

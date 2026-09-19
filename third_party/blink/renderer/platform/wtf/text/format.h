@@ -19,6 +19,7 @@
 #include "third_party/blink/renderer/platform/wtf/text/ascii_ctype.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_view.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
+#include "third_party/blink/renderer/platform/wtf/text/wtf_uchar.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_export.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
 
@@ -44,10 +45,15 @@ consteval void FormatStringError(const char* message) {
 // `VFormat()`, and `VFormatTo()` and is not intended for direct public usage.
 class WTF_EXPORT FormatArg {
  public:
-  using Value =
-      std::variant<int64_t, uint64_t, StringView, const void*, double>;
+  using Value = std::
+      variant<bool, int64_t, uint64_t, StringView, const void*, double, UChar>;
 
   // NOLINTBEGIN(google-explicit-constructor)
+  FormatArg(bool v) : value_(v) {}
+  FormatArg(char v)
+      : value_(static_cast<UChar>(static_cast<unsigned char>(v))) {}
+  FormatArg(LChar v) : value_(static_cast<UChar>(v)) {}
+  FormatArg(UChar v) : value_(v) {}
   FormatArg(int v) : value_(static_cast<int64_t>(v)) {}
   FormatArg(unsigned int v) : value_(static_cast<uint64_t>(v)) {}
   FormatArg(long v) : value_(static_cast<int64_t>(v)) {}
@@ -126,7 +132,7 @@ constexpr std::optional<ParsedInteger> ParseInteger(
 }
 
 struct ParsedFormatSpec {
-  uint32_t width = 0;
+  std::optional<uint32_t> width;
   std::optional<uint32_t> precision;
   char type = '\0';
   size_t next_index = 0;
@@ -143,7 +149,10 @@ constexpr std::optional<ParsedFormatSpec> ParseFormatSpec(
   if (!width_parsed.has_value()) {
     return std::nullopt;
   }
-  uint32_t width = width_parsed->value;
+  std::optional<uint32_t> width;
+  if (width_parsed->next_index > start_index) {
+    width = width_parsed->value;
+  }
   SizeType i = static_cast<SizeType>(width_parsed->next_index);
   auto len = format.length();
 
@@ -172,7 +181,7 @@ constexpr std::optional<ParsedFormatSpec> ParseFormatSpec(
 
   if (type != '\0' && type != 'd' && type != 'x' && type != 'X' &&
       type != 's' && type != 'p' && type != 'P' && type != 'e' && type != 'E' &&
-      type != 'f' && type != 'F' && type != 'g' && type != 'G') {
+      type != 'f' && type != 'F' && type != 'g' && type != 'G' && type != 'c') {
     return std::nullopt;
   }
 
@@ -213,8 +222,10 @@ class FormatString {
             FormatStringError(
                 "Invalid format string: invalid format specifier");
           }
-          if (parsed->precision.has_value() || parsed->type != '\0') {
+          if (parsed->width.has_value() || parsed->precision.has_value() ||
+              parsed->type != '\0') {
             if (!CheckArgTypeAtIndex(brace_count, parsed->type,
+                                     parsed->width.has_value(),
                                      parsed->precision.has_value())) {
               FormatStringError(
                   "Invalid format string: argument type mismatch for type "
@@ -248,16 +259,25 @@ class FormatString {
  private:
   static consteval bool CheckArgTypeAtIndex(size_t index,
                                             char type,
+                                            bool has_width,
                                             bool has_precision) {
     size_t current = 0;
     bool valid = true;
     auto check = [&](auto dummy) {
       using RawT = std::remove_cvref_t<typename decltype(dummy)::type>;
       if (current == index) {
+        bool is_uchar = std::is_same_v<RawT, char> ||
+                        std::is_same_v<RawT, LChar> ||
+                        std::is_same_v<RawT, UChar>;
+
         if (type == 'd' || type == 'x' || type == 'X') {
           valid = std::is_integral_v<RawT> || std::is_enum_v<RawT>;
+        } else if (type == 'c') {
+          valid = (std::is_integral_v<RawT> && !std::is_same_v<RawT, bool>) ||
+                  std::is_enum_v<RawT>;
         } else if (type == 's') {
-          valid = std::convertible_to<const RawT&, StringView> ||
+          valid = std::is_same_v<RawT, bool> ||
+                  std::convertible_to<const RawT&, StringView> ||
                   std::convertible_to<const RawT&, std::string_view>;
         } else if (type == 'p' || type == 'P') {
           valid = (std::convertible_to<RawT, const void*> &&
@@ -267,6 +287,12 @@ class FormatString {
         } else if (type == 'e' || type == 'E' || type == 'f' || type == 'F' ||
                    type == 'g' || type == 'G') {
           valid = std::is_floating_point_v<RawT>;
+        }
+
+        if (type == 'c' || (is_uchar && type == '\0')) {
+          if (has_width || has_precision) {
+            valid = false;
+          }
         }
 
         if (has_precision) {
@@ -328,15 +354,25 @@ WTF_EXPORT StringBuilder& VFormatTo(StringBuilder& builder,
 // - Placeholders: Unindexed `{}` or `{:}` and width-specified `{:width}` or
 //   zero-padded `{:0width}` (where width is a 32-bit unsigned integer) with
 //   an optional precision specifier `:.precision` (for floating-point types
-//   only), and an optional type specifier `d`, `x`, `X`, `s`, `p`, `P`, `e`,
-//   `E`, `f`, `F`, `g`, `G` (e.g. `{:d}`, `{:08x}`, `{:p}`, `{:.2f}`, `{:E}`)
-//   are supported. Positional (e.g. `{0}`) format specifiers are currently not
-//   supported.
+//   only), and an optional type specifier `c`, `d`, `x`, `X`, `s`, `p`, `P`,
+//   `e`, `E`, `f`, `F`, `g`, `G` (e.g. `{:d}`, `{:08x}`, `{:p}`, `{:.2f}`,
+//   `{:c}`) are supported.
+//   Positional (e.g. `{0}`) format specifiers are currently not supported.
+//   Width and precision are forbidden for the `c` type specifier and for
+//   character types without a type specifier.
 // - Escaping: `{{` outputs `{`, and `}}` outputs `}`.
 //
 // Supported Argument Types:
+// - Character types: `char`, `LChar`, `UChar`. If no type specifier is given,
+//   they are formatted as characters. They can also be formatted as integers
+//   using `d`, `x`, `X`.
 // - Integral types: `int32_t`, `uint32_t`, `int64_t`, `uint64_t` (and
-//   implicitly convertible types).
+//   implicitly convertible types). The `c` specifier formats integral types as
+//   characters. A CHECK failure occurs if the value is negative or exceeds
+//   0x10FFFF.
+// - Boolean type: `bool`. If no type specifier or `s` is given, it is formatted
+//   as "true" or "false". It can also be formatted as an integer using `d`,
+//   `x`, `X`.
 // - Floating-point types: `double` (and implicitly convertible types).
 // - String types: `blink::StringView`, `blink::String`, `blink::AtomicString`,
 //   `std::string`, `std::string_view`, `const char[N]`.
@@ -366,6 +402,20 @@ WTF_EXPORT StringBuilder& VFormatTo(StringBuilder& builder,
 // If the number of `{}` placeholders does not match the number of arguments,
 // or if braces are unclosed or unmatched, a compile-time error will be raised.
 // Specifying precision for non-floating-point types will also raise an error.
+//
+// Unsupported Features:
+// The following features are currently not supported.
+// Contributions are welcome if features are needed:
+// - Non-Latin-1 format strings
+// - Positional arguments (e.g. `{2}`)
+// - Fill-and-align (e.g. `{: >}`)
+// - Sign (e.g. `{:+}`)
+// - Alternate form (e.g. `{:#}`)
+// - Locale-specific formatting (e.g. `{:L}`)
+// - Certain type specifiers: `?`, `b`, `B`, `o`, `a`, `A`, `m`, `n`
+// - Nested replacement fields (e.g. `{:{}d}`)
+// - Range, pair, and tuple arguments
+// - `std::formatter`
 template <typename... Args>
 inline String Format(FormatString<std::type_identity_t<Args>...> format,
                      Args&&... args) {

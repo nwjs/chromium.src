@@ -63,6 +63,7 @@
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
 #include "ui/gfx/geometry/size.h"
@@ -152,26 +153,25 @@ void MaybeLogStreamDevice(const int32_t& request_id,
 std::string GetTrackLogString(int32_t request_id,
                               MediaStreamComponent* component,
                               bool is_pending) {
-  String str = String::Format(
-      "StartAudioTrack({track=[request_id = %d, id: %s, enabled: %d]}, "
-      "{is_pending=%d})",
-      request_id, component->Id().Utf8().c_str(), component->Enabled(),
-      is_pending);
+  String str = Format(
+      "StartAudioTrack({{track=[request_id = {}, id: {}, enabled: {:d}]}}, "
+      "{{is_pending={:d}}})",
+      request_id, component->Id(), component->Enabled(), is_pending);
   return str.Utf8();
 }
 
 std::string GetTrackSourceLogString(blink::MediaStreamAudioSource* source) {
   const MediaStreamDevice& device = source->device();
   StringBuilder builder;
-  builder.AppendFormat("StartAudioTrack(source: {session_id=%s}, ",
-                       device.session_id().ToString().c_str());
-  builder.AppendFormat("{is_local_source=%d}, ", source->is_local_source());
-  builder.AppendFormat("{device=[id: %s", device.id.c_str());
+  FormatTo(builder,
+           "StartAudioTrack(source: {{session_id={}}}, {{is_local_source={}}}, "
+           "{{device=[id: {}",
+           device.session_id().ToString(), source->is_local_source(),
+           device.id);
   if (device.group_id.has_value()) {
-    builder.AppendFormat(", group_id: %s", device.group_id.value().c_str());
+    FormatTo(builder, ", group_id: {}", device.group_id.value());
   }
-  builder.AppendFormat(", name: %s", device.name.c_str());
-  builder.Append("]})");
+  FormatTo(builder, ", name: {}]}})", device.name);
   return StringView(builder).Utf8();
 }
 
@@ -180,10 +180,9 @@ std::string GetOnTrackStartedLogString(
     blink::WebPlatformMediaStreamSource* source,
     MediaStreamRequestResult result) {
   const MediaStreamDevice& device = source->device();
-  String str = String::Format(
-      "OnTrackStarted({request_id = %d}, {session_id=%s}, {result=%s})",
-      request_id, device.session_id().ToString().c_str(),
-      base::ToString(result).c_str());
+  String str = Format(
+      "OnTrackStarted({{request_id = {}}}, {{session_id={}}}, {{result={}}})",
+      request_id, device.session_id().ToString(), base::ToString(result));
   return str.Utf8();
 }
 
@@ -1847,7 +1846,8 @@ MediaStreamSource* UserMediaProcessor::InitializeAudioSourceObject(
       device_parameters.effects(), device.type);
   capabilities.auto_gain_control = {true, false};
   capabilities.noise_suppression = {true, false};
-  capabilities.voice_isolation = {true, false};
+  capabilities.voice_isolation =
+      GetSupportedVoiceIsolationValues(device_parameters.effects());
 
   if (RuntimeEnabledFeatures::RestrictOwnAudioEnabled()) {
     if (device.type == mojom::blink::MediaStreamType::DISPLAY_AUDIO_CAPTURE) {

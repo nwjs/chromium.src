@@ -51,6 +51,8 @@ BASE_DECLARE_FEATURE(kWebuiRefresh2026);
 BASE_DECLARE_FEATURE(kAppMenuGlowUp);
 // Enables the redesigned Settings 2026 refresh features and search UX.
 BASE_DECLARE_FEATURE(kSettingsRefresh2026);
+// Enables search in the app Chrome menu.
+BASE_DECLARE_FEATURE(kChroMenuSearch);
 
 bool IsTabStripDeclutterEnabled();
 bool IsToolbarGlowUpEnabled();
@@ -175,6 +177,10 @@ BASE_DECLARE_FEATURE(kProcessIsolationSettings);
 #endif  // BUILDFLAG(IS_WIN)
 
 BASE_DECLARE_FEATURE(kRealboxVirtualFocusNavigation);
+BASE_DECLARE_FEATURE(kOmniboxPopupVirtualFocusNavigation);
+BASE_DECLARE_FEATURE(kLensOverlayVirtualFocusNavigation);
+BASE_DECLARE_FEATURE(kOmniboxEverywhereVirtualFocusNavigation);
+BASE_DECLARE_FEATURE(kWebuiBrowserVirtualFocusNavigation);
 
 BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kShowDropTargetForTabDelay);
 
@@ -288,6 +294,12 @@ BASE_DECLARE_FEATURE(kLensOverlayHomeworkPageActionFocusOptimization);
 // losing focus).
 BASE_DECLARE_FEATURE(kPageActionAnchoredMessageEasyDismiss);
 
+// If enabled, anchored messages will only be shown while their associated tab
+// is active. If the tab becomes inactive or a request to show an anchored
+// message arrives while the tab is inactive, the message is downgraded to a
+// suggestion chip.
+BASE_DECLARE_FEATURE(kPageActionAnchoredMessageActiveTabOnly);
+
 // Gates the optimization for AI Mode page action to reduce mouse pressed
 // latency.
 BASE_DECLARE_FEATURE(kAiModePageActionOptimization);
@@ -297,6 +309,11 @@ BASE_DECLARE_FEATURE(kAiModePageActionOptimization);
 
 BASE_DECLARE_FEATURE(kPageActionsPrioritySelector);
 
+BASE_DECLARE_FEATURE(kPageActionsPrioritySelectorProductMessagingController);
+
+// Enables the elevated capsule toolbar for page actions.
+BASE_DECLARE_FEATURE(kPageActionsElevatedToolbar);
+bool IsPageActionsElevatedToolbarEnabled();
 
 // If enabled, the by date history will show in the side panel.
 BASE_DECLARE_FEATURE(kByDateHistoryInSidePanel);
@@ -358,6 +375,8 @@ bool IsAndroidAnimatedProgressBarInBrowserEnabled();
 BASE_DECLARE_FEATURE(kAiOverlayDialog);
 BASE_DECLARE_FEATURE_PARAM(std::string, kAiOverlayDialogApiKey);
 BASE_DECLARE_FEATURE_PARAM(std::string, kAiOverlayDialogMockJsonPath);
+BASE_DECLARE_FEATURE_PARAM(bool, kAiOverlayDialogUsesActor);
+BASE_DECLARE_FEATURE(kAiOverlayDisableNavigationContext);
 
 BASE_DECLARE_FEATURE(kTabGroupsFocusing);
 BASE_DECLARE_FEATURE_PARAM(bool, kTabGroupsFocusFreezing);

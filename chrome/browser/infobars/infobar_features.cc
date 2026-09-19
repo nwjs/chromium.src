@@ -14,7 +14,22 @@ BASE_FEATURE_PARAM(bool,
                    false);
 
 BASE_FEATURE_PARAM(bool,
+                   kMigratedAutomation,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
                    kMigratedCollectedCookies,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kMigratedDefaultBrowser,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kMigratedDevToolsSharedProcess,
                    &kCentralizedInfoBarFramework,
                    false);
 
@@ -34,6 +49,11 @@ BASE_FEATURE_PARAM(bool,
                    false);
 
 BASE_FEATURE_PARAM(bool,
+                   kMigratedLinkCapturing,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
                    kMigratedPageInfo,
                    &kCentralizedInfoBarFramework,
                    false);
@@ -41,6 +61,11 @@ BASE_FEATURE_PARAM(bool,
 BASE_FEATURE_PARAM(bool, kMigratedPdf, &kCentralizedInfoBarFramework, false);
 BASE_FEATURE_PARAM(bool,
                    kMigratedObsoleteSystem,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kMigratedOSCryptAsyncAvailability,
                    &kCentralizedInfoBarFramework,
                    false);
 
@@ -59,17 +84,45 @@ BASE_FEATURE_PARAM(bool,
                    &kCentralizedInfoBarFramework,
                    false);
 
+BASE_FEATURE_PARAM(bool,
+                   kMigratedThemeInstalled,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kMigratedExtensionDevTools,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kMigratedSessionRestore,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kMigratedInstallationError,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
 const base::FeatureParam<bool>* GetInfoBarMigrationParam(
     InfoBarDelegate::InfoBarIdentifier infobar_id) {
   switch (infobar_id) {
+    case InfoBarDelegate::AUTOMATION_INFOBAR_DELEGATE:
+      return &kMigratedAutomation;
     case InfoBarDelegate::COLLECTED_COOKIES_INFOBAR_DELEGATE:
       return &kMigratedCollectedCookies;
+    case InfoBarDelegate::DEFAULT_BROWSER_INFOBAR_DELEGATE:
+      return &kMigratedDefaultBrowser;
+    case InfoBarDelegate::DEV_TOOLS_SHARED_PROCESS_DELEGATE:
+      return &kMigratedDevToolsSharedProcess;
     case InfoBarDelegate::GOOGLE_API_KEYS_INFOBAR_DELEGATE:
       return &kMigratedGoogleApiKeys;
     case InfoBarDelegate::INSTALLER_DOWNLOADER_INFOBAR_DELEGATE:
       return &kMigratedInstallerDownloader;
     case InfoBarDelegate::KNOWN_INTERCEPTION_DISCLOSURE_INFOBAR_DELEGATE:
       return &kMigratedKnownInterceptionDisclosure;
+    case InfoBarDelegate::ENABLE_LINK_CAPTURING_INFOBAR_DELEGATE:
+      return &kMigratedLinkCapturing;
     case InfoBarDelegate::PAGE_INFO_INFOBAR_DELEGATE:
       return &kMigratedPageInfo;
     case InfoBarDelegate::PDF_INFOBAR_DELEGATE:
@@ -78,10 +131,20 @@ const base::FeatureParam<bool>* GetInfoBarMigrationParam(
       return &kMigratedChromeForTesting;
     case InfoBarDelegate::OBSOLETE_SYSTEM_INFOBAR_DELEGATE:
       return &kMigratedObsoleteSystem;
+    case InfoBarDelegate::OSCRYPTASYNC_AVAILABILITY_INFOBAR_DELEGATE:
+      return &kMigratedOSCryptAsyncAvailability;
     case InfoBarDelegate::PIN_INFOBAR_DELEGATE:
       return &kMigratedPinInfoBar;
     case InfoBarDelegate::LOCAL_TEST_POLICIES_APPLIED_INFOBAR:
       return &kMigratedLocalTestPolicies;
+    case InfoBarDelegate::THEME_INSTALLED_INFOBAR_DELEGATE:
+      return &kMigratedThemeInstalled;
+    case InfoBarDelegate::EXTENSION_DEV_TOOLS_INFOBAR_DELEGATE:
+      return &kMigratedExtensionDevTools;
+    case InfoBarDelegate::SESSION_RESTORE_INFOBAR_DELEGATE:
+      return &kMigratedSessionRestore;
+    case InfoBarDelegate::INSTALLATION_ERROR_INFOBAR_DELEGATE:
+      return &kMigratedInstallationError;
     default:
       return nullptr;
   }

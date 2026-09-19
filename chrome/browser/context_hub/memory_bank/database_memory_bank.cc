@@ -26,16 +26,24 @@ void DatabaseMemoryBank::SaveMemoryBankEntry(
   if (entry.timestamp.is_null()) {
     entry.timestamp = base::Time::Now();
   }
-  // TODO(crbug.com/534780677): Use the return value of
-  // AddOrUpdateMemoryBankEntry.
-  context_hub_backend_->AddOrUpdateMemoryBankEntry(
-      std::move(entry), base::IgnoreArgs<bool>(std::move(callback)));
+  context_hub_backend_->AddOrUpdateMemoryBankEntry(std::move(entry),
+                                                   std::move(callback));
+}
+
+void DatabaseMemoryBank::UpdateEntryAnnotations(
+    int64_t id,
+    std::vector<std::string> tags,
+    std::optional<std::string> note,
+    std::optional<std::string> collection,
+    OperationCompleteCallback callback) {
+  context_hub_backend_->UpdateMemoryBankEntryAnnotations(
+      id, std::move(tags), std::move(note), std::move(collection),
+      std::move(callback));
 }
 
 void DatabaseMemoryBank::DeleteEntries(base::span<const int64_t> ids,
                                        OperationCompleteCallback callback) {
-  context_hub_backend_->DeleteMemoryBankEntries(
-      ids, base::IgnoreArgs<bool>(std::move(callback)));
+  context_hub_backend_->DeleteMemoryBankEntries(ids, std::move(callback));
 }
 
 void DatabaseMemoryBank::GetAllEntries(GetEntriesCallback callback) const {
@@ -45,6 +53,14 @@ void DatabaseMemoryBank::GetAllEntries(GetEntriesCallback callback) const {
 void DatabaseMemoryBank::GetEntriesByIds(base::span<const int64_t> ids,
                                          GetEntriesCallback callback) const {
   context_hub_backend_->GetMemoryBankEntriesByIds(ids, std::move(callback));
+}
+
+void DatabaseMemoryBank::GetAllTags(GetStringsCallback callback) const {
+  context_hub_backend_->GetAllMemoryBankTags(std::move(callback));
+}
+
+void DatabaseMemoryBank::GetAllCollections(GetStringsCallback callback) const {
+  context_hub_backend_->GetAllMemoryBankCollections(std::move(callback));
 }
 
 }  // namespace context_hub

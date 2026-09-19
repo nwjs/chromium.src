@@ -68,7 +68,9 @@ void VerifySystemProfileData(const metrics::SystemProfileProto& system_profile,
 class AntiVirusMetricsProviderTest : public ::testing::TestWithParam<bool> {
  public:
   AntiVirusMetricsProviderTest()
-      : got_results_(false), expect_unhashed_value_(GetParam()) {
+      : got_results_(false),
+        expect_unhashed_value_(GetParam()),
+        has_products_(false) {
     mojo::PendingRemote<chrome::mojom::UtilWin> remote;
     util_win_impl_.emplace(remote.InitWithNewPipeAndPassReceiver());
     provider_.SetRemoteUtilWinForTesting(std::move(remote));
@@ -86,6 +88,14 @@ class AntiVirusMetricsProviderTest : public ::testing::TestWithParam<bool> {
 
     metrics::SystemProfileProto system_profile;
     provider_.ProvideSystemProfileMetrics(&system_profile);
+
+    // If no antivirus products are found (for example in a CI VM or Windows
+    // Server environment where Windows Security Center or Defender is
+    // unavailable), gracefully skip the verification.
+    has_products_ = !system_profile.antivirus_product().empty();
+    if (!has_products_) {
+      return;
+    }
 
     VerifySystemProfileData(system_profile, expect_unhashed_value_, false);
     // This looks weird, but it's to make sure that reading the data out of the
@@ -108,6 +118,7 @@ class AntiVirusMetricsProviderTest : public ::testing::TestWithParam<bool> {
 
   bool got_results_;
   bool expect_unhashed_value_;
+  bool has_products_;
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::MainThreadType::UI};
   std::optional<UtilWinImpl> util_win_impl_;
@@ -131,7 +142,96 @@ TEST_P(AntiVirusMetricsProviderTest, GetMetricsFullName) {
       base::BindOnce(&AntiVirusMetricsProviderTest::GetMetricsCallback,
                      base::Unretained(this)));
   task_environment_.RunUntilIdle();
+  if (!has_products_) {
+    GTEST_SKIP()
+        << "No antivirus products found (Windows Security Center or "
+           "Windows Defender is not available in this test environment).";
+  }
+
   EXPECT_TRUE(got_results_);
+  histogram_tester_.ExpectTotalCount("UMA.AntiVirusMetricsProvider.Latency", 1);
+}
+
+TEST_P(AntiVirusMetricsProviderTest, CallProvideMetricsBeforeAsyncInit) {
+  AntiVirusMetricsProvider provider;
+  metrics::SystemProfileProto system_profile;
+
+  // Returns an empty list.
+  provider.ProvideSystemProfileMetrics(&system_profile);
+  EXPECT_EQ(system_profile.antivirus_product_size(), 0);
+}
+
+TEST_P(AntiVirusMetricsProviderTest, CallAsyncInitAfterCacheIsPopulated) {
+  base::ScopedAllowBlockingForTesting scoped_allow_blocking;
+  base::win::ScopedCOMInitializer com_initializer;
+
+  ASSERT_TRUE(com_initializer.Succeeded());
+  ASSERT_TRUE(thread_checker_.CalledOnValidThread());
+  SetFullNamesFeatureEnabled(expect_unhashed_value_);
+
+  // Call first query to populate the cache.
+  provider_.AsyncInit(
+      base::BindOnce(&AntiVirusMetricsProviderTest::GetMetricsCallback,
+                     base::Unretained(this)));
+  task_environment_.RunUntilIdle();
+  if (!has_products_) {
+    GTEST_SKIP()
+        << "No antivirus products found (Windows Security Center or "
+           "Windows Defender is not available in this test environment).";
+  }
+
+  EXPECT_TRUE(got_results_);
+  histogram_tester_.ExpectTotalCount("UMA.AntiVirusMetricsProvider.Latency", 1);
+
+  // Call second query to return cached results.
+  bool callback_2 = false;
+  AntiVirusMetricsProvider provider_2;
+  provider_2.AsyncInit(
+      base::BindOnce([](bool* ran) { *ran = true; }, &callback_2));
+  EXPECT_TRUE(callback_2);
+
+  // Verifies that data is available to the second instance.
+  metrics::SystemProfileProto system_profile;
+  provider_2.ProvideSystemProfileMetrics(&system_profile);
+  EXPECT_GT(system_profile.antivirus_product_size(), 0);
+
+  // Verify that histogram count did not change.
+  histogram_tester_.ExpectTotalCount("UMA.AntiVirusMetricsProvider.Latency", 1);
+}
+
+TEST_P(AntiVirusMetricsProviderTest, CallAsyncInitConcurrently) {
+  base::ScopedAllowBlockingForTesting scoped_allow_blocking;
+  base::win::ScopedCOMInitializer com_initializer;
+
+  ASSERT_TRUE(com_initializer.Succeeded());
+  ASSERT_TRUE(thread_checker_.CalledOnValidThread());
+  SetFullNamesFeatureEnabled(expect_unhashed_value_);
+
+  bool callback_1 = false;
+  bool callback_2 = false;
+
+  AntiVirusMetricsProvider provider_1;
+  AntiVirusMetricsProvider provider_2;
+
+  // Start the first query.
+  provider_1.AsyncInit(
+      base::BindOnce([](bool* ran) { *ran = true; }, &callback_1));
+
+  // Start the second query while the first query is in-flight.
+  provider_2.AsyncInit(
+      base::BindOnce([](bool* ran) { *ran = true; }, &callback_2));
+
+  EXPECT_FALSE(callback_1);
+  EXPECT_FALSE(callback_2);
+
+  // Wait for the single Mojo query to finish.
+  task_environment_.RunUntilIdle();
+
+  // Both callers are updated.
+  EXPECT_TRUE(callback_1);
+  EXPECT_TRUE(callback_2);
+
+  // Verify that one histogram is recorded.
   histogram_tester_.ExpectTotalCount("UMA.AntiVirusMetricsProvider.Latency", 1);
 }
 

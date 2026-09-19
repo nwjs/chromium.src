@@ -19,7 +19,6 @@
 #include "chrome/browser/profiles/profile_shortcut_manager_win.h"
 #include "chrome/browser/profiles/profile_test_util.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -85,21 +84,27 @@ IN_PROC_BROWSER_TEST_F(ProfileShortcutManagerBrowserTest,
   profiles::testing::CreateProfileSync(g_browser_process->profile_manager(),
                                        path_profile2);
 
-  // This is for triggering a profile icon update on the next run. 1 is just a
-  // small enough number for kCurrentProfileIconVersion.
-  browser()->GetProfile()->GetPrefs()->SetInteger(prefs::kProfileIconVersion,
-                                                  1);
-
   // Ensure that any tasks started by profile creation are finished before we
   // advance to the main test. In particular, we want to finish all tasks that
   // might update the profile icon before the main test runs.
   content::RunAllTasksUntilIdle();
+
+  // This is for triggering a profile icon update on the next run. 1 is just a
+  // small enough number for kCurrentProfileIconVersion. Set this after
+  // RunAllTasksUntilIdle so OnProfileIconCreateSuccess does not overwrite it.
+  browser()->GetProfile()->GetPrefs()->SetInteger(prefs::kProfileIconVersion,
+                                                  1);
 }
 
 IN_PROC_BROWSER_TEST_F(ProfileShortcutManagerBrowserTest,
                        UpdateProfileIconOnAvatarLoaded) {
   base::ScopedAllowBlockingForTesting allow_blocking;
   base::ScopedPathOverride desktop_override(base::DIR_USER_DESKTOP);
+
+  // Ensure tasks posted during profile initialization (such as avatar/tier
+  // updates) finish before reading the initial icon.
+  content::RunAllTasksUntilIdle();
+
   std::string badged_icon;
   EXPECT_NO_FATAL_FAILURE(badged_icon = ReadProfileIcon());
 

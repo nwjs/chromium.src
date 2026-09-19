@@ -59,9 +59,9 @@ void RecordSendResultAndRunCallback(
   std::move(callback).Run(result);
 }
 
-const base::TimeDelta kDedupeTime = base::Seconds(5);
+constexpr base::TimeDelta kDedupeTime = base::Seconds(5);
 
-const base::TimeDelta kDeviceExpiration = base::Days(10);
+constexpr base::TimeDelta kDeviceExpiration = base::Days(10);
 
 // Converts a time field from sync protobufs to a time object.
 base::Time ProtoTimeToTime(int64_t proto_t) {
@@ -78,6 +78,7 @@ bool IsActivationUserVisible(ShareActivatedEntryPoint entry_point) {
     case ShareActivatedEntryPoint::kMobileNotification:
     case ShareActivatedEntryPoint::kTabStrip:
     case ShareActivatedEntryPoint::kChromeOSBirch:
+    case ShareActivatedEntryPoint::kMobileMessageBanner:
       return true;
     case ShareActivatedEntryPoint::kTabOrBrowserClosedWithoutActivation:
     case ShareActivatedEntryPoint::kSTTSEntryExpiredWithoutActivation:
@@ -407,6 +408,8 @@ void SendTabToSelfBridge::ApplyDisableSyncChanges(
   std::vector<std::string> all_guids = GetAllGuids();
 
   entries_.clear();
+  unknown_opened_entries_.clear();
+  unknown_activated_entries_.clear();
   mru_entry_guid_.clear();
 
   commit_tracker_->OnSyncDisabled();
@@ -511,7 +514,8 @@ const SendTabToSelfEntry* SendTabToSelfBridge::SendEntry(
   if (mru_entry && url == mru_entry->GetURL() &&
       target_device_cache_guid == mru_entry->GetTargetDeviceSyncCacheGuid() &&
       shared_time - mru_entry->GetSharedTime() < kDedupeTime) {
-    send_tab_to_self::RecordNotificationThrottled();
+    send_tab_to_self::RecordNotificationStatus(
+        send_tab_to_self::NotificationStatus::kThrottled);
     std::move(commit_confirmation_with_metrics)
         .Run(SendTabToSelfResult::kSuccessThrottled);
     return mru_entry;
@@ -739,7 +743,7 @@ SendTabToSelfBridge::GetTargetDeviceInfoSortedList() {
     // send_tab_to_self (e.g. into sync_device_info or sharing) so multiple
     // clients can share a unified struct.
     std::vector<std::string> device_names =
-        syncer::GetDeviceNames(raw_devices, GetLocalDeviceInfo());
+        syncer::GetDeviceDisplayNames(raw_devices, GetLocalDeviceInfo());
     std::vector<TargetDeviceInfo> target_devices;
     target_devices.reserve(devices.size());
     for (size_t i = 0; i < devices.size(); ++i) {

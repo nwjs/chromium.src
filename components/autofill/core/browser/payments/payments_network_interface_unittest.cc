@@ -30,10 +30,10 @@
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/payments_network_interface_test_base.h"
 #include "components/autofill/core/browser/payments/payments_request_details.h"
-#include "components/autofill/core/browser/payments/test/autofill_payments_test_utils.h"
+#include "components/autofill/core/browser/payments/test/autofill_payments_test_util.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_flow.h"
 #include "components/autofill/core/browser/studies/autofill_experiments.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
@@ -1098,7 +1098,7 @@ TEST_F(PaymentsNetworkInterfaceTest, GetUploadAccountFromSyncTest) {
 
   // Issue a token for the secondary account.
   identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
-      secondary_account_info.account_id, "secondary_account_token",
+      secondary_account_info.GetAccountId(), "secondary_account_token",
       AutofillClock::Now() + base::Days(10));
 
   ReturnResponse(payments_network_interface_.get(), net::HTTP_OK, "{}");

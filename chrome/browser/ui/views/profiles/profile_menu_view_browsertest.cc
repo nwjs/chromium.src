@@ -276,7 +276,7 @@ class ProfileMenuViewTestBase {
                     base::Unretained(this)))),
         override_testing_factories_(override_testing_factories) {}
 
-  void OpenProfileMenu(Browser* target_browser = nullptr) {
+  void OpenProfileMenu(BrowserWindowInterface* target_browser = nullptr) {
     if (target_browser == nullptr) {
       target_browser = target_browser_;
     }
@@ -294,12 +294,13 @@ class ProfileMenuViewTestBase {
   }
 
   ProfileMenuViewBase* profile_menu_view() {
-    auto* coordinator =
-        target_browser_->GetFeatures().profile_menu_coordinator();
+    auto* coordinator = ProfileMenuCoordinator::From(target_browser_);
     return coordinator ? coordinator->GetProfileMenuViewBaseForTesting()
                        : nullptr;
   }
-  void SetTargetBrowser(Browser* browser) { target_browser_ = browser; }
+  void SetTargetBrowser(BrowserWindowInterface* browser) {
+    target_browser_ = browser;
+  }
 
   BatchUploadServiceTestHelper& batch_upload_test_helper() {
     return batch_upload_test_helper_;
@@ -393,7 +394,8 @@ class ProfileMenuViewTestBase {
   // e.g. using `SyncTest` base class.
   bool override_testing_factories_ = true;
 
-  raw_ptr<Browser, AcrossTasksDanglingUntriaged> target_browser_ = nullptr;
+  raw_ptr<BrowserWindowInterface, AcrossTasksDanglingUntriaged>
+      target_browser_ = nullptr;
 
   BatchUploadServiceTestHelper batch_upload_test_helper_;
   network::TestURLLoaderFactory test_url_loader_factory_;
@@ -441,7 +443,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewBrowserTest,
 
   ASSERT_NO_FATAL_FAILURE(OpenProfileMenu());
 
-  auto* coordinator = browser()->GetFeatures().profile_menu_coordinator();
+  auto* coordinator = ProfileMenuCoordinator::From(browser());
   EXPECT_TRUE(coordinator->IsShowing());
 
   WidgetDestroyedObserver destroyed_observer(
@@ -463,7 +465,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewBrowserTest,
   // Simulates triggering opening the Profile Menu - blocks on first local data
   // request.
   avatar_accessor.Click();
-  auto* coordinator = browser()->GetFeatures().profile_menu_coordinator();
+  auto* coordinator = ProfileMenuCoordinator::From(browser());
   // Menu is not shown yet since the data is not returned.
   ASSERT_FALSE(coordinator->IsShowing());
   // Simulates re-triggering opening the Profile Menu before the first request
@@ -507,7 +509,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewExtensionsTest, RootViewAccessibleName) {
   InstallExtension(test_data_dir_.AppendASCII("theme"), 1);
   waiter.WaitForThemeChanged();
 
-  auto* coordinator = browser()->GetFeatures().profile_menu_coordinator();
+  auto* coordinator = ProfileMenuCoordinator::From(browser());
   EXPECT_TRUE(coordinator->IsShowing());
 
   ui::AXNodeData root_view_data;
@@ -533,7 +535,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewExtensionsTest, ThemeChanged) {
   InstallExtension(test_data_dir_.AppendASCII("theme"), 1);
   waiter.WaitForThemeChanged();
 
-  auto* coordinator = browser()->GetFeatures().profile_menu_coordinator();
+  auto* coordinator = ProfileMenuCoordinator::From(browser());
   EXPECT_TRUE(coordinator->IsShowing());
   profile_menu_view()->GetWidget()->Close();
   base::RunLoop().RunUntilIdle();
@@ -543,7 +545,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewExtensionsTest, ThemeChanged) {
 // Profile chooser view should close when a tab is added.
 // Regression test for http://crbug.com/40553680
 IN_PROC_BROWSER_TEST_F(ProfileMenuViewExtensionsTest, CloseBubbleOnTadAdded) {
-  TabStripModel* tab_strip = browser()->tab_strip_model();
+  TabStripModel* tab_strip = browser()->GetTabStripModel();
   ASSERT_EQ(1, tab_strip->count());
   ASSERT_EQ(0, tab_strip->active_index());
 
@@ -552,15 +554,14 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewExtensionsTest, CloseBubbleOnTadAdded) {
                              ui::PageTransition::PAGE_TRANSITION_LINK));
   EXPECT_EQ(1, tab_strip->active_index());
   base::RunLoop().RunUntilIdle();
-  EXPECT_FALSE(
-      browser()->GetFeatures().profile_menu_coordinator()->IsShowing());
+  EXPECT_FALSE(ProfileMenuCoordinator::From(browser())->IsShowing());
 }
 
 // Profile chooser view should close when active tab is changed.
 // Regression test for http://crbug.com/40553680
 IN_PROC_BROWSER_TEST_F(ProfileMenuViewExtensionsTest,
                        CloseBubbleOnActiveTabChanged) {
-  TabStripModel* tab_strip = browser()->tab_strip_model();
+  TabStripModel* tab_strip = browser()->GetTabStripModel();
   ASSERT_FALSE(AddTabAtIndex(1, GURL("https://test_url.com"),
                              ui::PageTransition::PAGE_TRANSITION_LINK));
   ASSERT_EQ(2, tab_strip->count());
@@ -569,15 +570,14 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewExtensionsTest,
   ASSERT_NO_FATAL_FAILURE(OpenProfileMenu());
   tab_strip->ActivateTabAt(0);
   base::RunLoop().RunUntilIdle();
-  EXPECT_FALSE(
-      browser()->GetFeatures().profile_menu_coordinator()->IsShowing());
+  EXPECT_FALSE(ProfileMenuCoordinator::From(browser())->IsShowing());
 }
 
 // Profile chooser view should close when active tab is closed.
 // Regression test for http://crbug.com/40553680
 IN_PROC_BROWSER_TEST_F(ProfileMenuViewExtensionsTest,
                        CloseBubbleOnActiveTabClosed) {
-  TabStripModel* tab_strip = browser()->tab_strip_model();
+  TabStripModel* tab_strip = browser()->GetTabStripModel();
   ASSERT_FALSE(AddTabAtIndex(1, GURL("https://test_url.com"),
                              ui::PageTransition::PAGE_TRANSITION_LINK));
   ASSERT_EQ(2, tab_strip->count());
@@ -586,15 +586,14 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewExtensionsTest,
   ASSERT_NO_FATAL_FAILURE(OpenProfileMenu());
   tab_strip->CloseWebContentsAt(1, TabCloseTypes::CLOSE_NONE);
   base::RunLoop().RunUntilIdle();
-  EXPECT_FALSE(
-      browser()->GetFeatures().profile_menu_coordinator()->IsShowing());
+  EXPECT_FALSE(ProfileMenuCoordinator::From(browser())->IsShowing());
 }
 
 // Profile chooser view should close when the last tab is closed.
 // Regression test for http://crbug.com/40553680
 IN_PROC_BROWSER_TEST_F(ProfileMenuViewExtensionsTest,
                        CloseBubbleOnLastTabClosed) {
-  TabStripModel* tab_strip = browser()->tab_strip_model();
+  TabStripModel* tab_strip = browser()->GetTabStripModel();
   ASSERT_EQ(1, tab_strip->count());
   ASSERT_EQ(0, tab_strip->active_index());
 
@@ -721,9 +720,9 @@ class ProfileMenuViewSignoutTest : public ProfileMenuViewTestBase,
             ->CreateAccountAvailabilityOptionsBuilder()
             .AsPrimary(signin::ConsentLevel::kSignin)
             .WithCookie();
-    CoreAccountInfo account_info =
+    AccountInfo account_info =
         identity_test_env()->MakeAccountAvailable(builder.Build(kTestEmail));
-    account_id_ = account_info.account_id;
+    account_id_ = account_info.GetAccountId();
     ASSERT_TRUE(identity_manager()->HasAccountWithRefreshToken(account_id_));
     identity_test_env()->SetFreshnessOfAccountsInGaiaCookie(true);
   }
@@ -737,7 +736,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewSignoutTest, OpenLogoutTab) {
   // Start from a page that is not the NTP.
   ASSERT_TRUE(
       ui_test_utils::NavigateToURL(browser(), GURL("https://www.google.com")));
-  TabStripModel* tab_strip = browser()->tab_strip_model();
+  TabStripModel* tab_strip = browser()->GetTabStripModel();
   EXPECT_EQ(1, tab_strip->count());
   EXPECT_EQ(0, tab_strip->active_index());
   EXPECT_NE(chrome::ChromeUINewTabURLAsGURL(),
@@ -761,7 +760,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewSignoutTest, SignoutFromNTP) {
   // Start from the NTP.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
                                            chrome::ChromeUINewTabURLAsGURL()));
-  TabStripModel* tab_strip = browser()->tab_strip_model();
+  TabStripModel* tab_strip = browser()->GetTabStripModel();
   EXPECT_EQ(1, tab_strip->count());
   EXPECT_EQ(0, tab_strip->active_index());
   EXPECT_EQ(chrome::ChromeUINewTabURLAsGURL(),
@@ -854,7 +853,7 @@ IN_PROC_BROWSER_TEST_P(ProfileMenuViewSignoutTestWithNetwork, Signout) {
   // The test starts from about://blank, which causes the logout to happen in
   // the current tab.
   ASSERT_TRUE(Signout());
-  TabStripModel* tab_strip = browser()->tab_strip_model();
+  TabStripModel* tab_strip = browser()->GetTabStripModel();
   content::WebContents* logout_page = tab_strip->GetActiveWebContents();
   EXPECT_EQ(logout_page->GetURL(), GetExpectedLogoutURL());
 
@@ -930,7 +929,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewSyncErrorButtonTest, OpenReauthTab) {
   // Start from a page that is not the NTP.
   ASSERT_TRUE(
       ui_test_utils::NavigateToURL(browser(), GURL("https://www.google.com")));
-  TabStripModel* tab_strip = browser()->tab_strip_model();
+  TabStripModel* tab_strip = browser()->GetTabStripModel();
   EXPECT_EQ(1, tab_strip->count());
   EXPECT_EQ(0, tab_strip->active_index());
   EXPECT_NE(chrome::ChromeUINewTabURLAsGURL(),
@@ -996,7 +995,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewSyncServiceUnavailableTest,
   ASSERT_NO_FATAL_FAILURE(OpenProfileMenu());
 
   // Verify that the menu is showing successfully.
-  auto* coordinator = browser()->GetFeatures().profile_menu_coordinator();
+  auto* coordinator = ProfileMenuCoordinator::From(browser());
   EXPECT_TRUE(coordinator->IsShowing());
 }
 
@@ -1154,7 +1153,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewWebOnlyTest,
   signin::SetCookieAccounts(
       identity_manager, SigninBrowserTestBase::test_url_loader_factory(),
       {{disallowed_account.email, disallowed_account.gaia},
-       {allowed_account.email, allowed_account.gaia}});
+       {std::string(allowed_account.GetEmail()), allowed_account.GetGaiaId()}});
   ASSERT_FALSE(
       identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin));
   ASSERT_EQ(identity_manager->GetAccountsWithRefreshTokens().size(), 2u);
@@ -1168,7 +1167,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewWebOnlyTest,
 
   EXPECT_EQ(
       identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin),
-      allowed_account.account_id);
+      allowed_account.GetAccountId());
 }
 
 IN_PROC_BROWSER_TEST_F(ProfileMenuViewWebOnlyTest,
@@ -1526,7 +1525,7 @@ IN_PROC_BROWSER_TEST_P(ProfileMenuViewBookmarksLimitExceededTest,
   ASSERT_TRUE(focused_item);
 
   // Store the tab count.
-  int tab_count = GetBrowser(0)->tab_strip_model()->count();
+  int tab_count = GetBrowser(0)->GetTabStripModel()->count();
 
   // Click the focused item (which should be the error button).
   ui_test_utils::TabAddedWaiter tab_waiter(GetBrowser(0));
@@ -1534,10 +1533,12 @@ IN_PROC_BROWSER_TEST_P(ProfileMenuViewBookmarksLimitExceededTest,
   tab_waiter.Wait();
 
   // Check that a new tab was opened.
-  EXPECT_EQ(GetBrowser(0)->tab_strip_model()->count(), tab_count + 1);
-  EXPECT_EQ(
-      GetBrowser(0)->tab_strip_model()->GetActiveWebContents()->GetVisibleURL(),
-      GURL(kBookmarksLimitExceededHelpCenter));
+  EXPECT_EQ(GetBrowser(0)->GetTabStripModel()->count(), tab_count + 1);
+  EXPECT_EQ(GetBrowser(0)
+                ->GetTabStripModel()
+                ->GetActiveWebContents()
+                ->GetVisibleURL(),
+            GURL(kBookmarksLimitExceededHelpCenter));
 
   // Check that the error is cleared.
   EXPECT_NE(GetSyncService(0)->GetUserActionableError(),
@@ -1684,8 +1685,9 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
       identity_manager,
       builder.WithAccessPoint(signin_metrics::AccessPoint::kWebSignin)
           .Build(kTestEmail));
-  signin::SetCookieAccounts(identity_manager, test_url_loader_factory(),
-                            {{account_info.email, account_info.gaia}});
+  signin::SetCookieAccounts(
+      identity_manager, test_url_loader_factory(),
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
   ASSERT_FALSE(
       identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin));
   ASSERT_EQ(identity_manager->GetAccountsWithRefreshTokens().size(), 1u);
@@ -1722,8 +1724,9 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
       identity_manager,
       builder.WithAccessPoint(signin_metrics::AccessPoint::kWebSignin)
           .Build(kTestEmail));
-  signin::SetCookieAccounts(identity_manager, test_url_loader_factory(),
-                            {{account_info.email, account_info.gaia}});
+  signin::SetCookieAccounts(
+      identity_manager, test_url_loader_factory(),
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
   ASSERT_FALSE(
       identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin));
   ASSERT_EQ(identity_manager->GetAccountsWithRefreshTokens().size(), 1u);
@@ -1918,8 +1921,9 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
       identity_manager,
       builder.WithAccessPoint(signin_metrics::AccessPoint::kWebSignin)
           .Build(kAccountNotAllowed));
-  signin::SetCookieAccounts(identity_manager, test_url_loader_factory(),
-                            {{account_info.email, account_info.gaia}});
+  signin::SetCookieAccounts(
+      identity_manager, test_url_loader_factory(),
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
   ASSERT_FALSE(
       identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin));
   ASSERT_EQ(identity_manager->GetAccountsWithRefreshTokens().size(), 1u);
@@ -1980,8 +1984,9 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
       identity_manager,
       builder.WithAccessPoint(signin_metrics::AccessPoint::kWebSignin)
           .Build(kAccountNotAllowed));
-  signin::SetCookieAccounts(identity_manager, test_url_loader_factory(),
-                            {{account_info.email, account_info.gaia}});
+  signin::SetCookieAccounts(
+      identity_manager, test_url_loader_factory(),
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
   ASSERT_FALSE(
       identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin));
   ASSERT_EQ(identity_manager->GetAccountsWithRefreshTokens().size(), 1u);
@@ -2046,8 +2051,9 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
           .Build(kAccountAllowed));
   signin::SetCookieAccounts(
       identity_manager, test_url_loader_factory(),
-      {{disallowed_account.email, disallowed_account.gaia},
-       {allowed_account.email, allowed_account.gaia}});
+      {{std::string(disallowed_account.GetEmail()),
+        disallowed_account.GetGaiaId()},
+       {std::string(allowed_account.GetEmail()), allowed_account.GetGaiaId()}});
   ASSERT_FALSE(
       identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin));
   ASSERT_EQ(identity_manager->GetAccountsWithRefreshTokens().size(), 2u);
@@ -2121,8 +2127,9 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
           .Build(kAccountAllowed));
   signin::SetCookieAccounts(
       identity_manager, test_url_loader_factory(),
-      {{disallowed_account.email, disallowed_account.gaia},
-       {allowed_account.email, allowed_account.gaia}});
+      {{std::string(disallowed_account.GetEmail()),
+        disallowed_account.GetGaiaId()},
+       {std::string(allowed_account.GetEmail()), allowed_account.GetGaiaId()}});
   ASSERT_FALSE(
       identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin));
   ASSERT_EQ(identity_manager->GetAccountsWithRefreshTokens().size(), 2u);
@@ -2331,7 +2338,8 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
   // Bookmarks with previously syncing account creates a different type of promo
   // to be shown.
   browser()->GetProfile()->GetPrefs()->SetString(
-      prefs::kGoogleServicesLastSyncingGaiaId, account_info.gaia.ToString());
+      prefs::kGoogleServicesLastSyncingGaiaId,
+      account_info.GetGaiaId().ToString());
   batch_upload_test_helper().SetReturnDescriptions(syncer::BOOKMARKS,
                                                    /*item_count=*/5);
 
@@ -2362,7 +2370,7 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
     {}) {
   AccountInfo account_info = Signin();
   signin::UpdatePersistentErrorOfRefreshTokenForAccount(
-      identity_manager(), account_info.account_id,
+      identity_manager(), account_info.GetAccountId(),
       GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
           GoogleServiceAuthError::InvalidGaiaCredentialsReason::
               CREDENTIALS_REJECTED_BY_SERVER));
@@ -2393,7 +2401,7 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
         syncer::kReplaceSyncPromosWithSigninPromosNewSignin})) {
   AccountInfo account_info = Signin();
   signin::UpdatePersistentErrorOfRefreshTokenForAccount(
-      identity_manager(), account_info.account_id,
+      identity_manager(), account_info.GetAccountId(),
       GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
           GoogleServiceAuthError::InvalidGaiaCredentialsReason::
               CREDENTIALS_REJECTED_BY_SERVER));
@@ -2808,7 +2816,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuHatsSurveyTest,
   // Dismiss the profile menu.
   profile_menu_view()->GetWidget()->Close();
   base::RunLoop().RunUntilIdle();
-  auto* coordinator = browser()->GetFeatures().profile_menu_coordinator();
+  auto* coordinator = ProfileMenuCoordinator::From(browser());
   EXPECT_FALSE(coordinator->IsShowing());
 }
 
@@ -2859,7 +2867,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuHatsSurveyTest, SurveyProductDataBucketed) {
   // Dismiss the profile menu.
   profile_menu_view()->GetWidget()->Close();
   base::RunLoop().RunUntilIdle();
-  auto* coordinator = browser()->GetFeatures().profile_menu_coordinator();
+  auto* coordinator = ProfileMenuCoordinator::From(browser());
   EXPECT_FALSE(coordinator->IsShowing());
 }
 
@@ -2907,7 +2915,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuHatsSurveyTest,
     // Make sure that the profile menu is closed.
     profile_menu_view()->GetWidget()->Close();
     base::RunLoop().RunUntilIdle();
-    auto* coordinator = browser()->GetFeatures().profile_menu_coordinator();
+    auto* coordinator = ProfileMenuCoordinator::From(browser());
     EXPECT_FALSE(coordinator->IsShowing());
   }
 }
@@ -3065,7 +3073,7 @@ class ProfileMenuSigninAccessPointTest : public SigninBrowserTestBase {
             &mock_signin_ui_delegate_)) {}
 
   void OpenProfileMenuFromCoordinator(bool from_avatar_promo = false) {
-    auto* coordinator = browser()->GetFeatures().profile_menu_coordinator();
+    auto* coordinator = ProfileMenuCoordinator::From(browser());
     ASSERT_TRUE(coordinator);
     coordinator->Show(/*is_source_accelerator=*/false, from_avatar_promo);
     ASSERT_TRUE(base::test::RunUntil(
@@ -3075,7 +3083,7 @@ class ProfileMenuSigninAccessPointTest : public SigninBrowserTestBase {
   }
 
   void ClickSyncButton() {
-    auto* coordinator = browser()->GetFeatures().profile_menu_coordinator();
+    auto* coordinator = ProfileMenuCoordinator::From(browser());
     ASSERT_TRUE(coordinator);
     ProfileMenuViewBase* profile_menu_view =
         coordinator->GetProfileMenuViewBaseForTesting();

@@ -36,13 +36,14 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
-#include "chrome/test/base/chrome_test_utils.h"
+#include "chrome/test/base/chrome_test_path_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/profile_destruction_waiter.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/prefs/pref_service.h"
 #include "components/site_isolation/features.h"
 #include "components/site_isolation/pref_names.h"
+#include "components/tabs/public/tab_interface.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "components/url_formatter/url_formatter.h"
 #include "components/variations/active_field_trials.h"
@@ -2008,8 +2009,9 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
       browser()->GetProfile()->GetDownloadManager();
   manager->GetAllDownloads(&download_items);
   for (download::DownloadItem* item : download_items) {
-    if (!item->IsDone())
+    if (!item->IsDone()) {
       item->Cancel(true);
+    }
   }
 }
 
@@ -2135,7 +2137,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
 // https://crbug.com/40274462.
 IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
                        NavigationCanceledOnProfileShutdown) {
-  Browser* incognito = CreateIncognitoBrowser();
+  BrowserWindowInterface* incognito = CreateIncognitoBrowser();
   Profile* incognito_profile =
       browser()->GetProfile()->GetPrimaryOTRProfile(/*create_if_needed=*/false);
   ASSERT_TRUE(incognito_profile);
@@ -2189,11 +2191,13 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
 void ChromeNavigationBrowserTest::
     ExpectHideAndRestoreSadTabWhenNavigationCancels(bool cross_site) {
   // This test only applies when this policy is in place.
-  if (!content::ShouldSkipEarlyCommitPendingForCrashedFrame())
+  if (!content::ShouldSkipEarlyCommitPendingForCrashedFrame()) {
     return;
+  }
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
-  SadTabHelper* sad_tab_helper = SadTabHelper::FromWebContents(contents);
+  SadTabHelper* sad_tab_helper =
+      SadTabHelper::From(tabs::TabInterface::GetFromContents(contents));
 
   GURL url_start(embedded_test_server()->GetURL("a.com", "/title1.html"));
   GURL url_hung =
@@ -2258,7 +2262,8 @@ void ChromeNavigationBrowserTest::ExpectHideSadTabWhenNavigationCompletes(
     bool cross_site) {
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
-  SadTabHelper* sad_tab_helper = SadTabHelper::FromWebContents(contents);
+  SadTabHelper* sad_tab_helper =
+      SadTabHelper::From(tabs::TabInterface::GetFromContents(contents));
 
   GURL url_start(embedded_test_server()->GetURL("a.com", "/title1.html"));
   GURL url_succeed = embedded_test_server()->GetURL(
@@ -2571,8 +2576,9 @@ class SiteIsolationForPasswordSitesBrowserTest
     auto& list =
         prefs->GetList(site_isolation::prefs::kUserTriggeredIsolatedOrigins);
     std::vector<std::string> sites;
-    for (const base::Value& value : list)
+    for (const base::Value& value : list) {
       sites.push_back(value.GetString());
+    }
     return sites;
   }
 
@@ -2605,8 +2611,9 @@ class SiteIsolationForPasswordSitesBrowserTest
 IN_PROC_BROWSER_TEST_F(SiteIsolationForPasswordSitesBrowserTest,
                        SiteIsIsolatedAfterEnteringPassword) {
   // This test requires dynamic isolated origins to be enabled.
-  if (!content::SiteIsolationPolicy::AreDynamicIsolatedOriginsEnabled())
+  if (!content::SiteIsolationPolicy::AreDynamicIsolatedOriginsEnabled()) {
     return;
+  }
 
   GURL url(embedded_https_test_server().GetURL("sub.foo.com",
                                                "/password/password_form.html"));
@@ -2760,10 +2767,10 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationForPasswordSitesBrowserTest,
   // TODO(alexmos): This might change in the future if we decide to inherit
   // main profile's isolated origins in incognito. See
   // https://crbug.com/40602510.
-  Browser* incognito = CreateIncognitoBrowser();
+  BrowserWindowInterface* incognito = CreateIncognitoBrowser();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(incognito, saved_url));
   content::WebContents* contents =
-      incognito->tab_strip_model()->GetActiveWebContents();
+      incognito->GetTabStripModel()->GetActiveWebContents();
   EXPECT_FALSE(contents->GetPrimaryMainFrame()
                    ->GetSiteInstance()
                    ->RequiresDedicatedProcess());
@@ -3038,8 +3045,9 @@ class SiteIsolationForCOOPBrowserTest : public ChromeNavigationBrowserTest {
     auto& dict =
         prefs->GetDict(site_isolation::prefs::kWebTriggeredIsolatedOrigins);
     std::vector<std::string> sites;
-    for (auto site_time_pair : dict)
+    for (auto site_time_pair : dict) {
       sites.push_back(site_time_pair.first);
+    }
     return sites;
   }
 
@@ -3116,14 +3124,14 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationForCOOPBrowserTest, PersistAcrossRestarts) {
 // Check that COOP sites are not persisted in Incognito; the isolation should
 // only persist for the duration of the Incognito session.
 IN_PROC_BROWSER_TEST_F(SiteIsolationForCOOPBrowserTest, Incognito) {
-  Browser* incognito = CreateIncognitoBrowser();
+  BrowserWindowInterface* incognito = CreateIncognitoBrowser();
 
   GURL coop_url = https_server()->GetURL(
       "foo.com", "/set-header?Cross-Origin-Opener-Policy: same-origin");
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(incognito, coop_url));
   content::WebContents* contents =
-      incognito->tab_strip_model()->GetActiveWebContents();
+      incognito->GetTabStripModel()->GetActiveWebContents();
   // Simulate user activation to isolate foo.com for the rest of the incognito
   // session.
   EXPECT_TRUE(ExecJs(contents, "// no-op"));

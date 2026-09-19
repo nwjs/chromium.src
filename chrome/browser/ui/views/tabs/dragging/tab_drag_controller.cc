@@ -29,21 +29,18 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_init_state.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/sad_tab_helper.h"
-#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/split_tab_util.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/tabs/dragging/drag_session_data.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_context.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_target.h"
@@ -59,6 +56,7 @@
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "components/tab_groups/tab_group_id.h"
+#include "components/tabs/public/split_tab_data.h"
 #include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
@@ -736,8 +734,17 @@ TabDragController::Liveness TabDragController::Drag(
 
     StartDrag();
 
-    if (drag_data_.num_dragging_tabs() ==
-        source_context_->GetTabStripModel()->count()) {
+    TabStripModel* const model = source_context_->GetTabStripModel();
+    const bool is_dragging_all_tabs =
+        drag_data_.num_dragging_tabs() == model->count();
+
+    // In focus mode, dragging the focused group header should move the window,
+    // as the focused group represents all visible unpinned tabs.
+    const bool is_dragging_focused_group_header =
+        model->GetFocusedGroup().has_value() &&
+        drag_data_.group_header_id() == model->GetFocusedGroup();
+
+    if (is_dragging_all_tabs || is_dragging_focused_group_header) {
       if (ShouldDragWindowUsingSystemDnD()) {
         return StartSystemDnDSessionIfNecessary(attached_context_,
                                                 point_in_screen);
@@ -1097,10 +1104,15 @@ TabDragController::Liveness TabDragController::DragBrowserToNewTabStrip(
     }
 
 #if !BUILDFLAG(IS_LINUX)
-    // EndMoveLoop is going to snap the window back to its original location.
-    // Hide it so users don't see this. Hiding a window in Linux aura causes
-    // it to lose capture so skip it.
-    browser_widget->Hide();
+    const bool is_dragging_all_tabs =
+        source_context_ && drag_data_.num_dragging_tabs() ==
+                               source_context_->GetTabStripModel()->count();
+    if (is_dragging_new_browser_ || is_dragging_all_tabs) {
+      // EndMoveLoop is going to snap the window back to its original location.
+      // Hide it so users don't see this. Hiding a window in Linux aura causes
+      // it to lose capture so skip it.
+      browser_widget->Hide();
+    }
 #endif
     // Does not immediately exit the move loop - that only happens when control
     // returns to the event loop. The rest of this method will complete before
@@ -1434,7 +1446,7 @@ void TabDragController::AttachToNewContext(
       [](TabStripModel* model, size_t sad_index) {
         // If a sad tab is showing, the SadTabView needs to be updated.
         SadTabHelper* const sad_tab_helper =
-            SadTabHelper::FromWebContents(model->GetWebContentsAt(sad_index));
+            SadTabHelper::From(model->GetTabAtIndex(sad_index));
         if (sad_tab_helper) {
           sad_tab_helper->ReinstallInWebView();
         }
@@ -1803,8 +1815,10 @@ TabDragController::DetachIntoNewBrowserAndRunMoveLoop(
 #if BUILDFLAG(IS_MAC)
   // Set the window origin after making it visible, to avoid child windows (such
   // as the find bar) being misplaced on Mac. See https://crbug.com/403129048
-  dragged_widget->SetBoundsConstrained(
+  dragged_widget->SetBounds(
       gfx::Rect(point_in_screen - drag_offset, widget_size));
+  last_sized_display_id_ =
+      display::Screen::Get()->GetDisplayNearestPoint(point_in_screen).id();
 #endif
 
   // Activate may trigger a focus loss, destroying us.

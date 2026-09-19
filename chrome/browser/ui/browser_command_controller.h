@@ -22,12 +22,10 @@
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_member.h"
 #include "components/sessions/core/tab_restore_service_observer.h"
-#include "content/public/browser/web_contents_observer.h"
 #include "ui/actions/actions.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 #include "ui/base/window_open_disposition.h"
 
-class Browser;
 class BrowserWindow;
 class BrowserWindowInterface;
 class Profile;
@@ -152,6 +150,9 @@ class BrowserCommandController : public CommandUpdater,
   void OnTabChangedAt(tabs::TabInterface* tab,
                       TabChangeType change_type) override;
   void OnTabPinnedStateChanged(tabs::TabInterface* tab, int index) override;
+  void OnTabGroupFocusChanged(
+      std::optional<tab_groups::TabGroupId> new_focused_group,
+      std::optional<tab_groups::TabGroupId> old_focused_group) override;
 
   // Overridden from TabRestoreServiceObserver:
   void TabRestoreServiceChanged(sessions::TabRestoreService* service) override;
@@ -259,6 +260,9 @@ class BrowserCommandController : public CommandUpdater,
   // Updates commands that depend on the enabled state of glic.
   void UpdateCommandsForEnableGlicChanged();
 
+  // Updates commands and actions that depend on tab group focus state.
+  void UpdateCommandsForTabGroupFocusChanged();
+
   void UpdateCommandAndActionEnabled(int command_id,
                                      actions::ActionId action_id,
                                      bool enabled);
@@ -268,7 +272,7 @@ class BrowserCommandController : public CommandUpdater,
   BrowserWindow* window();
   Profile* profile();
 
-  const raw_ptr<Browser> browser_;
+  const raw_ptr<BrowserWindowInterface> browser_;
 
   // The CommandUpdater that manages the browser window commands
   // and optionally syncs state to ActionItems.

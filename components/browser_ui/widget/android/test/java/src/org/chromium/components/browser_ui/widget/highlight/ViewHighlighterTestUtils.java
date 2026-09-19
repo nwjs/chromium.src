@@ -56,7 +56,7 @@ public class ViewHighlighterTestUtils {
      *
      * @param view The view of interest.
      * @param timeoutDuration The timeout duration (should be set depending on the number of pulses
-     *         and the pulse duration).
+     *     and the pulse duration).
      * @return True iff the view was highlighted, and then turned off.
      */
     public static boolean checkHighlightPulse(View view, long timeoutDuration) {

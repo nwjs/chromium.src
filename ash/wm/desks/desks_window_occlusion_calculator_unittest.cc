@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "ash/constants/ash_features.h"
+#include "ash/wm/desks/desks_window_occlusion_calculator.h"
+
 #include "ash/shell.h"
 #include "ash/style/icon_button.h"
 #include "ash/test/ash_test_base.h"
@@ -15,11 +16,9 @@
 #include "ash/wm/desks/desks_test_api.h"
 #include "ash/wm/desks/desks_test_util.h"
 #include "ash/wm/desks/overview_desk_bar_view.h"
-#include "ash/wm/desks/window_occlusion_calculator.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_grid.h"
 #include "ash/wm/overview/overview_test_util.h"
-#include "base/test/scoped_feature_list.h"
 #include "chromeos/ui/base/app_types.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/aura/env.h"
@@ -33,30 +32,33 @@
 namespace ash {
 namespace {
 
-class DesksWindowOcclusionCalculatorTest
-    : public AshTestBase,
-      public testing::WithParamInterface<bool> {
+class DesksWindowOcclusionCalculatorTest : public AshTestBase {
  public:
-  DesksWindowOcclusionCalculatorTest() {
-    if (GetParam()) {
-      scoped_feature_list_.InitAndEnableFeature(
-          features::kNewWindowOcclusionCalculator);
-    } else {
-      scoped_feature_list_.InitAndDisableFeature(
-          features::kNewWindowOcclusionCalculator);
-    }
-  }
+  DesksWindowOcclusionCalculatorTest() = default;
   DesksWindowOcclusionCalculatorTest(
       const DesksWindowOcclusionCalculatorTest&) = delete;
   DesksWindowOcclusionCalculatorTest& operator=(
       const DesksWindowOcclusionCalculatorTest&) = delete;
   ~DesksWindowOcclusionCalculatorTest() override = default;
 
-  // AshTestBase:
   void SetUp() override { AshTestBase::SetUp(); }
 
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
+  void TearDown() override {
+    calculator_.reset();
+    AshTestBase::TearDown();
+  }
+
+  void CreateCalculator() {
+    calculator_ = std::make_unique<DesksWindowOcclusionCalculator>();
+  }
+
+  aura::Window* GetActiveDeskContainer() {
+    return DesksController::Get()->active_desk()->GetDeskContainerForRoot(
+        Shell::GetPrimaryRootWindow());
+  }
+
+ protected:
+  std::unique_ptr<DesksWindowOcclusionCalculator> calculator_;
 };
 
 bool HasLayerWithName(const ui::Layer* layer, const std::string& name) {
@@ -73,14 +75,145 @@ bool HasLayerWithName(const ui::Layer* layer, const std::string& name) {
 
 }  // namespace
 
-INSTANTIATE_TEST_SUITE_P(All,
-                         DesksWindowOcclusionCalculatorTest,
-                         testing::Bool());
+TEST_F(DesksWindowOcclusionCalculatorTest, BasicOcclusionStateIsCorrect) {
+  auto win0 =
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {10, 10, 100, 100});
+  auto win1 =
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {10, 10, 100, 100});
+
+  aura::Window* container = GetActiveDeskContainer();
+  container->StackChildAtTop(win1.get());
+
+  win0->TrackOcclusionState();
+  win1->TrackOcclusionState();
+
+  CreateCalculator();
+
+  calculator_->SnapshotOcclusionStateForWindows({container});
+
+  EXPECT_EQ(calculator_->GetOcclusionState(win1.get()),
+            aura::Window::OcclusionState::VISIBLE);
+  EXPECT_EQ(calculator_->GetOcclusionState(win0.get()),
+            aura::Window::OcclusionState::OCCLUDED);
+}
+
+TEST_F(DesksWindowOcclusionCalculatorTest,
+       SnapshotRemainsStaticAfterWindowMoved) {
+  auto win0 =
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {10, 10, 100, 100});
+  auto win1 =
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {10, 10, 100, 100});
+  aura::Window* container = GetActiveDeskContainer();
+  container->StackChildAtTop(win1.get());
+
+  win0->TrackOcclusionState();
+  win1->TrackOcclusionState();
+
+  CreateCalculator();
+
+  calculator_->SnapshotOcclusionStateForWindows({container});
+
+  EXPECT_EQ(calculator_->GetOcclusionState(win1.get()),
+            aura::Window::OcclusionState::VISIBLE);
+  EXPECT_EQ(calculator_->GetOcclusionState(win0.get()),
+            aura::Window::OcclusionState::OCCLUDED);
+
+  // Move win1 so it no longer occludes win0.
+  win1->SetBounds({120, 10, 100, 100});
+
+  // The calculator should STILL return OCCLUDED for win0 because we haven't
+  // taken a new snapshot.
+  EXPECT_EQ(calculator_->GetOcclusionState(win0.get()),
+            aura::Window::OcclusionState::OCCLUDED);
+
+  // Force cache invalidation by notifying content changed.
+  auto* desks_controller = DesksController::Get();
+  desks_controller->desks()[desks_controller->GetActiveDeskIndex()]
+      ->NotifyContentChanged();
+
+  // Snapshot again.
+  calculator_->SnapshotOcclusionStateForWindows({container});
+
+  // Now win0 should be visible.
+  EXPECT_EQ(calculator_->GetOcclusionState(win0.get()),
+            aura::Window::OcclusionState::VISIBLE);
+}
+
+TEST_F(DesksWindowOcclusionCalculatorTest, SnapshotUpdatesAfterWindowDeleted) {
+  auto win0 =
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {10, 10, 100, 100});
+  auto win1 =
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {10, 10, 100, 100});
+  aura::Window* container = GetActiveDeskContainer();
+  container->StackChildAtTop(win1.get());
+
+  win0->TrackOcclusionState();
+  win1->TrackOcclusionState();
+
+  CreateCalculator();
+
+  calculator_->SnapshotOcclusionStateForWindows({container});
+
+  EXPECT_EQ(calculator_->GetOcclusionState(win0.get()),
+            aura::Window::OcclusionState::OCCLUDED);
+
+  // Delete win1. This should trigger OnContentChanged and clear cache.
+  win1.reset();
+
+  // Snapshot again.
+  calculator_->SnapshotOcclusionStateForWindows({container});
+
+  // Now win0 should be visible.
+  EXPECT_EQ(calculator_->GetOcclusionState(win0.get()),
+            aura::Window::OcclusionState::VISIBLE);
+}
+
+TEST_F(DesksWindowOcclusionCalculatorTest,
+       DoesNotMutateGlobalWindowOcclusionState) {
+  auto win0 =
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {10, 10, 100, 100});
+  auto win1 =
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {10, 10, 100, 100});
+  aura::Window* container = GetActiveDeskContainer();
+  container->StackChildAtTop(win1.get());
+
+  win0->TrackOcclusionState();
+  win1->TrackOcclusionState();
+
+  // Initially, global tracker computes states.
+  EXPECT_EQ(win1->GetOcclusionState(), aura::Window::OcclusionState::VISIBLE);
+  EXPECT_EQ(win0->GetOcclusionState(), aura::Window::OcclusionState::OCCLUDED);
+
+  // Create calculator (locks them to current states).
+  CreateCalculator();
+
+  // Now pause the global tracker to simulate overview.
+  aura::WindowOcclusionTracker::ScopedPause pause;
+
+  // Move win1 to unocclude win0.
+  win1->SetBounds({120, 10, 100, 100});
+
+  // Since global tracker is paused, the window properties should NOT update.
+  EXPECT_EQ(win0->GetOcclusionState(), aura::Window::OcclusionState::OCCLUDED);
+
+  // Take a snapshot.
+  calculator_->SnapshotOcclusionStateForWindows({container});
+
+  // The snapshot should compute the TRUE state (win0 is VISIBLE).
+  EXPECT_EQ(calculator_->GetOcclusionState(win0.get()),
+            aura::Window::OcclusionState::VISIBLE);
+
+  // But the GLOBAL state of the window should STILL be OCCLUDED (unchanged).
+  EXPECT_EQ(win0->GetOcclusionState(), aura::Window::OcclusionState::OCCLUDED);
+}
+
+using DesksWindowOcclusionCalculatorOverviewTest = AshTestBase;
 
 // Tests that desk bar mini views accurately update and filter occluded windows
 // from their mirrored layer trees during desk operations like moving windows
 // between desks, adding new desks, switching active desks, and removing desks.
-TEST_P(DesksWindowOcclusionCalculatorTest, DeskBarOcclusionIntegration) {
+TEST_F(DesksWindowOcclusionCalculatorOverviewTest,
+       DeskBarOcclusionIntegration) {
   auto* desk_controller = DesksController::Get();
   NewDesk();
   ASSERT_EQ(2u, desk_controller->desks().size());
@@ -118,16 +251,11 @@ TEST_P(DesksWindowOcclusionCalculatorTest, DeskBarOcclusionIntegration) {
   EXPECT_TRUE(HasLayerWithName(tree_owner2->root(), "Win1"));
 
   // win1 was moved. The new calculator fixes the stale active desk snapshot
-  // bug, so win0 becomes visible. The legacy calculator has the bug, so
-  // win0 remains occluded.
+  // bug, so win0 becomes visible.
   tree_owner1 = DesksTestApi::GetMirroredContentsLayerTreeForRootAndDesk(
       root_window, desk1);
   ASSERT_TRUE(tree_owner1);
-  if (GetParam()) {
-    EXPECT_TRUE(HasLayerWithName(tree_owner1->root(), "Win0"));
-  } else {
-    EXPECT_FALSE(HasLayerWithName(tree_owner1->root(), "Win0"));
-  }
+  EXPECT_TRUE(HasLayerWithName(tree_owner1->root(), "Win0"));
 
   // 3. Add a new desk in overview
   auto* new_desk_button =
@@ -164,7 +292,8 @@ TEST_P(DesksWindowOcclusionCalculatorTest, DeskBarOcclusionIntegration) {
   ASSERT_FALSE(overview_controller->InOverviewSession());
 }
 
-TEST_P(DesksWindowOcclusionCalculatorTest, MirroredLayerTreeValidation) {
+TEST_F(DesksWindowOcclusionCalculatorOverviewTest,
+       MirroredLayerTreeValidation) {
   auto* desk_controller = DesksController::Get();
   // Must have at least 2 desks to show mini views in clamshell overview.
   NewDesk();
@@ -224,7 +353,7 @@ TEST_P(DesksWindowOcclusionCalculatorTest, MirroredLayerTreeValidation) {
   EXPECT_FALSE(HasLayerWithName(root_layer, "OccludedWindow"));
 }
 
-TEST_P(DesksWindowOcclusionCalculatorTest, ShowsBackgroundDeskWindows) {
+TEST_F(DesksWindowOcclusionCalculatorOverviewTest, ShowsBackgroundDeskWindows) {
   // Create Desk 2.
   auto* desks_controller = DesksController::Get();
   desks_controller->NewDesk(DesksCreationRemovalSource::kKeyboard);

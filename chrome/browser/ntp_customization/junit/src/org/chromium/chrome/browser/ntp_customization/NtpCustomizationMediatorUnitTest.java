@@ -94,7 +94,7 @@ import java.util.function.Supplier;
 
 /** Unit tests for {@link NtpCustomizationMediator} */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE, sdk = Build.VERSION_CODES.R)
+@Config(sdk = Build.VERSION_CODES.R)
 public class NtpCustomizationMediatorUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -924,6 +924,5 @@ public class NtpCustomizationMediatorUnitTest {
         }
 
         assertEquals(expectedState, NtpCustomizationPromoManager.getStateForTesting());
-        verify(mConfigManager).clearSyncedNtpBackgroundData();
     }
 }

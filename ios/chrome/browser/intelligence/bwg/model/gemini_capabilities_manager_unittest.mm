@@ -10,6 +10,7 @@
 #import "base/test/scoped_feature_list.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/signin/public/identity_manager/identity_test_utils.h"
+#import "ios/chrome/app/startup/app_startup_utils.h"
 #import "ios/chrome/browser/intelligence/bwg/model/fake_gemini_service.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_capabilities_manager_impl.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
@@ -67,13 +68,11 @@ class GeminiCapabilitiesManagerTest : public PlatformTest {
     PlatformTest::SetUp();
     // Clear NSUserDefaults before each test.
     NSUserDefaults* defaults = app_group::GetCommonGroupUserDefaults();
-    [defaults removeObjectForKey:app_group::kAppSwitcherHashedUserID];
     [defaults removeObjectForKey:app_group::kChromeCapabilitiesPreference];
   }
 
   void TearDown() override {
     NSUserDefaults* defaults = app_group::GetCommonGroupUserDefaults();
-    [defaults removeObjectForKey:app_group::kAppSwitcherHashedUserID];
     [defaults removeObjectForKey:app_group::kChromeCapabilitiesPreference];
     PlatformTest::TearDown();
   }
@@ -91,48 +90,19 @@ class GeminiCapabilitiesManagerTest : public PlatformTest {
   raw_ptr<FakeGeminiService> fake_gemini_service_;
 };
 
-// Tests that when the feature is disabled, all capabilities are cleared.
-TEST_F(GeminiCapabilitiesManagerTest, FeatureDisabledClearsCapabilities) {
-  scoped_feature_list_.InitAndDisableFeature(kAppSwitcherAISummarization);
-
-  // Pre-populate defaults to verify they get cleared.
-  NSUserDefaults* defaults = app_group::GetCommonGroupUserDefaults();
-  [defaults setObject:@"fake_hashed_id"
-               forKey:app_group::kAppSwitcherHashedUserID];
-  [defaults setObject:@{
-    app_group::kChromeSupportsAISummarizationCapability : @YES,
-    app_group::kChromeUserIsEligibleForGeminiCapability : @YES
-  }
-               forKey:app_group::kChromeCapabilitiesPreference];
-
-  // Constructor automatically calls UpdateCapabilities()!
-  GeminiCapabilitiesManagerImpl manager(profile_.get(), auth_service_,
-                                        fake_gemini_service_);
-
-  EXPECT_NSEQ(nil, [defaults objectForKey:app_group::kAppSwitcherHashedUserID]);
-  NSDictionary* capabilities =
-      [defaults dictionaryForKey:app_group::kChromeCapabilitiesPreference];
-  EXPECT_NSEQ(
-      nil, capabilities[app_group::kChromeSupportsAISummarizationCapability]);
-  EXPECT_NSEQ(
-      nil, capabilities[app_group::kChromeUserIsEligibleForGeminiCapability]);
-}
 
 // Tests that when the feature is enabled and there is no signed-in user,
-// SupportsAISummarization is YES, UserIsEligibleForGemini is NO, and
-// HashedUserID is cleared.
+// SupportsAISummarization is YES and UserIsEligibleForGemini is NO.
 TEST_F(GeminiCapabilitiesManagerTest, FeatureEnabledNoUser) {
   scoped_feature_list_.InitWithFeatures(
       {kPageActionMenu, kAppSwitcherAISummarization}, {});
 
-  // Constructor automatically calls UpdateCapabilities()!
   GeminiCapabilitiesManagerImpl manager(profile_.get(), auth_service_,
                                         fake_gemini_service_);
+  manager.UpdateCapabilities();
   fake_gemini_service_->SetIsEligible(false);
 
   NSUserDefaults* defaults = app_group::GetCommonGroupUserDefaults();
-  EXPECT_NSEQ(nil, [defaults objectForKey:app_group::kAppSwitcherHashedUserID]);
-
   NSDictionary* capabilities =
       [defaults dictionaryForKey:app_group::kChromeCapabilitiesPreference];
   EXPECT_TRUE([capabilities[app_group::kChromeSupportsAISummarizationCapability]
@@ -143,7 +113,7 @@ TEST_F(GeminiCapabilitiesManagerTest, FeatureEnabledNoUser) {
 }
 
 // Tests that when the feature is enabled and there is a signed-in user,
-// HashedUserID is set to the user's hashed GAIA ID.
+// SupportsAISummarization is YES and UserIsEligibleForGemini is YES.
 TEST_F(GeminiCapabilitiesManagerTest, FeatureEnabledWithUser) {
   scoped_feature_list_.InitWithFeatures(
       {kPageActionMenu, kAppSwitcherAISummarization}, {});
@@ -163,23 +133,77 @@ TEST_F(GeminiCapabilitiesManagerTest, FeatureEnabledWithUser) {
 
   auth_service_->SignIn(identity, signin_metrics::AccessPoint::kStartPage);
 
-  // Constructor automatically calls UpdateCapabilities()!
   GeminiCapabilitiesManagerImpl manager(profile_.get(), auth_service_,
                                         fake_gemini_service_);
+  manager.UpdateCapabilities();
   fake_gemini_service_->SetIsEligible(true);
 
   NSUserDefaults* defaults = app_group::GetCommonGroupUserDefaults();
-  NSString* hashed_uid =
-      [defaults stringForKey:app_group::kAppSwitcherHashedUserID];
-  // Verify that the hashed GAIA ID is correctly set.
-  EXPECT_NSEQ(identity.hashedGaiaID, hashed_uid);
-
   NSDictionary* capabilities =
       [defaults dictionaryForKey:app_group::kChromeCapabilitiesPreference];
   EXPECT_TRUE([capabilities[app_group::kChromeSupportsAISummarizationCapability]
       boolValue]);
   EXPECT_TRUE([capabilities[app_group::kChromeUserIsEligibleForGeminiCapability]
       boolValue]);
+}
+
+// Tests that after `UpdateCapabilities` sets Gemini capabilities, a subsequent
+// app restart emulation (invoking `MockSaveFieldTrialValuesForGroupApp`)
+// preserves the existing Gemini capabilities alongside newly saved field trial
+// values.
+TEST_F(GeminiCapabilitiesManagerTest, PreservesExistingCapabilitiesOnRestart) {
+  scoped_feature_list_.InitWithFeatures(
+      {kPageActionMenu, kAppSwitcherAISummarization}, {});
+
+  GeminiCapabilitiesManagerImpl manager(profile_.get(), auth_service_,
+                                        fake_gemini_service_);
+  manager.UpdateCapabilities();
+
+  NSUserDefaults* defaults = app_group::GetCommonGroupUserDefaults();
+  NSDictionary* capabilitiesBeforeRestart =
+      [defaults dictionaryForKey:app_group::kChromeCapabilitiesPreference];
+  ASSERT_TRUE(capabilitiesBeforeRestart);
+  EXPECT_TRUE([capabilitiesBeforeRestart
+          [app_group::kChromeSupportsAISummarizationCapability] boolValue]);
+
+  // Emulate app restart / startup capability sync.
+  SaveFieldTrialValuesForGroupApp();
+
+  NSDictionary* capabilitiesAfterRestart =
+      [defaults dictionaryForKey:app_group::kChromeCapabilitiesPreference];
+  ASSERT_TRUE(capabilitiesAfterRestart);
+
+  // Verify Gemini capability was preserved across restart.
+  EXPECT_TRUE([capabilitiesAfterRestart
+          [app_group::kChromeSupportsAISummarizationCapability] boolValue]);
+
+  // Verify non-Gemini capabilities were also saved.
+  EXPECT_NSEQ(@YES, capabilitiesAfterRestart
+                        [app_group::kChromeShowDefaultBrowserPromoCapability]);
+}
+
+// Tests that when the feature is disabled,
+// `SaveFieldTrialValuesForGroupApp` cleans up stale Gemini capabilities
+// from NSUserDefaults.
+TEST_F(GeminiCapabilitiesManagerTest, ClearsCapabilitiesWhenFeatureDisabled) {
+  scoped_feature_list_.InitAndDisableFeature(kAppSwitcherAISummarization);
+
+  // Pre-populate defaults to verify they get cleared when feature is disabled.
+  NSUserDefaults* defaults = app_group::GetCommonGroupUserDefaults();
+  [defaults setObject:@{
+    app_group::kChromeSupportsAISummarizationCapability : @YES,
+    app_group::kChromeUserIsEligibleForGeminiCapability : @YES
+  }
+               forKey:app_group::kChromeCapabilitiesPreference];
+
+  SaveFieldTrialValuesForGroupApp();
+
+  NSDictionary* capabilities =
+      [defaults dictionaryForKey:app_group::kChromeCapabilitiesPreference];
+  EXPECT_NSEQ(
+      nil, capabilities[app_group::kChromeSupportsAISummarizationCapability]);
+  EXPECT_NSEQ(
+      nil, capabilities[app_group::kChromeUserIsEligibleForGeminiCapability]);
 }
 
 }  // namespace

@@ -205,15 +205,23 @@ void GlicInstanceCoordinatorImpl::CancelInvoke(GlicInstanceImpl* instance) {
   }
 }
 
-void GlicInstanceCoordinatorImpl::OnInvoked() {
+void GlicInstanceCoordinatorImpl::OnInvoked(mojom::InvocationSource source,
+                                            ukm::SourceId source_id) {
   if (onboarding_tracker_) {
-    onboarding_tracker_->OnInvoke();
+    onboarding_tracker_->OnInvoke(source, source_id);
   }
 }
 
-void GlicInstanceCoordinatorImpl::OnUserInputSubmitted() {
+void GlicInstanceCoordinatorImpl::OnUserInputSubmitted(
+    ukm::SourceId source_id) {
   if (onboarding_tracker_) {
-    onboarding_tracker_->OnPrompt();
+    onboarding_tracker_->OnPrompt(source_id);
+  }
+}
+
+void GlicInstanceCoordinatorImpl::OnFreOptInShown(ukm::SourceId source_id) {
+  if (onboarding_tracker_) {
+    onboarding_tracker_->OnFreOptInShown(source_id);
   }
 }
 
@@ -554,8 +562,9 @@ void GlicInstanceCoordinatorImpl::Toggle(BrowserWindowInterface* browser,
   Show(browser, source);
 }
 
-bool GlicInstanceCoordinatorImpl::MaybeStartInitialWarming() {
-  return web_contents_warming_pool_->MaybeStartInitialWarming();
+bool GlicInstanceCoordinatorImpl::MaybeStartWarming(
+    GlicWarmingTrigger trigger) {
+  return web_contents_warming_pool_->MaybeStartWarming(trigger);
 }
 
 void GlicInstanceCoordinatorImpl::Shutdown() {
@@ -615,11 +624,11 @@ base::WeakPtr<GlicInstanceImpl> GlicInstanceCoordinatorImpl::InvokeInternal(
     GlicInvokeOptions options,
     GlicInvokeWithAutoSubmitOptions auto_submit_options,
     bool bypass_in_progress_check) {
-  RecordInvokeSource(options.GetInvocationSource());
+  auto metrics =
+      std::make_unique<GlicInvokeMetrics>(options.GetInvocationSource());
 
   if (!GlicEnabling::IsEnabledForProfile(profile_)) {
-    RecordInvokeError(options.GetInvocationSource(),
-                      GlicInvokeError::kProfileNotEnabled);
+    metrics->RecordError(GlicInvokeError::kProfileNotEnabled);
     if (options.on_error) {
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
           FROM_HERE, base::BindOnce(std::move(options.on_error),
@@ -631,8 +640,7 @@ base::WeakPtr<GlicInstanceImpl> GlicInstanceCoordinatorImpl::InvokeInternal(
   if (const auto* tab_handle =
           std::get_if<tabs::TabHandle>(&options.target.surface)) {
     if (tab_handle->raw_value() == tabs::TabHandle::NullValue) {
-      RecordInvokeError(options.GetInvocationSource(),
-                        GlicInvokeError::kInvalidTab);
+      metrics->RecordError(GlicInvokeError::kInvalidTab);
       if (options.on_error) {
         std::move(options.on_error).Run(GlicInvokeError::kInvalidTab);
       }
@@ -650,10 +658,16 @@ base::WeakPtr<GlicInstanceImpl> GlicInstanceCoordinatorImpl::InvokeInternal(
             std::get_if<GlicInvokeHandler::TabSurface>(&resolved_target)) {
       tab = tab_surface->tab;
       if (!tab || !GlicInstanceHelper::From(tab)) {
-        RecordInvokeError(options.GetInvocationSource(),
-                          GlicInvokeError::kTabClosed);
+        GlicInvokeError error = GlicInvokeError::kTabClosed;
+        if (const auto* tab_handle =
+                std::get_if<tabs::TabHandle>(&options.target.surface)) {
+          if (tab_handle->Get()) {
+            error = GlicInvokeError::kInvalidTab;
+          }
+        }
+        metrics->RecordError(error);
         if (options.on_error) {
-          std::move(options.on_error).Run(GlicInvokeError::kTabClosed);
+          std::move(options.on_error).Run(error);
         }
         // TODO(crbug.com/483387751): Show default toast here once implemented.
         return false;
@@ -687,8 +701,7 @@ base::WeakPtr<GlicInstanceImpl> GlicInstanceCoordinatorImpl::InvokeInternal(
       absl::Overload{
           [&](const ConversationId& conv_id) {
             if (conv_id.conversation_id.empty()) {
-              RecordInvokeError(options.GetInvocationSource(),
-                                GlicInvokeError::kInvalidConversationId);
+              metrics->RecordError(GlicInvokeError::kInvalidConversationId);
               if (options.on_error) {
                 std::move(options.on_error)
                     .Run(GlicInvokeError::kInvalidConversationId);
@@ -704,8 +717,7 @@ base::WeakPtr<GlicInstanceImpl> GlicInstanceCoordinatorImpl::InvokeInternal(
           [&](const InstanceId& id) {
             GlicInstanceImpl* target_instance = GetInstanceImplFor(id);
             if (!target_instance) {
-              RecordInvokeError(options.GetInvocationSource(),
-                                GlicInvokeError::kInstanceNotFound);
+              metrics->RecordError(GlicInvokeError::kInstanceNotFound);
               if (options.on_error) {
                 std::move(options.on_error)
                     .Run(GlicInvokeError::kInstanceNotFound);
@@ -747,7 +759,8 @@ base::WeakPtr<GlicInstanceImpl> GlicInstanceCoordinatorImpl::InvokeInternal(
   if (bypass_in_progress_check) {
     auto handler = std::make_unique<GlicInvokeHandler>(
         *instance, resolved_target, std::move(options),
-        std::move(auto_submit_options), auto_submit_passkey, base::DoNothing());
+        std::move(auto_submit_options), auto_submit_passkey, std::move(metrics),
+        base::DoNothing());
     GlicInvokeHandler* handler_ptr = handler.get();
     handler_ptr->set_completion_callback(
         base::BindOnce([](std::unique_ptr<GlicInvokeHandler> h, GlicInstance*,
@@ -767,8 +780,7 @@ base::WeakPtr<GlicInstanceImpl> GlicInstanceCoordinatorImpl::InvokeInternal(
       invoke_handlers_.erase(it);
       old_handler->Cancel(GlicInvokeError::kSuperseded);
     } else {
-      RecordInvokeError(options.GetInvocationSource(),
-                        GlicInvokeError::kInvokeInProgress);
+      metrics->RecordError(GlicInvokeError::kInvokeInProgress);
       if (options.on_error) {
         std::move(options.on_error).Run(GlicInvokeError::kInvokeInProgress);
       }
@@ -779,7 +791,7 @@ base::WeakPtr<GlicInstanceImpl> GlicInstanceCoordinatorImpl::InvokeInternal(
 
   invoke_handlers_[instance] = std::make_unique<GlicInvokeHandler>(
       *instance, resolved_target, std::move(options),
-      std::move(auto_submit_options), auto_submit_passkey,
+      std::move(auto_submit_options), auto_submit_passkey, std::move(metrics),
       base::BindOnce(&GlicInstanceCoordinatorImpl::OnInvokeHandlerComplete,
                      base::Unretained(this)));
   invoke_handlers_[instance]->Invoke();

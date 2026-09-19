@@ -733,58 +733,6 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
-<event name="AccessibilityAnnotator.ContentAnnotator.ClassifierResults"
-    singular="True">
-  <owner>qiaoli@google.com</owner>
-  <owner>akvuong@google.com</owner>
-  <owner>igoralsky@google.com</owner>
-  <summary>
-    Recorded when a page load is evaluated for annotation, which happens when a
-    page is loaded and sufficient data (content, language, sensitivity score)
-    has been gathered.
-  </summary>
-  <metric name="IsTargetLanguage" enum="Boolean">
-    <summary>
-      Records whether the page is in one of the target language(s).
-    </summary>
-  </metric>
-  <metric name="SemanticClassificationResult"
-      enum="ContentClassifierRelevanceValue">
-    <summary>
-      Indicates the level of confidence that the web page content is relevant to
-      the accessibility annotator based on the results of the semantic value
-      classifier.
-    </summary>
-  </metric>
-  <metric name="SemanticClassificationValueScore">
-    <summary>
-      Records a low entropy representation of the cosine similarity score output
-      by the semantic classification classifier. The low entropy value is
-      calculated using a RAPPOR-style calculation to enable analysis only on
-      aggregated results. The raw score is between 0 and 1. The score is then
-      placed into one of 16 linearly spaced buckets by dividing the score by the
-      bucket size and taking the floor. The resulting bucket value has noise
-      added with a probability of .5 where the noise is applied to each
-      individual bit. The noise is generated deterministically based on a
-      rotating user secret and the URL's host and path, ensuring the same URL
-      reports the same noisy value for a given user within the 28-day secret
-      rotation window.
-    </summary>
-  </metric>
-  <metric name="TitleKeywordResult" enum="ContentClassifierRelevanceValue">
-    <summary>
-      Records the level of interest in the web page content based on the results
-      of the title keyword value classifier.
-    </summary>
-  </metric>
-  <metric name="UrlMatchResult" enum="ContentClassifierRelevanceValue">
-    <summary>
-      Indicates the level of interest in the web page content based on the
-      results of the URL match classifier.
-    </summary>
-  </metric>
-</event>
-
 <event name="Actor.AttemptOtpFilling">
   <owner>salmaabdelaziz@google.com</owner>
   <owner>dembski@google.com</owner>
@@ -7687,11 +7635,39 @@ be describing additional metrics about the same event.
   <owner>picarella@google.com</owner>
   <owner>mmaryia@google.com</owner>
   <summary>
-    Recorded when either a copy/cut or a subsequent paste event occurs. A
-    separate event entry is logged for each action: a copy or cut from a tab
-    records an entry with `CopyFromTabNonce`, while a subsequent paste of that
-    data from a different tab and within 10 minutes, records a separate entry
-    with `PasteFromTabNonce`.
+    As of M153, recorded when either a copy/cut or a subsequent paste event
+    occurs for a user with the AutofillAtMemory feature disabled (prior to M153,
+    it was recorded regardless of the feature status). A separate event entry is
+    logged for each action: a copy or cut from a tab records an entry with
+    `CopyFromTabNonce`, while a subsequent paste of that data from a different
+    tab and within 10 minutes, records a separate entry with
+    `PasteFromTabNonce`.
+  </summary>
+  <metric name="CopyFromTabNonce">
+    <summary>
+      A random 64-bit integer recorded when a user copies or cuts data from a
+      non-incognito tab.
+    </summary>
+  </metric>
+  <metric name="PasteFromTabNonce">
+    <summary>
+      The 64-bit nonce of the matching copy event, recorded when the user pastes
+      the copied data into a different tab within 10 minutes. Used to link the
+      copy and paste events.
+    </summary>
+  </metric>
+</event>
+
+<event name="Clipboard.CopyPasteEvent.WithAtMemory">
+  <owner>picarella@google.com</owner>
+  <owner>mmaryia@google.com</owner>
+  <summary>
+    Added in M153. Recorded when either a copy/cut or a subsequent paste event
+    occurs for a user with the AutofillAtMemory feature enabled. A separate
+    event entry is logged for each action: a copy or cut from a tab records an
+    entry with `CopyFromTabNonce`, while a subsequent paste of that data from a
+    different tab and within 10 minutes, records a separate entry with
+    `PasteFromTabNonce`.
   </summary>
   <metric name="CopyFromTabNonce">
     <summary>
@@ -10773,6 +10749,42 @@ be describing additional metrics about the same event.
       <history>
         <statistics>
           <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="Glic.Onboarding">
+  <owner>sanaakbani@google.com</owner>
+  <owner>birnie@google.com</owner>
+  <summary>
+    Recorded when an unconsented user interacts with Glic during the onboarding
+    funnel (opening Glic, viewing the FRE opt-in UI, accepting consent, or
+    submitting a prompt). The source_id reflects the focused tab at the moment
+    the event occurs, or NoURLSourceId if no tab is focused.
+  </summary>
+  <metric name="FunnelStep" enum="GlicOnboardingFunnelStep">
+    <summary>
+      The onboarding funnel step reached (NewUserOpen, FreOptInShown,
+      FreOptInAccepted, FirstPromptSubmitted).
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="InvocationSource" enum="GlicInvocationSource">
+    <summary>
+      The entry point used to invoke Glic.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
         </statistics>
       </history>
     </aggregation>
@@ -15441,7 +15453,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="MultistepFilter.ApplicationSession">
-  <owner>adigupt@google.com</owner>
+  <owner>jihadghanna@google.com</owner>
   <owner>chrome-multistep-filter-eng@google.com</owner>
   <summary>
     Recorded when a Multistep Filter suggestion application session is
@@ -15512,7 +15524,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="MultistepFilter.UiSession">
-  <owner>adigupt@google.com</owner>
+  <owner>jihadghanna@google.com</owner>
   <owner>chrome-multistep-filter-eng@google.com</owner>
   <summary>
     Recorded when a Multistep Filter suggestion UI session is flushed
@@ -19307,6 +19319,35 @@ be describing additional metrics about the same event.
     <summary>
       The reason why the browser window size check failed and the Payment
       Request or Payment Handler dialog was rejected.
+    </summary>
+  </metric>
+</event>
+
+<event name="Payments.ThreeDSecure.ChallengeRequest">
+  <owner>darwinyang@google.com</owner>
+  <owner>chrome-payments-eng@google.com</owner>
+  <summary>
+    Records when a 3D-Secure challenge request (cReq) is detected in the form
+    data of an HTTP POST navigation.
+  </summary>
+  <metric name="ChallengeRequest" enum="Boolean">
+    <summary>
+      Set to true when a 3D-Secure challenge request is detected in the form
+      data of an HTTP POST navigation.
+    </summary>
+  </metric>
+</event>
+
+<event name="Payments.ThreeDSecure.ChallengeResponse">
+  <owner>darwinyang@google.com</owner>
+  <owner>chrome-payments-eng@google.com</owner>
+  <summary>
+    Records the outcome of a 3D-Secure challenge response (cRes) detected in the
+    form data of an HTTP POST navigation.
+  </summary>
+  <metric name="ChallengeResponse" enum="ThreeDSecureTransactionStatus">
+    <summary>
+      The outcome of the 3D-Secure challenge response.
     </summary>
   </metric>
 </event>
@@ -23952,10 +23993,16 @@ be describing additional metrics about the same event.
       event (value 3). See page_load_metrics::PageLoadType.
     </summary>
   </metric>
+  <metric name="PaintTiming.FirstContentfulPaint">
+    <summary>
+      Measures the FirstContentfulPaint in milliseconds from the start time of
+      the soft navigation to the presentation time.
+    </summary>
+  </metric>
   <metric name="PaintTiming.LargestContentfulPaint">
     <summary>
       Measures the LargestContentfulPaint in milliseconds from the start time of
-      the soft navigation to the LCP time.
+      the soft navigation to the presentation time.
     </summary>
     <aggregation>
       <history>
@@ -27889,6 +27936,38 @@ be describing additional metrics about the same event.
     <summary>
       A value that represents how complex/unparsable SDP is used. The categories
       are defined in blink::ComplexSdpCategory.
+    </summary>
+  </metric>
+</event>
+
+<event name="WebSpeech.Usage">
+  <owner>evliu@chromium.org</owner>
+  <owner>chrome-media-ux@google.com</owner>
+  <summary>
+    Recorded when a page navigation invokes either SpeechRecognition or
+    SpeechSynthesis. Used to measure website adoption distribution and speech
+    recognition backend selection.
+  </summary>
+  <metric name="RequestedSpeechQuality" enum="WebSpeechRecognitionQuality">
+    <summary>
+      The explicit speech recognition quality level requested by the site
+      (Command=0, Dictation=1, Conversation=2).
+    </summary>
+  </metric>
+  <metric name="SpeechRecognitionBackend" enum="WebSpeechRecognitionBackend">
+    <summary>
+      The speech recognition backend selected/used for the session (Cloud=0,
+      SODA=1, SmallExpertModel=2, GeminiNano=3).
+    </summary>
+  </metric>
+  <metric name="SpeechRecognitionUsed" enum="BooleanHit">
+    <summary>
+      Logged as 1 if SpeechRecognition was initiated during the navigation.
+    </summary>
+  </metric>
+  <metric name="SpeechSynthesisUsed" enum="BooleanHit">
+    <summary>
+      Logged as 1 if SpeechSynthesis speak() was invoked during the navigation.
     </summary>
   </metric>
 </event>

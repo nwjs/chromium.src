@@ -15,7 +15,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/user_prefs/user_prefs.h"
 #include "content/public/test/browser_test.h"
@@ -109,7 +109,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionsBrowserTest, DidCreateBrowserActions) {
       kActionDevTools,           kActionSendTabToSelf,
       kActionQrCodeGenerator,    kActionShowAddressesBubbleOrPage,
       kActionFederation,         kActionCycleToNextTab,
-      kActionCycleToPrevTab,     kActionShowReadingModeSidePanel};
+      kActionCycleToPrevTab,     kActionShowReadingModeSidePanel,
+      kActionBookmarksSubmenu};
 
   ASSERT_NE(browser_actions->root_action_item(), nullptr);
 

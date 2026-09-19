@@ -15,7 +15,7 @@
 #include "components/autofill/core/browser/data_model/addresses/autofill_i18n_api.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/field_types.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -1085,6 +1085,7 @@ INSTANTIATE_TEST_SUITE_P(
              .are_variant = false},
             {.full_name = u"Петров Иван Николаевич",
              .other_full_name = u"Петров И."},
+            {.full_name = u"Jane 이", .other_full_name = u"J 이"},
             {.full_name = u"Mary Jane Watson", .other_full_name = u""},
             {.full_name = u"",
              .other_full_name = u"Mary Jane Watson",

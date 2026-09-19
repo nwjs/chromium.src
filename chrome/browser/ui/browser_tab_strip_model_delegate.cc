@@ -30,7 +30,6 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/tab_helpers.h"
-#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_group_deletion_dialog_controller.h"
@@ -92,7 +91,8 @@ namespace chrome {
 ////////////////////////////////////////////////////////////////////////////////
 // BrowserTabStripModelDelegate, public:
 
-BrowserTabStripModelDelegate::BrowserTabStripModelDelegate(Browser* browser)
+BrowserTabStripModelDelegate::BrowserTabStripModelDelegate(
+    BrowserWindowInterface* browser)
     : browser_(browser) {}
 
 BrowserTabStripModelDelegate::~BrowserTabStripModelDelegate() = default;
@@ -117,7 +117,7 @@ void BrowserTabStripModelDelegate::AddTabAt(
   chrome::AddTabAt(browser_, url, index, foreground, group, pinned);
 }
 
-Browser* BrowserTabStripModelDelegate::CreateNewStripWithTabs(
+BrowserWindowInterface* BrowserTabStripModelDelegate::CreateNewStripWithTabs(
     std::vector<NewStripContents> tabs,
     const gfx::Rect& window_bounds,
     bool maximize) {
@@ -129,9 +129,8 @@ Browser* BrowserTabStripModelDelegate::CreateNewStripWithTabs(
   params.initial_bounds = window_bounds;
   params.initial_show_state = maximize ? ui::mojom::WindowShowState::kMaximized
                                        : ui::mojom::WindowShowState::kNormal;
-  Browser* browser =
-      CreateBrowserWindow(std::move(params))->GetBrowserForMigrationOnly();
-  TabStripModel* new_model = browser->tab_strip_model();
+  BrowserWindowInterface* browser = CreateBrowserWindow(std::move(params));
+  TabStripModel* new_model = browser->GetTabStripModel();
 
   for (size_t i = 0; i < tabs.size(); ++i) {
     NewStripContents item = std::move(tabs[i]);
@@ -163,7 +162,7 @@ void BrowserTabStripModelDelegate::WillAddWebContents(
 
 int BrowserTabStripModelDelegate::GetDragActions() const {
   return TabStripModelDelegate::TAB_TEAROFF_ACTION |
-         (browser_->tab_strip_model()->count() > 1
+         (browser_->GetTabStripModel()->count() > 1
               ? TabStripModelDelegate::TAB_MOVE_ACTION
               : 0);
 }
@@ -190,15 +189,13 @@ void BrowserTabStripModelDelegate::MoveToExistingWindow(
     const std::vector<int>& indices,
     int browser_index) {
   std::vector<BrowserWindowInterface*> existing_browsers =
-      browser_->GetFeatures().tab_menu_model_delegate()->GetOtherBrowserWindows(
+      TabMenuModelDelegate::From(browser_)->GetOtherBrowserWindows(
           web_app::AppBrowserController::IsWebApp(browser_));
   size_t existing_browser_count = existing_browsers.size();
   if (static_cast<size_t>(browser_index) < existing_browser_count &&
       existing_browsers[browser_index]) {
-    chrome::MoveTabsToExistingWindow(
-        browser_,
-        existing_browsers[browser_index]->GetBrowserForMigrationOnly(),
-        indices);
+    chrome::MoveTabsToExistingWindow(browser_, existing_browsers[browser_index],
+                                     indices);
   }
 }
 
@@ -215,7 +212,7 @@ void BrowserTabStripModelDelegate::MoveTabsToNewWindow(
 
 void BrowserTabStripModelDelegate::MoveGroupToNewWindow(
     const tab_groups::TabGroupId& group) {
-  TabGroupModel* group_model = browser_->tab_strip_model()->group_model();
+  TabGroupModel* group_model = browser_->GetTabStripModel()->group_model();
   if (!group_model || !group_model->ContainsTabGroup(group)) {
     return;
   }
@@ -238,7 +235,7 @@ std::optional<SessionID> BrowserTabStripModelDelegate::CreateHistoricalTab(
           WindowFeatureController::WindowFeature::kFeatureTabStrip)) {
     return service->CreateHistoricalTab(
         sessions::ContentLiveTab::GetOrCreateForWebContents(contents),
-        browser_->tab_strip_model()->GetIndexOfWebContents(contents));
+        browser_->GetTabStripModel()->GetIndexOfWebContents(contents));
   }
   return std::nullopt;
 }
@@ -267,7 +264,7 @@ void BrowserTabStripModelDelegate::CreateHistoricalSplit(
   sessions::TabRestoreService* service =
       TabRestoreServiceFactory::GetForProfile(browser_->GetProfile());
   if (service) {
-    service->CreateHistoricalSplit(browser_->GetFeatures().live_tab_context(),
+    service->CreateHistoricalSplit(BrowserLiveTabContext::From(browser_),
                                    split_id);
   }
 }
@@ -283,9 +280,7 @@ void BrowserTabStripModelDelegate::WillCloseGroup(
 
 void BrowserTabStripModelDelegate::WillCloseSplit(
     const split_tabs::SplitTabId& split_id) {
-  if (base::FeatureList::IsEnabled(tabs::kSplitViewTabRestore)) {
-    CreateHistoricalSplit(split_id);
-  }
+  CreateHistoricalSplit(split_id);
 }
 
 void BrowserTabStripModelDelegate::GroupCloseStopped(
@@ -299,10 +294,6 @@ void BrowserTabStripModelDelegate::GroupCloseStopped(
 
 void BrowserTabStripModelDelegate::SplitClosed(
     const split_tabs::SplitTabId& split_id) {
-  if (!base::FeatureList::IsEnabled(tabs::kSplitViewTabRestore)) {
-    return;
-  }
-
   if (!browser_ || !browser_->GetProfile()) {
     return;
   }
@@ -316,10 +307,6 @@ void BrowserTabStripModelDelegate::SplitClosed(
 
 void BrowserTabStripModelDelegate::SplitCloseStopped(
     const split_tabs::SplitTabId& split_id) {
-  if (!base::FeatureList::IsEnabled(tabs::kSplitViewTabRestore)) {
-    return;
-  }
-
   if (!browser_ || !browser_->GetProfile()) {
     return;
   }
@@ -395,7 +382,7 @@ void BrowserTabStripModelDelegate::NewSplitTab(
   if (indices.empty()) {
     chrome::NewSplitTab(browser_, layout, source);
   } else {
-    browser_->tab_strip_model()->AddToNewSplit(
+    browser_->GetTabStripModel()->AddToNewSplit(
         indices, split_tabs::SplitTabVisualData(layout), source);
   }
 }
@@ -434,7 +421,7 @@ void BrowserTabStripModelDelegate::CloseTab(
     const tabs::TabInterface* tab_interface,
     CloseTabSource source,
     base::OnceCallback<void(CloseTabSource)> on_approved) {
-  TabStripModel* model = browser_->tab_strip_model();
+  TabStripModel* model = browser_->GetTabStripModel();
   std::optional<int> maybe_tab_index = model->GetIndexOfTab(tab_interface);
   if (!maybe_tab_index.has_value()) {
     return;
@@ -504,8 +491,8 @@ void BrowserTabStripModelDelegate::CloseTab(
         if (!delegate) {
           return;
         }
-        Browser* browser = delegate->browser_;
-        TabStripModel* model = browser->tab_strip_model();
+        BrowserWindowInterface* browser = delegate->browser_;
+        TabStripModel* model = browser->GetTabStripModel();
 
         if (on_approved) {
           std::move(on_approved).Run(source);

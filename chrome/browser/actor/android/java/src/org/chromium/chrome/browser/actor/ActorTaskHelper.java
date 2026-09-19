@@ -9,11 +9,11 @@ import android.view.WindowManager;
 
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.ApplicationStatus;
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.StartStopWithNativeObserver;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -93,10 +93,16 @@ public class ActorTaskHelper implements ActorKeyedService.Observer, StartStopWit
 
     @Override
     public void onStopWithNative() {
-        if (ChromeFeatureList.sGlicBackgroundActuation.isEnabled()) {
+        if (ActorUtils.isBackgroundActuationEnabled()) {
             TabModelSelector selector = mTabModelSelectorSupplier.get();
             assert selector != null;
             ActorForegroundServiceController.get().transitionActiveTasksToBackground(selector);
+            if (!ApplicationStatus.hasVisibleActivities()) {
+                ActorForegroundServiceManager manager = ActorForegroundServiceManager.getInstance();
+                if (manager != null) {
+                    manager.resendWorkingNotifications();
+                }
+            }
         } else if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity)) {
             // TODO(b/537362347): Update method to remove usage of getCurrentActingTab() when
             // refactoring for multi-task.
@@ -164,6 +170,9 @@ public class ActorTaskHelper implements ActorKeyedService.Observer, StartStopWit
 
     /** Stops any active Actor tasks that belong to this window when the activity is destroyed. */
     public void onDestroy() {
+        if (ActorUtils.isBackgroundActuationEnabled()) {
+            return;
+        }
         forEachActiveTask(
                 task -> {
                     if (isTaskInCurrentWindow(task) && mActorService != null) {
@@ -236,8 +245,11 @@ public class ActorTaskHelper implements ActorKeyedService.Observer, StartStopWit
      * @param taskId The ID of the task, or null.
      * @return The tab matching the task's last acted tabs, or the last tab in the list.
      */
-    public static Tab getLastActiveTabForTask(List<Tab> tabs, @Nullable Integer taskId) {
-        if (taskId != null && !tabs.isEmpty()) {
+    public static @Nullable Tab getLastActiveTabForTask(List<Tab> tabs, @Nullable Integer taskId) {
+        if (tabs == null || tabs.isEmpty()) {
+            return null;
+        }
+        if (taskId != null) {
             Profile profile = tabs.get(0).getProfile();
             if (profile != null) {
                 ActorKeyedService service =

@@ -46,7 +46,7 @@
 #include "components/autofill/core/browser/autofill_format_string.h"
 #include "components/autofill/core/browser/crowdsourcing/randomized_encoder.h"
 #include "components/autofill/core/browser/crowdsourcing/server_prediction_overrides.h"
-#include "components/autofill/core/browser/field_type_utils.h"
+#include "components/autofill/core/browser/field_type_util.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_parsing/form_field_parser.h"
 #include "components/autofill/core/browser/form_structure.h"
@@ -486,10 +486,6 @@ void EncodeFormFieldsForUpload(
   DCHECK(!IsMalformed(form));
 
   for (const AutofillField* const field : upload_fields) {
-    // Don't upload checkable fields.
-    if (IsCheckable(field->check_status())) {
-      continue;
-    }
     const EncodeUploadRequestOptions::Field* field_options = nullptr;
     if (auto it = fields.find(field->global_id()); it != fields.end()) {
       field_options = &it->second;
@@ -605,8 +601,7 @@ void EncodeFormForQuery(const FormData& form,
         queried_form_signatures.push_back(form_signature);
 
         for (const auto& field : fields) {
-          if (IsCheckable(field.check_status()) ||
-              !necessary_condition(field)) {
+          if (!necessary_condition(field)) {
             continue;
           }
 

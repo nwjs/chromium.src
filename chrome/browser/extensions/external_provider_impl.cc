@@ -76,13 +76,14 @@
 #include "chrome/browser/chromeos/app_mode/kiosk_app_external_loader.h"
 #include "chrome/browser/chromeos/extensions/external_loader/device_local_account_external_policy_loader.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
+#include "chromeos/ash/components/policy/device_local_account/device_local_account_type.h"
 #include "chromeos/ash/experiences/arc/arc_util.h"
 #include "chromeos/components/kiosk/kiosk_utils.h"
 #include "chromeos/components/mgs/managed_guest_session_utils.h"
 #include "chromeos/constants/chromeos_features.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #else
 #include "chrome/browser/extensions/preinstalled_extensions.h"
-#include "chromeos/ash/components/policy/device_local_account/device_local_account_type.h"
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -698,7 +699,8 @@ void ExternalProviderImpl::CreateExternalProviders(
     // type |TYPE_LOGIN_SCREEN_EXTENSION| with limited API capabilities.
     crx_location = ManifestLocation::kExternalPolicyDownload;
     external_loader = base::MakeRefCounted<
-        chromeos::AuthenticationScreenExtensionsExternalLoader>(profile);
+        chromeos::AuthenticationScreenExtensionsExternalLoader>(
+        g_browser_process->shared_url_loader_factory(), profile);
     auto signin_profile_provider = std::make_unique<ExternalProviderImpl>(
         service, external_loader, profile, crx_location,
         ManifestLocation::kExternalPolicyDownload, Extension::FOR_LOGIN_SCREEN);
@@ -842,10 +844,10 @@ void ExternalProviderImpl::CreateExternalProviders(
     // OEM pre-installed apps.
     int oem_extension_creation_flags =
         bundled_extension_creation_flags | Extension::WAS_INSTALLED_BY_OEM;
-    ash::ServicesCustomizationDocument* customization =
+    ash::ServicesCustomizationDocument& customization =
         ash::ServicesCustomizationDocument::GetInstance();
     provider_list->push_back(std::make_unique<ExternalProviderImpl>(
-        service, customization->CreateExternalLoader(profile), profile,
+        service, customization.CreateExternalLoader(profile), profile,
         ManifestLocation::kExternalPref,
         ManifestLocation::kExternalPrefDownload, oem_extension_creation_flags));
   }

@@ -11,6 +11,7 @@
 #include "chrome/browser/actor/actor_proto_conversion.h"
 #include "components/actor/core/actor_features.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
+#include "net/dns/mock_host_resolver.h"
 
 namespace glic::actor {
 
@@ -81,6 +82,10 @@ void GlicActorFunctionalBrowserTestBase::SetUpOnMainThread() {
   embedded_https_test_server().ServeFilesFromSourceDirectory(
       "components/test/data");
   GlicFunctionalBrowserTestBase::SetUpOnMainThread();
+  host_resolver()->AddRule("*", "127.0.0.1");
+  if (!embedded_https_test_server().Started()) {
+    ASSERT_TRUE(embedded_https_test_server().Start());
+  }
   RunTestSequence(OpenGlic());
 }
 
@@ -88,6 +93,11 @@ base::CallbackListSubscription
 GlicActorFunctionalBrowserTestBase::CreateTaskCompletionSubscription(
     TaskId for_task_id,
     TestFuture<ActorTask::State>& future) {
+  ActorTask* existing_task = actor_keyed_service()->GetTask(for_task_id);
+  if (existing_task && ActorTask::IsCompletedState(existing_task->GetState())) {
+    future.SetValue(existing_task->GetState());
+    return base::CallbackListSubscription();
+  }
   return actor_keyed_service()->AddTaskStateChangedCallback(
       base::BindLambdaForTesting([&future, for_task_id](ActorTask& task) {
         if (task.id() == for_task_id &&

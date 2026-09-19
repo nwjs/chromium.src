@@ -4,6 +4,7 @@
 
 #include "components/skills/internal/enterprise_skills_provider.h"
 
+#include <algorithm>
 #include <iterator>
 #include <string_view>
 
@@ -22,6 +23,7 @@
 #include "components/skills/internal/skill_parser.rs.h"
 #include "components/skills/public/skills_prefs.h"
 #include "crypto/hash.h"
+#include "net/base/net_errors.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -56,8 +58,10 @@ bool IsFieldValid(std::string_view field, size_t max_length) {
   return !field.empty() && field.length() <= max_length;
 }
 
+constexpr char kLogPrefix[] = "[EnterprisePublishedSkills] ";
 constexpr char kBaseValidationError[] =
-    "Validation failed for enterprise skill (Hash: ";
+    "Validation failed for skill with hash: ";
+constexpr char kDownloadFailedError[] = "Failed to download skill with hash: ";
 
 EnterpriseSkillValidationResult ValidateSkillMetadata(
     std::string_view expected_hash,
@@ -66,20 +70,20 @@ EnterpriseSkillValidationResult ValidateSkillMetadata(
     std::string_view prompt) {
   if (!IsFieldValid(name, Skill::kMaxNameLength)) {
     LOG_POLICY(ERROR, POLICY_PROCESSING)
-        << kBaseValidationError << expected_hash
-        << "). Reason: Invalid name length.";
+        << kLogPrefix << kBaseValidationError << expected_hash
+        << " (Reason: Invalid name length).";
     return EnterpriseSkillValidationResult::kInvalidName;
   }
   if (!IsFieldValid(description, Skill::kMaxDescriptionLength)) {
     LOG_POLICY(ERROR, POLICY_PROCESSING)
-        << kBaseValidationError << expected_hash
-        << "). Reason: Invalid description length.";
+        << kLogPrefix << kBaseValidationError << expected_hash
+        << " (Reason: Invalid description length).";
     return EnterpriseSkillValidationResult::kInvalidDescription;
   }
   if (!IsFieldValid(prompt, Skill::kMaxPromptLength)) {
     LOG_POLICY(ERROR, POLICY_PROCESSING)
-        << kBaseValidationError << expected_hash
-        << "). Reason: Invalid prompt length.";
+        << kLogPrefix << kBaseValidationError << expected_hash
+        << " (Reason: Invalid prompt length).";
     return EnterpriseSkillValidationResult::kInvalidPrompt;
   }
   return EnterpriseSkillValidationResult::kSuccess;
@@ -89,8 +93,8 @@ bool IsHashValid(std::string_view actual_hash_hex,
                  std::string_view expected_hash) {
   if (!base::EqualsCaseInsensitiveASCII(actual_hash_hex, expected_hash)) {
     LOG_POLICY(ERROR, POLICY_PROCESSING)
-        << "Enterprise skill hash mismatch. "
-        << "Expected: " << expected_hash << ", Actual: " << actual_hash_hex;
+        << kLogPrefix << "Hash mismatch. Expected: " << expected_hash
+        << ", Actual: " << actual_hash_hex;
     return false;
   }
   return true;
@@ -212,6 +216,7 @@ void EnterpriseSkillsProvider::FetchSkillsFromUrls() {
     auto resource_request = std::make_unique<network::ResourceRequest>();
     resource_request->url = url;
     resource_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
+    resource_request->redirect_mode = network::mojom::RedirectMode::kError;
 
     auto url_loader = network::SimpleURLLoader::Create(
         std::move(resource_request), traffic_annotation);
@@ -252,7 +257,8 @@ std::unique_ptr<Skill> EnterpriseSkillsProvider::ParseAndValidateSkill(
   if (!parsed.success) {
     RecordValidationResult(EnterpriseSkillValidationResult::kInvalidFormat);
     LOG_POLICY(ERROR, POLICY_PROCESSING)
-        << "Enterprise skill validation failed for hash: " << expected_hash;
+        << kLogPrefix << kBaseValidationError << expected_hash
+        << " (Reason: Invalid format).";
     return nullptr;
   }
 
@@ -300,7 +306,8 @@ void EnterpriseSkillsProvider::OnURLLoadComplete(
     // ParseAndValidateSkill.
   } else {
     LOG_POLICY(ERROR, POLICY_PROCESSING)
-        << "Failed to download enterprise skill for hash: " << expected_hash;
+        << kLogPrefix << kDownloadFailedError << expected_hash
+        << " (Error: " << net::ErrorToShortString(source->NetError()) << ").";
   }
 
   std::erase_if(url_loaders_, [source](const auto& loader) {
@@ -310,6 +317,10 @@ void EnterpriseSkillsProvider::OnURLLoadComplete(
 }
 
 void EnterpriseSkillsProvider::OnAllFetchesComplete() {
+  std::sort(pending_skills_.begin(), pending_skills_.end(),
+            [](const std::unique_ptr<Skill>& a,
+               const std::unique_ptr<Skill>& b) { return a->name < b->name; });
+
   const size_t hosted_image_count = std::size(kEnterpriseSkillImages);
   for (size_t skill_index = 0; skill_index < pending_skills_.size();
        ++skill_index) {

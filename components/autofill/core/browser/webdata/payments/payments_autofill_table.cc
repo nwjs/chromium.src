@@ -40,7 +40,7 @@
 #include "components/autofill/core/browser/data_model/payments/payments_metadata.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/payments/payments_customer_data.h"
-#include "components/autofill/core/browser/webdata/autofill_table_utils.h"
+#include "components/autofill/core/browser/webdata/autofill_table_util.h"
 #include "components/autofill/core/browser/webdata/payments/server_cvc.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
@@ -2255,7 +2255,7 @@ bool PaymentsAutofillTable::
 
 void PaymentsAutofillTable::AddMaskedCreditCards(
     const std::vector<CreditCard>& credit_cards) {
-  DCHECK_GT(db()->transaction_nesting(), 0);
+  DCHECK(db()->HasActiveTransactions());
   sql::Statement masked_insert;
   sql::InsertBuilder(
       *db(), masked_insert, kMaskedCreditCardsTable,

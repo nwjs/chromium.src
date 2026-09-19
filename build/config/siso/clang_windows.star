@@ -66,8 +66,6 @@ def __step_config(ctx, step_config):
                         win_toolchain_dir + ":headers-ci",
                     ],
                 })
-            else:
-                win_sdk.step_config(ctx, step_config)
         remote_wrapper = rewrapper_config.get("remote_wrapper")
         input_root_absolute_path = gn_logs.read(ctx).get("clang_need_input_root_absolute_path") == "true"
 
@@ -109,7 +107,7 @@ def __step_config(ctx, step_config):
                 "name": "clang-cl/cxx_module",
                 "handler": "clang_compile",
                 "action": "(.*_)?cxx_module",
-                "command_prefix": "..\\third_party\\llvm-build\\Release+Asserts\\bin\\clang-cl.exe",
+                "command_prefix": "..\\..\\third_party\\llvm-build\\Release+Asserts\\bin\\clang-cl.exe",
                 "inputs": rewrapper_config_inputs + [
                     "third_party/llvm-build/Release+Asserts/bin/clang-cl.exe",
                 ],

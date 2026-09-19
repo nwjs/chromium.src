@@ -8,6 +8,7 @@
 
 #import "base/check.h"
 #import "base/functional/bind.h"
+#import "components/autofill/core/browser/at_memory/policy/find_and_fill_with_gemini_settings_policy_handler.h"
 #import "components/autofill/core/common/autofill_prefs.h"
 #import "components/bookmarks/common/bookmark_pref_names.h"
 #import "components/bookmarks/managed/managed_bookmarks_policy_handler.h"
@@ -27,6 +28,7 @@
 #import "components/enterprise/connectors/core/enterprise_connectors_policy_handler.h"
 #import "components/enterprise/data_controls/core/browser/data_controls_policy_handler.h"
 #import "components/enterprise/data_controls/core/browser/prefs.h"
+#import "components/enterprise/device_trust/prefs.h"
 #import "components/enterprise/idle/idle_timeout_policy_handler.h"
 #import "components/enterprise/isolated_mode/prefs.h"
 #import "components/enterprise/net/core/prefs.h"
@@ -64,6 +66,8 @@
 #import "ios/chrome/browser/policy/model/restrict_accounts_policy_handler.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 
+using policy::FindAndFillWithGeminiSettingsPolicyHandler;
+using policy::GenAiDefaultSettingsPolicyHandler;
 using policy::PolicyToPreferenceMapEntry;
 using policy::SimplePolicyHandler;
 
@@ -162,9 +166,6 @@ constexpr auto kSimplePolicyMap = std::to_array<PolicyToPreferenceMapEntry>({
     base::Value::Type::INTEGER},
   { policy::key::kAutofillPredictionSettings,
     optimization_guide::prefs::kAutofillPredictionImprovementsEnterprisePolicyAllowed,
-    base::Value::Type::INTEGER },
-  { policy::key::kFindAndFillWithGeminiSettings,
-    optimization_guide::prefs::kFindAndFillWithGeminiSettings,
     base::Value::Type::INTEGER },
   { policy::key::kDownloadRestrictions,
     policy::policy_prefs::kDownloadRestrictions,
@@ -287,28 +288,28 @@ std::unique_ptr<policy::ConfigurationPolicyHandlerList> BuildPolicyHandlerList(
   handlers->AddHandler(
       std::make_unique<enterprise_idle::IdleTimeoutPolicyHandler>());
 
-  std::vector<policy::GenAiDefaultSettingsPolicyHandler::GenAiPolicyDetails>
+  std::vector<GenAiDefaultSettingsPolicyHandler::GenAiPolicyDetails>
       gen_ai_default_policies;
   gen_ai_default_policies.emplace_back(
       policy::key::kLensOverlaySettings, lens::prefs::kLensOverlaySettings,
       policy::key::kSearchContentSharingSettings,
-      policy::GenAiDefaultSettingsPolicyHandler::PolicyValueToPrefMap(
+      GenAiDefaultSettingsPolicyHandler::PolicyValueToPrefMap(
           {{0, 0}, {1, 0}, {2, 1}}));
   gen_ai_default_policies.emplace_back(
       policy::key::kAIModeSettings, omnibox::kAIModeSettings,
-      policy::GenAiDefaultSettingsPolicyHandler::PolicyValueToPrefMap(
+      GenAiDefaultSettingsPolicyHandler::PolicyValueToPrefMap(
           {{0, 0}, {1, 0}, {2, 1}}));
   gen_ai_default_policies.emplace_back(
       policy::key::kThirdPartyAiChatSettings,
       omnibox::kThirdPartyAiChatSettings,
-      policy::GenAiDefaultSettingsPolicyHandler::PolicyValueToPrefMap(
+      GenAiDefaultSettingsPolicyHandler::PolicyValueToPrefMap(
           {{0, 0}, {1, 0}, {2, 1}}));
   // Default value for SearchContentSharingSettings is 0 if
   // GenAiDefaultSettings value is 0 or 1, or 1 if the latter is 2.
   gen_ai_default_policies.emplace_back(
       policy::key::kSearchContentSharingSettings,
       contextual_search::kSearchContentSharingSettings,
-      policy::GenAiDefaultSettingsPolicyHandler::PolicyValueToPrefMap(
+      GenAiDefaultSettingsPolicyHandler::PolicyValueToPrefMap(
           {{0, 0}, {1, 0}, {2, 1}}));
   gen_ai_default_policies.emplace_back(
       policy::key::kAutofillPredictionSettings,
@@ -317,9 +318,12 @@ std::unique_ptr<policy::ConfigurationPolicyHandlerList> BuildPolicyHandlerList(
   gen_ai_default_policies.emplace_back(
       policy::key::kFindAndFillWithGeminiSettings,
       optimization_guide::prefs::kFindAndFillWithGeminiSettings);
+  handlers->AddHandler(std::make_unique<GenAiDefaultSettingsPolicyHandler>(
+      gen_ai_default_policies));
   handlers->AddHandler(
-      std::make_unique<policy::GenAiDefaultSettingsPolicyHandler>(
-          std::move(gen_ai_default_policies)));
+      std::make_unique<FindAndFillWithGeminiSettingsPolicyHandler>(
+          std::make_unique<GenAiDefaultSettingsPolicyHandler>(
+              gen_ai_default_policies)));
 
   handlers->AddHandler(std::make_unique<policy::SimpleDeprecatingPolicyHandler>(
       std::make_unique<SimplePolicyHandler>(policy::key::kLensOverlaySettings,
@@ -360,6 +364,20 @@ std::unique_ptr<policy::ConfigurationPolicyHandlerList> BuildPolicyHandlerList(
 
   handlers->AddHandler(
       std::make_unique<WatermarkStylePolicyHandler>(chrome_schema));
+
+  handlers->AddHandler(
+      std::make_unique<
+          enterprise_connectors::EnterpriseConnectorsPolicyHandler>(
+          policy::key::kUserContextAwareAccessSignalsAllowlist,
+          enterprise_connectors::kUserContextAwareAccessSignalsAllowlistPref,
+          chrome_schema));
+
+  handlers->AddHandler(
+      std::make_unique<
+          enterprise_connectors::EnterpriseConnectorsPolicyHandler>(
+          policy::key::kBrowserContextAwareAccessSignalsAllowlist,
+          enterprise_connectors::kBrowserContextAwareAccessSignalsAllowlistPref,
+          chrome_schema));
 
   handlers->AddHandler(
       std::make_unique<

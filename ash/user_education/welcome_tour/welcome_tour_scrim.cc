@@ -25,9 +25,10 @@
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/color/color_provider.h"
 #include "ui/color/color_provider_source_observer.h"
-#include "ui/compositor/layer.h"
 #include "ui/compositor/layer_delegate.h"
 #include "ui/compositor/layer_owner.h"
+#include "ui/compositor/layer_solid_color.h"
+#include "ui/compositor/layer_textured.h"
 #include "ui/compositor/paint_recorder.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/rect_f.h"
@@ -209,7 +210,7 @@ class WelcomeTourScrim::Scrim : public aura::WindowObserver,
   // Invoked once to initialize `this` scrim.
   void Init() {
     // Configure static scrim layer properties.
-    layer_owner_.layer()->SetMaskLayer(mask_layer_owner_.layer());
+    layer_owner_.layer()->SetMaskLayer(mask_layer_owner_.layer()->AsTextured());
     layer_owner_.layer()->SetName(WelcomeTourScrim::kLayerName);
 
     // Configure dynamic scrim layer properties.

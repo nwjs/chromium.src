@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 #include "base/hash/hash.h"
@@ -39,6 +40,8 @@ class MockMemoryConsumerGroupHost : public MemoryConsumerGroupHost {
               UpdateConsumers,
               (std::vector<MemoryConsumerUpdate> updates),
               (override));
+  MOCK_METHOD(void, SetOverrideLimit, (uint32_t, int), (override));
+  MOCK_METHOD(void, ClearOverrideLimit, (uint32_t, int), (override));
 };
 
 }  // namespace
@@ -65,8 +68,9 @@ TEST_F(PredicateMemoryCoordinatorPolicyTest, Persistence) {
   PredicateMemoryCoordinatorPolicy policy(
       policy_manager(),
       base::BindRepeating(
-          [](uint32_t consumer_id, base::MemoryConsumerTraits traits,
-             ProcessType process_type, ChildProcessId child_process_id) {
+          [](uint32_t consumer_id, std::string_view consumer_name,
+             base::MemoryConsumerTraits traits, ProcessType process_type,
+             ChildProcessId child_process_id) {
             // Only match consumers in the primary process (kChildId).
             return child_process_id.is_null();
           }));
@@ -121,8 +125,9 @@ TEST_F(PredicateMemoryCoordinatorPolicyTest, SetLimit) {
   PredicateMemoryCoordinatorPolicy policy(
       policy_manager(),
       base::BindRepeating(
-          [](uint32_t consumer_id, base::MemoryConsumerTraits traits,
-             ProcessType process_type, ChildProcessId child_process_id) {
+          [](uint32_t consumer_id, std::string_view consumer_name,
+             base::MemoryConsumerTraits traits, ProcessType process_type,
+             ChildProcessId child_process_id) {
             return child_process_id.is_null();
           }));
   MemoryCoordinatorPolicyRegistration registration(policy_manager(), policy);
@@ -162,8 +167,9 @@ TEST_F(PredicateMemoryCoordinatorPolicyTest, ChangeReleaseMemory) {
   PredicateMemoryCoordinatorPolicy policy(
       policy_manager(),
       base::BindRepeating(
-          [](uint32_t consumer_id, base::MemoryConsumerTraits traits,
-             ProcessType process_type, ChildProcessId child_process_id) {
+          [](uint32_t consumer_id, std::string_view consumer_name,
+             base::MemoryConsumerTraits traits, ProcessType process_type,
+             ChildProcessId child_process_id) {
             return child_process_id.is_null();
           }));
   MemoryCoordinatorPolicyRegistration registration(policy_manager(), policy);
@@ -195,8 +201,9 @@ TEST_F(PredicateMemoryCoordinatorPolicyTest, DefaultStatePersistence) {
   PredicateMemoryCoordinatorPolicy policy(
       policy_manager(),
       base::BindRepeating(
-          [](uint32_t consumer_id, base::MemoryConsumerTraits traits,
-             ProcessType process_type, ChildProcessId child_process_id) {
+          [](uint32_t consumer_id, std::string_view consumer_name,
+             base::MemoryConsumerTraits traits, ProcessType process_type,
+             ChildProcessId child_process_id) {
             return child_process_id.is_null();
           }));
   MemoryCoordinatorPolicyRegistration registration(policy_manager(), policy);
@@ -217,10 +224,10 @@ TEST_F(PredicateMemoryCoordinatorPolicyTest, DefaultStatePersistence) {
 
 TEST_F(PredicateMemoryCoordinatorPolicyTest, ObserverLifecycle) {
   PredicateMemoryCoordinatorPolicy::ConsumerPredicate predicate =
-      base::BindRepeating([](uint32_t consumer_id,
-                             base::MemoryConsumerTraits traits,
-                             ProcessType process_type,
-                             ChildProcessId child_process_id) { return true; });
+      base::BindRepeating(
+          [](uint32_t consumer_id, std::string_view consumer_name,
+             base::MemoryConsumerTraits traits, ProcessType process_type,
+             ChildProcessId child_process_id) { return true; });
 
   // When a consumer is added, it should only be notified if the policy state
   // hasn't been destroyed.
@@ -293,8 +300,9 @@ TEST_F(PredicateMemoryCoordinatorPolicyTest,
   PredicateMemoryCoordinatorPolicy policy(
       policy_manager(),
       base::BindRepeating(
-          [](uint32_t consumer_id, base::MemoryConsumerTraits traits,
-             ProcessType process_type, ChildProcessId child_process_id) {
+          [](uint32_t consumer_id, std::string_view consumer_name,
+             base::MemoryConsumerTraits traits, ProcessType process_type,
+             ChildProcessId child_process_id) {
             return child_process_id.is_null();
           }));
   MemoryCoordinatorPolicyRegistration registration(policy_manager(), policy);
@@ -373,8 +381,9 @@ TEST_F(PredicateMemoryCoordinatorPolicyTest,
   PredicateMemoryCoordinatorPolicy policy(
       policy_manager(),
       base::BindRepeating(
-          [](uint32_t consumer_id, base::MemoryConsumerTraits traits,
-             ProcessType process_type, ChildProcessId child_process_id) {
+          [](uint32_t consumer_id, std::string_view consumer_name,
+             base::MemoryConsumerTraits traits, ProcessType process_type,
+             ChildProcessId child_process_id) {
             return child_process_id.is_null();
           }));
   MemoryCoordinatorPolicyRegistration registration(policy_manager(), policy);

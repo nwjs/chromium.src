@@ -109,7 +109,6 @@
 #include "chrome/common/buildflags.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/secure_origin_allowlist.h"
-#include "components/accessibility_annotator/core/prefs.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/blocked_content/safe_browsing_triggered_popup_blocker.h"
 #include "components/breadcrumbs/core/breadcrumbs_status.h"
@@ -229,6 +228,7 @@
 #include "pdf/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "rlz/buildflags/buildflags.h"
+#include "ui/accessibility/accessibility_prefs.h"
 #include "ui/webui/buildflags.h"
 
 #if BUILDFLAG(ENABLE_WEBUI_NTP)
@@ -252,7 +252,10 @@
 #include "chrome/browser/extensions/commands/command_service.h"
 #include "chrome/browser/extensions/extension_url_overrides.h"
 #include "chrome/browser/extensions/extension_util.h"
+#include "chrome/browser/extensions/low_trust_policy_install_block_manager.h"
 #include "chrome/browser/extensions/preinstalled_extensions.h"
+#include "chrome/browser/ui/extensions/extension_settings_overridden_dialog.h"
+#include "chrome/browser/ui/extensions/settings_api_bubble_helpers.h"
 #include "chrome/browser/ui/webui/extensions/extensions_ui_prefs.h"
 #include "extensions/browser/api/runtime/runtime_api.h"
 #include "extensions/browser/extension_prefs.h"
@@ -262,8 +265,6 @@
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/accessibility/animation_policy_prefs.h"
-#include "chrome/browser/ui/extensions/extension_settings_overridden_dialog.h"
-#include "chrome/browser/ui/extensions/settings_api_bubble_helpers.h"
 #include "extensions/browser/api/audio/audio_api.h"
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
@@ -311,17 +312,16 @@
 #include "chrome/browser/new_tab_page/modules/v2/authentication/microsoft_auth_page_handler.h"
 #include "chrome/browser/new_tab_page/modules/v2/calendar/outlook_calendar_page_handler.h"
 #include "chrome/browser/new_tab_page/modules/v2/tab_groups/tab_groups_page_handler.h"
-#include "chrome/browser/new_tab_page/promos/promo_service.h"
 #include "chrome/browser/screen_ai/pref_names.h"
 #include "chrome/browser/search_engine_choice/search_engine_choice_dialog_service.h"
 #include "chrome/browser/signin/signin_promo.h"
+#include "chrome/browser/speech/speech_recognition_small_expert_model_installer.h"
 #include "chrome/browser/task_manager/task_manager_interface.h"
 #include "chrome/browser/themes/theme_syncable_service.h"
 #include "chrome/browser/ui/commerce/commerce_ui_tab_helper.h"
 #include "chrome/browser/ui/hats/hats_service_desktop.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_prefs.h"
 #include "chrome/browser/ui/read_anything/read_anything_prefs.h"
-#include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_bubble.h"
 #include "chrome/browser/ui/side_panel/side_panel_prefs.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/tabs/pinned_tab_codec.h"
@@ -541,6 +541,7 @@
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #include "chrome/browser/browser_switcher/browser_switcher_prefs.h"
 #include "chrome/browser/enterprise/signin/enterprise_signin_prefs.h"
+#include "chrome/browser/lifetime/scheduled_restart_manager.h"
 #endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -861,6 +862,13 @@ constexpr char kLastSeenFeedType[] = "feedv2.last_seen_feed_type";
 constexpr char kShouldShowRemoteAnnotatorFirstRunInfo[] =
     "accessibility_annotator.should_show_remote_annotator_first_run_info";
 
+// Deprecated 08/2026.
+constexpr char kUkmLoggingUserSecret[] =
+    "accessibility_annotator.ukm_logging_user_secret";
+constexpr char kUkmLoggingUserSecretCreationTime[] =
+    "accessibility_annotator.ukm_logging_user_secret_creation_time";
+constexpr char kObsoleteNtpPromoBlocklist[] = "ntp.promo_blocklist";
+
 // Deprecated 05/2026.
 constexpr char kHttpCacheFinchExperimentGroups[] =
     "profile_network_context_service.http_cache_finch_experiment_groups";
@@ -943,6 +951,8 @@ constexpr char kMetricsConsentRestructureFeatureState[] =
     "user_experience_metrics.consent_restructure_feature_state";
 
 // Deprecated 08/2026.
+constexpr char kInitialSendAnimationShown[] =
+    "send_tab_to_self.initial_animation_shown";
 constexpr char kPrivacySandboxNotices[] = "privacy_sandbox.notices";
 constexpr char kPrivacySandboxM1ConsentDecisionMade[] =
     "privacy_sandbox.m1.consent_decision_made";
@@ -996,6 +1006,16 @@ constexpr char kTrackingProtection3pcdEnabled[] =
     "tracking_protection.tracking_protection_3pcd_enabled";
 constexpr char kBlockAll3pcToggleEnabled[] =
     "tracking_protection.block_all_3pc_toggle_enabled";
+
+#if !BUILDFLAG(IS_ANDROID)
+// Deprecated 08/2026.
+constexpr char kEverythingMenuPinnedToTabstripMigrationComplete[] =
+    "everything_menu.pinned_to_tabstrip_migration_complete";
+#endif  // !BUILDFLAG(IS_ANDROID)
+
+// Deprecated 08/2026.
+constexpr char kSigninInterceptionIDPCookiesUrl[] =
+    "signin.interception.idp_cookies.url";
 
 #if BUILDFLAG(IS_CHROMEOS)
 // Deprecated 07/2026.
@@ -1347,6 +1367,7 @@ void RegisterProfilePrefsForMigration(
 #endif
 
   // Deprecated 08/2026.
+  registry->RegisterBooleanPref(kInitialSendAnimationShown, false);
   registry->RegisterDictionaryPref(kPrivacySandboxNotices);
   registry->RegisterTimePref(kPrivacySandboxTopicsDataAccessibleSince,
                              base::Time());
@@ -1412,6 +1433,22 @@ void RegisterProfilePrefsForMigration(
   registry->RegisterBooleanPref(kShowRollbackUiModeB, false);
   registry->RegisterBooleanPref(kBlockAll3pcToggleEnabled, false);
   registry->RegisterBooleanPref(kTrackingProtection3pcdEnabled, false);
+
+  // Deprecated 08/2026.
+  registry->RegisterStringPref(kUkmLoggingUserSecret, std::string());
+  registry->RegisterTimePref(kUkmLoggingUserSecretCreationTime, base::Time());
+
+#if !BUILDFLAG(IS_ANDROID)
+  // Deprecated 08/2026.
+  registry->RegisterBooleanPref(
+      kEverythingMenuPinnedToTabstripMigrationComplete, false);
+#endif  // !BUILDFLAG(IS_ANDROID)
+
+  // Deprecated 08/2026.
+  registry->RegisterDictionaryPref(kObsoleteNtpPromoBlocklist);
+
+  // Deprecated 08/2026.
+  registry->RegisterStringPref(kSigninInterceptionIDPCookiesUrl, std::string());
 }
 
 }  // namespace
@@ -1541,6 +1578,8 @@ void RegisterLocalState(PrefRegistrySimple* registry) {
   PerformanceInterventionMetricsReporter::RegisterLocalStatePrefs(registry);
   RegisterBrowserPrefs(registry);
   speech::SodaInstaller::RegisterLocalStatePrefs(registry);
+  speech::SpeechRecognitionSmallExpertModelInstaller::RegisterLocalStatePrefs(
+      registry);
   StartupBrowserCreator::RegisterLocalStatePrefs(registry);
   task_manager::TaskManagerInterface::RegisterPrefs(registry);
   UpgradeDetector::RegisterPrefs(registry);
@@ -1556,6 +1595,7 @@ void RegisterLocalState(PrefRegistrySimple* registry) {
 #endif  // BUILDFLAG(ENABLE_ON_DEVICE_TRANSLATION)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  scheduled_restart::ScheduledRestartManager::RegisterLocalStatePrefs(registry);
   WhatsNewUI::RegisterLocalStatePrefs(registry);
 #endif
 
@@ -1756,8 +1796,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
   TRACE_EVENT0("browser", "chrome::RegisterProfilePrefs");
   // User prefs. Please keep this list alphabetized.
   AccessibilityLabelsService::RegisterProfilePrefs(registry);
+  registry->RegisterBooleanPref(prefs::kRendererAccessibilityEnabled, true);
   AccessibilityUIMessageHandler::RegisterProfilePrefs(registry);
-  accessibility_annotator::prefs::RegisterProfilePrefs(registry);
   AimEligibilityService::RegisterProfilePrefs(registry);
   AnnouncementNotificationService::RegisterProfilePrefs(registry);
   autofill::prefs::RegisterProfilePrefs(registry);
@@ -1850,7 +1890,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
   registry->RegisterIntegerPref(prefs::kVoiceTypingSettings, 0);
   registry->RegisterBooleanPref(prefs::kPrefDictationOnboardingCompleted,
                                 false);
-#if BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
   registry->RegisterStringPref(prefs::kVoiceTypingHotkey, "Ctrl+Space");
 #else
   registry->RegisterStringPref(prefs::kVoiceTypingHotkey, "Alt+Space");
@@ -1902,6 +1942,9 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
       registry);
   wallet::prefs::RegisterProfilePrefs(registry);
   omnibox::RegisterProfilePrefs(registry);
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+  omnibox_everywhere::prefs::RegisterProfilePrefs(registry);
+#endif
   ZeroSuggestProvider::RegisterProfilePrefs(registry);
   NtpCustomBackgroundService::RegisterProfilePrefs(registry);
 
@@ -1914,6 +1957,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
   extensions::ActivityLog::RegisterProfilePrefs(registry);
   extensions::PermissionsManager::RegisterProfilePrefs(registry);
   extensions::ExtensionPrefs::RegisterProfilePrefs(registry);
+  extensions::LowTrustPolicyInstallBlockManager::RegisterProfilePrefs(registry);
   extensions::RuntimeAPI::RegisterPrefs(registry);
   extensions::CommandService::RegisterProfilePrefs(registry);
   extensions::util::RegisterProfilePrefs(registry);
@@ -1924,17 +1968,17 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
 #if BUILDFLAG(IS_ANDROID)
   registry->RegisterBooleanPref(prefs::kPinExtensionsMenuButton, true);
 #endif
+  // TODO(devlin): This would be more inline with the other calls here if it
+  // were nested in either a class or separate namespace with a simple
+  // Register[Profile]Prefs() name.
+  extensions::RegisterSettingsOverriddenUiPrefs(registry);
+  ExtensionSettingsOverriddenDialog::RegisterProfilePrefs(registry);
 
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   RegisterAnimationPolicyPrefs(registry);
   extensions::AudioAPI::RegisterUserPrefs(registry);
-  // TODO(devlin): This would be more inline with the other calls here if it
-  // were nested in either a class or separate namespace with a simple
-  // Register[Profile]Prefs() name.
-  extensions::RegisterSettingsOverriddenUiPrefs(registry);
-  ExtensionSettingsOverriddenDialog::RegisterProfilePrefs(registry);
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 #if BUILDFLAG(ENABLE_PDF)
@@ -2011,10 +2055,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
   OutlookCalendarPageHandler::RegisterProfilePrefs(registry);
   PinnedTabCodec::RegisterProfilePrefs(registry);
   promos_utils::RegisterProfilePrefs(registry);
-  PromoService::RegisterProfilePrefs(registry);
   RegisterReadAnythingProfilePrefs(registry);
   settings::SettingsUI::RegisterProfilePrefs(registry);
-  send_tab_to_self::RegisterProfilePrefs(registry);
   signin::RegisterProfilePrefs(registry);
   StartupBrowserCreator::RegisterProfilePrefs(registry);
   TabGroupsPageHandler::RegisterProfilePrefs(registry);
@@ -2685,11 +2727,6 @@ void MigrateObsoleteProfilePrefs(PrefService* profile_prefs,
   profile_prefs->ClearPref(kMV2DeprecationDisabledAcknowledgedGlobally);
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
-#if !BUILDFLAG(IS_ANDROID)
-  // Added 07/2026.
-  tabs::MigrateEverythingMenuPinnedToTabstripPref(profile_prefs);
-#endif
-
   // Added 07/2026.
   profile_prefs->ClearPref(kObsoleteManagementProfileLastLogTime);
 
@@ -2700,6 +2737,7 @@ void MigrateObsoleteProfilePrefs(PrefService* profile_prefs,
 #endif
 
   // Added 08/2026.
+  profile_prefs->ClearPref(kInitialSendAnimationShown);
   profile_prefs->ClearPref(kPrivacySandboxNotices);
   profile_prefs->ClearPref(kPrivacySandboxM1ConsentDecisionMade);
   profile_prefs->ClearPref(kPrivacySandboxM1EEANoticeAcknowledged);
@@ -2750,6 +2788,21 @@ void MigrateObsoleteProfilePrefs(PrefService* profile_prefs,
   profile_prefs->ClearPref(kShowRollbackUiModeB);
   profile_prefs->ClearPref(kBlockAll3pcToggleEnabled);
   profile_prefs->ClearPref(kTrackingProtection3pcdEnabled);
+
+  // Added 08/2026.
+  profile_prefs->ClearPref(kUkmLoggingUserSecret);
+  profile_prefs->ClearPref(kUkmLoggingUserSecretCreationTime);
+
+#if !BUILDFLAG(IS_ANDROID)
+  // Added 08/2026.
+  profile_prefs->ClearPref(kEverythingMenuPinnedToTabstripMigrationComplete);
+#endif  // !BUILDFLAG(IS_ANDROID)
+
+  // Added 08/2026.
+  profile_prefs->ClearPref(kObsoleteNtpPromoBlocklist);
+
+  // Added 08/2026.
+  profile_prefs->ClearPref(kSigninInterceptionIDPCookiesUrl);
 
   // Please don't delete the following line. It is used by PRESUBMIT.py.
   // END_MIGRATE_OBSOLETE_PROFILE_PREFS

@@ -10,20 +10,48 @@ from mojom.generate.template_expander import UseJinja
 from generators.mojom_js_generator import JavaScriptStylizer
 
 GENERATOR_PREFIX = "fuzzilli"
-# Map primitive predicates to the fuzzilli type representation
+# Map primitive predicates to (fuzzilli type representation, element type
+# prefix). The element type prefix refers to the name of the `ILType.object`
+# definition representing the primitive.
 PRIMITIVES_MAPPING = {
-  mojom.BOOL: "boolean",
-  mojom.INT8: "integer",
-  mojom.INT16: "integer",
-  mojom.INT32: "integer",
-  mojom.INT64: "integer",
-  mojom.UINT8: "integer",
-  mojom.UINT16: "integer",
-  mojom.UINT32: "integer",
-  mojom.UINT64: "integer",
-  mojom.FLOAT: "float",
-  mojom.DOUBLE: "float",  # no dedicated `.double` type
-  mojom.STRING: "string",
+  mojom.BOOL: ("boolean", "Bool"),
+  mojom.INT8: ("integer", "Int8"),
+  mojom.INT16: ("integer", "Int16"),
+  mojom.INT32: ("integer", "Int32"),
+  mojom.INT64: ("bigint", "Int64"),
+  mojom.UINT8: ("integer", "Uint8"),
+  mojom.UINT16: ("integer", "Uint16"),
+  mojom.UINT32: ("integer", "Uint32"),
+  # TODO(crbug.com/553587894): Determine a way to support uint64, as
+  # `ILType.bigint` is currently internally represented as an int64.
+  mojom.UINT64: ("bigint", "Uint64"),
+  mojom.FLOAT: ("float", "Float"),
+  mojom.DOUBLE: ("float", "Float"),  # no dedicated `.double` type
+  mojom.STRING: ("string", "String"),
+  mojom.NULLABLE_BOOL: ("boolean", "Bool"),
+  mojom.NULLABLE_INT8: ("integer", "Int8"),
+  mojom.NULLABLE_INT16: ("integer", "Int16"),
+  mojom.NULLABLE_INT32: ("integer", "Int32"),
+  mojom.NULLABLE_INT64: ("bigint", "Int64"),
+  mojom.NULLABLE_UINT8: ("integer", "Uint8"),
+  mojom.NULLABLE_UINT16: ("integer", "Uint16"),
+  mojom.NULLABLE_UINT32: ("integer", "Uint32"),
+  mojom.NULLABLE_UINT64: ("bigint", "Uint64"),
+  mojom.NULLABLE_FLOAT: ("float", "Float"),
+  mojom.NULLABLE_DOUBLE: ("float", "Float"),
+  mojom.NULLABLE_STRING: ("string", "String"),
+}
+# Map raw Mojo handle kinds to their Fuzzilli UniqueName
+# TODO(crbug.com/553473421): Add support for MSGPIPE and PLATFORMHANDLE
+HANDLES_MAPPING = {
+  mojom.HANDLE: "MojoHandle",
+  mojom.DPPIPE: "MojoDataPipeProducer",
+  mojom.DCPIPE: "MojoDataPipeConsumer",
+  mojom.SHAREDBUFFER: "MojoHandle",
+  mojom.NULLABLE_HANDLE: "MojoHandle",
+  mojom.NULLABLE_DPPIPE: "MojoDataPipeProducer",
+  mojom.NULLABLE_DCPIPE: "MojoDataPipeConsumer",
+  mojom.NULLABLE_SHAREDBUFFER: "MojoHandle",
 }
 # List of types skipped during profile generation.
 # These types should be hand-defined in MojoCommonProfile.swift; its definitions
@@ -35,7 +63,6 @@ IGNORED_TYPES = {
   "mojoBase.mojom.BigString16",
   "mojoBase.mojom.BigString",
   "mojoBase.mojom.Uint128",
-  "skia.mojom.BitmapN32",
   "skia.mojom.BitmapN32ImageInfo",
   "skia.mojom.AlphaType",
   "url.mojom.Url",
@@ -58,7 +85,11 @@ class Generator(generator.Generator):
     self.enums = {}
     self.unions = {}
     self.structs = {}
-    self.response_structs = {}  # structs representing methods' return values
+    # Synchronous methods return JavaScript objects in the JavaScript bindings.
+    # Represent these return values as `mojom.Struct` objects, since we can then
+    # handle them the same way we handle Mojo structs in a few parts of the
+    # templates.
+    self.response_structs = {}
 
   def GetFilters(self):
     return {
@@ -195,11 +226,10 @@ class Generator(generator.Generator):
       for param in method.parameters:
         self._CollectInterfaceAndTypes(param.kind, is_in_js)
 
-      if not method.response_parameters:
+      if not method.response_param_struct:
         continue
-      method.res_struct = self._CreateResponseStruct(method)
-      name = self._FormatUniqueName(method.res_struct)
-      self.response_structs[name] = method.res_struct
+      name = self._FormatUniqueName(method.response_param_struct)
+      self.response_structs[name] = method.response_param_struct
       for param in method.response_parameters:
         self._CollectInterfaceAndTypes(param.kind, not is_in_js)
 
@@ -217,8 +247,13 @@ class Generator(generator.Generator):
   # type. These proxy types are identified by their `Element` suffix.
   def _FormatUniqueName(self, kind, primitive_with_suffix=False):
     if kind in PRIMITIVES_MAPPING:
-      name = generator.ToCamel(PRIMITIVES_MAPPING[kind])
-      return name + "Element" if primitive_with_suffix else name
+      il_type, element_prefix = PRIMITIVES_MAPPING[kind]
+      if primitive_with_suffix:
+        return f"{element_prefix}Element"
+      return element_prefix
+
+    if kind in HANDLES_MAPPING:
+      return HANDLES_MAPPING[kind]
 
     # Certain kinds, such as `Array`, do not have a `module` attribute
     prefix = (
@@ -264,19 +299,18 @@ class Generator(generator.Generator):
   # The `primitive_with_suffix` argument determines whether the name returned
   # for primitives represents the primitive itself or a proxy `IL.object`
   # type. These proxy types are identified by their `Element` suffix.
-  # TODO(crbug.com/522372048): Handle nullable types explicitly. Currently, we
-  # silently generate non-nullables for nullable types.
   def _ILTypeName(self, kind, primitive_with_suffix=False):
     if kind in PRIMITIVES_MAPPING:
-      name = PRIMITIVES_MAPPING[kind]
+      il_type, element_prefix = PRIMITIVES_MAPPING[kind]
       if primitive_with_suffix:
-        return f"js{generator.ToCamel(name)}Element"
-      return name
+        return f"js{element_prefix}Element"
+      return il_type
 
     if (
       mojom.IsStructKind(kind)
       or mojom.IsEnumKind(kind)
       or mojom.IsUnionKind(kind)
+      or kind in HANDLES_MAPPING
     ):
       return f"js{self._FormatUniqueName(kind)}"
 
@@ -356,24 +390,6 @@ class Generator(generator.Generator):
       or mojom.IsEnumKind(kind)
       or mojom.IsUnionKind(kind)
     )
-
-  # Synchronous methods return JavaScript objects in the JavaScript bindings.
-  # Represent these return values as `mojom.Struct` objects, since we can then
-  # handle them the same way we handle Mojo structs in a few parts of the
-  # templates.
-  def _CreateResponseStruct(self, method):
-    res = mojom.Struct(f"{method.mojom_name}Response", method.interface.module)
-    res.parent_kind = method.interface
-    for res_param in method.response_parameters:
-      res.AddField(
-        res_param.mojom_name,
-        res_param.kind,
-        res_param.ordinal,
-        res_param.default,
-        res_param.attributes,
-      )
-    res.Stylize(JavaScriptStylizer())
-    return res
 
   def _FormatCallbackReceiverName(self, method):
     return (

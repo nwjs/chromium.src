@@ -72,8 +72,8 @@ import java.util.function.Supplier;
  *    sense to do so (when Chrome is in the foreground / there are WebView instances
  *    around).
  *
- * 2. Services (GPU, renderers) don't poll, instead they get additional pressure signals
- *    from the main process.
+ * 2. Services (GPU, renderers) don't use this class; instead, they receive memory
+ *    pressure notifications forwarded from the browser process via Mojo IPC.
  *
  * NOTE: This class should only be used on UiThread as defined by ThreadUtils (which is
  *       Android main thread for Chrome, but can be some other thread for WebView).</pre>
@@ -95,9 +95,6 @@ public class MemoryPressureMonitor {
     private boolean mIsInsideThrottlingInterval;
 
     private boolean mPollingEnabled;
-
-    // That's for an experiment to run the broadcast receiver in the background
-    private boolean mPostToBackgroundIsEnabled;
 
     private @Nullable Supplier<Integer> mCurrentPressureSupplierForTesting;
     private @Nullable MemoryPressureCallback mReportingCallbackForTesting;
@@ -156,9 +153,8 @@ public class MemoryPressureMonitor {
      * Enables memory pressure polling. See class comment for specifics. This method also does a
      * single pressure check to get the current pressure.
      */
-    public void enablePolling(boolean postToBackground) {
+    public void enablePolling() {
         ThreadUtils.assertOnUiThread();
-        mPostToBackgroundIsEnabled = postToBackground;
         if (mPollingEnabled) return;
 
         mPollingEnabled = true;
@@ -239,20 +235,14 @@ public class MemoryPressureMonitor {
             return;
         }
 
-        if (mPostToBackgroundIsEnabled) {
-            PostTask.postTask(
-                    TaskTraits.BEST_EFFORT_MAY_BLOCK,
-                    () -> {
-                        Integer pressure = MemoryPressureMonitor.getCurrentMemoryPressure();
-                        if (pressure != null) {
-                            PostTask.postTask(
-                                    TaskTraits.UI_DEFAULT, () -> notifyPressure(pressure));
-                        }
-                    });
-        } else {
-            Integer pressure = MemoryPressureMonitor.getCurrentMemoryPressure();
-            if (pressure != null) notifyPressure(pressure);
-        }
+        PostTask.postTask(
+                TaskTraits.BEST_EFFORT_MAY_BLOCK,
+                () -> {
+                    Integer pressure = MemoryPressureMonitor.getCurrentMemoryPressure();
+                    if (pressure != null) {
+                        PostTask.postTask(TaskTraits.UI_DEFAULT, () -> notifyPressure(pressure));
+                    }
+                });
     }
 
     private void startThrottlingInterval() {

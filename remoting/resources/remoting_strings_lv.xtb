@@ -48,6 +48,7 @@ Ja kastīte “<ph name="SERVICE_SCRIPT_NAME" />” jau ir atzīmēta, noņemiet
 <translation id="3197730452537982411">Attālā darbvirsma</translation>
 <translation id="3236334139428307578">Autortiesības: Chromium autori (2026). Visas tiesības paturētas.</translation>
 <translation id="324272851072175193">Sūtīt šos norādījumus pa e-pastu</translation>
+<translation id="3254626532848657899">Pārvietot uz beigām</translation>
 <translation id="3305934114213025800"><ph name="PRODUCT_NAME" /> vēlas veikt izmaiņas.</translation>
 <translation id="3339299787263251426">Droši piekļūstiet savam datoram, izmantojot internetu.</translation>
 <translation id="3385242214819933234">Saimniekdatora īpašnieka vārds nav derīgs.</translation>
@@ -166,6 +167,7 @@ Ja kastīte “<ph name="SERVICE_SCRIPT_NAME" />” jau ir atzīmēta, noņemiet
 <translation id="8073845705237259513">Lai izmantotu Chrome attālo darbvirsmu, jums ir jāpievieno savā ierīcē Google konts.</translation>
 <translation id="809687642899217504">Mani datori</translation>
 <translation id="8116630183974937060">Radās tīkla kļūda. Lūdzu, pārbaudiet, vai ierīcē ir izveidots savienojumus, un mēģiniet vēlreiz.</translation>
+<translation id="8249310407154411074">Pārvietot uz augšdaļu</translation>
 <translation id="8295077433896346116">Ja vēlaties izmantot <ph name="PRODUCT_NAME" />, jums ir jāpiešķir pieejamības atļauja, lai šajā Mac datorā varētu izmantot ievadi no attālā datora.
 
 Lai piešķirtu šo atļauju, tālāk noklikšķiniet uz pogas <ph name="BUTTON_NAME" /> un atvērtajā preferenču rūtī “Pieejamība” atzīmējiet izvēles rūtiņu blakus vienumam “<ph name="SERVICE_SCRIPT_NAME" />”.

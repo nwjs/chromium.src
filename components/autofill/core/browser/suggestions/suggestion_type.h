@@ -150,7 +150,7 @@ enum class SuggestionType {
   kTitle = 45,
   kSeparator = 46,
   kUndo = 47,
-  kMixedFormMessage = 48,
+  // kMixedFormMessage = 48, // DEPRECATED
 
   // Top level suggestion rendered when test addresses are available. Shown only
   // when DevTools is open.
@@ -193,7 +193,7 @@ enum class SuggestionType {
   kAutocompleteAtMemoryButton = 81,
 
   // Suggestion to open Gemini in the sidebar.
-  kOpenGemini = 82,
+  kAtMemoryOpenGemini = 82,
 
   // Suggestion to display when AtMemory search fails to connect to the server.
   kAtMemoryNoConnection = 83,
@@ -242,9 +242,13 @@ enum class SuggestionType {
   // info.
   kRemoveAutofillAi = 98,
 
-  // Next ID: 99
+  // Option in the child submenu of an Autofill AI suggestion showing specific
+  // entity source info.
+  kAutofillAiSourceAttribution = 99,
 
-  kMaxValue = kRemoveAutofillAi
+  // Next ID: 100
+
+  kMaxValue = kAutofillAiSourceAttribution
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/autofill/enums.xml:SuggestionType)
 

@@ -53,7 +53,6 @@ import java.util.concurrent.TimeoutException;
 @OnlyRunIn(EITHER_PROCESS) // These tests don't use the renderer process
 public class VariationsSeedLoaderTest extends AwParameterizedTest {
     private static final long CURRENT_TIME_MILLIS = 1234567890;
-    private static final long EXPIRED_TIMESTAMP = 0;
     private static final long TIMEOUT_MILLIS = 10000;
 
     // Needed for tests that test histograms, which rely on native code.
@@ -404,9 +403,10 @@ public class VariationsSeedLoaderTest extends AwParameterizedTest {
             File oldFile = VariationsUtils.getSeedFile();
             Assert.assertTrue("Seed file already exists", oldFile.createNewFile());
 
-            // Write a seed with the new format, including a low_entropy_source.
+            // Write a seed with the new format, including entropy sources.
             SeedInfo mockSeed = VariationsTestUtils.createMockSeed();
             final int lowEntropySource = 123;
+            final String limitedEntropyRandomizationSource = "0123456789ABCDEF0123456789ABCDEF";
             FileOutputStream out = new FileOutputStream(oldFile);
             AwVariationsSeed proto =
                     AwVariationsSeed.newBuilder()
@@ -416,6 +416,7 @@ public class VariationsSeedLoaderTest extends AwParameterizedTest {
                             .setIsGzipCompressed(mockSeed.isGzipCompressed)
                             .setSeedData(ByteString.copyFrom(mockSeed.seedData))
                             .setLowEntropySource(lowEntropySource)
+                            .setLimitedEntropyRandomizationSource(limitedEntropyRandomizationSource)
                             .build();
             proto.writeTo(out);
             out.close();

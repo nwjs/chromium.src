@@ -19,10 +19,28 @@
 #include "net/base/features.h"
 #include "net/base/net_errors.h"
 #include "net/log/net_log_event_type.h"
+#include "net/nqe/network_quality_estimator.h"
 #include "net/quic/quic_session_pool_endpoint_connector.h"
 #include "net/ssl/ssl_config_service.h"
+#include "url/url_constants.h"
 
 namespace net {
+
+QuicSessionPool::AsyncDnsJob::ConnectionState::ConnectionState() = default;
+QuicSessionPool::AsyncDnsJob::ConnectionState::~ConnectionState() = default;
+
+QuicSessionPool::AsyncDnsJob::ConnectionState&
+QuicSessionPool::AsyncDnsJob::GetState(const EndpointConnector& connector) {
+  CHECK(!connector.is_stale());
+  return fresh_state_;
+}
+
+const QuicSessionPool::AsyncDnsJob::ConnectionState&
+QuicSessionPool::AsyncDnsJob::GetState(
+    const EndpointConnector& connector) const {
+  CHECK(!connector.is_stale());
+  return fresh_state_;
+}
 
 QuicSessionPool::AsyncDnsJob::UsableEndpoint::UsableEndpoint(
     ServiceEndpoint endpoint,
@@ -68,14 +86,15 @@ QuicSessionPool::AsyncDnsJob::AsyncDnsJob(
     bool require_dns_https_alpn,
     int cert_verify_flags,
     MultiplexedSessionCreationInitiator session_creation_initiator,
-    QuicSessionEstablishmentReason quic_session_establishment_reason,
+    QuicConnectionReuseDetails quic_connection_reuse_details,
     std::optional<ConnectionManagementConfig> connection_management_config,
     const NetLogWithSource& net_log)
     : Job(pool,
           std::move(key),
           std::move(client_config_handle),
           priority,
-          quic_session_establishment_reason,
+          session_creation_initiator,
+          quic_connection_reuse_details,
           NetLogWithSource::Make(
               net_log.net_log(),
               NetLogSourceType::QUIC_SESSION_POOL_ASYNC_DNS_JOB)),
@@ -86,7 +105,6 @@ QuicSessionPool::AsyncDnsJob::AsyncDnsJob(
       cert_verify_flags_(cert_verify_flags),
       retry_on_alternate_network_before_handshake_(
           retry_on_alternate_network_before_handshake),
-      session_creation_initiator_(session_creation_initiator),
       connection_management_config_(connection_management_config) {
   CHECK_EQ(quic_version_.IsKnown(), !require_dns_https_alpn_);
 }
@@ -133,9 +151,10 @@ void QuicSessionPool::AsyncDnsJob::SetRequestExpectations(
   // connector has not finished creating its session, or while a failed
   // session creation result is being held for later delivery.
   if (!host_resolution_notified_ ||
-      (primary_connector_ && primary_connector_->AwaitingSessionCreation()) ||
-      (secondary_connector_ &&
-       secondary_connector_->AwaitingSessionCreation()) ||
+      (fresh_state_.primary_connector &&
+       fresh_state_.primary_connector->AwaitingSessionCreation()) ||
+      (fresh_state_.secondary_connector &&
+       fresh_state_.secondary_connector->AwaitingSessionCreation()) ||
       held_session_creation_result_.has_value()) {
     request->ExpectQuicSessionCreation();
   }
@@ -160,7 +179,8 @@ void QuicSessionPool::AsyncDnsJob::PopulateNetErrorDetails(
   // primary slot comes first because it holds the IPv6 side once both slots
   // are filled.
   for (const EndpointConnector* connector :
-       {primary_connector_.get(), secondary_connector_.get()}) {
+       {fresh_state_.primary_connector.get(),
+        fresh_state_.secondary_connector.get()}) {
     if (connector && connector->has_attempt()) {
       connector->PopulateNetErrorDetails(details);
       return;
@@ -235,7 +255,7 @@ void QuicSessionPool::AsyncDnsJob::MaybeNotifyHostResolutionAndComplete(
 void QuicSessionPool::AsyncDnsJob::CompleteJob(int rv) {
   RecordMetrics(rv);
   LogJobComplete(rv);
-  slow_timer_.Stop();
+  fresh_state_.slow_timer.Stop();
   if (!session_creation_notified_ &&
       held_session_creation_result_.has_value()) {
     // The job is completing, so no later attempt can replace this result.
@@ -323,7 +343,7 @@ QuicSessionPool::AsyncDnsJob::GetAttemptParams() const {
     params.dns_aliases = service_endpoint_request_->GetDnsAliasResults();
   }
   params.session_creation_initiator = session_creation_initiator_;
-  params.quic_session_establishment_reason = quic_session_establishment_reason_;
+  params.quic_connection_reuse_details = quic_connection_reuse_details_;
   params.connection_management_config = connection_management_config_;
   return params;
 }
@@ -356,7 +376,9 @@ bool QuicSessionPool::AsyncDnsJob::MaybePoolToExistingSession() {
 
 std::optional<QuicSessionPool::AsyncDnsJob::Candidate>
 QuicSessionPool::AsyncDnsJob::TakeNextCandidate(
-    const EndpointConnector* connector) {
+    const EndpointConnector& connector) {
+  ConnectionState& state = GetState(connector);
+
   // While the secondary slot is empty the primary connector may use both
   // families, and every visible IPv6 candidate ranks above any IPv4 one.
   // Once both slots are filled the primary takes IPv6 and the secondary
@@ -364,9 +386,9 @@ QuicSessionPool::AsyncDnsJob::TakeNextCandidate(
   // finishes, connectors may attempt the other family's remaining candidates
   // if their preferred family is exhausted.
   const bool slots_are_exclusive =
-      secondary_connector_ != nullptr && !resolution_finished_;
-  const bool takes_ipv6 = connector == primary_connector_.get();
-  CHECK(takes_ipv6 || connector == secondary_connector_.get());
+      state.secondary_connector != nullptr && !resolution_finished_;
+  const bool takes_ipv6 = &connector == state.primary_connector.get();
+  CHECK(takes_ipv6 || &connector == state.secondary_connector.get());
 
   const std::vector<UsableEndpoint>& usable_endpoints = GetUsableEndpoints();
   for (bool ipv6 : {takes_ipv6, !takes_ipv6}) {
@@ -400,14 +422,19 @@ void QuicSessionPool::AsyncDnsJob::OnAttemptFailed(
 
 void QuicSessionPool::AsyncDnsJob::OnSessionCreationDecided(
     int rv,
-    const EndpointConnector* connector) {
-  CHECK(connector == primary_connector_.get() ||
-        connector == secondary_connector_.get());
+    const EndpointConnector& connector) {
+  ConnectionState& state = GetState(connector);
+  CHECK(&connector == state.primary_connector.get() ||
+        &connector == state.secondary_connector.get());
   if (session_creation_notified_) {
     // The other connector already decided the signal. Its result stands.
     return;
   }
   if (rv != OK && rv != ERR_IO_PENDING) {
+    if (features::kAsyncDnsQuicJobFastFail.Get()) {
+      NotifyRequestsOfSessionCreation(rv);
+      return;
+    }
     // A failure signal makes the waiting requests give up on QUIC, but this
     // job may still try another candidate. Hold the result until the job's
     // outcome is known.
@@ -457,10 +484,11 @@ void QuicSessionPool::AsyncDnsJob::NotifyRequestsOfSessionCreation(int rv) {
 
 void QuicSessionPool::AsyncDnsJob::OnConnectorComplete(
     int rv,
-    EndpointConnector* connector) {
+    EndpointConnector& connector) {
+  ConnectionState& state = GetState(connector);
   CHECK_NE(rv, ERR_IO_PENDING);
-  CHECK(connector == primary_connector_.get() ||
-        connector == secondary_connector_.get());
+  CHECK(&connector == state.primary_connector.get() ||
+        &connector == state.secondary_connector.get());
 
   if (rv == OK) {
     // The first connector to settle successfully wins. The other one and its
@@ -485,14 +513,15 @@ void QuicSessionPool::AsyncDnsJob::OnConnectorComplete(
 // slots (e.g. in OnSlowTimer), instance names are kept separate to accurately
 // trace each connector's lifetime in NetLog events.
 const char* QuicSessionPool::AsyncDnsJob::SlotName(
-    const EndpointConnector* connector) const {
-  CHECK(connector == primary_connector_.get() ||
-        connector == secondary_connector_.get());
-  return connector == primary_connector_.get() ? "primary" : "secondary";
+    const EndpointConnector& connector) const {
+  const ConnectionState& state = GetState(connector);
+  CHECK(&connector == state.primary_connector.get() ||
+        &connector == state.secondary_connector.get());
+  return &connector == state.primary_connector.get() ? "primary" : "secondary";
 }
 
 int QuicSessionPool::AsyncDnsJob::OnAttemptStarted(
-    const EndpointConnector* connector,
+    const EndpointConnector& connector,
     const Candidate& candidate,
     base::TimeTicks start_time) {
   ++attempt_count_;
@@ -504,7 +533,7 @@ int QuicSessionPool::AsyncDnsJob::OnAttemptStarted(
       NetLogEventType::QUIC_SESSION_POOL_ASYNC_DNS_JOB_ATTEMPT_STARTED, [&] {
         return base::DictValue()
             .Set("attempt_id", attempt_id)
-            .Set("connector", connector->name())
+            .Set("connector", connector.name())
             .Set("ip_endpoint", candidate.ip_endpoint.ToString())
             .Set("address_family", AddressFamilyToString(GetAddressFamily(
                                        candidate.ip_endpoint.address())))
@@ -555,7 +584,7 @@ void QuicSessionPool::AsyncDnsJob::LogServiceEndpointRequestFinished(
         return base::DictValue()
             .Set("net_error", rv)
             .Set("ignored_late_error",
-                 rv != OK && primary_connector_ != nullptr);
+                 rv != OK && fresh_state_.primary_connector != nullptr);
       });
 }
 
@@ -600,35 +629,35 @@ void QuicSessionPool::AsyncDnsJob::RecordMetrics(int rv) const {
 }
 
 void QuicSessionPool::AsyncDnsJob::DestroyOtherConnector(
-    const EndpointConnector* connector) {
-  if (!connector->has_attempt()) {
+    const EndpointConnector& connector) {
+  if (!connector.has_attempt()) {
     // The connector succeeded by pooling, without an attempt.
     success_source_ = SuccessSource::kIpPooling;
-  } else if (connector->created_by_slow_timer()) {
+  } else if (connector.created_by_slow_timer()) {
     success_source_ = SuccessSource::kSlowTimerConnector;
-  } else if (connector->attempts_started() > 1) {
+  } else if (connector.attempts_started() > 1) {
     success_source_ = SuccessSource::kInitialConnectorLaterAttempt;
   } else {
     success_source_ = SuccessSource::kInitialConnectorFirstAttempt;
   }
-  if (connector->has_attempt()) {
-    successful_attempt_start_time_ = connector->attempt_start_time();
+  if (connector.has_attempt()) {
+    successful_attempt_start_time_ = connector.attempt_start_time();
   }
   net_log_.AddEvent(
       NetLogEventType::QUIC_SESSION_POOL_ASYNC_DNS_JOB_CONNECTOR_SETTLED_JOB,
       [&] {
         base::DictValue dict;
-        dict.Set("connector", connector->name());
+        dict.Set("connector", connector.name());
         dict.Set("slot", SlotName(connector));
         const std::optional<IPEndPoint> ip_endpoint =
-            connector->attempt_ip_endpoint();
+            connector.attempt_ip_endpoint();
         if (ip_endpoint.has_value()) {
-          CHECK(connector->attempt_id().has_value());
-          dict.Set("attempt_id", *connector->attempt_id());
+          CHECK(connector.attempt_id().has_value());
+          dict.Set("attempt_id", *connector.attempt_id());
           dict.Set("ip_endpoint", ip_endpoint->ToString());
         }
         dict.Set("completion_reason",
-                 connector->has_attempt() ? "attempt_succeeded" : "ip_pooling");
+                 connector.has_attempt() ? "attempt_succeeded" : "ip_pooling");
         const EndpointConnector* other = OtherConnector(connector);
         if (other && other->has_attempt()) {
           CHECK(other->attempt_id().has_value());
@@ -638,58 +667,77 @@ void QuicSessionPool::AsyncDnsJob::DestroyOtherConnector(
         }
         return dict;
       });
-
-  if (connector == primary_connector_.get()) {
-    secondary_connector_.reset();
+  ConnectionState& state = GetState(connector);
+  if (&connector == state.primary_connector.get()) {
+    state.secondary_connector.reset();
     return;
   }
-  CHECK_EQ(connector, secondary_connector_.get());
+  CHECK_EQ(&connector, state.secondary_connector.get());
   // The connector that succeeded moves into the primary slot. The assignment
   // destroys the connector that was there, together with its in-flight
   // attempt.
-  primary_connector_ = std::move(secondary_connector_);
+  state.primary_connector = std::move(state.secondary_connector);
 }
 
-void QuicSessionPool::AsyncDnsJob::MaybeStartSlowTimer() {
-  if (slow_timer_started_ || secondary_connector_ || !primary_connector_ ||
-      !primary_connector_->has_attempt()) {
+void QuicSessionPool::AsyncDnsJob::MaybeStartSlowTimer(ConnectionState& state) {
+  if (state.slow_timer_started || state.secondary_connector ||
+      !state.primary_connector || !state.primary_connector->has_attempt()) {
     return;
   }
-  const base::TimeDelta delay = features::kAsyncDnsQuicJobSlowTimerDelay.Get();
+  base::TimeDelta delay = features::kQuicSlowTimerDelay.Get();
+
+  if (base::FeatureList::IsEnabled(features::kQuicSlowTimerBasedOnRTT)) {
+    std::optional<base::TimeDelta> rtt =
+        pool()->GetSmoothedRtt(key_.session_key().server_id(),
+                               key_.session_key().network_anonymization_key(),
+                               key_.session_key().proxy_chain());
+
+    if (rtt.has_value()) {
+      base::TimeDelta min_delay = features::kQuicSlowTimerMin.Get();
+      base::TimeDelta max_delay = features::kQuicSlowTimerMax.Get();
+      if (min_delay > max_delay) {
+        std::swap(min_delay, max_delay);
+      }
+      delay =
+          std::clamp(rtt.value() * features::kQuicSlowTimerRTTMultiplier.Get(),
+                     min_delay, max_delay);
+    }
+  }
+
   if (!delay.is_positive()) {
     // Two attempts at once are disabled. The primary connector walks the
     // candidates by itself.
     return;
   }
-  slow_timer_started_ = true;
-  slow_timer_.Start(
-      FROM_HERE, delay,
-      base::BindOnce(&AsyncDnsJob::OnSlowTimer, base::Unretained(this)));
+  state.slow_timer_started = true;
+  state.slow_timer.Start(FROM_HERE, delay,
+                         base::BindOnce(&AsyncDnsJob::OnSlowTimer,
+                                        base::Unretained(this), &state));
   net_log_.AddEventWithIntParams(
       NetLogEventType::QUIC_SESSION_POOL_ASYNC_DNS_JOB_SLOW_TIMER_ARMED,
       "delay_ms", static_cast<int>(delay.InMilliseconds()));
 }
 
-void QuicSessionPool::AsyncDnsJob::OnSlowTimer() {
-  CHECK(primary_connector_);
-  CHECK(!secondary_connector_);
+void QuicSessionPool::AsyncDnsJob::OnSlowTimer(ConnectionState* state) {
+  CHECK(state->primary_connector);
+  CHECK(!state->secondary_connector);
 
   net_log_.AddEvent(
       NetLogEventType::QUIC_SESSION_POOL_ASYNC_DNS_JOB_SLOW_TIMER_FIRED);
 
-  secondary_connector_ = std::make_unique<EndpointConnector>(
-      this, "second", /*created_by_slow_timer=*/true);
-  if (!primary_connector_->is_attempting_ipv6()) {
+  state->secondary_connector = std::make_unique<EndpointConnector>(
+      this, "second", /*created_by_slow_timer=*/true, /*is_stale=*/false);
+  if (!state->primary_connector->is_attempting_ipv6()) {
     // The connector in the primary slot is not on IPv6, either because it
     // attempts IPv4 or because it waits for a candidate. The slots decide the
     // families from now on and the IPv6 side has to be the primary one, so
     // move the connectors into the other slot.
-    std::swap(primary_connector_, secondary_connector_);
+    std::swap(state->primary_connector, state->secondary_connector);
     net_log_.AddEvent(
         NetLogEventType::QUIC_SESSION_POOL_ASYNC_DNS_JOB_SLOTS_SWAPPED);
   }
 
-  std::optional<int> rv = AdvanceConnectors();
+  std::optional<int> rv = AdvanceConnectors(*state);
   if (rv.has_value() && *rv != ERR_IO_PENDING) {
     // A connector settled the job while it advanced.
     CompleteJob(*rv);
@@ -697,22 +745,27 @@ void QuicSessionPool::AsyncDnsJob::OnSlowTimer() {
 }
 
 bool QuicSessionPool::AsyncDnsJob::HasWaitingConnector() const {
-  return (primary_connector_ && primary_connector_->is_waiting_on_dns()) ||
-         (secondary_connector_ && secondary_connector_->is_waiting_on_dns());
+  return (fresh_state_.primary_connector &&
+          fresh_state_.primary_connector->is_waiting_on_dns()) ||
+         (fresh_state_.secondary_connector &&
+          fresh_state_.secondary_connector->is_waiting_on_dns());
 }
 
 bool QuicSessionPool::AsyncDnsJob::HasAttemptInFlight() const {
-  return (primary_connector_ && primary_connector_->has_attempt()) ||
-         (secondary_connector_ && secondary_connector_->has_attempt());
+  return (fresh_state_.primary_connector &&
+          fresh_state_.primary_connector->has_attempt()) ||
+         (fresh_state_.secondary_connector &&
+          fresh_state_.secondary_connector->has_attempt());
 }
 
 const QuicSessionPool::EndpointConnector*
 QuicSessionPool::AsyncDnsJob::OtherConnector(
-    const EndpointConnector* connector) const {
-  if (connector == primary_connector_.get()) {
-    return secondary_connector_.get();
+    const EndpointConnector& connector) const {
+  const ConnectionState& state = GetState(connector);
+  if (&connector == state.primary_connector.get()) {
+    return state.secondary_connector.get();
   }
-  return primary_connector_.get();
+  return state.primary_connector.get();
 }
 
 std::optional<int> QuicSessionPool::AsyncDnsJob::LastFailureResult() const {
@@ -742,7 +795,7 @@ int QuicSessionPool::AsyncDnsJob::DoResolveHostComplete(int rv) {
 
   // A resolver error fails the job only while no attempt has run. Once a
   // connector exists the attempts decide the outcome.
-  if (rv != OK && !primary_connector_) {
+  if (rv != OK && !fresh_state_.primary_connector) {
     return rv;
   }
 
@@ -755,7 +808,7 @@ QuicSessionPool::AsyncDnsJob::ProcessServiceEndpointResults() {
   // Nothing to do while every connector keeps an attempt in flight. A
   // connector reads the new results when it advances, and re-checks IP
   // pooling before its next attempt.
-  if (primary_connector_ && !HasWaitingConnector()) {
+  if (fresh_state_.primary_connector && !HasWaitingConnector()) {
     return ERR_IO_PENDING;
   }
 
@@ -799,12 +852,12 @@ QuicSessionPool::AsyncDnsJob::ProcessServiceEndpointResults() {
   // connectors.
   MaybeSetDnsResolutionEndTime();
 
-  if (!primary_connector_) {
-    primary_connector_ = std::make_unique<EndpointConnector>(
-        this, "first", /*created_by_slow_timer=*/false);
+  if (!fresh_state_.primary_connector) {
+    fresh_state_.primary_connector = std::make_unique<EndpointConnector>(
+        this, "first", /*created_by_slow_timer=*/false, /*is_stale=*/false);
   }
 
-  std::optional<int> result = AdvanceConnectors();
+  std::optional<int> result = AdvanceConnectors(fresh_state_);
   if (result.has_value()) {
     return result;
   }
@@ -829,25 +882,26 @@ std::optional<int> QuicSessionPool::AsyncDnsJob::AdvanceConnector(
   return connector->TryAdvance();
 }
 
-std::optional<int> QuicSessionPool::AsyncDnsJob::AdvanceConnectors() {
+std::optional<int> QuicSessionPool::AsyncDnsJob::AdvanceConnectors(
+    ConnectionState& state) {
   // The primary slot advances first so that it claims candidates first.
   const std::optional<int> primary_rv =
-      AdvanceConnector(primary_connector_.get());
+      AdvanceConnector(state.primary_connector.get());
   if (primary_rv == OK) {
-    DestroyOtherConnector(primary_connector_.get());
+    DestroyOtherConnector(*state.primary_connector);
     return OK;
   }
 
   // The primary connector never drops the secondary one, so the secondary
   // slot still holds what it held above.
   const std::optional<int> secondary_rv =
-      AdvanceConnector(secondary_connector_.get());
+      AdvanceConnector(state.secondary_connector.get());
   if (secondary_rv == OK) {
-    DestroyOtherConnector(secondary_connector_.get());
+    DestroyOtherConnector(*state.secondary_connector);
     return OK;
   }
 
-  MaybeStartSlowTimer();
+  MaybeStartSlowTimer(state);
 
   if (primary_rv == ERR_IO_PENDING || secondary_rv == ERR_IO_PENDING) {
     return ERR_IO_PENDING;
@@ -866,9 +920,8 @@ bool QuicSessionPool::AsyncDnsJob::IsSvcbOptional(
   // If SVCB/HTTPS resolution succeeded, the client supports ECH, and all
   // alternative endpoints support ECH, disable the A/AAAA fallback. See
   // Section 5.1 of draft-ietf-tls-svcb-ech-08.
-  if (!pool_->ssl_config_service_->GetSSLContextConfig().ech_enabled ||
-      pool_->ssl_config_service_->GetEchMode(key().session_key().host()) ==
-          EchMode::kDisabled) {
+  if (pool_->ssl_config_service_->GetEchMode(key().session_key().host()) ==
+      EchMode::kDisabled) {
     return true;  // ECH is not supported for this request.
   }
 

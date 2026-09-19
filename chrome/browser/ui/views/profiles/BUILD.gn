@@ -223,6 +223,22 @@ if (is_win || is_mac || is_linux) {
     ]
   }
 
+  source_set("profile_management_types") {
+    public = [ "profile_management_types.h" ]
+    public_deps = [ "//base" ]
+  }
+
+  source_set("profile_picker_web_contents_host") {
+    public = [ "profile_picker_web_contents_host.h" ]
+    public_deps = [
+      ":profile_management_types",
+      "//base",
+      "//components/signin/public/base:signin_buildflags",
+      "//components/web_modal",
+      "//ui/views/controls/webview",
+    ]
+  }
+
   # ProfilePickerView and the flow controllers this helper drives are only
   # compiled into //chrome/browser/ui on Windows, Mac and Linux, so the helper
   # (whose object file is always linked in, unlike when it lived in the
@@ -236,6 +252,8 @@ if (is_win || is_mac || is_linux) {
     ]
 
     public_deps = [
+      ":profile_management_flow_controller",
+      ":profile_picker_web_contents_host",
       "//base",
       "//chrome/browser/ui",
       "//chrome/browser/ui/profiles",
@@ -246,6 +264,8 @@ if (is_win || is_mac || is_linux) {
     ]
 
     deps = [
+      ":profile_management_step_controller",
+      ":profile_management_types",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/profiles:profile_test_util",
       "//chrome/browser/ui/profiles:test_support",
@@ -279,6 +299,142 @@ if (toolkit_views) {
       "//content/test:test_support",
       "//ui/base",
       "//ui/gfx:test_support",
+    ]
+  }
+}
+
+if (enable_dice_support) {
+  source_set("profile_picker_toolbar") {
+    public = [ "profile_picker_toolbar.h" ]
+    sources = [ "profile_picker_toolbar.cc" ]
+    public_deps = [
+      "//base",
+      "//ui/base",
+      "//ui/views",
+    ]
+    deps = [
+      "//chrome/app:generated_resources",
+      "//chrome/app/vector_icons",
+      "//chrome/browser/ui/views/toolbar",
+      "//components/vector_icons",
+      "//skia",
+      "//ui/base:features",
+      "//ui/color",
+      "//ui/compositor",
+    ]
+  }
+}
+
+source_set("profile_picker_utils") {
+  public = [ "profile_picker_utils.h" ]
+  sources = [ "profile_picker_utils.cc" ]
+  public_deps = [
+    "//base",
+    "//chrome/browser/ui/profiles",
+    "//content/public/browser",
+  ]
+  deps = [
+    "//chrome/browser:browser_process",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/signin",
+    "//chrome/browser/sync",
+    "//chrome/browser/ui/navigator",
+    "//chrome/common:constants",
+    "//components/prefs",
+    "//components/signin/public/base",
+    "//ui/base",
+  ]
+}
+
+source_set("batch_upload_dialog_view") {
+  public = [ "batch_upload_dialog_view.h" ]
+  sources = [ "batch_upload_dialog_view.cc" ]
+  public_deps = [
+    "//base",
+    "//chrome/browser/profiles/batch_upload",
+    "//components/signin/public/identity_manager",
+    "//components/sync/service",
+    "//content/public/browser",
+    "//ui/views",
+  ]
+  deps = [
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/signin",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/profiles",
+    "//chrome/browser/ui/webui/signin:batch_upload",
+    "//chrome/common:constants",
+    "//components/constrained_window",
+    "//components/input",
+    "//components/tabs:public",
+    "//ui/base/metadata",
+    "//ui/gfx",
+    "//ui/views/controls/webview",
+  ]
+}
+
+source_set("profile_picker_feature_promo_controller") {
+  public = [ "profile_picker_feature_promo_controller.h" ]
+  public_deps = [
+    "//base",
+    "//components/user_education/common",
+  ]
+}
+
+if (enable_dice_support) {
+  source_set("profile_picker_sign_in_provider") {
+    public = [ "profile_picker_sign_in_provider.h" ]
+    public_deps = [
+      ":profile_management_types",
+      ":profile_picker_web_contents_host",
+      "//base",
+      "//chrome/browser/profiles:profile",
+      "//chrome/browser/profiles/keep_alive",
+      "//chrome/browser/ui:chrome_web_modal_dialog_manager_delegate",
+      "//components/signin/public/base",
+      "//content/public/browser",
+    ]
+  }
+
+  source_set("profile_picker_reauth_provider") {
+    public = [ "profile_picker_reauth_provider.h" ]
+    public_deps = [
+      ":profile_management_types",
+      ":profile_picker_web_contents_host",
+      "//base",
+      "//chrome/browser/profiles:profile",
+      "//chrome/browser/profiles/keep_alive",
+      "//chrome/browser/ui:chrome_web_modal_dialog_manager_delegate",
+      "//chrome/browser/ui/webui/signin:signin_ui_error",
+      "//components/signin/public/identity_manager",
+      "//content/public/browser",
+      "//google_apis",
+    ]
+  }
+
+  source_set("profile_management_step_controller") {
+    public = [ "profile_management_step_controller.h" ]
+    public_deps = [
+      ":profile_management_types",
+      ":profile_picker_sign_in_provider",
+      "//base",
+      "//chrome/browser/profiles:profile",
+      "//chrome/browser/search_engine_choice",
+      "//components/signin/public/base:signin_buildflags",
+      "//url",
+    ]
+  }
+
+  source_set("profile_management_flow_controller") {
+    public = [ "profile_management_flow_controller.h" ]
+    public_deps = [
+      ":profile_management_types",
+      ":profile_picker_toolbar",
+      ":profile_picker_web_contents_host",
+      "//base",
+      "//chrome/browser/ui/profiles",
+      "//components/web_modal",
+      "//content/public/browser",
     ]
   }
 }

@@ -224,9 +224,8 @@ public class SendTabToSelfCoordinator
                                                             profileSupplier,
                                                             () -> mBottomSheetController,
                                                             SupplierUtils.asNonNull(
-                                                                            mModalDialogManagerSupplier)
-                                                                    .get(),
-                                                            mSnackbarManager,
+                                                                    mModalDialogManagerSupplier),
+                                                            SupplierUtils.of(mSnackbarManager),
                                                             SigninAccessPoint
                                                                     .SEND_TAB_TO_SELF_PROMO);
                                     BottomSheetSigninAndHistorySyncConfig config =
@@ -258,6 +257,7 @@ public class SendTabToSelfCoordinator
                                 assertNonNull(identityManager),
                                 assertNonNull(signinManager),
                                 accountPreviewDataService,
+                                assertNonNull(mModalDialogManagerSupplier.get()),
                                 mBottomSheetController,
                                 new SendTabToSelfAccountPickerDelegate(this::onSignInComplete),
                                 bottomSheetStrings,

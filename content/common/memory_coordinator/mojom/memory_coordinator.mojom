@@ -4,13 +4,15 @@
 
 module content.mojom;
 
+import "mojo/public/mojom/base/memory_limit.mojom";
+
 [EnableIf=ENABLE_MEMORY_COORDINATOR_INTERNALS]
 import "content/common/memory_coordinator/mojom/memory_coordinator_diagnostics.mojom";
 
 // Represents a memory update for a consumer.
 struct MemoryConsumerUpdate {
   uint32 consumer_id;
-  int32? percentage;
+  mojo_base.mojom.MemoryLimit? memory_limit;
   bool release_memory;
 };
 
@@ -19,6 +21,12 @@ struct MemoryConsumerUpdate {
 interface ChildMemoryCoordinator {
   // Notifies of multiple changes at once.
   UpdateConsumers(array<MemoryConsumerUpdate> updates);
+
+  // Sets an override that bypasses local policies in the child process.
+  SetOverrideLimit(uint32 consumer_id, int32 percentage);
+
+  // Clears an override in the child process.
+  ClearOverrideLimit(uint32 consumer_id, int32 policy_limit);
 
   // Enables diagnostics for this process. The child process should use the host
   // to report state changes.

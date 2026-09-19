@@ -744,6 +744,10 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
 
   virtual ui::AXMode GetAccessibilityMode() = 0;
 
+  // Notifies this WebContents that the platform accessibility parent of its
+  // primary main frame may have changed.
+  virtual void NotifyAccessibilityParentChanged() = 0;
+
   // Forces a reset of accessibility state in the instance's renderers.
   // Observers will receive a new accessibility tree.
   virtual void ResetAccessibility() = 0;
@@ -1674,11 +1678,11 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   // since the last navigation.
   virtual bool CompletedFirstVisuallyNonEmptyPaint() = 0;
 
-  // TODO(crbug.com/41379215): This is a simple mitigation to validate
-  // that an action that requires a user gesture actually has one in the
-  // trustworthy browser process, rather than relying on the untrustworthy
-  // renderer. This should be eventually merged into and accounted for in the
-  // user activation work: crbug.com/848778
+  // TODO(crbug.com/550284226): This is a simple mitigation to validate that an
+  // action that requires a user gesture actually has one in the trustworthy
+  // browser process, rather than relying on the untrustworthy renderer. This
+  // should be merged with the trusted user activation states tracked at frame
+  // granularity: crbug.com/40091540
   virtual bool HasRecentInteraction() = 0;
 
   // Returns the time ticks of the last user interaction.
@@ -1767,9 +1771,12 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   // event and the time when the WebContents is painted.
   // `had_saved_frame_at_start` is true if a compositor frame for this view was
   // already available when the tab switch started.
+  // `destination_is_frozen` is true if the destination tab was frozen when the
+  // tab switch started.
   virtual void SetTabSwitchStartTime(base::TimeTicks start_time,
                                      bool destination_is_loaded,
-                                     bool had_saved_frame_at_start) = 0;
+                                     bool had_saved_frame_at_start,
+                                     bool destination_is_frozen) = 0;
 
   // Starts browser-initiated prefetch, triggered by embedder.
   // - `prefetch_url` is the url the prefetch will be performed.
@@ -1808,7 +1815,8 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
       scoped_refptr<PreloadPipelineInfo> preload_pipeline_info,
       base::WeakPtr<PreloadingAttempt> attempt,
       PreloadingHoldbackStatus holdback_status_override,
-      std::optional<base::TimeDelta> ttl) = 0;
+      std::optional<base::TimeDelta> ttl,
+      bool should_ignore_saver_modes) = 0;
 
   // Starts an embedder triggered (browser-initiated) prerendering page and
   // returns the unique_ptr<PrerenderHandle>, which cancels prerendering on its

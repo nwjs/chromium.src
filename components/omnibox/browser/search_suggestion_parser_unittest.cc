@@ -23,8 +23,6 @@
 #include "components/omnibox/common/omnibox_features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/omnibox_proto/answer_data.pb.h"
-#include "third_party/omnibox_proto/answer_type.pb.h"
 #include "third_party/omnibox_proto/entity_info.pb.h"
 #include "third_party/omnibox_proto/navigational_intent.pb.h"
 #include "third_party/omnibox_proto/rich_answer_template.pb.h"
@@ -231,8 +229,7 @@ TEST(SearchSuggestionParserTest, ParseSuggestResults) {
     ASSERT_EQ(u"christmas", suggestion_result.suggestion());
     ASSERT_EQ(u"", suggestion_result.annotation());
     // This entry has no entity data
-    ASSERT_TRUE(ProtosAreEqual(suggestion_result.entity_info(),
-                               omnibox::EntityInfo::default_instance()));
+    ASSERT_FALSE(suggestion_result.suggest_template_info().has_value());
     ASSERT_EQ(suggestion_result.navigational_intent(),
               omnibox::NAV_INTENT_MEDIUM);
   }
@@ -240,11 +237,23 @@ TEST(SearchSuggestionParserTest, ParseSuggestResults) {
     const auto& suggestion_result = results.suggest_results[1];
     ASSERT_EQ(u"christopher doe", suggestion_result.suggestion());
     ASSERT_EQ(u"American author", suggestion_result.annotation());
-    ASSERT_EQ("/m/065xxm", suggestion_result.entity_info().entity_id());
-    ASSERT_EQ("#424242", suggestion_result.entity_info().dominant_color());
+    ASSERT_EQ("/m/065xxm",
+              suggestion_result.suggest_template_info()->entity_id());
+    ASSERT_EQ(
+        "#424242",
+        suggestion_result.suggest_template_info()->image().dominant_color());
     ASSERT_EQ("http://example.com/a.png",
-              suggestion_result.entity_info().image_url());
+              suggestion_result.suggest_template_info()->image().url());
     ASSERT_EQ(suggestion_result.navigational_intent(), omnibox::NAV_INTENT_LOW);
+    // Verify the translation layer synthesized suggest_template_info.
+    ASSERT_TRUE(suggestion_result.suggest_template_info().has_value());
+    const auto& suit = suggestion_result.suggest_template_info().value();
+    ASSERT_EQ("Christopher Doe", suit.primary_text().text());
+    ASSERT_EQ("American author", suit.secondary_text().text());
+    ASSERT_EQ("http://example.com/a.png", suit.image().url());
+    ASSERT_EQ("#424242", suit.image().dominant_color());
+    ASSERT_TRUE(suit.default_search_parameters().contains("gs_ssp"));
+    ASSERT_EQ("abc", suit.default_search_parameters().at("gs_ssp"));
   }
   {
     const auto& navigation_result = results.navigation_results[0];
@@ -679,6 +688,10 @@ TEST(SearchSuggestionParserTest, ParseSuggestionEntityInfo) {
     first_entity_info.set_name("The Menu");
     first_entity_info.set_entity_id("/g/11qprvnvhw");
 
+    auto* action = first_entity_info.add_action_suggestions();
+    action->set_action_uri("https://example.com/action");
+    action->set_action_type(omnibox::ActionInfo::CALL);
+    (*action->mutable_search_parameters())["key"] = "value";
     omnibox::EntityInfo second_entity_info;
     second_entity_info.set_annotation("Thriller series");
     second_entity_info.set_dominant_color("#283e75");
@@ -739,19 +752,40 @@ TEST(SearchSuggestionParserTest, ParseSuggestionEntityInfo) {
     // For each suggestion, verify that the JSON fields were correctly parsed.
     ASSERT_EQ(u"the menu", results.suggest_results[0].suggestion());
     ASSERT_EQ(u"", results.suggest_results[0].annotation());
-    ASSERT_TRUE(ProtosAreEqual(results.suggest_results[0].entity_info(),
-                               omnibox::EntityInfo::default_instance()));
-    ASSERT_TRUE(results.suggest_results[0].entity_info().image_url().empty());
+    ASSERT_FALSE(
+        results.suggest_results[0].suggest_template_info().has_value());
     // Empty "t" value from server results in suggestion being used instead.
     ASSERT_EQ(u"the menu", results.suggest_results[0].match_contents());
 
     ASSERT_EQ(u"the menu", results.suggest_results[1].suggestion());
-    ASSERT_TRUE(ProtosAreEqual(results.suggest_results[1].entity_info(),
-                               first_entity_info));
+    ASSERT_TRUE(results.suggest_results[1].suggest_template_info().has_value());
+    const auto& template_info =
+        *results.suggest_results[1].suggest_template_info();
+    ASSERT_EQ(template_info.style(), omnibox::SuggestTemplateInfo::ENRICHED);
+    ASSERT_EQ(template_info.primary_text().text(), "The Menu");
+    ASSERT_EQ(template_info.image().url(),
+              "https://encrypted-tbn0.gstatic.com/images?q=the+menu");
+    ASSERT_EQ(template_info.entity_id(), "/g/11qprvnvhw");
+    ASSERT_EQ(template_info.action_suggestions_size(), 1);
+    ASSERT_EQ(template_info.action_suggestions(0).action_uri(),
+              "https://example.com/action");
+    ASSERT_EQ(template_info.action_suggestions(0).action_type(),
+              omnibox::SuggestTemplateInfo::TemplateAction::CALL);
+    ASSERT_EQ(template_info.action_suggestions(0).search_parameters().at("key"),
+              "value");
+    ASSERT_EQ(first_entity_info.suggest_search_parameters().substr(7),
+              template_info.default_search_parameters().at("gs_ssp"));
 
     ASSERT_EQ(u"the midnight club", results.suggest_results[2].suggestion());
-    ASSERT_TRUE(ProtosAreEqual(results.suggest_results[2].entity_info(),
-                               second_entity_info));
+    ASSERT_TRUE(results.suggest_results[2].suggest_template_info().has_value());
+    ASSERT_EQ(
+        second_entity_info.image_url(),
+        results.suggest_results[2].suggest_template_info()->image().url());
+    ASSERT_EQ(second_entity_info.suggest_search_parameters().substr(7),
+              results.suggest_results[2]
+                  .suggest_template_info()
+                  ->default_search_parameters()
+                  .at("gs_ssp"));
   }
 
   // Parse EntityInfo data from garbled proto field.
@@ -800,19 +834,19 @@ TEST(SearchSuggestionParserTest, ParseSuggestionEntityInfo) {
 
     // For each suggestion, verify that the JSON fields were correctly parsed.
     ASSERT_EQ(u"the menu", results.suggest_results[0].suggestion());
-    ASSERT_TRUE(ProtosAreEqual(results.suggest_results[0].entity_info(),
-                               omnibox::EntityInfo::default_instance()));
+    ASSERT_FALSE(
+        results.suggest_results[0].suggest_template_info().has_value());
     ASSERT_EQ(u"", results.suggest_results[0].annotation());
     // Empty "t" value from server results in suggestion being used instead.
     ASSERT_EQ(u"the menu", results.suggest_results[0].match_contents());
 
     ASSERT_EQ(u"the menu", results.suggest_results[1].suggestion());
-    ASSERT_TRUE(ProtosAreEqual(results.suggest_results[1].entity_info(),
-                               omnibox::EntityInfo::default_instance()));
+    ASSERT_FALSE(
+        results.suggest_results[1].suggest_template_info().has_value());
 
     ASSERT_EQ(u"the midnight club", results.suggest_results[2].suggestion());
-    ASSERT_TRUE(ProtosAreEqual(results.suggest_results[2].entity_info(),
-                               omnibox::EntityInfo::default_instance()));
+    ASSERT_FALSE(
+        results.suggest_results[2].suggest_template_info().has_value());
   }
 }
 
@@ -831,12 +865,7 @@ TEST(SearchSuggestionParserTest, ParseSuggestionTemplateInfo) {
   {
     // Setup RichAnswerTemplate with answer data.
     omnibox::RichSuggestTemplate suggest_template;
-    omnibox::RichAnswerTemplate* answer_template =
-        suggest_template.mutable_rich_answer_template();
-    omnibox::AnswerData* answer_data = answer_template->add_answers();
-    answer_data->mutable_headline()->set_text("weather los angeles");
-    answer_data->mutable_subhead()->set_text("68F Fri - Los Angeles, CA");
-    answer_data->mutable_image()->set_url("//www.gstatic.com/images/image.png");
+    suggest_template.mutable_rich_answer_template();
 
     std::string json_data =
         R"([
@@ -890,28 +919,9 @@ TEST(SearchSuggestionParserTest, ParseSuggestionTemplateInfo) {
     // Ensure the correct suggestion has RichAnswerTemplate info and is
     // correctly parsed.
     ASSERT_EQ(3U, results.suggest_results.size());
-    ASSERT_EQ(results.suggest_results[0].answer_type(),
-              omnibox::ANSWER_TYPE_WEATHER);
-    ASSERT_EQ(results.suggest_results[1].answer_type(),
-              omnibox::ANSWER_TYPE_UNSPECIFIED);
-    ASSERT_EQ(results.suggest_results[2].answer_type(),
-              omnibox::ANSWER_TYPE_UNSPECIFIED);
     ASSERT_TRUE(results.suggest_results[0].answer_template().has_value());
     ASSERT_FALSE(results.suggest_results[1].answer_template().has_value());
     ASSERT_FALSE(results.suggest_results[2].answer_template().has_value());
-
-    // Protos should initially not be equal because there is formatting done to
-    // a template's URL after decoding "google:templateinfo".
-    ASSERT_FALSE(
-        ProtosAreEqual(results.suggest_results[0].answer_template().value(),
-                       *answer_template));
-    // Change `answer_data` image URL to formatted version to reflect formatting
-    // done when parsing results. Now the protos should be equal.
-    answer_data->mutable_image()->set_url(
-        "https://www.gstatic.com/images/image.png");
-    ASSERT_TRUE(
-        ProtosAreEqual(results.suggest_results[0].answer_template().value(),
-                       *answer_template));
   }
   // Test behavior with no template present; template is set from parsing "ansa"
   // JSON field.
@@ -963,24 +973,10 @@ TEST(SearchSuggestionParserTest, ParseSuggestionTemplateInfo) {
     // Ensure the correct suggestion has RichAnswerTemplate info and is
     // correctly parsed.
     ASSERT_EQ(3U, results.suggest_results.size());
-    ASSERT_EQ(results.suggest_results[0].answer_type(),
-              omnibox::ANSWER_TYPE_WEATHER);
-    ASSERT_EQ(results.suggest_results[1].answer_type(),
-              omnibox::ANSWER_TYPE_UNSPECIFIED);
-    ASSERT_EQ(results.suggest_results[2].answer_type(),
-              omnibox::ANSWER_TYPE_UNSPECIFIED);
-    ASSERT_TRUE(results.suggest_results[0].answer_template().has_value());
+    ASSERT_FALSE(results.suggest_results[0].answer_template().has_value());
     ASSERT_FALSE(results.suggest_results[1].answer_template().has_value());
     ASSERT_FALSE(results.suggest_results[2].answer_template().has_value());
 
-    omnibox::AnswerData answer_data =
-        results.suggest_results[0].answer_template()->answers(0);
-    // The first image line in "ansa" is equivalent to AnswerData's headline and
-    // second image line is equivalent to subhead.
-    EXPECT_EQ(answer_data.headline().text(), "weather los angeles");
-    EXPECT_EQ(answer_data.subhead().text(), "68F Fri - Los Angeles, CA");
-    EXPECT_EQ(answer_data.image().url(),
-              "https://www.gstatic.com/images/image.png");
   }
   {
     // Fallback to JSON parsing when decoding RichAnswerTemplate fails.
@@ -1032,32 +1028,16 @@ TEST(SearchSuggestionParserTest, ParseSuggestionTemplateInfo) {
     // Ensure the correct suggestion has RichAnswerTemplate info and is
     // correctly parsed.
     ASSERT_EQ(3U, results.suggest_results.size());
-    ASSERT_EQ(results.suggest_results[0].answer_type(),
-              omnibox::ANSWER_TYPE_WEATHER);
-    ASSERT_EQ(results.suggest_results[1].answer_type(),
-              omnibox::ANSWER_TYPE_UNSPECIFIED);
-    ASSERT_EQ(results.suggest_results[2].answer_type(),
-              omnibox::ANSWER_TYPE_UNSPECIFIED);
-    ASSERT_TRUE(results.suggest_results[0].answer_template().has_value());
+    ASSERT_FALSE(results.suggest_results[0].answer_template().has_value());
     ASSERT_FALSE(results.suggest_results[1].answer_template().has_value());
     ASSERT_FALSE(results.suggest_results[2].answer_template().has_value());
 
-    omnibox::AnswerData answer_data =
-        results.suggest_results[0].answer_template()->answers(0);
-    // The first image line in "ansa" is equivalent to AnswerData's headline and
-    // second image line is equivalent to subhead.
-    EXPECT_EQ(answer_data.headline().text(), "weather los angeles");
-    EXPECT_EQ(answer_data.subhead().text(), "68F Fri - Los Angeles, CA");
-    EXPECT_EQ(answer_data.image().url(),
-              "https://www.gstatic.com/images/image.png");
   }
   // Test behavior with template present but has no answers.
   {
     // Setup RichAnswerTemplate.
     omnibox::RichSuggestTemplate suggest_template;
-    omnibox::RichAnswerTemplate* answer_template =
-        suggest_template.mutable_rich_answer_template();
-    ASSERT_TRUE(answer_template->answers_size() == 0);
+    suggest_template.mutable_rich_answer_template();
 
     std::string json_data =
         R"([
@@ -1104,84 +1084,7 @@ TEST(SearchSuggestionParserTest, ParseSuggestionTemplateInfo) {
     // Results do not have a RichAnswerTemplate populated because of the lack of
     // answers.
     ASSERT_EQ(3U, results.suggest_results.size());
-    ASSERT_EQ(results.suggest_results[0].answer_type(),
-              omnibox::ANSWER_TYPE_UNSPECIFIED);
-    ASSERT_EQ(results.suggest_results[1].answer_type(),
-              omnibox::ANSWER_TYPE_UNSPECIFIED);
-    ASSERT_EQ(results.suggest_results[2].answer_type(),
-              omnibox::ANSWER_TYPE_UNSPECIFIED);
-    ASSERT_FALSE(results.suggest_results[0].answer_template().has_value());
-    ASSERT_FALSE(results.suggest_results[1].answer_template().has_value());
-    ASSERT_FALSE(results.suggest_results[2].answer_template().has_value());
-  }
-  // Test behavior when template is present but answer type is invalid.
-  {
-    // Setup RichAnswerTemplate with answer data.
-    omnibox::RichSuggestTemplate suggest_template;
-    omnibox::RichAnswerTemplate* answer_template =
-        suggest_template.mutable_rich_answer_template();
-    omnibox::AnswerData* answer_data = answer_template->add_answers();
-    answer_data->mutable_headline()->set_text("weather los angeles");
-    answer_data->mutable_subhead()->set_text("68F Fri - Los Angeles, CA");
-    answer_data->mutable_image()->set_url("//www.gstatic.com/images/image.png");
-
-    std::string json_data =
-        R"([
-      "weather los",
-      ["weather los angeles", "weather los angeles ca", "weather los alamitos"],
-      ["", "", ""],
-      [],
-      {
-        "google:clientdata": {
-          "bpc": false,
-          "tlw": false
-        },
-        "google:suggestdetail": [
-          {
-            "ansa": {
-              "l": [{"il": {"t": [{"t": "weather los angeles", "tt": 8}]}},
-                {"il": {"at": {"t": "Fri - Los Angeles, CA","tt": 19},
-                "i": {"d": "//www.gstatic.com/images/image.png", "t": 3},
-                "t": [{"t": "68F", "tt": 18}]}}]
-            },
-            "ansb": "20",
-            "google:templateinfo": ")" +
-        SerializeAndEncodeProto(suggest_template) +
-        R"("
-          },
-          {},
-          {}
-        ],
-        "google:suggestrelevance": [1252, 1251, 1250],
-        "google:suggestsubtypes": [
-          [512, 433],
-          [512],
-          [512]
-        ],
-        "google:suggesttype": ["QUERY", "QUERY", "QUERY"],
-        "google:verbatimrelevance": 851
-      }
-    ])";
-    std::optional<base::Value> root_val =
-        base::JSONReader::Read(json_data, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
-    ASSERT_TRUE(root_val);
-    ASSERT_TRUE(root_val.value().is_list());
-
-    SearchSuggestionParser::Results results;
-    ASSERT_TRUE(SearchSuggestionParser::ParseSuggestResults(
-        root_val->GetList(), input, scheme_classifier,
-        /*default_result_relevance=*/400,
-        /*is_keyword_result=*/false, &results));
-
-    // Results should not have RichAnswerTemplate populated.
-    ASSERT_EQ(3U, results.suggest_results.size());
-    ASSERT_EQ(results.suggest_results[0].answer_type(),
-              omnibox::ANSWER_TYPE_UNSPECIFIED);
-    ASSERT_EQ(results.suggest_results[1].answer_type(),
-              omnibox::ANSWER_TYPE_UNSPECIFIED);
-    ASSERT_EQ(results.suggest_results[2].answer_type(),
-              omnibox::ANSWER_TYPE_UNSPECIFIED);
-    ASSERT_FALSE(results.suggest_results[0].answer_template().has_value());
+    ASSERT_TRUE(results.suggest_results[0].answer_template().has_value());
     ASSERT_FALSE(results.suggest_results[1].answer_template().has_value());
     ASSERT_FALSE(results.suggest_results[2].answer_template().has_value());
   }
@@ -1572,8 +1475,7 @@ TEST(SearchSuggestionParserTest, ParseCalculatorSuggestion) {
 
   // Most fields for a verbatim suggestion should be empty.
   ASSERT_EQ(u"1 + 1", results.suggest_results[0].suggestion());
-  ASSERT_TRUE(ProtosAreEqual(results.suggest_results[0].entity_info(),
-                             omnibox::EntityInfo::default_instance()));
+  ASSERT_FALSE(results.suggest_results[0].suggest_template_info().has_value());
   ASSERT_EQ(u"", results.suggest_results[0].annotation());
   ASSERT_EQ(u"1 + 1", results.suggest_results[0].match_contents());
 
@@ -1582,30 +1484,32 @@ TEST(SearchSuggestionParserTest, ParseCalculatorSuggestion) {
 #if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
   ASSERT_EQ(u"2", results.suggest_results[1].suggestion());
   ASSERT_EQ(u"", results.suggest_results[1].annotation());
-  ASSERT_TRUE(ProtosAreEqual(results.suggest_results[1].entity_info(),
-                             omnibox::EntityInfo::default_instance()));
+  ASSERT_FALSE(results.suggest_results[1].suggest_template_info().has_value());
   ASSERT_EQ(u"1 + 1 = 2", results.suggest_results[1].match_contents());
 #else
   ASSERT_EQ(u"2", results.suggest_results[1].suggestion());
   ASSERT_EQ(u"", results.suggest_results[1].annotation());
-  ASSERT_TRUE(ProtosAreEqual(results.suggest_results[1].entity_info(),
-                             omnibox::EntityInfo::default_instance()));
+  ASSERT_FALSE(results.suggest_results[1].suggest_template_info().has_value());
   ASSERT_EQ(u"= 2", results.suggest_results[1].match_contents());
 #endif
 
   // Entity data should be correctly sourced as usual.
   ASSERT_EQ(u"1 + 1", results.suggest_results[2].suggestion());
   ASSERT_EQ(u"Song", results.suggest_results[2].annotation());
-  ASSERT_EQ("#424242",
-            results.suggest_results[2].entity_info().dominant_color());
+  ASSERT_EQ("#424242", results.suggest_results[2]
+                           .suggest_template_info()
+                           ->image()
+                           .dominant_color());
   ASSERT_EQ("https://encrypted-tbn0.gstatic.com/images?q=song",
-            results.suggest_results[2].entity_info().image_url());
-  ASSERT_EQ(
-      "gs_ssp=eJzj4tFP1zcsNjAzMykwKDZg9GI1VNBWMAQAOlEEsA",
-      results.suggest_results[2].entity_info().suggest_search_parameters());
+            results.suggest_results[2].suggest_template_info()->image().url());
+  ASSERT_EQ("eJzj4tFP1zcsNjAzMykwKDZg9GI1VNBWMAQAOlEEsA",
+            results.suggest_results[2]
+                .suggest_template_info()
+                ->default_search_parameters()
+                .at("gs_ssp"));
   ASSERT_EQ(u"1+1", results.suggest_results[2].match_contents());
   ASSERT_EQ("/g/1s0664p0s",
-            results.suggest_results[2].entity_info().entity_id());
+            results.suggest_results[2].suggest_template_info()->entity_id());
 }
 
 TEST(SearchSuggestionParserTest, ParseTailSuggestion) {
@@ -1889,4 +1793,45 @@ TEST(SearchSuggestionParserTest,
         testing::ElementsAre(SuggestionIs(u"christmas"), SuggestionIs(u""),
                              SuggestionIs(u"christopher doe")));
   }
+}
+
+TEST(SearchSuggestionParserTest, ParseSuggestResultsWithRichImageStyle) {
+  omnibox::SuggestTemplateInfo template_info;
+  template_info.set_style(omnibox::SuggestTemplateInfo::RICH_IMAGE);
+  template_info.mutable_image()->set_url("https://example.com/image.png");
+
+  std::string base64_encoded = SerializeAndEncodeProto(template_info);
+
+  std::string json_data = base::StrCat({R"([
+      "cat",
+      ["cute cat"],
+      [""],
+      [],
+      {
+        "google:suggestdetail": [
+          {
+            "google:suggesttemplate": ")",
+                                        base64_encoded, R"("
+          }
+        ]
+      }])"});
+
+  std::optional<base::Value> root_val =
+      base::JSONReader::Read(json_data, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  CHECK(root_val.has_value());
+  CHECK(root_val.value().is_list());
+  TestSchemeClassifier scheme_classifier;
+  AutocompleteInput input(u"cat", metrics::OmniboxEventProto::NTP,
+                          scheme_classifier);
+
+  SearchSuggestionParser::Results results;
+  ASSERT_TRUE(SearchSuggestionParser::ParseSuggestResults(
+      root_val->GetList(), input, scheme_classifier,
+      /*default_result_relevance=*/400,
+      /*is_keyword_result=*/false, {.allow_empty_suggestion = false},
+      &results));
+  ASSERT_EQ(1U, results.suggest_results.size());
+  ASSERT_TRUE(results.suggest_results[0].suggest_template_info().has_value());
+  EXPECT_EQ(omnibox::SuggestTemplateInfo::RICH_IMAGE,
+            results.suggest_results[0].suggest_template_info()->style());
 }

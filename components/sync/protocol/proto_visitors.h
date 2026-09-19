@@ -43,8 +43,6 @@
 #include "components/sync/protocol/password_sharing_invitation_specifics.pb.h"
 #include "components/sync/protocol/password_specifics.pb.h"
 #include "components/sync/protocol/persisted_entity_data.pb.h"
-#include "components/sync/protocol/plus_address_setting_specifics.pb.h"
-#include "components/sync/protocol/plus_address_specifics.pb.h"
 #include "components/sync/protocol/power_bookmark_specifics.pb.h"
 #include "components/sync/protocol/preference_specifics.pb.h"
 #include "components/sync/protocol/printer_specifics.pb.h"
@@ -732,6 +730,7 @@ VISIT_PROTO_FIELDS(const sync_pb::GooglePlayServicesVersionInfo& proto) {
 
 VISIT_PROTO_FIELDS(const sync_pb::PersonalContextSpecificFields& proto) {
   VISIT_BYTES(p256dh_v2);
+  VISIT_BYTES(serialized_tink_keyset);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::DictionarySpecifics& proto) {
@@ -787,7 +786,7 @@ VISIT_PROTO_FIELDS(
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
-  static_assert(67 == GetNumDataTypes(),
+  static_assert(65 == GetNumDataTypes(),
                 "When adding a new protocol type, you will likely need to add "
                 "it here as well.");
   VISIT(encrypted);
@@ -823,8 +822,6 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(os_priority_preference);
   VISIT(outgoing_password_sharing_invitation);
   VISIT(password);
-  VISIT(plus_address);
-  VISIT(plus_address_setting);
   VISIT(preference);
   VISIT(printer);
   VISIT(printers_authorization_server);
@@ -1284,23 +1281,6 @@ VISIT_PROTO_FIELDS(const sync_pb::NoteEntity& proto) {
 VISIT_PROTO_FIELDS(const sync_pb::PersistedEntityData& proto) {
   VISIT(name);
   VISIT(specifics);
-}
-
-VISIT_PROTO_FIELDS(const sync_pb::PlusAddressSettingSpecifics& proto) {
-  VISIT(name);
-  VISIT(bool_value);
-  VISIT(string_value);
-  VISIT(int_value);
-}
-
-VISIT_PROTO_FIELDS(const sync_pb::PlusAddressSpecifics& proto) {
-  VISIT(profile_id);
-  VISIT(facet);
-  VISIT(plus_email);
-}
-
-VISIT_PROTO_FIELDS(const sync_pb::PlusEmail& proto) {
-  VISIT(email_address);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::PreferenceSpecifics& proto) {
@@ -2358,6 +2338,7 @@ VISIT_PROTO_FIELDS(const sync_pb::Offer& proto) {
   VISIT(offer_code);
   VISIT(offer_title_image_url);
   VISIT_REP(issuer_domains);
+  VISIT(description);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::Order& proto) {
@@ -2375,7 +2356,8 @@ VISIT_PROTO_FIELDS(const sync_pb::Shipment& proto) {
   VISIT(shipping_date);
   VISIT(carrier_name);
   VISIT(carrier_domain);
-  VISIT_REP(associated_order_ids);
+  VISIT(merchant_name);
+  VISIT_REP(product_names);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::AutofillValuableMetadataSpecifics& proto) {

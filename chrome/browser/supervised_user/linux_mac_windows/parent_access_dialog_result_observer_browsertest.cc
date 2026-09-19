@@ -10,8 +10,9 @@
 #include "base/base64.h"
 #include "base/functional/bind.h"
 #include "base/strings/stringprintf.h"
+#include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/supervised_user/supervision_mixin.h"
 #include "components/supervised_user/core/browser/proto/parent_access_callback.pb.h"
@@ -115,7 +116,7 @@ class SupervisedUserParentAccessObserverTest
     return extracted_error_type_;
   }
   content::WebContents* contents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   supervised_user::SupervisionMixin& supervision_mixin() {
@@ -205,8 +206,13 @@ class SupervisedUserParentAccessObserverTest
       extracted_error_type_;
 };
 
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_CompletionCallbackExecution DISABLED_CompletionCallbackExecution
+#else
+#define MAYBE_CompletionCallbackExecution CompletionCallbackExecution
+#endif
 IN_PROC_BROWSER_TEST_P(SupervisedUserParentAccessObserverTest,
-                       CompletionCallbackExecution) {
+                       MAYBE_CompletionCallbackExecution) {
   CHECK(contents());
 
   base::OnceCallback<void(

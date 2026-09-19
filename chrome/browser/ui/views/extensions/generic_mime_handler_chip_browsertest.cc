@@ -10,12 +10,13 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/location_bar/location_icon_view.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view_base.h"
 #include "chrome/common/chrome_paths.h"
+#include "chrome/test/base/chrome_test_path_utils.h"
 #include "content/public/test/browser_test.h"
 #include "extensions/common/extension_features.h"
 #include "extensions/test/result_catcher.h"
@@ -39,19 +40,21 @@ base::FilePath PdfOwnerExtensionDir() {
       .AppendASCII("pdf/extension_with_pdf");
 }
 
-LocationIconView* GetLocationIconView(const Browser* browser) {
+LocationIconView* GetLocationIconView(const BrowserWindowInterface* browser) {
   return BrowserView::GetBrowserViewForBrowser(browser)
       ->GetLocationBarView()
       ->location_icon_view();
 }
 
-void ExpectExtensionChipShowing(Browser* browser, std::u16string_view name) {
+void ExpectExtensionChipShowing(BrowserWindowInterface* browser,
+                                std::u16string_view name) {
   LocationIconView* icon = GetLocationIconView(browser);
   EXPECT_TRUE(icon->GetShowText());
   EXPECT_EQ(name, icon->GetText());
 }
 
-void ExpectExtensionChipNotShowing(Browser* browser, std::u16string_view name) {
+void ExpectExtensionChipNotShowing(BrowserWindowInterface* browser,
+                                   std::u16string_view name) {
   LocationIconView* icon = GetLocationIconView(browser);
   EXPECT_NE(name, icon->GetText());
 }
@@ -91,6 +94,24 @@ IN_PROC_BROWSER_TEST_F(GenericMimeHandlerChipBrowserTest,
   ResultCatcher catcher;
   ASSERT_TRUE(NavigateToURL(GetActiveWebContents(),
                             embedded_test_server()->GetURL(kTestPdfPath)));
+  ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
+
+  ExpectExtensionChipShowing(browser(), kMimeHandlerExtensionName);
+}
+
+// A PDF opened from a file:// URL is rendered by the MIME handler just like
+// an https one, so the chip names the extension rather than the file.
+IN_PROC_BROWSER_TEST_F(GenericMimeHandlerChipBrowserTest,
+                       IndicatorVisibleForFileUrlMimeHandler) {
+  ASSERT_TRUE(LoadExtension(test_data_dir_.AppendASCII(kTestExtensionDir),
+                            {.allow_file_access = true}));
+
+  ResultCatcher catcher;
+  ASSERT_TRUE(
+      NavigateToURL(GetActiveWebContents(),
+                    chrome_test_utils::GetTestUrl(
+                        base::FilePath(FILE_PATH_LITERAL("pdf")),
+                        base::FilePath(FILE_PATH_LITERAL("test.pdf")))));
   ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
 
   ExpectExtensionChipShowing(browser(), kMimeHandlerExtensionName);

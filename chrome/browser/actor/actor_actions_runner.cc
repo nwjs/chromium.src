@@ -10,6 +10,7 @@
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
+#include "base/notimplemented.h"
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_proto_conversion.h"
@@ -115,6 +116,11 @@ void SetTabIdIfMissing(optimization_guide::proto::Action& action,
         action.mutable_media_control()->set_tab_id(tab_id);
       }
       break;
+    case optimization_guide::proto::Action::kTranslatePage:
+      if (!action.translate_page().has_tab_id()) {
+        action.mutable_translate_page()->set_tab_id(tab_id);
+      }
+      break;
     case optimization_guide::proto::Action::kLoadAndExtractContent:
     case optimization_guide::proto::Action::kWait:
     case optimization_guide::proto::Action::kCreateTab:
@@ -123,6 +129,9 @@ void SetTabIdIfMissing(optimization_guide::proto::Action& action,
     case optimization_guide::proto::Action::kActivateWindow:
     case optimization_guide::proto::Action::kYieldToUser:
     case optimization_guide::proto::Action::ACTION_NOT_SET:
+      break;
+    default:
+      NOTIMPLEMENTED();
       break;
   }
 }

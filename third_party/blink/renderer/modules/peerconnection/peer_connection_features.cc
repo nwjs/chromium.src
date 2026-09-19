@@ -24,6 +24,10 @@ BASE_FEATURE(kWebRtcEncodedTransformRememberVideoFrameType,
 BASE_FEATURE(kWebRtcEncryptedRtpHeaderExtensions,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// TODO(crbug.com/501209160): Re-enable after the standards-compliant
+// behavior covers stats updates. See https://crbug.com/556516037
+BASE_FEATURE(kWebRtcGenerateRemoteTrackIds, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // This features enables the restriction that frames sent to an
 // RTCRtpScriptTransformer's writable must come from the transformer's readable
 // and must be written in the same order in which they are read. This feature

@@ -66,7 +66,6 @@
 #include "components/prefs/testing_pref_service.h"
 #include "components/variations/net/variations_http_headers.h"
 #include "crypto/scoped_fake_unexportable_key_provider.h"
-#include "crypto/sha2.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "mojo/public/cpp/system/data_pipe_utils.h"
 #include "mojo/public/cpp/system/functions.h"
@@ -172,6 +171,7 @@
 #include "services/network/net_log_exporter.h"
 #include "services/network/network_qualities_pref_delegate.h"
 #include "services/network/network_service.h"
+#include "services/network/network_service_network_delegate.h"
 #include "services/network/public/cpp/constants.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/network_service_buildflags.h"
@@ -772,6 +772,7 @@ class NetworkContextTest : public testing::Test {
   }
 
  protected:
+  base::test::ScopedFeatureList features_;
   base::test::TaskEnvironment task_environment_;
   std::unique_ptr<net::NetworkChangeNotifier> network_change_notifier_;
   std::unique_ptr<NetworkService> network_service_;
@@ -779,9 +780,6 @@ class NetworkContextTest : public testing::Test {
   // NetworkContext. Not strictly needed, but seems best to mimic real-world
   // usage.
   mojo::Remote<mojom::NetworkContext> network_context_remote_;
-
- private:
-  base::test::ScopedFeatureList features_;
 };
 
 class NetworkContextTestWithMockTime : public NetworkContextTest {
@@ -1813,8 +1811,8 @@ TEST_F(NetworkContextTest, SetHttpCacheMaxSizeAfterBackendInit) {
   context_params->file_paths.reset();
   context_params->http_cache_enabled = true;
 
-  const base::ByteSize kInitialSize = base::MiBU(20);
-  const base::ByteSize kNewSize = base::MiBU(10);
+  const base::ByteSize kInitialSize = base::MiB(20);
+  const base::ByteSize kNewSize = base::MiB(10);
   context_params->http_cache_max_size =
       base::checked_cast<int32_t>(kInitialSize.InBytes());
 
@@ -1846,8 +1844,8 @@ TEST_F(NetworkContextTest, SetHttpCacheMaxSizeBeforeUnforcedBackendInit) {
   context_params->file_paths.reset();
   context_params->http_cache_enabled = true;
 
-  const base::ByteSize kInitialSize = base::MiBU(20);
-  const base::ByteSize kNewSize = base::MiBU(10);
+  const base::ByteSize kInitialSize = base::MiB(20);
+  const base::ByteSize kNewSize = base::MiB(10);
   context_params->http_cache_max_size =
       base::checked_cast<int32_t>(kInitialSize.InBytes());
 
@@ -1886,8 +1884,8 @@ TEST_F(NetworkContextTest, SetHttpCacheMaxSizeBeforeForcedBackendInit) {
   context_params->file_paths.reset();
   context_params->http_cache_enabled = true;
 
-  const base::ByteSize kInitialSize = base::MiBU(20);
-  const base::ByteSize kNewSize = base::MiBU(10);
+  const base::ByteSize kInitialSize = base::MiB(20);
+  const base::ByteSize kNewSize = base::MiB(10);
   context_params->http_cache_max_size =
       base::checked_cast<int32_t>(kInitialSize.InBytes());
 
@@ -1926,7 +1924,7 @@ TEST_F(NetworkContextTest, SetHttpCacheMaxSizeNoCache) {
                          ->GetCache());
 
   // Ensure this doesn't crash when the internal `GetCache()` returns nullptr.
-  network_context->SetHttpCacheMaxSize(base::MiBU(10), true);
+  network_context->SetHttpCacheMaxSize(base::MiB(10), true);
   task_environment_.RunUntilIdle();
 }
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -6519,6 +6517,38 @@ TEST_F(NetworkContextActivateDohProbesTest, NotPrimaryContext) {
   network_context.reset();
 
   EXPECT_FALSE(state->IsDohProbeRunning());
+}
+
+TEST_F(NetworkContextTest,
+       ShouldForceIgnoreSiteForCookiesCalledForEveryRedirectHop) {
+  std::vector<std::vector<GURL>> url_chains;
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(CreateNetworkContextParamsForTesting());
+  auto* network_delegate = static_cast<NetworkServiceNetworkDelegate*>(
+      network_context->url_request_context()->network_delegate());
+  network_delegate->SetShouldForceIgnoreSiteForCookiesCallbackForTesting(
+      base::BindLambdaForTesting([&url_chains](const net::URLRequest& request) {
+        url_chains.push_back(request.url_chain());
+      }));
+
+  net::EmbeddedTestServer test_server;
+  test_server.AddDefaultHandlers(base::FilePath());
+  ASSERT_TRUE(test_server.Start());
+  const GURL target_url = test_server.GetURL("/echo");
+  const GURL redirect_url =
+      test_server.GetURL("/server-redirect-307?" + target_url.spec());
+
+  net::TestDelegate delegate;
+  std::unique_ptr<net::URLRequest> request =
+      network_context->url_request_context()->CreateRequest(
+          redirect_url, net::DEFAULT_PRIORITY, &delegate,
+          TRAFFIC_ANNOTATION_FOR_TESTS, net::handles::kInvalidNetworkHandle);
+  request->Start();
+  delegate.RunUntilComplete();
+
+  EXPECT_THAT(delegate.request_status(), net::test::IsOk());
+  EXPECT_THAT(url_chains, Contains(ElementsAre(redirect_url)));
+  EXPECT_THAT(url_chains, Contains(ElementsAre(redirect_url, target_url)));
 }
 
 TEST_F(NetworkContextTest, PrivacyModeDisabledByDefault) {

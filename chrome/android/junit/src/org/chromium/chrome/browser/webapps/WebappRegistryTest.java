@@ -20,7 +20,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -36,6 +35,7 @@ import org.chromium.chrome.browser.browsing_data.UrlFilters;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.webapps.WebappRegistry.GetWebApkSpecificsImplSetWebappInfoForTesting;
 import org.chromium.chrome.test.util.browser.webapps.WebApkIntentDataProviderBuilder;
+import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.components.sync.protocol.WebApkSpecifics;
 import org.chromium.ui.util.ColorUtils;
 
@@ -52,7 +52,6 @@ import java.util.Set;
  * expected.
  */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class WebappRegistryTest {
     // These were copied from WebappRegistry for backward compatibility checking.
     private static final String REGISTRY_FILE_NAME = "webapp_registry";
@@ -1034,5 +1033,67 @@ public class WebappRegistryTest {
     private BrowserServicesIntentDataProvider createShortcutIntentDataProvider(final String url) {
         return WebappIntentDataProviderFactory.create(
                 ShortcutHelper.createWebappShortcutIntentForTesting("id", url));
+    }
+
+    @Test
+    @Feature({"Webapp"})
+    public void testGetOriginsWithInstalledAppFiltersUninstalledWebApks() throws Exception {
+        String webApkPackage = "test.webapk.package";
+        String startUrl = "https://example.com/start";
+        Origin startUrlOrigin = Origin.create(startUrl);
+
+        BrowserServicesIntentDataProvider intentDataProvider =
+                new WebApkIntentDataProviderBuilder(webApkPackage, startUrl).build();
+        registerWebapp(intentDataProvider);
+
+        // 1. Initially it should be in the set of origins with installed app.
+        assertTrue(
+                WebappRegistry.getInstance()
+                        .getOriginsWithInstalledApp()
+                        .contains(startUrlOrigin.toString()));
+
+        // 2. Mark as uninstalled.
+        String webappId = intentDataProvider.getWebappExtras().id;
+        WebappDataStorage storage = WebappRegistry.getInstance().getWebappDataStorage(webappId);
+        assertNotNull(storage);
+        storage.setWebApkUninstallTimestamp();
+
+        // 3. Verify it is now filtered out.
+        assertFalse(
+                WebappRegistry.getInstance()
+                        .getOriginsWithInstalledApp()
+                        .contains(startUrlOrigin.toString()));
+
+        // 4. Re-register (simulate re-install)
+        registerWebapp(intentDataProvider);
+
+        // 5. Verify it is back in the set (uninstall timestamp was reset)
+        assertTrue(
+                WebappRegistry.getInstance()
+                        .getOriginsWithInstalledApp()
+                        .contains(startUrlOrigin.toString()));
+    }
+
+    @Test
+    @Feature({"Webapp"})
+    public void testWebappRegistryObserverNotifiedOnRegister() throws Exception {
+        String webApkPackage = "test.webapk.package";
+        String startUrl = "https://example.com/start";
+        BrowserServicesIntentDataProvider intentDataProvider =
+                new WebApkIntentDataProviderBuilder(webApkPackage, startUrl).build();
+
+        // 1. Set up observer
+        final int[] notificationCount = {0};
+        WebappRegistry.Observer observer = () -> notificationCount[0]++;
+        WebappRegistry.getInstance().registerObserver(observer);
+
+        // 2. Register webapp
+        registerWebapp(intentDataProvider);
+
+        // 3. Verify observer was notified
+        assertEquals(1, notificationCount[0]);
+
+        // Clean up
+        WebappRegistry.getInstance().unregisterObserver(observer);
     }
 }

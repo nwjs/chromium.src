@@ -15,7 +15,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowSystemClock;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -33,7 +32,6 @@ import java.util.Set;
  * for instance-specific fields.
  */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 @EnableFeatures({
     ChromeFeatureList.MULTI_INSTANCE_SHARED_PREFS_MIGRATION,
     ChromeFeatureList.SESSION_RESTORE_AFTER_CRASH
@@ -509,22 +507,16 @@ public class ChromeMultiInstancePersistentStoreUnitTest {
 
     @Test
     public void testRestoreOnStartupUrls() {
-        // Verify default value is null when unset.
-        assertNull(ChromeMultiInstancePersistentStore.readRestoreOnStartupUrls());
+        // Verify default value is empty list when unset.
+        assertTrue(ChromeMultiInstancePersistentStore.readRestoreOnStartupUrls().isEmpty());
 
         // Verify writing and reading non-empty list.
         List<String> urls = List.of("https://www.google.com", "https://www.example.com");
         ChromeMultiInstancePersistentStore.writeRestoreOnStartupUrls(urls);
         assertEquals(urls, ChromeMultiInstancePersistentStore.readRestoreOnStartupUrls());
 
-        // Verify writing an empty list clears the field and returns null.
+        // Verify writing an empty list clears the field and returns empty list.
         ChromeMultiInstancePersistentStore.writeRestoreOnStartupUrls(List.of());
-        assertNull(ChromeMultiInstancePersistentStore.readRestoreOnStartupUrls());
-
-        // Verify writing null clears the field and returns null.
-        ChromeMultiInstancePersistentStore.writeRestoreOnStartupUrls(urls);
-        assertEquals(urls, ChromeMultiInstancePersistentStore.readRestoreOnStartupUrls());
-        ChromeMultiInstancePersistentStore.writeRestoreOnStartupUrls(null);
-        assertNull(ChromeMultiInstancePersistentStore.readRestoreOnStartupUrls());
+        assertTrue(ChromeMultiInstancePersistentStore.readRestoreOnStartupUrls().isEmpty());
     }
 }

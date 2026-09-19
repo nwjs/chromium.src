@@ -17,6 +17,7 @@ export interface InvocationSourceOption {
 export interface OmniboxEverywhereDebugAppElement {
   $: {
     bgModeToggle: HTMLInputElement,
+    launchOnStartupToggle: HTMLInputElement,
     hotkeyToggle: HTMLInputElement,
     ephemeralModelToggle: HTMLInputElement,
     sourceSelect: HTMLSelectElement,
@@ -39,17 +40,21 @@ export class OmniboxEverywhereDebugAppElement extends CrLitElement {
   static override get properties() {
     return {
       bgModeEnabled: {type: Boolean},
+      launchOnStartupEnabled: {type: Boolean},
       hotkeyEnabled: {type: Boolean},
       ephemeralModelEnabled: {type: Boolean},
       selectedInvocationSource: {type: Number},
+      shortcutStatus: {type: String},
     };
   }
 
   protected accessor bgModeEnabled: boolean = false;
+  protected accessor launchOnStartupEnabled: boolean = false;
   protected accessor hotkeyEnabled: boolean = true;
   protected accessor ephemeralModelEnabled: boolean = false;
   protected accessor selectedInvocationSource: InvocationSource =
       InvocationSource.kGlobalHotkey;
+  protected accessor shortcutStatus: string = '';
 
   private listenerIds_: number[] = [];
 
@@ -65,6 +70,12 @@ export class OmniboxEverywhereDebugAppElement extends CrLitElement {
             }));
 
     this.listenerIds_.push(
+        proxy.callbackRouter.onLaunchOnStartupChanged.addListener(
+            (enabled: boolean) => {
+              this.launchOnStartupEnabled = enabled;
+            }));
+
+    this.listenerIds_.push(
         proxy.callbackRouter.onHotkeyChanged.addListener((enabled: boolean) => {
           this.hotkeyEnabled = enabled;
         }));
@@ -77,6 +88,10 @@ export class OmniboxEverywhereDebugAppElement extends CrLitElement {
 
     proxy.handler.getBackgroundModeEnabled().then(res => {
       this.bgModeEnabled = res.enabled;
+    });
+
+    proxy.handler.getLaunchOnStartupEnabled().then(res => {
+      this.launchOnStartupEnabled = res.enabled;
     });
 
     proxy.handler.getHotkeyEnabled().then(res => {
@@ -115,6 +130,11 @@ export class OmniboxEverywhereDebugAppElement extends CrLitElement {
         this.$.bgModeToggle.checked);
   }
 
+  protected onLaunchOnStartupToggleChange() {
+    browserProxyFactory.getInstance().handler.setLaunchOnStartupEnabled(
+        this.$.launchOnStartupToggle.checked);
+  }
+
   protected onHotkeyToggleChange() {
     browserProxyFactory.getInstance().handler.setHotkeyEnabled(
         this.$.hotkeyToggle.checked);
@@ -134,7 +154,24 @@ export class OmniboxEverywhereDebugAppElement extends CrLitElement {
     browserProxyFactory.getInstance().handler.invokeOmniboxEverywhere(
         this.selectedInvocationSource);
   }
+
+  protected async onCreateShortcutClick() {
+    this.shortcutStatus = 'Creating Start Menu shortcut...';
+    const res = await browserProxyFactory.getInstance()
+                    .handler.createStartMenuShortcut();
+    this.shortcutStatus = res.success ?
+        'Start Menu shortcut created successfully.' :
+        'Failed to create Start Menu shortcut.';
+  }
+
+  protected async onPinToTaskbarClick() {
+    this.shortcutStatus = 'Requesting taskbar pin...';
+    const res = await browserProxyFactory.getInstance().handler.pinToTaskbar();
+    this.shortcutStatus = res.success ? 'Taskbar pin requested successfully.' :
+                                        'Failed to pin to taskbar.';
+  }
 }
+
 
 declare global {
   interface HTMLElementTagNameMap {

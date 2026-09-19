@@ -12,7 +12,6 @@ source_set("send_tab_to_self") {
   ]
   public_deps = [
     "//base",
-    "//chrome/browser/notifications",
     "//chrome/browser/profiles:profile",
     "//components/keyed_service/core",
     "//components/send_tab_to_self",
@@ -75,6 +74,7 @@ source_set("unit_tests") {
       "../android/send_tab_to_self/android_notification_handler_unittest.cc",
     ]
     deps += [
+      "//chrome/android:chrome_jni_headers",
       "//chrome/browser/android/send_tab_to_self",
       "//chrome/browser/ui/android/tab_model:test_support",
       "//components/tabs:test_support",
@@ -114,7 +114,6 @@ if (is_android) {
     deps = [
       ":send_tab_to_self",
       "//base",
-      "//chrome/browser/notifications",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/sync",
       "//chrome/browser/ui",

@@ -253,6 +253,8 @@ export class TabStripElement extends CrLitElement implements
         width: Math.round(width),
         height: Math.round(height),
       });
+
+      this.dragDelegate_.onRecalculateBounds();
     });
     this.resizeObserver_.observe(this);
     this.resizeObserver_.observe(this.$.tabstrip);
@@ -487,11 +489,10 @@ export class TabStripElement extends CrLitElement implements
 
   // DropTargetInterface implementation
   onDragEntered(
-      sourceTabIds: NodeId[], localPoint: Point, tabOriginalOffsetX: number) {
+      sourceTabIds: NodeId[], localPoint: Point, mouseToTabXRatio: number) {
     this.dragInProgress_ = true;
     const nodeId = sourceTabIds[0]!;
-    this.dragDelegate_.onMojoDragEntered(
-        nodeId, localPoint, tabOriginalOffsetX);
+    this.dragDelegate_.onMojoDragEntered(nodeId, localPoint, mouseToTabXRatio);
   }
 
   onDrag(localPoint: Point) {

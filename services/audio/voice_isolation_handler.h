@@ -5,6 +5,7 @@
 #ifndef SERVICES_AUDIO_VOICE_ISOLATION_HANDLER_H_
 #define SERVICES_AUDIO_VOICE_ISOLATION_HANDLER_H_
 
+#include <atomic>
 #include <memory>
 #include <optional>
 
@@ -14,20 +15,14 @@
 #include "media/base/audio_glitch_info.h"
 
 namespace media {
-class MlModelHandle;
-}  // namespace media
-
-namespace audio {
-class MlModelManager;
-}  // namespace audio
-
-namespace media {
 class AudioBus;
 class AudioParameters;
+class MlModelHandle;
 class VoiceIsolation;
 }  // namespace media
 
 namespace audio {
+class MlModelManager;
 
 // Encapsulates the voice isolation capability in the audio service.
 //
@@ -53,22 +48,44 @@ class VoiceIsolationHandler {
       const media::AudioParameters& output_params,
       DeliverProcessedAudioCallback deliver_processed_audio_callback);
 
+  static std::unique_ptr<VoiceIsolationHandler> CreateForTesting(
+      std::unique_ptr<media::VoiceIsolation> voice_isolation,
+      const media::AudioParameters& output_params,
+      DeliverProcessedAudioCallback deliver_processed_audio_callback);
+
   // Processes the captured audio. Called on the capture/processing thread.
   void ProcessCapturedAudio(const media::AudioBus& audio_source,
                             base::TimeTicks audio_capture_time,
                             std::optional<double> volume,
                             const media::AudioGlitchInfo& audio_glitch_info);
 
+  // Dynamic toggle for voice isolation. Thread-safe.
+  void SetVoiceIsolation(bool enabled);
+
  private:
-  explicit VoiceIsolationHandler(
+  VoiceIsolationHandler(
       scoped_refptr<media::MlModelHandle> model_handle,
       const media::AudioParameters& output_params,
       DeliverProcessedAudioCallback deliver_processed_audio_callback);
+
+  VoiceIsolationHandler(
+      std::unique_ptr<media::VoiceIsolation> voice_isolation,
+      const media::AudioParameters& output_params,
+      DeliverProcessedAudioCallback deliver_processed_audio_callback);
+
+  bool IsVoiceIsolationBypassed() const;
 
   const scoped_refptr<media::MlModelHandle> model_handle_;
   const std::unique_ptr<media::VoiceIsolation> voice_isolation_;
   const DeliverProcessedAudioCallback deliver_processed_audio_callback_;
   std::unique_ptr<media::AudioBus> output_bus_;
+
+  // Whether voice isolation is currently bypassed.
+  // Accessed on both the control/Mojo thread (via SetVoiceIsolation)
+  // and the real-time audio capture/processing thread
+  // (via ProcessCapturedAudio).
+  // std::atomic ensures thread-safe, lock-free toggling of voice isolation.
+  std::atomic<bool> bypass_voice_isolation_{false};
 };
 
 }  // namespace audio

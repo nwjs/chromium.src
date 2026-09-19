@@ -56,6 +56,7 @@
 #include "ui/views/focus/focus_manager_factory.h"
 #include "ui/views/focus/native_view_focus_manager.h"
 #include "ui/views/input_protection/default_input_protection_policy.h"
+#include "ui/views/input_protection/input_protection_event_handler.h"
 #include "ui/views/input_protection/occluded_widget_input_protector.h"
 #include "ui/views/input_protection/occlusion_aware_input_protection_policy.h"
 #include "ui/views/input_protection/window_activation_input_protection_policy.h"
@@ -674,6 +675,11 @@ void Widget::Init(InitParams params) {
   OccludedWidgetInputProtector::GetInstance()->UpdateTracking(
       base::PassKey<Widget>(), this);
 
+  if (base::FeatureList::IsEnabled(features::kEnableInputProtection)) {
+    input_protection_event_handler_ =
+        std::make_unique<InputProtectionEventHandler>(root_view_.get());
+  }
+
   internal::AnyWidgetObserverSingleton::GetInstance()->OnAnyWidgetInitialized(
       this);
 }
@@ -957,6 +963,18 @@ void Widget::SetVisibilityAnimationTransition(VisibilityTransition transition) {
 
 bool Widget::IsMoveLoopSupported() const {
   return native_widget_ ? native_widget_->IsMoveLoopSupported() : false;
+}
+
+void Widget::PrepareForMoveLoop(MoveLoopSource source) {
+  if (native_widget_) {
+    native_widget_->PrepareForMoveLoop(source);
+  }
+}
+
+void Widget::SetBypassWindowManager(bool bypass) {
+  if (native_widget_) {
+    native_widget_->SetBypassWindowManager(bypass);
+  }
 }
 
 bool Widget::IsMouseButtonDown() const {
@@ -1392,16 +1410,6 @@ void Widget::EnableInputEventActivationProtection(
 
 bool Widget::IsInputEventActivationProtectionEnabled() const {
   return input_event_activation_protection_enabled_;
-}
-
-bool Widget::IsPossiblyUnintendedInteraction(const ui::Event& event,
-                                             const View* target) {
-  if (!IsInputEventActivationProtectionEnabled()) {
-    return false;
-  }
-
-  return input_protector_->IsPossiblyUnintendedInteraction(
-      event, /*allow_key_events=*/false, target);
 }
 
 const ui::ThemeProvider* Widget::GetThemeProvider() const {
@@ -2060,7 +2068,8 @@ bool Widget::OnNativeWidgetActivationChanged(bool active) {
   const bool was_paint_as_active = ShouldPaintAsActive();
 
   // Widgets in a widget tree should share the same ShouldPaintAsActive().
-  // Lock the parent as paint-as-active when this widget becomes active.
+  // Lock the parent as paint-as-active when this widget becomes active (if not
+  // already locked).
   // If we're in the process of closing the widget, delay resetting the
   // `parent_paint_as_active_lock_` until the owning native widget destroys this
   // widget (i.e. wait until widget destruction). Do this as closing a widget
@@ -2073,10 +2082,14 @@ bool Widget::OnNativeWidgetActivationChanged(bool active) {
   // native widget to destroy this widget we ensure that resetting the paint
   // lock happens synchronously with the activation the next widget (see
   // crbug/1303549).
-  if (!active && !paint_as_active_refcount_ && !widget_closed_) {
-    parent_paint_as_active_lock_.reset();
-  } else if (parent()) {
-    parent_paint_as_active_lock_ = parent()->LockPaintAsActive();
+  if (active) {
+    if (parent() && !parent_paint_as_active_lock_) {
+      parent_paint_as_active_lock_ = parent()->LockPaintAsActive();
+    }
+  } else {
+    if (!paint_as_active_refcount_ && !widget_closed_) {
+      parent_paint_as_active_lock_.reset();
+    }
   }
 
   native_widget_active_ = active;
@@ -2818,6 +2831,7 @@ internal::RootView* Widget::CreateRootView() {
 void Widget::DestroyRootView() {
   NotifyWillRemoveView(root_view_.get());
   non_client_view_ = nullptr;
+  input_protection_event_handler_.reset();
   // Remove all children before the unique_ptr reset so that
   // GetWidget()->GetRootView() doesn't return nullptr while the views hierarchy
   // is being torn down.

@@ -29,7 +29,6 @@
 #include "third_party/skia/include/core/SkM44.h"
 #include "third_party/skia/modules/skcms/skcms.h"
 #include "ui/gfx/display_color_spaces.h"
-#include "ui/gfx/icc_profile.h"
 #include "ui/gfx/skia_color_space_util.h"
 
 namespace gfx {
@@ -147,6 +146,23 @@ ColorSpace::ColorSpace(PrimaryID primaries,
                               transfer_ == TransferID::CUSTOM_HDR);
   }
 }
+
+ColorSpace::ColorSpace(const SkColorSpacePrimaries& primaries,
+                       const skcms_TransferFunction& fn)
+    : ColorSpace(PrimaryID::INVALID,
+                 TransferID::INVALID,
+                 MatrixID::RGB,
+                 RangeID::FULL) {
+  skcms_Matrix3x3 to_XYZD50;
+  if (!primaries.toXYZD50(&to_XYZD50)) {
+    return;
+  }
+  SetCustomPrimaries(to_XYZD50);
+  SetCustomTransferFunction(fn, /*is_hdr=*/false);
+}
+
+ColorSpace::ColorSpace(const SkColorSpace* sk_color_space, bool is_hdr)
+    : ColorSpace(sk_color_space ? ColorSpace(*sk_color_space, is_hdr) : ColorSpace()) {}
 
 ColorSpace::ColorSpace(const SkColorSpace& sk_color_space, bool is_hdr)
     : ColorSpace(PrimaryID::INVALID,
@@ -1070,9 +1086,6 @@ SkM44 ColorSpace::GetTransferMatrix(int bit_depth) const {
   // represented as an unsigned |bit_depth|-bit integer, this 0.5 offset is
   // approximated by 1 << (bit_depth - 1). chroma_0_5 is this approximate value
   // converted to a real number in the range of 0 to 1.
-  //
-  // TODO(wtc): For now chroma_0_5 is only used for YCgCo. It should also be
-  // used for YUV.
   const float chroma_0_5 =
       static_cast<float>(1 << (bit_depth - 1)) / ((1 << bit_depth) - 1);
   float Kr = 0;
@@ -1119,9 +1132,9 @@ SkM44 ColorSpace::GetTransferMatrix(int bit_depth) const {
     case ColorSpace::MatrixID::YDZDX: {
       // clang-format off
       float data[16] = {
-          0.0f,              1.0f,             0.0f, 0.0f,  // Y
-          0.0f,             -0.5f, 0.986566f / 2.0f, 0.5f,  // DX or DZ
-          0.5f, -0.991902f / 2.0f,             0.0f, 0.5f,  // DZ or DX
+          0.0f,              1.0f,             0.0f, 0.0f,        // Y
+          0.0f,             -0.5f, 0.986566f / 2.0f, chroma_0_5,  // DX or DZ
+          0.5f, -0.991902f / 2.0f,             0.0f, chroma_0_5,  // DZ or DX
           0.0f,              0.0f,             0.0f, 1.0f,
       };
       // clang-format on
@@ -1140,9 +1153,9 @@ SkM44 ColorSpace::GetTransferMatrix(int bit_depth) const {
   float v_m = 0.5f / (1.0f - Kr);
   // clang-format off
   float data[16] = {
-                     Kr,        Kg,                Kb, 0.0f,  // Y
-              u_m * -Kr, u_m * -Kg, u_m * (1.0f - Kb), 0.5f,  // U
-      v_m * (1.0f - Kr), v_m * -Kg,         v_m * -Kb, 0.5f,  // V
+                     Kr,        Kg,                Kb, 0.0f,        // Y
+              u_m * -Kr, u_m * -Kg, u_m * (1.0f - Kb), chroma_0_5,  // U
+      v_m * (1.0f - Kr), v_m * -Kg,         v_m * -Kb, chroma_0_5,  // V
                    0.0f,      0.0f,              0.0f, 1.0f,
   };
   // clang-format on
@@ -1184,7 +1197,8 @@ SkM44 ColorSpace::GetRangeAdjustMatrix(int bit_depth) const {
     case MatrixID::YDZDX: {
       const float a_uv = 224 << shift;
       const float scale_uv = c / a_uv;
-      const float translate_uv = (a_uv - c) / (2.0f * a_uv);
+      const float chroma_midpoint = static_cast<float>(1 << (bit_depth - 1));
+      const float translate_uv = chroma_midpoint / c - chroma_midpoint / a_uv;
       return SkM44::Scale(scale_y, scale_uv, scale_uv)
           .postTranslate(-16.0f / 219.0f, translate_uv, translate_uv);
     }

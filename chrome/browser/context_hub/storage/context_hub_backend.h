@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_CONTEXT_HUB_STORAGE_CONTEXT_HUB_BACKEND_H_
 #define CHROME_BROWSER_CONTEXT_HUB_STORAGE_CONTEXT_HUB_BACKEND_H_
 
+#include <string>
 #include <vector>
 
 #include "base/containers/span.h"
@@ -26,6 +27,13 @@ class ContextHubBackend {
   virtual void AddOrUpdateMemoryBankEntry(
       MemoryBankEntry entry,
       OperationCompleteCallback callback) = 0;
+  // Updates annotations for an existing entry in the MemoryBankTable.
+  virtual void UpdateMemoryBankEntryAnnotations(
+      int64_t id,
+      std::vector<std::string> tags,
+      std::optional<std::string> note,
+      std::optional<std::string> collection,
+      OperationCompleteCallback callback) = 0;
   // Deletes entries in the MemoryBankTable with the given ids.
   virtual void DeleteMemoryBankEntries(base::span<const int64_t> ids,
                                        OperationCompleteCallback callback) = 0;
@@ -38,6 +46,13 @@ class ContextHubBackend {
   virtual void GetMemoryBankEntriesByIds(
       base::span<const int64_t> ids,
       GetEntriesCallback callback) const = 0;
+  using GetStringsCallback =
+      base::OnceCallback<void(const std::vector<std::string>&)>;
+  // Returns all unique tags in the MemoryBankTable.
+  virtual void GetAllMemoryBankTags(GetStringsCallback callback) const = 0;
+  // Returns all unique collections in the MemoryBankTable.
+  virtual void GetAllMemoryBankCollections(
+      GetStringsCallback callback) const = 0;
 };
 
 }  // namespace context_hub

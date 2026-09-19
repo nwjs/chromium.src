@@ -70,9 +70,9 @@ std::vector<ink::BrushBehavior> GetTipBehaviors(PdfInkBrush::Type type) {
               },
               ink::BrushBehavior::ToolTypeFilterNode{{.stylus = true}},
               ink::BrushBehavior::DampingNode{
-                  .damping_source =
+                  .damp_over =
                       ink::BrushBehavior::ProgressDomain::kTimeInSeconds,
-                  .damping_gap = 0.025,
+                  .strength = 0.025,
               },
               ink::BrushBehavior::TargetNode{
                   .target = ink::BrushBehavior::Target::kSizeMultiplier,

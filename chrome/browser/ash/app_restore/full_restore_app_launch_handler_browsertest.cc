@@ -12,6 +12,7 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/public/cpp/autotest_desks_api.h"
+#include "ash/public/cpp/notification_utils.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/split_view_test_api.h"
 #include "ash/public/cpp/tablet_mode.h"
@@ -27,6 +28,7 @@
 #include "ash/wm/window_restore/window_restore_util.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/wm_event.h"
+#include "base/check_deref.h"
 #include "base/check_op.h"
 #include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
@@ -51,24 +53,23 @@
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
 #include "chrome/browser/ash/system_web_apps/test_support/system_web_app_integration_test.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/notifications/notification_display_service_tester.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/desks/desks_client.h"
 #include "chrome/browser/ui/ash/device_scheduled_reboot/reboot_notification_controller.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "components/app_constants/constants.h"
 #include "components/app_restore/app_launch_info.h"
@@ -86,7 +87,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "components/services/app_service/public/cpp/app_types.h"
-#include "components/strings/grit/components_strings.h"
+#include "components/user_manager/user.h"
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_navigation_observer.h"
@@ -94,13 +95,13 @@
 #include "extensions/browser/app_window/native_app_window.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/window.h"
-#include "ui/base/l10n/l10n_util.h"
+#include "ui/base/base_window.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/display/types/display_constants.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/scoped_animation_duration_scale_mode.h"
-#include "ui/message_center/public/cpp/notification.h"
+#include "ui/message_center/message_center.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/wm/core/window_util.h"
 
@@ -309,8 +310,6 @@ class FullRestoreAppLaunchHandlerTestBase
 
   void SetUpOnMainThread() override {
     extensions::PlatformAppBrowserTest::SetUpOnMainThread();
-    display_service_ =
-        std::make_unique<NotificationDisplayServiceTester>(profile());
     Shell::Get()
         ->login_unlock_throughput_recorder()
         ->SetLoginFinishedReportedForTesting();
@@ -378,18 +377,12 @@ class FullRestoreAppLaunchHandlerTestBase
     return read_handler->GetWindowInfo(window);
   }
 
-  bool HasNotificationFor(const std::string& notification_id) const {
-    std::optional<message_center::Notification> message_center_notification =
-        display_service_->GetNotification(notification_id);
-    return message_center_notification.has_value();
-  }
-
-  void VerifyPostRebootNotificationTitle(const std::string& notification_id) {
-    std::optional<message_center::Notification> message_center_notification =
-        display_service_->GetNotification(notification_id);
-    ASSERT_TRUE(message_center_notification.has_value());
-    EXPECT_EQ(message_center_notification.value().title(),
-              l10n_util::GetStringUTF16(IDS_POLICY_DEVICE_POST_REBOOT_TITLE));
+  bool HasNotificationFor(const std::string& notification_id) {
+    const user_manager::User& user = CHECK_DEREF(
+        BrowserContextHelper::Get()->GetUserByBrowserContext(profile()));
+    return message_center::MessageCenter::Get()->FindNotificationById(
+               CreateUserScopedNotificationId(notification_id,
+                                              user.username_hash())) != nullptr;
   }
 
   void ResetRestoreForTesting() { scoped_restore_for_testing_.reset(); }
@@ -397,7 +390,6 @@ class FullRestoreAppLaunchHandlerTestBase
  protected:
   gfx::ScopedAnimationDurationScaleMode faster_animations_;
   std::unique_ptr<ScopedRestoreForTesting> scoped_restore_for_testing_;
-  std::unique_ptr<NotificationDisplayServiceTester> display_service_;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
@@ -783,10 +775,8 @@ IN_PROC_BROWSER_TEST_F(FullRestoreAppLaunchHandlerBrowserTest,
                        PRE_FullRestoreOverridesSessionRestoreTest) {
   // Create a browser and create a tab for it. Its bounds should not equal
   // |kCurrentBounds|.
-  Browser* browser =
-      CreateBrowserWindow(
-          BrowserWindowCreateParams(profile(), /*from_user_gesture=*/true))
-          ->GetBrowserForMigrationOnly();
+  BrowserWindowInterface* browser = CreateBrowserWindow(
+      BrowserWindowCreateParams(profile(), /*from_user_gesture=*/true));
   PrefService* local_state = g_browser_process->local_state();
   static_cast<PrefRegistrySimple*>(local_state->DeprecatedGetPrefRegistry())
       ->RegisterIntegerPref(kRestoreIdPrefName, 0);
@@ -876,11 +866,9 @@ IN_PROC_BROWSER_TEST_F(FullRestoreAppLaunchHandlerBrowserTest,
   const gfx::Rect expected_bounds(10, 10, 500, 300);
   const GURL expected_url("https://example.org");
 
-  Browser* new_browser =
-      CreateBrowserWindow(BrowserWindowCreateParams(
-                              BrowserWindowInterface::TYPE_NORMAL, profile(),
-                              /*from_user_gesture=*/false))
-          ->GetBrowserForMigrationOnly();
+  BrowserWindowInterface* new_browser = CreateBrowserWindow(
+      BrowserWindowCreateParams(BrowserWindowInterface::TYPE_NORMAL, profile(),
+                                /*from_user_gesture=*/false));
 
   content::TestNavigationObserver navigation_observer(expected_url);
   navigation_observer.StartWatchingNewWebContents();
@@ -1006,9 +994,8 @@ IN_PROC_BROWSER_TEST_F(FullRestoreAppLaunchHandlerChromeAppBrowserTest,
   BrowserWindowCreateParams non_restored_params(profile(),
                                                 /*from_user_gesture=*/true);
   non_restored_params.initial_workspace = "2";
-  Browser* non_restored_browser =
-      CreateBrowserWindow(std::move(non_restored_params))
-          ->GetBrowserForMigrationOnly();
+  BrowserWindowInterface* non_restored_browser =
+      CreateBrowserWindow(std::move(non_restored_params));
   AddBlankTabAndShow(non_restored_browser);
   aura::Window* non_restored_window =
       non_restored_browser->GetWindow()->GetNativeWindow();

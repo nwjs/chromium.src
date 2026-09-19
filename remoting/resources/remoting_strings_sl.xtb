@@ -46,6 +46,7 @@
 <translation id="3197730452537982411">Oddaljeno namizje</translation>
 <translation id="3236334139428307578">Copyright 2026 Ustvarjalci Chromiuma. Vse pravice pridržane.</translation>
 <translation id="324272851072175193">Pošlji ta navodila po e-pošti</translation>
+<translation id="3254626532848657899">Premakni na dno</translation>
 <translation id="3305934114213025800"><ph name="PRODUCT_NAME" /> želi narediti spremembe.</translation>
 <translation id="3339299787263251426">Varen dostop do računalnika prek interneta</translation>
 <translation id="3385242214819933234">Neveljavni lastnik gostitelja.</translation>
@@ -151,6 +152,7 @@
 <translation id="8073845705237259513">Če želite uporabljati Oddaljeno namizje za Chrome, morate v napravo dodati Google Račun.</translation>
 <translation id="809687642899217504">Moji računalniki</translation>
 <translation id="8116630183974937060">Omrežna napaka. Preverite, ali je naprava dosegljiva in poskusite znova.</translation>
+<translation id="8249310407154411074">Na vrh</translation>
 <translation id="8295077433896346116">Če želite uporabljati izdelek <ph name="PRODUCT_NAME" />, morate odobriti dovoljenje »Dostopnost«, da bo mogoče v tem Macu vstavljati vnose iz oddaljenega računalnika.
 
 Če želite odobriti to dovoljenje, spodaj kliknite »<ph name="BUTTON_NAME" />«. V podoknu z nastavitvami možnosti »Dostopnost« označite polje zraven »<ph name="SERVICE_SCRIPT_NAME" />«.

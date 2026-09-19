@@ -127,8 +127,9 @@ class DataSharingLiveTest : public signin::test::LiveTest {
   void SignIn() {
     signin::test::SignInFunctions sign_in_functions =
         signin::test::SignInFunctions(
-            base::BindLambdaForTesting(
-                [this]() -> Browser* { return this->browser(); }),
+            base::BindLambdaForTesting([this]() -> BrowserWindowInterface* {
+              return this->browser();
+            }),
             base::BindLambdaForTesting(
                 [this](int index, const GURL& url,
                        ui::PageTransition transition) -> bool {
@@ -162,7 +163,7 @@ class DataSharingLiveTest : public signin::test::LiveTest {
     }
     DCHECK(open);
     TabGroupModel* tab_group_model =
-        browser()->tab_strip_model()->group_model();
+        browser()->GetTabStripModel()->group_model();
     for (const tab_groups::TabGroupId& id : tab_group_model->ListTabGroups()) {
       const tab_groups::TabGroupVisualData* visual_data =
           tab_group_model->GetTabGroup(id)->visual_data();

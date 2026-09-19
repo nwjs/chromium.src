@@ -23,7 +23,7 @@
 #include "chrome/browser/ui/autofill/autofill_keyboard_accessory_controller.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
-#include "components/autofill/core/browser/ui/autofill_resource_utils.h"
+#include "components/autofill/core/browser/ui/autofill_resource_util.h"
 #include "ui/android/view_android.h"
 #include "ui/android/window_android.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -67,7 +67,7 @@ bool IsSuggestionTypeEligibleForKeyboardAccessory(SuggestionType type) {
     case SuggestionType::kBnplFootnote:
     case SuggestionType::kPersonalContextNotice:
     case SuggestionType::kAutocompleteAtMemoryButton:
-    case SuggestionType::kOpenGemini:
+    case SuggestionType::kAtMemoryOpenGemini:
     case SuggestionType::kAtMemorySearchResult:
     case SuggestionType::kAtMemoryInactivityNudge:
     case SuggestionType::kAtMemoryNoConnection:
@@ -76,6 +76,7 @@ bool IsSuggestionTypeEligibleForKeyboardAccessory(SuggestionType type) {
     case SuggestionType::kAtMemoryAiDisclosure:
     case SuggestionType::kAtMemorySourceAttribution:
     case SuggestionType::kAtMemoryFetching:
+    case SuggestionType::kAutofillAiSourceAttribution:
     case SuggestionType::kRemoveAutofillAi:
       return false;
 
@@ -112,7 +113,6 @@ bool IsSuggestionTypeEligibleForKeyboardAccessory(SuggestionType type) {
     case SuggestionType::kWebauthnSignInWithAnotherDevice:
     case SuggestionType::kWebauthnPasskeyQrCode:
     case SuggestionType::kOneTimePasswordEntry:
-    case SuggestionType::kMixedFormMessage:
     case SuggestionType::kDevtoolsTestAddresses:
     case SuggestionType::kDevtoolsTestAddressEntry:
     case SuggestionType::kDevtoolsTestAddressByCountry:
@@ -260,6 +260,20 @@ void AutofillKeyboardAccessoryViewImpl::SuggestionAccepted(JNIEnv* env,
   if (controller_) {
     controller_->AcceptSuggestion(
         list_index, AutofillMetrics::SuggestionAcceptedMethod::kTap);
+  }
+}
+
+void AutofillKeyboardAccessoryViewImpl::SuggestionSelectionStateChanged(
+    JNIEnv* env,
+    int32_t list_index,
+    bool is_selected) {
+  if (!controller_) {
+    return;
+  }
+  if (is_selected) {
+    controller_->SelectSuggestion(list_index);
+  } else {
+    controller_->UnselectSuggestion();
   }
 }
 

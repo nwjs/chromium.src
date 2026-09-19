@@ -89,6 +89,7 @@ source_set("misc") {
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/dom_distiller",
     "//chrome/browser/download",
+    "//chrome/browser/enterprise/isolated_mode",
     "//chrome/browser/file_system_access",
     "//chrome/browser/first_run",
     "//chrome/browser/heavy_ad_intervention",
@@ -114,6 +115,7 @@ source_set("misc") {
     "//chrome/browser/subscription_eligibility",
     "//chrome/browser/transition_manager",
     "//chrome/browser/ui:ui_features",
+    "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/startup",
     "//chrome/browser/ui/webui:prefs_internals_source",
     "//chrome/browser/ui/zoom",
@@ -130,6 +132,7 @@ source_set("misc") {
     "//components/embedder_support",
     "//components/guest_view/buildflags",
     "//components/heavy_ad_intervention",
+    "//components/history/core/common",
     "//components/keyed_service/content",
     "//components/language/core/common",
     "//components/policy/core/browser",
@@ -141,7 +144,7 @@ source_set("misc") {
     "//components/signin/public/identity_manager",
     "//components/site_isolation",
     "//components/spellcheck:buildflags",
-    "//components/supervised_user/core/browser",
+    "//components/supervised_user/core/common",
     "//components/user_prefs",
     "//components/webui/flags",
     "//components/zoom",
@@ -679,11 +682,10 @@ source_set("profile_util_impl") {
   ]
 
   if (!is_android) {
-    deps += [ "//chrome/browser/ui/browser_window" ]
-  }
-
-  if (is_android) {
-    deps += [ "//components/supervised_user/core/browser/android" ]
+    deps += [
+      "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/views:dotted_icon",
+    ]
   }
 
   if (is_chromeos) {
@@ -715,7 +717,6 @@ source_set("profiles_extra_parts_impl") {
     "//chrome/browser:chrome_browser_main",
     "//chrome/browser:font_pref",
     "//chrome/browser/accessibility",
-    "//chrome/browser/accessibility_annotator",
     "//chrome/browser/account_settings",
     "//chrome/browser/affiliations",
     "//chrome/browser/ai",
@@ -838,6 +839,7 @@ source_set("profiles_extra_parts_impl") {
     "//chrome/browser/sync",
     "//chrome/browser/tab_group_sync:factories",
     "//chrome/browser/tips",
+    "//chrome/browser/ttc",
     "//chrome/browser/ui",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/autofill",
@@ -871,6 +873,7 @@ source_set("profiles_extra_parts_impl") {
     "//components/omnibox/browser",
     "//components/optimization_guide/core",
     "//components/password_manager/content/browser",
+    "//components/password_manager/core/browser/features:password_features",
     "//components/payments/content",
     "//components/permissions:permissions_common",
     "//components/policy/content",
@@ -909,7 +912,6 @@ source_set("profiles_extra_parts_impl") {
     deps += [
       "//chrome/browser/accessibility/phrase_segmentation",
       "//chrome/browser/accessibility/tree_fixing:service",
-      "//chrome/browser/accessibility_annotator/content_annotator",
       "//chrome/browser/apps/app_service",
       "//chrome/browser/autofill",
       "//chrome/browser/badging",
@@ -1062,6 +1064,7 @@ source_set("profiles_extra_parts_impl") {
   if (!is_android) {
     deps += [
       "//chrome/browser/password_manager/factories:startup_import_factory",
+      "//chrome/browser/password_manager/ode",
       "//chrome/browser/password_manager/remote_actor",
     ]
   }
@@ -1236,6 +1239,7 @@ if (!is_android) {
       "//chrome/browser/ui",
       "//chrome/browser/ui:chrome_pages",
       "//chrome/browser/ui:ui_features",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/browser_window:create_browser_window",
       "//chrome/browser/ui/find_bar",
       "//chrome/browser/ui/startup",
@@ -1256,7 +1260,10 @@ if (!is_android) {
         "profile_list_desktop_browsertest.cc",
         "profile_window_browsertest.cc",
       ]
-      deps += [ "//chrome/browser/profiles/keep_alive:test_support" ]
+      deps += [
+        "//chrome/browser/prefs",
+        "//chrome/browser/profiles/keep_alive:test_support",
+      ]
     }
 
     if (is_mac || is_win || is_linux) {

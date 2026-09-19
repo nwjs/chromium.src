@@ -101,13 +101,13 @@ import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.init.AsyncInitializationActivity;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
-import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.InterceptNavigationDelegateClientImpl;
 import org.chromium.chrome.browser.tab.InterceptNavigationDelegateTabHelper;
 import org.chromium.chrome.browser.tab.RedirectHandlerTabHelper;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelJniBridge;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -218,8 +218,6 @@ public class UrlOverridingTest {
             BASE_PATH + "navigation_from_java_redirection.html";
     private static final String NAVIGATION_TO_CCT_FROM_INTENT_URI =
             BASE_PATH + "navigation_to_cct_via_intent_uri.html";
-    private static final String FALLBACK_URL =
-            "https://play.google.com/store/apps/details?id=com.android.chrome";
     private static final String SUBFRAME_REDIRECT_WITH_PLAY_FALLBACK =
             BASE_PATH + "subframe_navigation_with_play_fallback_parent.html";
     private static final String REDIRECT_TO_OTHER_BROWSER =
@@ -282,7 +280,7 @@ public class UrlOverridingTest {
 
     @Spy private RedirectHandler mSpyRedirectHandler;
 
-    private static class TestTabObserver extends EmptyTabObserver {
+    private static class TestTabObserver implements TabObserver {
         private final CallbackHelper mFinishCallback;
         private final CallbackHelper mDestroyedCallback;
         private final CallbackHelper mFailCallback;
@@ -922,6 +920,10 @@ public class UrlOverridingTest {
 
     @Test
     @SmallTest
+    // https://crbug.com/427139583: Disabled on Desktop because this test expects an async
+    // navigation
+    // prompt for a same-tab navigation, which is silently blocked in Desktop mode.
+    @DisableIf.Device(DeviceFormFactor.DESKTOP)
     public void testNavigationFromXHRCallbackAndLostActivationLongTimeout() throws Exception {
         WebPageStation ctaPage = mTabbedActivityTestRule.startOnBlankPage();
 
@@ -1026,8 +1028,8 @@ public class UrlOverridingTest {
         final Tab tab = mTabbedActivityTestRule.getActivityTab();
 
         final CallbackHelper subframeRedirect = new CallbackHelper();
-        EmptyTabObserver observer =
-                new EmptyTabObserver() {
+        TabObserver observer =
+                new TabObserver() {
                     @Override
                     public void onDidStartNavigationInPrimaryMainFrame(
                             Tab tab, NavigationHandle navigation) {
@@ -1288,8 +1290,8 @@ public class UrlOverridingTest {
 
         final CallbackHelper subframeExternalProtocol = new CallbackHelper();
         final CallbackHelper subframeRedirect = new CallbackHelper();
-        EmptyTabObserver observer =
-                new EmptyTabObserver() {
+        TabObserver observer =
+                new TabObserver() {
                     @Override
                     public void onDidStartNavigationInPrimaryMainFrame(
                             Tab tab, NavigationHandle navigation) {
@@ -1488,8 +1490,8 @@ public class UrlOverridingTest {
         final CallbackHelper finishCallback = new CallbackHelper();
         final CallbackHelper syncHelper = new CallbackHelper();
         AtomicReference<NavigationHandle> lastNavigationHandle = new AtomicReference<>(null);
-        EmptyTabObserver observer =
-                new EmptyTabObserver() {
+        TabObserver observer =
+                new TabObserver() {
                     @Override
                     public void onDidFinishNavigationInPrimaryMainFrame(
                             Tab tab, NavigationHandle navigation) {
@@ -1991,8 +1993,8 @@ public class UrlOverridingTest {
         final Tab tab = mTabbedActivityTestRule.getActivityTab();
 
         final CallbackHelper subframeRedirect = new CallbackHelper();
-        EmptyTabObserver observer =
-                new EmptyTabObserver() {
+        TabObserver observer =
+                new TabObserver() {
                     @Override
                     public void onDidStartNavigationInPrimaryMainFrame(
                             Tab tab, NavigationHandle navigation) {
@@ -2042,8 +2044,8 @@ public class UrlOverridingTest {
         final Tab tab = incognitoPage.getTab();
 
         final CallbackHelper subframeRedirect = new CallbackHelper();
-        EmptyTabObserver observer =
-                new EmptyTabObserver() {
+        TabObserver observer =
+                new TabObserver() {
                     @Override
                     public void onDidStartNavigationInPrimaryMainFrame(
                             Tab tab, NavigationHandle navigation) {
@@ -2325,8 +2327,8 @@ public class UrlOverridingTest {
         final Tab tab = mTabbedActivityTestRule.getActivityTab();
 
         final AtomicInteger navCount = new AtomicInteger(0);
-        EmptyTabObserver observer =
-                new EmptyTabObserver() {
+        TabObserver observer =
+                new TabObserver() {
                     @Override
                     public void onDidStartNavigationInPrimaryMainFrame(
                             Tab tab, NavigationHandle navigation) {
@@ -2379,8 +2381,8 @@ public class UrlOverridingTest {
         final Tab tab = mTabbedActivityTestRule.getActivityTab();
 
         final AtomicInteger navCount = new AtomicInteger(0);
-        EmptyTabObserver observer =
-                new EmptyTabObserver() {
+        TabObserver observer =
+                new TabObserver() {
                     @Override
                     public void onDidStartNavigationInPrimaryMainFrame(
                             Tab tab, NavigationHandle navigation) {
@@ -2562,6 +2564,31 @@ public class UrlOverridingTest {
                 },
                 10000L,
                 CriteriaHelper.DEFAULT_POLLING_INTERVAL);
+    }
+
+    @Test
+    @LargeTest
+    public void testSameTabLinkNavigationInDesktopWindowingMode() throws Exception {
+        InterceptNavigationDelegateClientImpl.setIsDesktopWindowingModeForTesting(true);
+
+        IntentFilter filter = createHelloIntentFilter();
+        mActivityMonitor =
+                InstrumentationRegistry.getInstrumentation()
+                        .addMonitor(
+                                filter,
+                                new Instrumentation.ActivityResult(Activity.RESULT_OK, null),
+                                true);
+        mTestContext.setIntentFilterForHost("127.0.0.1", filter);
+
+        WebPageStation ctaPage = mTabbedActivityTestRule.startOnBlankPage();
+
+        String pageWithSelfLink =
+                getUrlWithParam(NAVIGATION_FROM_TARGET_SELF_LINK, mTestServer.getURL(HELLO_PAGE));
+
+        TestParams testParams = new TestParams(pageWithSelfLink, true, false);
+        testParams.shouldFailNavigation = false;
+        testParams.expectedFinalUrl = mTestServer.getURL(HELLO_PAGE);
+        loadUrlAndWaitForIntentUrl(testParams, ctaPage);
     }
 
     private void launchTwa(String twaPackageName, String url) throws TimeoutException {

@@ -42,10 +42,10 @@ import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.layouts.LayoutTestUtils;
 import org.chromium.chrome.browser.layouts.LayoutType;
-import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
@@ -62,7 +62,6 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.Shee
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetTestSupport;
-import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.browser_ui.bottomsheet.TestBottomSheetContent;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
@@ -658,7 +657,7 @@ public class BottomSheetControllerTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     tab.addObserver(
-                            new EmptyTabObserver() {
+                            new TabObserver() {
                                 @Override
                                 public void onPageLoadStarted(Tab tab, GURL url) {
                                     pageLoadStartedHelper.notifyCalled();
@@ -725,7 +724,7 @@ public class BottomSheetControllerTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mSheetController.addObserver(
-                            new EmptyBottomSheetObserver() {
+                            new BottomSheetObserver() {
                                 @Override
                                 public void onSheetClosed(@StateChangeReason int reason) {
                                     closedHelper.notifyCalled();
@@ -746,7 +745,7 @@ public class BottomSheetControllerTest {
         requestContentInSheet(mHighPriorityContent, true);
         CallbackHelper closedCallbackHelper = new CallbackHelper();
         BottomSheetObserver observer =
-                new EmptyBottomSheetObserver() {
+                new BottomSheetObserver() {
                     @Override
                     public void onSheetClosed(@StateChangeReason int reason) {
                         closedCallbackHelper.notifyCalled();

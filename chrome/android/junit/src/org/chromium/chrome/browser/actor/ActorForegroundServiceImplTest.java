@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.actor;
 
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -20,7 +21,6 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.IntentUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -34,7 +34,6 @@ import org.chromium.chrome.browser.profiles.ProfileManager;
 
 /** Unit tests for {@link ActorForegroundServiceImpl}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 @DisableFeatures(ChromeFeatureList.GLIC_BACKGROUND_TRIGGERING)
 public class ActorForegroundServiceImplTest {
     private static final String START_ACTOR_FOREGROUND_SERVICE =
@@ -45,6 +44,7 @@ public class ActorForegroundServiceImplTest {
     @Mock private ChromeBrowserInitializer mChromeBrowserInitializer;
     @Mock private ActorForegroundServiceControllerImpl mMockController;
     @Mock private ActorBackgroundActuationManager mMockBackgroundManager;
+    @Mock private ActorKeyedService mMockActorService;
     @Mock private Profile mMockProfile;
 
     private ActorForegroundServiceImpl mServiceImpl;
@@ -56,6 +56,7 @@ public class ActorForegroundServiceImplTest {
         when(mMockController.getBackgroundActuationManager()).thenReturn(mMockBackgroundManager);
         ActorForegroundServiceController.setInstanceForTesting(mMockController);
         ProfileManager.setLastUsedProfileForTesting(mMockProfile);
+        ActorKeyedServiceFactory.setForTesting(mMockActorService);
         IntentUtils.setForceIsTrustedIntentForTesting(false);
 
         mServiceImpl = new ActorForegroundServiceImpl();
@@ -227,5 +228,6 @@ public class ActorForegroundServiceImplTest {
 
         verify(mMockBackgroundManager, never())
                 .startBackgroundActuation(mMockProfile, "test-message-id");
+        verify(mMockActorService).notifyBackgroundSetupFailed(eq("test-message-id"));
     }
 }

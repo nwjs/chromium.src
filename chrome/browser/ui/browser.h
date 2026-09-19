@@ -38,7 +38,6 @@
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "components/paint_preview/buildflags/buildflags.h"
-#include "components/prefs/pref_change_registrar.h"
 #include "components/sessions/core/session_id.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "content/public/browser/fullscreen_types.h"
@@ -150,6 +149,9 @@ class Browser : public TabStripModelObserver,
 
   const std::string& windows_key() const override { return windows_key_; }
 
+  Browser* GetBrowserForMigrationOnly() override;
+  const Browser* GetBrowserForMigrationOnly() const override;
+
   bool is_frameless() const { return frameless_; }
   bool is_transparent() const {
     return alpha_enabled_;
@@ -204,8 +206,6 @@ class Browser : public TabStripModelObserver,
       DidBecomeInactiveCallback callback) override;
   Type GetType() const override;
   std::vector<tabs::TabInterface*> GetAllTabInterfaces() override;
-  Browser* GetBrowserForMigrationOnly() override;
-  const Browser* GetBrowserForMigrationOnly() const override;
   bool IsTabModalPopup() const override;
   void SetIsTabModalPopup(
       bool is_tab_modal_popup,
@@ -286,9 +286,6 @@ class Browser : public TabStripModelObserver,
                        content::WebContents* new_contents,
                        int index);
 
-  // Handle changes to kDevToolsAvailability preference.
-  void OnDevToolsAvailabilityChanged();
-
   // In-progress download termination handling /////////////////////////////////
 
   // Called when the user has decided whether to proceed or not with the browser
@@ -321,8 +318,6 @@ class Browser : public TabStripModelObserver,
   bool HasFindBarController();
 
   // Data members /////////////////////////////////////////////////////////////
-
-  PrefChangeRegistrar profile_pref_registrar_;
 
   bool frameless_;
 

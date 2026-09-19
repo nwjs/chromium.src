@@ -17,7 +17,7 @@
 #include "base/values.h"
 #include "cc/base/switches.h"
 #include "chrome/browser/page_load_metrics/integration_tests/metric_integration_test.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/page_load_metrics/browser/features.h"
@@ -200,6 +200,7 @@ std::string JsSnippetGetPerformanceEntries() {
             softNavigation: {
               navigationId: record.navigationId,
               startTime: record.startTime,
+              duration: record.duration,
               interactionId: record.interactionId,
             },
           };
@@ -331,16 +332,25 @@ class SoftNavigationTest : public MetricIntegrationTest,
         ukm_recorder(), SoftNavigation::kStartTimeName);
     EXPECT_EQ(source_id_to_start_time.size(), expected_soft_nav_count);
 
+    std::vector<double> soft_nav_start_times;
+    for (const auto& [source_id, start_time] : source_id_to_start_time) {
+      soft_nav_start_times.push_back(start_time);
+    }
+
+    // Soft navigation FCP.
+    auto source_id_to_fcp = GetSoftNavigationMetrics(
+        ukm_recorder(), SoftNavigation::kPaintTiming_FirstContentfulPaintName);
+    EXPECT_EQ(source_id_to_fcp.size(), expected_soft_nav_count);
+    std::vector<double> soft_nav_fcp;
+    for (const auto& [source_id, fcp] : source_id_to_fcp) {
+      soft_nav_fcp.push_back(fcp);
+    }
+
     // Soft navigation LCP.
     auto source_id_to_lcp = GetSoftNavigationMetrics(
         ukm_recorder(),
         SoftNavigation::kPaintTiming_LargestContentfulPaintName);
     EXPECT_EQ(source_id_to_lcp.size(), expected_soft_nav_count);
-
-    std::vector<double> soft_nav_start_times;
-    for (const auto& [source_id, start_time] : source_id_to_start_time) {
-      soft_nav_start_times.push_back(start_time);
-    }
 
     // Verify that the soft navigation start times are sorted and unique.
     EXPECT_EQ(soft_nav_start_times.size(), expected_soft_nav_count);
@@ -369,6 +379,7 @@ class SoftNavigationTest : public MetricIntegrationTest,
       EXPECT_EQ(performance_entries.size(), expected_soft_nav_count);
       ASSERT_EQ(performance_entries.size(), soft_nav_lcp.size());
       ASSERT_EQ(performance_entries.size(), soft_nav_start_times.size());
+      ASSERT_EQ(performance_entries.size(), soft_nav_fcp.size());
       for (uint32_t i = 0; i < performance_entries.size(); ++i) {
         SCOPED_TRACE(base::StringPrintf("performance_entries[%d]", i));
         const base::DictValue& timing = performance_entries[i].GetDict();
@@ -378,6 +389,8 @@ class SoftNavigationTest : public MetricIntegrationTest,
                     expected_lcp, 6);
         EXPECT_NEAR(*timing.FindDoubleByDottedPath("softNavigation.startTime"),
                     soft_nav_start_times[i], 6);
+        EXPECT_NEAR(*timing.FindDoubleByDottedPath("softNavigation.duration"),
+                    soft_nav_fcp[i], 6);
       }
     }
 
@@ -605,6 +618,43 @@ IN_PROC_BROWSER_TEST_P(SoftNavigationTest, TextLargestContentfulPaint) {
 
   EXPECT_TRUE(lcp_type_1 == flag_set || lcp_type_1 == flag_set_with_mouseover);
   EXPECT_TRUE(lcp_type_2 == flag_set || lcp_type_2 == flag_set_with_mouseover);
+}
+
+// This test verifies that soft navigation LCP is still reported even if the
+// tab was previously backgrounded and foregrounded before the soft navigation.
+IN_PROC_BROWSER_TEST_P(SoftNavigationTest,
+                       SoftLcpRecordedAfterPreviousBackground) {
+  Start();
+  PageLoadMetricsTestWaiter waiter(web_contents());
+  waiter.AddPageExpectation(PageLoadMetricsTestWaiter::TimingField::kLoadEvent);
+  waiter.AddPageExpectation(
+      PageLoadMetricsTestWaiter::TimingField::kFirstContentfulPaint);
+  waiter.AddPageExpectation(
+      PageLoadMetricsTestWaiter::TimingField::kLargestContentfulPaint);
+  Load("/soft_navigation.html#text");
+  waiter.Wait();
+
+  // Background and then foreground the page before performing soft navigations.
+  web_contents()->WasHidden();
+  web_contents()->WasShown();
+
+  // 1st soft navigation: click on the next page button and wait for soft
+  // navigation count and text lcp.
+  TriggerSoftNavigationAndWait(web_contents(), &waiter, 1,
+                               /*element_id=*/"next-page");
+
+  // 2nd soft navigation: click on the next page button and wait for soft
+  // navigation count and text lcp.
+  TriggerSoftNavigationAndWait(web_contents(), &waiter, 2,
+                               /*element_id=*/"next-page");
+
+  // Navigate to about:blank to ensure all UKMs are recorded.
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")));
+
+  // Verify LCP is recorded for both soft navigations.
+  auto source_id_to_lcp = GetSoftNavigationMetrics(
+      ukm_recorder(), SoftNavigation::kPaintTiming_LargestContentfulPaintName);
+  EXPECT_EQ(source_id_to_lcp.size(), 2u);
 }
 
 // This test verifies that we support soft navs triggered by the browser's
@@ -852,9 +902,7 @@ IN_PROC_BROWSER_TEST_P(SoftNavigationTest, INP_ClickWithPresentation) {
     num_interactions_before_softnavs = GetMetricFromUkmEntry(
         page_load_entry,
         PageLoad::kInteractiveTimingBeforeSoftNavigation_NumInteractionsName);
-    // TODO(crbug.com/515874398): This should be exactly 2, but due to a race,
-    // sometimes it's counted toward the first softnav.
-    EXPECT_THAT(num_interactions_before_softnavs, testing::AnyOf(1, 2));
+    EXPECT_THAT(num_interactions_before_softnavs, testing::Eq(2));
     EXPECT_THAT(
         page_load_entry,
         HasMetric(
@@ -912,8 +960,14 @@ IN_PROC_BROWSER_TEST_P(SoftNavigationTest, INP_ClickWithPresentation) {
   ASSERT_TRUE(num_interactions_before_softnavs.has_value());
   ASSERT_TRUE(num_interactions_softnav1.has_value());
   ASSERT_TRUE(num_interactions_softnav2.has_value());
-  EXPECT_EQ(5, *num_interactions_before_softnavs + *num_interactions_softnav1 +
-                   *num_interactions_softnav2);
+  // The sum of interactions across the pre-soft-nav snapshot and the individual
+  // soft navigation intervals can vary slightly (4, 5, or 6) because the
+  // interaction that triggers a soft navigation can be attributed across the
+  // transition boundary depending on whether it completed before or after the
+  // soft navigation was committed.
+  EXPECT_THAT(*num_interactions_before_softnavs + *num_interactions_softnav1 +
+                  *num_interactions_softnav2,
+              testing::AnyOf(4, 5, 6));
 }
 
 // This test focuses on measuring the layout shift of soft navigations in UKM.

@@ -91,14 +91,6 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="onLowMemory()"/>
 </enum>
 
-<enum name="AndroidAutoDarkModeSettingsChangeSource">
-  <summary>See Android.DarkTheme.AutoDarkMode.SettingsChangeSource.*</summary>
-  <int value="0" label="Theme settings"/>
-  <int value="1" label="Site settings global"/>
-  <int value="2" label="App menu"/>
-  <int value="3" label="Site settings exception list"/>
-</enum>
-
 <!-- LINT.IfChange(AndroidBookmarkAllTabsResult) -->
 
 <enum name="AndroidBookmarkAllTabsResult">
@@ -267,6 +259,7 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Image"/>
   <int value="3" label="Link"/>
   <int value="4" label="Browser content"/>
+  <int value="5" label="Web Custom Data"/>
 </enum>
 
 <!-- LINT.ThenChange(//ui/android/java/src/org/chromium/ui/dragdrop/DragAndDropDelegateImpl.java:DragTargetType) -->
@@ -361,6 +354,7 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="Two-page view"/>
   <int value="8" label="Single page view"/>
   <int value="9" label="Document properties"/>
+  <int value="10" label="Annotation"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/android/pdf/java/src/org/chromium/chrome/browser/pdf/PdfUtils.java:PdfToolbarAction) -->
@@ -460,6 +454,17 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/vertical_tabs/android/java/src/org/chromium/chrome/browser/ui/vertical_tabs/VerticalTabUtils.java:AndroidVerticalTabsLayoutToggleSourceAndDirection)-->
+
+<!-- LINT.IfChange(AndroidVerticalTabsWindowWidthBoundary) -->
+
+<enum name="AndroidVerticalTabsWindowWidthBoundary">
+  <int value="0" label="Not Showable"/>
+  <int value="1" label="Forced Collapsed"/>
+  <int value="2" label="Dynamic Expandable"/>
+  <int value="3" label="Fully Expandable"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/vertical_tabs/android/java/src/org/chromium/chrome/browser/ui/vertical_tabs/VerticalTabUtils.java:AndroidVerticalTabsWindowWidthBoundary)-->
 
 <enum name="AndroidWebViewCrashCollectionState">
   <int value="0" label="ENABLED_BY_COMMANDLINE">
@@ -1591,6 +1596,7 @@ chromium-metrics-reviews@google.com.
   <int value="77" label="ImmersivePlaybackConfirmation"/>
   <int value="78" label="IntranetRedirect"/>
   <int value="79" label="PasswordSavedConfirmation"/>
+  <int value="80" label="EmailVerified"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/messages/android/message_enums.h:MessageIdentifier) -->
@@ -1688,6 +1694,7 @@ chromium-metrics-reviews@google.com.
   <int value="11" label="Upgrade to Android S multi-instance support"/>
   <int value="12" label="Crash recovery"/>
   <int value="13" label="Relaunch"/>
+  <int value="14" label="Settings"/>
 </enum>
 
 <enum name="NTPImpressionType">
@@ -2073,6 +2080,16 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="Unable to determine type uploaded by external source"/>
 </enum>
 
+<!-- LINT.IfChange(SetActiveModelSource) -->
+
+<enum name="SetActiveModelSource">
+  <int value="0" label="Reset during activate search"/>
+  <int value="1" label="Skipped during activate search"/>
+  <int value="2" label="Set from model selection"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/android/omnibox/java/src/org/chromium/chrome/browser/omnibox/fusebox/FuseboxMetrics.java:SetActiveModelSource) -->
+
 <enum name="SiteLayout">
   <summary>See Android.RequestDesktopSite.Changed</summary>
   <int value="0" label="Mobile"/>
@@ -2412,6 +2429,13 @@ chromium-metrics-reviews@google.com.
              WebChromeClient$FileChooserParams)"/>
   <int value="28" label="void openFileChooser(ValueCallback, String, String)"/>
   <int value="29" label="void setupAutoFill(Message)"/>
+</enum>
+
+<enum name="WebContentAdoptResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Failed: AwContents destroyed"/>
+  <int value="2" label="Failed: Old container view attached"/>
+  <int value="3" label="Failed: New container view attached"/>
 </enum>
 
 <enum name="WebPageContentProviderEvent">

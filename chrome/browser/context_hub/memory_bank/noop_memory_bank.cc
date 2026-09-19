@@ -16,7 +16,18 @@ NoOpMemoryBank::~NoOpMemoryBank() = default;
 void NoOpMemoryBank::SaveMemoryBankEntry(MemoryBankEntry entry,
                                          OperationCompleteCallback callback) {
   if (callback) {
-    std::move(callback).Run();
+    std::move(callback).Run(/*success=*/false);
+  }
+}
+
+void NoOpMemoryBank::UpdateEntryAnnotations(
+    int64_t id,
+    std::vector<std::string> tags,
+    std::optional<std::string> note,
+    std::optional<std::string> collection,
+    OperationCompleteCallback callback) {
+  if (callback) {
+    std::move(callback).Run(/*success=*/false);
   }
 }
 
@@ -32,7 +43,19 @@ void NoOpMemoryBank::GetEntriesByIds(base::span<const int64_t> ids,
 void NoOpMemoryBank::DeleteEntries(base::span<const int64_t> ids,
                                    OperationCompleteCallback callback) {
   if (callback) {
-    std::move(callback).Run();
+    std::move(callback).Run(/*success=*/false);
+  }
+}
+
+void NoOpMemoryBank::GetAllTags(GetStringsCallback callback) const {
+  if (callback) {
+    std::move(callback).Run({});
+  }
+}
+
+void NoOpMemoryBank::GetAllCollections(GetStringsCallback callback) const {
+  if (callback) {
+    std::move(callback).Run({});
   }
 }
 

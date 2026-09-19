@@ -31,7 +31,7 @@
 #include "chrome/browser/password_manager/password_change/model_quality_logs_uploader.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
-#include "components/autofill/core/common/autofill_test_utils.h"
+#include "components/autofill/core/common/autofill_test_util.h"
 #include "components/optimization_guide/core/model_execution/test/mock_remote_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/password_manager/core/browser/fake_form_fetcher.h"
@@ -44,6 +44,7 @@
 #include "components/password_manager/core/browser/password_save_manager_impl.h"
 #include "components/password_manager/core/browser/password_store/mock_password_store_interface.h"
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
+#include "components/password_manager/core/browser/password_string.h"
 #include "components/password_manager/core/browser/stub_password_manager_client.h"
 #include "components/password_manager/core/browser/stub_password_manager_driver.h"
 #include "components/sync/test/test_sync_service.h"
@@ -209,7 +210,8 @@ class ChangePasswordFormFillingSubmissionHelperTest
         std::make_unique<ModelQualityLogsUploader>(web_contents(), GURL());
 
     existing_credential_.username_value = kUsername;
-    existing_credential_.password_value = kOldPassword;
+    existing_credential_.password_value =
+        password_manager::PasswordString(std::u16string(kOldPassword));
     existing_credential_.url = url();
     existing_credential_.match_type =
         password_manager::PasswordForm::MatchType::kExact;
@@ -405,7 +407,8 @@ TEST_F(ChangePasswordFormFillingSubmissionHelperTest, SucceededNewCredential) {
 TEST_F(ChangePasswordFormFillingSubmissionHelperTest,
        PresaveGeneratedPasswordForDifferentInputPassword) {
   password_manager::PasswordForm* stored_form = existing_credential();
-  stored_form->password_value = u"stored_password";
+  stored_form->password_value =
+      password_manager::PasswordString(u"stored_password");
   auto* form_manager =
       CreateFormManager(/*credentials_to_seed=*/{*stored_form});
   auto verifier = CreateVerifier(form_manager, base::DoNothing());

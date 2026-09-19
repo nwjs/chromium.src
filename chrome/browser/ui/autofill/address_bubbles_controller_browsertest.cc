@@ -6,18 +6,20 @@
 
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/browser/ui/hats/mock_hats_service.h"
 #include "chrome/browser/ui/hats/survey_config.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/common/autofill_features.h"
-#include "components/autofill/core/common/autofill_test_utils.h"
+#include "components/autofill/core/common/autofill_test_util.h"
 #include "content/public/test/browser_test.h"
 
 namespace autofill {
@@ -46,7 +48,7 @@ class AddressBubblesControllerBrowserTest : public InProcessBrowserTest {
 
  protected:
   content::WebContents* tab_web_contents() const {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   AddressBubblesController* tab_controller() {
@@ -200,7 +202,7 @@ IN_PROC_BROWSER_TEST_F(AddressBubblesControllerBrowserTest,
       AutofillClient::SaveAddressBubbleType::kSave,
       /*user_has_any_profile_saved=*/{}, callback.Get());
 
-  TabStripModel* tab_strip_model = browser()->tab_strip_model();
+  TabStripModel* tab_strip_model = browser()->GetTabStripModel();
   CHECK_EQ(1, tab_strip_model->count());
   // There is only now tab open, so the active web contents, are the
   // controller's web contents.
@@ -216,10 +218,10 @@ IN_PROC_BROWSER_TEST_F(AddressBubblesControllerBrowserTest,
   EXPECT_CALL(callback, Run(AutofillClient::AddressPromptUserDecision::kIgnored,
                             Property(&profile_ref::has_value, false)));
   // Close controller tab.
-  int previous_tab_count = browser()->tab_strip_model()->count();
-  browser()->tab_strip_model()->CloseWebContents(
+  int previous_tab_count = browser()->GetTabStripModel()->count();
+  browser()->GetTabStripModel()->CloseWebContents(
       controller_web_contents, TabCloseTypes::CLOSE_USER_GESTURE);
-  EXPECT_EQ(previous_tab_count - 1, browser()->tab_strip_model()->count());
+  EXPECT_EQ(previous_tab_count - 1, browser()->GetTabStripModel()->count());
 }
 
 // This is testing that the bubble is visible and active when shown.

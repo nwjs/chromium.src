@@ -18,11 +18,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.content.pm.ActivityInfo;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.view.ContextThemeWrapper;
 import android.view.View;
 
@@ -35,11 +30,10 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowPackageManager;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.TriState;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
@@ -71,7 +65,6 @@ import org.chromium.chrome.browser.toolbar.menu_button.MenuUiState;
 import org.chromium.chrome.browser.translate.TranslateBridge;
 import org.chromium.chrome.browser.translate.TranslateBridgeJni;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuItemProperties;
-import org.chromium.chrome.browser.webapps.WebappDataStorage;
 import org.chromium.chrome.browser.webapps.WebappRegistry;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.browser_ui.accessibility.PageZoomUtils;
@@ -89,7 +82,6 @@ import org.chromium.components.power_bookmarks.ShoppingSpecifics;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.user_prefs.UserPrefsJni;
-import org.chromium.components.webapk.lib.client.WebApkValidator;
 import org.chromium.components.webapps.AppBannerManager;
 import org.chromium.components.webapps.AppBannerManagerJni;
 import org.chromium.content_public.browser.NavigationController;
@@ -99,7 +91,6 @@ import org.chromium.ui.modelutil.MVCListAdapter;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
-import org.chromium.webapk.lib.common.WebApkConstants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -166,7 +157,7 @@ public class AppMenuPropertiesDelegateUnitTest {
         when(mTabModelSelector.getModel(true)).thenReturn(mIncognitoTabModel);
         when(mTabModel.isIncognito()).thenReturn(false);
         when(mIncognitoTabModel.isIncognito()).thenReturn(true);
-        PageZoomUtils.setShouldShowMenuItemForTesting(false);
+        PageZoomUtils.setShouldShowMenuItemForTesting(TriState.FALSE);
 
         UpdateMenuItemHelper.setInstanceForTesting(mUpdateMenuItemHelper);
         mMenuUiState = new MenuUiState();
@@ -470,7 +461,7 @@ public class AppMenuPropertiesDelegateUnitTest {
         // Setup: Bottom sheet controller is available and sheet is open
         BottomSheetControllerProvider.setInstanceForTesting(mBottomSheetControllerMock);
         when(mBottomSheetControllerMock.isSheetOpen()).thenReturn(true);
-        PageZoomUtils.setShouldShowMenuItemForTesting(true);
+        PageZoomUtils.setShouldShowMenuItemForTesting(TriState.TRUE);
 
         // Stub dependent tab setup
         when(mTab.getWindowAndroid()).thenReturn(mock(WindowAndroid.class));
@@ -487,7 +478,7 @@ public class AppMenuPropertiesDelegateUnitTest {
         // Setup: Bottom sheet controller is available and sheet is closed
         BottomSheetControllerProvider.setInstanceForTesting(mBottomSheetControllerMock);
         when(mBottomSheetControllerMock.isSheetOpen()).thenReturn(false);
-        PageZoomUtils.setShouldShowMenuItemForTesting(true);
+        PageZoomUtils.setShouldShowMenuItemForTesting(TriState.TRUE);
 
         // Stub dependent tab setup
         when(mTab.getWindowAndroid()).thenReturn(mock(WindowAndroid.class));
@@ -513,68 +504,22 @@ public class AppMenuPropertiesDelegateUnitTest {
     }
 
     @Test
-    public void testQueryWebApkResolveInfoFiltersMismatchedPackage() {
-        String manifestId = "https://example.com/manifest";
-        String expectedPackage = "org.chromium.webapk.expected";
-        String mismatchedPackage = "org.chromium.webapk.mismatched";
-        String url = "https://example.com/start";
+    public void testBuildAddToHomescreenListItem_AlwaysReturnsUniversalInstall() {
+        doReturn(new GURL("https://example.com/subpath")).when(mTab).getUrl();
+        doReturn("Example App").when(mTab).getTitle();
 
-        AppBannerManager.Natives appBannerManagerJniMock = mock(AppBannerManager.Natives.class);
-        AppBannerManagerJni.setInstanceForTesting(appBannerManagerJniMock);
-        when(appBannerManagerJniMock.getInstallableWebAppManifestId(any())).thenReturn(manifestId);
+        // Mock WebappRegistry to return a package, so it looks like a WebAPK is installed
+        WebappRegistry mockRegistry = mock(WebappRegistry.class);
+        WebappRegistry.setInstanceForTests(mockRegistry);
+        doReturn("org.chromium.webapk.example").when(mockRegistry).findWebApkWithManifestId(any());
 
-        Context context = ContextUtils.getApplicationContext();
-        SharedPreferences prefs =
-                context.getSharedPreferences("webapp_registry", Context.MODE_PRIVATE);
-        java.util.Set<String> webapps = new java.util.HashSet<>();
-        String webapkId = WebApkConstants.WEBAPK_ID_PREFIX + expectedPackage;
-        webapps.add(webapkId);
-        prefs.edit().putStringSet("webapp_set", webapps).apply();
-
-        WebappDataStorage mockedStorage = mock(WebappDataStorage.class);
-        when(mockedStorage.getId()).thenReturn(webapkId);
-        when(mockedStorage.getWebApkPackageName()).thenReturn(expectedPackage);
-        when(mockedStorage.getWebApkManifestId()).thenReturn(manifestId);
-        when(mockedStorage.getScope()).thenReturn("https://example.com/");
-
-        WebappDataStorage.setFactoryForTests(
-                new WebappDataStorage.Factory() {
-                    @Override
-                    public WebappDataStorage create(String id) {
-                        if (id.equals(webapkId)) {
-                            return mockedStorage;
-                        }
-                        return super.create(id);
-                    }
-                });
-
-        WebappRegistry.refreshSharedPrefsForTesting();
-        RobolectricUtil.runAllBackgroundAndUi();
-
+        var item =
+                mAppMenuPropertiesDelegate.buildAddToHomescreenListItem(mTab, /* showIcon= */ true);
+        assertNotNull(item);
         assertEquals(
-                expectedPackage, WebappRegistry.getInstance().findWebApkWithManifestId(manifestId));
-
-        when(mTab.getUrl()).thenReturn(new GURL(url));
-
-        PackageManager pm = context.getPackageManager();
-        ShadowPackageManager shadowPm = Shadows.shadowOf(pm);
-
-        Intent constrainedIntent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url));
-        constrainedIntent.addCategory(Intent.CATEGORY_BROWSABLE);
-        constrainedIntent.setPackage(expectedPackage);
-
-        ResolveInfo mismatchedResolveInfo = new ResolveInfo();
-        mismatchedResolveInfo.activityInfo = new ActivityInfo();
-        mismatchedResolveInfo.activityInfo.packageName = mismatchedPackage;
-        mismatchedResolveInfo.activityInfo.name = "MainActivity";
-
-        shadowPm.addResolveInfoForIntent(constrainedIntent, mismatchedResolveInfo);
-
-        WebApkValidator.setDisableValidationForTesting(true);
-
-        ResolveInfo result = AppMenuPropertiesDelegateImpl.queryWebApkResolveInfo(context, mTab);
-
-        assertNull(result);
+                R.id.universal_install,
+                item.model.get(
+                        org.chromium.chrome.browser.ui.appmenu.AppMenuItemProperties.MENU_ITEM_ID));
     }
 
     private void setUpIncognitoMocks() {

@@ -22,6 +22,7 @@
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/grit/generated_resources.h"
@@ -145,8 +146,9 @@ void GlicFloatingUi::CreateAndSetupWidget(gfx::Rect initial_bounds) {
         if (!panel) {
           return;
         }
-        panel->Zoom(zoom_in ? mojom::ZoomAction::kZoomIn
-                            : mojom::ZoomAction::kZoomOut);
+        panel->Zoom(
+            zoom_in ? mojom::ZoomAction::kZoomIn : mojom::ZoomAction::kZoomOut,
+            ZoomSource::kScroll);
       },
       weak_ptr_factory_.GetWeakPtr()));
 
@@ -205,8 +207,8 @@ bool GlicFloatingUi::ActivateBrowser() {
   return false;
 }
 
-void GlicFloatingUi::Zoom(mojom::ZoomAction zoom_action) {
-  delegate_->host().Zoom(zoom_action);
+void GlicFloatingUi::Zoom(mojom::ZoomAction zoom_action, ZoomSource source) {
+  delegate_->host().Zoom(zoom_action, source);
 }
 
 void GlicFloatingUi::ShowTitleBarContextMenuAt(gfx::Point event_loc) {

@@ -6,6 +6,8 @@ package org.chromium.chrome.browser.tasks.tab_management;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
 
+import android.util.Pair;
+
 import org.chromium.base.Token;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -46,6 +48,16 @@ class FlatLayoutDelegate extends TabListLayoutDelegate {
     }
 
     @Override
+    boolean supportsTabGroups() {
+        return false;
+    }
+
+    @Override
+    boolean isChildTabRepresentedByGroupCard(Tab tab) {
+        return false;
+    }
+
+    @Override
     @MediaState
     int getMediaIndicatorState(Tab representativeTab, PropertyModel model) {
         return representativeTab.getMediaState();
@@ -65,6 +77,19 @@ class FlatLayoutDelegate extends TabListLayoutDelegate {
         // model list outside of TAB, TAB_GROUP, and ARCHIVED_TAB_GROUP.
         return mModelList.indexOfNthTabCard(tabIndex);
     }
+
+    @Override
+    @Nullable Pair<Integer, Tab> getIndexAndTabForTabGroupId(@Nullable Token tabGroupId) {
+        return null;
+    }
+
+    @Override
+    void didMoveTab(Tab tab, int newIndex, int curIndex) {
+        // Flat layout does not need to explicitly sync standalone tab moves triggered from
+        // external sources to the ModelList.
+    }
+
+    // TabGroupObserver implementation.
 
     @Override
     public void didChangeTabGroupTitle(Token tabGroupId, String newTitle) {

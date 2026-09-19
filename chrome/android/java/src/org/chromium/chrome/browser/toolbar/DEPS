@@ -20,7 +20,7 @@ include_rules = [
   "+components/browser_ui/bottomsheet/android/java",
   "+components/browser_ui/desktop_windowing/android",
   "+components/browser_ui/device_lock/android/java",
-  "+components/omnibox/browser",
+  "+components/omnibox",
   "+content/public/android/java/src/org/chromium/content_public",
 ]
 
@@ -36,6 +36,7 @@ specific_include_rules = {
     "+components/omnibox/browser/android/java/src/org/chromium/components/omnibox/action/OmniboxActionDelegate.java",
     "+components/omnibox/browser/android/java/src/org/chromium/components/omnibox/AutocompleteRequestType.java",
     "+components/embedder_support/android/java/src/org/chromium/components/embedder_support/contextmenu",
+    "+components/embedder_support/android/java/src/org/chromium/components/embedder_support/util/Origin.java",
   ],
   'ToolbarButtonInProductHelpController.java': [
     "+chrome/android/java/src/org/chromium/chrome/browser",

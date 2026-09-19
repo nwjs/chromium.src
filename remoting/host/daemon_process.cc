@@ -18,6 +18,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/values.h"
+#include "build/build_config.h"
 #include "components/named_mojo_ipc_server/connection_info.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "remoting/base/auto_thread_task_runner.h"
@@ -73,12 +74,6 @@ void DaemonProcess::OnChannelConnected(int32_t peer_pid) {
 
   VLOG(1) << "IPC: daemon <- network (" << peer_pid << ")";
 
-  DeleteAllDesktopSessions();
-
-  // Reset the last known terminal ID because no IDs have been allocated
-  // by the the newly started process yet.
-  next_terminal_id_ = 0;
-
   BindAssociatedInterfaces();
 
   if (!OnInitAfterChannelConnected(peer_pid)) {
@@ -104,7 +99,6 @@ void DaemonProcess::OnWorkerProcessStopped() {
   // re-launched.
   remoting_host_control_.reset();
   peer_connection_launchers_.clear();
-  DeleteAllDesktopSessions();
 }
 
 void DaemonProcess::OnAssociatedInterfaceRequest(
@@ -201,8 +195,10 @@ void DaemonProcess::LaunchPeerSession(
     mojo::PendingReceiver<mojom::PeerSession> peer_session_receiver) {
   DCHECK(caller_task_runner()->BelongsToCurrentThread());
 
-  // TODO(crbug.com/502281489): Investigate process auto-relaunch suppression
-  // and session reconnection semantics when a Peer Connection process stops.
+  // A dedicated Peer Connection process is launched for each client session.
+  // Because the WebRTC connection state is transient and stateful, if the
+  // process terminates or crashes, it is not auto-relaunched and the client
+  // must reconnect to establish a new session.
   PeerConnectionProcessHandler* handler = LaunchPeerConnectionProcess();
   if (handler) {
     handler->BindPeerSession(std::move(peer_session_receiver));
@@ -272,7 +268,14 @@ void DaemonProcess::GetDesktopSession(
     mojom::DesktopSessionOptionsPtr options) {
   DCHECK(caller_task_runner()->BelongsToCurrentThread());
 
-  std::string client_id = options->client_id;
+  // Persistent desktop sessions are only supported on Linux where CRD manages
+  // the virtual desktop environment (X11 / Wayland session) and closing the
+  // desktop process would terminate the user's running applications. On
+  // Windows, user sessions and applications are persisted natively by the OS,
+  // and the desktop process is purely a transient capture/input agent that is
+  // recreated per connection.
+#if BUILDFLAG(IS_LINUX)
+  const std::string& client_id = options->client_id;
   auto it = std::ranges::find_if(desktop_sessions_, [&](const auto& pair) {
     return !client_id.empty() && pair.second->client_id() == client_id;
   });
@@ -283,6 +286,7 @@ void DaemonProcess::GetDesktopSession(
                             std::move(events_remote), std::move(options));
     return;
   }
+#endif  // BUILDFLAG(IS_LINUX)
 
   int terminal_id = next_terminal_id_;
   CreateDesktopSession(terminal_id, std::move(control_receiver),
@@ -353,7 +357,6 @@ void DaemonProcess::CrashNetworkProcess(const base::Location& location) {
   DCHECK(caller_task_runner()->BelongsToCurrentThread());
 
   DoCrashNetworkProcess(location);
-  DeleteAllDesktopSessions();
 }
 
 void DaemonProcess::DoCrashNetworkProcess(const base::Location& location) {
@@ -458,6 +461,7 @@ void DaemonProcess::Stop(int exit_code) {
   DCHECK(caller_task_runner()->BelongsToCurrentThread());
 
   OnWorkerProcessStopped();
+  DeleteAllDesktopSessions();
 
   if (stopped_callback_) {
     std::move(stopped_callback_).Run(exit_code);

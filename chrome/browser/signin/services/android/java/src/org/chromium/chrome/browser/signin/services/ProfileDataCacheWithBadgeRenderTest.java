@@ -53,8 +53,6 @@ import java.util.List;
 @UseRunnerDelegate(ChromeJUnit4RunnerDelegate.class)
 @Batch(ProfileDataCacheRenderTest.PROFILE_DATA_BATCH_NAME)
 public class ProfileDataCacheWithBadgeRenderTest {
-    private static final long NATIVE_IDENTITY_MANAGER = 10002L;
-
     @ClassParameter
     private static final List<ParameterSet> sClassParams =
             Arrays.asList(
@@ -70,7 +68,7 @@ public class ProfileDataCacheWithBadgeRenderTest {
     @Rule
     public final ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
-                    .setRevision(1)
+                    .setRevision(2)
                     .setBugComponent(ChromeRenderTestRule.Component.SERVICES_SIGN_IN)
                     .build();
 

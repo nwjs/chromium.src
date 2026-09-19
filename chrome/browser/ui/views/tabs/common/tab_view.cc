@@ -12,6 +12,7 @@
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
 #include "base/time/time.h"
+#include "chrome/browser/dictation/dictation_keyed_service.h"
 #include "chrome/browser/glic/browser_ui/tab_underline_controller.h"
 #include "chrome/browser/glic/browser_ui/tab_underline_view.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
@@ -157,6 +158,7 @@ class TabStyleViewDelegateImpl : public TabStyleViewDelegate {
   bool IsHovering() const override { return tab_view_->IsMouseHovered(); }
 
   bool IsClosing() const override { return tab_view_->IsClosing(); }
+  bool IsDragging() const override { return tab_view_->IsDragging(); }
 
   std::optional<tab_groups::TabGroupId> GetGroup() const override {
     const tabs::TabInterface* tab_interface = tab_view_->GetTabInterface();
@@ -316,9 +318,17 @@ TabView::TabView(TabCollectionNode* collection_node)
                             : nullptr) {
   tabs::TabInterface* tab = const_cast<tabs::TabInterface*>(GetTabInterface());
   BrowserWindowInterface* browser_window = tab->GetBrowserWindowInterface();
-  if (browser_window &&
-      (glic::GlicEnabling::IsProfileEligible(browser_window->GetProfile()) ||
-       contextual_tasks::IsContextualTasksUIEnabled())) {
+
+  bool should_create_underline = false;
+  if (browser_window) {
+    Profile* profile = browser_window->GetProfile();
+    should_create_underline =
+        (glic::GlicEnabling::IsProfileEligible(profile) ||
+         contextual_tasks::IsContextualTasksUIEnabled() ||
+         (dictation::DictationKeyedService::Get(profile)));
+  }
+
+  if (should_create_underline) {
     glic_tab_underline_view_ =
         AddChildView(views::Builder<glic::TabUnderlineView>(
                          glic::TabUnderlineView::Factory::Create(
@@ -961,6 +971,8 @@ void TabView::ResetCollectionNode() {
   // Update the callbacks for the buttons so that we don't call anything that
   // needs the node.
   close_button_->SetCallback(base::RepeatingClosure(base::DoNothing()));
+
+  static_cast<TabView::LayoutManager*>(GetLayoutManager())->OnTabClosing();
 }
 
 void TabView::UpdateAccessibleName() {
@@ -1217,9 +1229,20 @@ TabStyle::TabSelectionState TabView::GetSelectionState() const {
 }
 
 bool TabView::IsDragging() const {
-  return collection_node_ && collection_node_->GetController() &&
-         collection_node_->GetController()->GetDragHandler().IsViewDragging(
-             *this);
+  if (!collection_node_ || !collection_node_->GetController()) {
+    return false;
+  }
+  const auto& drag_handler =
+      collection_node_->GetController()->GetDragHandler();
+  if (drag_handler.IsViewDragging(*this)) {
+    return true;
+  }
+  for (const views::View* v = parent(); v; v = v->parent()) {
+    if (drag_handler.IsViewDragging(*v)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // static

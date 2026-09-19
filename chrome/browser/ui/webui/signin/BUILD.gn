@@ -443,6 +443,7 @@ if (!is_chromeos) {
       "//chrome/browser/ui/color:color_headers",
       "//chrome/browser/ui/profiles",
       "//chrome/browser/ui/signin",
+      "//chrome/browser/ui/views/profiles:profile_management_types",
       "//chrome/browser/ui/webui:profile_helper",
       "//chrome/browser/ui/webui:theme_source",
       "//chrome/browser/ui/webui/cr_components/theme_color_picker:impl",
@@ -471,6 +472,10 @@ if (!is_chromeos) {
       "//ui/webui/tracked_element",
       "//url",
     ]
+
+    if (is_win || is_mac || is_linux) {
+      deps += [ "//chrome/browser/ui/views/profiles:profile_management_types" ]
+    }
   }
 }
 
@@ -530,7 +535,6 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//build:buildflag_header_h",
-    "//chrome/browser",
     "//chrome/browser:browser_features",
     "//chrome/browser:browser_process",
     "//chrome/browser/consent_auditor",
@@ -541,7 +545,6 @@ source_set("unit_tests") {
     "//chrome/browser/profiles:profile_util",
     "//chrome/browser/signin",
     "//chrome/browser/sync",
-    "//chrome/browser/ui",
     "//chrome/common",
     "//chrome/test:test_support",
     "//components/consent_auditor:test_support",

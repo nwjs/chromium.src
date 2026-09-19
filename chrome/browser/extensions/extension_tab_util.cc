@@ -71,7 +71,7 @@
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #else
 #include "chrome/browser/resource_coordinator/tab_lifecycle_unit_external.h"
-#include "chrome/browser/ui/browser.h"                             // nogncheck
+// nogncheck
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"  // nogncheck
 #include "chrome/browser/ui/recently_audible_helper.h"             // nogncheck
 #include "chrome/browser/ui/tabs/tab_enums.h"                      // nogncheck
@@ -163,7 +163,10 @@ ExtensionTabUtil::ScrubTabBehaviorType GetScrubTabBehaviorImpl(
 
   if (extension) {
     const PermissionsData* permissions = extension->permissions_data();
-    if (permissions->HasAPIPermission(APIPermissionID::kTab)) {
+    if (extension->origin().IsSameOriginWith(url)) {
+      // Extensions always have permission to access their own origin URLs.
+      has_permission = true;
+    } else if (permissions->HasAPIPermission(APIPermissionID::kTab)) {
       // Global "tabs" permission allows access to any URL.
       has_permission = true;
     } else if (tab_id != api::tabs::TAB_ID_NONE &&

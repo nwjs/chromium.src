@@ -5,13 +5,11 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_DATA_MANAGER_AUTOFILL_AI_IN_MEMORY_ENTITY_SUPPRESSION_MANAGER_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_DATA_MANAGER_AUTOFILL_AI_IN_MEMORY_ENTITY_SUPPRESSION_MANAGER_H_
 
-#include <string>
-#include <vector>
-
-#include "base/containers/flat_set.h"
+#include "base/observer_list.h"
+#include "components/autofill/core/browser/data_manager/autofill_ai/entity_suppression_entry.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_suppression_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
-#include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 
 namespace autofill {
 
@@ -27,18 +25,17 @@ class InMemoryEntitySuppressionManager : public EntitySuppressionManager {
   ~InMemoryEntitySuppressionManager() override;
 
   // EntitySuppressionManager:
+  void AddObserver(Observer* observer) override;
+  void RemoveObserver(Observer* observer) override;
   bool SuppressEntity(const EntityInstance& entity) override;
   bool UnsuppressEntity(const EntityInstance& entity) override;
   bool IsSuppressed(const EntityInstance& entity) const override;
 
  private:
-  // Constructs representation keys for all satisfied merge constraint sets of
-  // the given entity.
-  std::vector<std::string> GetCanonicalStrings(
-      const EntityInstance& entity) const;
+  base::ObserverList<Observer> observers_;
 
   // Set storing representations of suppressed merge constraint sets.
-  base::flat_set<std::string> suppressed_keys_;
+  absl::flat_hash_set<EntitySuppressionEntry> suppressed_entries_;
 };
 
 }  // namespace autofill

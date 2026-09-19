@@ -11,7 +11,7 @@
 #include "base/types/expected.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/autofill/payments/payments_view_factory.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/navigator/browser_navigator_tab_modal.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -28,12 +28,9 @@
 #include "components/autofill/core/browser/ui/payments/payments_window_user_consent_dialog_controller_impl.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_delegate.h"
 #include "ui/gfx/geometry/size.h"
 #include "url/gurl.h"
-
-#if BUILDFLAG(IS_LINUX)
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"  // nogncheck
-#endif  // BUILDFLAG(IS_LINUX)
 
 namespace autofill::payments {
 
@@ -85,6 +82,7 @@ void DesktopPaymentsWindowManager::InitVcn3dsAuthentication(
   if (const std::optional<Vcn3dsChallengeOptionMetadata>& metadata =
           context.challenge_option.vcn_3ds_metadata;
       !metadata.has_value() || metadata->url_to_open.is_empty() ||
+      !metadata->url_to_open.SchemeIsHTTPOrHTTPS() ||
       metadata->success_query_param_name.empty() ||
       metadata->failure_query_param_name.empty()) {
     client_->GetPaymentsAutofillClient()->ShowAutofillErrorDialog(

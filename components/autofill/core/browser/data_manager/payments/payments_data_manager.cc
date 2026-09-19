@@ -35,7 +35,6 @@
 #include "base/uuid.h"
 #include "build/buildflag.h"
 #include "components/autofill/core/browser/country_type.h"
-#include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/payments/autofill_offer_data.h"
 #include "components/autofill/core/browser/data_model/payments/autofill_wallet_usage_data.h"
 #include "components/autofill/core/browser/data_model/payments/bank_account.h"
@@ -58,6 +57,7 @@
 #include "components/autofill/core/browser/payments/constants.h"
 #include "components/autofill/core/browser/payments/payments_customer_data.h"
 #include "components/autofill/core/browser/payments/payments_data_cleaner.h"
+#include "components/autofill/core/browser/permissions/autofill_policy_service.h"
 #include "components/autofill/core/browser/studies/autofill_experiments.h"
 #include "components/autofill/core/browser/ui/autofill_image_fetcher_base.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
@@ -303,6 +303,7 @@ PaymentsDataManager::PaymentsDataManager(
 
 PaymentsDataManager::~PaymentsDataManager() {
   CancelPendingLocalQuery(&pending_creditcards_query_);
+  CancelPendingLocalQuery(&pending_local_ibans_query_);
   CancelPendingServerQueries();
 }
 
@@ -965,12 +966,33 @@ PaymentsDataManager::GetActiveAutofillPromoCodeOffersForOrigin(
   std::ranges::for_each(
       autofill_offer_data_,
       [&](const std::unique_ptr<AutofillOfferData>& autofill_offer_data) {
-        if (autofill_offer_data.get()->IsPromoCodeOffer() &&
+        if (autofill_offer_data.get()->IsGPayPromoCodeOffer() &&
             autofill_offer_data.get()->IsActiveAndEligibleForOrigin(origin)) {
           promo_code_offers_for_origin.push_back(autofill_offer_data.get());
         }
       });
   return promo_code_offers_for_origin;
+}
+
+std::vector<const AutofillOfferData*>
+PaymentsDataManager::GetActiveAutofillWalletDirectOffersForOrigin(
+    GURL origin) const {
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillEnableWalletDirectOffers)) {
+    return {};
+  }
+  // TODO(crbug.com/546252995): Add filtering logic for direct offer data from
+  // `autofill_offer_data_` after Chrome Sync logic is added.
+  std::vector<const AutofillOfferData*> wallet_direct_offers_for_origin;
+  wallet_direct_offers_for_origin.reserve(autofill_offer_data_.size());
+  std::ranges::for_each(
+      autofill_offer_data_,
+      [&](const std::unique_ptr<AutofillOfferData>& autofill_offer_data) {
+        if (autofill_offer_data->IsActiveAndEligibleForOrigin(origin)) {
+          wallet_direct_offers_for_origin.push_back(autofill_offer_data.get());
+        }
+      });
+  return wallet_direct_offers_for_origin;
 }
 
 GURL PaymentsDataManager::GetCardArtURL(const CreditCard& credit_card) const {
@@ -1139,7 +1161,12 @@ bool PaymentsDataManager::IsCardBenefitsSyncEnabled() const {
 }
 
 bool PaymentsDataManager::IsAutofillPaymentMethodsEnabled() const {
-  return prefs::IsAutofillPaymentMethodsEnabled(pref_service_);
+  if (!pref_service_) {
+    return false;
+  }
+  return !AutofillPolicyService::IsAutofillTypeBlockedByPolicyFromPref(
+      *pref_service_, GURL(),
+      AutofillClient::AutofillPolicyDataCategory::kPayments);
 }
 
 bool PaymentsDataManager::IsAutofillHasSeenIbanPrefEnabled() const {
@@ -2107,6 +2134,17 @@ bool PaymentsDataManager::
 
 bool PaymentsDataManager::IsFacilitatedPaymentsEwalletUserPrefEnabled() const {
   return prefs::IsFacilitatedPaymentsEwalletEnabled(pref_service_);
+}
+
+void PaymentsDataManager::SetFacilitatedPaymentsEwalletAccountLinkingUserPref(
+    bool enabled) {
+  prefs::SetFacilitatedPaymentsEwalletAccountLinking(pref_service_, enabled);
+}
+
+bool PaymentsDataManager::
+    IsFacilitatedPaymentsEwalletAccountLinkingUserPrefEnabled() const {
+  return prefs::IsFacilitatedPaymentsEwalletAccountLinkingEnabled(
+      pref_service_);
 }
 
 bool PaymentsDataManager::IsFacilitatedPaymentsA2AUserPrefEnabled() const {

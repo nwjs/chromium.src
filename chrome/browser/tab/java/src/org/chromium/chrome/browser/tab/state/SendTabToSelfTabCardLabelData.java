@@ -23,9 +23,9 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.send_tab_to_self.ShareActivatedEntryPoint;
-import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.R;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.proto.SendTabToSelfPersistedTabData.SendTabToSelfPersistedTabDataProto;
 
@@ -58,11 +58,12 @@ public class SendTabToSelfTabCardLabelData extends PersistedTabData {
      * Observer that removes the SendTabToSelfTabCardLabelData from the UserDataHost when the tab is
      * interacted with by the user.
      */
-    private final EmptyTabObserver mObserver =
-            new EmptyTabObserver() {
+    private final TabObserver mObserver =
+            new TabObserver() {
                 @Override
                 public void onShown(Tab tab, @TabSelectionType int type) {
                     if (tab != mTab) return;
+                    SendTabToSelfTabCardLabelDataJni.get().onTabShown(tab, mSenderDeviceName);
                     SendTabToSelfTabCardLabelDataJni.get()
                             .markEntryActivated(
                                     tab.getProfile(), mGuid, ShareActivatedEntryPoint.TAB_STRIP);
@@ -87,7 +88,7 @@ public class SendTabToSelfTabCardLabelData extends PersistedTabData {
             };
 
     /** Removes the data from the host and destroys the instance. */
-    private void removeAndDestroy() {
+    public void removeAndDestroy() {
         UserDataHost host = mTab.getUserDataHost();
         // A race-condition is possible due to the asynchronous nature of PersistedTabData.from().
         if (host != null && host.getUserData(SendTabToSelfTabCardLabelData.class) == this) {
@@ -192,6 +193,7 @@ public class SendTabToSelfTabCardLabelData extends PersistedTabData {
      * Constructs a new SendTabToSelfTabCardLabelData object and attaches it as a TabObserver.
      *
      * @param tab The Tab to which this label data is attached.
+     * @param guid The GUID of the SendTabToSelf entry.
      * @param senderDeviceName The name of the device that sent the tab.
      * @param additionTimestampMs The timestamp in milliseconds when the tab was added in the
      *     background.
@@ -281,11 +283,14 @@ public class SendTabToSelfTabCardLabelData extends PersistedTabData {
     public interface Natives {
         void markEntryActivated(
                 @JniType("Profile*") Profile profile,
-                String guid,
-                @ShareActivatedEntryPoint int entryPoint);
+                @JniType("std::string") String guid,
+                @JniType("send_tab_to_self::ShareActivatedEntryPoint") @ShareActivatedEntryPoint
+                        int entryPoint);
+
+        void onTabShown(Tab tab, @JniType("std::string") String senderDeviceName);
     }
 
-    public String getGuidForTesting() {
+    public String getGuid() {
         return mGuid;
     }
 
@@ -297,8 +302,6 @@ public class SendTabToSelfTabCardLabelData extends PersistedTabData {
     public String getSenderDeviceNameForTesting() {
         return mSenderDeviceName;
     }
-
-
 
     /**
      * Sets the addition timestamp for testing purposes.

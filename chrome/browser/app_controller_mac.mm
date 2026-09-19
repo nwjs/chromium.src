@@ -49,6 +49,7 @@
 #include "chrome/browser/command_updater_impl.h"
 #include "chrome/browser/download/download_core_service.h"
 #include "chrome/browser/download/download_core_service_factory.h"
+#include "chrome/browser/enterprise/isolated_mode/isolated_mode_settings_service_factory.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/global_keyboard_shortcuts_mac.h"
@@ -74,12 +75,10 @@
 #include "chrome/browser/shortcuts/chrome_webloc_file.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/task_manager/task_manager_metrics_recorder.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/browser_mac.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
@@ -106,7 +105,6 @@
 #include "chrome/browser/ui/startup/startup_tab.h"
 #include "chrome/browser/ui/startup/startup_types.h"
 #include "chrome/browser/ui/startup/url_util.h"
-#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
@@ -126,7 +124,6 @@
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/enterprise/browser/controller/chrome_browser_cloud_management_controller.h"
-#include "components/enterprise/isolated_mode/settings.h"
 #include "components/handoff/handoff_manager.h"
 #include "components/handoff/handoff_utility.h"
 #include "components/keep_alive_registry/keep_alive_registry.h"
@@ -141,6 +138,7 @@
 #include "extensions/buildflags/buildflags.h"
 #include "net/base/apple/url_conversions.h"
 #include "net/base/filename_util.h"
+#include "ui/base/base_window.h"
 #import "ui/base/cocoa/nsmenu_additions.h"
 #import "ui/base/cocoa/nsmenuitem_additions.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -835,7 +833,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
 }
 
 - (NSMenu*)fileMenu {
-  return [[NSApp.mainMenu itemWithTag:kMacFileMenuId] submenu];
+  return [[NSApp.mainMenu itemWithTag:IDC_FILE_MENU] submenu];
 }
 
 // Returns the ⌘W menu item in the File menu. Returns nil if no such menu item
@@ -1144,28 +1142,23 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
   if (browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL) {
     if (!_tabMenuBridge) {
       _tabMenuBridge = std::make_unique<TabMenuBridge>(
-          [[NSApp mainMenu] itemWithTag:kMacTabMenuId]);
+          [[NSApp mainMenu] itemWithTag:IDC_TAB_MENU]);
     }
     _tabMenuBridge->SetTabStripModel(browser->GetTabStripModel());
 
-    if (tabs::IsVerticalTabsFeatureEnabled()) {
-      if (auto* vertical_tab_strip_state_controller =
-              tabs::VerticalTabStripStateController::From(browser)) {
-        _verticalTabSubscription =
-            vertical_tab_strip_state_controller->RegisterOnModeChanged(
-                base::BindRepeating(
-                    [](AppController* controller,
-                       tabs::VerticalTabStripStateController*
-                           state_controller) {
-                      [controller
-                          onVerticalTabStripModeChanged:state_controller];
-                    },
-                    self));
-        // If the browser begins in VT mode, we want to ensure that we have the
-        // correct text.
-        [self
-            onVerticalTabStripModeChanged:vertical_tab_strip_state_controller];
-      }
+    if (auto* vertical_tab_strip_state_controller =
+            tabs::VerticalTabStripStateController::From(browser)) {
+      _verticalTabSubscription =
+          vertical_tab_strip_state_controller->RegisterOnModeChanged(
+              base::BindRepeating(
+                  [](AppController* controller,
+                     tabs::VerticalTabStripStateController* state_controller) {
+                    [controller onVerticalTabStripModeChanged:state_controller];
+                  },
+                  self));
+      // If the browser begins in VT mode, we want to ensure that we have the
+      // correct text.
+      [self onVerticalTabStripModeChanged:vertical_tab_strip_state_controller];
     }
   } else if (_tabMenuBridge) {
     _tabMenuBridge->SetTabStripModel(nullptr);
@@ -1183,7 +1176,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
     return;
   }
 
-  NSMenu* tabSubmenu = [[[NSApp mainMenu] itemWithTag:kMacTabMenuId] submenu];
+  NSMenu* tabSubmenu = [[[NSApp mainMenu] itemWithTag:IDC_TAB_MENU] submenu];
   if (!tabSubmenu) {
     return;
   }
@@ -1474,7 +1467,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
         // If it is not possible to open a browser window for a profile, then
         // don't count that profile towards "downloads in progress".
         if (GetBrowserWindowCreationStatusForProfile(*profile) !=
-            Browser::CreationStatus::kOk) {
+            BrowserWindowInterface::CreationStatus::kOk) {
           return true;
         }
 
@@ -1993,7 +1986,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
 // Conditionally adds the Profile menu to the main menu bar.
 - (void)initProfileMenu {
   NSMenu* mainMenu = [NSApp mainMenu];
-  NSMenuItem* profileMenu = [mainMenu itemWithTag:kMacProfileMainMenuId];
+  NSMenuItem* profileMenu = [mainMenu itemWithTag:IDC_PROFILE_MAIN_MENU];
 
   if (!profiles::IsMultipleProfilesEnabled()) {
     [mainMenu removeItem:profileMenu];
@@ -2206,8 +2199,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
   }
 
   bool isolated_mode_enabled =
-      enterprise_isolated_mode::IsolatedModeReplacesIncognito(
-          *profile->GetPrefs(), chrome::GetChannel());
+      enterprise_isolated_mode::IsolatedModeReplacesIncognito(profile);
 
   if (IncognitoModePrefs::GetAvailability(profile->GetPrefs()) !=
       policy::IncognitoModeAvailability::kDisabled) {
@@ -2277,7 +2269,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
   // offer different privacy guarantees. To highlight this distinction, we
   // keep the Incognito item visible, but disabled, rather than hiding it,
   // making it clear that Isolated Mode is active instead.
-  NSMenuItem* fileMenuItem = [NSApp.mainMenu itemWithTag:kMacFileMenuId];
+  NSMenuItem* fileMenuItem = [NSApp.mainMenu itemWithTag:IDC_FILE_MENU];
   if (fileMenuItem && fileMenuItem.hasSubmenu) {
     NSMenu* fileMenu = fileMenuItem.submenu;
     NSMenuItem* incognitoItem = [fileMenu itemWithTag:IDC_NEW_INCOGNITO_WINDOW];
@@ -2285,8 +2277,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
 
     if (incognitoItem && isolatedItem) {
       bool isolated_mode_enabled =
-          profile && enterprise_isolated_mode::IsolatedModeReplacesIncognito(
-                         *profile->GetPrefs(), chrome::GetChannel());
+          enterprise_isolated_mode::IsolatedModeReplacesIncognito(profile);
 
       // Toggle visibility of Isolated Mode item based on policy.
       isolatedItem.hidden = !isolated_mode_enabled;
@@ -2312,7 +2303,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
     }
   }
 
-  NSMenuItem* bookmarkItem = [NSApp.mainMenu itemWithTag:kBookmarksMenuId];
+  NSMenuItem* bookmarkItem = [NSApp.mainMenu itemWithTag:IDC_BOOKMARKS_MENU];
   BOOL hidden = bookmarkItem.hidden;
   if (profile != nullptr) {
     // Rebuild the menus with the new profile. The bookmarks submenu is cached
@@ -2718,9 +2709,8 @@ void OpenStartupTabsInBrowserWithProfile(const StartupTabs& tabs,
       first_run::IsChromeFirstRun() ? chrome::startup::IsFirstRun::kYes
                                     : chrome::startup::IsFirstRun::kNo;
   StartupBrowserCreatorImpl launch(base::FilePath(), dummy, first_run);
-  launch.OpenTabsInBrowser(browser->GetBrowserForMigrationOnly(),
-                           chrome::startup::IsProcessStartup::kNo, tabs,
-                           StartupBrowserCreatorImpl::TabOverWrite::kNo);
+  launch.OpenTabsInBrowser(browser, chrome::startup::IsProcessStartup::kNo,
+                           tabs, StartupBrowserCreatorImpl::TabOverWrite::kNo);
 
   // This NTP check should be replaced once https://crbug.com/41261582 is fixed.
   if (startupIndex != TabStripModel::kNoTab &&
@@ -2759,7 +2749,7 @@ void OnProfileLoaded(base::OnceCallback<void(Profile*)> callback,
 
   // Shutdown may have started since this callback was scheduled.
   if (GetBrowserWindowCreationStatusForProfile(*safe_profile) !=
-      Browser::CreationStatus::kOk) {
+      BrowserWindowInterface::CreationStatus::kOk) {
     std::move(callback).Run(nullptr);
     return;
   }
@@ -2865,8 +2855,8 @@ void TabRestorer::DoRestoreTab(Profile* profile, SessionID session_id) {
     return;
   BrowserWindowInterface* browser =
       ProfileBrowserCollection::GetForProfile(profile)->FindTabbedBrowser();
-  BrowserLiveTabContext* context =
-      browser ? browser->GetFeatures().live_tab_context() : nullptr;
+  sessions::LiveTabContext* context =
+      browser ? BrowserLiveTabContext::From(browser) : nullptr;
   if (session_id.is_valid()) {
     service->RestoreEntryById(context, session_id,
                               WindowOpenDisposition::UNKNOWN);

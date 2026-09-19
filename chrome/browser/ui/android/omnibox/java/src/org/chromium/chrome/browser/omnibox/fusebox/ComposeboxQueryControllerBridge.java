@@ -27,7 +27,6 @@ import org.chromium.content_public.browser.WebContents;
 import org.chromium.url.GURL;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -69,6 +68,7 @@ public class ComposeboxQueryControllerBridge {
      *
      * @param profile The profile for the session.
      * @param webContents The WebContents hosting the WebUI that needs to be communicated with.
+     * @return New controller instance, or null if initialization fails.
      */
     public static @Nullable ComposeboxQueryControllerBridge create(
             Profile profile, @Nullable WebContents webContents) {
@@ -104,7 +104,7 @@ public class ComposeboxQueryControllerBridge {
 
     @CalledByNative
     void onContextUploadStatusChanged(
-            String token,
+            @JniType("std::string") String token,
             @ContextUploadStatus int contextUploadStatus,
             @ContextUploadErrorType int errorType) {
         if (mContextUploadObserver != null) {
@@ -128,6 +128,9 @@ public class ComposeboxQueryControllerBridge {
     /**
      * Add the given file to the current session.
      *
+     * @param fileName Name of the file being added.
+     * @param fileType MIME type or extension of the file.
+     * @param fileData Binary content of the file.
      * @return unique token representig the file, used to manipulate added files.
      */
     @Nullable String addFile(String fileName, String fileType, byte[] fileData) {
@@ -177,7 +180,7 @@ public class ComposeboxQueryControllerBridge {
     }
 
     /** Returns whether client is Fusebox eligible. */
-    boolean isFuseboxEligible() {
+    public boolean isFuseboxEligible() {
         return ComposeboxQueryControllerBridgeJni.get().isFuseboxEligible(mNativeInstance);
     }
 
@@ -247,8 +250,9 @@ public class ComposeboxQueryControllerBridge {
     }
 
     @CalledByNative
-    private void onSuggestedTabsUpdated(SuggestedTabInfo[] suggestedTabs) {
-        mSuggestedTabsSupplier.set(Arrays.asList(suggestedTabs));
+    private void onSuggestedTabsUpdated(
+            @JniType("std::vector") List<SuggestedTabInfo> suggestedTabs) {
+        mSuggestedTabsSupplier.set(suggestedTabs);
     }
 
     @NativeMethods
@@ -264,34 +268,37 @@ public class ComposeboxQueryControllerBridge {
 
         void notifySessionAbandoned(long nativeComposeboxQueryControllerBridge);
 
+        @JniType("std::string")
         @Nullable String addFile(
                 long nativeComposeboxQueryControllerBridge,
                 @JniType("std::string") String fileName,
                 @JniType("std::string") String fileType,
                 ByteBuffer fileData);
 
+        @JniType("std::string")
         @Nullable String addTabContext(
                 long nativeComposeboxQueryControllerBridge,
                 @JniType("content::WebContents*") WebContents webContents,
                 boolean isSuggestedTab);
 
+        @JniType("std::string")
         @Nullable String addTabContextFromCache(
                 long nativeComposeboxQueryControllerBridge, long tabId, boolean isSuggestedTab);
 
         void getAimUrl(
                 long nativeComposeboxQueryControllerBridge,
                 @JniType("GURL") GURL url,
-                Callback<GURL> callback);
+                @JniType("base::OnceCallback<void(GURL)>&&") Callback<GURL> callback);
 
         void getImageGenerationUrl(
                 long nativeComposeboxQueryControllerBridge,
                 @JniType("GURL") GURL url,
-                Callback<GURL> callback);
+                @JniType("base::OnceCallback<void(GURL)>&&") Callback<GURL> callback);
 
         void getAimUrlFromInputState(
                 long nativeComposeboxQueryControllerBridge,
                 @JniType("GURL") GURL url,
-                Callback<GURL> callback);
+                @JniType("base::OnceCallback<void(GURL)>&&") Callback<GURL> callback);
 
         void removeAttachment(
                 long nativeComposeboxQueryControllerBridge, @JniType("std::string") String token);

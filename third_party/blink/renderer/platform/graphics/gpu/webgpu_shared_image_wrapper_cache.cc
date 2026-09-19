@@ -9,13 +9,18 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/process_memory_dump.h"
 #include "base/trace_event/trace_event.h"
+#include "build/build_config.h"
 #include "cc/paint/display_item_list.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/command_buffer/client/raster_interface.h"
+#include "gpu/command_buffer/client/shared_image_interface.h"
 #include "gpu/command_buffer/common/capabilities.h"
+#include "gpu/config/gpu_feature_info.h"
+#include "gpu/config/gpu_feature_type.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_image_provider.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/webgpu_shared_image_wrapper.h"
+#include "third_party/blink/renderer/platform/graphics/memory_managed_paint_recorder.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 
@@ -35,7 +40,17 @@ bool IsGpuContextLost(
 WebGpuSharedImageWrapperLease::WebGpuSharedImageWrapperLease(
     std::unique_ptr<WebGpuSharedImageWrapper> shared_image_wrapper,
     base::WeakPtr<WebGpuSharedImageWrapperCache> cache)
-    : shared_image_wrapper_(std::move(shared_image_wrapper)), cache_(cache) {
+    : shared_image_wrapper_(std::move(shared_image_wrapper)),
+      cache_(cache),
+      recorder_for_external_draws_(std::make_unique<MemoryManagedPaintRecorder>(
+          shared_image_wrapper_->Size(),
+          /*client=*/nullptr)) {
+  if (shared_image_wrapper_->context_provider_wrapper_->ContextProvider()
+          .GetGpuFeatureInfo()
+          .status_values[gpu::GPU_FEATURE_TYPE_SKIA_GRAPHITE] ==
+      gpu::kGpuFeatureStatusEnabled) {
+    recorder_for_external_draws_->DisableLineDrawingAsPaths();
+  }
   CanvasMemoryDumpProvider::Instance()->RegisterClient(this);
 }
 
@@ -59,7 +74,7 @@ gpu::SyncToken WebGpuSharedImageWrapperLease::GetSyncToken() const {
   if (IsGpuContextLost()) {
     return gpu::SyncToken();
   }
-  return shared_image_wrapper_->release_sync_token_;
+  return shared_image_wrapper_->sync_token_;
 }
 
 gpu::raster::RasterInterface* WebGpuSharedImageWrapperLease::RasterInterface()
@@ -99,7 +114,7 @@ bool WebGpuSharedImageWrapperLease::UploadToBackingSharedImage(
   }
 
   auto access = shared_image_wrapper_->shared_image_->BeginRasterAccess(
-      RasterInterface(), shared_image_wrapper_->acquire_sync_token_,
+      RasterInterface(), shared_image_wrapper_->sync_token_,
       /*readonly=*/false);
 
   RasterInterface()->WritePixels(
@@ -107,7 +122,7 @@ bool WebGpuSharedImageWrapperLease::UploadToBackingSharedImage(
       /*dst_y_offset=*/0,
       shared_image_wrapper_->shared_image_->GetTextureTarget(), subset);
   auto sync_token = gpu::RasterScopedAccess::EndAccess(std::move(access));
-  shared_image_wrapper_->release_sync_token_ = sync_token;
+  shared_image_wrapper_->sync_token_ = sync_token;
   shared_image_wrapper_->shared_image_->UpdateDestructionSyncToken(sync_token);
 
   shared_image_wrapper_->is_cleared_ = true;
@@ -121,16 +136,13 @@ void WebGpuSharedImageWrapperLease::DrawToBackingSharedImage(
     return;
   }
 
-  draw_callback(shared_image_wrapper_->recorder_for_external_draws_
-                    ->getRecordingCanvas());
-  if (shared_image_wrapper_->recorder_for_external_draws_
-          ->HasReleasableDrawOps()) {
+  draw_callback(recorder_for_external_draws_->getRecordingCanvas());
+  if (recorder_for_external_draws_->HasReleasableDrawOps()) {
     cc::PaintRecord last_recording =
-        shared_image_wrapper_->recorder_for_external_draws_
-            ->ReleaseMainRecording();
+        recorder_for_external_draws_->ReleaseMainRecording();
 
     auto access = shared_image_wrapper_->shared_image_->BeginRasterAccess(
-        RasterInterface(), shared_image_wrapper_->acquire_sync_token_,
+        RasterInterface(), shared_image_wrapper_->sync_token_,
         /*readonly=*/false);
 
     const bool needs_clear = !shared_image_wrapper_->is_cleared_;
@@ -197,23 +209,13 @@ void WebGpuSharedImageWrapperLease::DrawToBackingSharedImage(
 
     ri->EndRasterCHROMIUM();
     auto sync_token = gpu::RasterScopedAccess::EndAccess(std::move(access));
-    shared_image_wrapper_->release_sync_token_ = sync_token;
+    shared_image_wrapper_->sync_token_ = sync_token;
     shared_image_wrapper_->shared_image_->UpdateDestructionSyncToken(
         sync_token);
 
     image_provider.ReleaseLockedImages();
     image_provider.UnbindTextureBackedImages();
   }
-}
-
-const gpu::SyncToken& WebGpuSharedImageWrapperLease::acquire_sync_token()
-    const {
-  return shared_image_wrapper_->acquire_sync_token_;
-}
-
-void WebGpuSharedImageWrapperLease::set_release_sync_token(
-    const gpu::SyncToken& token) {
-  shared_image_wrapper_->release_sync_token_ = token;
 }
 
 void WebGpuSharedImageWrapperLease::WriteToBackingSharedImage(
@@ -227,15 +229,14 @@ void WebGpuSharedImageWrapperLease::WriteToBackingSharedImage(
   // NOTE: Invoking BeginRasterAccess() ensures that this invocation of
   // EndAccess() will generate a new sync token.
   auto access = shared_image_wrapper_->shared_image_->BeginRasterAccess(
-      RasterInterface(), shared_image_wrapper_->acquire_sync_token_,
+      RasterInterface(), shared_image_wrapper_->sync_token_,
       /*readonly=*/false);
   auto sync_token = gpu::RasterScopedAccess::EndAccess(std::move(access));
-  shared_image_wrapper_->release_sync_token_ = sync_token;
+  shared_image_wrapper_->sync_token_ = sync_token;
   shared_image_wrapper_->shared_image_->UpdateDestructionSyncToken(sync_token);
 
-  gpu::SyncToken external_write_sync_token =
-      overwrite_callback(shared_image_wrapper_->shared_image_,
-                         shared_image_wrapper_->release_sync_token_);
+  gpu::SyncToken external_write_sync_token = overwrite_callback(
+      shared_image_wrapper_->shared_image_, shared_image_wrapper_->sync_token_);
 
   if (IsGpuContextLost()) {
     return;
@@ -250,10 +251,10 @@ void WebGpuSharedImageWrapperLease::WriteToBackingSharedImage(
   // internal interface. This new sync token will be chained after
   // `external_write_sync_token` thanks to the wait above.
   access = shared_image_wrapper_->shared_image_->BeginRasterAccess(
-      RasterInterface(), shared_image_wrapper_->acquire_sync_token_,
+      RasterInterface(), shared_image_wrapper_->sync_token_,
       /*readonly=*/true);
   sync_token = gpu::RasterScopedAccess::EndAccess(std::move(access));
-  shared_image_wrapper_->release_sync_token_ = sync_token;
+  shared_image_wrapper_->sync_token_ = sync_token;
   shared_image_wrapper_->shared_image_->UpdateDestructionSyncToken(sync_token);
 }
 
@@ -276,7 +277,7 @@ bool WebGpuSharedImageWrapperLease::CopyToBackingSharedImage(
                       shared_image_wrapper_->Size().height());
 
   auto dst_access = shared_image_wrapper_->shared_image_->BeginRasterAccess(
-      raster, shared_image_wrapper_->acquire_sync_token_,
+      raster, shared_image_wrapper_->sync_token_,
       /*readonly=*/false);
 
   std::unique_ptr<gpu::RasterScopedAccess> src_access =
@@ -290,7 +291,7 @@ bool WebGpuSharedImageWrapperLease::CopyToBackingSharedImage(
   completion_sync_token =
       gpu::RasterScopedAccess::EndAccess(std::move(src_access));
   auto sync_token = gpu::RasterScopedAccess::EndAccess(std::move(dst_access));
-  shared_image_wrapper_->release_sync_token_ = sync_token;
+  shared_image_wrapper_->sync_token_ = sync_token;
   shared_image_wrapper_->shared_image_->UpdateDestructionSyncToken(sync_token);
   shared_image_wrapper_->is_cleared_ = true;
   return true;
@@ -405,8 +406,37 @@ WebGpuSharedImageWrapperCache::LeaseWebGpuSharedImageWrapper(
     }
 #endif
 
+    auto* sii =
+        context_provider_wrapper->ContextProvider().SharedImageInterface();
+    // The SharedImages created by this cache serve as intermediate buffers to
+    // import VideoFrames, canvas resources, or static bitmap images into WebGPU
+    // (e.g., via CreateExternalTexture() or CopyTextureForBrowser()).
+    // Data is written into these SharedImages via the raster interface
+    // (requiring RASTER_WRITE), and then read/sampled by WebGPU (requiring
+    // WEBGPU_READ).
+    //
+    // Note on other usages:
+    // - WEBGPU_WRITE is currently required because FromStaticBitmapImage() in
+    //   external_image_utils.cc passes wgpu::TextureUsage::CopyDst when
+    //   creating the WebGPUMailboxTexture wrapper, triggering a non-readonly
+    //   check in WebGPUTextureScopedAccess.
+    // - RASTER_READ is currently required because WriteToBackingSharedImage()
+    //   issues a readonly BeginRasterAccess() call to generate a sync token
+    //   after external writes, triggering a read usage check in
+    //   RasterScopedAccess.
+    gpu::SharedImageUsageSet shared_image_usage_flags =
+        gpu::SHARED_IMAGE_USAGE_WEBGPU_READ |
+        gpu::SHARED_IMAGE_USAGE_WEBGPU_WRITE |
+        gpu::SHARED_IMAGE_USAGE_RASTER_READ |
+        gpu::SHARED_IMAGE_USAGE_RASTER_WRITE;
+
+    auto shared_image = sii->CreateSharedImage(
+        {format, size, color_space, kTopLeft_GrSurfaceOrigin, alpha_type,
+         shared_image_usage_flags, "CanvasResourceRaster"},
+        gpu::kNullSurfaceHandle);
+
     wrapper = std::make_unique<WebGpuSharedImageWrapper>(
-        size, format, alpha_type, color_space, context_provider_wrapper);
+        std::move(shared_image), context_provider_wrapper);
 
     if (IsGpuContextLost(context_provider_wrapper.get())) {
       return nullptr;

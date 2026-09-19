@@ -13,7 +13,7 @@
 #import "components/autofill/core/browser/metrics/payments/credit_card_save_metrics.h"
 #import "components/autofill/core/browser/payments/autofill_error_dialog_context.h"
 #import "components/autofill/core/browser/payments/virtual_card_enrollment_manager.h"
-#import "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#import "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #import "components/autofill/core/browser/ui/payments/bubble_show_options.h"
 #import "components/autofill/core/browser/ui/payments/virtual_card_enroll_ui_model.h"
 #import "components/autofill/core/common/autofill_payments_features.h"
@@ -159,6 +159,16 @@
 
 - (void)dismissAmbientAutofillNotice {
   // TODO(crbug.com/533502803): Implement dismissal of the ambient notice sheet.
+}
+
+- (void)showAutofillAIPrivateInferenceNotice {
+  // TODO(crbug.com/552031299): Implement displaying of the private inference
+  // notice bottom sheet.
+}
+
+- (void)dismissAutofillAIPrivateInferenceNotice {
+  // TODO(crbug.com/552031299): Implement dismissal of the private inference
+  // notice bottom sheet.
 }
 
 @end

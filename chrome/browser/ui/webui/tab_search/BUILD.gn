@@ -21,21 +21,27 @@ mojom("mojo_bindings") {
 
 source_set("tab_search") {
   sources = [
+    "search_handler.cc",
     "tab_search_page_handler.cc",
     "tab_search_prefs.cc",
     "tab_search_sync_handler.cc",
     "tab_search_ui.cc",
   ]
   public = [
+    "search_handler.h",
     "tab_search_page_handler.h",
     "tab_search_prefs.h",
     "tab_search_sync_handler.h",
     "tab_search_ui.h",
   ]
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+  public_deps = [
+    "//chrome/browser:browser_public_dependencies",
+    "//chrome/browser/ui:browser_live_tab_context",
+  ]
   deps = [
     ":mojo_bindings",
     "//base",
+    "//base:i18n",
     "//chrome/app:command_ids",
     "//chrome/browser/favicon",
     "//chrome/browser/glic/resources:grit",
@@ -44,6 +50,7 @@ source_set("tab_search") {
     "//chrome/browser/sessions",
     "//chrome/browser/signin",
     "//chrome/browser/sync",
+    "//chrome/browser/ui:tab_ui_helper",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/interaction",
     "//chrome/browser/ui/navigator",
@@ -91,6 +98,7 @@ source_set("browser_tests") {
     "//chrome/browser/tab_group_sync:factories",
     "//chrome/browser/ui",
     "//chrome/browser/ui:recently_audible_helper",
+    "//chrome/browser/ui:tab_ui_helper",
     "//chrome/browser/ui/tabs/saved_tab_groups:test_support",
     "//chrome/browser/ui/webui:webui_util",
     "//chrome/browser/ui/webui/metrics_reporter:test_support",
@@ -100,7 +108,7 @@ source_set("browser_tests") {
     "//components/metrics:content",
     "//components/metrics/mapping",
     "//components/metrics/mapping:metrics_name_mapping_proto",
-    "//components/os_crypt/async/browser:test_support",
+    "//components/os_crypt/browser:test_support",
     "//components/variations:test_support",
     "//content/test:test_support",
     "//testing/gmock",

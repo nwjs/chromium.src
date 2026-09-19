@@ -426,6 +426,14 @@ ci.builder(
             ),
             "browser_tests": targets.mixin(
                 swarming = targets.swarming(
+                    # Move to faster machine types to reduce capacity impact.
+                    # TODO(crbug.com/541675870): Can remove this if/when
+                    # everything's been migrated.
+                    optional_dimensions = {
+                        30: {
+                            "cpu": "x86-64-e4",
+                        },
+                    },
                     # This is for slow test execution that often becomes a
                     # critical path of swarming jobs. crbug.com/868114
                     shards = 55,
@@ -619,7 +627,7 @@ ci.thin_tester(
                 swarming = targets.swarming(
                     # This is for slow test execution that often becomes a
                     # critical path of swarming jobs. crbug.com/868114
-                    shards = 20,
+                    shards = 40,
                 ),
             ),
             "browser_tests_no_field_trial": targets.remove(

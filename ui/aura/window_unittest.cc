@@ -44,9 +44,10 @@
 #include "ui/base/hit_test.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/compositor_observer.h"
-#include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animation_observer.h"
 #include "ui/compositor/layer_animator.h"
+#include "ui/compositor/layer_not_drawn.h"
+#include "ui/compositor/layer_textured.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/compositor/test/layer_animator_test_controller.h"
 #include "ui/compositor/test/test_layers.h"
@@ -1086,6 +1087,27 @@ class TestLayoutManager : public LayoutManager {
   }
 };
 
+class BoundsChangedObserver : public WindowObserver {
+ public:
+  void OnWindowBoundsChanged(Window* window,
+                             const gfx::Rect& old_bounds,
+                             const gfx::Rect& new_bounds,
+                             ui::PropertyChangeReason reason) override {
+    old_bounds_ = old_bounds;
+    new_bounds_ = new_bounds;
+    call_count_++;
+  }
+
+  int call_count() const { return call_count_; }
+  const gfx::Rect& old_bounds() const { return old_bounds_; }
+  const gfx::Rect& new_bounds() const { return new_bounds_; }
+
+ private:
+  int call_count_ = 0;
+  gfx::Rect old_bounds_;
+  gfx::Rect new_bounds_;
+};
+
 using WindowLayerManagedByParentTest = WindowTest;
 
 TEST_F(WindowLayerManagedByParentTest, BasicOrders) {
@@ -1199,8 +1221,16 @@ TEST_F(WindowLayerManagedByParentTest, BasicOrders) {
   child2.SetBounds(gfx::Rect(30, 40, 100, 100));
 
   gfx::PointF point(10.f, 10.f);
+#if !BUILDFLAG(IS_WIN)
   EXPECT_DEATH(Window::ConvertPointToTarget(&child2, &child1, &point), "");
   EXPECT_DEATH(Window::ConvertPointToTarget(&child1, &child2, &point), "");
+#else
+  // TODO(crbug.com/550457201): Remove this once the issue is identified.
+  Window::ConvertPointToTarget(&child2, &child1, &point);
+  EXPECT_EQ(gfx::PointF(10.f, 10.f), point);
+  Window::ConvertPointToTarget(&child1, &child2, &point);
+  EXPECT_EQ(gfx::PointF(10.f, 10.f), point);
+#endif
 }
 
 // Verify SetBounds behavior for unmanaged layer.
@@ -1401,6 +1431,49 @@ TEST_F(WindowLayerManagedByParentTest, SetBounds) {
 
     EXPECT_EQ(gfx::Rect(50, 50, 50, 50), child.bounds());
     EXPECT_EQ(gfx::Rect(50, 50, 50, 50), child.GetTargetBounds());
+  }
+
+  // 8 Layer Bounds Unchanged Updates Window Bounds (Unmanaged)
+  {
+    Window parent(nullptr);
+    parent.Init(ui::LAYER_NOT_DRAWN);
+    Window child(nullptr);
+    child.Init(ui::LAYER_NOT_DRAWN);
+    child.SetLayerManagedByParent(false);
+    parent.AddChild(&child);
+
+    // L_P -> L_X -> L_C
+    ui::LayerNotDrawn layer_x;
+    layer_x.SetBounds({100, 100});
+
+    parent.layer()->Add(&layer_x);
+    layer_x.Add(child.layer());
+
+    // Initial bounds of child: (0, 0, 50, 50).
+    child.SetBounds({50, 50});
+    EXPECT_EQ((gfx::Rect{50, 50}), child.bounds());
+    EXPECT_EQ((gfx::Rect{50, 50}), child.layer()->bounds());
+
+    BoundsChangedObserver observer;
+    child.AddObserver(&observer);
+
+    // Move layer_x to (20, 20).
+    // child.layer()->bounds() remains (0, 0, 50, 50) in layer_x coordinates.
+    layer_x.SetBounds({20, 20, 100, 100});
+
+    // Set child bounds to (20, 20, 50, 50) relative to parent.
+    // The layer_bounds relative to layer_x is (20 - 20, 20 - 20) = (0, 0, 50,
+    // 50). This is equal to the old layer bounds, so layer()->SetBounds() will
+    // not notify OnLayerBoundsChanged. Window::SetBoundsInternal must notify
+    // OnLayerBoundsChanged itself to update window bounds and notify observers.
+    child.SetBounds({20, 20, 50, 50});
+
+    EXPECT_EQ((gfx::Rect{20, 20, 50, 50}), child.bounds());
+    EXPECT_EQ((gfx::Rect{20, 20, 50, 50}), child.GetTargetBounds());
+    EXPECT_EQ(1, observer.call_count());
+    EXPECT_EQ((gfx::Rect{20, 20, 50, 50}), observer.new_bounds());
+
+    child.RemoveObserver(&observer);
   }
 }
 
@@ -3141,7 +3214,7 @@ TEST_F(WindowTest, RecreateLayer) {
 
   std::unique_ptr<ui::Layer> old_layer(w.RecreateLayer());
   layer = w.layer();
-  EXPECT_EQ(ui::LAYER_SOLID_COLOR, layer->type());
+  EXPECT_TRUE(layer->AsSolidColor());
   EXPECT_FALSE(layer->visible());
   EXPECT_EQ(1u, layer->children().size());
   EXPECT_TRUE(layer->GetMasksToBounds());

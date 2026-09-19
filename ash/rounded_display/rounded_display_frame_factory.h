@@ -9,12 +9,17 @@
 #include <vector>
 
 #include "ash/ash_export.h"
-#include "ash/frame_sink/ui_resource.h"
+#include "cc/resources/resource_pool.h"
+#include "components/viz/client/client_resource_provider.h"
 #include "components/viz/common/quads/compositor_frame.h"
 
 namespace aura {
 class Window;
 }  // namespace aura
+
+namespace gpu {
+class ClientSharedImage;
+}  // namespace gpu
 
 namespace viz {
 class CompositorFrame;
@@ -22,7 +27,6 @@ class CompositorFrame;
 
 namespace ash {
 
-class UiResourceManager;
 class RoundedDisplayGutter;
 
 class ASH_EXPORT RoundedDisplayFrameFactory {
@@ -35,24 +39,14 @@ class ASH_EXPORT RoundedDisplayFrameFactory {
 
   ~RoundedDisplayFrameFactory() = default;
 
-  // Creates a UiResource of a given `size` and `format`. We draw the textures
-  // of rounded-corners into the gpu buffer associated with the resource and
-  // attach it to a compositor frame by converting it into a transferable
-  // resource.
-  // Note: This method is also used in unittests.
-  static std::unique_ptr<UiResource> CreateUiResource(
-      const gfx::Size& size,
-      viz::SharedImageFormat format,
-      UiSourceId ui_source_id,
-      bool is_overlay);
-
   // Creates and configures a compositor frame.
   // `gutters` should be in draw order i.e the gutters in the beginning are
   // drawn on top.
   std::unique_ptr<viz::CompositorFrame> CreateCompositorFrame(
       const viz::BeginFrameAck& begin_frame_ack,
       aura::Window& host_window,
-      UiResourceManager& resource_manager,
+      viz::ClientResourceProvider& client_resource_provider,
+      cc::ResourcePool& resource_pool,
       const std::vector<RoundedDisplayGutter*>& gutters);
 
  private:
@@ -62,17 +56,9 @@ class ASH_EXPORT RoundedDisplayFrameFactory {
                   const RoundedDisplayGutter& gutter,
                   viz::CompositorRenderPass& render_pass_out) const;
 
-  // Get a UiResource for the `gutter`. We try to reuse any existing resources
-  // in `resource_manager` before creating a new resource.
-  std::unique_ptr<UiResource> AcquireUiResource(
-      const RoundedDisplayGutter& gutter,
-      UiResourceManager& resource_manager) const;
-
-  std::unique_ptr<UiResource> Draw(const RoundedDisplayGutter& gutter,
-                                   UiResourceManager& resource_manager) const;
-
-  // Paints the gutter's texture into the SharedImage held by `resource`.
-  void Paint(const RoundedDisplayGutter& gutter, UiResource* resource) const;
+  // Paints the gutter's texture into the SharedImage.
+  void Paint(const RoundedDisplayGutter& gutter,
+             gpu::ClientSharedImage* client_shared_image) const;
 };
 
 }  // namespace ash

@@ -10,6 +10,7 @@
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/actor/actor_task_delegate.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/host/glic_webui.mojom.h"
 #include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
 #include "url/origin.h"
 
@@ -59,7 +60,9 @@ class GlicWebClientAccess {
                       base::OnceClosure callback) = 0;
 
   // Simulates a user input submission.
-  virtual void OnUserInputSubmittedForTesting(mojom::WebClientMode mode) = 0;
+  virtual void OnUserInputSubmittedForTesting(
+      mojom::WebClientMode mode,
+      mojom::PromptType prompt_type) = 0;
 };
 
 }  // namespace glic

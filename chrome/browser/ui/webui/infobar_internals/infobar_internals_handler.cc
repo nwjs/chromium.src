@@ -22,23 +22,31 @@
 #include "chrome/browser/devtools/devtools_infobar_delegate.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/devtools/global_confirm_info_bar.h"
+#include "chrome/browser/devtools/process_sharing_infobar.h"
+#include "chrome/browser/devtools/process_sharing_infobar_delegate.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/infobars/browser_infobar_manager.h"
+#include "chrome/browser/infobars/confirm_infobar_creator.h"
 #include "chrome/browser/infobars/infobar_features.h"
 #include "chrome/browser/infobars/simple_alert_infobar_creator.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ssl/known_interception_disclosure_infobar_delegate.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/collected_cookies_infobar_delegate.h"
 #include "chrome/browser/ui/omnibox/alternate_nav_infobar_delegate.h"
 #include "chrome/browser/ui/page_info/page_info_infobar_delegate.h"
+#include "chrome/browser/ui/startup/google_api_keys_infobar_delegate.h"
+#include "chrome/browser/ui/startup/obsolete_system_infobar_delegate.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/site_data/page_specific_site_data_dialog_controller.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/infobars/content/content_infobar_manager.h"
+#include "components/infobars/core/infobar.h"
+#include "components/infobars/core/infobar_manager.h"
 #include "components/infobars/core/simple_alert_infobar_delegate.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/prefs/pref_service.h"
@@ -66,8 +74,11 @@
 #include "chrome/browser/extensions/theme_installed_infobar_delegate.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
+#include "chrome/browser/ui/extensions/installation_error_infobar_delegate.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/browser/install/crx_install_error.h"
 #include "extensions/common/extension.h"
+#include "extensions/strings/grit/extensions_strings.h"
 #endif
 
 #if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -82,7 +93,6 @@
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #include "chrome/browser/ui/startup/default_browser_prompt/default_browser_prompt_manager.h"  // nogncheck
 #include "chrome/browser/ui/startup/default_browser_prompt/default_browser_prompt_prefs.h"  // nogncheck
-#include "chrome/browser/ui/views/session_restore_infobar/session_restore_infobar_delegate.h"
 #include "chrome/browser/ui/views/session_restore_infobar/session_restore_infobar_manager.h"
 #endif
 
@@ -99,6 +109,65 @@ using InfoBarType = infobar_internals::mojom::InfoBarType;
 using InfoBarEntry = infobar_internals::mojom::InfoBarEntry;
 using InfoBarEntryPtr = infobar_internals::mojom::InfoBarEntryPtr;
 
+namespace {
+
+// What a trigger needs before its case runs. Deliberately exhaustive: a new
+// InfoBarType does not compile until it declares its preconditions here.
+struct TriggerRequirements {
+  bool profile = false;
+  bool web_contents = false;
+};
+
+TriggerRequirements RequirementsFor(InfoBarType type) {
+  switch (type) {
+    case InfoBarType::kAlternateNav:
+    case InfoBarType::kCollectedCookies:
+    case InfoBarType::kDevTools:
+    case InfoBarType::kDevToolsSharedProcess:
+    case InfoBarType::kGoogleApiKeys:
+    case InfoBarType::kKnownInterception:
+    case InfoBarType::kObsoleteSystem:
+    case InfoBarType::kPageInfo:
+#if BUILDFLAG(ENABLE_PLUGINS)
+    case InfoBarType::kReloadPlugin:
+#endif
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+    case InfoBarType::kPdf:
+#endif
+      return {.web_contents = true};
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+    case InfoBarType::kIncognitoConnectability:
+    case InfoBarType::kInstallationError:
+      return {.profile = true, .web_contents = true};
+#endif
+    case InfoBarType::kExtensionDevTools:
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+    case InfoBarType::kDefaultBrowser:
+    case InfoBarType::kSessionRestore:
+#endif
+#if BUILDFLAG(IS_MAC)
+    case InfoBarType::kKeystone:
+#endif
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+    case InfoBarType::kThemeInstalled:
+#endif
+      return {.profile = true};
+#if BUILDFLAG(CHROME_FOR_TESTING)
+    case InfoBarType::kChromeForTesting:
+#endif
+    case InfoBarType::kLocalTestPoliciesApplied:
+#if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+    case InfoBarType::kInstallerDownloader:
+#endif
+#if BUILDFLAG(IS_WIN)
+    case InfoBarType::kStartupLaunch:
+#endif
+      return {};
+  }
+}
+
+}  // namespace
+
 InfoBarInternalsHandler::InfoBarInternalsHandler(
     mojo::PendingReceiver<infobar_internals::mojom::PageHandler> receiver)
     : receiver_(this, std::move(receiver)) {}
@@ -111,134 +180,128 @@ void InfoBarInternalsHandler::TriggerInfoBar(InfoBarType type,
 }
 
 void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
-  // Please keep the entries in alphabetized order base on the type.
+  // Please keep the entries in alphabetical order, based on the type.
   std::vector<InfoBarEntryPtr> infobar_list;
+  auto add_entry = [&infobar_list](InfoBarType type, const std::string& name,
+                                   const std::string& description) {
+    infobar_list.emplace_back(InfoBarEntry::New(type, name, description));
+  };
   if (base::FeatureList::IsEnabled(features::kInfoBarInlineLinks)) {
-    infobar_list.emplace_back(InfoBarEntry::New(
-        /*type=*/InfoBarType::kAlternateNav, /*name=*/"Alternate Nav",
-        /*description=*/
-        "The Alternate Nav infobar is shown when a user searches for a term "
-        "they may have meant to navigate to."));
+    add_entry(InfoBarType::kAlternateNav, "Alternate Nav",
+              "The Alternate Nav infobar is shown when a user searches for a "
+              "term they may have meant to navigate to.");
   }
 #if BUILDFLAG(CHROME_FOR_TESTING)
-  infobar_list.emplace_back(InfoBarEntry::New(
-      /*type=*/InfoBarType::kChromeForTesting, /*name=*/"Chrome for Testing",
-      /*description=*/
-      "The Chrome for Testing infobar warns users that this version is only "
-      "for automated testing."));
+  add_entry(InfoBarType::kChromeForTesting, "Chrome for Testing",
+            "The Chrome for Testing infobar warns users that this version is "
+            "only for automated testing.");
 #endif
-  infobar_list.emplace_back(InfoBarEntry::New(
-      /*type=*/InfoBarType::kCollectedCookies, /*name=*/"Collected Cookies",
-      /*description=*/
-      "The Collected Cookies infobar is shown after the user has changed "
-      "the allowed/blocked state of a cookie, reminding them to reload "
-      "the page in order for the new cookies to take effect."));
+  add_entry(InfoBarType::kCollectedCookies, "Collected Cookies",
+            "The Collected Cookies infobar is shown after the user has changed "
+            "the allowed/blocked state of a cookie, reminding them to reload "
+            "the page in order for the new cookies to take effect.");
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-  infobar_list.emplace_back(InfoBarEntry::New(
-      /*type=*/InfoBarType::kDefaultBrowser, /*name=*/"Default Browser",
-      /*description=*/
-      "The Default Browser infobar asks the user if they want to set "
-      "Chrome as their default browser. This trigger resets any browser "
-      "state can prevents the infobar to shown, then shows the infobar. "
-      "This can only be triggered on non-ChromeOS Desktop platforms."));
-  infobar_list.emplace_back(InfoBarEntry::New(
-      /*type=*/InfoBarType::kSessionRestore, /*name=*/"Session Restore",
-      /*description=*/
-      "Triggers the session restore infobar. This infobar can only be "
-      "triggered on Mac, Windows and Linux."));
+  add_entry(InfoBarType::kDefaultBrowser, "Default Browser",
+            "The Default Browser infobar asks the user if they want to set "
+            "Chrome as their default browser. This trigger resets any browser "
+            "state that prevents the infobar from showing, then shows it. This "
+            "can only be triggered on non-ChromeOS Desktop platforms.");
 #endif
 
-  infobar_list.emplace_back(InfoBarEntry::New(
-      /*type=*/InfoBarType::kDevTools, /*name=*/"DevTools",
-      /*description=*/
-      "The DevTools infobar is used to confirm that the user wants to "
-      "allow DevTools to be used. This trigger shows the infobar."));
+  add_entry(InfoBarType::kDevTools, "DevTools",
+            "The DevTools infobar is used to confirm that the user wants to "
+            "allow DevTools to be used. This trigger shows the infobar.");
 
-  infobar_list.emplace_back(InfoBarEntry::New(
-      /*type=*/InfoBarType::kExtensionDevTools, /*name=*/"Extension DevTools",
-      /*description=*/
-      "The Extension DevTools infobar is used to globally warn users "
-      "that an extension is debugging the browser. This trigger shows "
-      "the infobar."));
+  add_entry(InfoBarType::kDevToolsSharedProcess, "DevTools Shared Process",
+            "The DevTools shared process infobar warns that the inspected tab "
+            "shares a renderer process and offers a restart with "
+            "process-per-site disabled. This trigger shows the infobar on the "
+            "active tab.");
+
+  add_entry(InfoBarType::kExtensionDevTools, "Extension DevTools",
+            "The Extension DevTools infobar is used to globally warn users "
+            "that an extension is debugging the browser. This trigger shows "
+            "the infobar.");
+
+  add_entry(InfoBarType::kGoogleApiKeys, "Google API Keys",
+            "The Google API Keys infobar warns users when Google API keys are "
+            "missing. This trigger shows the infobar.");
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-  infobar_list.emplace_back(InfoBarEntry::New(
-      /*type=*/InfoBarType::kIncognitoConnectability,
-      /*name=*/"Incognito Connectability",
-      /*description=*/
-      "The Incognito Connectability infobar is used to ask the user if they "
-      "want to allow an extension to communicate with a website in "
-      "incognito mode. This trigger shows the infobar."));
+  add_entry(InfoBarType::kIncognitoConnectability, "Incognito Connectability",
+            "The Incognito Connectability infobar is used to ask the user if "
+            "they want to allow an extension to communicate with a website in "
+            "incognito mode. This trigger shows the infobar.");
+  add_entry(InfoBarType::kInstallationError, "Installation Error",
+            "The Installation Error infobar is shown when an extension "
+            "installation fails.");
 #endif
 #if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  infobar_list.emplace_back(InfoBarEntry::New(
-      /*type=*/InfoBarType::kInstallerDownloader,
-      /*name=*/"Installer Downloader",
-      /*description=*/
-      "The Installer Downloader can only be triggered on Windows. The "
-      "manual trigger consist to reset any browser state that can "
-      "prevent it to shown and then trigger a show request."));
+  add_entry(InfoBarType::kInstallerDownloader, "Installer Downloader",
+            "The Installer Downloader can only be triggered on Windows. This "
+            "trigger resets any browser state that prevents it from showing, "
+            "then requests a show.");
 #endif
 
 #if BUILDFLAG(IS_MAC) && BUILDFLAG(ENABLE_UPDATER)
-  infobar_list.emplace_back(InfoBarEntry::New(
-      /*type=*/InfoBarType::kKeystone, /*name=*/"Keystone",
-      /*description=*/
-      "The Keystone infobar asks the user to promote the updater to "
-      "system scope. This trigger resets any browser state that "
-      "prevents the infobar from being shown, then shows the infobar. "
-      "This can only be triggered on Mac."));
+  add_entry(InfoBarType::kKeystone, "Keystone",
+            "The Keystone infobar asks the user to promote the updater to "
+            "system scope. This trigger resets any browser state that prevents "
+            "the infobar from being shown, then shows the infobar. This can "
+            "only be triggered on Mac.");
 #endif
 
-  infobar_list.emplace_back(InfoBarEntry::New(
-      /*type=*/InfoBarType::kLocalTestPoliciesApplied,
-      /*name=*/"Local Test Policies Applied",
-      /*description=*/
-      "The Local Test Policies Applied infobar warns the user that local "
-      "test policies are active."));
+  add_entry(InfoBarType::kKnownInterception, "Known Interception Disclosure",
+            "The Known Interception Disclosure infobar alerts users when "
+            "network interception or monitoring is detected. This trigger "
+            "shows the infobar.");
 
-  infobar_list.emplace_back(InfoBarEntry::New(
-      /*type=*/InfoBarType::kPageInfo, /*name=*/"Page Info",
-      /*description=*/
-      "The Page Info infobar is shown when a user changes permissions, "
-      "asking them to reload the page to apply settings."));
+  add_entry(InfoBarType::kLocalTestPoliciesApplied,
+            "Local Test Policies Applied",
+            "The Local Test Policies Applied infobar warns the user that local "
+            "test policies are active.");
+
+  add_entry(InfoBarType::kObsoleteSystem, "Obsolete System",
+            "The Obsolete System infobar warns users when their operating "
+            "system is no longer supported. This trigger shows the infobar.");
+
+  add_entry(InfoBarType::kPageInfo, "Page Info",
+            "The Page Info infobar is shown when a user changes permissions, "
+            "asking them to reload the page to apply settings.");
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-  infobar_list.emplace_back(InfoBarEntry::New(
-      /*type=*/InfoBarType::kPdf, /*name=*/"PDF",
-      /*description=*/
-      "The PDF infobar offers to set Chrome as the default PDF viewer "
-      "if it's not already. This trigger resets any browser state "
-      "that prevents the infobar from being shown, then shows the infobar. "
-      "This can only be triggered on Windows or Mac."));
+  add_entry(InfoBarType::kPdf, "PDF",
+            "The PDF infobar offers to set Chrome as the default PDF viewer if "
+            "it's not already. This trigger resets any browser state that "
+            "prevents the infobar from being shown, then shows the infobar. "
+            "This can only be triggered on Windows or Mac.");
 #endif
 
 #if BUILDFLAG(ENABLE_PLUGINS)
-  infobar_list.emplace_back(InfoBarEntry::New(
-      /*type=*/InfoBarType::kReloadPlugin, /*name=*/"Reload Plugin",
-      /*description=*/
-      "The Reload Plugin infobar is used to ask the user to reload a "
-      "page when a plugin has crashed or disconnected. This trigger "
-      "shows the infobar."));
+  add_entry(InfoBarType::kReloadPlugin, "Reload Plugin",
+            "The Reload Plugin infobar is used to ask the user to reload a "
+            "page when a plugin has crashed or disconnected. This trigger "
+            "shows the infobar.");
+#endif
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  add_entry(InfoBarType::kSessionRestore, "Session Restore",
+            "Triggers the session restore infobar. This infobar can only be "
+            "triggered on Mac, Windows and Linux.");
 #endif
 
 #if BUILDFLAG(IS_WIN)
-
-  infobar_list.emplace_back(InfoBarEntry::New(
-      /*type=*/InfoBarType::kStartupLaunch, /*name=*/"Startup Launch",
-      /*description=*/
-      "Triggers the startup launch infobar. This infobar can only be "
-      "triggered on Windows, and only when LaunchOnStartup feature flag is "
-      "enabled."));
+  add_entry(InfoBarType::kStartupLaunch, "Startup Launch",
+            "Triggers the startup launch infobar. This infobar can only be "
+            "triggered on Windows, and only when LaunchOnStartup feature flag "
+            "is enabled.");
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-  infobar_list.emplace_back(InfoBarEntry::New(
-      /*type=*/InfoBarType::kThemeInstalled, /*name=*/"Theme Installed",
-      /*description=*/
-      "The Theme Installed infobar is shown when a user installs a theme. "
-      "This trigger shows the infobar for the current theme, allowing you "
-      "to 'undo' to the state before this trigger."));
+  add_entry(InfoBarType::kThemeInstalled, "Theme Installed",
+            "The Theme Installed infobar is shown when a user installs a "
+            "theme. This trigger shows the infobar for the current theme, "
+            "allowing you to 'undo' to the state before this trigger.");
 #endif
 
   std::move(callback).Run(std::move(infobar_list));
@@ -248,17 +311,20 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
   BrowserWindowInterface* const bwi =
       GetLastActiveBrowserWindowInterfaceWithAnyProfile();
   Profile* const profile = bwi ? bwi->GetProfile() : nullptr;
+  tabs::TabInterface* const active_tab =
+      bwi ? bwi->GetActiveTabInterface() : nullptr;
+  content::WebContents* const web_contents =
+      active_tab ? active_tab->GetContents() : nullptr;
+  const TriggerRequirements needs = RequirementsFor(type);
+  if ((needs.profile && !profile) || (needs.web_contents && !web_contents)) {
+    return false;
+  }
+  auto* const browser_infobar_manager =
+      infobars::BrowserInfoBarManager::From(g_browser_process);
 
-  // Please keep the entries in alphabetized order base on the type.
+  // Please keep the entries in alphabetical order, based on the type.
   switch (type) {
     case InfoBarType::kAlternateNav: {
-      if (!bwi || !bwi->GetActiveTabInterface()) {
-        return false;
-      }
-
-      content::WebContents* web_contents =
-          bwi->GetActiveTabInterface()->GetContents();
-
       AutocompleteMatch match;
       match.destination_url = GURL("https://google.com/");
 
@@ -270,8 +336,6 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
     case InfoBarType::kChromeForTesting: {
       if (infobars::IsInfoBarMigrated(
               infobars::InfoBarDelegate::CHROME_FOR_TESTING_INFOBAR_DELEGATE)) {
-        auto* browser_infobar_manager =
-            infobars::BrowserInfoBarManager::From(g_browser_process);
         if (!browser_infobar_manager) {
           return false;
         }
@@ -284,12 +348,6 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
     }
 #endif
     case InfoBarType::kCollectedCookies: {
-      if (!bwi || !bwi->GetActiveTabInterface()) {
-        return false;
-      }
-
-      content::WebContents* web_contents =
-          bwi->GetActiveTabInterface()->GetContents();
       if (infobars::IsInfoBarMigrated(
               infobars::InfoBarDelegate::COLLECTED_COOKIES_INFOBAR_DELEGATE)) {
         PageSpecificSiteDataDialogController::ShowCollectedCookiesInfoBar(
@@ -306,29 +364,12 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
     }
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
     case InfoBarType::kDefaultBrowser: {
-      if (!profile) {
-        return false;
-      }
-
       chrome::startup::default_prompt::ResetPromptPrefs(profile);
       DefaultBrowserPromptManager::GetInstance()->MaybeShowPrompt();
       return true;
     }
-    case InfoBarType::kSessionRestore: {
-      if (!profile) {
-        return false;
-      }
-      session_restore_infobar::SessionRestoreInfoBarManager::GetInstance()
-          ->ShowInfoBar(*profile,
-                        session_restore_infobar::SessionRestoreInfoBarDelegate::
-                            InfobarMessageType::kTurnOffFromRestart);
-      return true;
-    }
 #endif
     case InfoBarType::kDevTools: {
-      if (!bwi || !bwi->GetActiveTabInterface()) {
-        return false;
-      }
       DevToolsInfoBarDelegate::Create(
           l10n_util::GetStringFUTF16(IDS_DEV_TOOLS_INFOBAR_LABEL,
                                      u"Infobar Internals"),
@@ -339,11 +380,31 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
                       web_contents, DevToolsOpenedByAction::kUnknown);
                 }
               },
-              bwi->GetActiveTabInterface()->GetContents()));
+              web_contents));
       return true;
+    }
+    case InfoBarType::kDevToolsSharedProcess: {
+      auto* infobar_manager =
+          infobars::ContentInfoBarManager::FromWebContents(web_contents);
+      if (!infobar_manager) {
+        return false;
+      }
+      return infobar_manager->AddInfoBar(CreateConfirmInfoBar(
+                 std::make_unique<ProcessSharingInfobarDelegate>(
+                     web_contents))) != nullptr;
     }
     case InfoBarType::kExtensionDevTools: {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::
+                  EXTENSION_DEV_TOOLS_INFOBAR_DELEGATE)) {
+        if (!browser_infobar_manager) {
+          return false;
+        }
+        return browser_infobar_manager->ShowGlobally(
+            infobars::InfoBarDelegate::EXTENSION_DEV_TOOLS_INFOBAR_DELEGATE);
+      }
+
       if (!profile) {
         return false;
       }
@@ -370,15 +431,27 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
       return false;
 #endif
     }
+    case InfoBarType::kGoogleApiKeys: {
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::GOOGLE_API_KEYS_INFOBAR_DELEGATE)) {
+        if (!browser_infobar_manager) {
+          return false;
+        }
+        browser_infobar_manager->Show(
+            bwi->GetActiveTabInterface(),
+            infobars::InfoBarDelegate::GOOGLE_API_KEYS_INFOBAR_DELEGATE);
+      } else {
+        infobars::ContentInfoBarManager* infobar_manager =
+            infobars::ContentInfoBarManager::FromWebContents(web_contents);
+        if (!infobar_manager) {
+          return false;
+        }
+        GoogleApiKeysInfoBarDelegate::Create(infobar_manager);
+      }
+      return true;
+    }
     case InfoBarType::kIncognitoConnectability: {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-      if (!profile || !bwi->GetActiveTabInterface()) {
-        return false;
-      }
-
-      content::WebContents* web_contents =
-          bwi->GetActiveTabInterface()->GetContents();
-
       extensions::ExtensionRegistry* registry =
           extensions::ExtensionRegistry::Get(profile);
       const extensions::ExtensionSet& extensions =
@@ -413,6 +486,38 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
       return false;
 #endif
     }
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+    case InfoBarType::kInstallationError: {
+      const std::u16string msg =
+          l10n_util::GetStringUTF16(IDS_EXTENSION_INSTALL_DISALLOWED_ON_SITE);
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::INSTALLATION_ERROR_INFOBAR_DELEGATE)) {
+        infobars::InfoBarShowParams params;
+        params.message_text = msg;
+        params.link_text = l10n_util::GetStringUTF16(IDS_LEARN_MORE);
+        if (!browser_infobar_manager) {
+          return false;
+        }
+        browser_infobar_manager->Show(
+            active_tab,
+            infobars::InfoBarDelegate::INSTALLATION_ERROR_INFOBAR_DELEGATE,
+            std::move(params));
+      } else {
+        infobars::ContentInfoBarManager* infobar_manager =
+            infobars::ContentInfoBarManager::FromWebContents(web_contents);
+        if (!infobar_manager) {
+          return false;
+        }
+        InstallationErrorInfoBarDelegate::Create(
+            infobar_manager,
+            extensions::CrxInstallError(
+                extensions::CrxInstallErrorType::OTHER,
+                extensions::CrxInstallErrorDetail::OFFSTORE_INSTALL_DISALLOWED,
+                msg));
+      }
+      return true;
+    }
+#endif
 #if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
     case InfoBarType::kInstallerDownloader: {
       if (auto* controller = g_browser_process->GetFeatures()
@@ -443,11 +548,43 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
       return false;
     }
 #endif
+#if BUILDFLAG(IS_MAC)
+    case InfoBarType::kKeystone: {
+#if BUILDFLAG(ENABLE_UPDATER)
+      profile->GetPrefs()->SetBoolean(prefs::kShowUpdatePromotionInfoBar, true);
+      ShowUpdaterPromotionInfoBar();
+      return true;
+#else
+      return false;
+#endif
+    }
+#endif
+    case InfoBarType::kKnownInterception: {
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::
+                  KNOWN_INTERCEPTION_DISCLOSURE_INFOBAR_DELEGATE)) {
+        if (!browser_infobar_manager) {
+          return false;
+        }
+        browser_infobar_manager->Show(
+            active_tab, infobars::InfoBarDelegate::
+                            KNOWN_INTERCEPTION_DISCLOSURE_INFOBAR_DELEGATE);
+      } else {
+        infobars::ContentInfoBarManager* infobar_manager =
+            infobars::ContentInfoBarManager::FromWebContents(web_contents);
+        if (!infobar_manager) {
+          return false;
+        }
+        auto delegate =
+            std::make_unique<KnownInterceptionDisclosureInfoBarDelegate>(
+                profile);
+        infobar_manager->AddInfoBar(CreateConfirmInfoBar(std::move(delegate)));
+      }
+      return true;
+    }
     case InfoBarType::kLocalTestPoliciesApplied: {
       if (infobars::IsInfoBarMigrated(
               infobars::InfoBarDelegate::LOCAL_TEST_POLICIES_APPLIED_INFOBAR)) {
-        auto* browser_infobar_manager =
-            infobars::BrowserInfoBarManager::From(g_browser_process);
         if (!browser_infobar_manager) {
           return false;
         }
@@ -464,23 +601,33 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
       }
       return true;
     }
-    case InfoBarType::kPageInfo: {
-      if (!bwi || !bwi->GetActiveTabInterface()) {
-        return false;
-      }
-      content::WebContents* web_contents =
-          bwi->GetActiveTabInterface()->GetContents();
-
+    case InfoBarType::kObsoleteSystem: {
       if (infobars::IsInfoBarMigrated(
-              infobars::InfoBarDelegate::PAGE_INFO_INFOBAR_DELEGATE)) {
-        auto* browser_infobar_manager =
-            infobars::BrowserInfoBarManager::From(g_browser_process);
+              infobars::InfoBarDelegate::OBSOLETE_SYSTEM_INFOBAR_DELEGATE)) {
         if (!browser_infobar_manager) {
           return false;
         }
         browser_infobar_manager->Show(
-            bwi->GetActiveTabInterface(),
-            infobars::InfoBarDelegate::PAGE_INFO_INFOBAR_DELEGATE);
+            active_tab,
+            infobars::InfoBarDelegate::OBSOLETE_SYSTEM_INFOBAR_DELEGATE);
+      } else {
+        infobars::ContentInfoBarManager* infobar_manager =
+            infobars::ContentInfoBarManager::FromWebContents(web_contents);
+        if (!infobar_manager) {
+          return false;
+        }
+        ObsoleteSystemInfoBarDelegate::Create(infobar_manager);
+      }
+      return true;
+    }
+    case InfoBarType::kPageInfo: {
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::PAGE_INFO_INFOBAR_DELEGATE)) {
+        if (!browser_infobar_manager) {
+          return false;
+        }
+        browser_infobar_manager->Show(
+            active_tab, infobars::InfoBarDelegate::PAGE_INFO_INFOBAR_DELEGATE);
       } else {
         infobars::ContentInfoBarManager* infobar_manager =
             infobars::ContentInfoBarManager::FromWebContents(web_contents);
@@ -491,43 +638,8 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
       }
       return true;
     }
-#if BUILDFLAG(ENABLE_PLUGINS)
-    case InfoBarType::kReloadPlugin: {
-      if (!bwi || !bwi->GetActiveTabInterface()) {
-        return false;
-      }
-
-      content::WebContents* web_contents =
-          bwi->GetActiveTabInterface()->GetContents();
-      ReloadPluginInfoBarDelegate::Create(
-          infobars::ContentInfoBarManager::FromWebContents(web_contents),
-          &web_contents->GetController(),
-          l10n_util::GetStringFUTF16(IDS_PLUGIN_CRASHED_PROMPT,
-                                     u"Infobar Internals"));
-      return true;
-    }
-#endif
-#if BUILDFLAG(IS_MAC)
-    case InfoBarType::kKeystone: {
-#if BUILDFLAG(ENABLE_UPDATER)
-      if (!profile) {
-        return false;
-      }
-
-      profile->GetPrefs()->SetBoolean(prefs::kShowUpdatePromotionInfoBar, true);
-      ShowUpdaterPromotionInfoBar();
-      return true;
-#else
-      return false;
-#endif
-    }
-#endif
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
     case InfoBarType::kPdf: {
-      if (!bwi || !bwi->GetActiveTabInterface()) {
-        return false;
-      }
-
       auto* controller = pdf::infobar::PdfInfoBarController::From(bwi);
       if (!controller) {
         return false;
@@ -541,6 +653,25 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
 
       controller->MaybeShowInfoBarCallback(
           shell_integration::DefaultWebClientState::NOT_DEFAULT);
+      return true;
+    }
+#endif
+#if BUILDFLAG(ENABLE_PLUGINS)
+    case InfoBarType::kReloadPlugin: {
+      ReloadPluginInfoBarDelegate::Create(
+          infobars::ContentInfoBarManager::FromWebContents(web_contents),
+          &web_contents->GetController(),
+          l10n_util::GetStringFUTF16(IDS_PLUGIN_CRASHED_PROMPT,
+                                     u"Infobar Internals"));
+      return true;
+    }
+#endif
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+    case InfoBarType::kSessionRestore: {
+      session_restore_infobar::SessionRestoreInfoBarManager::GetInstance()
+          ->ShowInfoBar(*profile,
+                        session_restore_infobar::InfobarMessageType::
+                            kTurnOffFromRestart);
       return true;
     }
 #endif
@@ -564,10 +695,6 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
 #endif
 #if BUILDFLAG(ENABLE_EXTENSIONS)
     case InfoBarType::kThemeInstalled: {
-      if (!profile) {
-        return false;
-      }
-
       ThemeService* theme_service = ThemeServiceFactory::GetForProfile(profile);
       extensions::ExtensionRegistry* registry =
           extensions::ExtensionRegistry::Get(profile);
@@ -584,9 +711,16 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
         }
       }
 
-      ThemeInstalledInfoBarDelegate::CreateForLastActiveTab(
-          profile, theme_name, theme_id,
-          theme_service->BuildReinstallerForCurrentTheme());
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::THEME_INSTALLED_INFOBAR_DELEGATE)) {
+        ThemeService::ShowThemeInstalledInfoBar(
+            profile, theme_name, theme_id,
+            theme_service->BuildReinstallerForCurrentTheme());
+      } else {
+        ThemeInstalledInfoBarDelegate::CreateForLastActiveTab(
+            profile, theme_name, theme_id,
+            theme_service->BuildReinstallerForCurrentTheme());
+      }
       return true;
     }
 #endif

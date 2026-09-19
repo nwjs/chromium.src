@@ -7,9 +7,9 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/test_simple_task_runner.h"
 #include "build/build_config.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/render_frame_host.h"
@@ -120,7 +120,7 @@ class TooltipBrowserTest : public InProcessBrowserTest {
   void NavigateToURL(const std::string& relative_url) {
     ASSERT_TRUE(ui_test_utils::NavigateToURL(
         browser(), embedded_test_server()->GetURL("a.com", relative_url)));
-    web_contents_ = browser()->tab_strip_model()->GetActiveWebContents();
+    web_contents_ = browser()->GetTabStripModel()->GetActiveWebContents();
     rwhv_ = web_contents_->GetRenderWidgetHostView();
     content::WaitForHitTestData(web_contents_->GetPrimaryMainFrame());
   }
@@ -376,7 +376,13 @@ IN_PROC_BROWSER_TEST_F(TooltipBrowserTest,
   EXPECT_FALSE(helper()->IsTooltipVisible());
 }
 
-IN_PROC_BROWSER_TEST_F(TooltipBrowserTest, ResetTooltipOnClosingWindow) {
+// TODO(crbug.com/549855061): Flaky on Windows.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_ResetTooltipOnClosingWindow DISABLED_ResetTooltipOnClosingWindow
+#else
+#define MAYBE_ResetTooltipOnClosingWindow ResetTooltipOnClosingWindow
+#endif
+IN_PROC_BROWSER_TEST_F(TooltipBrowserTest, MAYBE_ResetTooltipOnClosingWindow) {
   NavigateToURL("/tooltip.html");
 
   // Trigger the tooltip from the cursor.

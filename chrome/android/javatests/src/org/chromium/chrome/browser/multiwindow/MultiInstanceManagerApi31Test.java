@@ -28,8 +28,8 @@ import org.junit.runner.RunWith;
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.Token;
 import org.chromium.base.test.util.ApplicationTestUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
@@ -37,10 +37,12 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.RecentlyClosedEntriesManager;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.CloseWindowAppSource;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
@@ -50,11 +52,13 @@ import org.chromium.chrome.browser.ntp.RecentlyClosedWindow;
 import org.chromium.chrome.browser.preferences.MultiInstancePreferenceKeys;
 import org.chromium.chrome.browser.preferences.MultiInstanceSharedPreferences;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.components.embedder_support.util.UrlConstants;
+import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -73,8 +77,6 @@ import java.util.Set;
 @MinAndroidSdkLevel(VERSION_CODES.S)
 public class MultiInstanceManagerApi31Test {
     private static final int TAB1_ID = 456;
-    private static final Token TAB_GROUP_ID1 = new Token(2L, 2L);
-    private static final String TAB_GROUP_TITLE = "Regrouped tabs";
     private static final ArrayList<Map.Entry<Integer, String>> TAB_IDS_TO_URLS =
             new ArrayList<>(List.of(Map.entry(TAB1_ID, "https://www.youtube.com/")));
 
@@ -422,23 +424,119 @@ public class MultiInstanceManagerApi31Test {
                         /* isIncognito= */ false, /* openInTabGroup= */ true);
 
         CriteriaHelper.pollUiThread(
-                () ->
-                        Criteria.checkThat(
-                                "Target activity tab model should contain 3 tabs",
-                                targetActivity.getCurrentTabModel().getCount(),
-                                is(3)));
-        Assert.assertFalse(
-                "Target activity should not be Incognito", targetActivity.isIncognitoWindow());
-        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     var tabModel = targetActivity.getCurrentTabModel();
+                    Criteria.checkThat(
+                            "Target activity tab model should contain 3 tabs",
+                            tabModel.getCount(),
+                            is(3));
                     Tab tab0 = tabModel.getTabAt(0);
+                    Criteria.checkThat("Tab 0 should be non-null", tab0, notNullValue());
                     Tab tab1 = tabModel.getTabAt(1);
+                    Criteria.checkThat("Tab 1 should be non-null", tab1, notNullValue());
                     Tab tab2 = tabModel.getTabAt(2);
-                    Assert.assertEquals(
-                            "Tab 1 parent should be Tab 0", tab0.getId(), tab1.getParentId());
-                    Assert.assertEquals(
-                            "Tab 2 parent should be Tab 0", tab0.getId(), tab2.getParentId());
+                    Criteria.checkThat("Tab 2 should be non-null", tab2, notNullValue());
+                    Criteria.checkThat(
+                            "Tab 0 should have a tab group ID",
+                            tab0.getTabGroupId(),
+                            notNullValue());
+                    Criteria.checkThat(
+                            "Tab 1 should be in the same tab group as Tab 0",
+                            tab1.getTabGroupId(),
+                            is(tab0.getTabGroupId()));
+                    Criteria.checkThat(
+                            "Tab 2 should be in the same tab group as Tab 0",
+                            tab2.getTabGroupId(),
+                            is(tab0.getTabGroupId()));
+                });
+        Assert.assertFalse(
+                "Target activity should not be Incognito", targetActivity.isIncognitoWindow());
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures({
+        ChromeFeatureList.ON_STARTUP_WINDOW_POLICY,
+        ChromeFeatureList.SYNC_RESTORE_ON_STARTUP_PREF
+    })
+    public void testNewWindow_RestoreOnStartup_NewTabPref() throws Exception {
+        // Setup.
+        DeviceInfo.setIsDesktopForTesting(true);
+        // Note: Window 0 was launched by startOnBlankPage() in setUp() when the preference was
+        // still PREF_UNSET, so Window 0 did not claim the startup policy. Thus, when newActivity
+        // (Window 1) initializes, it acts as the first window to claim NEW_TAB.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    ChromeMultiInstancePersistentStore.writeRestoreOnStartupPrefValue(
+                            SessionStartupPref.NEW_TAB);
+                });
+
+        // Act.
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        ChromeTabbedActivity newActivity =
+                createNewWindow(
+                        context,
+                        /* instanceId= */ -1,
+                        /* addIncognitoExtras= */ false,
+                        /* loadCustomUrl= */ false,
+                        /* createMultipleTabs= */ false);
+
+        // Verify.
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    Criteria.checkThat(newActivity.getTabModelSelector().getTotalTabCount(), is(1));
+                });
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    TabModel model = newActivity.getTabModelSelector().getModel(false);
+                    assertTrue(UrlUtilities.isNtpUrl(model.getTabAt(0).getOriginalUrl()));
+                });
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures({
+        ChromeFeatureList.ON_STARTUP_WINDOW_POLICY,
+        ChromeFeatureList.SYNC_RESTORE_ON_STARTUP_PREF
+    })
+    public void testNewWindow_RestoreOnStartup_UrlsPref() throws Exception {
+        // Setup.
+        DeviceInfo.setIsDesktopForTesting(true);
+        List<String> startupUrls = List.of(UrlConstants.GOOGLE_URL, "https://www.yahoo.com/");
+        // Note: Window 0 was launched by startOnBlankPage() in setUp() when the preference was
+        // still PREF_UNSET, so Window 0 did not claim the startup policy. Thus, when newActivity
+        // (Window 1) initializes, it acts as the first window to claim URLS.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    ChromeMultiInstancePersistentStore.writeRestoreOnStartupPrefValue(
+                            SessionStartupPref.URLS);
+                    ChromeMultiInstancePersistentStore.writeRestoreOnStartupUrls(startupUrls);
+                });
+
+        // Act.
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        ChromeTabbedActivity newActivity =
+                createNewWindow(
+                        context,
+                        /* instanceId= */ -1,
+                        /* addIncognitoExtras= */ false,
+                        /* loadCustomUrl= */ false,
+                        /* createMultipleTabs= */ false);
+
+        // Verify.
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    Criteria.checkThat(newActivity.getTabModelSelector().getTotalTabCount(), is(2));
+                });
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    TabModel model = newActivity.getTabModelSelector().getModel(false);
+                    assertEquals(
+                            UrlConstants.GOOGLE_URL, model.getTabAt(0).getOriginalUrl().getSpec());
+                    assertEquals(
+                            "https://www.yahoo.com/", model.getTabAt(1).getOriginalUrl().getSpec());
                 });
     }
 

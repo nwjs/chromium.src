@@ -179,7 +179,10 @@ class COLOR_SPACE_EXPORT ColorSpace {
              RangeID range,
              const skcms_Matrix3x3* custom_primary_matrix,
              const skcms_TransferFunction* cunstom_transfer_fn);
+  ColorSpace(const SkColorSpacePrimaries& primaries,
+             const skcms_TransferFunction& fn);
 
+  explicit ColorSpace(const SkColorSpace* sk_color_space, bool is_hdr = false);
   explicit ColorSpace(const SkColorSpace& sk_color_space, bool is_hdr = false);
 
   // Returns true if this is not the default-constructor object.

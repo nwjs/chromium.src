@@ -48,6 +48,7 @@
 #include "components/policy/core/common/management/scoped_management_service_override_for_testing.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/testing_pref_service.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
@@ -56,6 +57,7 @@
 #include "components/variations/service/test_variations_service.h"
 #include "components/variations/service/variations_service.h"
 #include "components/variations/variations_switches.h"
+#include "content/public/common/content_switches.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -129,6 +131,7 @@ class TestDelegate : public GlicEnablingDelegate {
 class GlicEnablingTest : public testing::Test {
  public:
   void SetUp() override {
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kTestType);
 #if BUILDFLAG(IS_ANDROID)
     if (base::android::android_info::sdk_int() <
         base::android::android_info::SDK_VERSION_S) {
@@ -483,6 +486,7 @@ class GlicEnablingProfileEligibilityTest : public testing::Test {
   ~GlicEnablingProfileEligibilityTest() override = default;
 
   void SetUp() override {
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kTestType);
 #if BUILDFLAG(IS_ANDROID)
     if (base::android::android_info::sdk_int() <
         base::android::android_info::SDK_VERSION_S) {
@@ -638,6 +642,30 @@ TEST_F(GlicEnablingProfileEligibilityTest,
                                                         account_info));
 }
 
+TEST_F(GlicEnablingProfileEligibilityTest, IsEnabledForFirstRunProfileU18) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      switches::kGlicEligibilitySeparateAccountCapability);
+
+  auto* identity_test_env = identity_test_env_adaptor_->identity_test_env();
+  AccountInfo account_info = identity_test_env->MakePrimaryAccountAvailable(
+      /*email=*/"test@example.com", signin::ConsentLevel::kSignin);
+  AccountCapabilitiesTestMutator mutator(&account_info);
+  // User is eligible for Gemini in Chrome, but is U18 (cannot use adult
+  // features).
+  mutator.set_can_use_gemini_in_chrome(true);
+  mutator.set_can_use_model_execution_features(false);
+  signin::UpdateAccountInfoForAccount(identity_test_env->identity_manager(),
+                                      account_info);
+
+  // Overall profile is enabled for Gemini in Chrome.
+  EXPECT_TRUE(GlicEnabling::IsEnabledForProfile(profile()));
+  // But FRE should NOT be enabled for U18 users.
+  EXPECT_FALSE(GlicEnabling::IsEnabledForFirstRunProfile(
+      profile(), /*permanent_country=*/"us", /*session_country=*/"us",
+      account_info));
+}
+
 class GlicEnablingProfileReadyStateTestBase
     : public GlicEnablingProfileEligibilityTest {
  public:
@@ -663,6 +691,7 @@ class GlicEnablingProfileReadyStateTestBase
   }
 
   void SetUp() override {
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kTestType);
     GlicEnablingProfileEligibilityTest::SetUp();
     if (IsSkipped()) {
       return;
@@ -745,6 +774,7 @@ class GlicEnablingAnchorEntryPointTestBase : public testing::Test {
   }
 
   void SetUp() override {
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kTestType);
 #if BUILDFLAG(IS_ANDROID)
     if (base::android::android_info::sdk_int() <
         base::android::android_info::SDK_VERSION_S) {
@@ -1116,6 +1146,7 @@ class GlicEnablingGatedFeatureTest
 class GlicEnablingAutoOpenForPdfTest : public GlicEnablingGatedFeatureTest {
  public:
   void SetUp() override {
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kTestType);
     SetUpFeature(features::kAutoOpenGlicForPdf,
                  features::kAutoOpenGlicForPdfWithOnboarding);
   }
@@ -1165,6 +1196,7 @@ class GlicEnablingContextMenuTest
       public testing::WithParamInterface<ContextMenuFeatureParams> {
  public:
   void SetUp() override {
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kTestType);
     GlicEnablingProfileReadyStateTestBase::SetUp();
     if (IsSkipped()) {
       return;
@@ -1753,6 +1785,7 @@ class GlicEnablingGeminiEnterpriseSettingsTest
   }
 
   void SetUp() override {
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kTestType);
     GlicEnablingProfileEligibilityTest::SetUp();
     if (IsSkipped()) {
       return;
@@ -2039,6 +2072,7 @@ class GlicEnablingAnchorEntryPointCountryTest
   }
 
   void SetUp() override {
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kTestType);
     variations::TestVariationsService::RegisterPrefs(local_state_.registry());
     metrics_state_manager_ = metrics::MetricsStateManager::Create(
         &local_state_, &enabled_state_provider_, std::wstring(),

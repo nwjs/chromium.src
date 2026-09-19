@@ -172,11 +172,26 @@ size_t QuicSessionPoolPeer::GetNumDegradingSessions(QuicSessionPool* pool) {
   return pool->connectivity_monitor_.GetNumDegradingSessions();
 }
 
-QuicSessionEstablishmentReason
-QuicSessionPoolPeer::DetermineQuicSessionEstablishmentReasonForTesting(
+QuicSessionEstablishmentReason QuicSessionPoolPeer::
+    DetermineQuicSessionEstablishmentReasonForTesting(  // IN-TEST
+        QuicSessionPool* pool,
+        const QuicSessionKey& session_key) {
+  return pool->DetermineQuicConnectionReuseDetails(session_key)
+      .establishment_reason.value_or(QuicSessionEstablishmentReason::kUnknown);
+}
+
+QuicConnectionReuseDetails
+QuicSessionPoolPeer::DetermineQuicConnectionReuseDetailsForTesting(  // IN-TEST
     QuicSessionPool* pool,
     const QuicSessionKey& session_key) {
-  return pool->DetermineQuicSessionEstablishmentReason(session_key);
+  return pool->DetermineQuicConnectionReuseDetails(session_key);
+}
+
+void QuicSessionPoolPeer::ActivateAndMapSessionToAliasKey(
+    QuicSessionPool* pool,
+    const QuicSessionAliasKey& key,
+    QuicChromiumClientSession* session) {
+  pool->ActivateAndMapSessionToAliasKey(session, key, std::set<std::string>());
 }
 
 void QuicSessionPoolPeer::SetAlarmFactory(

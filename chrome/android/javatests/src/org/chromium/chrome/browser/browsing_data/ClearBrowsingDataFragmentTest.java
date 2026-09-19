@@ -81,6 +81,7 @@ import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.PayloadCallbackHelper;
+import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
@@ -103,7 +104,8 @@ import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.searchwidget.SearchActivity;
 import org.chromium.chrome.browser.settings.SettingsActivity;
-import org.chromium.chrome.browser.settings.SettingsActivityTestRule;
+import org.chromium.chrome.browser.settings.SettingsActivityInterface;
+import org.chromium.chrome.browser.settings.SettingsTestRule;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.sync.FakeSyncServiceImpl;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
@@ -121,6 +123,7 @@ import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.sync.DataType;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.ViewUtils;
 
 import java.util.Arrays;
@@ -138,8 +141,8 @@ public class ClearBrowsingDataFragmentTest {
             ChromeTransitTestRules.freshChromeTabbedActivityRule();
 
     @Rule
-    public SettingsActivityTestRule<ClearBrowsingDataFragment> mSettingsActivityTestRule =
-            new SettingsActivityTestRule<>(ClearBrowsingDataFragment.class);
+    public SettingsTestRule<ClearBrowsingDataFragment> mSettingsActivityTestRule =
+            new SettingsTestRule<>(ClearBrowsingDataFragment.class);
 
     @Rule public final SigninTestRule mSigninTestRule = new SigninTestRule();
 
@@ -225,8 +228,8 @@ public class ClearBrowsingDataFragmentTest {
         clearButton.callOnClick();
     }
 
-    private SettingsActivity startPreferences() {
-        SettingsActivity settingsActivity =
+    private SettingsActivityInterface startPreferences() {
+        SettingsActivityInterface settingsActivity =
                 mSettingsActivityTestRule.startSettingsActivity(
                         ClearBrowsingDataFragment.createFragmentArgs(
                                 mActivityTestRule.getActivity().getClass().getName()));
@@ -448,8 +451,9 @@ public class ClearBrowsingDataFragmentTest {
 
     @Test
     @MediumTest
+    @Restriction(DeviceFormFactor.PHONE) // Tablets and desktops don't have a help button or menu.
     public void testHelpButtonClicked() {
-        SettingsActivity activity = startPreferences();
+        SettingsActivityInterface activity = startPreferences();
         ClearBrowsingDataFragment fragment = mSettingsActivityTestRule.getFragment();
 
         HelpAndFeedbackLauncherFactory.setInstanceForTesting(mHelpAndFeedbackLauncher);
@@ -458,7 +462,7 @@ public class ClearBrowsingDataFragmentTest {
                 () -> {
                     verify(mHelpAndFeedbackLauncher)
                             .show(
-                                    activity,
+                                    mSettingsActivityTestRule.getActivity(),
                                     fragment.getString(R.string.help_context_clear_browsing_data),
                                     null);
                 });
@@ -528,7 +532,7 @@ public class ClearBrowsingDataFragmentTest {
      * fragment and clicks the "Clear" button.
      */
     static class OpenPreferencesEnableDialogAndClickClearRunnable implements Runnable {
-        final SettingsActivity mSettingsActivity;
+        final SettingsActivityInterface mSettingsActivity;
 
         /**
          * Instantiates this OpenPreferencesEnableDialogAndClickClearRunnable.
@@ -536,7 +540,7 @@ public class ClearBrowsingDataFragmentTest {
          * @param settingsActivity A Settings activity containing ClearBrowsingDataFragment
          *     fragment.
          */
-        public OpenPreferencesEnableDialogAndClickClearRunnable(SettingsActivity settingsActivity) {
+        public OpenPreferencesEnableDialogAndClickClearRunnable(SettingsActivityInterface settingsActivity) {
             mSettingsActivity = settingsActivity;
         }
 
@@ -558,7 +562,7 @@ public class ClearBrowsingDataFragmentTest {
      * activity is closed.
      */
     static class PreferenceScreenClosedCriterion implements Runnable {
-        final SettingsActivity mSettingsActivity;
+        final SettingsActivityInterface mSettingsActivity;
 
         /**
          * Instantiates this PreferenceScreenClosedCriterion.
@@ -566,7 +570,7 @@ public class ClearBrowsingDataFragmentTest {
          * @param settingsActivity A Settings activity containing ClearBrowsingDataFragment
          *     fragment.
          */
-        public PreferenceScreenClosedCriterion(SettingsActivity settingsActivity) {
+        public PreferenceScreenClosedCriterion(SettingsActivityInterface settingsActivity) {
             mSettingsActivity = settingsActivity;
         }
 
@@ -594,7 +598,7 @@ public class ClearBrowsingDataFragmentTest {
         // History is not selected. We still need to select some other datatype, otherwise the
         // "Clear" button won't be enabled.
         setDataTypesToClear(DialogOption.CLEAR_CACHE);
-        final SettingsActivity settingsActivity1 = startPreferences();
+        final SettingsActivityInterface settingsActivity1 = startPreferences();
         ThreadUtils.runOnUiThreadBlocking(
                 new OpenPreferencesEnableDialogAndClickClearRunnable(settingsActivity1));
         mCallbackHelper.waitForCallback(0);
@@ -606,7 +610,7 @@ public class ClearBrowsingDataFragmentTest {
         CriteriaHelper.pollUiThread(new PreferenceScreenClosedCriterion(settingsActivity1));
         // Reopen Clear Browsing Data preferences, this time with history selected for clearing.
         setDataTypesToClear(DialogOption.CLEAR_HISTORY);
-        final SettingsActivity settingsActivity2 = startPreferences();
+        final SettingsActivityInterface settingsActivity2 = startPreferences();
         ThreadUtils.runOnUiThreadBlocking(
                 new OpenPreferencesEnableDialogAndClickClearRunnable(settingsActivity2));
 
@@ -639,7 +643,7 @@ public class ClearBrowsingDataFragmentTest {
 
         // Reopen Clear Browsing Data preferences and clear history once again.
         setDataTypesToClear(DialogOption.CLEAR_HISTORY);
-        final SettingsActivity settingsActivity3 = startPreferences();
+        final SettingsActivityInterface settingsActivity3 = startPreferences();
         final Profile expectedProfile = mSettingsActivityTestRule.getFragment().getProfile();
         ThreadUtils.runOnUiThreadBlocking(
                 new OpenPreferencesEnableDialogAndClickClearRunnable(settingsActivity3));
@@ -779,7 +783,7 @@ public class ClearBrowsingDataFragmentTest {
         markOriginsAsImportant(importantOrigins);
         setDataTypesToClear(DialogOption.CLEAR_HISTORY, DialogOption.CLEAR_CACHE);
 
-        SettingsActivity settingsActivity = startPreferences();
+        SettingsActivityInterface settingsActivity = startPreferences();
         ClearBrowsingDataFragment fragment =
                 (ClearBrowsingDataFragment) settingsActivity.getMainFragment();
         Profile expectedProfile = fragment.getProfile();
@@ -789,7 +793,7 @@ public class ClearBrowsingDataFragmentTest {
         // Press the cancel button.
         ThreadUtils.runOnUiThreadBlocking(
                 getPressButtonInImportantDialogRunnable(fragment, AlertDialog.BUTTON_NEGATIVE));
-        settingsActivity.finish();
+        mSettingsActivityTestRule.getActivity().finish();
 
         // Nothing was cleared.
         verify(mBrowsingDataBridgeMock, never())
@@ -817,7 +821,7 @@ public class ClearBrowsingDataFragmentTest {
 
         setDataTypesToClear(DialogOption.CLEAR_HISTORY, DialogOption.CLEAR_CACHE);
 
-        final SettingsActivity settingsActivity = startPreferences();
+        final SettingsActivityInterface settingsActivity = startPreferences();
         final ClearBrowsingDataFragment fragment =
                 (ClearBrowsingDataFragment) settingsActivity.getMainFragment();
         final Profile expectedProfile = fragment.getProfile();

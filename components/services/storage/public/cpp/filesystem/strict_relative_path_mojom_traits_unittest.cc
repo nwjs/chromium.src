@@ -5,6 +5,7 @@
 #include "components/services/storage/public/cpp/filesystem/strict_relative_path_mojom_traits.h"
 
 #include "base/files/file_path.h"
+#include "build/build_config.h"
 #include "components/services/storage/public/mojom/filesystem/directory.mojom.h"
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -57,8 +58,14 @@ TEST(StrictRelativePathTraitsTest, RejectsReservedWindowsNames) {
 
   for (const auto& original : test_paths) {
     base::FilePath deserialized;
+#if BUILDFLAG(IS_WIN)
     EXPECT_FALSE(mojo::test::SerializeAndDeserialize<mojom::StrictRelativePath>(
         original, deserialized));
+#else
+    EXPECT_TRUE(mojo::test::SerializeAndDeserialize<mojom::StrictRelativePath>(
+        original, deserialized));
+    EXPECT_EQ(original, deserialized);
+#endif
   }
 }
 

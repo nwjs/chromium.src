@@ -8,7 +8,7 @@ import android.content.Context;
 
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.FeatureList;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -82,13 +82,9 @@ public class AdaptiveToolbarFeatures {
         return false;
     }
 
-    /**
-     * Returns whether the adaptive toolbar is enabled with segmentation and customization.
-     *
-     * <p>Must be called with the {@link FeatureList} initialized.
-     */
+    /** Returns whether the adaptive toolbar is enabled with segmentation and customization. */
     public static boolean isCustomizationEnabled() {
-        return ChromeFeatureList.sAdaptiveButtonInTopToolbarCustomizationV2.isEnabled();
+        return true;
     }
 
     /**
@@ -179,8 +175,11 @@ public class AdaptiveToolbarFeatures {
      * Returns whether Glic is enabled for the given profile in the context of the adaptive toolbar.
      */
     public static boolean isGlicEnabledForAdaptiveToolbar(Context context, Profile profile) {
+        boolean isTablet =
+                DeviceFormFactor.isNonMultiDisplayContextOnTablet(context)
+                        && !DeviceInfo.isFoldable();
         return GlicEnabling.isEnabledForProfile(profile)
-                && !DeviceFormFactor.isNonMultiDisplayContextOnTablet(context)
+                && !isTablet
                 && !BottomBarConfigUtils.isBottomBarEnabled(context);
     }
 
@@ -246,9 +245,6 @@ public class AdaptiveToolbarFeatures {
 
     /** Returns the minimum device width below which the toolbar button isn't shown. */
     public static int getDeviceMinimumWidthForShowingButton() {
-        return ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
-                ChromeFeatureList.ADAPTIVE_BUTTON_IN_TOP_TOOLBAR_CUSTOMIZATION_V2,
-                "minimum_width_dp",
-                DEFAULT_MIN_WIDTH_DP);
+        return DEFAULT_MIN_WIDTH_DP;
     }
 }

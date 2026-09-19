@@ -15,8 +15,8 @@ import '//resources/cr_components/composebox/composebox_voice_search.js';
 import '//resources/cr_components/search/animated_glow.js';
 import '//resources/cr_components/localized_link/localized_link.js';
 
-import {getLoadTimeBoolean} from '//resources/cr_components/composebox/common.js';
-import type {ComposeboxFile, ContextualUpload} from '//resources/cr_components/composebox/common.js';
+import {getLoadTimeBoolean, GlifAnimationState} from '//resources/cr_components/composebox/common.js';
+import type {ComposeboxFile, ComposeboxFuseboxActionRequest} from '//resources/cr_components/composebox/common.js';
 import type {PageHandlerRemote} from '//resources/cr_components/composebox/composebox.mojom-webui.js';
 import type {ComposeboxDropdownElement} from '//resources/cr_components/composebox/composebox_dropdown.js';
 import type {ComposeboxFileInputsElement} from '//resources/cr_components/composebox/composebox_file_inputs.js';
@@ -24,7 +24,6 @@ import type {ComposeboxInputElement} from '//resources/cr_components/composebox/
 import {ComposeboxEmbedderMixin} from '//resources/cr_components/composebox/composebox_mixin.js';
 import type {ComposeboxEmbedderMixinInterface} from '//resources/cr_components/composebox/composebox_mixin.js';
 import {ComposeboxProxyImpl} from '//resources/cr_components/composebox/composebox_proxy.js';
-import {ModelMode, ToolMode} from '//resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import type {ContextualEntrypointAndMenuElement} from '//resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
 import type {ErrorScrimElement} from '//resources/cr_components/composebox/error_scrim.js';
 import type {ComposeboxFileCarouselElement} from '//resources/cr_components/composebox/file_carousel.js';
@@ -35,16 +34,8 @@ import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {UnguessableToken} from '//resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 
-import {InputSource, QueryActionOverride} from './fusebox_action.mojom-webui.js';
-import type {FuseboxAction} from './fusebox_action.mojom-webui.js';
 import {getCss} from './ntp_composebox.css.js';
 import {getHtml} from './ntp_composebox.html.js';
-
-export interface FuseboxActionRequest {
-  suggestion: string;
-  files: ContextualUpload[];
-  fuseboxAction?: FuseboxAction;
-}
 
 export interface NtpComposeboxElement extends ComposeboxEmbedderMixinInterface {
   $: {
@@ -74,6 +65,10 @@ export class NtpComposeboxElement extends ComposeboxEmbedderMixin
   static override get properties() {
     return {
       entrypointName: {type: String, reflect: true},
+      glifAnimationState: {
+        reflect: true,
+        type: String,
+      },
       /*
       `expanding_` property is used in composebox.css styles. It is added
       so that the imported styles work well. Remove this property once each
@@ -91,13 +86,12 @@ export class NtpComposeboxElement extends ComposeboxEmbedderMixin
   }
 
   accessor entrypointName: string = 'Realbox';
+  accessor glifAnimationState: GlifAnimationState =
+      GlifAnimationState.INELIGIBLE;
   private searchboxCallbackRouter_: SearchboxPageCallbackRouter;
   private pageHandler_: PageHandlerRemote;
   private searchboxHandler_: SearchboxPageHandlerRemote;
   private eventTracker_: EventTracker = new EventTracker();
-  // Chip suggestion shown as the input placeholder while a hint action is
-  // active. Set or replaced only by hint deliveries; ends with the element.
-  private chipHint_: string|null = null;
   protected accessor expanding_: boolean = true;
   protected accessor shouldRemainFolded_: boolean = true;
 
@@ -136,6 +130,10 @@ export class NtpComposeboxElement extends ComposeboxEmbedderMixin
         null;
   }
 
+  override getFileInputsElement(): ComposeboxFileInputsElement|null {
+    return this.shouldDisableFileInputs() ? null : this.$.fileInputs;
+  }
+
   constructor() {
     super();
     this.pageHandler_ = ComposeboxProxyImpl.getInstance().handler;
@@ -165,7 +163,7 @@ export class NtpComposeboxElement extends ComposeboxEmbedderMixin
     if (this.errorMessage) {
       return false;
     }
-    if ((this.files?.size ?? 0) > 0) {
+    if (this.hasFiles()) {
       return false;
     }
     if (this.inToolMode) {
@@ -174,15 +172,21 @@ export class NtpComposeboxElement extends ComposeboxEmbedderMixin
     if ((this.result?.matches?.length ?? 0) > 0) {
       return false;
     }
+    if (this.hasTabs()) {
+      return false;
+    }
     return true;
   }
 
   override shouldShowDivider(): boolean {
-    const hasNonTabFiles = Array.from(this.files.values()).some(f => !f.url);
-    if (this.hasTabs() && !hasNonTabFiles) {
+    if (this.hasTabs() && !this.hasNonTabFiles()) {
       return this.showDropdown;
     }
     return super.shouldShowDivider();
+  }
+
+  override shouldHandleSuggestionFuseboxActions(): boolean {
+    return true;
   }
 
   override deleteFile(uuidToDelete: UnguessableToken, fromUserAction?: boolean):
@@ -194,80 +198,16 @@ export class NtpComposeboxElement extends ComposeboxEmbedderMixin
     return file;
   }
 
-  // Keeps the active chip hint as the placeholder so that asynchronous
-  // inputState recomputes cannot clobber it.
-  override updateInputPlaceholder() {
-    if (this.chipHint_ !== null) {
-      this.inputPlaceholder = this.chipHint_;
-      return;
+  override async handleFuseboxAction(request: ComposeboxFuseboxActionRequest) {
+    // TODO(crbug.com/548681676): Wire to TutorialId once server proto rolls.
+    if (this.energyEffectAnimationEnabled &&
+        getLoadTimeBoolean('scaledActionChipsInTestMode', false)) {
+      this.glifAnimationState = GlifAnimationState.INELIGIBLE;
+      requestAnimationFrame(() => {
+        this.glifAnimationState = GlifAnimationState.STARTED;
+      });
     }
-    super.updateInputPlaceholder();
-  }
-
-  async handleFuseboxAction(request: FuseboxActionRequest) {
-    const action = request.fuseboxAction;
-    const isHint = action?.queryActionOverride === QueryActionOverride.kHint;
-    if (isHint) {
-      this.chipHint_ = request.suggestion;
-      this.updateInputPlaceholder();
-    }
-    this.state = {
-      text: isHint ? '' : request.suggestion,
-      files: request.files,
-      mode: action?.preselectedTool ?? ToolMode.kUnspecified,
-      model: action?.preselectedModel ?? ModelMode.kUnspecified,
-      suggestInventory: action?.preferredInventory ?? undefined,
-      // <if expr="not is_android">
-      smartTabSharingActive: false,
-      // </if>
-    };
-    if (action?.preselectedInputSource) {
-      switch (action.preselectedInputSource) {
-        case InputSource.kInputSourceGallery:
-          this.$.fileInputs.shadowRoot
-              ?.querySelector<HTMLInputElement>('#imageInput')
-              ?.click();
-          break;
-        case InputSource.kInputSourceFilePicker:
-          this.$.fileInputs.shadowRoot
-              ?.querySelector<HTMLInputElement>('#fileInput')
-              ?.click();
-          break;
-        case InputSource.kInputSourceTabPicker:
-          await this.openTabPicker();
-          break;
-        case InputSource.kInputSourceVoice:
-          this.onVoiceSearchButtonClick();
-          break;
-        default:
-          break;
-      }
-    }
-  }
-
-  async openTabPicker() {
-    if (!this.inputState) {
-      const response = await this.getSearchboxHandler().getInputState();
-      if (response) {
-        this.inputState = response.state;
-      }
-    }
-    this.shareTabsFlyoutOpen = true;
-    await this.refreshTabSuggestions(/*forceRefresh=*/ true);
-    await this.updateComplete;
-
-    const contextEntrypoint = this.getContextEntrypointElement();
-    if (contextEntrypoint) {
-      await contextEntrypoint.updateComplete;
-      const entrypointButton =
-          contextEntrypoint.shadowRoot?.querySelector<CrLitElement>(
-              '#entrypointButton');
-      if (entrypointButton) {
-        await entrypointButton.updateComplete;
-      }
-      entrypointButton?.shadowRoot?.querySelector<HTMLElement>('#entrypoint')
-          ?.click();
-    }
+    await super.handleFuseboxAction(request);
   }
 }
 

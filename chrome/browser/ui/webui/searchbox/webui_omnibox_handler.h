@@ -59,7 +59,18 @@ class WebuiOmniboxHandler : public ContextualSearchboxHandler,
                      bool delay_upload,
                      searchbox::mojom::TabAttachmentSource source,
                      AddTabContextCallback) override;
+  // Queries autocomplete matches from the browser:
+  // - When the WebUI Omnibox full popup is enabled:
+  //   - If targeting the active tab (or if `tab_id` is nullopt), triggers
+  //     autocomplete and syncs the active native view text/caret.
+  //   - If targeting a background tab (e.g., an in-flight IPC arriving after a
+  //     tab switch), updates that background tab's saved draft state via
+  //     `SetUserTextForTab` without running autocomplete or mutating the active
+  //     view.
+  // - When the full popup is disabled, requires `!tab_id.has_value()` and
+  //   forwards directly to `SearchboxHandler::QueryAutocomplete`.
   void QueryAutocomplete(int32_t query_id,
+                         std::optional<int32_t> tab_id,
                          const std::u16string& input,
                          bool prevent_inline_autocomplete,
                          uint32_t cursor_position,
@@ -71,7 +82,6 @@ class WebuiOmniboxHandler : public ContextualSearchboxHandler,
   void StepSelection(OmniboxPopupSelection::Direction direction,
                      OmniboxPopupSelection::Step step);
   void OpenCurrentSelection(WindowOpenDisposition disposition);
-  void ResetPopupToInitialState();
   void SetAimButtonVisible(bool visible) override;
 
   // SearchboxHandler:
@@ -82,13 +92,11 @@ class WebuiOmniboxHandler : public ContextualSearchboxHandler,
       bool meta_key,
       bool shift_key,
       bool via_keyboard) override;
-  std::optional<searchbox::mojom::AutocompleteMatchPtr> CreateAutocompleteMatch(
-      const AutocompleteMatch& match,
-      size_t line,
-      bookmarks::BookmarkModel* bookmark_model,
-      const omnibox::GroupConfigMap& suggestion_groups_map,
-      const TemplateURLService* turl_service) const override;
   bool ShouldShowFirstContextualDescription() const override;
+  bool SupportsKeywordMode() const override;
+  void OverrideIconPaths(
+      const AutocompleteMatch& match,
+      searchbox::mojom::AutocompleteMatch* mojom_match) const override;
   void OnFocusChanged(bool focused) override;
 
   // AutocompleteController::Observer:
@@ -115,6 +123,8 @@ class WebuiOmniboxHandler : public ContextualSearchboxHandler,
   void OnTabWillDetach(tabs::TabInterface* tab,
                        tabs::TabInterface::DetachReason reason);
   void OnTabDidInsert(tabs::TabInterface* tab);
+
+  void UpdateAimButtonVisibility();
 
   // Delegate to observe WebContents.
   // Managed as a separate class to prevent member naming conflicts

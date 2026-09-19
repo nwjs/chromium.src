@@ -2,13 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import '//resources/cr_elements/cr_icon/cr_icon.js';
+import '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import '//resources/cr_elements/cr_button/cr_button.js';
 import '//resources/cr_elements/cr_checkbox/cr_checkbox.js';
+import '//resources/cr_elements/cr_icon/cr_icon.js';
 import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
-import '//resources/cr_elements/icons.html.js';
 import '//resources/cr_elements/cr_search_field/cr_search_field.js';
+import '//resources/cr_elements/cr_tabs/cr_tabs.js';
+import '//resources/cr_elements/icons.html.js';
 
+import type {CrActionMenuElement} from '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 
 import {browserProxyFactory, EntryType} from '../context_hub.mojom-webui.js';
@@ -32,6 +35,15 @@ function downloadFile(filename: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
+const FOLDER_TAB_ICON: string =
+    'chrome://resources/images/icon_folder_open.svg';
+
+export interface MemoryBanksElement {
+  $: {
+    actionMenu: CrActionMenuElement,
+  };
+}
+
 export class MemoryBanksElement extends CrLitElement {
   static get is() {
     return 'memory-banks';
@@ -50,19 +62,21 @@ export class MemoryBanksElement extends CrLitElement {
       entries: {type: Array},
       selectedIds: {type: Object},
       searchQuery: {type: String},
-      geminiResponse_: {type: String},
-      isAskingGemini_: {type: Boolean},
-      showGeminiPanel_: {type: Boolean},
+      selectedCollection: {type: String},
+      geminiResponse_: {type: String, state: true},
+      isAskingGemini_: {type: Boolean, state: true},
+      showGeminiPanel_: {type: Boolean, state: true},
     };
   }
 
   accessor entries: MemoryBankEntry[] = [];
   accessor selectedIds: Set<bigint> = new Set();
   accessor searchQuery: string = '';
+  accessor selectedCollection: string = '';
   protected accessor geminiResponse_: string = '';
   protected accessor isAskingGemini_: boolean = false;
   protected accessor showGeminiPanel_: boolean = false;
-
+  private activeMenuEntry_: MemoryBankEntry|null = null;
 
   override connectedCallback() {
     super.connectedCallback();
@@ -75,21 +89,86 @@ export class MemoryBanksElement extends CrLitElement {
     this.entries = entries;
   }
 
-  protected get recentlySaved_(): MemoryBankEntry[] {
+  protected getAvailableCollections_(): string[] {
+    const set = new Set<string>();
+    for (const entry of this.entries) {
+      if (entry.collection) {
+        set.add(entry.collection);
+      }
+    }
+    return Array.from(set).sort();
+  }
+
+  protected getRecentlySaved_(): MemoryBankEntry[] {
     return this.entries.slice(0, 3);
   }
 
   protected getFilteredEntries_(): MemoryBankEntry[] {
-    if (!this.searchQuery) {
-      return this.entries;
+    if (this.searchQuery) {
+      const query = this.searchQuery.toLowerCase();
+      return this.entries.filter(entry => {
+        return entry.tabTitle.toLowerCase().includes(query) ||
+            entry.url.toLowerCase().includes(query) ||
+            (entry.selectedText &&
+             entry.selectedText.toLowerCase().includes(query)) ||
+            (entry.note && entry.note.toLowerCase().includes(query)) ||
+            (entry.collection &&
+             entry.collection.toLowerCase().includes(query)) ||
+            (entry.tags &&
+             entry.tags.some(tag => tag.toLowerCase().includes(query)));
+      });
     }
-    const query = this.searchQuery.toLowerCase();
-    return this.entries.filter(entry => {
-      return entry.tabTitle.toLowerCase().includes(query) ||
-          entry.url.toLowerCase().includes(query) ||
-          (entry.selectedText &&
-           entry.selectedText.toLowerCase().includes(query));
-    });
+
+    if (this.selectedCollection) {
+      return this.entries.filter(e => e.collection === this.selectedCollection);
+    }
+
+    return this.entries;
+  }
+
+  protected getTabNames_(): string[] {
+    return ['All', ...this.getAvailableCollections_()];
+  }
+
+  protected getTabIcons_(): string[] {
+    return this.getTabNames_().map(() => FOLDER_TAB_ICON);
+  }
+
+  protected getSelectedTabIndex_(): number {
+    if (!this.selectedCollection) {
+      return 0;
+    }
+    const index =
+        this.getAvailableCollections_().indexOf(this.selectedCollection);
+    return index === -1 ? 0 : index + 1;
+  }
+
+  protected onTabsSelectedChanged_(e: CustomEvent<{value: number}>) {
+    const index = e.detail.value;
+    if (index === 0) {
+      this.selectedCollection = '';
+    } else {
+      this.selectedCollection =
+          this.getAvailableCollections_()[index - 1] || '';
+    }
+    this.selectedIds = new Set();
+  }
+
+  protected onMoreActionsClick_(entry: MemoryBankEntry, e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.activeMenuEntry_ = entry;
+    const target = e.currentTarget as HTMLElement;
+    this.$.actionMenu.showAt(target);
+  }
+
+  protected async onMenuDeleteClick_() {
+    this.$.actionMenu.close();
+    if (this.activeMenuEntry_) {
+      const id = this.activeMenuEntry_.id;
+      this.activeMenuEntry_ = null;
+      await this.deleteEntries_([id]);
+    }
   }
 
   convertMojoTimeToDate(mojoTime: {internalValue: bigint}): Date {
@@ -172,10 +251,16 @@ export class MemoryBanksElement extends CrLitElement {
   }
 
   protected async onDeleteClick_() {
-    const ids = Array.from(this.selectedIds);
+    await this.deleteEntries_(Array.from(this.selectedIds));
+  }
+
+  private async deleteEntries_(ids: bigint[]) {
     await browserProxyFactory.getInstance().handler.deleteMemoryBankEntries(
         ids);
-    this.selectedIds = new Set();
+    for (const id of ids) {
+      this.selectedIds.delete(id);
+    }
+    this.selectedIds = new Set(this.selectedIds);
     await this.fetchEntries();
   }
 
@@ -227,6 +312,15 @@ export class MemoryBanksElement extends CrLitElement {
             `Title: ${entry.tabTitle}`,
             `URL: ${entry.url}`,
           ];
+          if (entry.collection) {
+            lines.push(`Collection: ${entry.collection}`);
+          }
+          if (entry.tags && entry.tags.length > 0) {
+            lines.push(`Tags: ${entry.tags.join(', ')}`);
+          }
+          if (entry.note) {
+            lines.push(`Note: "${entry.note}"`);
+          }
           if (entry.selectedText) {
             lines.push(`Content: "${entry.selectedText}"`);
           }

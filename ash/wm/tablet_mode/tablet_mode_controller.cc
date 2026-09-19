@@ -9,7 +9,6 @@
 #include <utility>
 
 #include "ash/accessibility/accessibility_controller.h"
-#include "ash/app_menu/menu_util.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/login_status.h"
 #include "ash/public/cpp/metrics_util.h"
@@ -46,6 +45,7 @@
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animation_sequence.h"
 #include "ui/compositor/layer_animator.h"
+#include "ui/compositor/layer_with_external_texture.h"
 #include "ui/display/display.h"
 #include "ui/display/manager/display_manager.h"
 #include "ui/display/screen.h"
@@ -55,6 +55,7 @@
 #include "ui/events/devices/input_device.h"
 #include "ui/events/event.h"
 #include "ui/events/keycodes/keyboard_codes.h"
+#include "ui/views/controls/menu/menu_controller.h"
 #include "ui/views/widget/widget.h"
 #include "ui/wm/core/cursor_manager.h"
 #include "ui/wm/core/window_util.h"
@@ -901,7 +902,7 @@ void TabletModeController::SetTabletModeEnabledInternal(bool should_enable) {
   // Hide the context menu on entering tablet mode to prevent users from
   // accessing forbidden options. Hide the context menu on exiting tablet mode
   // to match behaviors.
-  HideActiveContextMenu();
+  views::MenuController::CancelAllActive(/*disable_animation=*/true);
 
   // Suspend occlusion tracker when entering or exiting tablet mode.
   SuspendOcclusionTracker();
@@ -1305,7 +1306,7 @@ void TabletModeController::TakeScreenshot(aura::Window* top_window) {
 void TabletModeController::OnLayerCopyed(
     base::OnceClosure on_screenshot_taken,
     aura::Window* root_window,
-    std::unique_ptr<ui::Layer> copy_layer) {
+    std::unique_ptr<ui::LayerWithExternalTexture> copy_layer) {
   aura::Window* top_window =
       destroy_observer_ ? destroy_observer_->window() : nullptr;
   ResetDestroyObserver();

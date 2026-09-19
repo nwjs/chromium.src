@@ -26,7 +26,7 @@ cargo_crate("lib") {
   cargo_pkg_description =
       "Pure Rust media container and audio decoding library."
   cargo_pkg_repository = "https://github.com/pdeljanov/Symphonia"
-  cargo_pkg_version = "0.6.0"
+  cargo_pkg_version = "0.6.1"
 
   allow_unsafe = false
 
@@ -37,20 +37,25 @@ cargo_crate("lib") {
     "//third_party/rust/symphonia_codec_pcm/v0_6:lib",
     "//third_party/rust/symphonia_codec_vorbis/v0_6:lib",
     "//third_party/rust/symphonia_core/v0_6:lib",
+    "//third_party/rust/symphonia_format_isomp4/v0_6:lib",
+    "//third_party/rust/symphonia_format_mkv/v0_6:lib",
+    "//third_party/rust/symphonia_format_ogg/v0_6:lib",
+    "//third_party/rust/symphonia_format_riff/v0_6:lib",
     "//third_party/rust/symphonia_metadata/v0_6:lib",
   ]
   features = [
     "flac",
-    "mp1",
-    "mp2",
+    "isomp4",
+    "mkv",
     "mp3",
-    "mpa",
+    "ogg",
     "opt-simd",
     "opt-simd-avx",
     "opt-simd-neon",
     "opt-simd-sse",
     "pcm",
     "vorbis",
+    "wav",
   ]
 
   #####################################################################

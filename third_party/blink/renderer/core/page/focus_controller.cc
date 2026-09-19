@@ -63,6 +63,7 @@
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/forms/listed_element.h"
 #include "third_party/blink/renderer/core/html/forms/text_control_element.h"
+#include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 #include "third_party/blink/renderer/core/html/html_iframe_element.h"
 #include "third_party/blink/renderer/core/html/html_plugin_element.h"
 #include "third_party/blink/renderer/core/html/html_slot_element.h"
@@ -363,7 +364,13 @@ Element* InvokerForOpenPopover(const Node* node) {
   if (!popover || !popover->popoverOpen()) {
     return nullptr;
   }
-  return popover->GetPopoverData()->invoker();
+  Element* invoker = popover->GetPopoverData()->invoker();
+  if (invoker && FlatTreeTraversal::Contains(*popover, *invoker)) {
+    // See crbug.com/542274292: if the popover contains its own invoker, break
+    // the loop here.
+    return nullptr;
+  }
+  return invoker;
 }
 
 const Element* InclusiveAncestorOpenPopoverWithInvoker(const Element* element) {
@@ -1800,8 +1807,28 @@ void FocusController::SetFocusedFrame(Frame* frame, bool notify_embedder) {
 
   auto* old_frame = DynamicTo<LocalFrame>(focused_frame_.Get());
   auto* new_frame = DynamicTo<LocalFrame>(frame);
+  auto* old_remote = DynamicTo<RemoteFrame>(focused_frame_.Get());
+  auto* new_remote = DynamicTo<RemoteFrame>(frame);
 
   focused_frame_ = frame;
+
+  // For cross-origin (remote) frames, DOM focus events do not cross process
+  // boundaries to reach the frame owner element in the parent document. Notify
+  // the local owner element here so that interest invokers can properly track
+  // focus entering or leaving the iframe.
+  HTMLFrameOwnerElement* old_owner =
+      old_remote ? DynamicTo<HTMLFrameOwnerElement>(old_remote->Owner())
+                 : nullptr;
+  HTMLFrameOwnerElement* new_owner =
+      new_remote ? DynamicTo<HTMLFrameOwnerElement>(new_remote->Owner())
+                 : nullptr;
+
+  if (old_owner && old_owner != new_owner) {
+    old_owner->HandleInterestForHoverOrFocus(Element::InterestSource::kBlur);
+  }
+  if (new_owner && new_owner != old_owner) {
+    new_owner->HandleInterestForHoverOrFocus(Element::InterestSource::kFocus);
+  }
 
   // Now that the frame is updated, fire events and update the selection focused
   // states of both frames.

@@ -258,8 +258,7 @@ component("raw_ptr") {
       "pointers/raw_ptr_backup_ref_impl.h",
     ]
 
-    # Depends on FreeAfterBRPQuarantine() and
-    # InSlotMetadataPointerFromSlotStartAndSize(). Is it possible to make
+    # Depends on FreeAfterBRPQuarantine(). Is it possible to make
     # FreeAfterBRPQuarantine() PA_NOINLINE like FreeNoInline?
     deps += [ ":internal_headers" ]
   } else if (use_raw_ptr_hookable_impl) {
@@ -555,9 +554,13 @@ if (is_clang_or_gcc) {
       sources += [
         "page_allocator_internals_posix.cc",
         "page_allocator_internals_posix.h",
+        "partition_tls_posix.cc",
       ]
     } else if (is_fuchsia) {
-      sources += [ "page_allocator_internals_fuchsia.h" ]
+      sources += [
+        "page_allocator_internals_fuchsia.h",
+        "partition_tls_posix.cc",
+      ]
     }
     if (is_android) {
       # The Android NDK supports PR_MTE_* macros as of NDK r23.
@@ -669,7 +672,6 @@ if (is_clang_or_gcc) {
 
     sources = [
       "partition_alloc_base/atomic_ref_count.h",
-      "partition_alloc_base/augmentations/compiler_specific.h",
       "partition_alloc_base/bit_cast.h",
       "partition_alloc_base/bits.h",
       "partition_alloc_base/check.cc",

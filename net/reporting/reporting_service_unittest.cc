@@ -77,7 +77,7 @@ class ReportingServiceTest : public ::testing::TestWithParam<bool>,
                             SiteForCookies::FromOrigin(kOrigin_));
 
   ReportingServiceTest() {
-    feature_list_.InitAndEnableFeature(
+    AddScopedFeatureList().InitAndEnableFeature(
         features::kPartitionConnectionsByNetworkIsolationKey);
     Init();
   }
@@ -116,8 +116,6 @@ class ReportingServiceTest : public ::testing::TestWithParam<bool>,
   ReportingService* service() { return service_.get(); }
 
  private:
-  base::test::ScopedFeatureList feature_list_;
-
   base::SimpleTestClock clock_;
   base::SimpleTestTickClock tick_clock_;
 
@@ -192,8 +190,7 @@ TEST_P(ReportingServiceTest, DontQueueReportInvalidUrl) {
 }
 
 TEST_P(ReportingServiceTest, QueueReportNetworkIsolationKeyDisabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
+  AddScopedFeatureList().InitAndDisableFeature(
       features::kPartitionConnectionsByNetworkIsolationKey);
 
   // Re-create the store, so it reads the new feature value.
@@ -257,8 +254,7 @@ TEST_P(ReportingServiceTest, ProcessReportingEndpointsHeader) {
 
 TEST_P(ReportingServiceTest,
        ProcessReportingEndpointsHeaderNetworkIsolationKeyDisabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
+  AddScopedFeatureList().InitAndDisableFeature(
       features::kPartitionConnectionsByNetworkIsolationKey);
 
   // Re-create the store, so it reads the new feature value.
@@ -313,6 +309,52 @@ TEST_P(ReportingServiceTest, SendReportsAndRemoveSource) {
                     ReportingReport::Status::PENDING));
   // Source should be marked as expired.
   ASSERT_TRUE(
+      context()->cache()->GetExpiredSources().contains(*kReportingSource_));
+}
+
+TEST_P(ReportingServiceTest, SendReportsForSource) {
+  auto parsed_header =
+      ParseReportingEndpoints(kGroup_ + "=\"" + kEndpoint_.spec() + "\", " +
+                              kGroup2_ + "=\"" + kEndpoint2_.spec() + "\"");
+  ASSERT_TRUE(parsed_header.has_value());
+  service()->SetDocumentReportingEndpoints(*kReportingSource_, kOrigin_,
+                                           kIsolationInfo_, *parsed_header);
+
+  // 1st report: sent immediately and starts the delivery agent timer.
+  service()->QueueReport(kUrl_, kReportingSource_, kNak_, kUserAgent_, kGroup_,
+                         kType_, base::DictValue(), 0,
+                         ReportingTargetType::kDeveloper);
+  FinishLoading(true /* load_success */);
+
+  std::vector<raw_ptr<const ReportingReport, VectorExperimental>> reports;
+  context()->cache()->GetReports(&reports);
+  ASSERT_EQ(1u, reports.size());
+  EXPECT_EQ(0u, context()->cache()->GetReportCountWithStatusForTesting(
+                    ReportingReport::Status::QUEUED));
+  EXPECT_EQ(1u, context()->cache()->GetReportCountWithStatusForTesting(
+                    ReportingReport::Status::PENDING));
+
+  // 2nd report for group2: remains queued because delivery timer is already
+  // running.
+  service()->QueueReport(kUrl_, kReportingSource_, kNak_, kUserAgent_, kGroup2_,
+                         kType_, base::DictValue(), 0,
+                         ReportingTargetType::kDeveloper);
+  EXPECT_EQ(1u, context()->cache()->GetReportCountWithStatusForTesting(
+                    ReportingReport::Status::QUEUED));
+  EXPECT_EQ(1u, context()->cache()->GetReportCountWithStatusForTesting(
+                    ReportingReport::Status::PENDING));
+
+  // Simulate flushing reports for the source without destroying it (e.g.
+  // entering BFCache).
+  service()->SendReportsForSource(*kReportingSource_);
+
+  // The 2nd report should now also be pending (total 2 pending, 0 queued).
+  EXPECT_EQ(0u, context()->cache()->GetReportCountWithStatusForTesting(
+                    ReportingReport::Status::QUEUED));
+  EXPECT_EQ(2u, context()->cache()->GetReportCountWithStatusForTesting(
+                    ReportingReport::Status::PENDING));
+  // Source should NOT be marked as expired.
+  EXPECT_FALSE(
       context()->cache()->GetExpiredSources().contains(*kReportingSource_));
 }
 
@@ -472,8 +514,7 @@ TEST_P(ReportingServiceTest, ProcessReportToHeader_TooDeep) {
 }
 
 TEST_P(ReportingServiceTest, ProcessReportToHeaderNetworkIsolationKeyDisabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
+  AddScopedFeatureList().InitAndDisableFeature(
       features::kPartitionConnectionsByNetworkIsolationKey);
 
   // Re-create the store, so it reads the new feature value.

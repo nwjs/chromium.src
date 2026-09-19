@@ -34,7 +34,6 @@ import androidx.core.view.WindowInsetsCompat;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
-import org.chromium.base.TimeUtils;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NonNullObservableSupplier;
@@ -241,9 +240,9 @@ public class LocationBarCoordinator
      * @param pageZoomManager The {@link PageZoomManager} for managing the page zoom.
      * @param tabFaviconFunction Function to get tab favicon.
      * @param snackbarManager Manager for snackbars.
-     * @param scrimManager Manager for scrims.
      * @param bottomContainerView The bottom container view.
      * @param omniboxChipManager The {@link OmniboxChipManager} to show chips in the omnibox.
+     * @param scrimHandler Handler managing scrim visibility during location bar focus.
      * @param userEducationHelper The {@link UserEducationHelper} to show any user education events.
      */
     public LocationBarCoordinator(
@@ -332,14 +331,7 @@ public class LocationBarCoordinator
                                         ? mAutocompleteCoordinator.getSuggestionsDropdown()
                                         : null,
                         backPressManager,
-                        () ->
-                                mAutocompleteCoordinator.loadTypedOmniboxText(
-                                        TimeUtils.uptimeMillis(),
-                                        AutocompleteCoordinator.NavigationTarget.CURRENT_TAB),
-                        this::clearEditingAndUserText,
-                        this::getUrlBarTextWithoutAutocomplete,
-                        uiOverrides.isForcedPhoneStyleOmnibox(),
-                        mWindowFocusSupplier);
+                        uiOverrides.isForcedPhoneStyleOmnibox());
         NonNullObservableSupplier<Integer> fuseboxStateSupplier =
                 mFuseboxCoordinator.getFuseboxStateSupplier();
         fuseboxStateSupplier.addSyncObserverAndPostIfNonNull(mOnFuseboxStateChange);
@@ -353,6 +345,8 @@ public class LocationBarCoordinator
             mLocationBarHolder = (ViewGroup) tabletLayout.getParent();
             tabletLayout.setHolderAndContainer(
                     mLocationBarHolder, mLocationBarEmbedder.getContainerView());
+            tabletLayout.setIsFullWidthExpansionAllowedSupplier(
+                    uiOverrides::isFullWidthExpansionAllowed);
         }
 
         View alignmentView = mLocationBarLayout.getAlignmentView();
@@ -374,7 +368,8 @@ public class LocationBarCoordinator
                         bottomWindowPaddingSupplier,
                         fuseboxStateSupplier,
                         fuseboxLayoutModeSupplier,
-                        topInsetProvider);
+                        topInsetProvider,
+                        uiOverrides::isFullWidthExpansionAllowed);
 
         mPageZoomIndicatorCoordinator =
                 pageZoomManager != null
@@ -908,14 +903,6 @@ public class LocationBarCoordinator
         mLocationBarMediator.endInput();
     }
 
-    private void clearEditingAndUserText() {
-        if (mLocationBarMediator == null || mLocationBarMediator.getCurrentInput() == null) {
-            return;
-        }
-        setOmniboxEditingText("");
-        mLocationBarMediator.getCurrentInput().setUserText("");
-    }
-
     @Override
     public void setOmniboxEditingText(String text) {
         mUrlCoordinator.setUrlBarData(
@@ -1038,10 +1025,11 @@ public class LocationBarCoordinator
         mUrlCoordinator.setAllowFocus(focusable);
     }
 
-    private void onTextWrappingChanged(boolean isWrapping) {
+    /* package */ void onTextWrappingChanged(boolean isWrapping) {
         if (mFuseboxCoordinator != null) {
             mFuseboxCoordinator.onFuseboxTextWrappingChanged(isWrapping);
         }
+        mLocationBarMediator.setIsTextWrapping(isWrapping);
         mLocationBarMediator.updateButtonVisibility();
     }
 
@@ -1184,6 +1172,7 @@ public class LocationBarCoordinator
      * bar. This should also be used to create animators for hiding toolbar buttons.
      *
      * @param button The {@link View} of the button to hide.
+     * @return Animator for hiding the button during tablet unfocus.
      */
     public ObjectAnimator createHideButtonAnimatorForTablet(View button) {
         assert isTabletWindow();
@@ -1195,6 +1184,7 @@ public class LocationBarCoordinator
      * bar. This should also be used to create animators for showing toolbar buttons.
      *
      * @param button The {@link View} of the button to show.
+     * @return Animator for showing the button during tablet unfocus.
      */
     public ObjectAnimator createShowButtonAnimatorForTablet(View button) {
         assert isTabletWindow();

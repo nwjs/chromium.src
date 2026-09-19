@@ -26,6 +26,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.atLeast;
@@ -168,7 +169,10 @@ import java.util.stream.IntStream;
 @ImportantFormFactors(DeviceFormFactor.ONLY_TABLET)
 // TODO(crbug.com/40899175): Investigate batching.
 @DoNotBatch(reason = "BookmarkTest has behaviours and thus can't be batched.")
-@DisableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+@DisableFeatures({
+    ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT,
+    ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_DIALOG
+})
 public class BookmarkTest {
     private static final String TEST_PAGE_URL_GOOGLE = "/chrome/test/data/android/google.html";
     private static final String TEST_PAGE_TITLE_GOOGLE = "The Google";
@@ -2056,6 +2060,30 @@ public class BookmarkTest {
                                 false));
     }
 
+    private void openDesktopBookmarkManager() {
+        loadBookmarkModel();
+        mActivityTestRule.getActivityTestRule().loadUrlNoWaiting(getOriginalNativeBookmarksUrl());
+        CriteriaHelper.pollUiThread(
+                () -> mActivityTestRule.getActivityTab().getNativePage() instanceof BookmarkPage);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mItemsContainer =
+                            mActivityTestRule
+                                    .getActivity()
+                                    .findViewById(R.id.selectable_list_recycler_view);
+                    mItemsContainer.setItemAnimator(null); // Disable animation to reduce flakiness.
+                    mBookmarkManagerCoordinator =
+                            ((BookmarkPage) mActivityTestRule.getActivityTab().getNativePage())
+                                    .getManagerForTesting();
+                    mModelList = mBookmarkManagerCoordinator.getModelListForTesting();
+                    mDelegate = mBookmarkManagerCoordinator.getBookmarkDelegateForTesting();
+                    mAdapter = (DragReorderableRecyclerViewAdapter) mItemsContainer.getAdapter();
+                    mToolbar = mBookmarkManagerCoordinator.getToolbarForTesting();
+                    AccessibilityStateTestHelper.setIsAnyAccessibilityServiceEnabledForTesting(
+                            false);
+                });
+    }
+
     private boolean isItemPresentInBookmarkList(final String expectedTitle) {
         return ThreadUtils.runOnUiThreadBlocking(
                 new Callable<>() {
@@ -2391,12 +2419,15 @@ public class BookmarkTest {
     @MediumTest
     @Restriction({DeviceFormFactor.ONLY_TABLET})
     @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
-    public void testDesktopLayout_InitRedirectsFromRoot() throws Exception {
+    public void testDesktopLayout_SelectsBookmarksBarByDefault() throws Exception {
+        assumeTrue(
+                mActivityTestRule.getActivity().getResources().getConfiguration().screenWidthDp
+                        >= BookmarkUtils.WIDE_DISPLAY_THRESHOLD_DP);
         DeviceInfo.setIsDesktopForTesting(true);
         try {
-            openBookmarkManager();
+            openDesktopBookmarkManager();
 
-            // Verify that we are redirected to "Bookmarks bar" (first folder).
+            // Verify that we default to "Bookmarks bar" (first folder).
             CriteriaHelper.pollUiThread(
                     () -> Criteria.checkThat(mToolbar.getTitle(), equalTo("Bookmarks bar")));
 
@@ -2425,6 +2456,9 @@ public class BookmarkTest {
     @Restriction({DeviceFormFactor.ONLY_TABLET})
     @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
     public void testDesktopLayout_NoBackButtonForTopLevelFolders() throws Exception {
+        assumeTrue(
+                mActivityTestRule.getActivity().getResources().getConfiguration().screenWidthDp
+                        >= BookmarkUtils.WIDE_DISPLAY_THRESHOLD_DP);
         DeviceInfo.setIsDesktopForTesting(true);
         try {
             openBookmarkManager();
@@ -2469,6 +2503,63 @@ public class BookmarkTest {
                             Criteria.checkThat(
                                     mToolbar.getNavigationButtonForTests(),
                                     is(NavigationButton.NORMAL_VIEW_BACK)));
+        } finally {
+            DeviceInfo.setIsDesktopForTesting(false);
+        }
+    }
+
+    @Test
+    @MediumTest
+    @Restriction({DeviceFormFactor.ONLY_TABLET})
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testDesktopLayout_BackButtonForTopLevelFolders_NarrowScreen() throws Exception {
+        assumeTrue(
+                mActivityTestRule.getActivity().getResources().getConfiguration().screenWidthDp
+                        < BookmarkUtils.WIDE_DISPLAY_THRESHOLD_DP);
+        DeviceInfo.setIsDesktopForTesting(true);
+        try {
+            openBookmarkManager();
+            BookmarkTestUtil.waitForBookmarkModelLoaded();
+
+            // Verify navigation panel is not displayed on narrow screens.
+            View navigationPane =
+                    mActivityTestRule.getActivity().findViewById(R.id.navigation_pane);
+            if (navigationPane != null) {
+                assertEquals(View.GONE, navigationPane.getVisibility());
+            }
+
+            // Navigate to Mobile Bookmarks (top-level).
+            runOnUiThreadBlocking(() -> mDelegate.openFolder(mBookmarkModel.getMobileFolderId()));
+            CriteriaHelper.pollUiThread(
+                    () -> Criteria.checkThat(mToolbar.getTitle(), equalTo("Mobile bookmarks")));
+            CriteriaHelper.pollUiThread(
+                    () ->
+                            Criteria.checkThat(
+                                    mToolbar.getNavigationButtonForTests(),
+                                    is(NavigationButton.NORMAL_VIEW_BACK)));
+
+            // Navigate to Reading List (top-level).
+            runOnUiThreadBlocking(
+                    () ->
+                            mDelegate.openFolder(
+                                    mBookmarkModel.getLocalOrSyncableReadingListFolder()));
+            CriteriaHelper.pollUiThread(
+                    () -> Criteria.checkThat(mToolbar.getTitle(), equalTo("Reading list")));
+            CriteriaHelper.pollUiThread(
+                    () ->
+                            Criteria.checkThat(
+                                    mToolbar.getNavigationButtonForTests(),
+                                    is(NavigationButton.NORMAL_VIEW_BACK)));
+
+            // Activate back navigation to root folder.
+            runOnUiThreadBlocking(() -> mToolbar.onClick(mToolbar));
+            CriteriaHelper.pollUiThread(
+                    () -> Criteria.checkThat(mToolbar.getTitle(), equalTo("Bookmarks")));
+            CriteriaHelper.pollUiThread(
+                    () ->
+                            Criteria.checkThat(
+                                    mToolbar.getNavigationButtonForTests(),
+                                    is(NavigationButton.NONE)));
         } finally {
             DeviceInfo.setIsDesktopForTesting(false);
         }

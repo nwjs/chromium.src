@@ -7,9 +7,9 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/preloading/preloading_features.h"
 #include "chrome/browser/preloading/prerender/prerender_manager.h"
-#include "chrome/browser/preloading/prerender/search_prewarm_progress_service.h"
-#include "chrome/browser/preloading/prerender/search_prewarm_progress_service_factory.h"
-#include "chrome/browser/preloading/prerender/search_prewarm_progress_test_utils.h"
+#include "chrome/browser/preloading/prerender/search_preload_progress_service.h"
+#include "chrome/browser/preloading/prerender/search_preload_progress_service_factory.h"
+#include "chrome/browser/preloading/prerender/search_preload_progress_test_utils.h"
 #include "chrome/browser/preloading/scoped_prewarm_feature_list.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
@@ -21,41 +21,12 @@
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
-#include "content/public/test/mock_navigation_throttle_registry.h"
 #include "content/public/test/prerender_test_util.h"
+#include "content/public/test/test_navigation_observer.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 
 namespace {
-
-class DSEPrewarmNavigationThrottleForTesting
-    : public DSEPrewarmNavigationThrottle {
- public:
-  explicit DSEPrewarmNavigationThrottleForTesting(
-      content::NavigationThrottleRegistry& registry)
-      : DSEPrewarmNavigationThrottle(registry) {}
-
-  void WaitForResume() {
-    if (!resume_called_) {
-      base::RunLoop run_loop;
-      quit_closure_ = run_loop.QuitClosure();
-      run_loop.Run();
-    }
-  }
-
- protected:
-  void Resume() override {
-    resume_called_ = true;
-    if (quit_closure_) {
-      std::move(quit_closure_).Run();
-    }
-    DSEPrewarmNavigationThrottle::Resume();
-  }
-
- private:
-  bool resume_called_ = false;
-  base::OnceClosure quit_closure_;
-};
 
 class DSEPrewarmNavigationThrottleBrowserTest : public PlatformBrowserTest {
  public:
@@ -102,52 +73,54 @@ class DSEPrewarmNavigationThrottleBrowserTest : public PlatformBrowserTest {
   test::ScopedPrewarmFeatureList scoped_prewarm_feature_list_;
 };
 
+// TODO(crbug.com/549677285): Disabling as this test seems flaky.
 IN_PROC_BROWSER_TEST_F(DSEPrewarmNavigationThrottleBrowserTest,
-                       ThrottleSearchNavigationDuringPrewarm) {
+                       DISABLED_ThrottleSearchNavigationDuringPrewarm) {
   auto* profile = GetProfile();
-  auto* service = SearchPrewarmProgressServiceFactory::GetForProfile(profile);
+  auto* service = SearchPreloadProgressServiceFactory::GetForProfile(profile);
   ASSERT_TRUE(service);
   EXPECT_FALSE(service->HasOnGoingSearchPrewarm());
 
   GURL search_url = embedded_test_server()->GetURL("search.example.com",
                                                    "/title1.html?q=test");
 
-  content::TestNavigationManager navigation_manager(GetWebContents(),
-                                                    search_url);
-  ASSERT_TRUE(
-      content::BeginNavigateToURLFromRenderer(GetWebContents(), search_url));
-  EXPECT_TRUE(navigation_manager.WaitForRequestStart());
+  ASSERT_TRUE(content::NavigateToURL(
+      GetWebContents(), embedded_test_server()->GetURL("/empty.html")));
 
-  content::NavigationHandle* handle = navigation_manager.GetNavigationHandle();
-  content::MockNavigationThrottleRegistry registry(
-      handle, content::MockNavigationThrottleRegistry::RegistrationMode::kHold);
+  // When prewarm is not ongoing, navigation proceeds without being deferred.
+  {
+    content::TestNavigationObserver nav_observer(GetWebContents(), 1);
+    ASSERT_TRUE(
+        content::BeginNavigateToURLFromRenderer(GetWebContents(), search_url));
+    nav_observer.Wait();
+    EXPECT_TRUE(nav_observer.last_navigation_succeeded());
+  }
 
-  auto throttle =
-      std::make_unique<DSEPrewarmNavigationThrottleForTesting>(registry);
-  EXPECT_EQ(content::NavigationThrottle::PROCEED,
-            throttle->WillStartRequest().action());
-  EXPECT_EQ(content::NavigationThrottle::PROCEED,
-            throttle->WillRedirectRequest().action());
+  // When prewarm is ongoing, navigation is deferred by
+  // DSEPrewarmNavigationThrottle, and resumed once prewarm finishes.
+  {
+    content::PrerenderHostId dummy_host_id(1);
+    service->OnSearchPrewarmStarted(dummy_host_id);
+    EXPECT_TRUE(service->HasOnGoingSearchPrewarm());
 
-  // Simulate a prewarm starting.
-  content::PrerenderHostId dummy_host_id(1);
-  service->OnSearchPrewarmStarted(dummy_host_id);
-  EXPECT_TRUE(service->HasOnGoingSearchPrewarm());
+    content::TestNavigationObserver nav_observer(GetWebContents(), 1);
+    content::DidStartNavigationObserver start_observer(GetWebContents());
 
-  // Now, the throttle should return DEFER.
-  auto deferred_throttle =
-      std::make_unique<DSEPrewarmNavigationThrottleForTesting>(registry);
-  EXPECT_EQ(content::NavigationThrottle::DEFER,
-            deferred_throttle->WillStartRequest().action());
-  EXPECT_EQ(content::NavigationThrottle::DEFER,
-            deferred_throttle->WillRedirectRequest().action());
+    ASSERT_TRUE(
+        content::BeginNavigateToURLFromRenderer(GetWebContents(), search_url));
+    start_observer.Wait();
+    ASSERT_TRUE(start_observer.navigation_handle());
+    EXPECT_TRUE(start_observer.navigation_handle()->IsDeferredForTesting());
 
-  // Simulate prewarm finishing. This should trigger the callback to Resume()
-  // the throttle.
-  service->OnSearchPrewarmFinished(
-      dummy_host_id, content::PrerenderLifecycleStatus::kHTTPSuccessResponse);
-  deferred_throttle->WaitForResume();
-  EXPECT_FALSE(service->HasOnGoingSearchPrewarm());
+    // Finish prewarm. This should invoke DSEPrewarmNavigationThrottle::Resume()
+    // and resume the deferred navigation.
+    service->OnSearchPrewarmFinished(
+        dummy_host_id, content::PrerenderLifecycleStatus::kHTTPSuccessResponse);
+    EXPECT_FALSE(service->HasOnGoingSearchPrewarm());
+
+    nav_observer.Wait();
+    EXPECT_TRUE(nav_observer.last_navigation_succeeded());
+  }
 }
 
 }  // namespace

@@ -40,7 +40,6 @@ include_rules = [
   "+chromeos",
   "+components/access_code_cast",
   "+components/private_ai",
-  "+components/accessibility_annotator/core",
   "+components/account_id",
   "+components/account_settings",
   "+components/account_manager_core",
@@ -54,6 +53,7 @@ include_rules = [
   "+components/app_launch_prefetch",
   "+components/app_restore",
   "+components/application_locale_storage",
+  "+components/apps/link_capturing",
   "+components/assist_ranker",
   "+components/autofill/android",
   "+components/autofill/content/browser",
@@ -79,6 +79,7 @@ include_rules = [
   "+components/browser_apis/ui_controllers",
   "+components/browser_sync",
   "+components/browser_ui/accessibility",
+  "+components/browser_ui/bottomsheet",
   "+components/browser_ui/contacts_picker",
   "+components/browser_ui/desktop_windowing/android",
   "+components/browser_ui/modaldialog",
@@ -175,7 +176,7 @@ include_rules = [
   "+components/guest_view/browser",
   "+components/handoff",
   "+components/headless",
-  "+components/heap_profiling",
+  "+components/heap_profiling/in_process",
   "+components/heavy_ad_intervention",
   "+components/history/content/browser",
   "+components/history/core/browser",
@@ -282,7 +283,6 @@ include_rules = [
   "+components/webid",
   "+components/pdf/browser",
   "+components/pdf/common",
-  "+components/plus_addresses/core/common/features.h",
   "+components/policy",
   "+components/power_bookmarks",
   "+components/power_metrics",
@@ -331,7 +331,6 @@ include_rules = [
   "+components/sensitive_content",
   "+components/services/app_service/public",
   "+components/services/filesystem/public/mojom",
-  "+components/services/heap_profiling",
   "+components/services/storage/dom_storage/features.h",
   "+components/on_device_translation/buildflags",
   "+components/on_device_translation/service/public",
@@ -543,11 +542,10 @@ include_rules = [
 
   # Do not use these legacy test fixtures in new tests.
   # Use chrome/browser/glic/test_support/glic_browser_test.h,
-  # chrome/browser/glic/test_support/new_glic_api_test.h, or
+  # chrome/browser/glic/test_support/glic_api_test.h, or
   # chrome/browser/glic/actor/new_glic_actor_functional_browsertest.h instead.
   "!chrome/browser/glic/actor/glic_actor_functional_browsertest.h",
   "!chrome/browser/glic/host/glic_actor_interactive_uitest_common.h",
-  "!chrome/browser/glic/test_support/glic_api_test.h",
   "!chrome/browser/glic/test_support/glic_functional_browsertest.h",
   "!chrome/browser/glic/test_support/interactive_glic_test.h",
   "!chrome/browser/glic/test_support/non_interactive_glic_test.h",
@@ -634,7 +632,6 @@ specific_include_rules = {
   ],
   r"about_flags\.cc" : [
     "+components/stylus_handwriting/win/features.h",
-    "+mojo/core/embedder/features.h",
     "+sandbox/policy/features.h",
   ],
   r"dbus_memory_pressure_evaluator_linux(_unittest)?\.(cc|h)" : [

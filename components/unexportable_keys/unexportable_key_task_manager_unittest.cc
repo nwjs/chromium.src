@@ -7,6 +7,7 @@
 #include <memory>
 #include <variant>
 
+#include "base/cancelable_callback.h"
 #include "base/containers/to_vector.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/test/gmock_expected_support.h"
@@ -37,6 +38,7 @@ using ::base::test::ValueIs;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 using ::testing::Invoke;
+using ::testing::IsEmpty;
 using ::testing::NotNull;
 using ::testing::Ref;
 using ::testing::Return;
@@ -55,6 +57,8 @@ constexpr std::string_view kTaskRetriesFailureHistogramNameFormat =
 constexpr std::string_view kGenerateKeyTaskType = "GenerateKey";
 constexpr std::string_view kFromWrappedKeyTaskType = "FromWrappedKey";
 constexpr std::string_view kSignTaskType = "Sign";
+constexpr std::string_view kSignWithAttestationKeyTaskType =
+    "SignWithAttestationKey";
 constexpr std::string_view kDeleteKeysTaskType = "DeleteKeys";
 constexpr std::string_view kGetAllKeysTaskType = "GetAllKeys";
 constexpr std::string_view kDeleteAllKeysTaskType = "DeleteAllKeys";
@@ -329,8 +333,8 @@ TEST_P(UnexportableKeyTaskManagerTest, SignAsync) {
   base::HistogramTester histogram_tester;
   base::test::TestFuture<ServiceErrorOr<std::vector<uint8_t>>> sign_future;
   std::vector<uint8_t> data = {4, 8, 15, 16, 23, 42};
-  task_manager().SignSlowlyAsync(GetParam().origin, key, data,
-                                 BackgroundTaskPriority::kBestEffort,
+  task_manager().SignSlowlyAsync(BackgroundTaskType::kSign, GetParam().origin,
+                                 key, data, BackgroundTaskPriority::kBestEffort,
                                  sign_future.GetCallback());
   EXPECT_FALSE(sign_future.IsReady());
   RunBackgroundTasks();
@@ -355,9 +359,9 @@ TEST_P(UnexportableKeyTaskManagerTest, SignAsyncNullKey) {
   base::test::TestFuture<ServiceErrorOr<std::vector<uint8_t>>> sign_future;
   std::vector<uint8_t> data = {4, 8, 15, 16, 23, 42};
 
-  task_manager().SignSlowlyAsync(GetParam().origin, nullptr, data,
-                                 BackgroundTaskPriority::kBestEffort,
-                                 sign_future.GetCallback());
+  task_manager().SignSlowlyAsync(
+      BackgroundTaskType::kSign, GetParam().origin, nullptr, data,
+      BackgroundTaskPriority::kBestEffort, sign_future.GetCallback());
   RunBackgroundTasks();
 
   EXPECT_THAT(sign_future.Get(), ErrorIs(ServiceError::kKeyNotFound));
@@ -365,6 +369,68 @@ TEST_P(UnexportableKeyTaskManagerTest, SignAsyncNullKey) {
                          ServiceError::kKeyNotFound);
   EXPECT_THAT(histogram_tester.GetAllSamples(absl::StrFormat(
                   kTaskRetriesFailureHistogramNameFormat, kSignTaskType)),
+              ElementsAre(base::Bucket(0, 1)));
+}
+
+TEST_P(UnexportableKeyTaskManagerTest, SignWithAttestationKeyAsync) {
+  // First, generate a new attestation key.
+  base::test::TestFuture<
+      ServiceErrorOr<scoped_refptr<RefCountedUnexportableAttestationKey>>>
+      generate_key_future;
+  auto supported_algorithm = {crypto::SignatureVerifier::ECDSA_SHA256};
+  task_manager().GenerateAttestationKeySlowlyAsync(
+      GetParam().origin, crypto::UnexportableKeyProvider::Config(),
+      supported_algorithm, BackgroundTaskPriority::kBestEffort,
+      generate_key_future.GetCallback());
+  RunBackgroundTasks();
+  ASSERT_OK_AND_ASSIGN(auto key, generate_key_future.Get());
+
+  // Second, sign some data with the attestation key.
+  base::HistogramTester histogram_tester;
+  base::test::TestFuture<ServiceErrorOr<std::vector<uint8_t>>> sign_future;
+  std::vector<uint8_t> data = {4, 8, 15, 16, 23, 42};
+  task_manager().SignSlowlyAsync(
+      BackgroundTaskType::kSignWithAttestationKey, GetParam().origin, key, data,
+      BackgroundTaskPriority::kBestEffort, sign_future.GetCallback());
+  EXPECT_FALSE(sign_future.IsReady());
+  RunBackgroundTasks();
+  EXPECT_TRUE(sign_future.IsReady());
+  ASSERT_OK_AND_ASSIGN(const auto signed_data, sign_future.Get());
+  VerifyResultHistograms(histogram_tester, kSignWithAttestationKeyTaskType,
+                         kNoServiceErrorForMetrics);
+  EXPECT_THAT(histogram_tester.GetAllSamples(
+                  absl::StrFormat(kTaskRetriesSuccessHistogramNameFormat,
+                                  kSignWithAttestationKeyTaskType)),
+              ElementsAre(base::Bucket(0, 1)));
+  // Verify that .Sign histogram was NOT touched.
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples(GetResultHistogramName(kSignTaskType)),
+      IsEmpty());
+
+  // Also verify that the signature was generated correctly.
+  crypto::SignatureVerifier verifier;
+  ASSERT_TRUE(verifier.VerifyInit(key->key().Algorithm(), signed_data,
+                                  key->key().GetSubjectPublicKeyInfo()));
+  verifier.VerifyUpdate(data);
+  EXPECT_TRUE(verifier.VerifyFinal());
+}
+
+TEST_P(UnexportableKeyTaskManagerTest, SignWithAttestationKeyAsyncNullKey) {
+  base::HistogramTester histogram_tester;
+  base::test::TestFuture<ServiceErrorOr<std::vector<uint8_t>>> sign_future;
+  std::vector<uint8_t> data = {4, 8, 15, 16, 23, 42};
+
+  task_manager().SignSlowlyAsync(
+      BackgroundTaskType::kSignWithAttestationKey, GetParam().origin, nullptr,
+      data, BackgroundTaskPriority::kBestEffort, sign_future.GetCallback());
+  RunBackgroundTasks();
+
+  EXPECT_THAT(sign_future.Get(), ErrorIs(ServiceError::kKeyNotFound));
+  VerifyResultHistograms(histogram_tester, kSignWithAttestationKeyTaskType,
+                         ServiceError::kKeyNotFound);
+  EXPECT_THAT(histogram_tester.GetAllSamples(
+                  absl::StrFormat(kTaskRetriesFailureHistogramNameFormat,
+                                  kSignWithAttestationKeyTaskType)),
               ElementsAre(base::Bucket(0, 1)));
 }
 
@@ -401,9 +467,9 @@ TEST_P(UnexportableKeyTaskManagerTest, RetrySignAsyncWithSuccess) {
 
   base::HistogramTester histogram_tester;
   base::test::TestFuture<ServiceErrorOr<std::vector<uint8_t>>> sign_future;
-  task_manager().SignSlowlyAsync(GetParam().origin, ref_counted_key, data,
-                                 BackgroundTaskPriority::kBestEffort,
-                                 sign_future.GetCallback());
+  task_manager().SignSlowlyAsync(
+      BackgroundTaskType::kSign, GetParam().origin, ref_counted_key, data,
+      BackgroundTaskPriority::kBestEffort, sign_future.GetCallback());
   RunBackgroundTasks();
   EXPECT_OK(sign_future.Get());
   VerifyResultHistograms(histogram_tester, kSignTaskType,
@@ -423,9 +489,9 @@ TEST_P(UnexportableKeyTaskManagerTest, RetrySignAsyncWithFailure) {
 
   base::HistogramTester histogram_tester;
   base::test::TestFuture<ServiceErrorOr<std::vector<uint8_t>>> sign_future;
-  task_manager().SignSlowlyAsync(GetParam().origin, ref_counted_key, data,
-                                 BackgroundTaskPriority::kBestEffort,
-                                 sign_future.GetCallback());
+  task_manager().SignSlowlyAsync(
+      BackgroundTaskType::kSign, GetParam().origin, ref_counted_key, data,
+      BackgroundTaskPriority::kBestEffort, sign_future.GetCallback());
   RunBackgroundTasks();
   EXPECT_THAT(sign_future.Get(), ErrorIs(ServiceError::kCryptoApiFailed));
   VerifyResultHistograms(histogram_tester, kSignTaskType,
@@ -467,9 +533,9 @@ TEST_P(UnexportableKeyTaskManagerTest,
   auto ref_counted_key =
       MakeRefCountedUnexportableSigningKey(std::move(mocked_key));
   base::test::TestFuture<ServiceErrorOr<std::vector<uint8_t>>> sign_future;
-  task_manager().SignSlowlyAsync(GetParam().origin, ref_counted_key, data,
-                                 BackgroundTaskPriority::kBestEffort,
-                                 sign_future.GetCallback());
+  task_manager().SignSlowlyAsync(
+      BackgroundTaskType::kSign, GetParam().origin, ref_counted_key, data,
+      BackgroundTaskPriority::kBestEffort, sign_future.GetCallback());
   RunBackgroundTasks();
 
   EXPECT_OK(sign_future.Get());
@@ -497,9 +563,9 @@ TEST_P(UnexportableKeyTaskManagerTest,
   auto ref_counted_key =
       MakeRefCountedUnexportableSigningKey(std::move(mocked_key));
   base::test::TestFuture<ServiceErrorOr<std::vector<uint8_t>>> sign_future;
-  task_manager().SignSlowlyAsync(GetParam().origin, ref_counted_key, data,
-                                 BackgroundTaskPriority::kBestEffort,
-                                 sign_future.GetCallback());
+  task_manager().SignSlowlyAsync(
+      BackgroundTaskType::kSign, GetParam().origin, ref_counted_key, data,
+      BackgroundTaskPriority::kBestEffort, sign_future.GetCallback());
   RunBackgroundTasks();
 
   EXPECT_THAT(sign_future.Get(), ErrorIs(ServiceError::kVerifySignatureFailed));
@@ -1008,6 +1074,83 @@ TEST_P(UnexportableKeyTaskManagerTest, CertifyAsync) {
   EXPECT_THAT(histogram_tester.GetAllSamples(absl::StrFormat(
                   kTaskRetriesSuccessHistogramNameFormat, kCertifyTaskType)),
               ElementsAre(base::Bucket(0, 1)));
+}
+
+TEST_P(UnexportableKeyTaskManagerTest, CancelPendingTask) {
+  crypto::ScopedMockUnexportableKeyProvider& scoped_provider =
+      SwitchToMockKeyProvider();
+
+  // The first task gets scheduled on the background thread immediately.
+  EXPECT_CALL(scoped_provider.mock(), GenerateSigningKeySlowly)
+      .WillOnce(Return(std::make_unique<crypto::MockUnexportableSigningKey>()));
+
+  // The second task is queued while the first task is running. Since it is
+  // canceled before being posted, its background operation should never run.
+  EXPECT_CALL(scoped_provider.mock(), FromWrappedSigningKeySlowly).Times(0);
+
+  base::HistogramTester histogram_tester;
+
+  base::test::TestFuture<
+      ServiceErrorOr<scoped_refptr<RefCountedUnexportableSigningKey>>>
+      task1_future;
+  auto supported_algorithm = {crypto::SignatureVerifier::ECDSA_SHA256};
+  task_manager().GenerateSigningKeySlowlyAsync(
+      GetParam().origin, crypto::UnexportableKeyProvider::Config(),
+      supported_algorithm, BackgroundTaskPriority::kBestEffort,
+      task1_future.GetCallback());
+
+  base::test::TestFuture<
+      ServiceErrorOr<scoped_refptr<RefCountedUnexportableSigningKey>>>
+      task2_future;
+  base::CancelableOnceCallback<void(
+      ServiceErrorOr<scoped_refptr<RefCountedUnexportableSigningKey>>)>
+      cancelable_task2(task2_future.GetCallback());
+  std::vector<uint8_t> wrapped_key = {1, 2, 3};
+  task_manager().FromWrappedSigningKeySlowlyAsync(
+      GetParam().origin, crypto::UnexportableKeyProvider::Config(), wrapped_key,
+      BackgroundTaskPriority::kBestEffort, cancelable_task2.callback());
+
+  // Cancel the second task while it is pending in the queue.
+  cancelable_task2.Cancel();
+
+  RunBackgroundTasks();
+
+  EXPECT_TRUE(task1_future.IsReady());
+  EXPECT_FALSE(task2_future.IsReady());
+
+  // Result metrics should be recorded for task 1, but not for the canceled
+  // task 2.
+  histogram_tester.ExpectTotalCount(
+      GetResultHistogramName(kGenerateKeyTaskType), 1);
+  histogram_tester.ExpectTotalCount(
+      GetResultHistogramName(kFromWrappedKeyTaskType), 0);
+}
+
+TEST_P(UnexportableKeyTaskManagerTest, CancelRunningTaskDoesNotRetry) {
+  auto mock_signing_key =
+      std::make_unique<crypto::MockUnexportableSigningKey>();
+  // When the task fails, it would normally be retried up to 3 times (4 calls
+  // total). Because the callback is canceled, it should not be retried.
+  EXPECT_CALL(*mock_signing_key, SignSlowly).WillOnce(Return(std::nullopt));
+
+  auto signing_key =
+      MakeRefCountedUnexportableSigningKey(std::move(mock_signing_key));
+
+  base::test::TestFuture<ServiceErrorOr<std::vector<uint8_t>>> sign_future;
+  base::CancelableOnceCallback<void(ServiceErrorOr<std::vector<uint8_t>>)>
+      cancelable_sign(sign_future.GetCallback());
+
+  std::vector<uint8_t> data = {1, 2, 3};
+  task_manager().SignSlowlyAsync(
+      BackgroundTaskType::kSign, GetParam().origin, signing_key, data,
+      BackgroundTaskPriority::kBestEffort, cancelable_sign.callback());
+
+  // Cancel the task before background execution completes.
+  cancelable_sign.Cancel();
+
+  RunBackgroundTasks();
+
+  EXPECT_FALSE(sign_future.IsReady());
 }
 
 INSTANTIATE_TEST_SUITE_P(

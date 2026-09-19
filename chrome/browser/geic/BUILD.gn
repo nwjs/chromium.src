@@ -6,24 +6,47 @@ import("//chrome/common/features.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
 
 mojom("mojo_bindings") {
+  # Bound browser-side (and, in tests, from the browser); nothing in Blink C++
+  # binds it yet, so no Blink variant is needed. Disabling variants also keeps
+  # this target variant-consistent with the pwc :features target it imports for
+  # the [RuntimeFeature] reference. The TypeScript bindings generated here are
+  # consumed by a remote GE web app via the rollup bundle in
+  # //chrome/browser/resources/geic, not by Blink.
+  disable_variants = true
+
   sources = [ "geic.mojom" ]
 
-  public_deps = [ "//chrome/browser/pwc:features" ]
+  public_deps = [
+    "//chrome/browser/pwc:features",
+    "//mojo/public/mojom/base",
+    "//url/mojom:url_mojom_gurl",
+  ]
+  webui_module_path = "/"
+
+  # This is necessary to prevent method id scrambling. This is critical since
+  # the client is shipped separately from the browser. If scrambling is not
+  # disabled, the client will encounter a missing method validation error.
+  scramble_message_ids = false
 }
 
 source_set("geic") {
-  sources = [
-    "geic_enabling.cc",
+  public = [
     "geic_enabling.h",
-    "geic_host.cc",
     "geic_host.h",
   ]
+
+  sources = [
+    "geic_enabling.cc",
+    "geic_host.cc",
+  ]
+
   public_deps = [
     ":mojo_bindings",
     "//content/public/browser",
     "//mojo/public/cpp/bindings",
     "//ui/base/unowned_user_data",
   ]
+
   deps = [
     "//base",
     "//chrome/browser:bad_message",
@@ -35,6 +58,68 @@ source_set("geic") {
     "//components/version_info",
     "//content/public/common",
   ]
+
+  if (!is_android) {
+    public += [
+      "geic_browser_host_impl.h",
+      "geic_pwc_manager.h",
+    ]
+
+    sources += [
+      "geic_browser_host_impl.cc",
+      "geic_pwc_manager.cc",
+    ]
+
+    deps += [
+      "//chrome/browser/ui:browser_tab_strip",
+      "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/navigator",
+      "//chrome/browser/ui/side_panel",
+      "//chrome/browser/ui/tabs:tab_strip",
+      "//components/content_extraction/content/browser",
+      "//components/favicon/content",
+      "//components/tabs:public",
+      "//google_apis",
+      "//skia",
+      "//ui/base",
+      "//ui/gfx",
+      "//ui/gfx/codec",
+      "//url",
+    ]
+  }
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = []
+  deps = [
+    ":geic",
+    ":mojo_bindings",
+    "//base",
+    "//base/test:test_support",
+    "//chrome/browser/pwc",
+    "//chrome/test:test_support",
+    "//content/public/browser",
+    "//content/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//url",
+  ]
+
+  if (!is_android) {
+    sources += [
+      "geic_browser_host_impl_unittest.cc",
+      "geic_pwc_manager_unittest.cc",
+    ]
+    deps += [
+      "//chrome/browser/ui",
+      "//chrome/browser/ui/browser_window/test:test_support",
+      "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/tabs:test_support",
+      "//components/tabs:public",
+      "//components/tabs:test_support",
+    ]
+  }
 }
 
 if (!is_android) {
@@ -56,11 +141,13 @@ if (!is_android) {
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/views",
       "//chrome/browser/ui/views/glic",
+      "//chrome/browser/ui/views/tabs:tab_strip_button",
       "//ui/base",
       "//ui/base/metadata",
       "//ui/base/unowned_user_data",
       "//ui/gfx",
       "//ui/views",
+      "//ui/views/controls/webview",
     ]
   }
 }

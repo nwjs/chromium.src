@@ -25,7 +25,6 @@
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_active_state_manager/browser_active_state_manager.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -344,7 +343,8 @@ class DeviceSignalsDisclaimerInteractiveTest : public SigninBrowserTestBase {
   }
 
  protected:
-  content::WebContents* GetModalDialogWebContents(Browser* browser) {
+  content::WebContents* GetModalDialogWebContents(
+      BrowserWindowInterface* browser) {
     return browser->GetFeatures()
         .signin_view_controller()
         ->GetModalDialogWebContentsForTesting();
@@ -489,7 +489,7 @@ class DeviceSignalsDisclaimerStartupInteractiveTest
         base::test::RunUntil([&]() { return ShowsModalDialog(browser); }));
   }
 
-  void SimulateBrowserFocus(Browser* browser) {
+  void SimulateBrowserFocus(BrowserWindowInterface* browser) {
     BrowserActiveStateManager::From(browser)->DidBecomeInactive();
     BrowserActiveStateManager::From(browser)->DidBecomeActive();
   }
@@ -607,7 +607,7 @@ IN_PROC_BROWSER_TEST_F(DeviceSignalsDisclaimerStartupInteractiveTest,
   // Open a second browser and wait for the dialog there too.
   views::NamedWidgetShownWaiter new_widget_waiter(
       views::test::AnyWidgetTestPasskey{}, "SigninViewControllerDelegateViews");
-  Browser* new_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* new_browser = CreateBrowser(browser()->GetProfile());
   views::Widget* new_widget = new_widget_waiter.WaitIfNeededAndGet();
   ASSERT_TRUE(new_widget);
   content::WebContents* dialog_contents2 =
@@ -686,7 +686,7 @@ IN_PROC_BROWSER_TEST_F(DeviceSignalsDisclaimerStartupInteractiveTest,
   // Open a second browser and wait for the dialog there too.
   views::NamedWidgetShownWaiter new_widget_waiter(
       views::test::AnyWidgetTestPasskey{}, "SigninViewControllerDelegateViews");
-  Browser* new_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* new_browser = CreateBrowser(browser()->GetProfile());
   views::Widget* new_widget = new_widget_waiter.WaitIfNeededAndGet();
   ASSERT_TRUE(new_widget);
 
@@ -734,7 +734,7 @@ IN_PROC_BROWSER_TEST_F(DeviceSignalsDisclaimerStartupInteractiveTest,
   // Click `Learn More` and wait for the popup browser to open.
   ui_test_utils::BrowserCreatedObserver browser_creation_observer;
   ASSERT_TRUE(WaitForAndClickLearnMoreLink(dialog_contents));
-  Browser* popup_browser = browser_creation_observer.Wait();
+  BrowserWindowInterface* popup_browser = browser_creation_observer.Wait();
   ASSERT_TRUE(popup_browser);
 
   auto* browser_collection =
@@ -766,7 +766,7 @@ IN_PROC_BROWSER_TEST_F(DeviceSignalsDisclaimerStartupInteractiveTest,
   // Click `Learn More` and wait for the popup browser to open.
   ui_test_utils::BrowserCreatedObserver browser_creation_observer;
   ASSERT_TRUE(WaitForAndClickLearnMoreLink(dialog_contents));
-  Browser* popup_browser = browser_creation_observer.Wait();
+  BrowserWindowInterface* popup_browser = browser_creation_observer.Wait();
   ASSERT_TRUE(popup_browser);
   auto* browser_collection =
       ProfileBrowserCollection::GetForProfile(browser()->GetProfile());

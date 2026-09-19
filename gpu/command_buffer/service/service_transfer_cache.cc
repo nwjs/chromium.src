@@ -12,12 +12,15 @@
 #include "base/byte_size.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/memory_coordinator/memory_coordinator_features.h"
+#include "base/memory_coordinator/utils.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/stringprintf.h"
 #include "base/system/sys_info.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/memory_dump_manager.h"
 #include "cc/paint/image_transfer_cache_entry.h"
+#include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/config/gpu_finch_features.h"
 #include "third_party/skia/include/core/SkImage.h"
 #include "third_party/skia/include/gpu/ganesh/GrBackendSurface.h"
@@ -49,7 +52,7 @@ size_t DiscardableCacheSizeLimit() {
   // Device ram threshold at which we move from a normal cache to a large cache.
   // While this is a GPU memory cache, we can't read GPU memory reliably, so we
   // use system ram as a proxy.
-  constexpr base::ByteSize kLargeCacheSizeMemoryThreshold = base::GiBU(4);
+  constexpr base::ByteSize kLargeCacheSizeMemoryThreshold = base::GiB(4);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -68,22 +71,16 @@ size_t DiscardableCacheSizeLimit() {
 #endif
 }
 
-size_t DiscardableCacheSizeLimitForPressure(
-    size_t base_cache_limit,
-    base::MemoryPressureLevel memory_pressure_level) {
-  switch (memory_pressure_level) {
-    case base::MEMORY_PRESSURE_LEVEL_NONE:
-      return base_cache_limit;
-    case base::MEMORY_PRESSURE_LEVEL_MODERATE:
-      // With moderate pressure, shrink to 1/4 our normal size.
-      return base_cache_limit / 4;
-    case base::MEMORY_PRESSURE_LEVEL_CRITICAL:
-      // With critical pressure, purge as much as possible.
-      return 0;
-
-    default:
-      NOTREACHED();
+// TODO(crbug.com/465068849): Scale linearly between thresholds in a future CL.
+size_t DiscardableCacheSizeLimitForPressure(size_t base_cache_limit,
+                                            int memory_limit) {
+  if (memory_limit <= base::kCriticalMemoryPressureThreshold) {
+    return 0;
   }
+  if (memory_limit <= base::kModerateMemoryPressureThreshold) {
+    return base_cache_limit / 4;
+  }
+  return base_cache_limit;
 }
 
 // Alias the image entry to its skia counterpart, taking ownership of the
@@ -204,9 +201,11 @@ ServiceTransferCache::ServiceTransferCache(
     base::RepeatingClosure flush_callback)
     : flush_callback_(std::move(flush_callback)),
       entries_(EntryCache::NO_AUTO_EVICT),
-      cache_size_limit_(preferences.force_gpu_mem_discardable_limit_bytes
-                            ? preferences.force_gpu_mem_discardable_limit_bytes
-                            : DiscardableCacheSizeLimit()),
+      max_cache_size_limit_(
+          preferences.force_gpu_mem_discardable_limit_bytes
+              ? preferences.force_gpu_mem_discardable_limit_bytes
+              : DiscardableCacheSizeLimit()),
+      cache_size_limit_(max_cache_size_limit_),
       max_cache_entries_(kMaxCacheEntries) {
   // In certain cases, SingleThreadTaskRunner::CurrentDefaultHandle isn't set
   // (Android Webview).  Don't register a dump provider in these cases.
@@ -394,11 +393,29 @@ int ServiceTransferCache::RemoveOldEntriesUntil(
   return removed_count;
 }
 
-void ServiceTransferCache::PurgeMemory(
-    base::MemoryPressureLevel memory_pressure_level) {
+void ServiceTransferCache::OnUpdateMemoryLimit(int memory_limit) {
+  if (base::FeatureList::IsEnabled(base::kStatefulMemoryPressure)) {
+    size_t target_limit = gpu::UpdateShaderCacheSizeOnMemoryLimit(
+        max_cache_size_limit_, memory_limit);
+    // Ensure no memory is released during OnUpdateMemoryLimit.
+    cache_size_limit_ = std::max(total_size_, target_limit);
+  }
+}
+
+void ServiceTransferCache::OnReleaseMemory(int memory_limit) {
+  if (base::FeatureList::IsEnabled(base::kStatefulMemoryPressure)) {
+    // In OnUpdateMemoryLimit(), cache_size_limit_ is clamped to total_size_
+    // to avoid unexpected eviction during subsequent CreateLocalEntry() calls.
+    // When OnReleaseMemory() is called to explicitly free memory, we must
+    // update cache_size_limit_ to the actual target limit before enforcing it.
+    cache_size_limit_ = gpu::UpdateShaderCacheSizeOnMemoryLimit(
+        max_cache_size_limit_, memory_limit);
+    EnforceLimits();
+    return;
+  }
   base::AutoReset<size_t> reset_limit(
-      &cache_size_limit_, DiscardableCacheSizeLimitForPressure(
-                              cache_size_limit_, memory_pressure_level));
+      &cache_size_limit_,
+      DiscardableCacheSizeLimitForPressure(cache_size_limit_, memory_limit));
   EnforceLimits();
 }
 

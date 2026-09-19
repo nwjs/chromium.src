@@ -33,13 +33,11 @@
 #include "remoting/host/client_session_events.h"
 #include "remoting/host/cursor_visibility_notifier.h"
 #include "remoting/host/desktop_display_info.h"
-#include "remoting/host/host_extension_session_manager.h"
 #include "remoting/host/input_pipeline.h"
 #include "remoting/host/mojom/chromoting_host_services.mojom.h"
 #include "remoting/host/mojom/remote_url_opener.mojom.h"
 #include "remoting/host/mojom/webauthn_proxy.mojom.h"
 #include "remoting/host/peer_session.h"
-#include "remoting/host/security_key/security_key_extension.h"
 #include "remoting/proto/action.pb.h"
 #include "remoting/proto/control.pb.h"
 #include "remoting/protocol/audio_sample_info.h"
@@ -115,13 +113,8 @@ class PeerSessionImpl : public PeerSession,
   void Start(PeerSession::EventHandler* event_handler,
              std::string_view client_jid,
              const DesktopEnvironmentOptions& desktop_environment_options,
-             const std::vector<HostExtension*>& extensions,
              const SessionPolicies& session_policies,
              const SessionOptions& session_options) override;
-
-  HostExtensionSessionManager* extension_manager_for_tests() const {
-    return extension_manager_.get();
-  }
 
   TerminalSessionManager* terminal_session_manager_for_tests() const {
     return terminal_session_manager_.get();
@@ -272,8 +265,6 @@ class PeerSessionImpl : public PeerSession,
       const std::string& channel_name,
       std::unique_ptr<protocol::MessagePipe> pipe);
 
-  void DestroySecurityKeyExtensionSession();
-
   void CreatePerMonitorVideoStreams();
 
   // Boosts the framerate using `capture_interval` for `boost_duration` based on
@@ -296,6 +287,10 @@ class PeerSessionImpl : public PeerSession,
   void SendTerminalOutput(int32_t terminal_id, const std::string& data);
 
   void OnTerminalExited(int32_t terminal_id);
+
+  void SendTerminalProcessInfo(int32_t terminal_id,
+                               bool is_active,
+                               std::string_view process_name);
 
   void OnPairingResponse(
       std::optional<protocol::PairingResponse> pairing_response);
@@ -328,15 +323,10 @@ class PeerSessionImpl : public PeerSession,
   // Used to enable/disable clipboard sync and to restrict payload size.
   protocol::ClipboardFilter host_clipboard_filter_;
   protocol::ClipboardFilter client_clipboard_filter_;
-
   // Factory for weak pointers to the client clipboard stub.
   // This must appear after `clipboard_echo_filter_`, so that it won't outlive
   // it.
   base::WeakPtrFactory<protocol::ClipboardStub> client_clipboard_factory_;
-
-  // A timer that triggers a disconnect when the maximum session duration
-  // is reached.
-  base::OneShotTimer max_duration_timer_;
 
   // Objects responsible for sending video, audio.
   std::map<webrtc::ScreenId, std::unique_ptr<protocol::VideoStream>>
@@ -412,9 +402,6 @@ class PeerSessionImpl : public PeerSession,
   std::unique_ptr<KeyboardLayoutMonitor> keyboard_layout_monitor_;
 
   std::unique_ptr<SecurityKeyAuthHandler> security_key_auth_handler_;
-  std::unique_ptr<SecurityKeyExtension> security_key_extension_;
-  std::unique_ptr<HostExtensionSessionManager> extension_manager_;
-  std::vector<raw_ptr<HostExtension, VectorExperimental>> extensions_;
 
   base::WeakPtr<RemoteWebAuthnMessageHandler> remote_webauthn_message_handler_;
   base::WeakPtr<RemoteOpenUrlMessageHandler> remote_open_url_message_handler_;

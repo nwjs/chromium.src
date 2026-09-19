@@ -29,14 +29,14 @@
 #include "base/strings/utf_string_conversions.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/country_type.h"
-#include "components/autofill/core/browser/data_model/addresses/autofill_normalization_utils.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_normalization_util.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile_comparator.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_constants.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_name.h"
-#include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_utils.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_util.h"
 #include "components/autofill/core/browser/data_quality/autofill_data_util.h"
-#include "components/autofill/core/browser/field_type_utils.h"
+#include "components/autofill/core/browser/field_type_util.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "third_party/icu/source/common/unicode/uchar.h"
@@ -412,8 +412,10 @@ bool IsNormalizedNameVariantOfLinear(std::u16string_view full_name_1,
     std::u16string_view given_name_2 =
         base::RemovePrefix(full_name_2, name_1_parts.family)
             .value_or(full_name_2);
-    return IsSubsequence(TokenizeNormalizedCjkName(name_1_parts.given),
-                         TokenizeNormalizedCjkName(given_name_2));
+    if (IsSubsequence(TokenizeNormalizedCjkName(name_1_parts.given),
+                      TokenizeNormalizedCjkName(given_name_2))) {
+      return true;
+    }
   }
 
   auto tokenize = [](std::u16string_view str) {
@@ -664,13 +666,6 @@ bool NameInfo::MergeStructuredName(const NameInfo& newer,
     return true;
   }
   return false;
-}
-
-void NameInfo::MergeStructuredNameValidationStatuses(const NameInfo& newer) {
-  name_->MergeVerificationStatuses(*newer.name_);
-  if (IsAlternativeNameSupported() && newer.IsAlternativeNameSupported()) {
-    alternative_name_->MergeVerificationStatuses(*newer.alternative_name_);
-  }
 }
 
 bool NameInfo::IsNameVariantOf(std::u16string_view value,

@@ -41,6 +41,7 @@
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_container_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
+#include "chrome/browser/ui/views/page_action/test_support/page_action_test_accessor.h"
 #include "chrome/browser/ui/webauthn/ambient/ambient_signin_controller.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_builder.h"
 #include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
@@ -59,6 +60,7 @@
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_form.h"
+#include "components/password_manager/core/browser/password_string.h"
 #include "components/password_manager/core/common/password_manager_ui.h"
 #include "components/sync/protocol/webauthn_credential_specifics.pb.h"
 #include "components/webauthn/core/browser/passkey_change_quota_tracker.h"
@@ -1315,18 +1317,12 @@ IN_PROC_BROWSER_TEST_F(WebAuthnAmbientUITest, AmbientUIPageAction) {
   observer_->WaitForUI();
 
   // Verify that the page action is shown.
-  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
-  page_actions::PageActionView* action_view =
-      browser_view->GetLocationBarView()
-          ->page_action_container()
-          ->GetPageActionView(kActionWebAuthnAmbientSignin);
-  ASSERT_TRUE(action_view);
+  page_actions::PageActionTestAccessor action_view(
+      browser(), kActionWebAuthnAmbientSignin);
+  EXPECT_TRUE(action_view.GetVisible());
 
   // Simulate user selection.
-  ui::MouseEvent click(ui::EventType::kMousePressed, gfx::Point(), gfx::Point(),
-                       base::TimeTicks(), ui::EF_LEFT_MOUSE_BUTTON,
-                       ui::EF_LEFT_MOUSE_BUTTON);
-  action_view->NotifyClick(click);
+  action_view.Click();
 
   std::string result;
   ASSERT_TRUE(message_queue.WaitForMessage(&result));
@@ -1392,21 +1388,14 @@ IN_PROC_BROWSER_TEST_F(WebAuthnAmbientUITest, AmbientUIDeduplication) {
   content::ExecuteScriptAsync(web_contents, kAmbientUIGetRequest);
   observer_->WaitForUI();
 
-  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
-  page_actions::PageActionView* action_view =
-      browser_view->GetLocationBarView()
-          ->page_action_container()
-          ->GetPageActionView(kActionWebAuthnAmbientSignin);
+  page_actions::PageActionTestAccessor action_view(
+      browser(), kActionWebAuthnAmbientSignin);
   // If deduplication failed, there would be 2 credentials, triggering the
   // bubble instead of page action.
-  ASSERT_TRUE(action_view);
-  EXPECT_TRUE(action_view->GetVisible());
+  EXPECT_TRUE(action_view.GetVisible());
 
   // Simulate user selection.
-  ui::MouseEvent click(ui::EventType::kMousePressed, gfx::Point(), gfx::Point(),
-                       base::TimeTicks(), ui::EF_LEFT_MOUSE_BUTTON,
-                       ui::EF_LEFT_MOUSE_BUTTON);
-  action_view->NotifyClick(click);
+  action_view.Click();
 
   std::string result;
   ASSERT_TRUE(message_queue.WaitForMessage(&result));
@@ -1433,7 +1422,7 @@ IN_PROC_BROWSER_TEST_F(WebAuthnAmbientUITest, AmbientUIPasswordDeduplication) {
   std::vector<std::unique_ptr<password_manager::PasswordForm>> passwords;
   auto form = std::make_unique<password_manager::PasswordForm>();
   form->username_value = base::UTF8ToUTF16(std::string(kUsername1));
-  form->password_value = u"password";
+  form->password_value = password_manager::PasswordString(u"password");
   form->url = GURL("https://www.example.com");
   passwords.push_back(std::move(form));
   fetcher->SetPasswords(std::move(passwords));
@@ -1446,58 +1435,13 @@ IN_PROC_BROWSER_TEST_F(WebAuthnAmbientUITest, AmbientUIPasswordDeduplication) {
   content::ExecuteScriptAsync(web_contents, kAmbientUIGetRequestWithPassword);
   observer_->WaitForUI();
 
-  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
-  page_actions::PageActionView* action_view =
-      browser_view->GetLocationBarView()
-          ->page_action_container()
-          ->GetPageActionView(kActionWebAuthnAmbientSignin);
+  page_actions::PageActionTestAccessor action_view(
+      browser(), kActionWebAuthnAmbientSignin);
   // If deduplication failed, there would be 2 mechanisms (1 passkey, 1
   // password), triggering the bubble instead of page action.
-  ASSERT_TRUE(action_view);
-  EXPECT_TRUE(action_view->GetVisible());
+  EXPECT_TRUE(action_view.GetVisible());
 
-  ui::MouseEvent click(ui::EventType::kMousePressed, gfx::Point(), gfx::Point(),
-                       base::TimeTicks(), ui::EF_LEFT_MOUSE_BUTTON,
-                       ui::EF_LEFT_MOUSE_BUTTON);
-  action_view->NotifyClick(click);
-
-  std::string result;
-  ASSERT_TRUE(message_queue.WaitForMessage(&result));
-  EXPECT_EQ(result, "\"webauthn: OK\"");
-}
-
-class WebAuthnAmbientUIAnchoredMessageTest : public WebAuthnAmbientUITest {
- public:
-  WebAuthnAmbientUIAnchoredMessageTest() {
-    scoped_feature_list_.Reset();
-    scoped_feature_list_.InitAndEnableFeatureWithParameters(
-        device::kWebAuthnAmbientSignin, {{"display", "anchored_message"}});
-  }
-};
-
-IN_PROC_BROWSER_TEST_F(WebAuthnAmbientUIAnchoredMessageTest,
-                       AmbientUIAnchoredMessage) {
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  content::DOMMessageQueue message_queue(web_contents);
-  content::ExecuteScriptAsync(web_contents, kAmbientUIGetRequest);
-  observer_->WaitForUI();
-
-  // Verify that the anchored message is shown.
-  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
-  auto* controller = browser_view->browser()
-                         ->tab_strip_model()
-                         ->GetActiveTab()
-                         ->GetTabFeatures()
-                         ->page_action_controller();
-  EXPECT_EQ(controller->GetActiveAnchoredMessage(),
-            kActionWebAuthnAmbientSignin);
-
-  ambient_signin::AmbientSigninController* ambient_controller =
-      ambient_signin::AmbientSigninController::GetForCurrentDocument(
-          web_contents->GetPrimaryMainFrame());
-  ASSERT_TRUE(ambient_controller);
-  ambient_controller->TriggerPageActionSignIn();
+  action_view.Click();
 
   std::string result;
   ASSERT_TRUE(message_queue.WaitForMessage(&result));

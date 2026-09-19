@@ -32,8 +32,8 @@
 
 namespace {
 
-NSString* const kSendTabToSendConclusionNotification =
-    @"SendTabToSendConclusionNotification";
+NSString* const kSendTabToSelfConclusionNotification =
+    @"SendTabToSelfConclusionNotification";
 
 // Returns the index of the WebState in `web_state_list` belonging to the most
 // recently received Send Tab to Self batch, ignoring previously received tabs.
@@ -82,7 +82,7 @@ IOSSendTabToSelfInfoBarDelegate::Create(const SendTabToSelfEntry* entry,
 IOSSendTabToSelfInfoBarDelegate::~IOSSendTabToSelfInfoBarDelegate() {
   [[NSNotificationCenter defaultCenter]
       removeObserver:registration_
-                name:kSendTabToSendConclusionNotification
+                name:kSendTabToSelfConclusionNotification
               object:nil];
 }
 
@@ -111,7 +111,7 @@ IOSSendTabToSelfInfoBarDelegate::IOSSendTabToSelfInfoBarDelegate(
       weak_ptr_factory_.GetWeakPtr();
   // Observe for conclusion notification from other instances.
   registration_ = [[NSNotificationCenter defaultCenter]
-      addObserverForName:kSendTabToSendConclusionNotification
+      addObserverForName:kSendTabToSelfConclusionNotification
                   object:nil
                    queue:nil
               usingBlock:^(NSNotification* note) {
@@ -154,7 +154,8 @@ int IOSSendTabToSelfInfoBarDelegate::GetIconId() const {
 }
 
 void IOSSendTabToSelfInfoBarDelegate::InfoBarDismissed() {
-  send_tab_to_self::RecordNotificationDismissed();
+  send_tab_to_self::RecordNotificationStatus(
+      send_tab_to_self::NotificationStatus::kDismissed);
   Cancel();
 }
 
@@ -179,7 +180,8 @@ std::u16string IOSSendTabToSelfInfoBarDelegate::GetMessageText() const {
 }
 
 bool IOSSendTabToSelfInfoBarDelegate::Accept() {
-  send_tab_to_self::RecordNotificationOpened();
+  send_tab_to_self::RecordNotificationStatus(
+      send_tab_to_self::NotificationStatus::kOpened);
   SendConclusionNotification();
 
   const SendTabToSelfEntry* entry = model_->GetEntryByGUID(guid_);
@@ -216,7 +218,7 @@ bool IOSSendTabToSelfInfoBarDelegate::Cancel() {
 
 void IOSSendTabToSelfInfoBarDelegate::SendConclusionNotification() {
   [[NSNotificationCenter defaultCenter]
-      postNotificationName:kSendTabToSendConclusionNotification
+      postNotificationName:kSendTabToSelfConclusionNotification
                     object:registration_
                   userInfo:nil];
 }

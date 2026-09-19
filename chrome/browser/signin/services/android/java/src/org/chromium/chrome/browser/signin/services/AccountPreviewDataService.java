@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.signin.services;
 
 import androidx.annotation.MainThread;
+import androidx.annotation.VisibleForTesting;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
@@ -25,7 +26,8 @@ public class AccountPreviewDataService {
     private final long mNativeAccountPreviewDataService;
 
     @CalledByNative
-    private AccountPreviewDataService(long nativeAccountPreviewDataService) {
+    @VisibleForTesting
+    AccountPreviewDataService(long nativeAccountPreviewDataService) {
         assert nativeAccountPreviewDataService != 0;
         mNativeAccountPreviewDataService = nativeAccountPreviewDataService;
     }

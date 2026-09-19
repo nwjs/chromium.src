@@ -13,9 +13,10 @@
   width: 100%;
 }
 
-omnibox-everywhere-omnibox {
-  --cr-searchbox-height: 56px;
-  --cr-searchbox-icon-left-position: 12px;
+omnibox-everywhere-omnibox,
+omnibox-everywhere-composebox {
+  --cr-searchbox-height: 48px;
+  --cr-searchbox-icon-left-position: 16px;
   --cr-searchbox-icon-top-position: 0;
   --cr-searchbox-min-width: 100%;
 
@@ -121,11 +122,16 @@ omnibox-everywhere-omnibox::part(dropdown-content) {
 }
 
 #mostVisitedContainer {
-  -webkit-app-region: no-drag;
+  -webkit-app-region: drag;
   align-items: center;
+  animation: fadeInMvt 200ms cubic-bezier(0, 0, 0.2, 1);
+  background-clip: padding-box;
   background-color: var(--color-sys-surface-container-high, #fff);
-  border-radius: 20px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08);
+  /* Preserves 2px border width parity with omnibox-everywhere-omnibox and
+   * composebox. */
+  border: 2px solid transparent;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px 2px rgba(0, 0, 0, 0.25);
   box-sizing: border-box;
   display: flex;
   justify-content: center;
@@ -136,10 +142,16 @@ omnibox-everywhere-omnibox::part(dropdown-content) {
 }
 
 cr-most-visited {
-  -webkit-app-region: no-drag;
-  --most-visited-gap: 20px;
+  -webkit-app-region: drag;
+  --most-visited-focus-shadow: 0 0 0 2px var(--color-sys-primary, #1a73e8);
+  --most-visited-gap: calc((644px - 7 * var(--most-visited-tile-size)) / 6);
+  --most-visited-icon-margin-top: 8px;
   --most-visited-icon-size: 48px;
-  --most-visited-tile-size: 64px;
+  --most-visited-managed-icon-left: 44px;
+  --most-visited-managed-icon-top: 32px;
+  --most-visited-tile-size: 68px;
+  --tile-background-color: var(--color-sys-surface-variant);
+  --tile-hover-color: var(--color-sys-state-hover-on-subtle);
   align-items: center;
   display: flex;
   justify-content: center;
@@ -156,7 +168,53 @@ cr-most-visited {
 
 #content:has(omnibox-everywhere-omnibox[dropdown-is-visible]) #mostVisitedContainer,
 #content:has(#composebox) #mostVisitedContainer,
+#mostVisitedContainer[hidden],
 #mostVisitedContainer:has(cr-most-visited:not([visible_])),
 #mostVisitedContainer:has(cr-most-visited[hidden]) {
+  display: none;
+}
+
+fre-modal {
+  margin-top: 10px;
+}
+
+fre-modal.dismissing {
+  animation: fadeOutFre 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes fadeOutFre {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes fadeInMvt {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  fre-modal.dismissing {
+    animation-duration: 0s;
+  }
+  #mostVisitedContainer {
+    animation: none;
+  }
+}
+
+#content:has(omnibox-everywhere-omnibox[dropdown-is-visible]) fre-modal,
+#content:has(#composebox) fre-modal {
   display: none;
 }

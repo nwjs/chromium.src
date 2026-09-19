@@ -636,11 +636,16 @@ String WorkerOrWorkletGlobalScope::GetAcceptLanguages() const {
   return web_worker_fetch_context_->GetAcceptLanguages();
 }
 
+const RendererPreferences& WorkerOrWorkletGlobalScope::GetRendererPreferences()
+    const {
+  return web_worker_fetch_context_->GetRendererPreferences();
+}
+
 void WorkerOrWorkletGlobalScope::OnConsoleApiMessage(
     mojom::ConsoleMessageLevel level,
     const String& message,
     SourceLocation* location) {
-  reporting_proxy_.ReportConsoleMessage(
+  reporting_proxy_->ReportConsoleMessage(
       mojom::ConsoleMessageSource::kConsoleApi, level, message, location);
 }
 

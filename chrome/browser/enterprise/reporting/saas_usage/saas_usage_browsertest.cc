@@ -11,14 +11,12 @@
 #include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client.h"
 #include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client_factory.h"
 #include "chrome/browser/enterprise/reporting/prefs.h"
-#include "chrome/browser/enterprise/reporting/saas_usage/saas_usage_reporting_delegate_factory_desktop.h"
+#include "chrome/browser/enterprise/reporting/saas_usage/saas_usage_reporting_delegate_factory_impl.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/policy/policy_test_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/test/base/in_process_browser_test.h"
-#include "chrome/test/base/ui_test_utils.h"
+#include "chrome/test/base/chrome_test_utils.h"
 #include "components/enterprise/browser/controller/chrome_browser_cloud_management_controller.h"
 #include "components/enterprise/browser/controller/fake_browser_dm_token_storage.h"
 #include "components/enterprise/browser/reporting/common_pref_names.h"
@@ -39,6 +37,7 @@
 #include "components/policy/proto/device_management_backend.pb.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -55,7 +54,9 @@ namespace enterprise_reporting {
 #if !BUILDFLAG(IS_CHROMEOS)
 class SaasUsageBrowserLevelTest : public policy::PolicyTest {
  public:
-  SaasUsageBrowserLevelTest() = default;
+  SaasUsageBrowserLevelTest() {
+    scoped_feature_list_.InitAndEnableFeature(kSaasUsageReporting);
+  }
   ~SaasUsageBrowserLevelTest() override = default;
 
   void SetUpInProcessBrowserTestFixture() override {
@@ -96,6 +97,7 @@ class SaasUsageBrowserLevelTest : public policy::PolicyTest {
   std::unique_ptr<policy::MockCloudPolicyClient> client_;
   std::unique_ptr<policy::FakeBrowserDMTokenStorage>
       fake_browser_dm_token_storage_;
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(SaasUsageBrowserLevelTest, RecordsUsage) {
@@ -113,7 +115,8 @@ IN_PROC_BROWSER_TEST_F(SaasUsageBrowserLevelTest, RecordsUsage) {
   GURL url = embedded_test_server()->GetURL("example.com", "/empty.html");
 
   // Navigate to the domain specified in the policy.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  ASSERT_TRUE(content::NavigateToURL(
+      chrome_test_utils::GetActiveWebContents(this), url));
 
   // Verify that the usage was recorded in the correct pref service.
   PrefService* pref_service = g_browser_process->local_state();
@@ -151,7 +154,7 @@ IN_PROC_BROWSER_TEST_F(SaasUsageBrowserLevelTest, RecordsUsage) {
 
   // Force trigger the report upload.
   auto delegate_factory = enterprise_reporting::
-      SaasUsageReportingDelegateFactoryDesktop::CreateForBrowser();
+      SaasUsageReportingDelegateFactoryImpl::CreateForBrowser();
   auto scheduler = enterprise_reporting::SaasUsageReportScheduler::Create(
       "browser", delegate_factory.get());
   ASSERT_TRUE(scheduler);
@@ -163,7 +166,9 @@ IN_PROC_BROWSER_TEST_F(SaasUsageBrowserLevelTest, RecordsUsage) {
 
 class SaasUsageProfileLevelTest : public policy::PolicyTest {
  public:
-  SaasUsageProfileLevelTest() = default;
+  SaasUsageProfileLevelTest() {
+    scoped_feature_list_.InitAndEnableFeature(kSaasUsageReporting);
+  }
   ~SaasUsageProfileLevelTest() override = default;
 
   void SetUpInProcessBrowserTestFixture() override {
@@ -204,10 +209,12 @@ class SaasUsageProfileLevelTest : public policy::PolicyTest {
 
  protected:
   std::unique_ptr<policy::MockCloudPolicyClient> client_;
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(SaasUsageProfileLevelTest, RecordsUsage) {
-  auto* policy_manager = browser()->GetProfile()->GetCloudPolicyManager();
+  auto* profile = chrome_test_utils::GetProfile(this);
+  auto* policy_manager = profile->GetCloudPolicyManager();
   ASSERT_TRUE(policy_manager);
 
   enterprise_management::PolicyData policy_data;
@@ -236,10 +243,11 @@ IN_PROC_BROWSER_TEST_F(SaasUsageProfileLevelTest, RecordsUsage) {
   GURL url = embedded_test_server()->GetURL("example.com", "/empty.html");
 
   // Navigate to the domain specified in the policy.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  ASSERT_TRUE(content::NavigateToURL(
+      chrome_test_utils::GetActiveWebContents(this), url));
 
   // Verify that the usage was recorded in the correct pref service.
-  PrefService* pref_service = browser()->GetProfile()->GetPrefs();
+  PrefService* pref_service = profile->GetPrefs();
   ASSERT_TRUE(pref_service);
 
   const base::DictValue& report_dict = pref_service->GetDict(kSaasUsageReport);
@@ -273,9 +281,8 @@ IN_PROC_BROWSER_TEST_F(SaasUsageProfileLevelTest, RecordsUsage) {
           }));
 
   // Force trigger the report upload.
-  auto delegate_factory =
-      enterprise_reporting::SaasUsageReportingDelegateFactoryDesktop::
-          CreateForProfile(browser()->GetProfile());
+  auto delegate_factory = enterprise_reporting::
+      SaasUsageReportingDelegateFactoryImpl::CreateForProfile(profile);
   auto scheduler = enterprise_reporting::SaasUsageReportScheduler::Create(
       "profile", delegate_factory.get());
   ASSERT_TRUE(scheduler);

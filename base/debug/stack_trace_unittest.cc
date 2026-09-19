@@ -103,6 +103,14 @@ TEST_F(StackTraceTest, OutputToStream) {
       << backtrace_message;
 }
 
+#if BUILDFLAG(IS_ANDROID)
+TEST_F(StackTraceTest, AndroidBuildIdInOutput) {
+  StackTrace trace;
+  std::string trace_string = trace.ToString();
+  EXPECT_THAT(trace_string, testing::HasSubstr(" (BuildId: "));
+}
+#endif
+
 #if !defined(OFFICIAL_BUILD) && !BUILDFLAG(EXCLUDE_UNWIND_TABLES)
 // Disabled in Official builds, where Link-Time Optimization can result in two
 // or fewer stack frames being available, causing the test to fail.
@@ -209,6 +217,7 @@ allocator_shim::AllocatorDispatch g_bad_malloc_dispatch = {
     &BadCalloc,         /* alloc_zero_initialized_function */
     &BadCalloc,         /* alloc_zero_initialized_unchecked_function */
     &BadAlignedAlloc,   /* alloc_aligned_function */
+    &BadAlignedAlloc,   /* alloc_aligned_unchecked_function */
     &BadRealloc,        /* realloc_function */
     &BadRealloc,        /* realloc_unchecked_function */
     &BadFree,           /* free_function */

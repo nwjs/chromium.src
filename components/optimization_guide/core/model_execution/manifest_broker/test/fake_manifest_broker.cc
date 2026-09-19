@@ -6,9 +6,25 @@
 
 #include "base/test/test_future.h"
 #include "base/trace_event/trace_event.h"
+#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
+#include "components/optimization_guide/core/optimization_guide_features.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace optimization_guide {
+
+ScopedModelBrokerFeatureList::ScopedModelBrokerFeatureList() {
+  feature_list_.InitWithFeaturesAndParameters(
+      {{features::kOptimizationGuideModelExecution, {}},
+       {features::kOnDeviceModelValidation,
+        {{"on_device_model_validation_delay", "0"}}}},
+      {});
+}
+ScopedModelBrokerFeatureList::~ScopedModelBrokerFeatureList() = default;
+
+ModelBrokerPrefService::ModelBrokerPrefService() {
+  model_execution::prefs::RegisterLocalStatePrefs(local_state_.registry());
+}
+ModelBrokerPrefService::~ModelBrokerPrefService() = default;
 
 FakeManifestBroker::FakeManifestBroker() = default;
 FakeManifestBroker::~FakeManifestBroker() = default;
@@ -17,7 +33,7 @@ void FakeManifestBroker::Startup() {
   if (!manifest_broker_state_) {
     manifest_broker_state_ = std::make_unique<ManifestBrokerState>(
         local_state_.local_state(), component_state_.CreateDelegate(),
-        launcher_.LaunchFn(), &component_update_service_);
+        launcher_.LaunchFn(), &component_state_.component_update_service());
   }
   if (!model_broker_client_) {
     model_broker_client_ = std::make_unique<ModelBrokerClient>(

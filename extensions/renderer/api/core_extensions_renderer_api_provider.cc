@@ -4,7 +4,10 @@
 
 #include "extensions/renderer/api/core_extensions_renderer_api_provider.h"
 
+#include "base/containers/fixed_flat_map.h"
+#include "base/feature_list.h"
 #include "components/guest_view/buildflags/buildflags.h"
+#include "content/public/common/content_features.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/grit/extensions_renderer_generated_resources.h"
 #include "extensions/grit/extensions_renderer_resources.h"
@@ -173,11 +176,8 @@ void CoreExtensionsRendererAPIProvider::AddBindingsSystemHooks(
 
 void CoreExtensionsRendererAPIProvider::PopulateSourceMap(
     ResourceBundleSourceMap* source_map) const {
-  struct JsResourceInfo {
-    const char* name = nullptr;
-    int id = 0;
-  };
-  std::vector<JsResourceInfo> js_resources = {
+  static constexpr auto kSources = base::MakeFixedFlatMap<std::string_view,
+                                                          int>({
 #if BUILDFLAG(IS_CHROMEOS)
       {"appView",
        IDR_EXTENSIONS_RENDERER_GENERATED_GUEST_VIEW_APP_VIEW_APP_VIEW_JS},
@@ -321,17 +321,27 @@ void CoreExtensionsRendererAPIProvider::PopulateSourceMap(
       {"nw.Obj",       IDR_NWAPI_OBJECT_JS},
       {"nw.test",      IDR_NWAPI_TEST_JS},
       {"nw.Tray",      IDR_NWAPI_TRAY_JS},
-  };
+      {"nw.currentWindowInternal", IDR_NWAPI_WINDOW_INTERNAL_JS},
+  });
 
-  if (base::FeatureList::IsEnabled(::features::kNWNewWin))
-    js_resources.push_back({"nw.Window",    IDR_NWAPI_NEWWIN_JS});
-  else {
-    js_resources.push_back({"nw.Window",    IDR_NWAPI_WINDOW_JS});
-  }
-  js_resources.push_back({"nw.currentWindowInternal",    IDR_NWAPI_WINDOW_INTERNAL_JS});
+  // The nw.Window source is selected at runtime based on a feature flag, so
+  // it cannot be part of the static table above. Register one of the two
+  // static single-entry tables; both have static storage duration and thus
+  // outlive the source map as required by RegisterSources().
+  static constexpr auto kNwWindowNewWinSource =
+      base::MakeFixedFlatMap<std::string_view, int>({
+          {"nw.Window", IDR_NWAPI_NEWWIN_JS},
+      });
+  static constexpr auto kNwWindowSource =
+      base::MakeFixedFlatMap<std::string_view, int>({
+          {"nw.Window", IDR_NWAPI_WINDOW_JS},
+      });
 
-  for (const auto& resource : js_resources) {
-    source_map->RegisterSource(resource.name, resource.id);
+  source_map->RegisterSources(kSources);
+  if (base::FeatureList::IsEnabled(::features::kNWNewWin)) {
+    source_map->RegisterSources(kNwWindowNewWinSource);
+  } else {
+    source_map->RegisterSources(kNwWindowSource);
   }
 }
 

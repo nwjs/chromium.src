@@ -22,6 +22,7 @@
 #include "chrome/browser/sessions/session_tab_helper_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
@@ -88,7 +89,8 @@ class OfdsConfigPrivateApiBrowserTest : public ExtensionApiTest {
     EXPECT_EQ(ash::kMicrosoft365AppId, m365_app_id);
   }
 
-  int CreateNewTabAndNavigate(const GURL& url, Browser* browser) {
+  int CreateNewTabAndNavigate(const GURL& url,
+                              BrowserWindowInterface* browser) {
     chrome::NewTab(browser, NewTabTypes::kNoUserAction);
 
     content::WebContents* web_contents =
@@ -258,7 +260,7 @@ IN_PROC_BROWSER_TEST_F(OfdsConfigPrivateApiBrowserTest,
   InstallMicrosoft365();
 
   // Launch M365 PWA in a window.
-  Browser* existing_m365_browser =
+  BrowserWindowInterface* existing_m365_browser =
       web_app::LaunchWebAppBrowser(profile(), ash::kMicrosoft365AppId);
   EXPECT_TRUE(web_app::AppBrowserController::IsForWebApp(
       existing_m365_browser, ash::kMicrosoft365AppId));

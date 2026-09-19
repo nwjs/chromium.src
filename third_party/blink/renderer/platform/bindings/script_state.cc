@@ -4,50 +4,59 @@
 
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 
+#include "base/check_deref.h"
 #include "third_party/blink/renderer/platform/bindings/dom_wrapper_world.h"
 #include "third_party/blink/renderer/platform/bindings/v8_binding.h"
 #include "third_party/blink/renderer/platform/bindings/v8_per_context_data.h"
 #include "third_party/blink/renderer/platform/instrumentation/instance_counters.h"
 #include "third_party/blink/renderer/platform/instrumentation/resource_coordinator/renderer_resource_coordinator.h"
+#include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
+#include "third_party/blink/renderer/platform/wtf/functional.h"
 
 namespace blink {
 
-ScriptState::CreateCallback ScriptState::s_create_callback_ = nullptr;
-
-// static
-void ScriptState::SetCreateCallback(CreateCallback create_callback) {
-  DCHECK(create_callback);
-  DCHECK(!s_create_callback_);
-  s_create_callback_ = create_callback;
-}
-
-// static
-ScriptState* ScriptState::Create(v8::Local<v8::Context> context,
-                                 DOMWrapperWorld* world,
-                                 ExecutionContext* execution_context) {
-  return s_create_callback_(context, world, execution_context);
-}
-
 ScriptState::ScriptState(v8::Local<v8::Context> context,
                          DOMWrapperWorld* world,
-                         ExecutionContext* execution_context)
+                         scoped_refptr<scheduler::EventLoop> event_loop)
     : isolate_(world->GetIsolate()),
       context_(isolate_, context),
       world_(world),
-      per_context_data_(MakeGarbageCollected<V8PerContextData>(context)) {
+      per_context_data_(
+          MakeGarbageCollected<V8PerContextData>(context,
+                                                 std::move(event_loop))) {
   CHECK(isolate_);
   DCHECK(world_);
   context_.SetWeak(this, &OnV8ContextCollectedCallback);
   context->SetAlignedPointerInEmbedderData(kV8ContextPerContextDataIndex, this,
                                            kTypeTag);
-  RendererResourceCoordinator::Get()->OnScriptStateCreated(this,
-                                                           execution_context);
   for (int i = 32; i <= 36; i++) { //node_context_data.h
     context->SetAlignedPointerInEmbedderData(
         i, nullptr, v8::kEmbedderDataTypeTagDefault);
   }
   context->SetAlignedPointerInEmbedderData(
       50, nullptr, v8::kEmbedderDataTypeTagDefault);
+}
+
+void ScriptState::EnqueueMicrotask(
+    base::OnceCallback<void(ScriptState*)> callback) {
+  if (!ContextIsValid()) {
+    return;
+  }
+  CHECK(per_context_data_);
+  // Certain type of contexts would not have an event loop, but caller
+  // should know better and not schedule a microtask on such contexts.
+  scheduler::EventLoop& event_loop =
+      CHECK_DEREF(per_context_data_->GetEventLoop());
+  event_loop.EnqueueMicrotask(blink::BindOnce(
+      [](ScriptState* script_state,
+         base::OnceCallback<void(ScriptState*)> callback) {
+        if (!script_state->ContextIsValid()) {
+          return;
+        }
+        ScriptState::Scope scope(script_state);
+        std::move(callback).Run(script_state);
+      },
+      WrapPersistent(this), std::move(callback)));
 }
 
 ScriptState::~ScriptState() {

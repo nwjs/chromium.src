@@ -66,6 +66,7 @@ public class ChromeBasePreferenceTest {
         mPreferenceScreen.addPreference(preference);
 
         Assert.assertTrue(preference.isEnabled());
+        Assert.assertFalse(preference.isIconSpaceReserved());
 
         onView(withId(android.R.id.title)).check(matches(allOf(withText(TITLE), isDisplayed())));
         onView(withId(android.R.id.summary))
@@ -74,6 +75,7 @@ public class ChromeBasePreferenceTest {
         // view does not exist.
         onView(withId(R.id.managed_disclaimer_text)).check(doesNotExist());
         onView(withId(android.R.id.icon)).check(matches(not(isDisplayed())));
+        onView(withId(R.id.icon_frame)).check(matches(not(isDisplayed())));
     }
 
     @Test
@@ -279,5 +281,18 @@ public class ChromeBasePreferenceTest {
                 .check(matches(allOf(withText(R.string.managed_by_your_parent), isDisplayed())));
         onView(withId(R.id.managed_disclaimer_text)).check(doesNotExist());
         onView(withId(android.R.id.icon)).check(matches(isDisplayed()));
+    }
+
+    @Test
+    @LargeTest
+    public void testIconSpaceReservedDefaultFalse() {
+        ChromeBasePreference preference = new ChromeBasePreference(mActivity);
+        Assert.assertFalse(preference.isIconSpaceReserved());
+
+        ChromeBasePreferenceCategory category = new ChromeBasePreferenceCategory(mActivity);
+        Assert.assertFalse(category.isIconSpaceReserved());
+
+        ChromeBaseListPreference listPreference = new ChromeBaseListPreference(mActivity);
+        Assert.assertFalse(listPreference.isIconSpaceReserved());
     }
 }

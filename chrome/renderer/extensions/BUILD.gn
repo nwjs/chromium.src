@@ -64,6 +64,13 @@ source_set("extensions") {
   # TODO(https://crbug.com/356905053): These sources are not currently included
   # in the experimental desktop-android configuration. Gradually include more
   # of them, or omit them behind more targeted GN flags.
+  if (enable_platform_apps) {
+    sources += [
+      "api/sync_file_system_custom_bindings.cc",
+      "api/sync_file_system_custom_bindings.h",
+    ]
+  }
+
   if (enable_extensions) {
     public += [ "api/accessibility_private_hooks_delegate.h" ]
 
@@ -72,8 +79,6 @@ source_set("extensions") {
       "api/accessibility_private_hooks_delegate.h",
       "api/app_hooks_delegate.cc",
       "api/app_hooks_delegate.h",
-      "api/sync_file_system_custom_bindings.cc",
-      "api/sync_file_system_custom_bindings.h",
     ]
 
     public_deps += [ "//v8:v8_headers" ]
@@ -146,4 +151,26 @@ source_set("unit_tests") {
   if (is_chromeos) {
     sources += [ "api/accessibility_private_hooks_delegate_unittest.cc" ]
   }
+}
+
+source_set("platform_browser_tests") {
+  testonly = true
+
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+  sources = [ "script_context_browsertest.cc" ]
+
+  deps = [
+    ":extensions",
+    "//base",
+    "//chrome/test:test_support",
+    "//content/public/renderer",
+    "//content/test:test_support",
+    "//extensions:test_support",
+    "//extensions/common:mojom",
+    "//extensions/renderer",
+    "//testing/gtest",
+    "//third_party/blink/public:blink_headers",
+    "//url",
+  ]
 }

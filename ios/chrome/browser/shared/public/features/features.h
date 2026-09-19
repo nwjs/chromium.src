@@ -518,15 +518,12 @@ extern const char kIOSOneTapMiniMapRestrictionMinAlphanumProportionParamName[];
 extern const base::FeatureParam<double>
     kIOSOneTapMiniMapRestrictionMinAlphanumProportionParam;
 
-// Feature flag to forward Maps Universal links to native maps.
-BASE_DECLARE_FEATURE(kIOSMiniMapUniversalLink);
-
 // Feature flag for counterfactual logging for the universal link native map
 // experiment.
 BASE_DECLARE_FEATURE(kIOSMiniMapUniversalLinkCounterfactual);
 
-// Returns true if kIOSMiniMapUniversalLink is enabled and the current country
-// is not in the excluded list.
+// Returns true if Maps Universal links are enabled (i.e. the current country
+// is not in the excluded list).
 bool IsMiniMapUniversalLinkEnabled();
 
 // Feature flag to open linkified address in Maps native preview.
@@ -809,6 +806,10 @@ BASE_DECLARE_FEATURE(kAimCobrowse);
 // Returns true if the AimCobrowse feature is enabled.
 bool IsAimCobrowseEnabled();
 
+// Prevents Cobrowse from automatically opening when the user taps on an AIM SRP
+// link.
+BASE_DECLARE_FEATURE(kPreventCobrowseOnAimSrpTap);
+
 // Removes or disables feedback entry points from Chrome UI for signed in users
 // who do not have the `can_submit_feedback` Account Capability.
 BASE_DECLARE_FEATURE(kFeedbackEntryPointsRequireCanSubmitFeedbackCapability);
@@ -922,6 +923,12 @@ BASE_DECLARE_FEATURE(kIOSBackendPromoServiceIntegration);
 // Returns true if kIOSBackendPromoServiceIntegration is enabled.
 bool IsIOSBackendPromoServiceIntegrationEnabled();
 
+// Feature flag to enable Backend Promo Custom UI presentation.
+BASE_DECLARE_FEATURE(kIOSBackendPromoCustomUI);
+
+// Returns true if kIOSBackendPromoCustomUI is enabled.
+bool IsIOSBackendPromoCustomUIEnabled();
+
 // Feature flag to enable the use of UIGraphicsImageRenderer for fallback icons.
 BASE_DECLARE_FEATURE(kUseUIGraphicsImageRendererForFallbackIcons);
 
@@ -1011,10 +1018,14 @@ BASE_DECLARE_FEATURE(kNextOldDesign);
 // Returns true if the NextOldDesign feature is enabled.
 bool IsNextOldDesignEnabled();
 
-// Feature to enable mic permissions for voice search.
-BASE_DECLARE_FEATURE(kVoiceSearchMicPermissions);
+// Feature to control whether the application should try to restore the tabs
+// of the last closed window on startup when possible.
+BASE_DECLARE_FEATURE(kRecoverTabsOfLastClosedWindow);
 
-// Returns true if VoiceSearchMicPermissions is enabled.
-bool IsVoiceSearchMicPermissionsEnabled();
+// Feature to enable domain level site permissions.
+BASE_DECLARE_FEATURE(kDomainLevelSitePermissions);
+
+// Returns true if DomainLevelSitePermissions is enabled.
+bool IsDomainLevelSitePermissionsEnabled();
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

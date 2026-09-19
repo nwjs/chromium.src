@@ -13,7 +13,6 @@
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/suspicious_site_warnings/suspicious_site_controller_desktop.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -231,7 +230,7 @@ void SuspiciousSiteBubbleView::OpenHelpCenter() {
       return;
     }
     web_contents()->OpenURL(
-        content::OpenURLParams(GURL(chrome::kUnsafeSiteWarningHelpCenterURL),
+        content::OpenURLParams(GURL(chrome::kSafeBrowsingHelpCenterURL),
                                content::Referrer(),
                                WindowOpenDisposition::NEW_FOREGROUND_TAB,
                                ui::PAGE_TRANSITION_LINK, false),
@@ -247,12 +246,11 @@ void ShowSuspiciousSiteBubble(BrowserWindowInterface* browser,
 
   bubble_anchor_util::AnchorConfiguration configuration =
       bubble_anchor_util::GetPageInfoAnchorConfiguration(
-          browser->GetBrowserForMigrationOnly(),
-          bubble_anchor_util::Anchor::kLocationBar);
-  gfx::Rect anchor_rect = configuration.anchor.IsNull()
-                              ? bubble_anchor_util::GetPageInfoAnchorRect(
-                                    browser->GetBrowserForMigrationOnly())
-                              : gfx::Rect();
+          browser, bubble_anchor_util::Anchor::kLocationBar);
+  gfx::Rect anchor_rect =
+      configuration.anchor.IsNull()
+          ? bubble_anchor_util::GetPageInfoAnchorRect(browser)
+          : gfx::Rect();
   gfx::NativeWindow parent_window = browser->GetWindow()->GetNativeWindow();
   gfx::NativeView parent_view = platform_util::GetViewForWindow(parent_window);
 

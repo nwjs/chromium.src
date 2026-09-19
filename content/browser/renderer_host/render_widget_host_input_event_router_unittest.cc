@@ -8,6 +8,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
+#include "base/test/bind.h"
 #include "base/test/run_until.h"
 #include "base/test/task_environment.h"
 #include "build/build_config.h"
@@ -163,6 +164,13 @@ class MockRootRenderWidgetHostView : public TestRenderWidgetHostView {
       const input::TouchEventWithLatencyInfo& touch,
       blink::mojom::InputEventResultState ack_result) override {
     unique_id_for_last_touch_ack_ = touch.event.unique_touch_event_id;
+    if (on_process_acked_touch_event_callback_) {
+      std::move(on_process_acked_touch_event_callback_).Run();
+    }
+  }
+
+  void set_on_process_acked_touch_event_callback(base::OnceClosure callback) {
+    on_process_acked_touch_event_callback_ = std::move(callback);
   }
 
   viz::FrameSinkId GetRootFrameSinkId() override { return GetFrameSinkId(); }
@@ -200,6 +208,7 @@ class MockRootRenderWidgetHostView : public TestRenderWidgetHostView {
   bool force_null_rir_ = false;
   bool transform_should_fail_ = false;
   gfx::Vector2dF offset_;
+  base::OnceClosure on_process_acked_touch_event_callback_;
 };
 
 class MockInputTargetClient : public viz::mojom::InputTargetClient {
@@ -972,6 +981,61 @@ TEST_F(RenderWidgetHostInputEventRouterTest,
   }
 }
 
+// Losing the root while touchscreen scrolling bubbles to it must not leave
+// pinch state behind when the same router receives a replacement root.
+TEST_F(RenderWidgetHostInputEventRouterTest,
+       RestartTouchscreenBubblingAfterRootUnregisters) {
+  const blink::WebGestureEvent scroll_begin =
+      blink::SyntheticWebGestureEventBuilder::BuildScrollBegin(
+          0.f, 10.f, blink::WebGestureDevice::kTouchscreen);
+  ChildViewState child = MakeChildView(view_root_.get());
+
+  ASSERT_TRUE(rwhier()->BubbleScrollEvent(view_root_.get(), child.view.get(),
+                                          scroll_begin));
+  ASSERT_EQ(view_root_.get(), bubbling_gesture_scroll_target());
+
+  const viz::FrameSinkId root_frame_sink_id = view_root_->GetFrameSinkId();
+  rwhier()->RemoveFrameSinkIdOwner(root_frame_sink_id);
+  EXPECT_EQ(nullptr, bubbling_gesture_scroll_target());
+  EXPECT_EQ(nullptr, bubbling_gesture_scroll_origin());
+  EXPECT_EQ(blink::WebInputEvent::Type::kGestureScrollBegin,
+            view_root_->last_gesture_seen());
+
+  rwhier()->AddFrameSinkIdOwner(root_frame_sink_id, view_root_.get());
+  view_root_->Reset();
+
+  EXPECT_TRUE(rwhier()->BubbleScrollEvent(view_root_.get(), child.view.get(),
+                                          scroll_begin));
+  EXPECT_EQ(child.view.get(), bubbling_gesture_scroll_origin());
+  EXPECT_EQ(view_root_.get(), bubbling_gesture_scroll_target());
+  EXPECT_EQ(blink::WebInputEvent::Type::kGestureScrollBegin,
+            view_root_->last_gesture_seen());
+}
+
+// Losing its parent must not make an intermediate bubbling target look like
+// the root when it is unregistered.
+TEST_F(RenderWidgetHostInputEventRouterTest,
+       UnregisterDetachedIntermediateScrollBubblingTarget) {
+  const blink::WebGestureEvent scroll_begin =
+      blink::SyntheticWebGestureEventBuilder::BuildScrollBegin(
+          0.f, 10.f, blink::WebGestureDevice::kTouchscreen);
+  ChildViewState outer = MakeChildView(view_root_.get());
+  ChildViewState inner = MakeChildView(outer.view.get());
+
+  ASSERT_TRUE(rwhier()->BubbleScrollEvent(outer.view.get(), inner.view.get(),
+                                          scroll_begin));
+  ASSERT_EQ(outer.view.get(), bubbling_gesture_scroll_target());
+
+  outer.frame_connector.reset();
+  ASSERT_EQ(nullptr, outer.view->GetParentViewInput());
+
+  rwhier()->RemoveFrameSinkIdOwner(outer.view->GetFrameSinkId());
+  EXPECT_EQ(nullptr, bubbling_gesture_scroll_target());
+  EXPECT_EQ(nullptr, bubbling_gesture_scroll_origin());
+  EXPECT_EQ(blink::WebInputEvent::Type::kGestureScrollBegin,
+            outer.view->last_gesture_seen());
+}
+
 // Test that when a child view that is irrelevant to any ongoing scroll
 // bubbling detaches, scroll bubbling is not canceled.
 TEST_F(RenderWidgetHostInputEventRouterTest,
@@ -1688,6 +1752,51 @@ TEST_F(RenderWidgetHostInputEventRouterTest,
   rwhier()->RouteMouseWheelEvent(view_root_.get(), &wheel_event,
                                  ui::LatencyInfo());
   EXPECT_EQ(child.view.get(), wheel_target());
+}
+
+// Verifies that when synchronous touch-ack dispatch destroys the owning router,
+// subsequent queued acks do not trigger a use-after-free.
+TEST_F(RenderWidgetHostInputEventRouterTest,
+       AckedTouchEventsAfterRouterDestroyed) {
+  view_root_->SetHittestResult(view_root_.get(), false);
+
+  blink::WebTouchEvent touch_start_event(
+      blink::WebInputEvent::Type::kTouchStart,
+      blink::WebInputEvent::kNoModifiers,
+      blink::WebInputEvent::GetStaticTimeStampForTests());
+  touch_start_event.touches_length = 1;
+  touch_start_event.touches[0].state =
+      blink::WebTouchPoint::State::kStatePressed;
+  touch_start_event.unique_touch_event_id = 1;
+
+  rwhier()->RouteTouchEvent(view_root_.get(), &touch_start_event,
+                            ui::LatencyInfo());
+
+  blink::WebTouchEvent touch_end_event(
+      blink::WebInputEvent::Type::kTouchEnd, blink::WebInputEvent::kNoModifiers,
+      blink::WebInputEvent::GetStaticTimeStampForTests());
+  touch_end_event.touches_length = 1;
+  touch_end_event.touches[0].state =
+      blink::WebTouchPoint::State::kStateReleased;
+  touch_end_event.unique_touch_event_id = 2;
+
+  rwhier()->RouteTouchEvent(view_root_.get(), &touch_end_event,
+                            ui::LatencyInfo());
+
+  EXPECT_EQ(2u, rwhier()->TouchEventAckQueueLengthForTesting());
+
+  // Simulate synchronous destruction during touch ACK dispatch: when
+  // the first touch event is acked, release the delegate's router reference.
+  view_root_->set_on_process_acked_touch_event_callback(
+      base::BindLambdaForTesting(
+          [&]() { delegate_->ResetInputEventRouter(); }));
+
+  // Trigger ACK for the first event. This enters ProcessAckedTouchEvents()
+  // where the first ack callback executes router reset.
+  // The queue should safely exit without reading from the freed ack_queue_.
+  rwhier()->ProcessAckedTouchEvent(
+      input::TouchEventWithLatencyInfo(touch_start_event),
+      blink::mojom::InputEventResultState::kConsumed, view_root_.get());
 }
 
 #if defined(USE_AURA)

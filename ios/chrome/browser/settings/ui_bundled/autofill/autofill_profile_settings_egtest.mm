@@ -8,7 +8,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
 #import "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
-#import "components/autofill/core/browser/test_utils/entity_data_test_utils.h"
+#import "components/autofill/core/browser/test_utils/entity_data_test_util.h"
 #import "components/autofill/core/common/autofill_debug_features.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/ios/common/features.h"
@@ -42,6 +42,7 @@
 using chrome_test_util::ButtonWithAccessibilityLabel;
 using chrome_test_util::ButtonWithAccessibilityLabelId;
 using chrome_test_util::NavigationBarDoneButton;
+using chrome_test_util::NavigationBarEditButton;
 using chrome_test_util::SearchBar;
 using chrome_test_util::SettingsDoneButton;
 using chrome_test_util::SettingsMenuBackButton;
@@ -89,13 +90,6 @@ NSString* ProfilesSectionTitle() {
 // Helper function to get the title for the travels section.
 NSString* TravelSectionTitle() {
   return l10n_util::GetNSString(IDS_AUTOFILL_TRAVEL_TITLE);
-}
-
-// Return the edit button from the navigation bar.
-id<GREYMatcher> NavigationBarEditButton() {
-  return grey_allOf(
-      ButtonWithAccessibilityLabelId(IDS_IOS_NAVIGATION_BAR_EDIT_BUTTON),
-      grey_not(grey_accessibilityTrait(UIAccessibilityTraitNotEnabled)), nil);
 }
 
 // Matcher for a country entry with the given accessibility label.

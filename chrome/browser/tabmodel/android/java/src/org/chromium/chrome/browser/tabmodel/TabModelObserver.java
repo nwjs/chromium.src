@@ -65,12 +65,24 @@ public interface TabModelObserver {
     default void onTabsSelectionChanged() {}
 
     /**
-     * Called when the active status of the {@link TabModel} changes (e.g. when switching between
-     * standard and incognito tab models).
+     * Called immediately <i>before</i> the active status of the given {@link TabModel} changes
+     * (e.g. when switching between standard and incognito tab models). At this point, the current
+     * model returned by {@link TabModelSelector#getCurrentModel()} hasn't changed.
      *
-     * @param active Whether the tab model is now active.
+     * @param tabModel The tab model observed by this observer.
+     * @param active Whether the tab model is about to become active.
      */
-    default void onActiveChanged(boolean active) {}
+    default void onWillActiveStateChange(TabModel tabModel, boolean active) {}
+
+    /**
+     * Called immediately <i>after</i> the active status of the given {@link TabModel} changes (e.g.
+     * when switching between standard and incognito tab models). At this point, the current model
+     * returned by {@link TabModelSelector#getCurrentModel()} has changed.
+     *
+     * @param tabModel The tab model observed by this observer.
+     * @param active Whether the tab model has become active.
+     */
+    default void onDidActiveStateChange(TabModel tabModel, boolean active) {}
 
     // Tab Movement and Attributes
 
@@ -226,17 +238,21 @@ public interface TabModelObserver {
      * This is called for both synchronous immediate closures (e.g. non-undoable, incognito)
      * and deferred commits after the pending undo window expires.
      *
-     * <p>TODO(crbug.com/381471263): Method in development. For non-undoable closures (allowUndo =
-     * false), this replaces initial pre-close callbacks ({@link #willCloseTab}, {@link
-     * #willCloseMultipleTabs}, {@link #willCloseAllTabs}, and {@link #allTabsAreClosing}). For
+     * <p>TODO(crbug.com/381471263): Method in development. For
      * finalized closures, this replaces {@link #onFinishingTabClosure}, {@link
      * #onFinishingMultipleTabClosure}, {@link #tabClosureCommitted}, and {@link
      * #allTabsClosureCommitted}.
      *
      * @param tabs The list of {@link Tab}s that are closed.
      * @param isAllTabs Whether tabs are all the tabs.
+     * @param canRestore Whether the closed tabs can be restored to the TabRestoreService.
+     * @param closingSource The tab closing source, e.g. the tablet tab strip.
      */
-    default void onTabCloseCommitted(List<Tab> tabs, boolean isAllTabs) {}
+    default void onTabCloseCommitted(
+            List<Tab> tabs,
+            boolean isAllTabs,
+            boolean canRestore,
+            @TabClosingSource int closingSource) {}
 
     /**
      * Called when a tab closure is committed and can't be undone anymore.

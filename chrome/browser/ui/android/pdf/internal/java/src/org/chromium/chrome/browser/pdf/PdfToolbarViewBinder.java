@@ -10,7 +10,10 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import org.chromium.base.Callback;
+import org.chromium.base.ui.KeyboardUtils;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.ui.base.KeyNavigationUtil;
+import org.chromium.ui.listmenu.ListMenuButton;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -48,7 +51,6 @@ class PdfToolbarViewBinder {
             view.findViewById(R.id.zoom_increase_button).setOnClickListener(listener);
             view.findViewById(R.id.zoom_decrease_button).setOnClickListener(listener);
             view.findViewById(R.id.fit_to_page_button).setOnClickListener(listener);
-            view.findViewById(R.id.more_menu_button).setOnClickListener(listener);
             view.findViewById(R.id.download_button).setOnClickListener(listener);
             view.findViewById(R.id.print_button).setOnClickListener(listener);
             view.findViewById(R.id.done_button).setOnClickListener(listener);
@@ -65,45 +67,60 @@ class PdfToolbarViewBinder {
         } else if (PdfToolbarProperties.PAGE_NUMBER_EDIT_LISTENER == key) {
             EditText currentPage = view.findViewById(R.id.current_page);
             Callback<Integer> listener = model.get(PdfToolbarProperties.PAGE_NUMBER_EDIT_LISTENER);
+            currentPage.setOnFocusChangeListener(
+                    (v, hasFocus) -> {
+                        if (!hasFocus) {
+                            String text = currentPage.getText().toString();
+                            boolean isSuccess = false;
+                            if (!text.isEmpty()) {
+                                try {
+                                    int pageNumber = Integer.parseInt(text);
+                                    int totalPageCount =
+                                            model.get(PdfToolbarProperties.TOTAL_PAGE_COUNT);
+                                    if (pageNumber >= 1 && pageNumber <= totalPageCount) {
+                                        listener.onResult(pageNumber);
+                                        isSuccess = true;
+                                    }
+                                } catch (NumberFormatException e) {
+                                    isSuccess = false;
+                                }
+                            }
+                            // If the input was invalid, reset the text to the current page
+                            if (!isSuccess) {
+                                int currentFallback =
+                                        model.get(PdfToolbarProperties.CURRENT_PAGE_NUMBER);
+                                currentPage.setText(String.valueOf(currentFallback));
+                            }
+                            // Hide soft keyboard
+                            KeyboardUtils.hideAndroidSoftKeyboard(currentPage);
+                        }
+                    });
 
             currentPage.setOnEditorActionListener(
                     (v, actionId, event) -> {
-                        if (actionId != EditorInfo.IME_ACTION_GO
-                                && actionId != EditorInfo.IME_ACTION_DONE) {
-                            return false;
+                        if (actionId == EditorInfo.IME_ACTION_GO
+                                || actionId == EditorInfo.IME_ACTION_DONE
+                                // Physical keyboard enter key returns IME_NULL.
+                                || (actionId == EditorInfo.IME_NULL
+                                        && event != null
+                                        && KeyNavigationUtil.isActionDown(event)
+                                        && KeyNavigationUtil.isEnter(event))) {
+                            // Clear focus.
+                            currentPage.clearFocus();
+                            return true;
                         }
-                        boolean isSuccess = false;
-                        String text = currentPage.getText().toString();
-                        if (!text.isEmpty()) {
-                            try {
-                                int pageNumber = Integer.parseInt(text);
-                                int totalPageCount =
-                                        model.get(PdfToolbarProperties.TOTAL_PAGE_COUNT);
-
-                                if (pageNumber >= 1 && pageNumber <= totalPageCount) {
-                                    listener.onResult(pageNumber);
-                                    isSuccess = true;
-                                }
-                            } catch (NumberFormatException e) {
-                                isSuccess = false;
-                            }
-                        }
-                        // If the input was invalid, reset the text to the current page
-                        if (!isSuccess) {
-                            int currentFallback =
-                                    model.get(PdfToolbarProperties.CURRENT_PAGE_NUMBER);
-                            currentPage.setText(String.valueOf(currentFallback));
-                        }
-                        currentPage.clearFocus();
-                        return true;
+                        return false;
                     });
-
         } else if (PdfToolbarProperties.SHOW_FIT_TO_PAGE_ICON == key) {
             ImageView fitToPageButton = view.findViewById(R.id.fit_to_page_button);
             if (model.get(PdfToolbarProperties.SHOW_FIT_TO_PAGE_ICON)) {
                 fitToPageButton.setImageResource(R.drawable.ic_fit_page_height_24dp);
+                fitToPageButton.setContentDescription(
+                        view.getContext().getString(R.string.pdf_fit_page));
             } else {
                 fitToPageButton.setImageResource(R.drawable.ic_fit_page_width_24dp);
+                fitToPageButton.setContentDescription(
+                        view.getContext().getString(R.string.pdf_fit_width));
             }
         } else if (PdfToolbarProperties.DOWNLOAD_BUTTON_VISIBLE == key) {
             view.setDownloadButtonVisible(model.get(PdfToolbarProperties.DOWNLOAD_BUTTON_VISIBLE));
@@ -120,6 +137,11 @@ class PdfToolbarViewBinder {
         } else if (PdfToolbarProperties.EDIT_MODE_ACTIVE == key) {
             View editButton = view.findViewById(R.id.edit_button);
             editButton.setSelected(model.get(PdfToolbarProperties.EDIT_MODE_ACTIVE));
+        } else if (PdfToolbarProperties.MENU_BUTTON_DELEGATE == key) {
+            ListMenuButton moreMenuButton = view.findViewById(R.id.more_menu_button);
+            moreMenuButton.setDelegate(
+                    model.get(PdfToolbarProperties.MENU_BUTTON_DELEGATE),
+                    /* overrideOnClickListener= */ true);
         }
     }
 }

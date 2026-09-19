@@ -62,6 +62,7 @@
 #include "chrome/browser/profiles/profile_destroyer.h"
 #include "chrome/browser/profiles/profile_key.h"
 #include "chrome/browser/profiles/profile_manager_observer.h"
+#include "chrome/browser/profiles/profile_metrics.h"
 #include "chrome/browser/profiles/profile_selections.h"
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/signin/account_reconcilor_factory.h"
@@ -73,7 +74,6 @@
 #include "chrome/common/buildflags.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
@@ -448,9 +448,6 @@ bool ShouldGoOffTheRecord(Profile* profile) {
 }
 
 }  // namespace
-
-BASE_FEATURE(kProfileManagerDeferAsyncLoading,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 ProfileManager::ProfileManager(const base::FilePath& user_data_dir)
     : user_data_dir_(user_data_dir)
@@ -846,8 +843,7 @@ void ProfileManager::CreateProfileAsync(
 
   // Defer async profile creation during startup, to avoid colliding with
   // synchronous creation.
-  if (defer_async_loading_ &&
-      base::FeatureList::IsEnabled(kProfileManagerDeferAsyncLoading)) {
+  if (defer_async_loading_) {
     deferred_asynchronous_loads_.push_back(base::BindOnce(
         &ProfileManager::CreateProfileAsync, base::Unretained(this),
         profile_path, std::move(initialized_callback),
@@ -1370,15 +1366,15 @@ bool ProfileManager::AddKeepAlive(Profile* profile,
     // Can be null in the following circumstances:
     //
     // 1. Unit tests, when the Profile was not created via ProfileManager.
-    // 2. AddKeepAlive() called too early during Profile creation.
-    // 3. AddKeepAlive() called too late during Profile's lifecycle: after we've
+    // 2. AddKeepAlive() called too late during Profile's lifecycle: after we've
     //    handed it off to ProfileDestroyer and it's scheduled for destruction.
     //
-    // #1 is fine. #2 is always a bug, and #3 is usually a bug. You can mitigate
-    // #3 by using ScopedKeepAlive::TryAcquire() and checking if the result is
-    // null.
+    // #1 is fine. #2 is usually a bug. You can mitigate #2 by using
+    // ScopedProfileKeepAlive::TryAcquire() and checking if the result is null.
+    CHECK_NE(profile->lifecycle_state(),
+             Profile::LifecycleState::kNotRegistered);
     VLOG(1) << "AddKeepAlive(" << profile->GetDebugName() << ", " << origin
-            << ") too early or too late in Profile's lifecycle. "
+            << ") too late in Profile's lifecycle. "
             << "The keepalive was not added. This may cause a crash during "
             << "teardown. (except in unit tests, where Profiles may not be "
             << "registered with the ProfileManager)";
@@ -1579,7 +1575,7 @@ void ProfileManager::DoFinalInitForServices(Profile* profile,
   }
 
   if ((!base::CommandLine::ForCurrentProcess()->HasSwitch(
-           switches::kDisableLoginScreenApps) &&
+           ash::switches::kDisableLoginScreenApps) &&
        are_extensions_allowed_for_profile) ||
       ash::IsShimlessRmaAppBrowserContext(profile)) {
     extensions_enabled = true;
@@ -1656,6 +1652,17 @@ void ProfileManager::DoFinalInitLogging(Profile* profile) {
   TRACE_EVENT0("browser", "ProfileManager::DoFinalInitLogging");
   base::UmaHistogramCounts100("Profile.NumberOfProfilesAtProfileInit",
                               GetNumberOfProfiles());
+
+  if (profile->IsRegularProfile()) {
+    ProfileAttributesEntry* entry =
+        GetProfileAttributesStorage().GetProfileAttributesWithPath(
+            profile->GetPath());
+    if (entry) {
+      size_t icon_index =
+          entry->IsUsingGAIAPicture() ? SIZE_MAX : entry->GetAvatarIconIndex();
+      ProfileMetrics::LogProfileAvatarOnLoad(icon_index);
+    }
+  }
 
   // Skip the rest of this function in tests as the extension service might be
   // uninitialized.
@@ -1988,6 +1995,11 @@ ProfileManager::ProfileInfo* ProfileManager::RegisterOwnedProfile(
     std::unique_ptr<Profile> profile) {
   TRACE_EVENT0("browser", "ProfileManager::RegisterOwnedProfile");
   Profile* profile_ptr = profile.get();
+  if (!profile_ptr->AsTestingProfile()) {
+    CHECK_EQ(profile_ptr->lifecycle_state(),
+             Profile::LifecycleState::kNotRegistered);
+  }
+  profile_ptr->set_lifecycle_state(Profile::LifecycleState::kRegistered);
   auto info = ProfileInfo::FromUnownedProfile(profile_ptr);
   TakeOwnershipOfProfile(std::move(profile), info.get());
   ProfileInfo* info_raw = info.get();
@@ -2001,6 +2013,11 @@ ProfileManager::ProfileInfo* ProfileManager::RegisterOwnedProfile(
 ProfileManager::ProfileInfo* ProfileManager::RegisterUnownedProfile(
     Profile* profile) {
   TRACE_EVENT0("browser", "ProfileManager::RegisterUnownedProfile");
+  if (!profile->AsTestingProfile()) {
+    CHECK_EQ(profile->lifecycle_state(),
+             Profile::LifecycleState::kNotRegistered);
+  }
+  profile->set_lifecycle_state(Profile::LifecycleState::kRegistered);
   base::FilePath path = profile->GetPath();
   auto info = ProfileInfo::FromUnownedProfile(profile);
   ProfileInfo* info_raw = info.get();
@@ -2161,6 +2178,7 @@ void ProfileManager::TakeOwnershipOfProfile(std::unique_ptr<Profile> profile,
 }
 
 void ProfileManager::StartProfileDestruction(std::unique_ptr<Profile> profile) {
+  profile->set_lifecycle_state(Profile::LifecycleState::kPendingDestruction);
   // Make sure there is an entry in the list of pending destructions, so that
   // `CreateProfileAsync()` can enqueue a callback.
   profiles_pending_destruction_[profile->GetPath()];

@@ -5,15 +5,12 @@
 #include "chrome/browser/optimization_guide/model_execution/optimization_guide_global_state.h"
 
 #include <memory>
-#include <optional>
 
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
-#include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
 #include "base/path_service.h"
-#include "base/scoped_observation.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/component_updater/optimization_guide_on_device_model_installer.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
@@ -26,12 +23,7 @@
 #include "components/optimization_guide/core/model_execution/manifest_broker/manifest_asset_manager.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/manifest_broker_state.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/override_manifest_asset_manager_delegate.h"
-#include "components/optimization_guide/core/model_execution/model_broker_state.h"
-#include "components/optimization_guide/core/model_execution/on_device_asset_manager.h"
-#include "components/optimization_guide/core/model_execution/on_device_model_access_controller.h"
 #include "components/optimization_guide/core/model_execution/performance_class.h"
-#include "components/optimization_guide/core/optimization_guide_features.h"
-#include "components/optimization_guide/proto/on_device_base_model_metadata.pb.h"
 #include "components/services/unzip/content/unzip_service.h"
 #include "content/public/browser/service_process_host.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -48,20 +40,12 @@ namespace {
 void LaunchService(
     mojo::PendingReceiver<on_device_model::mojom::OnDeviceModelService>
         pending_receiver) {
-  CHECK(features::CanLaunchOnDeviceModelService());
   content::ServiceProcessHost::Launch<
       on_device_model::mojom::OnDeviceModelService>(
       std::move(pending_receiver),
       content::ServiceProcessHost::Options()
           .WithDisplayName("On-Device Model Service")
           .Pass());
-}
-
-void LogFreeDiskSpace(std::optional<base::ByteSize> bytes) {
-  if (bytes.has_value()) {
-    base::UmaHistogramCounts10M("OptimizationGuide.OnDeviceModel.FreeDiskSpace",
-                                bytes->InMiB());
-  }
 }
 
 std::unique_ptr<ManifestAssetManager::Delegate> CreateManifestDelegate() {
@@ -105,44 +89,7 @@ class ChromeOnDeviceModelServiceController final {
           variations::SyntheticTrialAnnotationMode::kCurrentLog);
     }
   }
-
-  static void RegisterPerformanceHintSyntheticTrial(
-      proto::OnDeviceModelPerformanceHint performance_hint) {
-    ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
-        "SyntheticOnDeviceModelPerformanceHint",
-        SyntheticTrialGroupForPerformanceHint(performance_hint),
-        variations::SyntheticTrialAnnotationMode::kCurrentLog);
-  }
 };
-
-#if BUILDFLAG(USE_ON_DEVICE_MODEL_SERVICE)
-// Registers a field trial once the model is ready.
-class ChromeModelComponentStateManagerObserver final
-    : public OnDeviceModelComponentStateManager::Observer {
- public:
-  explicit ChromeModelComponentStateManagerObserver(
-      base::WeakPtr<OnDeviceModelComponentStateManager> state_manager) {
-    if (!state_manager) {
-      return;
-    }
-    observation_.Observe(state_manager.get());
-  }
-
-  // OnDeviceModelComponentStateManager::Observer:
-  void StateChanged(MaybeOnDeviceModelComponentState state) override {
-    if (state.has_value()) {
-      ChromeOnDeviceModelServiceController::
-          RegisterPerformanceHintSyntheticTrial(
-              state.value().get().GetBaseModelSpec().selected_performance_hint);
-    }
-  }
-
- private:
-  base::ScopedObservation<OnDeviceModelComponentStateManager,
-                          OnDeviceModelComponentStateManager::Observer>
-      observation_{this};
-};
-#endif  // BUILDFLAG(USE_ON_DEVICE_MODEL_SERVICE)
 
 ChromePredictionManager::ChromePredictionManager()
     : prediction_model_store_(*g_browser_process->local_state()),
@@ -161,49 +108,17 @@ ChromePredictionManager::~ChromePredictionManager() = default;
 #if BUILDFLAG(USE_ON_DEVICE_MODEL_SERVICE)
 OptimizationGuideGlobalState::OptimizationGuideGlobalState(
     LaunchServiceCallback launch_service_callback) {
-  if (base::FeatureList::IsEnabled(kOptimizationGuideManifestBroker)) {
-    auto manifest_broker_state = std::make_unique<ManifestBrokerState>(
-        *g_browser_process->local_state(), CreateManifestDelegate(),
-        launch_service_callback, g_browser_process->component_updater());
-
-    manifest_broker_state->performance_classifier()
-        .ListenForPerformanceClassAvailable(
-            base::BindOnce(&ChromeOnDeviceModelServiceController::
-                               RegisterPerformanceClassSyntheticTrial));
-    manifest_broker_state->performance_classifier().ScheduleEvaluation();
-
-    on_device_capability_ = std::move(manifest_broker_state);
-    return;
-  }
-
-  auto model_broker_state = std::make_unique<ModelBrokerState>(
-      *g_browser_process->local_state(), model_provider(),
-      component_updater::CreateOptimizationGuideOnDeviceModelComponentDelegate(),
+  auto manifest_broker_state = std::make_unique<ManifestBrokerState>(
+      *g_browser_process->local_state(), CreateManifestDelegate(),
       launch_service_callback, g_browser_process->component_updater());
 
-  component_state_manager_observer_ =
-      std::make_unique<ChromeModelComponentStateManagerObserver>(
-          model_broker_state->component_state_manager().GetWeakPtr());
-
-  model_broker_state->performance_classifier()
+  manifest_broker_state->performance_classifier()
       .ListenForPerformanceClassAvailable(
           base::BindOnce(&ChromeOnDeviceModelServiceController::
                              RegisterPerformanceClassSyntheticTrial));
-  model_broker_state->performance_classifier()
-      .ListenForPerformanceClassAvailable(base::BindOnce(
-          &OnDeviceModelComponentStateManager::GetFreeDiskSpaceForLogging,
-          model_broker_state->component_state_manager().GetWeakPtr(),
-          base::BindOnce(&LogFreeDiskSpace)));
-  model_broker_state->performance_classifier().ScheduleEvaluation();
+  manifest_broker_state->performance_classifier().ScheduleEvaluation();
 
-  on_device_capability_ = std::move(model_broker_state);
-}
-
-ModelBrokerState* OptimizationGuideGlobalState::model_broker_state() {
-  if (base::FeatureList::IsEnabled(kOptimizationGuideManifestBroker)) {
-    return nullptr;
-  }
-  return static_cast<ModelBrokerState*>(on_device_capability_.get());
+  on_device_capability_ = std::move(manifest_broker_state);
 }
 #else  // !BUILDFLAG(USE_ON_DEVICE_MODEL_SERVICE)
 OptimizationGuideGlobalState::OptimizationGuideGlobalState() {

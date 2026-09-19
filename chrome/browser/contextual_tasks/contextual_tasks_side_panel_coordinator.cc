@@ -157,8 +157,10 @@ std::unique_ptr<content::WebContents> CreateWebContents(
   // WebContents. This is important since loading begins before the WebContents
   // is attached to a side panel and therefore the navigation handler won't
   // trigger.
-  url = contextual_tasks::ContextualTasksUiService::
-      AddRequiredSidePanelUrlChanges(url, web_contents.get());
+  if (contextual_tasks::IsContextualTasksSidePanelRearchitectureEnabled()) {
+    url = contextual_tasks::ContextualTasksUiService::
+        AddRequiredSidePanelUrlChanges(url, web_contents.get());
+  }
   web_contents->GetController().LoadURL(url, content::Referrer(),
                                         ui::PAGE_TRANSITION_AUTO_TOPLEVEL,
                                         std::string());
@@ -407,6 +409,10 @@ void ContextualTasksSidePanelCoordinator::Close() {
   contextual_tasks_panel_host_->Close(
       ContextualTasksPanelHost::AnimationStyle::kStandard);
   Observe(nullptr);
+
+  if (active_task_context_provider_) {
+    active_task_context_provider_->ClearAllLocalTabUnderlines();
+  }
 
   NotifyActiveTaskContextProvider();
 
@@ -700,6 +706,13 @@ void ContextualTasksSidePanelCoordinator::OnTabAdded(TabListInterface& tab_list,
                                                      tabs::TabInterface* tab,
                                                      int index) {
   content::WebContents* content = tab->GetContents();
+
+  // Background tabs opened via hotkey commands (e.g. Ctrl+Click, middle-click)
+  // or context menus should not inherit task association from the opener.
+  if (tab_list.GetActiveTab() != tab) {
+    return;
+  }
+
   // If the new tab is already associated with a task, do nothing.
   if (contextual_tasks_service_->GetContextualTaskForTab(
           sessions::SessionTabHelper::IdForTab(content))) {

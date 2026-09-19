@@ -9,6 +9,7 @@
 
 #include "base/android/android_info.h"
 #include "base/check.h"
+#include "base/debug/crash_logging.h"
 #include "base/i18n/char_iterator.h"
 #include "base/notreached.h"
 #include "base/strings/utf_string_conversions.h"
@@ -27,6 +28,105 @@
 #include "ui/accessibility/platform/one_shot_accessibility_tree_search.h"
 
 namespace content {
+
+namespace {
+
+// Attempts to restore the original anchor container for a tree position.
+//
+// When resolving a Chrome tree position, `AsUnignoredSelectionPosition()` may
+// descend into a deeply nested descendant. If the resolved position is at the
+// start (offset 0) or end (offset child_count) of every intermediate container
+// along that descent path, it is equivalent to a child offset on the
+// `original_anchor`.
+//
+// For a (`descendant_container`, `descendant_child_offset`) position pair, this
+// helper walks up through unignored ancestors as long as the child offset
+// remains at the start or end boundary, re-anchoring the position on
+// `original_anchor` (or its nearest unignored ancestor). Returns the converted
+// position if reached, or std::nullopt otherwise.
+std::optional<BrowserAccessibilityManagerAndroid::AndroidPosition>
+TryReanchorToOriginalAnchor(const ui::AXNode* original_anchor,
+                            BrowserAccessibilityAndroid* descendant_container,
+                            int descendant_child_offset) {
+  if (!original_anchor || !descendant_container) {
+    return std::nullopt;
+  }
+
+  const ui::AXNode* original_unignored_anchor =
+      original_anchor->IsIgnored() ? original_anchor->GetUnignoredParent()
+                                   : original_anchor;
+
+  // Fast return: the descendant is the original anchor itself.
+  if (descendant_container->node() == original_unignored_anchor) {
+    return BrowserAccessibilityManagerAndroid::AndroidPosition{
+        descendant_container, descendant_child_offset,
+        ExtendedSelectionOffsetType::OFFSET_TYPE_CHILD};
+  }
+
+  BrowserAccessibilityAndroid* current_container = descendant_container;
+  int current_child_offset = descendant_child_offset;
+
+  const bool is_at_start = (current_child_offset == 0);
+  const bool is_at_end =
+      (current_child_offset ==
+       static_cast<int>(current_container->node()->GetUnignoredChildCount()));
+
+  if (!is_at_start && !is_at_end) {
+    return std::nullopt;
+  }
+
+  while (current_container->node() != original_unignored_anchor) {
+    const ui::AXNode* next_unignored_parent_node =
+        current_container->node()->GetUnignoredParent();
+    if (!next_unignored_parent_node) {
+      break;
+    }
+    BrowserAccessibilityAndroid* next_parent =
+        static_cast<BrowserAccessibilityAndroid*>(
+            current_container->manager()->GetFromAXNode(
+                next_unignored_parent_node));
+    if (!next_parent) {
+      break;
+    }
+
+    const bool is_intermediate_ancestor =
+        (next_unignored_parent_node != original_unignored_anchor);
+
+    // Intermediate ancestors along the descent path must strictly remain at
+    // the start (offset 0) or end (offset child_count) boundary. When
+    // reaching the final target `original_unignored_anchor`, any child index is
+    // accepted.
+    if (is_at_start) {
+      current_child_offset =
+          current_container->node()->GetUnignoredIndexInParent();
+      if (is_intermediate_ancestor && current_child_offset != 0) {
+        break;
+      }
+    } else {
+      // To stay at the end boundary, use the child offset after
+      // `current_container` in the `next_parent`.
+      current_child_offset =
+          current_container->node()->GetUnignoredIndexInParent() + 1;
+      if (is_intermediate_ancestor &&
+          current_child_offset !=
+              static_cast<int>(
+                  next_unignored_parent_node->GetUnignoredChildCount())) {
+        break;
+      }
+    }
+    current_container = next_parent;
+  }
+
+  if (current_container->node() == original_unignored_anchor) {
+    return BrowserAccessibilityManagerAndroid::AndroidPosition{
+        current_container, current_child_offset,
+        ExtendedSelectionOffsetType::OFFSET_TYPE_CHILD};
+  }
+
+  return std::nullopt;
+}
+
+}  // namespace
 
 // static
 ui::BrowserAccessibilityManager* BrowserAccessibilityManagerAndroid::Create(
@@ -515,18 +615,21 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
     }
     case ui::AXEventGenerator::Event::RANGE_VALUE_CHANGED:
       DCHECK(android_node->GetData().IsRangeValueSupported());
-      if (android_node->IsSlider()) {
-        wcax->HandleSliderChanged(android_node->GetUniqueId());
-      } else if ((android_node->GetRole() == ax::mojom::Role::kSpinButton &&
-                  !android_node->IsTextField()) ||
-                 android_node->GetRole() == ax::mojom::Role::kMeter) {
-        // TalkBack expects non-editable SpinButtons and Meter value to be
-        // changed via state description.
+      if ((android_node->GetRole() == ax::mojom::Role::kSpinButton &&
+           !android_node->IsTextField()) ||
+          android_node->GetRole() == ax::mojom::Role::kMeter ||
+          (android_node->IsSlider() &&
+           base::FeatureList::IsEnabled(
+               features::kAccessibilitySliderStateDescription))) {
+        // TalkBack expects SpinButtons (non-editable), Meter and Slider value
+        // to be changed via state description.
         if (isNodeLikelyKnownForExperiment(wcax, android_node->GetUniqueId())) {
           wcax->HandleWindowContentChange(
               android_node->GetUniqueId(),
               ANDROID_ACCESSIBILITY_EVENT_CONTENT_CHANGE_TYPE_STATE_DESCRIPTION);
         }
+      } else if (android_node->IsSlider()) {
+        wcax->HandleSliderChanged(android_node->GetUniqueId());
       }
       break;
     case ui::AXEventGenerator::Event::SCROLL_HORIZONTAL_POSITION_CHANGED:
@@ -1004,6 +1107,12 @@ BrowserAccessibilityManagerAndroid::ConvertChromeSelectionPositionToAndroid(
 
   ui::AXNodePosition::AXPositionInstance position =
       ui::AXNodePosition::CreatePosition(*node, offset, affinity);
+  const ui::AXNodePosition::AXPositionInstance original_position =
+      position->Clone();
+  // Move the position to the nearest unignored node. This node can be a
+  // descendant of the current node and Android specific logic in the rest of
+  // this function will not handle it.
+  // See `text-selection-inside-hidden-element.html` as an example.
   position = position->AsUnignoredSelectionPosition(
       is_backward ? ui::AXPositionAdjustmentBehavior::kMoveForward
                   : ui::AXPositionAdjustmentBehavior::kMoveBackward,
@@ -1043,6 +1152,26 @@ BrowserAccessibilityManagerAndroid::ConvertChromeSelectionPositionToAndroid(
       position = position->CreateParentPosition();
     }
     CHECK(position->IsTextPosition());
+
+    // If original position was a tree position and the resolved position is at
+    // the start or end of the node, try converting it to a child position on
+    // its unignored parent and re-anchoring to the original anchor. This will
+    // keep a closer parity with the original position and helps avoid a text
+    // position that Blink does not support, like a cross boundary selection.
+    if (original_position->IsTreePosition() && position->text_offset() == 0) {
+      if (ui::AXNode* parent_ax_node =
+              lowest_platform_ancestor->node()->GetUnignoredParent()) {
+        if (auto* parent_node = static_cast<BrowserAccessibilityAndroid*>(
+                GetFromAXNode(parent_ax_node))) {
+          int child_offset =
+              lowest_platform_ancestor->node()->GetUnignoredIndexInParent();
+          if (auto android_pos = TryReanchorToOriginalAnchor(
+                  original_position->GetAnchor(), parent_node, child_offset)) {
+            return android_pos;
+          }
+        }
+      }
+    }
 
     if (lowest_platform_ancestor->IsTextSelectable()) {
       return AndroidPosition{lowest_platform_ancestor, position->text_offset(),
@@ -1112,10 +1241,24 @@ BrowserAccessibilityManagerAndroid::ConvertChromeSelectionPositionToAndroid(
   // RootWebArea). Childless root nodes are treated as leaves by
   // `AXNodePosition` and handled earlier in the text position branch.
   if (!parent_node) {
+    SCOPED_CRASH_KEY_STRING1024(
+        "ax", "tree", ax_tree() ? ax_tree()->ToString(/*verbose=*/false) : "");
+    SCOPED_CRASH_KEY_STRING256("ax", "position", original_position->ToString());
+    SCOPED_CRASH_KEY_STRING256("ax", "target_node",
+                               target_node->data().ToString(/*verbose=*/false));
     DUMP_WILL_BE_NOTREACHED();
     return std::nullopt;
   }
 
+  // If original position was a tree position and the resolved position is at
+  // the start or end boundary of intermediate ancestors, re-anchor it on the
+  // original anchor (or its nearest unignored ancestor).
+  if (original_position->IsTreePosition()) {
+    if (auto android_pos = TryReanchorToOriginalAnchor(
+            original_position->GetAnchor(), parent_node, offset)) {
+      return android_pos;
+    }
+  }
   return AndroidPosition{parent_node, offset,
                          ExtendedSelectionOffsetType::OFFSET_TYPE_CHILD};
 }

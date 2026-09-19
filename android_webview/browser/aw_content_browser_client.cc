@@ -25,7 +25,6 @@
 #include "android_webview/browser/aw_feature_list_creator.h"
 #include "android_webview/browser/aw_http_auth_handler.h"
 #include "android_webview/browser/aw_http_cache_manager.h"
-#include "android_webview/browser/aw_origin_matched_header.h"
 #include "android_webview/browser/aw_policy_blocklist_service_factory.h"
 #include "android_webview/browser/aw_settings.h"
 #include "android_webview/browser/aw_speech_recognition_manager_delegate.h"
@@ -35,6 +34,7 @@
 #include "android_webview/browser/content_restriction/aw_content_restriction_navigation_throttle.h"
 #include "android_webview/browser/content_restriction/aw_content_restriction_url_loader_throttle.h"
 #include "android_webview/browser/cookie_manager.h"
+#include "android_webview/browser/http_headers/aw_origin_matched_header.h"
 #include "android_webview/browser/network_service/aw_browser_context_io_thread_handle.h"
 #include "android_webview/browser/network_service/aw_proxy_config_monitor.h"
 #include "android_webview/browser/network_service/aw_proxying_restricted_cookie_manager.h"
@@ -205,7 +205,6 @@ base::WeakPtr<AsyncCheckTracker> GetAsyncCheckTracker(
              /*should_sync_checker_check_allowlist=*/false)
       ->GetWeakPtr();
 }
-
 }  // anonymous namespace
 
 std::string GetProduct() {
@@ -371,25 +370,11 @@ AwContentBrowserClient::CreateBrowserMainParts(bool /* is_integration_test */) {
   return std::make_unique<AwBrowserMainParts>(this);
 }
 
-bool AwContentBrowserClient::ShouldRunStartupTasksAsync() {
-  if (!should_run_startup_tasks_async_.has_value()) {
-    should_run_startup_tasks_async_ =
-        AwBrowserMainParts::runStartupTasksAsync();
-  }
-  return *should_run_startup_tasks_async_ ||
-         run_startup_tasks_async_for_testing_;
-}
-
 void AwContentBrowserClient::PostAfterStartupTask(
     const base::Location& from_here,
     const scoped_refptr<base::SequencedTaskRunner>& task_runner,
     base::OnceClosure task) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  if (!ShouldRunStartupTasksAsync()) {
-    task_runner->PostTask(from_here, std::move(task));
-    return;
-  }
-
   if (startup_info_.startup_complete) {
     task_runner->PostTask(from_here, std::move(task));
     return;
@@ -407,9 +392,7 @@ void AwContentBrowserClient::OnStartupComplete() {
   DCHECK(!startup_info_.startup_complete);
 
   startup_info_.startup_complete = true;
-  if (ShouldRunStartupTasksAsync()) {
-    YieldToLooperChecker::GetInstance().SetStartupRunning(false);
-  }
+  YieldToLooperChecker::GetInstance().SetStartupRunning(false);
 
   // if the native ui task execution isn't enabled already, enable it.
   if (!startup_info_.enable_native_task_execution_callback.is_null()) {
@@ -426,17 +409,10 @@ void AwContentBrowserClient::OnStartupComplete() {
 
 void AwContentBrowserClient::OnUiTaskRunnerReady(
     base::OnceClosure enable_native_task_execution_callback) {
-  if (!ShouldRunStartupTasksAsync()) {
-    std::move(enable_native_task_execution_callback).Run();
-    return;
-  }
-
   startup_info_.enable_native_task_execution_callback =
       std::move(enable_native_task_execution_callback);
 
-  if (ShouldRunStartupTasksAsync()) {
-    YieldToLooperChecker::GetInstance().SetStartupRunning(true);
-  }
+  YieldToLooperChecker::GetInstance().SetStartupRunning(true);
 }
 
 std::unique_ptr<content::WebContentsViewDelegate>
@@ -1339,6 +1315,7 @@ bool AwContentBrowserClient::WillCreateRestrictedCookieManager(
     bool is_service_worker,
     int process_id,
     int routing_id,
+    bool prefer_bound_cookie_context,
     mojo::PendingReceiver<network::mojom::RestrictedCookieManager>* receiver) {
   mojo::PendingReceiver<network::mojom::RestrictedCookieManager> orig_receiver =
       std::move(*receiver);

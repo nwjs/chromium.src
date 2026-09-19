@@ -21,7 +21,7 @@
 #import "components/autofill/core/browser/payments/virtual_card_enrollment_manager.h"
 #import "components/autofill/core/browser/single_field_fillers/autocomplete/mock_autocomplete_history_manager.h"
 #import "components/autofill/core/browser/strike_databases/payments/test_strike_database.h"
-#import "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#import "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/core/common/autofill_prefs.h"
 #import "components/autofill/core/common/form_data.h"
@@ -36,6 +36,7 @@
 #import "components/autofill/ios/form_util/test_form_activity_tab_helper.h"
 #import "components/password_manager/core/browser/leak_detection_dialog_utils.h"
 #import "components/password_manager/core/browser/password_manager.h"
+#import "components/password_manager/core/browser/password_string.h"
 #import "components/password_manager/core/common/password_manager_pref_names.h"
 #import "components/password_manager/ios/ios_password_manager_driver.h"
 #import "components/password_manager/ios/ios_password_manager_driver_factory.h"
@@ -147,15 +148,6 @@ class CWVAutofillControllerTest : public web::WebTest {
     IOSPasswordManagerDriverFactory::CreateForWebState(
         &web_state_, password_controller_, password_manager.get());
     password_manager_client_ = password_manager_client.get();
-
-    const testing::TestInfo* const test_info =
-        testing::UnitTest::GetInstance()->current_test_info();
-    if (test_info &&
-        (std::string(test_info->name()) == "SubmitCallback" ||
-         std::string(test_info->name()) == "FetchFullCardDetailsNoDriver")) {
-      scoped_feature_list_.InitAndDisableFeature(
-          autofill::features::kAutofillAcrossIframesIos);
-    }
 
     auto autofill_client = std::make_unique<
         autofill::WithFakedFromWebState<autofill::WebViewAutofillClientIOS>>(
@@ -661,51 +653,8 @@ TEST_F(CWVAutofillControllerTest, BlurCallback) {
 
   [delegate verify];
 }
-
-// Tests CWVAutofillController delegate submit callback is invoked.
+// Tests submission handling.
 TEST_F(CWVAutofillControllerTest, SubmitCallback) {
-  id delegate = OCMProtocolMock(@protocol(CWVAutofillControllerDelegate));
-  autofill_controller_.delegate = delegate;
-
-  [[delegate expect] autofillController:autofill_controller_
-                  didSubmitFormWithName:kTestFormName
-                                frameID:frame_id_
-                         perfectFilling:YES];
-  [[delegate expect] autofillController:autofill_controller_
-                  didSubmitFormWithName:kTestFormName
-                                frameID:frame_id_
-                          userInitiated:YES
-                         perfectFilling:YES];
-  auto frame = web::FakeWebFrame::CreateMainWebFrame(GURL());
-  autofill::FormData test_form_data;
-  test_form_data.set_name(base::SysNSStringToUTF16(kTestFormName));
-
-  form_activity_tab_helper_->DocumentSubmitted(
-      /*sender_frame*/ frame.get(), /*form_data=*/test_form_data,
-      /*user_initiated=*/true,
-      /*perfect_filling=*/true);
-
-  [[delegate expect] autofillController:autofill_controller_
-                  didSubmitFormWithName:kTestFormName
-                                frameID:frame_id_
-                         perfectFilling:NO];
-  [[delegate expect] autofillController:autofill_controller_
-                  didSubmitFormWithName:kTestFormName
-                                frameID:frame_id_
-                          userInitiated:NO
-                         perfectFilling:NO];
-
-  form_activity_tab_helper_->DocumentSubmitted(
-      /*sender_frame*/ frame.get(),
-      /*form_data=*/test_form_data,
-      /*user_initiated=*/false,
-      /*perfect_filling=*/false);
-
-  [delegate verify];
-}
-
-// Tests submission handling when autofill across iframes is enabled.
-TEST_F(CWVAutofillControllerTest, SubmitCallbackAcrossIframes) {
   id delegate = OCMProtocolMock(@protocol(CWVAutofillControllerDelegate));
   autofill_controller_.delegate = delegate;
 
@@ -721,7 +670,6 @@ TEST_F(CWVAutofillControllerTest, SubmitCallbackAcrossIframes) {
               userInitiated:YES
              perfectFilling:YES]);
 
-  auto frame = web::FakeWebFrame::CreateMainWebFrame(GURL());
   autofill::FormData test_form_data;
   test_form_data.set_name(base::SysNSStringToUTF16(kTestFormName));
 
@@ -848,7 +796,7 @@ TEST_F(CWVAutofillControllerTest, NotifyUserOfLeak) {
                                 username:@"fake-username"]);
 
   password_manager::PasswordForm password_form;
-  password_form.password_value = u"password";
+  password_form.password_value = password_manager::PasswordString(u"password");
   password_form.username_value = u"fake-username";
   password_form.url = leak_url;
   password_form.signon_realm = leak_url.GetWithEmptyPath().spec();

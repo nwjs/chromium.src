@@ -46,7 +46,6 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.stubbing.Answer;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -82,7 +81,6 @@ import java.util.List;
 
 /** Unit tests for {@link AutofillLocalCardEditorTest}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 @DisableFeatures(ChromeFeatureList.SETTINGS_MULTI_COLUMN)
 public class AutofillLocalCardEditorTest {
     // This is a non-amex card without a CVC code.
@@ -781,19 +779,6 @@ public class AutofillLocalCardEditorTest {
 
     @Test
     @MediumTest
-    public void testRecordHistogram_whenAddCardFlowStarted() {
-        // Expect histogram to record add card flow.
-        HistogramWatcher addCardFlowHistogram =
-                HistogramWatcher.newBuilder()
-                        .expectBooleanRecord(AutofillLocalCardEditor.ADD_CARD_FLOW_HISTOGRAM, true)
-                        .build();
-        initFragment(null);
-
-        addCardFlowHistogram.assertExpected();
-    }
-
-    @Test
-    @MediumTest
     public void testRecordHistogram_whenAddCardFlowStartedWithoutExistingCards() {
         // Expect histogram to record true for entering the add card flow without existing cards.
         HistogramWatcher addCardFlowWithoutExistingCardsHistogram =
@@ -833,7 +818,6 @@ public class AutofillLocalCardEditorTest {
         // not be recorded.
         HistogramWatcher addCardFlowHistogram =
                 HistogramWatcher.newBuilder()
-                        .expectNoRecords(AutofillLocalCardEditor.ADD_CARD_FLOW_HISTOGRAM)
                         .expectNoRecords(
                                 AutofillLocalCardEditor
                                         .ADD_CARD_FLOW_WITHOUT_EXISTING_CARDS_HISTOGRAM)

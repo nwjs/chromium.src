@@ -115,7 +115,10 @@ source_set("cocoa") {
     "window_size_autosaver.mm",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+  public_deps = [
+    "//chrome/browser:browser_public_dependencies",
+    "//chrome/browser/ui:browser_live_tab_context",
+  ]
 
   deps = [
     "//chrome/app:command_ids",
@@ -149,9 +152,11 @@ source_set("cocoa") {
     "//chrome/browser/status_icons",
     "//chrome/browser/themes",
     "//chrome/browser/ui:accelerator_utils_headers",
+    "//chrome/browser/ui:fullscreen_util_mac",
     "//chrome/browser/ui:recently_audible_helper",
     "//chrome/browser/ui:simple_message_box_headers",
     "//chrome/browser/ui:simple_message_box_internal",
+    "//chrome/browser/ui:tab_ui_helper",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/autofill",
     "//chrome/browser/ui/bookmarks",

@@ -5,15 +5,25 @@
 package org.chromium.chrome.browser.actor;
 
 import android.app.Notification;
+import android.content.Intent;
+import android.os.Handler;
+import android.os.Looper;
 
+import androidx.annotation.VisibleForTesting;
+
+import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.notifications.NotificationConstants;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.browser_ui.notifications.BaseNotificationManagerProxy;
 import org.chromium.components.browser_ui.notifications.BaseNotificationManagerProxyFactory;
 import org.chromium.components.browser_ui.notifications.NotificationWrapper;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Manages the state and display of notifications for Actor tasks. When foreground service is
@@ -21,10 +31,20 @@ import java.util.Map;
  */
 @NullMarked
 public class ActorNotificationService {
+    private static final String TAG = "ActorNotification";
+    private static final int INVALID_TASK_ID = -1;
+    private static final int INVALID_TASK_STATE = -1;
+
+    // Delay to demote terminal live notifications to regular dismissible notifications.
+    // Matches the toolbar action chip collapse delay (30 seconds).
+    public static final long LIVE_NOTIFICATION_DEMOTION_DELAY_MS = TimeUnit.SECONDS.toMillis(30);
+    private static long sDemotionDelayMs = LIVE_NOTIFICATION_DEMOTION_DELAY_MS;
+
     private final Map<Integer, ActorTask> mTaskCache = new HashMap<>();
     private final Map<Integer, NotificationWrapper> mNotificationCache = new HashMap<>();
     private final Map<Integer, Integer> mTaskStates = new HashMap<>();
-    private static final String TAG = "ActorNotification";
+    private final Map<Integer, Runnable> mDemoteRunnables = new HashMap<>();
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
     private final BaseNotificationManagerProxy mNotificationManager;
     private final ActorKeyedService mKeyedService;
 
@@ -37,6 +57,14 @@ public class ActorNotificationService {
     public ActorNotificationService(ActorKeyedService keyedService) {
         mNotificationManager = BaseNotificationManagerProxyFactory.create();
         mKeyedService = keyedService;
+    }
+
+    public static long getDemotionDelayMs() {
+        return sDemotionDelayMs;
+    }
+
+    public boolean hasPendingDemotions() {
+        return !mDemoteRunnables.isEmpty();
     }
 
     /**
@@ -66,6 +94,7 @@ public class ActorNotificationService {
      */
     public void updateNotificationForTask(
             int taskId, @ActorTaskState int newState, boolean isSilent, boolean isWarning) {
+        cancelDemoteRunnable(taskId);
         NotificationWrapper old = mNotificationCache.get(taskId);
         NotificationWrapper current =
                 getOrBuildNotificationWrapper(taskId, newState, isSilent, isWarning);
@@ -78,17 +107,130 @@ public class ActorNotificationService {
         if (current != old) {
             mNotificationManager.notify(current);
         }
+
+        if (ActorUtils.isOngoingNotification(ActorUtils.isCompletedState(newState))) {
+            scheduleDemotion(taskId);
+        }
+    }
+
+    private void scheduleDemotion(int taskId) {
+        Runnable runnable = () -> demoteToNonLiveNotification(taskId);
+        mDemoteRunnables.put(taskId, runnable);
+        mHandler.postDelayed(runnable, sDemotionDelayMs);
+    }
+
+    private void cancelDemoteRunnable(int taskId) {
+        Runnable runnable = mDemoteRunnables.remove(taskId);
+        if (runnable != null) {
+            mHandler.removeCallbacks(runnable);
+        }
+    }
+
+    @VisibleForTesting
+    void demoteToNonLiveNotification(int taskId) {
+        if (mDemoteRunnables.remove(taskId) == null) {
+            return;
+        }
+        ActorTask task = getTask(taskId);
+        Integer state = mTaskStates.get(taskId);
+        if (task == null || state == null || !ActorUtils.isCompletedState(state)) {
+            return;
+        }
+
+        NotificationWrapper nonLiveWrapper =
+                ActorNotificationFactory.buildNotification(
+                        task,
+                        state,
+                        /* isSilent= */ true,
+                        /* isWarning= */ false,
+                        /* isLive= */ false);
+        mNotificationCache.put(taskId, nonLiveWrapper);
+
+        ActorForegroundServiceManager manager = ActorForegroundServiceManager.getInstance();
+        if (manager != null) {
+            manager.maybeStopServiceNow();
+        }
+
+        mNotificationManager.notify(nonLiveWrapper);
     }
 
     /**
-     * Reposts a cached notification as a regular background notification.
+     * Updates the notification for a task when its step progress changes.
      *
-     * @param taskId The ID of the task whose notification should be reposted.
+     * @param taskId The ID of the task whose step progress updated.
      */
-    public void repostNotification(int taskId) {
-        NotificationWrapper wrapper = mNotificationCache.get(taskId);
-        if (wrapper != null) {
-            mNotificationManager.notify(wrapper);
+    public void updateNotificationForStepProgress(int taskId) {
+        if (!ChromeFeatureList.sActorStepProgressNotification.isEnabled()) {
+            return;
+        }
+        ActorTask task = getTask(taskId);
+        if (task == null) {
+            return;
+        }
+        @ActorTaskState int state = task.getState();
+        NotificationWrapper current =
+                ActorNotificationFactory.buildNotification(
+                        task, state, /* isSilent= */ true, /* isWarning= */ false);
+        mNotificationCache.put(taskId, current);
+        mNotificationManager.notify(current);
+    }
+
+    /**
+     * Resends the notification for a running task as loud (e.g. when moving to background or PiP).
+     *
+     * @param taskId The ID of the task to resend notification for.
+     */
+    public void resendWorkingNotificationLoudly(int taskId) {
+        ActorTask task = getTask(taskId);
+        if (task == null || !ActorUtils.isRunningState(task.getState())) {
+            return;
+        }
+        NotificationWrapper loudNotification =
+                ActorNotificationFactory.buildNotification(
+                        task, task.getState(), /* isSilent= */ false, /* isWarning= */ false);
+        mNotificationCache.put(taskId, loudNotification);
+        mTaskStates.put(taskId, task.getState());
+        mNotificationManager.notify(loudNotification);
+    }
+
+    /**
+     * Cancels the notification for an actor task if the task is in a completed state.
+     *
+     * @param intent The intent received when the notification or its action button was clicked.
+     * @param profile The current user {@link Profile}.
+     */
+    public static void maybeDismissNotificationFromIntent(
+            @Nullable Intent intent, @Nullable Profile profile) {
+        if (intent == null) return;
+        if (!intent.hasExtra(NotificationConstants.EXTRA_ACTOR_TASK_ID)) return;
+
+        int taskId = intent.getIntExtra(NotificationConstants.EXTRA_ACTOR_TASK_ID, INVALID_TASK_ID);
+        if (taskId == INVALID_TASK_ID) return;
+
+        int state = INVALID_TASK_STATE;
+        if (profile != null) {
+            ActorKeyedService service =
+                    ActorKeyedServiceFactory.getForProfile(profile.getOriginalProfile());
+            if (service != null) {
+                ActorTask task = service.getTask(taskId);
+                if (task != null) {
+                    state = task.getState();
+                }
+            }
+        }
+
+        if (state == INVALID_TASK_STATE) {
+            state =
+                    intent.getIntExtra(
+                            NotificationConstants.EXTRA_ACTOR_TASK_STATE, INVALID_TASK_STATE);
+        }
+
+        if (state != INVALID_TASK_STATE && ActorUtils.isCompletedState(state)) {
+            ActorForegroundServiceManager manager = ActorForegroundServiceManager.getInstance();
+            if (manager != null) {
+                manager.onNotificationDismissed(taskId);
+            }
+            BaseNotificationManagerProxyFactory.create().cancel(taskId);
         }
     }
 
@@ -144,14 +286,32 @@ public class ActorNotificationService {
 
     /** Clears local cache for all actor notifications. */
     public void clearAll() {
+        for (Runnable runnable : mDemoteRunnables.values()) {
+            mHandler.removeCallbacks(runnable);
+        }
+        mDemoteRunnables.clear();
         mNotificationCache.clear();
         mTaskStates.clear();
         mTaskCache.clear();
     }
 
-    private void clearTaskData(int taskId) {
+    void clearTaskData(int taskId) {
+        cancelDemoteRunnable(taskId);
         mNotificationCache.remove(taskId);
         mTaskStates.remove(taskId);
         mTaskCache.remove(taskId);
+    }
+
+    public static void setDemotionDelayMsForTesting(long delayMs) {
+        sDemotionDelayMs = delayMs;
+        ResettersForTesting.register(() -> sDemotionDelayMs = LIVE_NOTIFICATION_DEMOTION_DELAY_MS);
+    }
+
+    boolean hasPendingDemotionForTesting(int taskId) {
+        return mDemoteRunnables.containsKey(taskId);
+    }
+
+    @Nullable NotificationWrapper getCachedNotificationWrapperForTesting(int taskId) {
+        return mNotificationCache.get(taskId);
     }
 }

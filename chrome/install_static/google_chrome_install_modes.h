@@ -36,6 +36,42 @@ enum InstallConstantIndex {
   NUM_INSTALL_MODES,
 };
 
+inline constexpr auto kOldTracingServiceIidsStable = std::to_array<IID>({
+    // Replaced in 2026-09. Delete after 2028-09.
+    // {056B3371-1C09-475B-A8D7-9E58BF45533E}
+    {0x056b3371,
+     0x1c09,
+     0x475b,
+     {0xa8, 0xd7, 0x9e, 0x58, 0xbf, 0x45, 0x53, 0x3e}},
+});
+
+inline constexpr auto kOldTracingServiceIidsBeta = std::to_array<IID>({
+    // Replaced in 2026-09. Delete after 2028-09.
+    // {A69D7D7D-9A08-422A-B6C6-B7B8D376A12C}
+    {0xa69d7d7d,
+     0x9a08,
+     0x422a,
+     {0xb6, 0xc6, 0xb7, 0xb8, 0xd3, 0x76, 0xa1, 0x2c}},
+});
+
+inline constexpr auto kOldTracingServiceIidsDev = std::to_array<IID>({
+    // Replaced in 2026-09. Delete after 2028-09.
+    // {E08ADAE8-9334-46ED-B0CF-DD1780158D55}
+    {0xe08adae8,
+     0x9334,
+     0x46ed,
+     {0xb0, 0xcf, 0xdd, 0x17, 0x80, 0x15, 0x8d, 0x55}},
+});
+
+inline constexpr auto kOldTracingServiceIidsSxS = std::to_array<IID>({
+    // Replaced in 2026-09. Delete after 2028-09.
+    // {6EFB8558-68D1-4826-A612-A180B3570375}
+    {0x6efb8558,
+     0x68d1,
+     0x4826,
+     {0xa6, 0x12, 0xa1, 0x80, 0xb3, 0x57, 0x03, 0x75}},
+});
+
 inline constexpr auto kInstallModes = std::to_array<InstallConstants>({
     // The primary install mode for stable Google Chrome.
     {
@@ -75,18 +111,20 @@ inline constexpr auto kInstallModes = std::to_array<InstallConstants>({
                          {0xb5, 0xf4, 0x3a, 0x9b, 0xb6, 0x49, 0x48,
                           0x38}},  // IElevator IID and TypeLib
         // {1BF5208B-295F-4992-B5F4-3A9BB6494838}.
+        .old_elevator_iids = {},
         .tracing_service_clsid = {0x70457024,
                                   0xd309,
                                   0x462c,
                                   {0xb2, 0xe0, 0x49, 0xa7, 0x71, 0x48, 0x7e,
                                    0x46}},  // SystemTraceSession CLSID.
-        .tracing_service_iid = {0x056b3371,
-                                0x1c09,
-                                0x475b,
-                                {0xa8, 0xd7, 0x9e, 0x58, 0xbf, 0x45, 0x53,
-                                 0x3e}},  // ISystemTraceSessionChromium IID
+        .tracing_service_iid = {0xa780c41e,
+                                0x1d88,
+                                0x4e7c,
+                                {0x98, 0xf9, 0xb0, 0x68, 0x96, 0x68, 0x05,
+                                 0x5c}},  // ISystemTraceSessionChromium IID
                                           // and TypeLib
-        .default_channel_name = L"",      // The empty string means "stable".
+        .old_tracing_service_iids = kOldTracingServiceIidsStable,
+        .default_channel_name = L"",  // The empty string means "stable".
         .channel_strategy = ChannelStrategy::FLOATING,
         .supports_system_level = true,  // Supports system-level installs.
         .supports_set_as_default_browser =
@@ -141,17 +179,19 @@ inline constexpr auto kInstallModes = std::to_array<InstallConstants>({
                          {0xba, 0x68, 0x23, 0x85, 0xb2, 0xa0, 0x32,
                           0x54}},  // IElevator IID and TypeLib
         // {B96A14B8-D0B0-44D8-BA68-2385B2A03254}.
+        .old_elevator_iids = {},
         .tracing_service_clsid = {0xe64e8e46,
                                   0x6756,
                                   0x467e,
                                   {0x9f, 0x61, 0x86, 0x16, 0xac, 0x13, 0xd1,
                                    0xef}},  // SystemTraceSession CLSID.
-        .tracing_service_iid = {0xa69d7d7d,
-                                0x9a08,
-                                0x422a,
-                                {0xb6, 0xc6, 0xb7, 0xb8, 0xd3, 0x76, 0xa1,
-                                 0x2c}},  // ISystemTraceSessionChromium IID and
+        .tracing_service_iid = {0x14f7041d,
+                                0x19e4,
+                                0x4f7f,
+                                {0xab, 0x6c, 0x85, 0x8e, 0x09, 0xde, 0x9f,
+                                 0x97}},  // ISystemTraceSessionChromium IID and
                                           // TypeLib
+        .old_tracing_service_iids = kOldTracingServiceIidsBeta,
         .default_channel_name = L"beta",  // Forced channel name.
         .channel_strategy = ChannelStrategy::FIXED,
         .supports_system_level = true,  // Supports system-level installs.
@@ -214,18 +254,20 @@ inline constexpr auto kInstallModes = std::to_array<InstallConstants>({
                          {0xae, 0xd6, 0x63, 0xf6, 0x58, 0xcc, 0x85,
                           0xa}},  // IElevator IID and TypeLib
                                   // {3FEFA48E-C8BF-461F-AED6-63F658CC850A}.
+        .old_elevator_iids = {},
         .tracing_service_clsid = {0x48c5c553,
                                   0x20f9,
                                   0x4cdc,
                                   {0x83, 0x40, 0x85, 0x29, 0xab, 0x83, 0xc5,
                                    0x52}},  // SystemTraceSession CLSID.
-        .tracing_service_iid = {0xe08adae8,
-                                0x9334,
-                                0x46ed,
-                                {0xb0, 0xcf, 0xdd, 0x17, 0x80, 0x15, 0x8d,
-                                 0x55}},  // ISystemTraceSessionChromium IID and
+        .tracing_service_iid = {0xaefb2e52,
+                                0xd121,
+                                0x4617,
+                                {0xa3, 0x66, 0xdd, 0x78, 0x22, 0x46, 0xfb,
+                                 0x4b}},  // ISystemTraceSessionChromium IID and
                                           // TypeLib
-        .default_channel_name = L"dev",   // Forced channel name.
+        .old_tracing_service_iids = kOldTracingServiceIidsDev,
+        .default_channel_name = L"dev",  // Forced channel name.
         .channel_strategy = ChannelStrategy::FIXED,
         .supports_system_level = true,  // Supports system-level installs.
         .supports_set_as_default_browser =
@@ -286,17 +328,19 @@ inline constexpr auto kInstallModes = std::to_array<InstallConstants>({
                          {0x81, 0xe5, 0x3a, 0x5a, 0x97, 0x46, 0x14,
                           0xa}},  // IElevator IID and TypeLib
         // {FF672E9F-0994-4322-81E5-3A5A9746140A}.
+        .old_elevator_iids = {},
         .tracing_service_clsid = {0x48c5c553,
                                   0x20f9,
                                   0x4cdc,
                                   {0x83, 0x40, 0x85, 0x29, 0xab, 0x83, 0xc5,
                                    0x52}},  // SystemTraceSession CLSID.
-        .tracing_service_iid = {0x6efb8558,
-                                0x68d1,
-                                0x4826,
-                                {0xa6, 0x12, 0xa1, 0x80, 0xb3, 0x57, 0x03,
-                                 0x75}},  // ISystemTraceSessionChromium IID and
+        .tracing_service_iid = {0x4a5732f2,
+                                0xdc92,
+                                0x4ee4,
+                                {0xb8, 0xf4, 0xa3, 0x21, 0x69, 0x67, 0x31,
+                                 0x2a}},  // ISystemTraceSessionChromium IID and
                                           // TypeLib
+        .old_tracing_service_iids = kOldTracingServiceIidsSxS,
         .default_channel_name = L"canary",  // Forced channel name.
         .channel_strategy = ChannelStrategy::FIXED,
         .supports_system_level =

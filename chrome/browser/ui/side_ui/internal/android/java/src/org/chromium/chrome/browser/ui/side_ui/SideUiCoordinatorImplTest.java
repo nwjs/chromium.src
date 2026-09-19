@@ -15,6 +15,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -46,20 +47,22 @@ import org.robolectric.Robolectric;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
-import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
-import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.DisabledTest;
-import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.cc.input.BrowserControlsState;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsVisibilityManager;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker;
+import org.chromium.chrome.browser.browser_controls.TopControlsStacker.TopControlType;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider.LayoutStateObserver;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
+import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
+import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.HeightType;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiId;
@@ -79,10 +82,14 @@ public class SideUiCoordinatorImplTest {
     /** Window size in this test; it must match {@code @Config}. */
     private static final Size WINDOW_SIZE_PX = new Size(1920, 1080);
 
+    private static final int HEIGHT_TO_TABSTRIP_BOTTOM = 100;
+
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
-    @Mock private BrowserControlsStateProvider mBrowserControlsStateProvider;
+    @Mock private BrowserControlsVisibilityManager mBrowserControlsVisibilityManager;
+    private final TestBrowserControlsVisibilityDelegate mBrowserControlsVisibilityDelegate =
+            new TestBrowserControlsVisibilityDelegate();
     @Mock private FullscreenManager mFullscreenManager;
     @Mock private LayoutStateProvider mLayoutStateProvider;
     @Mock private TopControlsStacker mTopControlsStacker;
@@ -91,11 +98,11 @@ public class SideUiCoordinatorImplTest {
     @Mock private ViewStub mWebContentHairlineContainerStub;
     @Mock private SideUiObserver mSideUiObserver;
     @Mock private IncognitoStateProvider mIncognitoStateProvider;
+    @Mock private TabModelSelector mTabModelSelector;
+    @Mock private Tab mTab;
 
     @Captor private ArgumentCaptor<LayoutStateObserver> mLayoutStateObserverCaptor;
 
-    private final SettableNonNullObservableSupplier<Integer> mTabStripBottomPxSupplier =
-            ObservableSuppliers.createNonNull(0);
     private final OneshotSupplierImpl<LayoutStateProvider> mLayoutStateProviderSupplier =
             new OneshotSupplierImpl<>();
 
@@ -108,6 +115,7 @@ public class SideUiCoordinatorImplTest {
     @Before
     public void setUp() {
         mTestActivity = Robolectric.buildActivity(TestActivity.class).setup().get();
+        doReturn(mTab).when(mTabModelSelector).getCurrentTab();
 
         // Set up the parent View of side UI anchor containers.
         FrameLayout anchorContainerParent = new FrameLayout(mTestActivity);
@@ -134,6 +142,7 @@ public class SideUiCoordinatorImplTest {
         doReturn(mLeftAnchorContainer).when(mLeftAnchorContainerStub).inflate();
         doReturn(mRightAnchorContainer).when(mRightAnchorContainerStub).inflate();
 
+        // Set up hairline container.
         SideUiWebContentHairlineContainer webContentHairlineContainer =
                 (SideUiWebContentHairlineContainer)
                         mTestActivity
@@ -142,21 +151,29 @@ public class SideUiCoordinatorImplTest {
         webContentHairlineContainer.setLayoutParams(new MarginLayoutParams(0, 0));
         doReturn(webContentHairlineContainer).when(mWebContentHairlineContainerStub).inflate();
 
+        // Set up browser controls classes.
+        doReturn(mBrowserControlsVisibilityDelegate)
+                .when(mBrowserControlsVisibilityManager)
+                .getBrowserVisibilityDelegate();
+        doReturn(HEIGHT_TO_TABSTRIP_BOTTOM)
+                .when(mTopControlsStacker)
+                .getHeightFromLayerBottomToTop(TopControlType.TABSTRIP);
+
         // Initialize the SideUiCoordinator under test.
         mCoordinator =
                 new SideUiCoordinatorImpl(
                         mTestActivity,
                         mActivityLifecycleDispatcher,
                         mLayoutStateProviderSupplier,
-                        mBrowserControlsStateProvider,
+                        mBrowserControlsVisibilityManager,
                         mFullscreenManager,
                         mTopControlsStacker,
                         anchorContainerParent,
                         mLeftAnchorContainerStub,
                         mRightAnchorContainerStub,
                         mWebContentHairlineContainerStub,
-                        mTabStripBottomPxSupplier,
-                        mIncognitoStateProvider);
+                        mIncognitoStateProvider,
+                        mTabModelSelector);
 
         // Initialize the SideUiContainer View.
         mSideUiContainerView = new View(mTestActivity);
@@ -175,7 +192,6 @@ public class SideUiCoordinatorImplTest {
 
         verify(mActivityLifecycleDispatcher).register(mCoordinator);
         verify(mFullscreenManager).addObserver(mCoordinator);
-        assertEquals(1, mTabStripBottomPxSupplier.getObserverCount());
     }
 
     @Test
@@ -187,7 +203,6 @@ public class SideUiCoordinatorImplTest {
         verify(mActivityLifecycleDispatcher).unregister(mCoordinator);
         verify(mFullscreenManager).removeObserver(mCoordinator);
         verify(mLayoutStateProvider).removeObserver(any());
-        assertEquals(0, mTabStripBottomPxSupplier.getObserverCount());
     }
 
     @Test
@@ -294,8 +309,8 @@ public class SideUiCoordinatorImplTest {
         mCoordinator.addObserver(mSideUiObserver);
 
         // Act: Show only the right SideUiContainer.
-        rightUiContainer.mHasContentToShow = true;
-        leftUiContainer.mHasContentToShow = false;
+        rightUiContainer.mHasContentForTabMap.put(mTab, true);
+        leftUiContainer.mHasContentForTabMap.put(mTab, false);
         clearInvocations(mSideUiObserver);
         mCoordinator.updateUi(
                 new UiUpdateRequest(
@@ -336,8 +351,8 @@ public class SideUiCoordinatorImplTest {
         assertTrue(showabilityCaptor.getValue().mUnshowableSideUiIds.isEmpty());
 
         // Act: Attempt to show both SideUiContainers.
-        rightUiContainer.mHasContentToShow = true;
-        leftUiContainer.mHasContentToShow = true;
+        rightUiContainer.mHasContentForTabMap.put(mTab, true);
+        leftUiContainer.mHasContentForTabMap.put(mTab, true);
         clearInvocations(mSideUiObserver);
         mCoordinator.updateUi(
                 new UiUpdateRequest(leftUiContainer.getSideUiId(), /* suppressAnimations= */ true));
@@ -374,7 +389,7 @@ public class SideUiCoordinatorImplTest {
                 showabilityCaptor.getValue().mUnshowableSideUiIds);
 
         // Act: Close the left container.
-        leftUiContainer.mHasContentToShow = false;
+        leftUiContainer.mHasContentForTabMap.put(mTab, false);
         clearInvocations(mSideUiObserver);
         mCoordinator.updateUi(
                 new UiUpdateRequest(leftUiContainer.getSideUiId(), /* suppressAnimations= */ true));
@@ -446,8 +461,8 @@ public class SideUiCoordinatorImplTest {
         mCoordinator.registerSideUiContainer(leftUiContainer);
 
         // Act: Show only the right SideUiContainer.
-        rightUiContainer.mHasContentToShow = true;
-        leftUiContainer.mHasContentToShow = false;
+        rightUiContainer.mHasContentForTabMap.put(mTab, true);
+        leftUiContainer.mHasContentForTabMap.put(mTab, false);
         mCoordinator.updateUi(
                 new UiUpdateRequest(
                         rightUiContainer.getSideUiId(), /* suppressAnimations= */ true));
@@ -462,8 +477,8 @@ public class SideUiCoordinatorImplTest {
         // The right SideUiContainer is configured to call updateUi() in onWillAutoClose(), which
         // will cause re-entrancy into updateUi().
         rightUiContainer.mRequestUiUpdateOnWillAutoClose = true;
-        rightUiContainer.mHasContentToShow = true;
-        leftUiContainer.mHasContentToShow = true;
+        rightUiContainer.mHasContentForTabMap.put(mTab, true);
+        leftUiContainer.mHasContentForTabMap.put(mTab, true);
         var request =
                 new UiUpdateRequest(leftUiContainer.getSideUiId(), /* suppressAnimations= */ true);
         assertThrows(AssertionError.class, () -> mCoordinator.updateUi(request));
@@ -484,7 +499,7 @@ public class SideUiCoordinatorImplTest {
         assertEquals(mRightAnchorContainer, mSideUiContainerView.getParent());
 
         // Act: Close the SideUiContainer.
-        sideUiContainer.mHasContentToShow = false;
+        sideUiContainer.mHasContentForTabMap.put(mTab, false);
         mCoordinator.updateUi(sideUiProperties);
 
         // Assert: The SideUiContainer View is detached.
@@ -556,7 +571,7 @@ public class SideUiCoordinatorImplTest {
         assertEquals(unexpectedRight, View.GONE, mRightAnchorContainer.getVisibility());
 
         // Detach.
-        sideUiContainer.mHasContentToShow = false;
+        sideUiContainer.mHasContentForTabMap.put(mTab, false);
         mCoordinator.updateUi(sideUiProperties);
         assertEquals(unexpectedLeft, View.GONE, mLeftAnchorContainer.getVisibility());
         assertEquals(unexpectedRight, View.GONE, mRightAnchorContainer.getVisibility());
@@ -583,14 +598,14 @@ public class SideUiCoordinatorImplTest {
         assertEquals(unexpectedRight, View.VISIBLE, mRightAnchorContainer.getVisibility());
 
         // Detach.
-        sideUiContainer.mHasContentToShow = false;
+        sideUiContainer.mHasContentForTabMap.put(mTab, false);
         mCoordinator.updateUi(sideUiProperties);
         assertEquals(unexpectedLeft, View.GONE, mLeftAnchorContainer.getVisibility());
         assertEquals(unexpectedRight, View.GONE, mRightAnchorContainer.getVisibility());
     }
 
     @Test
-    public void testOnTabStripBottomPxChanged() {
+    public void testOnTopControlsHeightChanged_updatesToolbarTopMargin() {
         // Set initial params, since these Views aren't actually attached.
         mLeftAnchorContainer.setLayoutParams(new FrameLayout.LayoutParams(0, 0));
         mRightAnchorContainer.setLayoutParams(new FrameLayout.LayoutParams(0, 0));
@@ -598,11 +613,15 @@ public class SideUiCoordinatorImplTest {
         var sideUiContainer =
                 new TestSideUiContainer(
                         mCoordinator, mSideUiContainerView, SideUiId.SIDE_PANEL, AnchorSide.RIGHT);
+        sideUiContainer.mHeightType = HeightType.TOOLBAR;
         mCoordinator.registerSideUiContainer(sideUiContainer);
 
         // Notify of a top margin change.
         @Px int topMarginPx = 30;
-        mTabStripBottomPxSupplier.set(topMarginPx);
+        doReturn(topMarginPx)
+                .when(mTopControlsStacker)
+                .getHeightFromLayerBottomToTop(TopControlType.TABSTRIP);
+        mCoordinator.onTopControlsHeightChanged(topMarginPx, 0);
 
         // Verify the topMargin is set appropriately.
         MarginLayoutParams leftLayoutParams =
@@ -808,7 +827,7 @@ public class SideUiCoordinatorImplTest {
     @Test
     @DisabledTest(message = "crbug.com/538387539")
     public void testUpdateUi_UpdatesWebContentHairline() {
-        doReturn(50f).when(mBrowserControlsStateProvider).getTopVisibleContentOffset();
+        doReturn(50f).when(mBrowserControlsVisibilityManager).getTopVisibleContentOffset();
 
         var sideUiContainer =
                 new TestSideUiContainer(
@@ -818,7 +837,7 @@ public class SideUiCoordinatorImplTest {
         mCoordinator.updateUi(
                 new UiUpdateRequest(sideUiContainer.getSideUiId(), /* suppressAnimations= */ true));
 
-        verify(mBrowserControlsStateProvider, atLeastOnce()).getTopVisibleContentOffset();
+        verify(mBrowserControlsVisibilityManager, atLeastOnce()).getTopVisibleContentOffset();
     }
 
     @Test
@@ -909,7 +928,7 @@ public class SideUiCoordinatorImplTest {
 
         MarginLayoutParams rightLayoutParams =
                 (MarginLayoutParams) mRightAnchorContainer.getLayoutParams();
-        assertEquals(0, rightLayoutParams.topMargin);
+        assertEquals(HEIGHT_TO_TABSTRIP_BOTTOM, rightLayoutParams.topMargin);
 
         sideUiContainer.mHeightType = HeightType.WEB_CONTENTS;
         mCoordinator.updateUi(
@@ -931,7 +950,9 @@ public class SideUiCoordinatorImplTest {
                 .when(mTopControlsStacker)
                 .getVisibleTopControlsTotalHeight();
 
-        mTabStripBottomPxSupplier.set(50);
+        doReturn(50)
+                .when(mTopControlsStacker)
+                .getHeightFromLayerBottomToTop(TopControlType.TABSTRIP);
 
         var sideUiContainer =
                 new TestSideUiContainer(
@@ -956,7 +977,7 @@ public class SideUiCoordinatorImplTest {
         sideUiContainer.mMinWidthDp = 400;
         sideUiContainer.mMaxWidthDp = 400;
         sideUiContainer.mHeightType = HeightType.WEB_CONTENTS;
-        mTabStripBottomPxSupplier.set(100);
+        doReturn(100).when(mTopControlsStacker).getVisibleTopControlsTotalHeight();
         mCoordinator.updateUi(
                 new UiUpdateRequest(
                         sideUiContainer.getSideUiId(), /* suppressAnimations= */ false));
@@ -1008,5 +1029,140 @@ public class SideUiCoordinatorImplTest {
         MarginLayoutParams rightLayoutParams =
                 (MarginLayoutParams) mRightAnchorContainer.getLayoutParams();
         assertEquals(0, rightLayoutParams.topMargin);
+    }
+
+    @Test
+    public void testBrowserControlsVisibility_whenSideUiShownAndHidden() {
+        var sideUiContainer =
+                new TestSideUiContainer(
+                        mCoordinator, mSideUiContainerView, SideUiId.SIDE_PANEL, AnchorSide.RIGHT);
+        mCoordinator.registerSideUiContainer(sideUiContainer);
+
+        // Opening side UI should lock browser controls to SHOWN.
+        mCoordinator.updateUi(
+                new UiUpdateRequest(sideUiContainer.getSideUiId(), /* suppressAnimations= */ true));
+        assertEquals(1, mBrowserControlsVisibilityDelegate.mShowCount);
+        assertEquals(BrowserControlsState.SHOWN, (int) mBrowserControlsVisibilityDelegate.get());
+
+        // Closing side UI should release the persistent showing token.
+        sideUiContainer.mHasContentForTabMap.put(mTab, false);
+        mCoordinator.updateUi(
+                new UiUpdateRequest(sideUiContainer.getSideUiId(), /* suppressAnimations= */ true));
+        assertEquals(1, mBrowserControlsVisibilityDelegate.mReleaseCount);
+        assertEquals(BrowserControlsState.BOTH, (int) mBrowserControlsVisibilityDelegate.get());
+    }
+
+    @Test
+    public void testBrowserControlsVisibility_multipleContainers() {
+        var leftContainer =
+                new TestSideUiContainer(
+                        mCoordinator,
+                        mSideUiContainerView,
+                        SideUiId.VERTICAL_TABS,
+                        AnchorSide.LEFT);
+        View rightView = new View(mTestActivity);
+        var rightContainer =
+                new TestSideUiContainer(
+                        mCoordinator, rightView, SideUiId.SIDE_PANEL, AnchorSide.RIGHT);
+
+        mCoordinator.registerSideUiContainer(leftContainer);
+        mCoordinator.registerSideUiContainer(rightContainer);
+
+        // Showing left container acquires token.
+        mCoordinator.updateUi(
+                new UiUpdateRequest(leftContainer.getSideUiId(), /* suppressAnimations= */ true));
+        assertEquals(1, mBrowserControlsVisibilityDelegate.mShowCount);
+        assertEquals(0, mBrowserControlsVisibilityDelegate.mReleaseCount);
+        assertEquals(BrowserControlsState.SHOWN, (int) mBrowserControlsVisibilityDelegate.get());
+
+        // Showing right container as well should not acquire another token.
+        mCoordinator.updateUi(
+                new UiUpdateRequest(rightContainer.getSideUiId(), /* suppressAnimations= */ true));
+        assertEquals(1, mBrowserControlsVisibilityDelegate.mShowCount);
+        assertEquals(0, mBrowserControlsVisibilityDelegate.mReleaseCount);
+
+        // Hiding left container while right container is still showing should not release the
+        // token.
+        leftContainer.mHasContentForTabMap.put(mTab, false);
+        mCoordinator.updateUi(
+                new UiUpdateRequest(leftContainer.getSideUiId(), /* suppressAnimations= */ true));
+        assertEquals(0, mBrowserControlsVisibilityDelegate.mReleaseCount);
+        assertEquals(BrowserControlsState.SHOWN, (int) mBrowserControlsVisibilityDelegate.get());
+
+        // Hiding right container (all containers hidden) should release the token.
+        rightContainer.mHasContentForTabMap.put(mTab, false);
+        mCoordinator.updateUi(
+                new UiUpdateRequest(rightContainer.getSideUiId(), /* suppressAnimations= */ true));
+        assertEquals(1, mBrowserControlsVisibilityDelegate.mReleaseCount);
+        assertEquals(BrowserControlsState.BOTH, (int) mBrowserControlsVisibilityDelegate.get());
+    }
+
+    @Test
+    public void testBrowserControlsVisibility_destroyReleasesToken() {
+        var sideUiContainer =
+                new TestSideUiContainer(
+                        mCoordinator, mSideUiContainerView, SideUiId.SIDE_PANEL, AnchorSide.RIGHT);
+        mCoordinator.registerSideUiContainer(sideUiContainer);
+
+        mCoordinator.updateUi(
+                new UiUpdateRequest(sideUiContainer.getSideUiId(), /* suppressAnimations= */ true));
+        assertEquals(1, mBrowserControlsVisibilityDelegate.mShowCount);
+        assertEquals(BrowserControlsState.SHOWN, (int) mBrowserControlsVisibilityDelegate.get());
+
+        mCoordinator.destroy();
+        assertEquals(1, mBrowserControlsVisibilityDelegate.mReleaseCount);
+        assertEquals(BrowserControlsState.BOTH, (int) mBrowserControlsVisibilityDelegate.get());
+    }
+
+    @Test
+    public void testBrowserControlsVisibility_destroyWithoutBeingVisible() {
+        mCoordinator.destroy();
+        assertEquals(0, mBrowserControlsVisibilityDelegate.mReleaseCount);
+    }
+
+    @Test
+    public void testBrowserControlsVisibility_whenShouldLockTopControlsIsFalse() {
+        var sideUiContainer =
+                new TestSideUiContainer(
+                        mCoordinator, mSideUiContainerView, SideUiId.SIDE_PANEL, AnchorSide.RIGHT);
+        sideUiContainer.mShouldLockTopControls = false;
+        mCoordinator.registerSideUiContainer(sideUiContainer);
+
+        // Opening side UI when shouldLockTopControls is false should not acquire token.
+        mCoordinator.updateUi(
+                new UiUpdateRequest(sideUiContainer.getSideUiId(), /* suppressAnimations= */ true));
+        assertEquals(0, mBrowserControlsVisibilityDelegate.mShowCount);
+        assertEquals(0, mBrowserControlsVisibilityDelegate.mReleaseCount);
+        assertEquals(BrowserControlsState.BOTH, (int) mBrowserControlsVisibilityDelegate.get());
+    }
+
+    @Test
+    public void testGetExpectedSideUiSpecsForTab() {
+        Tab tabWithSideUi = mock(Tab.class);
+        Tab tabWithoutSideUi = mock(Tab.class);
+
+        var sideUiContainer =
+                new TestSideUiContainer(
+                        mCoordinator, mSideUiContainerView, SideUiId.SIDE_PANEL, AnchorSide.RIGHT);
+        sideUiContainer.mMaxWidthDp = 300;
+        sideUiContainer.mHeightType = HeightType.TOOLBAR;
+        sideUiContainer.mHasContentForTabMap.put(tabWithSideUi, true);
+        sideUiContainer.mHasContentForTabMap.put(tabWithoutSideUi, false);
+
+        mCoordinator.registerSideUiContainer(sideUiContainer);
+
+        // For tabWithSideUi, side panel has content to show -> expected width is 300px (at mdpi).
+        SideUiSpecs specsForTabWithSideUi =
+                mCoordinator.getExpectedSideUiSpecsForTab(tabWithSideUi);
+        assertEquals(300, specsForTabWithSideUi.getWidth(AnchorSide.RIGHT));
+        assertEquals(HeightType.TOOLBAR, specsForTabWithSideUi.getHeightType(AnchorSide.RIGHT));
+
+        // For tabWithoutSideUi, side panel has no content to show -> expected width is 0.
+        SideUiSpecs specsForTabWithoutSideUi =
+                mCoordinator.getExpectedSideUiSpecsForTab(tabWithoutSideUi);
+        assertEquals(0, specsForTabWithoutSideUi.getWidth(AnchorSide.RIGHT));
+        assertEquals(
+                HeightType.NOT_APPLICABLE,
+                specsForTabWithoutSideUi.getHeightType(AnchorSide.RIGHT));
     }
 }

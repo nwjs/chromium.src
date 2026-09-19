@@ -22,13 +22,12 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/common/buildflags.h"
-#include "chrome/test/base/testing_browser_process_platform_part.h"
-#include "chrome/test/base/testing_profile_manager.h"
 #include "components/activity_reporter/activity_reporter.h"
 #include "components/signin/core/browser/active_primary_accounts_metrics_recorder.h"
 #include "extensions/buildflags/buildflags.h"
 #include "media/media_buildflags.h"
 #include "printing/buildflags/buildflags.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -39,8 +38,10 @@ class BackgroundModeManager;
 class NotificationPlatformBridge;
 class NotificationUIManager;
 class PrefService;
-class TestingPrefServiceSimple;
 class SystemNotificationHelper;
+class TestingBrowserProcessPlatformPart;
+class TestingPrefServiceSimple;
+class TestingProfileManager;
 
 namespace extensions {
 class ExtensionsBrowserClient;
@@ -77,6 +78,10 @@ class AndroidParentalControls;
 #endif
 class DeviceParentalControls;
 }  // namespace supervised_user
+
+namespace speech {
+class SpeechRecognitionSmallExpertModelInstaller;
+}
 
 namespace variations {
 class VariationsService;
@@ -200,6 +205,8 @@ class TestingBrowserProcess
   UsbSystemTrayIcon* usb_system_tray_icon() override;
   void set_usb_system_tray_icon_for_test(
       std::unique_ptr<UsbSystemTrayIcon> icon) override;
+  speech::SpeechRecognitionSmallExpertModelInstaller*
+  speech_recognition_small_expert_model_installer() override;
 #endif
   os_crypt_async::OSCryptAsync* os_crypt_async() override;
   void set_additional_os_crypt_async_provider_for_test(
@@ -234,6 +241,9 @@ class TestingBrowserProcess
   void SetComponentUpdater(
       std::unique_ptr<component_updater::ComponentUpdateService>
           component_updater);
+  void SetSpeechRecognitionSmallExpertModelInstaller(
+      std::unique_ptr<speech::SpeechRecognitionSmallExpertModelInstaller>
+          installer);
 #endif
 
   // Same as local_state() but provides TestingPrefServiceSimple interface.
@@ -361,6 +371,8 @@ class TestingBrowserProcess
   std::unique_ptr<HidSystemTrayIcon> hid_system_tray_icon_;
   std::unique_ptr<UsbSystemTrayIcon> usb_system_tray_icon_;
   std::unique_ptr<component_updater::ComponentUpdateService> component_updater_;
+  std::unique_ptr<speech::SpeechRecognitionSmallExpertModelInstaller>
+      speech_recognition_small_expert_model_installer_;
   BuildState build_state_;
 #endif
 

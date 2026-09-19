@@ -21,7 +21,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "components/autofill/core/browser/field_types.h"
-#include "components/autofill/core/common/autofill_test_utils.h"
+#include "components/autofill/core/common/autofill_test_util.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_data_test_api.h"
 #include "components/autofill/core/common/form_field_data.h"
@@ -234,15 +234,19 @@ void CheckPasswordFormFields(const FormParsingResult& parsing_result,
   EXPECT_EQ(expectations.username_id,
             parsing_result.password_form->username_element_renderer_id);
 
+  std::u16string password_value_plain =
+      parsing_result.password_form->password_value.value();
   CheckField(form_data.fields(), expectations.password_id,
              parsing_result.password_form->password_element,
-             &parsing_result.password_form->password_value, "password");
+             &password_value_plain, "password");
   EXPECT_EQ(expectations.password_id,
             parsing_result.password_form->password_element_renderer_id);
 
+  std::u16string new_password_value_plain =
+      parsing_result.password_form->new_password_value.value();
   CheckField(form_data.fields(), expectations.new_password_id,
              parsing_result.password_form->new_password_element,
-             &parsing_result.password_form->new_password_value, "new_password");
+             &new_password_value_plain, "new_password");
 
   CheckField(form_data.fields(), expectations.confirmation_password_id,
              parsing_result.password_form->confirmation_password_element,

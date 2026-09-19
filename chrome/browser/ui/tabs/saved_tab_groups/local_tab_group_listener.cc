@@ -10,12 +10,12 @@
 #include "base/token.h"
 #include "base/types/pass_key.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_utils.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/most_recent_shared_tab_update_store.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_web_contents_listener.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
@@ -137,9 +137,8 @@ void LocalTabGroupListener::AddTabFromLocal(
                    relative_index_of_tab_in_group);
 
   MostRecentSharedTabUpdateStore* most_recent_shared_tab_update_store =
-      local_tab->GetBrowserWindowInterface()
-          ->GetFeatures()
-          .most_recent_shared_tab_update_store();
+      MostRecentSharedTabUpdateStore::From(
+          local_tab->GetBrowserWindowInterface());
   if (most_recent_shared_tab_update_store) {
     most_recent_shared_tab_update_store->SetLastUpdatedTab(local_id_,
                                                            local_tab_id);
@@ -199,10 +198,9 @@ void LocalTabGroupListener::MoveWebContentsFromLocal(
   service_->MoveTab(local_id_, local_tab_id, index_in_group);
 
   MostRecentSharedTabUpdateStore* most_recent_shared_tab_update_store =
-      tab_strip_model->GetTabForWebContents(web_contents)
-          ->GetBrowserWindowInterface()
-          ->GetFeatures()
-          .most_recent_shared_tab_update_store();
+      MostRecentSharedTabUpdateStore::From(
+          tab_strip_model->GetTabForWebContents(web_contents)
+              ->GetBrowserWindowInterface());
   if (most_recent_shared_tab_update_store) {
     most_recent_shared_tab_update_store->SetLastUpdatedTab(local_id_,
                                                            local_tab_id);
@@ -241,9 +239,8 @@ LocalTabGroupListener::MaybeRemoveWebContentsFromLocal(
 
   // Get controller before tab is removed.
   MostRecentSharedTabUpdateStore* most_recent_shared_tab_update_store =
-      local_tab->GetBrowserWindowInterface()
-          ->GetFeatures()
-          .most_recent_shared_tab_update_store();
+      MostRecentSharedTabUpdateStore::From(
+          local_tab->GetBrowserWindowInterface());
 
   // This object is deleted by the time we have reached here. This means
   // saved_guid_ gives us a garbage value and cannot be used anymore to query.
@@ -271,7 +268,7 @@ LocalTabGroupListener::Liveness LocalTabGroupListener::UpdateFromSync() {
   CHECK(saved_group.has_value());
   TabStripModel* const tab_strip_model =
       SavedTabGroupUtils::GetBrowserWithTabGroupId(local_id_)
-          ->tab_strip_model();
+          ->GetTabStripModel();
   CHECK(tab_strip_model);
 
   // Update the group to use the saved title and color.
@@ -360,9 +357,10 @@ void LocalTabGroupListener::MatchLocalTabToSavedTab(
   }
 }
 
-void LocalTabGroupListener::OpenWebContentsFromSync(SavedTabGroupTab tab,
-                                                    Browser* browser,
-                                                    int index_in_tabstrip) {
+void LocalTabGroupListener::OpenWebContentsFromSync(
+    SavedTabGroupTab tab,
+    BrowserWindowInterface* browser,
+    int index_in_tabstrip) {
   GURL url_to_open = tab.url();
   // Open the NTP if the URL is not valid for local tabs.
   if (!IsURLValidForLocalTab(url_to_open)) {
@@ -378,7 +376,7 @@ void LocalTabGroupListener::OpenWebContentsFromSync(SavedTabGroupTab tab,
       navigation_handle ? navigation_handle->GetWebContents() : nullptr;
 
   tabs::TabInterface* local_tab =
-      browser->tab_strip_model()->GetTabForWebContents(opened_contents);
+      browser->GetTabStripModel()->GetTabForWebContents(opened_contents);
 
   // Listen to navigations.
   service_->UpdateLocalTabId(local_id_, tab.saved_tab_guid(),
@@ -400,20 +398,20 @@ void LocalTabGroupListener::RemoveLocalWebContentsNotInSavedGroup() {
 
 void LocalTabGroupListener::RemoveTabFromSync(tabs::TabInterface* local_tab,
                                               bool should_close_tab) {
-  Browser* const browser =
+  BrowserWindowInterface* const browser =
       SavedTabGroupUtils::GetBrowserWithTabGroupId(local_id_);
   CHECK(browser);
-  CHECK(browser->tab_strip_model());
-  int index = browser->tab_strip_model()->GetIndexOfTab(local_tab);
+  CHECK(browser->GetTabStripModel());
+  int index = browser->GetTabStripModel()->GetIndexOfTab(local_tab);
   CHECK(index != TabStripModel::kNoTab);
 
   // Unload listeners can delay or prevent a tab closing. Remove the tab from
   // the group first so the local and saved groups can be consistent even if
   // this happens.
-  browser->tab_strip_model()->RemoveFromGroup({index});
+  browser->GetTabStripModel()->RemoveFromGroup({index});
 
   if (should_close_tab) {
-    browser->tab_strip_model()->CloseWebContents(
+    browser->GetTabStripModel()->CloseWebContents(
         local_tab->GetContents(), TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
   }
 }

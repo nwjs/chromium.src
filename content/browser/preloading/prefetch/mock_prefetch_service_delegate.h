@@ -16,9 +16,7 @@ class MockPrefetchServiceDelegate : public PrefetchServiceDelegate {
  public:
   static const char kPrefetchProxyAddress[];
 
-  explicit MockPrefetchServiceDelegate(
-      std::optional<int> num_on_prefetch_likely_calls = 1);
-
+  MockPrefetchServiceDelegate();
   ~MockPrefetchServiceDelegate() override;
 
   MockPrefetchServiceDelegate(const MockPrefetchServiceDelegate&) = delete;
@@ -38,14 +36,16 @@ class MockPrefetchServiceDelegate : public PrefetchServiceDelegate {
   MOCK_METHOD(bool, IsOriginOutsideRetryAfterWindow, (const GURL&), (override));
   MOCK_METHOD(void, ClearData, (), (override));
   MOCK_METHOD(bool, DisableDecoysBasedOnUserSettings, (), (override));
-  MOCK_METHOD(PreloadingEligibility, IsSomePreloadingEnabled, (), (override));
+  MOCK_METHOD(PreloadingEligibility,
+              IsSomePreloadingEnabled,
+              (bool should_ignore_saver_modes),
+              (override));
   MOCK_METHOD(bool, IsExtendedPreloadingEnabled, (), (override));
   MOCK_METHOD(bool, IsPreloadingPrefEnabled, (), (override));
   MOCK_METHOD(bool, IsDataSaverEnabled, (), (override));
   MOCK_METHOD(bool, IsBatterySaverEnabled, (), (override));
   MOCK_METHOD(bool, IsDomainInPrefetchAllowList, (const GURL&), (override));
   MOCK_METHOD(bool, IsContaminationExempt, (const url::Origin&), (override));
-  MOCK_METHOD(void, OnPrefetchLikely, (WebContents*), (override));
   MOCK_METHOD(void, SetAcceptLanguageHeader, (std::string), (override));
 };
 

@@ -2528,9 +2528,8 @@ chromium-metrics-reviews@google.com.
   <int value="1475" label="OnNetworkRequestEnterpriseConnector"/>
   <int value="1476" label="EnterprisePublishedSkills"/>
   <int value="1477" label="OnDataCopiedEnterpriseConnector"/>
-  <int value="1478" label="DeviceLocalNetworkAccessAllowedForUrls"/>
-  <int value="1479" label="DeviceLocalNetworkAccessBlockedForUrls"/>
-  <int value="1480" label="DeviceLocalNetworkAccessIpAddressSpaceOverrides"/>
+  <int value="1481" label="DeviceOsMigrationTargetDate"/>
+  <int value="1482" label="RendererAccessibilityEnabled"/>
 </enum>
 
 <enum name="EnterprisePoliciesSources">
@@ -2682,6 +2681,16 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/enterprise/signin/signals_disclaimer_metrics.h:EnterpriseSignalsDisclaimerModalResult) -->
+
+<!-- LINT.IfChange(EnterpriseSignalsDisclaimerNotShownReason) -->
+
+<enum name="EnterpriseSignalsDisclaimerNotShownReason">
+  <int value="0" label="Active web contents/tab not ready"/>
+  <int value="1" label="Profile creation in progress"/>
+  <int value="2" label="Other modal dialog shown"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/enterprise/signin/signals_disclaimer_metrics.h:EnterpriseSignalsDisclaimerNotShownReason) -->
 
 <!-- LINT.IfChange(EnterpriseSignalsDisclaimerProfilePickerResult) -->
 
@@ -3174,6 +3183,19 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Canvas"/>
   <int value="7" label="[Deprecated] Google News"/>
   <int value="8" label="Explore"/>
+</enum>
+
+<enum name="WatermarkTimestampTimezoneType">
+  <int value="0" label="Default">Default local wall-clock time.</int>
+  <int value="1" label="UserDevice">
+    Admin-configured local wall-clock time.
+  </int>
+  <int value="2" label="ValidIANATimeZone">
+    Admin-configured valid time zone.
+  </int>
+  <int value="3" label="InvalidFallback">
+    Invalid string received, fell back to local device time.
+  </int>
 </enum>
 
 <enum name="WindowsProfileType">

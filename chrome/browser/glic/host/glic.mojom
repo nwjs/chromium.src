@@ -23,6 +23,10 @@ import "ui/gfx/geometry/mojom/geometry.mojom";
 import "url/mojom/origin.mojom";
 import "url/mojom/url.mojom";
 
+// This file includes definitions used ONLY by the glic web client, and no
+// Chrome WebUI. Don't add dependencies on this from WebUI code, as it will
+// bundle a lot of unused js bindings into Chrome.
+
 // Warning: a script copies some enums from this file over to glic_api.ts.
 // Run this script to update them, and read it for details.
 // chrome/browser/resources/glic/glic_api_impl/generate.py
@@ -35,231 +39,11 @@ struct GeminiEnterpriseSettings {
   string location;
 };
 
-enum GlicExperimentalTriggeringState {
-  kUnavailable = 0,
-  kNeedsOptIn = 1,
-  kReady = 2,
-};
-
 // @generate glic_api
 enum FileUploadPolicyState {
   kEnabled = 0,
   kDisabled = 1,
 };
-
-// Struct containing data about eligibility for GLIC.
-struct ProfileEnablement {
-  // Whether the GLIC feature is enabled.
-  bool feature_enabled;
-
-  // Whether the profile is regular (e.g. not incognito)
-  bool is_regular_profile;
-
-  // Whether Glic is rolled out to the profile. Rollout can be enabled by the
-  // `GlicRollout` flag, or by the `GlicTieredRollout` flag and synced pref.
-  bool is_rolled_out;
-
-  // Whether a primary account exists and has the required Account Capabilities
-  // to use Glic.
-  bool primary_account_is_capable;
-
-  // Whether the primary account exists and is fully signed in.
-  bool primary_account_is_fully_signed_in;
-
-  // Whether the profile is allowed to use Glic by chrome policy.
-  bool allowed_by_chrome_policy;
-
-  // Whether the profile is allowed to use Glic by remote admin.
-  bool allowed_by_remote_admin;
-
-  // Whether the profile is allowed to use Glic by remote for other reasons.
-  bool allowed_by_remote_other;
-
-  // Whether the user has consented with the FRE.
-  bool fre_is_consented;
-
-  // Whether Glic access is allowed by country filtering.
-  bool allowed_by_country_filter;
-
-  // Whether Glic access is allowed by UI locale filtering.
-  bool allowed_by_locale_filter;
-
-  // Whether the user has consented to actuation.
-  bool actuation_is_consented;
-
-  // Whether live (audio) functionality is allowed for this account type.
-  bool live_allowed;
-
-  // Whether 'Create Image with Gemini' functionality is allowed for this
-  // account type.
-  bool share_image_allowed;
-
-  // Settings for Gemini Enterprise.
-  GeminiEnterpriseSettings? gemini_enterprise_settings;
-
-  // Summary of whether actuation is enabled, and if not, why not.
-  ActuationEligibility actuation_eligibility;
-
-  // Summary of whether Glic API actuation is enabled, and if not, why not.
-  ActuationEligibility glic_api_actuation_eligibility;
-
-  GlicExperimentalTriggeringState glic_experimental_triggering_state;
-};
-
-// Basic configuration information about Glic.
-struct ConfigInfo {
-  // The URL from which the guest web client is loaded from.
-  url.mojom.Url guest_url;
-
-  // User configured preset URLs for different environments of the guest web
-  // client.
-  url.mojom.Url autopush_guest_url;
-  url.mojom.Url staging_guest_url;
-  url.mojom.Url preprod_guest_url;
-  url.mojom.Url prod_guest_url;
-
-  // User configured preset URL for web continuity.
-  url.mojom.Url web_continuity_originating_host_url;
-};
-
-// Whether actuation is enabled, and if not, why not.
-enum ActuationEligibility {
-  kEligible,
-  kMissingAccountCapability,
-  kMissingChromeBenefits,
-  kDisabledByPolicy,
-  kEnterpriseWithoutManagement,
-  kPlatformUnsupported,
-};
-
-// LINT.IfChange(ProfileReadyState)
-// The ready state of the profile.
-enum ProfileReadyState {
-  // The profile is not ready for Glic.
-  kUnknownError,
-  // The account state is paused, and requires sign in.
-  kSignInRequired,
-  // The profile is ready for Glic.
-  kReady,
-  // The profile is not eligible for Glic.
-  kIneligible,
-  // Similar to kIneligible, but the admin has explicitly disabled Glic.
-  kDisabledByAdmin,
-  // Potentially actionable state for travel or VPN region mismatch.
-  kLocationMismatch,
-  // Potentially actionable state for account capability/age restrictions.
-  kIneligibleAccount,
-};
-
-// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicProfileReadyState)
-
-// Directions for adjusting the zoom level of the WebUI page's hosted webview.
-enum ZoomAction {
-  kZoomIn,
-  kZoomOut,
-  kReset,
-};
-
-// A minimal interface for the initial handshake.
-interface PreloadPage {
-  // The one and only method needed to unblock the frontend.
-  SetProfileReadyState(ProfileReadyState ready_state);
-};
-
-// State of the web client running inside the webview.
-enum WebClientState {
-  kUninitialized,
-  kResponsive,
-  kUnresponsive,
-  kError,
-};
-
-// Functions provided by the WebUI page.
-interface Page {
-  // Called before the page is shown.
-  IntentToShow();
-
-  // TODO(crbug.com/454120908): Remove this method after WebContents warming is
-  // rolled out.
-  // Called any time the ready state of the profile changes.
-  // `ready_state` = `GlicEnabling::GetProfileReadyState()`.
-  SetProfileReadyState(ProfileReadyState ready_state);
-
-  // Called to inform the page of the UI surface it is being rendered in.
-  UpdatePageState(PanelStateKind panelStateKind);
-
-  // Notifies the page to adjust the zoom level of its hosted webview.
-  Zoom(ZoomAction action);
-
-  // Notifies the page when the web client state changes.
-  WebClientStateChanged(WebClientState state);
-};
-
-// Page handler for pre-loading tasks.
-interface GlicPreloadHandler {
-  // Prepare the webview for loading the client. Sync Google account sign-in
-  // cookies to the webview, if necessary, so that it can sign-in automatically.
-  // If this returns an error, the web client cannot be created.
-  PrepareForClient() => (PrepareForClientResult result);
-};
-
-// Factory for GlicPreloadHandler used in chrome://glic.
-interface GlicPreloadHandlerFactory {
-  // Creates the GlicPreloadHandler for chrome://glic.
-  CreatePreloadHandler(pending_receiver<GlicPreloadHandler> receiver,
-                       pending_remote<PreloadPage> page);
-};
-
-// Factory for PageHandler used in chrome://glic.
-interface PageHandlerFactory {
-  // Creates the PageHandler for chrome://glic.
-  CreatePageHandler(
-      pending_receiver<PageHandler> receiver, pending_remote<Page> page)
-      => (string instance_id);
-};
-
-// It is used in the Glic.PanelWebUiState.FinishState histogram.
-// This must match enums.xml.
-// LINT.IfChange(WebUiState)
-enum WebUiState {
-  // Glic app controller not started.
-  kUninitialized = 0,
-  // Web client begins loading; no visible UI.
-  kBeginLoad = 1,
-  // Loading panel is displayed. This state, combined with the `hold-loading`
-  // state, will be held for `kMinHoldLoadingTimeMs` if entered.
-  kShowLoading = 2,
-  // Loading panel is still displayed, but the web client is ready. This
-  // state will be held for the remainder of `kMinHoldLoadingTimeMs`.
-  kHoldLoading = 3,
-  // Loading panel is displayed until web client is ready, or until
-  // `kMaxWaitTimeMs` timeout is reached.
-  kFinishLoading = 4,
-  // "Something went wrong" error panel is displayed.
-  kError = 5,
-  // Connection offline panel is displayed.
-  kOffline = 6,
-  // Glic is not available for profile; "Unavailable" panel is displayed.
-  kUnavailable = 7,
-  // Web view is displayed.
-  kReady = 8,
-  // Glic is unresponsive. Currently this will show the same UI as kError.
-  kUnresponsive = 9,
-  // Sign in panel is displayed.
-  kSignIn = 10,
-  // Web view is displayed, but it is an error page.
-  kGuestError = 11,
-  // Similar to kUnavailable, but the admin has explicitly disabled Glic.
-  kDisabledByAdmin = 12,
-  // Created for background warming, not yet displayed or fully initialized.
-  kWarmed = 13,
-  // Glic is unavailable due to country location mismatch.
-  kLocationMismatch = 14,
-  // Glic is unavailable due to account capabilities.
-  kIneligibleAccount = 15,
-};
-
-// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:WebUiState)
 
 // @generate glic_api
 // The type of user input reaction.
@@ -274,100 +58,12 @@ enum MetricUserInputReactionType {
   kModel = 2,
 };
 
-// The result of `PrepareForClient()`.
-enum PrepareForClientResult {
-  // Ready to load the web client.
-  kSuccess,
-  // An unknown error occurred while resyncing cookies.
-  kErrorResyncingCookies,
-  // The account state is paused, and requires sign in.
-  kRequiresSignIn,
-};
-
-// Use ongoing conversation for the tab if it exists. Otherwise, fall back
-// to the default behavior for opening the UI (typically a new conversation).
-struct DefaultConversation {};
-
-// Always invoke into a new conversation.
-struct NewConversation {};
-
-// Defines the conversation an invocation targets.
-union InvokeConversationSelection {
-  DefaultConversation default_conversation;
-  NewConversation new_conversation;
-  string conversation_id;
-};
-
-// Targets the default Glic surface (e.g., side panel).
-struct DefaultSurfaceMojo {};
-
-// Targets a new tab for the invocation.
-struct NewTabMojo {
-  bool open_in_foreground;
-};
-
-// Defines the surface an invocation targets.
-union InvokeTargetSurface {
-  DefaultSurfaceMojo default_surface;
-  NewTabMojo new_tab;
-};
-
 // @generate glic_api
 // Configuration to override the default ZSS behavior for the invocation,
 // only having an impact if ZSS would be shown for the invocation.
 struct ZssConfig {
   // Additional content to inject into the body of the ZSS message.
   string? additional_content;
-};
-
-enum HelpCenterTopic {
-  kLocationMismatch,
-  kIneligibleAccount,
-};
-
-// Page handler for the glic WebUI, implemented by the browser.
-interface PageHandler {
-  // Creates a WebClientHandler, for use by a single web client instance.
-  CreateWebClient(pending_receiver<WebClientHandler> web_client_receiver);
-
-  // TODO(crbug.com/454120908): Remove this method after WebContents warming is
-  // rolled out.
-  // Prepare the webview for loading the client. Sync Google account sign-in
-  // cookies to the webview, if necessary, so that it can sign-in automatically.
-  // If this returns an error, the web client cannot be created.
-  PrepareForClient() => (PrepareForClientResult result);
-
-  // Called whenever the webview mainframe commits.
-  WebviewCommitted(url.mojom.Url url);
-
-  // Notifies the host that the zoom level of the webview has changed.
-  OnZoomLevelChange(double zoom_factor);
-
-  // Closes the Glic panel.
-  ClosePanel() => ();
-
-  // Opens a help center topic and closes the Glic panel.
-  OpenHelpCenterTopicAndClosePanel(HelpCenterTopic topic);
-
-  // Opens the profile picker, and closes the Glic panel.
-  OpenProfilePickerAndClosePanel();
-
-  // Opens the disabled by admin link, and closes the Glic panel.
-  OpenDisabledByAdminLinkAndClosePanel();
-
-  // Opens the sign-in page, and closes the Glic panel.
-  SignInAndClosePanel();
-
-  // Resize the widget hosting the WebUI to the given size.
-  // If `duration` is 0 or less, instantly resize, otherwise run an animation.
-  ResizeWidget(gfx.mojom.Size size, mojo_base.mojom.TimeDelta duration) => ();
-
-  // Set whether the panel can be manually resized, or if the panel hasn't been
-  // created yet, whether it should be resizable when created.
-  EnableDragResize(bool enabled);
-
-  // Notifies the PageHandler that the state of the WebUI has changed.
-  OnWebUiStateChanged(WebUiState new_state);
 };
 
 // @generate glic_api
@@ -550,26 +246,6 @@ struct CounterAbuseVerdict {
   SafeBrowsingVerdict sb_verdict_result;
 };
 
-// @generate glic_api
-// The platform glic is running on.
-enum Platform {
-  kUnknown = 0,
-  kMacOS = 1,
-  kWindows = 2,
-  kLinux = 3,
-  kChromeOS = 4,
-  kAndroid = 5,
-};
-
-// @generate glic_api
-// The form factor of the device glic is running on.
-enum FormFactor {
-  kUnknown = 0,
-  kDesktop = 1,
-  kPhone = 2,
-  kTablet = 3,
-};
-
 // The result of `WebClientCreated()`. Contains information that needs to be
 // available before the web client is initialized.
 struct WebClientInitialState {
@@ -580,6 +256,8 @@ struct WebClientInitialState {
   bool location_permission_enabled;
   bool tab_context_permission_enabled;
   bool os_location_permission_enabled;
+  double zoom_factor;
+
   string hotkey;
   mojo_base.mojom.Version chrome_version;
   Platform platform;
@@ -1141,6 +819,10 @@ struct UnpinTabsOptions {
   UnpinTrigger unpin_trigger;
 };
 
+// @generate glic_api
+// Options for opening the pinned tab picker.
+struct OpenPinnedTabPickerOptions {};
+
 // Interface for actor-related callbacks to the web client.
 interface ActorClient {
   // Requests the web client to show a dialog to the user to select a credential
@@ -1432,11 +1114,28 @@ struct CreateTabOptions {
   int32? window_id;
 };
 
+enum GlicRequestEvent {
+  kRequestReceived = 0,
+  kResponseSent = 1,
+  kRequestHandlerException = 2,
+  kRequestReceivedWhileInactive = 4,
+};
+
 // Access to the browser from the web client by proxy through the WebUI.
 // A single WebClientHandler will provide access to the browser for only
 // a single web client. If the webview navigates or refreshes, a new
 // WebClientHandler is created.
 interface WebClientHandler {
+  // Reports API request count metrics from the web client.
+  ReportApiRequestCount(int32 request_type_id, GlicRequestEvent event);
+
+  // Reports API request latency metrics from the web client.
+  ReportApiRequestLatency(
+      string request_type, mojo_base.mojom.TimeDelta latency);
+
+  // Records a sparse histogram value.
+  RecordSparseValue(string name, int32 value);
+
   // Called just before the web client initialize() call. Provides the initial
   // state of any values that can be queried.
   WebClientCreated(pending_remote<WebClient> web_client)
@@ -1489,6 +1188,9 @@ interface WebClientHandler {
 
   // Opens the password manager settings page.
   OpenPasswordManagerSettingsPage();
+
+  // Set whether the panel can be manually resized.
+  EnableDragResize(bool enabled);
 
   // Closes the Glic panel.
   ClosePanel();
@@ -1562,6 +1264,11 @@ interface WebClientHandler {
   // Subscribes to receive updates on pin candidates.
   SubscribeToPinCandidates(GetPinCandidatesOptions options,
                            pending_remote<PinCandidatesObserver> observer);
+
+  // Opens the browser's native pinned tab picker UI on mobile platforms
+  // (Android phone and tablet). On desktop and other non-mobile form factors,
+  // this is a no-op that resolves immediately.
+  OpenPinnedTabPicker(OpenPinnedTabPickerOptions? options) => ();
 
   // Foregrounds the given tab.
   // No-op if the tab doesn't exist or is already in the foreground.
@@ -1672,7 +1379,8 @@ interface WebClientHandler {
   OnOptinImpression();
 
   // Called when the user submits input.
-  OnUserInputSubmitted(WebClientMode mode);
+  OnUserInputSubmitted(
+      WebClientMode mode, [MinVersion=1] PromptType prompt_type);
 
   // Called when starting to upload context to the server.
   OnContextUploadStarted();
@@ -1865,17 +1573,6 @@ struct PanelOpeningData {
 };
 
 // @generate glic_api
-// The panel can be in one of these three states.
-enum PanelStateKind {
-  // The panel is hidden.
-  kHidden = 0,
-  // The panel is a floating window, detached from any browser window.
-  kDetached = 1,
-  // The panel is a side panel, attached to a browser window.
-  kAttached = 2,
-};
-
-// @generate glic_api
 // Information of how the panel is being presented/configured.
 struct PanelState {
   // The panel's presentation kind/state.
@@ -1883,142 +1580,6 @@ struct PanelState {
   // Present only when attached to a window, indicating which window it is
   // attached to.
   int32? window_id;
-};
-
-// @generate glic_api
-// Represents an override of the First Run Experience (FRE).
-[Stable, Extensible]
-enum FreOverride {
-  [Default] kUnspecified = 0,
-  // Deprecated: No longer used.
-  // Variation that requires text input from the user to unlock full client.
-  kTrustFirstText = 1,
-  // Variation that requires mouse click from the user to unlock full client.
-  kTrustFirstClick = 2,
-  // Variation that starts with full client unlocked and shows inline consent.
-  kTrustFirstInline = 3,
-};
-
-// @generate glic_api
-// Entry points that can trigger the opening of the panel.
-// LINT.IfChange(InvocationSource)
-[Stable, Extensible]
-enum InvocationSource {
-  // Button in the OS.
-  kOsButton = 0,
-  // Menu from button in the OS.
-  kOsButtonMenu = 1,
-  // OS-level hotkey.
-  kOsHotkey = 2,
-  // Button in top-chrome.
-  kTopChromeButton = 3,
-  // First run experience.
-  kFre = 4,
-  // From the profile picker.
-  kProfilePicker = 5,
-  // From tab strip nudge.
-  kNudge = 6,
-  // From 3-dot menu.
-  kThreeDotsMenu = 7,
-  // An unsupported/unknown source.
-  /// The default is set to a valid value because this enum is only sent to the
-  /// web client, so Mojo will never handle an unknown value.
-  [Default] kUnsupported = 8,
-  // From the What's New page.
-  [MinVersion=1] kWhatsNew = 9,
-  // User clicked the sign-in button and signed in.
-  [MinVersion=2] kAfterSignIn = 10,
-  // User shared a tab via the tab context menu.
-  [MinVersion=3] kSharedTab = 11,
-  // From the actor task icon.
-  [MinVersion=4] kActorTaskIcon = 12,
-  // User shared an image via the context menu.
-  [MinVersion=5] kSharedImage = 13,
-  // From the handoff button.
-  [MinVersion=6] kHandoffButton = 14,
-  // From invoking skills.
-  [MinVersion=7] kSkills = 15,
-  // Automatically opened from contextual cueing.
-  [MinVersion=8] kAutoOpenedByContextualCue = 16,
-  // User clicked the summarize button in the PDF viewer.
-  [MinVersion=9] kPdfSummarizeButton = 17,
-  // From a navigation capture.
-  [MinVersion=10] kNavigationCapture = 18,
-  // Automatically opened for a PDF.
-  [MinVersion=11] kAutoOpenedForPdf = 19,
-  // Selection hotkey.
-  [MinVersion=12] kCaptureRegionHotkey = 20,
-  // From the in-product-help (IPH) entrypoint.
-  [MinVersion=13] kIph = 21,
-  // User clicked an anchored contextual cue chip.
-  [MinVersion=14] kAnchoredContextualCue = 22,
-  // From the context menu.
-  [MinVersion=15] kWebContentsContextMenu = 23,
-  // User clicked on text selection nudge.
-  [MinVersion=16] kTextSelectionNudge = 24,
-  // User clicked on text selection widget.
-  [MinVersion=16] kTextSelectionWidget = 25,
-  // Automatic summarization upon opening.
-  // Deprecated.
-  [MinVersion=17] kZeroStateAutoSummarize = 26,
-  // From the universal cart.
-  [MinVersion=18] kUniversalCart = 27,
-  // Used exclusively for invocations originating from the
-  // GlicExperimentalTriggeringMessageHandler.
-  [MinVersion=19] kExperimentalTriggering = 28,
-  // Actuation triggered by the password change feature.
-  [MinVersion=20] kPasswordChange = 29,
-  // From an Autofill action.
-  [MinVersion=21] kAutofill = 30,
-  // Button in the toolbar.
-  [MinVersion=22] kToolbarButton = 31,
-  // User clicked on an Indigo page action.
-  [MinVersion=23] kIndigoPageAction = 32,
-  // User dropped a file/image onto the GLIC panel.
-  [MinVersion=24] kWebDragDrop = 33,
-  // From the promotion page.
-  [MinVersion=25] kPromotionPage = 34,
-  // Side panel remained open on a new tab.
-  [MinVersion=26] kDaisyChainOnNewTab = 35,
-  // Side panel remained open on a follow-link.
-  [MinVersion=26] kDaisyChainOnFollowLink = 36,
-  // User switched conversation.
-  [MinVersion=26] kConversationSwitch = 37,
-  // User detached or attached the panel.
-  [MinVersion=26] kDetachAttachButton = 38,
-  // Restarted from a restored tab.
-  [MinVersion=26] kTabRestore = 39,
-  // Implicitly focused or revealed, e.g., on tab switch or re-focus.
-  [MinVersion=26] kReshowInactive = 40,
-  // From the tab context menu.
-  [MinVersion=27] kTabContextMenu = 41,
-  // From Web Continuity.
-  [MinVersion=28] kWebContinuity = 42,
-};
-
-// LINT.ThenChange(
-//  //tools/metrics/histograms/metadata/glic/enums.xml:GlicInvocationSource,
-// //tools/metrics/histograms/metadata/glic/histograms.xml:GlicInvocationSource,
-//  //chrome/browser/glic/service/metrics/metrics_types.h:ResponseSegmentation
-// )
-
-// @generate glic_api
-// Target for actuation.
-[Stable, Extensible]
-enum ActuationTarget {
-  // Will default to the agent if the target is unknown.
-  [Default] kUnknown = 0,
-  // Agent infers the best location based on the prompt.
-  kAgentDecides = 1,
-  // Forces actuation on the initiating tab.
-  kCurrentTab = 2,
-  // Forces actuation in a new tab.
-  kNewTab = 3,
-  // Forces actuation on the target surface, if the surface is a valid tab.
-  // Note: kTargetSurface can be different than kCurrentTab if the target
-  // surface is not the foregrounded tab. This option has no effect if the
-  // surface does not resolve to a valid tab.
-  [MinVersion=1] kTargetSurface = 4,
 };
 
 // @generate glic_api
@@ -2104,6 +1665,25 @@ enum WebClientMode {
 };
 
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:WebClientMode)
+
+// @generate glic_api
+// Prompt submission type.
+// LINT.IfChange(PromptType)
+[Stable, Extensible]
+enum PromptType {
+  // Default value when prompt type is unspecified or unknown.
+  [Default] kUnspecified = 0,
+  // User typed text in the prompt input field.
+  kTypedText = 1,
+  // User selected a Zero State Suggestion (ZSS).
+  kZeroStateSuggestions = 2,
+  // Auto-submitted prompt (e.g. contextual cueing auto-submit).
+  kAutoPrompt = 3,
+  // Audio input prompt.
+  kAudio = 4,
+};
+
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicPromptType)
 
 // @generate glic_api
 // Microphone status.
@@ -2378,6 +1958,9 @@ interface WebClient {
 
   // True if the browser has at least one open window.
   NotifyBrowserIsOpenChanged(bool browser_is_open);
+
+  // Informs the client that the zoom level has changed.
+  NotifyZoomLevelChanged(double zoom_factor);
 
   // The window holding the glic panel has become active or inactive (in the
   // sense of visibility and focus). Some activity, such as responsiveness
@@ -2795,6 +2378,8 @@ enum HostCapability {
   kNoWebUiLoader = 13,
   // Indicates that the host enforces paste eligibility checks.
   kEnforcesPasteEligibility = 14,
+  // Indicates that the host supports autofilling OTPs.
+  kAttemptOtpFilling = 15,
 };
 
 // @generate glic_api

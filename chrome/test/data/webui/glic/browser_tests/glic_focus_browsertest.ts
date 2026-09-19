@@ -1,0 +1,37 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// cc_file_path: chrome/browser/glic/host/glic_focus_browsertest.cc
+
+import {ApiTestFixtureBase, runUntil, testMain} from './browser_test_base.js';
+
+class GlicFocusBrowserTest extends ApiTestFixtureBase {
+  override async setUpTest() {
+    await this.client.waitForFirstOpen();
+  }
+
+  async testFocusOnSidePanelOpen() {
+    await runUntil(() => document.activeElement?.id === 'inputBox');
+    await runUntil(() => document.hasFocus());
+  }
+
+  async testFocusOnInvoke() {
+    await runUntil(() => document.activeElement?.id === 'inputBox');
+    await runUntil(() => document.hasFocus());
+  }
+
+  async testBlurOnOmniboxFocus() {
+    await runUntil(() => document.hasFocus());
+    // Pass control to C++ to request focus on omnibox. This should trigger
+    // blur on the side panel.
+    await this.advanceToNextStep();
+    await runUntil(() => !document.hasFocus());
+  }
+}
+
+const TEST_FIXTURES = [
+  GlicFocusBrowserTest,
+];
+
+testMain(TEST_FIXTURES);

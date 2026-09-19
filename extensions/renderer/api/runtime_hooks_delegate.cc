@@ -4,16 +4,23 @@
 
 #include "extensions/renderer/api/runtime_hooks_delegate.h"
 
+#include <array>
 #include <string_view>
+#include <vector>
 
 #include "base/check.h"
 #include "base/containers/span.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/types/expected.h"
+#include "build/build_config.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/v8_value_converter.h"
 #include "extensions/common/api/messaging/message.h"
 #include "extensions/common/api/messaging/messaging_util.h"
+#include "extensions/common/api/messaging/signing_certificate.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_features.h"
@@ -221,6 +228,140 @@ mojom::SerializationFormat GetSerializationFormat(
                                                 channel_type);
 }
 
+base::expected<std::string, std::string> GetNativeApplicationName(
+    ScriptContext* script_context,
+    v8::Local<v8::Value> target_arg) {
+  v8::Isolate* isolate = script_context->isolate();
+
+  if (target_arg->IsString()) {
+#if BUILDFLAG(IS_ANDROID)
+    const Extension* extension = script_context->extension();
+    CHECK(extension);
+
+    if (!Manifest::IsUnpackedLocation(extension->location())) {
+      return base::unexpected(
+          "Native messaging on Android requires packed extensions to specify a "
+          "NativeMessageTarget object.");
+    }
+#endif
+    return base::ok(gin::V8ToString(isolate, target_arg));
+  }
+
+  if (target_arg->IsObject()) {
+    v8::Local<v8::Context> v8_context = script_context->v8_context();
+    v8::Local<v8::Object> target_object = target_arg.As<v8::Object>();
+    v8::Local<v8::Value> application_val;
+    if (!target_object->Get(v8_context, gin::StringToV8(isolate, "application"))
+             .ToLocal(&application_val) ||
+        !application_val->IsString()) {
+      return base::unexpected(
+          "Native messaging requires a valid 'application' string in the "
+          "target object.");
+    }
+    return base::ok(gin::V8ToString(isolate, application_val));
+  }
+
+  return base::unexpected("Invalid native messaging target.");
+}
+
+#if BUILDFLAG(IS_ANDROID)
+// Parses a SHA-256 certificate string into a 32-byte array, stripping any
+// ':' or '-' separators. Returns an error message if the format is invalid.
+base::expected<SigningCertificate, std::string> ParseSHA256Certificate(
+    std::string_view cert_str) {
+  std::string stripped;
+  base::RemoveChars(cert_str, ":-", &stripped);
+
+  // Android's PackageManager.hasSigningCertificate (CERT_INPUT_SHA256) expects
+  // a 32-byte SHA-256 digest. We accept a case-insensitive 64-character hex
+  // string with optional ':' or '-' separators.
+  // https://developer.android.com/reference/android/content/pm/PackageManager
+  SigningCertificate cert_bytes;
+  if (stripped.size() != cert_bytes.size() * 2 ||
+      !base::HexStringToSpan(stripped, cert_bytes)) {
+    return base::unexpected("Malformed certificate string.");
+  }
+
+  return base::ok(cert_bytes);
+}
+
+// Extracts and validates the 'androidCertificates' field from `target_arg`.
+// Packed extensions on Android are required to provide at least one valid
+// certificate. Returns an empty vector if omitted for unpacked extensions.
+base::expected<SigningCertificates, std::string> GetCertificates(
+    ScriptContext* script_context,
+    v8::Local<v8::Value> target_arg) {
+  const Extension* extension = script_context->extension();
+  CHECK(extension);
+
+  bool is_packed = !Manifest::IsUnpackedLocation(extension->location());
+
+  // `target_arg` not being an object means no certificates were specified. But
+  // this path should not be reached by packed extensions (should be caught in
+  // GetNativeApplicationName).
+  if (!target_arg->IsObject()) {
+    CHECK(!is_packed);
+    return base::ok(SigningCertificates());
+  }
+
+  v8::Local<v8::Context> v8_context = script_context->v8_context();
+  v8::Local<v8::Object> target_object = target_arg.As<v8::Object>();
+  v8::Isolate* isolate = script_context->isolate();
+
+  v8::Local<v8::Value> certs_val;
+  if (!target_object
+           ->Get(v8_context, gin::StringToV8(isolate, "androidCertificates"))
+           .ToLocal(&certs_val) ||
+      certs_val->IsNullOrUndefined()) {
+    if (is_packed) {
+      return base::unexpected(
+          "Packed extensions on Android must specify at least one expected "
+          "signing certificate in 'androidCertificates'.");
+    }
+    return base::ok(SigningCertificates());
+  }
+
+  if (!certs_val->IsArray()) {
+    return base::unexpected(
+        "Property 'androidCertificates' must be an array of strings.");
+  }
+
+  v8::Local<v8::Array> certs_array = certs_val.As<v8::Array>();
+  uint32_t length = certs_array->Length();
+  if (length == 0) {
+    if (is_packed) {
+      return base::unexpected(
+          "Packed extensions on Android must specify at least one expected "
+          "signing certificate in 'androidCertificates'.");
+    }
+    return base::ok(SigningCertificates());
+  }
+
+  SigningCertificates certificates;
+  certificates.reserve(length);
+
+  for (uint32_t i = 0; i < length; ++i) {
+    v8::Local<v8::Value> element;
+    if (!certs_array->Get(v8_context, i).ToLocal(&element) ||
+        !element->IsString()) {
+      return base::unexpected(base::StringPrintf(
+          "Signing certificate at index %u is malformed.", i));
+    }
+
+    std::string cert_str = gin::V8ToString(isolate, element);
+    auto parsed_cert = ParseSHA256Certificate(cert_str);
+    if (!parsed_cert.has_value()) {
+      return base::unexpected(base::StringPrintf(
+          "Signing certificate at index %u is malformed.", i));
+    }
+
+    certificates.push_back(*parsed_cert);
+  }
+
+  return base::ok(std::move(certificates));
+}
+#endif  // BUILDFLAG(IS_ANDROID)
+
 }  // namespace
 
 RuntimeHooksDelegate::RuntimeHooksDelegate(
@@ -427,14 +568,19 @@ RequestResult RuntimeHooksDelegate::HandleSendNativeMessage(
   const v8::LocalVector<v8::Value>& arguments = *parse_result.arguments;
   DCHECK_EQ(3u, arguments.size());
 
-  std::string application_name =
-      gin::V8ToString(script_context->isolate(), arguments[0]);
+  base::expected<std::string, std::string> application_name =
+      GetNativeApplicationName(script_context, arguments[0]);
+  if (!application_name.has_value()) {
+    RequestResult result(RequestResult::INVALID_INVOCATION);
+    result.error = std::move(application_name.error());
+    return result;
+  }
 
   v8::Local<v8::Value> v8_message = arguments[1];
   DCHECK(!v8_message.IsEmpty());
-  std::string error;
 
   mojom::ChannelType channel_type = mojom::ChannelType::kNative;
+  std::string error;
   std::optional<Message> message = messaging_util::MessageFromV8(
       script_context->v8_context(), v8_message,
       messaging_util::GetSerializationFormat(script_context->extension(),
@@ -446,12 +592,30 @@ RequestResult RuntimeHooksDelegate::HandleSendNativeMessage(
     return result;
   }
 
+  SigningCertificates android_certificates;
+#if BUILDFLAG(IS_ANDROID)
+  // Signing certificates are only parsed for Android.
+  auto certificates_or_error = GetCertificates(script_context, arguments[0]);
+  if (!certificates_or_error.has_value()) {
+    RequestResult result(RequestResult::INVALID_INVOCATION);
+    result.error = std::move(certificates_or_error.error());
+    return result;
+  }
+
+  android_certificates = std::move(*certificates_or_error);
+#endif
+
   v8::Local<v8::Function> response_callback;
   if (!arguments[2]->IsNull())
     response_callback = arguments[2].As<v8::Function>();
 
+  // TODO(crbug.com/552709714): Refactor native application name and
+  // certificates into a struct so an Android-specific field doesn't show up in
+  // function signatures that simply pass it along.
   v8::Local<v8::Promise> promise = messaging_service_->SendOneTimeMessage(
-      script_context, MessageTarget::ForNativeApp(application_name),
+      script_context,
+      MessageTarget::ForNativeApp(*application_name,
+                                  std::move(android_certificates)),
       channel_type, std::move(*message), parse_result.async_type,
       response_callback);
   DCHECK_EQ(parse_result.async_type == binding::AsyncResponseType::kPromise,
@@ -509,14 +673,36 @@ RequestResult RuntimeHooksDelegate::HandleConnectNative(
     const APISignature::V8ParseResult& parse_result) {
   const v8::LocalVector<v8::Value>& arguments = *parse_result.arguments;
   DCHECK_EQ(1u, arguments.size());
-  DCHECK(arguments[0]->IsString());
   DCHECK_EQ(binding::AsyncResponseType::kNone, parse_result.async_type);
 
-  std::string application_name =
-      gin::V8ToString(script_context->isolate(), arguments[0]);
+  base::expected<std::string, std::string> application_name =
+      GetNativeApplicationName(script_context, arguments[0]);
+  if (!application_name.has_value()) {
+    RequestResult result(RequestResult::INVALID_INVOCATION);
+    result.error = std::move(application_name.error());
+    return result;
+  }
 
+  SigningCertificates android_certificates;
+#if BUILDFLAG(IS_ANDROID)
+  // Signing certificates are only parsed for Android.
+  auto certificates_or_error = GetCertificates(script_context, arguments[0]);
+  if (!certificates_or_error.has_value()) {
+    RequestResult result(RequestResult::INVALID_INVOCATION);
+    result.error = std::move(certificates_or_error.error());
+    return result;
+  }
+
+  android_certificates = std::move(*certificates_or_error);
+#endif
+
+  // TODO(crbug.com/552709714): Refactor native application name and
+  // certificates into a struct so an Android-specific field doesn't show up in
+  // function signatures that simply pass it along.
   GinPort* port = messaging_service_->Connect(
-      script_context, MessageTarget::ForNativeApp(application_name),
+      script_context,
+      MessageTarget::ForNativeApp(*application_name,
+                                  std::move(android_certificates)),
       std::string(),
       messaging_util::GetSerializationFormat(script_context->extension(),
                                              mojom::ChannelType::kNative));

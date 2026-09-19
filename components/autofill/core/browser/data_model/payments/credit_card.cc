@@ -34,7 +34,7 @@
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
-#include "components/autofill/core/browser/data_model/data_model_utils.h"
+#include "components/autofill/core/browser/data_model/data_model_util.h"
 #include "components/autofill/core/browser/data_model/form_group.h"
 #include "components/autofill/core/browser/data_model/payments/payments_metadata.h"
 #include "components/autofill/core/browser/data_quality/autofill_data_util.h"
@@ -623,7 +623,7 @@ void CreditCard::GetMatchingTypes(std::u16string_view text,
   FormGroup::GetMatchingTypes(text, app_locale, matching_types);
 
   std::u16string card_number = GetInfo(CREDIT_CARD_NUMBER, app_locale);
-  if (!card_number.empty()) {
+  if (!card_number.empty() && IsValidCreditCardNumber(text)) {
     // We only have the last four digits for masked cards, so match against
     // that if |this| is a masked card.
     bool numbers_match = record_type_ == RecordType::kMaskedServerCard

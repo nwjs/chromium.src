@@ -5,10 +5,13 @@
 #ifndef CHROME_BROWSER_ASH_EXO_CHROME_SECURITY_DELEGATE_H_
 #define CHROME_BROWSER_ASH_EXO_CHROME_SECURITY_DELEGATE_H_
 
+#include "base/feature_list.h"
 #include "components/exo/security_delegate.h"
 #include "storage/browser/file_system/file_system_url.h"
 
 namespace ash {
+
+BASE_DECLARE_FEATURE(kChromeSecurityDelegateIgnoreArcVm);
 
 // Translate paths from |source| VM to valid paths in the host. Invalid paths
 // are ignored.
@@ -37,6 +40,7 @@ class ChromeSecurityDelegate : public exo::SecurityDelegate {
   SetBoundsPolicy CanSetBounds(aura::Window* window) const override;
   bool CanAccessRemoteShell() const override;
   bool CanSetRestoreInfo() const override;
+  bool CanSetSystemModal() const override;
   std::vector<ui::FileInfo> GetFilenames(
       ui::EndpointType source,
       const std::vector<uint8_t>& data) const override;

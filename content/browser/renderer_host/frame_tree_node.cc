@@ -738,8 +738,9 @@ void FrameTreeNode::DidStopLoading() {
 }
 
 void FrameTreeNode::DidChangeLoadProgress(double load_progress) {
-  CHECK_GE(load_progress, blink::kInitialLoadProgress,
-           base::NotFatalUntil::M152);
+  // TODO(crbug.com/554674050): CHECK-exclusion: Convert to a CHECK once we
+  // are confident it won't be triggered.
+  DCHECK_GE(load_progress, blink::kInitialLoadProgress);
   CHECK_LE(load_progress, blink::kFinalLoadProgress, base::NotFatalUntil::M152);
   current_frame_host()->DidChangeLoadProgress(load_progress);
 }
@@ -1177,19 +1178,6 @@ FrameTreeNode::FindSharedStorageBudgetMetadata() {
   }
 
   return result;
-}
-
-std::optional<std::u16string>
-FrameTreeNode::GetEmbedderSharedStorageContextIfAllowed() {
-  std::optional<FencedFrameProperties>& properties = GetFencedFrameProperties();
-  // We only return embedder context for frames that are same origin with the
-  // fenced frame root or ancestor URN iframe.
-  if (!properties || !properties->mapped_url().has_value() ||
-      !current_origin().IsSameOriginWith(url::Origin::Create(
-          properties->mapped_url()->GetValueIgnoringVisibility()))) {
-    return std::nullopt;
-  }
-  return properties->embedder_shared_storage_context();
 }
 
 const scoped_refptr<BrowsingContextState>&

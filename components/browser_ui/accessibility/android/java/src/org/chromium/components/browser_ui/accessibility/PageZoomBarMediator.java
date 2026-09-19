@@ -13,7 +13,6 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
-import org.chromium.base.MathUtils;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -49,7 +48,7 @@ class PageZoomBarMediator {
 
     /** Initializes the mediator. */
     @Initializer
-    protected void pushProperties() {
+    void pushProperties() {
         // We must first fetch the current zoom factor for the given web contents.
         double currentZoomFactor = mManager.getZoomLevel();
         mDefaultZoomFactor = mManager.getDefaultZoomLevel();
@@ -73,12 +72,12 @@ class PageZoomBarMediator {
      * @return double representing latest updated zoom value. Returns placeholder 0.0 if user did
      *     not select a zoom value during this session.
      */
-    protected double latestZoomValue() {
+    double latestZoomValue() {
         return mLatestZoomValue;
     }
 
     /** Logs UKM for the user changing the zoom level on the page from the slider. */
-    protected void logZoomLevelUKM(double value) {
+    void logZoomLevelUKM(double value) {
         assert mManager.getWebContents() != null : "WebContents is null";
         PageZoomMetrics.logZoomLevelUKM(mManager.getWebContents(), value);
     }
@@ -118,16 +117,11 @@ class PageZoomBarMediator {
     }
 
     private void updateButtonStates(double newZoomFactor) {
-        double roundedZoomFactor = MathUtils.roundTwoDecimalPlaces(newZoomFactor);
-
-        // If the new zoom factor is greater than the minimum zoom factor, enable decrease button.
         mModel.set(
                 PageZoomProperties.DECREASE_ZOOM_ENABLED,
-                roundedZoomFactor > AVAILABLE_ZOOM_FACTORS[0]);
-
-        // If the new zoom factor is less than the maximum zoom factor, enable increase button.
+                PageZoomUtils.canDecreaseZoom(newZoomFactor));
         mModel.set(
                 PageZoomProperties.INCREASE_ZOOM_ENABLED,
-                roundedZoomFactor < AVAILABLE_ZOOM_FACTORS[AVAILABLE_ZOOM_FACTORS.length - 1]);
+                PageZoomUtils.canIncreaseZoom(newZoomFactor));
     }
 }

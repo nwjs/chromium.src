@@ -28,7 +28,6 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
@@ -50,7 +49,6 @@ import org.chromium.net.ConnectionType;
 
 /** Unit tests for OfflineBackgroundTask. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 @CommandLineFlags.Add({BaseSwitches.ENABLE_LOW_END_DEVICE_MODE})
 public class OfflineBackgroundTaskTest {
     private static final boolean REQUIRE_POWER = true;
@@ -63,7 +61,6 @@ public class OfflineBackgroundTaskTest {
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
     private PersistableBundle mTaskExtras;
-    private long mTestTime;
     private final TriggerConditions mTriggerConditions =
             new TriggerConditions(!REQUIRE_POWER, MINIMUM_BATTERY_LEVEL, REQUIRE_UNMETERED);
     private final DeviceConditions mDeviceConditions =

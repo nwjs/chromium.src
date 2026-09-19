@@ -165,16 +165,16 @@ std::pair<std::string, bool> GetAvatarIconUrlAndAvatarRingStatus(
     float scale) {
   int avatar_icon_size = avatar_icon_size_dip * scale;
   std::string icon_url;
-  bool has_ai_ring = false;
+  bool has_gradient_ring = false;
   if (base::FeatureList::IsEnabled(switches::kEnableAiSubscriptionAvatarRing) &&
       entry->GetAiSubscriptionTier() > 0 && color_provider) {
     // Note: For linear gradient ring to appear, the corresponding profile
     // needs to have been loaded at least once (with
     // kEnableAiSubscriptionAvatarRing), so that the corresponding profile
-    // attribute entry is written.
-    // TODO(crbug.com/516792698): Clarify if the picker needs to listen and
-    // react to updates in the AI subscription level.
-    has_ai_ring = true;
+    // attribute entry is written. Updates to the AI subscription tier trigger
+    // ProfileAttributesStorage::Observer::OnProfileAiSubscriptionTierUpdated
+    // which refreshes the picker UI list.
+    has_gradient_ring = true;
 
     gfx::ImageSkia avatar_skia = gfx::ImageSkia::CreateFromBitmap(
         entry->GetAvatarIcon(avatar_icon_size).AsBitmap(), scale);
@@ -185,12 +185,12 @@ std::pair<std::string, bool> GetAvatarIconUrlAndAvatarRingStatus(
         kAvatarRingThicknessDip);
 
     SkBitmap bitmap = avatar_skia.GetRepresentation(scale).GetBitmap();
-    return {webui::GetBitmapDataUrl(bitmap), has_ai_ring};
+    return {webui::GetBitmapDataUrl(bitmap), has_gradient_ring};
   }
   gfx::Image icon =
       profiles::GetSizedAvatarIcon(entry->GetAvatarIcon(avatar_icon_size),
                                    avatar_icon_size, avatar_icon_size);
-  return {webui::GetBitmapDataUrl(icon.AsBitmap()), has_ai_ring};
+  return {webui::GetBitmapDataUrl(icon.AsBitmap()), has_gradient_ring};
 }
 
 // ProfileState is the dictionary used to map a `ProfileAttributesEntry` in JS.
@@ -228,14 +228,14 @@ base::DictValue CreateProfileState(const ProfileAttributesEntry* entry,
   } else {
     profile_entry.Set("avatarBadge", "");
   }
-  auto [icon_url, has_ai_ring] = GetAvatarIconUrlAndAvatarRingStatus(
+  auto [icon_url, has_gradient_ring] = GetAvatarIconUrlAndAvatarRingStatus(
       entry, avatar_icon_size_dip, color_provider, scale);
-  if (has_ai_ring && !profileCardButtonLabel.empty()) {
+  if (has_gradient_ring && !profileCardButtonLabel.empty()) {
     profileCardButtonLabel = l10n_util::GetStringFUTF16(
         IDS_PROFILE_AVATAR_NAME_WITH_AI_MEMBERSHIP, profileCardButtonLabel);
   }
   profile_entry.Set("profileCardButtonLabel", profileCardButtonLabel);
-  profile_entry.Set("hasAvatarRing", has_ai_ring);
+  profile_entry.Set("hasAvatarRing", has_gradient_ring);
   profile_entry.Set("avatarIcon", icon_url);
   return profile_entry;
 }
@@ -893,8 +893,9 @@ ProfilePickerHandler::GetProfilesAttributesForDisplay() {
   // Vector of nullptr entries.
   std::vector<ProfileAttributesEntry*> entries(number_of_profiles);
   for (ProfileAttributesEntry* entry : ordered_entries) {
-    DCHECK(profiles_order_.find(entry->GetPath()) != profiles_order_.end());
-    size_t index = profiles_order_[entry->GetPath()];
+    const auto it = profiles_order_.find(entry->GetPath());
+    DCHECK(it != profiles_order_.end());
+    size_t index = it->second;
     DCHECK_LT(index, number_of_profiles);
     DCHECK(!entries[index]);
     entries[index] = entry;
@@ -966,6 +967,9 @@ void ProfilePickerHandler::OnProfileAdded(const base::FilePath& profile_path) {
   if (entry->IsOmitted()) {
     return;
   }
+  if (is_glic_version_ && !entry->IsGlicEligible()) {
+    return;
+  }
 
   AddProfileToListAndPushUpdates(profile_path);
 }
@@ -984,7 +988,7 @@ void ProfilePickerHandler::OnProfileIsOmittedChanged(
           ->GetProfileAttributesStorage()
           .GetProfileAttributesWithPath(profile_path);
   CHECK(entry);
-  if (entry->IsOmitted()) {
+  if (entry->IsOmitted() || (is_glic_version_ && !entry->IsGlicEligible())) {
     RemoveProfileFromListAndPushUpdates(profile_path);
   } else {
     AddProfileToListAndPushUpdates(profile_path);
@@ -1015,6 +1019,34 @@ void ProfilePickerHandler::OnProfileIsManagedChanged(
 void ProfilePickerHandler::OnProfileSupervisedUserIdChanged(
     const base::FilePath& profile_path) {
   MaybeUpdateGuestMode();
+  PushProfilesList();
+}
+
+void ProfilePickerHandler::OnProfileIsGlicEligibleChanged(
+    const base::FilePath& profile_path) {
+  if (!is_glic_version_) {
+    return;
+  }
+
+  ProfileAttributesEntry* entry =
+      g_browser_process->profile_manager()
+          ->GetProfileAttributesStorage()
+          .GetProfileAttributesWithPath(profile_path);
+  CHECK(entry);
+  if (entry->IsOmitted()) {
+    return;
+  }
+
+  if (entry->IsGlicEligible()) {
+    AddProfileToListAndPushUpdates(profile_path);
+  } else {
+    RemoveProfileFromListAndPushUpdates(profile_path);
+  }
+}
+
+void ProfilePickerHandler::OnProfileAiSubscriptionTierUpdated(
+    const base::FilePath& profile_path,
+    int tier) {
   PushProfilesList();
 }
 

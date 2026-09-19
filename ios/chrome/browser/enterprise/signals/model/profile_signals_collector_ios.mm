@@ -12,8 +12,29 @@
 #import "components/device_signals/core/browser/browser_utils.h"
 #import "components/device_signals/core/browser/signals_types.h"
 #import "components/enterprise/browser/identifiers/profile_id_service.h"
+#import "components/policy/core/common/cloud/cloud_policy_store.h"
 #import "components/policy/core/common/cloud/user_cloud_policy_manager.h"
 #import "ios/chrome/browser/enterprise/connectors/connectors_service.h"
+
+namespace {
+
+std::vector<std::string> GetProfileAffiliationIds(
+    policy::UserCloudPolicyManager* policy_manager) {
+  if (!policy_manager || !policy_manager->core()) {
+    return {};
+  }
+
+  policy::CloudPolicyStore* policy_store = policy_manager->core()->store();
+  if (!policy_store || !policy_store->has_policy() || !policy_store->policy()) {
+    return {};
+  }
+
+  const enterprise_management::PolicyData* policy_data = policy_store->policy();
+  return {policy_data->user_affiliation_ids().begin(),
+          policy_data->user_affiliation_ids().end()};
+}
+
+}  // namespace
 
 ProfileSignalsCollectorIOS::ProfileSignalsCollectorIOS(
     PrefService* profile_prefs,
@@ -43,10 +64,6 @@ void ProfileSignalsCollectorIOS::PopulateProfileSignals(
     base::OnceClosure done_closure) {
   device_signals::ProfileSignalsResponse signal_response;
 
-  // Initialize all fields to avoid undefined behavior.
-  signal_response.built_in_dns_client_enabled = false;
-  signal_response.chrome_remote_desktop_app_blocked = false;
-
   // 1. Collect signals from Preferences using shared helpers.
   signal_response.password_protection_warning_trigger =
       device_signals::GetPasswordProtectionWarningTrigger(profile_prefs_);
@@ -54,7 +71,9 @@ void ProfileSignalsCollectorIOS::PopulateProfileSignals(
       device_signals::GetSiteIsolationEnabled();
   signal_response.safe_browsing_protection_level =
       device_signals::GetSafeBrowsingProtectionLevel(profile_prefs_);
-  // 2. Collect Enrollment Domain from Policy Manager.
+  // 2. Collect signals from Policy Manager.
+  signal_response.profile_affiliation_ids =
+      GetProfileAffiliationIds(policy_manager_);
   signal_response.profile_enrollment_domain =
       device_signals::TryGetEnrollmentDomain(policy_manager_);
 
@@ -64,9 +83,6 @@ void ProfileSignalsCollectorIOS::PopulateProfileSignals(
   }
 
   // 4. Collect Connectors signals if service is available.
-  signal_response.realtime_url_check_mode =
-      enterprise_connectors::REAL_TIME_CHECK_DISABLED;
-
   if (connectors_service_) {
     signal_response.realtime_url_check_mode =
         connectors_service_->GetAppliedRealTimeUrlCheck();

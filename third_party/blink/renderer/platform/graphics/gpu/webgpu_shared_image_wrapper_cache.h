@@ -34,6 +34,7 @@ class RasterInterface;
 
 namespace blink {
 
+class MemoryManagedPaintRecorder;
 class WebGpuSharedImageWrapper;
 class WebGpuSharedImageWrapperCache;
 class WebGraphicsContext3DProviderWrapper;
@@ -60,9 +61,6 @@ class PLATFORM_EXPORT WebGpuSharedImageWrapperLease final
 
   void DrawToBackingSharedImage(
       base::FunctionRef<void(cc::PaintCanvas&)> draw_callback);
-
-  const gpu::SyncToken& acquire_sync_token() const;
-  void set_release_sync_token(const gpu::SyncToken& token);
 
   // Invokes `overwrite_callback` with the ClientSharedImage backing this
   // instance and a SyncToken that should be waited on before writing to the
@@ -95,6 +93,7 @@ class PLATFORM_EXPORT WebGpuSharedImageWrapperLease final
   std::unique_ptr<WebGpuSharedImageWrapper> shared_image_wrapper_;
   base::WeakPtr<WebGpuSharedImageWrapperCache> cache_;
   gpu::SyncToken completion_sync_token_;
+  std::unique_ptr<MemoryManagedPaintRecorder> recorder_for_external_draws_;
 };
 
 class PLATFORM_EXPORT WebGpuSharedImageWrapperCache final

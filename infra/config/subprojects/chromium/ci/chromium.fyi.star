@@ -204,6 +204,7 @@ ci.builder(
 
 ci.builder(
     name = "linux-annotator-rel",
+    description_html = "Runs tests for the Network Traffic Annotation Auditor on Linux.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(config = "chromium"),
         chromium_config = builder_config.chromium_config(
@@ -232,12 +233,14 @@ ci.builder(
         category = "network|traffic|annotations",
         short_name = "lnx",
     ),
+    contact_team_email = "cbe-compliance@google.com",
     notifies = ["annotator-rel"],
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.builder(
     name = "linux-chromeos-annotator-rel",
+    description_html = "Runs tests for the Network Traffic Annotation Auditor on ChromeOS.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -275,6 +278,7 @@ ci.builder(
         category = "release",
         short_name = "rel",
     ),
+    contact_team_email = "cbe-compliance@google.com",
     execution_timeout = 3 * time.hour,
     notifies = ["annotator-rel"],
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
@@ -639,7 +643,7 @@ fyi_ios_builder(
             "mac_default_arm64",
             "mac_toolchain",
             "out_dir_arg",
-            "xcode_26_main",
+            "xcode_27_main",
             "xctest",
         ],
     ),
@@ -1052,7 +1056,7 @@ fyi_ios_builder(
             "ioswpt-chromium-swarming-pool",
             "mac_15_x64",
             "mac_toolchain",
-            "xcode_26_main",
+            "xcode_27_main",
         ],
     ),
     builderless = True,
@@ -1567,7 +1571,7 @@ fyi_ios_builder(
             "mac_default_arm64",
             "mac_toolchain",
             "out_dir_arg",
-            "xcode_26_main",
+            "xcode_27_main",
             "xctest",
         ],
     ),
@@ -1631,7 +1635,7 @@ fyi_ios_builder(
             "mac_default_arm64",
             "mac_toolchain",
             "out_dir_arg",
-            "xcode_26_main",
+            "xcode_27_main",
             "xctest",
         ],
     ),
@@ -1685,7 +1689,7 @@ fyi_ios_builder(
             "mac_vm",
             "mac_toolchain",
             "out_dir_arg",
-            "xcode_26_main",
+            "xcode_27_main",
             "xctest",
         ],
     ),
@@ -2278,6 +2282,7 @@ ci.builder(
 
 ci.builder(
     name = "win-annotator-rel",
+    description_html = "Runs tests for the Network Traffic Annotation Auditor on Windows.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(config = "chromium"),
         chromium_config = builder_config.chromium_config(
@@ -2308,6 +2313,7 @@ ci.builder(
         category = "network|traffic|annotations",
         short_name = "win",
     ),
+    contact_team_email = "cbe-compliance@google.com",
     execution_timeout = 16 * time.hour,
     notifies = ["annotator-rel"],
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
@@ -2847,6 +2853,13 @@ ci.builder(
         mixins = [
             "linux-jammy",
         ],
+        per_test_modifications = {
+            "webdriver_bidi_e2e_tests": targets.mixin(
+                swarming = targets.swarming(
+                    shards = 8,
+                ),
+            ),
+        },
     ),
     console_view_entry = consoles.console_view_entry(
         category = "webdriver",
@@ -2930,6 +2943,9 @@ ci.builder(
         additional_compile_targets = [
             "chrome",
         ],
+        mixins = [
+            "linux-jammy",
+        ],
         per_test_modifications = {
             "browser_tests": targets.mixin(
                 swarming = targets.swarming(
@@ -2970,6 +2986,9 @@ fyi_mac_builder(
         ],
         additional_compile_targets = [
             "chrome",
+        ],
+        mixins = [
+            "mac_default_arm64",
         ],
         per_test_modifications = {
             "browser_tests": targets.mixin(

@@ -5,95 +5,173 @@
 #ifndef COMPONENTS_PAGE_LOAD_METRICS_BROWSER_SOFT_NAVIGATION_TRACKER_H_
 #define COMPONENTS_PAGE_LOAD_METRICS_BROWSER_SOFT_NAVIGATION_TRACKER_H_
 
-#include <deque>
-#include <optional>
+#include <map>
+#include <memory>
+#include <vector>
 
+#include "base/containers/span.h"
+#include "base/memory/raw_ptr.h"
 #include "base/time/time.h"
-#include "components/page_load_metrics/browser/interaction_to_next_paint_calculator.h"
-#include "components/page_load_metrics/browser/layout_shift_normalization.h"
+#include "components/page_load_metrics/browser/soft_navigation_data.h"
 #include "components/page_load_metrics/common/page_load_metrics.mojom.h"
+#include "content/public/browser/global_routing_id.h"
 
 namespace page_load_metrics {
 
-// SoftNavigationTracker is owned by PageLoadMetricsUpdateDispatcher.
-// This is called when
-// `PageLoadMetricsUpdateDispatcher::UpdateSoftNavigationMetrics` receives soft
-// navigations from the renderer. It uses the soft navigation metrics records to
-// slice the performance timeline. That is, in a loop triggered by the
-// PageLoadMetrics.UpdateTiming IPC, it carries out the following steps:
-//
-// (1) It sends event timings, layout shifts, and LCP candidates that happened
-// within a specific soft navigation's performance timeline, to their respective
-// calculator objects (InteractionToNextPaintCalculator for event timings,
-// LayoutShiftNormalization for layout shifts, and ContentfulPaint for LCP
-// candidates).
-//
-// (2) It breaks if all soft navigations from the UpdateTiming call were
-// processed. Otherwise, it notifies the observers about the latest
-// soft navigation.
-//
-// (3) It resets the calculators.
-//
-// The loop is implemented in
-// PageLoadMetricsUpdateDispatcher::UpdateSoftNavigationMetrics.
+// SoftNavigationTracker manages soft navigation metrics received from the
+// renderer.
 class SoftNavigationTracker {
  public:
-  // Minimum valid performance timeline navigation ID for a soft navigation
+  class Client {
+   public:
+    virtual ~Client() = default;
+    virtual void OnSoftNavigationFirstContentfulPaint(
+        const mojom::SoftNavigationMetrics& metrics) = 0;
+    virtual void OnSoftNavigationCompleted(const SoftNavigationData& data) = 0;
+  };
+
+  // Performance timeline navigation ID for the first soft navigation
   // (hard navigation is 1).
   static constexpr uint64_t
       kFirstSoftNavigationPerformanceTimelineNavigationId = 2;
+  // Maximum number of soft navigations to track to prevent
+  // unbounded memory growth in case of corrupted renderer data.
+  static constexpr size_t kMaxSoftNavigations = 100;
 
-  SoftNavigationTracker();
+  explicit SoftNavigationTracker(Client* client);
   ~SoftNavigationTracker();
 
-  // Updates the metrics with the data from the renderer. This is called by
-  // PageLoadMetricsUpdateDispatcher::UpdateSoftNavigationMetrics.
-  // Returns true if and only if the |soft_navigation_metrics| is valid -
-  // this method performs checks for data coming from the renderer.
-  bool UpdateAndValidateMetrics(
-      std::vector<mojom::SoftNavigationMetricsPtr> soft_navigation_metrics);
+  // Updates the tracker with newly arrived main frame metrics.
+  // Performs validation, updates per-navigation buckets, and pushes completed
+  // and FCP navigation updates to `client_` in chronological order.
+  // Returns true if all incoming soft navigations are valid.
+  // TODO(crbug.com/494593459): Handle or taint reports on validation failure in
+  // production.
+  bool UpdateMainFrameMetrics(
+      content::GlobalRenderFrameHostToken frame_token,
+      base::span<const mojom::SoftNavigationMetricsPtr> soft_navigation_metrics,
+      base::span<const mojom::EventTimingPtr> event_timings = {},
+      base::span<const mojom::LayoutShiftPtr> layout_shifts = {},
+      base::span<const mojom::LargestContentfulPaintTimingPtr> soft_lcps = {});
 
-  // The current soft navigation. If there are no soft navigations, the
-  // returned metrics will be empty; this can be detected by
-  // checking the performance_timeline_navigation_id field for 0.
-  const mojom::SoftNavigationMetrics& current_soft_navigation() const {
-    return *current_soft_navigation_;
-  }
+  // Notifies the tracker that the page has become hidden, to record first
+  // background time for active/open soft navigations. TimeDelta relative to
+  // (hard) navigation timeOrigin (navigation start).
+  void OnHidden(base::TimeDelta background_time);
 
-  // Returns the number of soft navigations that have seen by this tracker,
-  // logging to UKM.
+  // Notifies the tracker that the page has become visible. TimeDelta relative
+  // to (hard) navigation timeOrigin (navigation start).
+  void OnShown(base::TimeDelta shown_time);
+
+  // Updates the tracker with newly arrived subframe metrics.
+  // Subframes do not participate directly in soft navigation heuristics and
+  // thus do not have performance timeline navigation IDs; instead, subframe
+  // events and layout shifts are attributed to the appropriate soft navigation
+  // slice based on their timestamps.
+  void UpdateSubFrameMetrics(
+      content::GlobalRenderFrameHostToken frame_token,
+      base::span<const mojom::EventTimingPtr> event_timings,
+      base::span<const mojom::LayoutShiftPtr> layout_shifts);
+  // Finalizes all active/in-progress soft navigations (e.g. on page destruction
+  // or backgrounding) and pushes remaining completed navigations to `client_`.
+  void CompleteActiveNavigationAndFlush();
+
+  // Gets the SoftNavigationData for a specific navigation ID, or nullptr if not
+  // tracked. Note: Returned pointer is only valid until the next mutating
+  // operation on this tracker.
+  SoftNavigationData* GetSoftNavigationDataForTest(
+      uint64_t performance_timeline_navigation_id);
+  const SoftNavigationData* GetSoftNavigationDataForTest(
+      uint64_t performance_timeline_navigation_id) const;
+
+  // Total count of soft navigations seen by this tracker.
   size_t soft_navigation_count() const { return soft_navigation_count_; }
 
-  // Returns true if there are any soft navigations that have not yet been
-  // processed.
-  bool HasNextSoftNavigation() const;
-
-  // Advances to the next soft navigation that has not yet been processed.
-  void AdvanceToNextSoftNavigation();
-
-  // Processes the event timings, layout shifts, and LCP candidates in
-  // the first argument that fall within the current soft navigation,
-  // accumulating them in the given calculators.
-  // Assumes that the measurements arrive in order.
-  // After a Process call, the first argument is modified to only contain the
-  // the metrics that have not yet been processed.
-  // Returns the number of measurements that were processed.
-  size_t Process(base::span<const mojom::EventTimingPtr>* event_timings,
-               InteractionToNextPaintCalculator* calculator) const;
-  size_t Process(base::span<const mojom::LayoutShiftPtr>* layout_shifts,
-               LayoutShiftNormalization* layout_shift_normalization) const;
-  size_t Process(
-      base::span<const mojom::LargestContentfulPaintTimingPtr>* soft_lcps,
-      ContentfulPaint* soft_lcp_candidate) const;
-
  private:
-  bool ValidateIncoming(const mojom::SoftNavigationMetricsPtr& soft_navigation);
-  // Returns the time that we use for slicing the performance timeline.
-  base::TimeTicks SoftNavigationSlicingTime() const;
+  SoftNavigationData* GetSoftNavigationData(
+      uint64_t performance_timeline_navigation_id);
+  const SoftNavigationData* GetSoftNavigationData(
+      uint64_t performance_timeline_navigation_id) const;
+
+  // Finds the committed soft navigation slice that covers `timestamp` (i.e.
+  // whose slicing time is the latest <= `timestamp`), or nullptr if `timestamp`
+  // occurred before the first soft navigation or belongs to an already
+  // dispatched navigation.
+  SoftNavigationData* FindCommittedNavigationForTimestamp(
+      base::TimeTicks timestamp);
+  // Adds main frame event timings to their corresponding soft navigation based
+  // on event->performance_timeline_navigation_id.
+  void AddMainFrameEventTimings(
+      content::GlobalRenderFrameHostToken frame_token,
+      base::span<const mojom::EventTimingPtr> event_timings);
+
+  // Adds main frame layout shifts to their corresponding soft navigation based
+  // on shift->performance_timeline_navigation_id.
+  void AddMainFrameLayoutShifts(
+      base::span<const mojom::LayoutShiftPtr> layout_shifts);
+
+  // Adds main frame soft LCP candidates to their corresponding soft navigation
+  // based on lcp->performance_timeline_navigation_id.
+  void AddMainFrameLargestContentfulPaints(
+      base::span<const mojom::LargestContentfulPaintTimingPtr> soft_lcps);
+
+  // Registers a committed soft navigation and updates tracking state.
+  void AddMainFrameSoftNavigationCommit(
+      const mojom::SoftNavigationMetrics& soft_navigation);
+
+  // Adds or updates the main frame first contentful paint for an existing
+  // soft navigation.
+  void AddMainFrameFirstContentfulPaint(uint64_t navigation_id,
+                                        base::TimeDelta first_contentful_paint);
+
+  // Adds subframe event timings to their corresponding soft navigation slice
+  // based on event->processing_start.
+  void AddSubFrameEventTimings(
+      content::GlobalRenderFrameHostToken frame_token,
+      base::span<const mojom::EventTimingPtr> event_timings);
+
+  // Adds subframe layout shifts to their corresponding soft navigation slice
+  // based on shift->layout_shift_time.
+  void AddSubFrameLayoutShifts(
+      base::span<const mojom::LayoutShiftPtr> layout_shifts);
+
+  // Returns true if `data` is non-null, has received a commit, and has an FCP
+  // measurement.
+  bool HasCommitAndFirstContentfulPaint(const SoftNavigationData* data) const;
+
+  bool ValidateMetrics(base::span<const mojom::SoftNavigationMetricsPtr>
+                           soft_navigation_metrics) const;
+  void TryAdvanceAndDispatchSoftNavigationEvents();
 
   uint64_t soft_navigation_count_ = 0;
-  std::deque<mojom::SoftNavigationMetricsPtr> soft_navigations_to_process_;
-  mojom::SoftNavigationMetricsPtr current_soft_navigation_;
+  uint64_t last_committed_navigation_id_ = 0;
+  uint64_t last_reported_fcp_navigation_id_ = 0;
+  raw_ptr<Client> client_ = nullptr;
+
+  std::optional<base::TimeDelta> last_hidden_time_;
+  std::optional<base::TimeDelta> last_shown_time_;
+
+  // Map of all soft navigations currently tracked by this tracker, keyed by
+  // performance_timeline_navigation_id (sorted in ascending/chronological
+  // order).
+  //
+  // A navigation's state in this map is implicit:
+  // - Awaiting FCP / Turn: `id > last_reported_fcp_navigation_id_` with
+  //   `metrics->commit`
+  // - Open (FCP Reported, Awaiting Next FCP):
+  //   `id <= last_reported_fcp_navigation_id_`
+  // - Dispatched: Erased from `navigations_` upon being reported to
+  //   `OnSoftNavigationCompleted`.
+  //
+  // A completed navigation is only dispatched once:
+  // 1. It has all of its own requisite data (commit metadata and FCP time).
+  // 2. The subsequent navigation's FCP has arrived, which serves as a proxy
+  //    to ensure sufficient time has elapsed to capture late INP, CLS, and LCP
+  //    data for this navigation.
+  //
+  // Any remaining committed navigations in this map are flushed in order upon
+  // page unload / backgrounding in `CompleteActiveNavigationAndFlush()`.
+  std::map<uint64_t, std::unique_ptr<SoftNavigationData>> navigations_;
 };
 
 }  // namespace page_load_metrics

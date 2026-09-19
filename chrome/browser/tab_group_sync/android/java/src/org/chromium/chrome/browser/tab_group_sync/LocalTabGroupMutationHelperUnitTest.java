@@ -31,7 +31,6 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -58,14 +57,12 @@ import java.util.List;
 
 /** Unit tests for the {@link LocalTabGroupMutationHelper}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class LocalTabGroupMutationHelperUnitTest {
     private static final Token TOKEN_1 = new Token(2, 3);
     private static final Token TOKEN_2 = new Token(4, 4);
     private static final int TAB_ID_1 = 1;
     private static final int TAB_ID_2 = 2;
     private static final LocalTabGroupId LOCAL_TAB_GROUP_ID_1 = new LocalTabGroupId(TOKEN_1);
-    private static final LocalTabGroupId LOCAL_TAB_GROUP_ID_2 = new LocalTabGroupId(TOKEN_2);
     private static final String TAB_TITLE_1 = "Tab Title 1";
     private static final GURL TAB_URL_1 = new GURL("https://url1.com");
     private static final GURL TAB_URL_2 = new GURL("https://url2.com");

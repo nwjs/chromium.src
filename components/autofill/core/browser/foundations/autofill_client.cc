@@ -267,10 +267,6 @@ const AutofillAblationStudy& AutofillClient::GetAblationStudy() const {
   return AutofillAblationStudy::disabled_study();
 }
 
-bool AutofillClient::IsAndroidLargeFormFactor() const {
-  return false;
-}
-
 #if BUILDFLAG(IS_ANDROID)
 bool AutofillClient::ShowAmbientAutoFillNotice(
     base::WeakPtr<TouchToFillAutofillDelegate> delegate) {
@@ -316,8 +312,12 @@ bool AutofillClient::IsTabInActorMode() const {
   return false;
 }
 
-ActorKeyMetricsRecorder* AutofillClient::GetActorKeyMetricsRecorder() {
+ActorAutofillManager* AutofillClient::GetActorAutofillManager() {
   return nullptr;
+}
+
+int64_t AutofillClient::GetNavigationId() const {
+  return 0;
 }
 
 std::unique_ptr<device_reauth::DeviceAuthenticator>
@@ -453,6 +453,10 @@ void AutofillClient::ShowEmailVerificationPopup(
 }
 
 OtpFieldDetector* AutofillClient::GetOtpFieldDetector() {
+  return nullptr;
+}
+
+OtpMetricsTracker* AutofillClient::GetOtpMetricsTracker() {
   return nullptr;
 }
 

@@ -60,6 +60,8 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
+#include "base/types/expected_macros.h"
+#include "base/types/is_instantiation.h"
 #include "net/base/lookup_string_in_fixed_set.h"
 #include "net/base/registry_controlled_domain_constants.h"
 #include "net/base/registry_controlled_domains/effective_tld_names-reversed-inc.cc"
@@ -162,51 +164,48 @@ class RegistryLookupCache {
   uint8_t write_index_ GUARDED_BY(lock_) = 0u;
 };
 
-// Used as the output of functions that calculate the registry length in a
-// hostname. |registry_length| is the length of the registry identifier (or zero
-// if none is found or the hostname is itself a registry identifier).
-// |is_registry_identifier| is true if the host is itself a match for a registry
+// Used as the output of functions that calculate the registry in a hostname.
+// `registry` is the substring of the host containing the registry identifier
+// (or empty if none is found or the hostname is itself a registry identifier).
+// `is_registry_identifier` is true if the host is itself a match for a registry
 // identifier.
-struct RegistryLengthOutput {
-  size_t registry_length;
-  bool is_registry_identifier;
+struct RegistryResult {
+  std::string_view registry;
+  bool is_registry_identifier = false;
 };
 
 // This version assumes we already removed leading dots from host as well as the
 // last trailing dot if it had one. If the host is itself a registry identifier,
-// the returned |registry_length| will be 0 and |is_registry_identifier| will be
+// the returned `registry` will be empty and `is_registry_identifier` will be
 // true.
-RegistryLengthOutput GetRegistryLengthInTrimmedHost(
-    std::string_view host,
-    UnknownRegistryFilter unknown_filter,
-    PrivateRegistryFilter private_filter) {
-  size_t length;
-  std::optional<DomainRuleTags> type = LookupSuffixInReversedSet(
-      g_graph, private_filter == INCLUDE_PRIVATE_REGISTRIES, host, &length);
-
-  CHECK_LE(length, host.size());
+RegistryResult GetRegistryInTrimmedHost(std::string_view host,
+                                        UnknownRegistryFilter unknown_filter,
+                                        PrivateRegistryFilter private_filter) {
+  const std::optional<SuffixMatch> match = LookupSuffixInReversedSet(
+      g_graph, private_filter == INCLUDE_PRIVATE_REGISTRIES, host);
 
   // No rule found in the registry.
-  if (!type.has_value()) {
-    // If we allow unknown registries, return the length of last subcomponent.
+  if (!match.has_value()) {
+    // If we allow unknown registries, return the last subcomponent.
     if (unknown_filter == INCLUDE_UNKNOWN_REGISTRIES) {
       const size_t last_dot = host.find_last_of('.');
       if (last_dot != std::string_view::npos) {
-        length = host.size() - last_dot - 1;
-        return {length, false};
+        return {host.substr(last_dot + 1), false};
       }
     }
-    return {length, false};
+    return {"", false};
   }
+
+  const size_t length = match->suffix.size();
+  CHECK_LE(length, host.size());
 
   // Exception rules override wildcard rules when the domain is an exact
   // match, but wildcards take precedence when there's a subdomain.
-  if (type.value().Has(DomainRuleTag::kWildcard)) {
+  if (match->tags.Has(DomainRuleTag::kWildcard)) {
     // If the complete host matches, then the host is the wildcard suffix, so
-    // return 0.
+    // return an empty registry and mark as registry identifier.
     if (length == host.size()) {
-      length = 0;
-      return {length, true};
+      return {"", true};
     }
 
     CHECK_LE(length + 2, host.size());
@@ -215,70 +214,72 @@ RegistryLengthOutput GetRegistryLengthInTrimmedHost(
     const size_t preceding_dot =
         host.find_last_of('.', host.size() - length - 2);
 
-    // If no preceding dot, then the host is the registry itself, so return 0.
+    // If no preceding dot, then the host is the registry itself, so return
+    // an empty registry and mark as registry identifier.
     if (preceding_dot == std::string_view::npos) {
-      return {0, true};
+      return {"", true};
     }
 
-    // Return suffix size plus size of subdomain.
-    return {host.size() - preceding_dot - 1, false};
+    // Return suffix plus the wildcard subdomain label.
+    return {host.substr(preceding_dot + 1), false};
   }
 
-  if (type.value().Has(DomainRuleTag::kException)) {
-    size_t first_dot = host.find_first_of('.', host.size() - length);
-    if (first_dot == std::string_view::npos) {
-      // If we get here, we had an exception rule with no dots (e.g.
-      // "!foo").  This would only be valid if we had a corresponding
-      // wildcard rule, which would have to be "*".  But we explicitly
-      // disallow that case, so this kind of rule is invalid.
-      // TODO(crbug.com/40406311): This assumes that all wildcard entries,
-      // such as *.foo.invalid, also have their parent, foo.invalid, as an entry
-      // on the PSL, which is why it returns the length of foo.invalid. This
-      // isn't entirely correct.
-      NOTREACHED() << "Invalid exception rule";
-    }
-    return {host.length() - first_dot - 1, false};
+  if (match->tags.Has(DomainRuleTag::kException)) {
+    const size_t first_dot = match->suffix.find('.');
+    // If there is no first dot, we had an exception rule with no dots (e.g.
+    // "!foo").  This would only be valid if we had a corresponding wildcard
+    // rule, which would have to be "*".  But we explicitly disallow that case,
+    // so this kind of rule is invalid.
+    // TODO(crbug.com/40406311): This assumes that all wildcard entries,
+    // such as *.foo.invalid, also have their parent, foo.invalid, as an entry
+    // on the PSL, which is why it returns the length of foo.invalid. This
+    // isn't entirely correct.
+    CHECK_NE(first_dot, std::string_view::npos)
+        << "Invalid exception rule. Suffix: '" << match->suffix << "'";
+    return {match->suffix.substr(first_dot + 1), false};
   }
 
-  // If a complete match, then the host is the registry itself, so return 0.
+  // If a complete match, then the host is the registry itself, so return an
+  // empty registry and mark as registry identifier.
   if (length == host.size()) {
-    return {0, true};
+    return {"", true};
   }
 
-  return {length, false};
+  return {match->suffix, false};
 }
 
-RegistryLengthOutput GetRegistryLengthImpl(
+std::optional<RegistryResult> GetRegistryImpl(
     std::string_view host,
     UnknownRegistryFilter unknown_filter,
     PrivateRegistryFilter private_filter) {
   if (host.empty()) {
-    return {std::string::npos, false};
+    return std::nullopt;
   }
 
+  std::string_view trimmed_host = host;
   // Skip leading dots.
-  const size_t host_check_begin = host.find_first_not_of('.');
-  if (host_check_begin == std::string_view::npos) {
-    return {0, false};  // Host is only dots.
+  if (const size_t host_check_begin = trimmed_host.find_first_not_of('.');
+      host_check_begin != std::string_view::npos) {
+    trimmed_host.remove_prefix(host_check_begin);
+  } else {
+    return RegistryResult{"", false};  // Host is only dots.
   }
 
   // A single trailing dot isn't relevant in this determination, but does need
-  // to be included in the final returned length.
-  size_t host_check_end = host.size();
-  if (host.back() == '.') {
-    --host_check_end;
+  // to be included in the final returned registry.
+  if (trimmed_host.back() == '.') {
+    trimmed_host.remove_suffix(1);
   }
 
-  RegistryLengthOutput output = GetRegistryLengthInTrimmedHost(
-      host.substr(host_check_begin, host_check_end - host_check_begin),
-      unknown_filter, private_filter);
+  RegistryResult output =
+      GetRegistryInTrimmedHost(trimmed_host, unknown_filter, private_filter);
 
-  if (output.registry_length == 0) {
+  if (output.registry.empty()) {
     return output;
   }
 
-  output.registry_length =
-      output.registry_length + host.size() - host_check_end;
+  // Include the trailing dot, if there was one.
+  output.registry = host.substr(output.registry.data() - host.data());
   return output;
 }
 
@@ -302,24 +303,25 @@ std::string_view GetDomainAndRegistryImpl(
     return *cached_result;
   }
 
-  // Find the length of the registry for this host.
-  const RegistryLengthOutput registry_length_output =
-      GetRegistryLengthImpl(host, INCLUDE_UNKNOWN_REGISTRIES, private_filter);
-  if ((registry_length_output.registry_length == std::string::npos) ||
-      (registry_length_output.registry_length == 0)) {
+  // Find the registry for this host.
+  const size_t registry_length =
+      GetRegistryImpl(host, INCLUDE_UNKNOWN_REGISTRIES, private_filter)
+          // Safe because the host is non-empty.
+          .value()
+          .registry.size();
+  if (registry_length == 0) {
     return std::string_view();  // No registry.
   }
   // The "2" in this next line is 1 for the dot, plus a 1-char minimum preceding
   // subcomponent length.
   CHECK_GE(host.length(), 2u);
-  CHECK_LE(registry_length_output.registry_length, host.length() - 2)
+  CHECK_LE(registry_length, host.length() - 2)
       << "Host does not have at least one subcomponent before registry!";
 
   // Move past the dot preceding the registry, and search for the next previous
   // dot.  Return the host from after that dot, or the whole host when there is
   // no dot.
-  const size_t dot = host.rfind(
-      '.', host.length() - registry_length_output.registry_length - 2);
+  const size_t dot = host.rfind('.', host.length() - registry_length - 2);
   if (dot == std::string::npos) {
     cache->Set(host, private_filter, 0u);
     return host;
@@ -354,12 +356,14 @@ void AppendInvalidString(std::u16string_view str, url::CanonOutput* output) {
   output->Append(base::UTF16ToUTF8(str));
 }
 
-// Backend for PermissiveGetHostRegistryLength that handles both UTF-8 and
-// UTF-16 input.
-template <typename T, typename CharT = typename T::value_type>
-size_t DoPermissiveGetHostRegistryLength(T host,
-                                         UnknownRegistryFilter unknown_filter,
-                                         PrivateRegistryFilter private_filter) {
+// Backend for PermissiveGetHostRegistry that handles both UTF-8 and UTF-16
+// input.
+template <typename T>
+  requires base::is_instantiation<T, std::basic_string_view>
+std::optional<T> DoPermissiveGetHostRegistry(
+    T host,
+    UnknownRegistryFilter unknown_filter,
+    PrivateRegistryFilter private_filter) {
   std::string canonical_host;  // Do not modify outside of canon_output.
   canonical_host.reserve(host.length());
   url::StdStringCanonOutput canon_output(&canonical_host);
@@ -398,22 +402,26 @@ size_t DoPermissiveGetHostRegistryLength(T host,
   }
   canon_output.Complete();
 
-  size_t canonical_rcd_len =
-      GetRegistryLengthImpl(canonical_host, unknown_filter, private_filter)
-          .registry_length;
-  if (canonical_rcd_len == 0 || canonical_rcd_len == std::string::npos) {
-    return canonical_rcd_len;  // Error or no registry controlled domain.
+  ASSIGN_OR_RETURN(
+      const std::string_view canonical_rcd,
+      GetRegistryImpl(canonical_host, unknown_filter, private_filter)
+          .transform(
+              [](const RegistryResult& result) { return result.registry; }));
+  if (canonical_rcd.empty()) {
+    // No registry controlled domain.
+    return T{};
   }
 
   // Find which host component the result started in.
-  size_t canonical_rcd_begin = canonical_host.length() - canonical_rcd_len;
+  const size_t canonical_rcd_begin =
+      canonical_host.length() - canonical_rcd.length();
 
   for (const auto& mapping : components) {
-    // In the common case, GetRegistryLengthImpl will identify the beginning
+    // In the common case, GetRegistryImpl will identify the beginning
     // of a component and we can just return where that component was in the
     // original string.
     if (canonical_rcd_begin == mapping.canonical_begin) {
-      return host.length() - mapping.original_begin;
+      return host.substr(mapping.original_begin);
     }
 
     if (canonical_rcd_begin >= mapping.canonical_end) {
@@ -445,9 +453,6 @@ size_t DoPermissiveGetHostRegistryLength(T host,
     // order of the characters. Punycode can change the order of characters,
     // but it doesn't work across dots so this is safe.
 
-    // Expected canonical registry controlled domain.
-    std::string_view canonical_rcd(&canonical_host[canonical_rcd_begin],
-                                   canonical_rcd_len);
 
     for (int current_try = static_cast<int>(mapping.original_end) - 1;
          current_try >= static_cast<int>(mapping.original_begin);
@@ -463,7 +468,7 @@ size_t DoPermissiveGetHostRegistryLength(T host,
 
       try_output.Complete();
       if (try_string == canonical_rcd) {
-        return host.length() - current_try;
+        return host.substr(current_try);
       }
     }
   }
@@ -471,7 +476,7 @@ size_t DoPermissiveGetHostRegistryLength(T host,
   // We may get here if the host has components that can't be canonicalized.
   // This should only happen in fuzzing and tests, as invalid hostnames will get
   // blocked much earlier in the stack.
-  return 0;
+  return T{};
 }
 
 bool SameDomainOrHost(std::string_view host1,
@@ -534,24 +539,20 @@ bool SameDomainOrHost(const url::Origin& origin1,
   return SameDomainOrHost(origin1.host(), origin2.host(), filter);
 }
 
-bool SameDomainOrHost(const url::Origin& origin1,
-                      const std::optional<url::Origin>& origin2,
-                      PrivateRegistryFilter filter) {
-  return origin2.has_value() &&
-         SameDomainOrHost(origin1, origin2.value(), filter);
-}
-
 bool SameDomainOrHost(const GURL& gurl,
                       const url::Origin& origin,
                       PrivateRegistryFilter filter) {
   return SameDomainOrHost(gurl.host(), origin.host(), filter);
 }
 
-size_t GetRegistryLength(const GURL& gurl,
-                         UnknownRegistryFilter unknown_filter,
-                         PrivateRegistryFilter private_filter) {
-  return GetRegistryLengthImpl(gurl.host(), unknown_filter, private_filter)
-      .registry_length;
+std::optional<std::string_view> GetRegistry(
+    const GURL& gurl,
+    UnknownRegistryFilter unknown_filter,
+    PrivateRegistryFilter private_filter) {
+  std::string_view host = gurl.host();
+  ASSIGN_OR_RETURN(RegistryResult result,
+                   GetRegistryImpl(host, unknown_filter, private_filter));
+  return result.registry;
 }
 
 bool HostHasRegistryControlledDomain(std::string_view host,
@@ -560,7 +561,7 @@ bool HostHasRegistryControlledDomain(std::string_view host,
   url::CanonHostInfo host_info;
   const std::string canon_host(CanonicalizeHost(host, &host_info));
 
-  size_t rcd_length;
+  std::optional<std::string_view> rcd;
   switch (host_info.family) {
     case url::CanonHostInfo::IPV4:
     case url::CanonHostInfo::IPV6:
@@ -569,18 +570,18 @@ bool HostHasRegistryControlledDomain(std::string_view host,
     case url::CanonHostInfo::BROKEN:
       // Host is not canonicalizable. Fall back to the slower "permissive"
       // version.
-      rcd_length =
-          PermissiveGetHostRegistryLength(host, unknown_filter, private_filter);
+      rcd = PermissiveGetHostRegistry(host, unknown_filter, private_filter);
       break;
     case url::CanonHostInfo::NEUTRAL:
-      rcd_length =
-          GetRegistryLengthImpl(canon_host, unknown_filter, private_filter)
-              .registry_length;
+      rcd = GetRegistryImpl(canon_host, unknown_filter, private_filter)
+                .transform([](const RegistryResult& result) {
+                  return result.registry;
+                });
       break;
     default:
       NOTREACHED();
   }
-  return (rcd_length != 0) && (rcd_length != std::string::npos);
+  return rcd.has_value() && !rcd->empty();
 }
 
 bool HostIsRegistryIdentifier(std::string_view canon_host,
@@ -592,36 +593,39 @@ bool HostIsRegistryIdentifier(std::string_view canon_host,
   std::string canonicalized = CanonicalizeHost(canon_host, &host_info);
   CHECK_EQ(canonicalized, canon_host);
   CHECK_EQ(host_info.family, url::CanonHostInfo::NEUTRAL);
-  return GetRegistryLengthImpl(canon_host, EXCLUDE_UNKNOWN_REGISTRIES,
-                               private_filter)
+  return GetRegistryImpl(canon_host, EXCLUDE_UNKNOWN_REGISTRIES, private_filter)
+      // Safe because `canon_host` is non-empty.
+      .value()
       .is_registry_identifier;
 }
 
-size_t GetCanonicalHostRegistryLength(std::string_view canon_host,
-                                      UnknownRegistryFilter unknown_filter,
-                                      PrivateRegistryFilter private_filter) {
+std::optional<std::string_view> GetCanonicalHostRegistry(
+    std::string_view canon_host,
+    UnknownRegistryFilter unknown_filter,
+    PrivateRegistryFilter private_filter) {
 #ifndef NDEBUG
   // Ensure passed-in host name is canonical.
   url::CanonHostInfo host_info;
   DCHECK_EQ(net::CanonicalizeHost(canon_host, &host_info), canon_host);
 #endif
 
-  return GetRegistryLengthImpl(canon_host, unknown_filter, private_filter)
-      .registry_length;
+  ASSIGN_OR_RETURN(RegistryResult result,
+                   GetRegistryImpl(canon_host, unknown_filter, private_filter));
+  return result.registry;
 }
 
-size_t PermissiveGetHostRegistryLength(std::string_view host,
-                                       UnknownRegistryFilter unknown_filter,
-                                       PrivateRegistryFilter private_filter) {
-  return DoPermissiveGetHostRegistryLength(host, unknown_filter,
-                                           private_filter);
+std::optional<std::string_view> PermissiveGetHostRegistry(
+    std::string_view host,
+    UnknownRegistryFilter unknown_filter,
+    PrivateRegistryFilter private_filter) {
+  return DoPermissiveGetHostRegistry(host, unknown_filter, private_filter);
 }
 
-size_t PermissiveGetHostRegistryLength(std::u16string_view host,
-                                       UnknownRegistryFilter unknown_filter,
-                                       PrivateRegistryFilter private_filter) {
-  return DoPermissiveGetHostRegistryLength(host, unknown_filter,
-                                           private_filter);
+std::optional<std::u16string_view> PermissiveGetHostRegistry(
+    std::u16string_view host,
+    UnknownRegistryFilter unknown_filter,
+    PrivateRegistryFilter private_filter) {
+  return DoPermissiveGetHostRegistry(host, unknown_filter, private_filter);
 }
 
 void ResetFindDomainGraphForTesting() {

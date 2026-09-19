@@ -17,6 +17,7 @@
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/sessions/session_service_base.h"
 #include "chrome/browser/sessions/session_service_lookup.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
@@ -48,8 +49,8 @@ bool ParseCommaSeparatedIntegers(const std::string& str,
 
 std::string GetWindowName(const BrowserWindowInterface* browser) {
   if (browser->GetType() == BrowserWindowInterface::Type::TYPE_POPUP &&
-      !browser->windows_key().empty())
-    return browser->windows_key();
+      !browser->GetBrowserForMigrationOnly()->windows_key().empty())
+    return browser->GetBrowserForMigrationOnly()->windows_key();
   switch (browser->GetType()) {
     case BrowserWindowInterface::Type::TYPE_NORMAL:
       return prefs::kBrowserWindowPlacement;

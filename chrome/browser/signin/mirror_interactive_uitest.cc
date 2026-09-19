@@ -17,8 +17,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/account_manager/scoped_fake_account_manager_dialog.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
@@ -210,7 +210,7 @@ IN_PROC_BROWSER_TEST_F(MirrorResponseBrowserTest, Incognito) {
 
   // No waiting happens here - BrowserCreatedObserver is used to obtain a
   // pointer to the newly added browser.
-  Browser* incognito_browser = browser_created_observer.Wait();
+  BrowserWindowInterface* incognito_browser = browser_created_observer.Wait();
   EXPECT_TRUE(incognito_browser->GetProfile()->IsIncognitoProfile());
 
   histogram_tester.ExpectUniqueSample(

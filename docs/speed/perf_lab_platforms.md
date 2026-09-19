@@ -18,6 +18,7 @@
  * [android-pixel10-perf](https://ci.chromium.org/p/chrome/builders/ci/android-pixel10-perf): Android B.
  * [android-pixel10_webview-perf](https://ci.chromium.org/p/chrome/builders/ci/android-pixel10_webview-perf): Android B.
  * [android-pixel10_webview-perf-pgo](https://ci.chromium.org/p/chrome/builders/ci/android-pixel10_webview-perf-pgo): Android B.
+ * [android-pixel10_webview-perf-pgo-heapdump](https://ci.chromium.org/p/chrome/builders/ci/android-pixel10_webview-perf-pgo-heapdump): Android B.
  * [android-pixel4-perf](https://ci.chromium.org/p/chrome/builders/ci/android-pixel4-perf): Android R.
  * [android-pixel4_webview-perf](https://ci.chromium.org/p/chrome/builders/ci/android-pixel4_webview-perf): Android R.
  * [android-pixel4_webview-perf-pgo](https://ci.chromium.org/p/chrome/builders/ci/android-pixel4_webview-perf-pgo): Android R.
@@ -29,6 +30,7 @@
 ### Linux
 
  * [linux-falcon-rak-5070-perf](https://ci.chromium.org/p/chrome/builders/ci/linux-falcon-rak-5070-perf): Linux Falcon RAK 5070.
+ * [linux-nvidia-dgx-spark-arm-perf](https://ci.chromium.org/p/chrome/builders/ci/linux-nvidia-dgx-spark-arm-perf): Ubuntu-24.04, Nvidia DGX Spark.
  * [linux-perf](https://ci.chromium.org/p/chrome/builders/ci/linux-perf): Ubuntu-22.04, Precision 3930 Rack, NVIDIA GeForce GTX 1660.
  * [linux-perf-rel](https://ci.chromium.org/p/chrome/builders/ci/linux-perf-rel): Ubuntu-18.04, 8 core, NVIDIA Quadro P400.
  * [linux-r350-perf](https://ci.chromium.org/p/chrome/builders/ci/linux-r350-perf): Ubuntu-22.04, 16 core.

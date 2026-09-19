@@ -3,19 +3,59 @@
 # found in the LICENSE file.
 
 import("//build/config/ui.gni")
+import("//extensions/buildflags/buildflags.gni")
 
 assert(toolkit_views)
 
+source_set("custom_cursor_suppressor") {
+  public = [ "custom_cursor_suppressor.h" ]
+  sources = [ "custom_cursor_suppressor.cc" ]
+  public_deps = [
+    "//base",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/tabs:tab_strip",
+    "//content/public/browser",
+    "//extensions/browser",
+  ]
+  deps = [ "//chrome/browser/profiles:profile" ]
+}
+
+source_set("popup_interactive_row_view") {
+  public = [ "popup_interactive_row_view.h" ]
+  sources = [ "popup_interactive_row_view.cc" ]
+  public_deps = [
+    "//components/input",
+    "//ui/base/metadata",
+    "//ui/views",
+  ]
+}
+
+source_set("popup_row_content_view") {
+  public = [ "popup_row_content_view.h" ]
+  sources = [ "popup_row_content_view.cc" ]
+  public_deps = [
+    "//base",
+    "//ui/views",
+  ]
+  deps = [
+    ":popup",
+    "//chrome/browser/ui/views:layout_provider",
+    "//ui/base/metadata",
+    "//ui/views",
+  ]
+}
+
 source_set("popup") {
   public = [
-    "custom_cursor_suppressor.h",
     "popup_base_view.h",
-    "popup_interactive_row_view.h",
     "popup_row_view.h",
     "popup_view_utils.h",
   ]
   public_deps = [
+    ":custom_cursor_suppressor",
+    ":popup_interactive_row_view",
     "//base",
+    "//chrome/browser/ui:chrome_pages",
     "//chrome/browser/ui/autofill",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/tabs:tab_strip",
@@ -117,4 +157,199 @@ source_set("lazy_loading_image_view") {
     "//ui/base/metadata",
     "//ui/views",
   ]
+}
+
+source_set("password_favicon_loader") {
+  public = [ "password_favicon_loader.h" ]
+  sources = [ "password_favicon_loader.cc" ]
+  public_deps = [
+    "//base",
+    "//components/autofill/core/browser",
+  ]
+  deps = [
+    "//chrome/browser/favicon",
+    "//components/favicon/core",
+    "//components/favicon_base",
+    "//components/image_fetcher/core",
+    "//net/traffic_annotation",
+    "//ui/gfx",
+    "//url",
+  ]
+}
+
+source_set("popup_bnpl_footnote_view") {
+  public = [ "popup_bnpl_footnote_view.h" ]
+  sources = [ "popup_bnpl_footnote_view.cc" ]
+  public_deps = [
+    "//base",
+    "//ui/base/metadata",
+    "//ui/views",
+  ]
+  deps = [
+    ":popup",
+    "//chrome/browser/autofill",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui:chrome_pages",
+    "//chrome/browser/ui/autofill",
+    "//chrome/common:constants",
+    "//components/autofill/core/browser",
+    "//components/strings:components_strings",
+    "//ui/base",
+    "//ui/views",
+  ]
+}
+
+source_set("popup_notice_view") {
+  public = [ "popup_notice_view.h" ]
+  sources = [ "popup_notice_view.cc" ]
+  public_deps = [
+    "//base",
+    "//ui/base/metadata",
+    "//ui/views",
+  ]
+  deps = [
+    ":popup",
+    "//chrome/app/vector_icons",
+    "//chrome/browser/ui:chrome_pages",
+    "//chrome/browser/ui/autofill",
+    "//chrome/browser/ui/views:layout_provider",
+    "//components/autofill/core/browser",
+    "//components/strings:components_strings",
+    "//components/vector_icons",
+    "//ui/base",
+    "//ui/color",
+    "//ui/views",
+  ]
+}
+
+source_set("popup_search_bar_view") {
+  public = [ "popup_search_bar_view.h" ]
+  sources = [ "popup_search_bar_view.cc" ]
+  public_deps = [
+    "//base",
+    "//chrome/browser/ui/autofill",
+    "//ui/base",
+    "//ui/base/metadata",
+    "//ui/views",
+  ]
+  deps = [
+    "//chrome/browser/ui/views:layout_provider",
+    "//components/omnibox/browser:vector_icons",
+    "//components/strings:components_strings",
+    "//components/vector_icons",
+    "//ui/base",
+    "//ui/color",
+    "//ui/events",
+    "//ui/views",
+  ]
+}
+
+source_set("popup_cell_utils") {
+  public = [ "popup_cell_utils.h" ]
+  sources = [ "popup_cell_utils.cc" ]
+  public_deps = [
+    ":popup_row_content_view",
+    "//base",
+    "//components/autofill/core/browser",
+    "//ui/base",
+    "//ui/views",
+  ]
+  deps = [
+    ":lazy_loading_image_view",
+    ":password_favicon_loader",
+    ":popup",
+    "//chrome/app/resources:platform_locale_settings",
+    "//chrome/app/vector_icons",
+    "//chrome/browser/ui/views:layout_provider",
+    "//chrome/browser/ui/views/autofill/payments:payments_view_util",
+    "//chrome/browser/ui/webid",
+    "//components/omnibox/browser:vector_icons",
+    "//components/qr_code_generator:bitmap_generator",
+    "//components/strings:components_strings",
+    "//components/vector_icons",
+    "//ui/accessibility:ax_base",
+    "//ui/color",
+    "//ui/gfx",
+    "//url",
+  ]
+}
+
+source_set("popup_row_with_button_view") {
+  public = [ "popup_row_with_button_view.h" ]
+  sources = [ "popup_row_with_button_view.cc" ]
+  public_deps = [
+    ":popup",
+    ":popup_row_content_view",
+    "//base",
+    "//ui/base/metadata",
+    "//ui/views",
+  ]
+  deps = [
+    ":popup_cell_utils",
+    "//chrome/browser/ui/autofill",
+    "//chrome/browser/ui/views:layout_provider",
+    "//components/autofill/core/browser",
+    "//components/strings:components_strings",
+    "//components/vector_icons",
+    "//ui/accessibility:ax_base",
+    "//ui/accessibility:ax_enums_mojo",
+    "//ui/base",
+    "//ui/color",
+    "//ui/events",
+  ]
+}
+
+source_set("popup_at_memory_ai_disclosure_view") {
+  public = [ "popup_at_memory_ai_disclosure_view.h" ]
+  sources = [ "popup_at_memory_ai_disclosure_view.cc" ]
+  public_deps = [
+    ":popup",
+    ":popup_interactive_row_view",
+    "//base",
+    "//ui/base/metadata",
+  ]
+  deps = [
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui:chrome_pages",
+    "//chrome/browser/ui/autofill",
+    "//chrome/common",
+    "//components/strings:components_strings",
+    "//content/public/browser",
+    "//ui/accessibility:ax_enums_mojo",
+    "//ui/base",
+    "//ui/color",
+    "//ui/views",
+  ]
+}
+
+source_set("browser_tests") {
+  testonly = true
+
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+  sources = []
+  deps = []
+
+  if (enable_extensions) {
+    sources += [ "custom_cursor_suppressor_browsertest.cc" ]
+    deps += [
+      ":custom_cursor_suppressor",
+      "//chrome/browser/extensions:test_support",
+      "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/side_panel",
+      "//chrome/browser/ui/side_panel:side_panel_views_dependent",
+      "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/views/side_panel",
+      "//chrome/test:test_support",
+      "//chrome/test:test_support_ui",
+      "//content/public/browser",
+      "//content/test:browsertest_support",
+      "//content/test:test_support",
+      "//extensions:test_support",
+      "//net:test_support",
+      "//testing/gmock",
+      "//testing/gtest",
+      "//url",
+    ]
+  }
 }

@@ -108,8 +108,14 @@ bool IsAllowedToastWithNoTimeout(const base::Feature& promo_feature) {
 }
 
 bool IsAllowedLegacyPromo(const base::Feature& promo_feature) {
+  // LINT.IfChange(LegacyPromoMessage)
+  // ----------------------------------------------------------------
   // NOTE: LEGACY PROMOS ARE DEPRECATED.
   // NO NEW ITEMS SHOULD BE ADDED TO THIS LIST, EVER.
+  // ----------------------------------------------------------------
+  // LINT.ThenChange(:LegacyPromoList)
+
+  // LINT.IfChange(LegacyPromoList)
   static constexpr auto kAllowedPromoNames =
       base::MakeFixedFlatSet<std::string_view>({
           "IPH_AutofillExternalAccountProfileSuggestion",
@@ -122,6 +128,8 @@ bool IsAllowedLegacyPromo(const base::Feature& promo_feature) {
           "IPH_ReadingListInSidePanel",
           "IPH_TabSearch",
       });
+  // LINT.ThenChange(:LegacyPromoMessage)
+
   return kAllowedPromoNames.contains(promo_feature.name);
 }
 
@@ -629,15 +637,18 @@ FeaturePromoSpecification& FeaturePromoSpecification::SetHighlightedMenuItem(
 
 ui::TrackedElement* FeaturePromoSpecification::GetAnchorElement(
     ui::ElementContext context,
+    user_education::AnchorElementFilter default_filter,
     std::optional<int> index) const {
   if (index) {
     CHECK_EQ(PromoType::kRotating, promo_type_);
-    return rotating_promos_.at(*index)->GetAnchorElement(context, std::nullopt);
+    return rotating_promos_.at(*index)->GetAnchorElement(
+        context, default_filter, std::nullopt);
   }
 
   // Should not be called directly on a rotating promo.
   CHECK_NE(PromoType::kRotating, promo_type_);
-  return AnchorElementProviderCommon::GetAnchorElement(context, std::nullopt);
+  return AnchorElementProviderCommon::GetAnchorElement(context, default_filter,
+                                                       std::nullopt);
 }
 
 int FeaturePromoSpecification::GetNextValidIndex(int starting_index) const {

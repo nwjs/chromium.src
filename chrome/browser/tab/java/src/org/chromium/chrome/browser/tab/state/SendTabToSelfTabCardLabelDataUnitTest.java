@@ -5,9 +5,11 @@
 package org.chromium.chrome.browser.tab.state;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,6 +34,8 @@ import org.chromium.chrome.browser.share.send_tab_to_self.ShareActivatedEntryPoi
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabSelectionType;
+
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Unit tests for {@link SendTabToSelfTabCardLabelData}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -131,6 +135,31 @@ public class SendTabToSelfTabCardLabelDataUnitTest {
         // Verify the user interaction removes the UserData and unregisters the observer.
         assertNull(mUserDataHost.getUserData(SendTabToSelfTabCardLabelData.class));
         verify(mTab).removeObserver(captor.getValue());
+    }
+
+    @Test
+    public void testUserData_RemoveAndDestroy() {
+        ArgumentCaptor<TabObserver> captor = ArgumentCaptor.forClass(TabObserver.class);
+        SendTabToSelfTabCardLabelData data = createAndSetLabelData();
+        verify(mTab).addObserver(captor.capture());
+
+        assertNotNull(SendTabToSelfTabCardLabelData.get(mTab));
+
+        data.removeAndDestroy();
+
+        assertNull(mUserDataHost.getUserData(SendTabToSelfTabCardLabelData.class));
+        verify(mTab).removeObserver(captor.getValue());
+    }
+
+    @Test
+    public void testUserData_TabShown() {
+        ArgumentCaptor<TabObserver> captor = ArgumentCaptor.forClass(TabObserver.class);
+        createAndSetLabelData();
+        verify(mTab).addObserver(captor.capture());
+
+        captor.getValue().onShown(mTab, TabSelectionType.FROM_USER);
+
+        verify(mSendTabToSelfTabCardLabelDataNatives).onTabShown(eq(mTab), eq(DEVICE_NAME));
     }
 
     @Test
@@ -240,5 +269,48 @@ public class SendTabToSelfTabCardLabelDataUnitTest {
         SendTabToSelfTabCardLabelData retrieved = SendTabToSelfTabCardLabelData.get(mTab);
         assertNotNull(retrieved);
         assertTrue(retrieved.isNegativeCache());
+    }
+
+    @Test
+    public void testUserData_DestroyedTabDuringRestore_CleansUpCallbacksAndReturnsNull() {
+        when(mTab.getId()).thenReturn(14);
+        when(mTab.isInitialized()).thenReturn(true);
+
+        SendTabToSelfTabCardLabelData data = createAndSetLabelData();
+        data.save();
+        RobolectricUtil.runAllBackgroundAndUi();
+        mUserDataHost.removeUserData(SendTabToSelfTabCardLabelData.class);
+
+        // When restore runs, simulate tab destruction.
+        when(mTab.isDestroyed()).thenReturn(true);
+
+        AtomicInteger callbackCount = new AtomicInteger(0);
+
+        SendTabToSelfTabCardLabelData.from(
+                mTab,
+                (res) -> {
+                    assertNull(res);
+                    callbackCount.incrementAndGet();
+                });
+        SendTabToSelfTabCardLabelData.from(
+                mTab,
+                (res) -> {
+                    assertNull(res);
+                    callbackCount.incrementAndGet();
+                });
+
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        assertEquals(2, callbackCount.get());
+        assertFalse(
+                PersistedTabData.isCallbackCachedForTesting(
+                        mTab, SendTabToSelfTabCardLabelData.class));
+
+        // Cleanup storage.
+        PersistedTabDataConfiguration.TEST_CONFIG
+                .getStorage()
+                .delete(
+                        14,
+                        PersistedTabDataConfiguration.SEND_TAB_TO_SELF_TAB_CARD_LABEL_DATA.getId());
     }
 }

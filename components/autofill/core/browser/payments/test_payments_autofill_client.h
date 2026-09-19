@@ -246,6 +246,12 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
     wallet_reminder_notice_ui_delegate_ = std::move(ui_delegate);
   }
 
+  void set_wallet_reminder_notice_manager(
+      std::unique_ptr<WalletReminderNoticeManager>
+          wallet_reminder_notice_manager) {
+    wallet_reminder_notice_manager_ = std::move(wallet_reminder_notice_manager);
+  }
+
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   OmniboxAutofillDelegate* GetOmniboxAutofillDelegate() override;
   void ShowExpandedOmniboxAutofillChip(
@@ -377,6 +383,13 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
     autofill_offer_manager_ = std::move(autofill_offer_manager);
   }
 
+  void set_merchant_promo_code_manager(
+      std::unique_ptr<MockMerchantPromoCodeManager>
+          mock_merchant_promo_code_manager) {
+    mock_merchant_promo_code_manager_ =
+        std::move(mock_merchant_promo_code_manager);
+  }
+
   bool unmask_authenticator_selection_dialog_shown() const {
     return unmask_authenticator_selection_dialog_shown_;
   }
@@ -479,7 +492,7 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
   bool credit_card_name_fix_flow_bubble_was_shown_ = false;
 #endif
 
-  testing::NiceMock<MockMerchantPromoCodeManager>
+  std::unique_ptr<MockMerchantPromoCodeManager>
       mock_merchant_promo_code_manager_;
   std::unique_ptr<AutofillOfferManager> autofill_offer_manager_;
   std::unique_ptr<MockMandatoryReauthManager>

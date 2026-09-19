@@ -40,11 +40,25 @@ bool IsCategoryGloballyBlocked(
       }
       break;
     case AutofillClient::AutofillPolicyDataCategory::kIdentityDocs:
+      // Due to the legacy AutofillAddressEnabled policy, if
+      // AutofillAddressEnabled is disabled by an enterprise admin, identity
+      // docs are also blocked by policy.
+      if (prefs.IsManagedPreference(prefs::kAutofillProfileEnabled) &&
+          !prefs.GetBoolean(prefs::kAutofillProfileEnabled)) {
+        return true;
+      }
       if (!prefs.GetBoolean(prefs::kAutofillAiIdentityEntitiesEnabled)) {
         return true;
       }
       break;
     case AutofillClient::AutofillPolicyDataCategory::kTravel:
+      // Due to the legacy AutofillAddressEnabled policy, if
+      // AutofillAddressEnabled is disabled by an enterprise admin, travel
+      // information is also blocked by policy.
+      if (prefs.IsManagedPreference(prefs::kAutofillProfileEnabled) &&
+          !prefs.GetBoolean(prefs::kAutofillProfileEnabled)) {
+        return true;
+      }
       if (!prefs.GetBoolean(prefs::kAutofillAiTravelEntitiesEnabled)) {
         return true;
       }
@@ -120,7 +134,7 @@ std::optional<ParsedPolicyEntry> ParsePolicyEntry(const base::Value& entry) {
            AutofillClient::AutofillPolicyDataCategory::kIdentityDocs,
            AutofillClient::AutofillPolicyDataCategory::kTravel,
            AutofillClient::AutofillPolicyDataCategory::kShopping});
-      // LINT.ThenChange(//components/autofill/core/browser/foundations/autofill_client.h:AutofillPolicyDataCategory,//components/autofill/core/browser/permissions/autofill_policy_service_unittest.cc:AutofillPolicyDataCategory)
+      // LINT.ThenChange(//components/autofill/core/browser/foundations/autofill_client.h:AutofillPolicyDataCategory,//components/autofill/core/browser/permissions/autofill_policy_service_unittest.cc:AutofillPolicyDataCategory,//chrome/browser/resources/settings/autofill_page/policy_utils.ts:AutofillPolicyDataCategory)
     }
   }
   return ParsedPolicyEntry{std::move(pattern), std::move(categories)};
@@ -175,9 +189,26 @@ bool AutofillPolicyService::IsAutofillTypeBlockedByPolicyFromPref(
     return true;
   }
 
+  return IsAutofillTypeDisabledByEnterprisePolicy(prefs, url, category);
+}
+
+// static
+bool AutofillPolicyService::IsAutofillTypeDisabledByEnterprisePolicy(
+    const PrefService& prefs,
+    const GURL& url,
+    AutofillClient::AutofillPolicyDataCategory category) {
   if (!base::FeatureList::IsEnabled(
           features::kAutofillEnableAutofillSettingsEnterprisePolicy)) {
     return false;
+  }
+
+  // If the legacy AutofillAddressEnabled policy is disabled by the enterprise
+  // admin, identity docs and travel are disabled as well.
+  if ((category == AutofillClient::AutofillPolicyDataCategory::kIdentityDocs ||
+       category == AutofillClient::AutofillPolicyDataCategory::kTravel) &&
+      prefs.IsManagedPreference(prefs::kAutofillProfileEnabled) &&
+      !prefs.GetBoolean(prefs::kAutofillProfileEnabled)) {
+    return true;
   }
 
   const base::ListValue& policy_list =

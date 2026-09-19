@@ -32,6 +32,7 @@
 #include "chrome/browser/ash/app_mode/kiosk_system_session.h"
 #include "chrome/browser/ash/app_mode/kiosk_test_helper.h"
 #include "chrome/browser/ash/app_mode/web_app/kiosk_web_app_manager.h"
+#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
 #include "chrome/browser/ash/login/test/oobe_screen_waiter.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_web_app_install_util.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -40,6 +41,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/webui/ash/login/app_launch_splash_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/error_screen_handler.h"
@@ -55,6 +57,7 @@
 #include "extensions/common/extension.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/accelerators/accelerator.h"
+#include "ui/base/base_window.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/keycodes/keyboard_codes_posix.h"
 #include "url/gurl.h"
@@ -98,7 +101,7 @@ class SessionInitializedWaiter : public KioskAppManagerObserver {
 // Waits for the browser window to be hidden or destroyed.
 class TestBrowserHiddenWaiter : public views::WidgetObserver {
  public:
-  explicit TestBrowserHiddenWaiter(Browser* browser) {
+  explicit TestBrowserHiddenWaiter(BrowserWindowInterface* browser) {
     EXPECT_TRUE(browser->GetWindow()->IsVisible());
     widget_observation_.Observe(
         BrowserView::GetBrowserViewForBrowser(browser)->GetWidget());
@@ -119,23 +122,25 @@ class TestBrowserHiddenWaiter : public views::WidgetObserver {
     future_.SetValue();
   }
 
-  base::ScopedObservation<views::Widget, WidgetObserver> widget_observation_{
-      this};
+  base::ScopedObservation<views::Widget, views::WidgetObserver>
+      widget_observation_{this};
   base::test::TestFuture<void> future_;
 };
 
-content::WebContents* GetActiveWebContents(const Browser& browser) {
-  return browser.tab_strip_model()->GetActiveWebContents();
+content::WebContents* GetActiveWebContents(
+    const BrowserWindowInterface& browser) {
+  return browser.GetTabStripModel()->GetActiveWebContents();
 }
 
-void AddWebContentsToBrowser(Browser& browser, Profile& profile) {
+void AddWebContentsToBrowser(BrowserWindowInterface& browser,
+                             Profile& profile) {
   std::unique_ptr<content::WebContents> web_contents =
       content::WebContents::Create(
           content::WebContents::CreateParams(&profile));
 
-  browser.tab_strip_model()->AddWebContents(std::move(web_contents), -1,
-                                            ui::PAGE_TRANSITION_FIRST,
-                                            AddTabTypes::ADD_ACTIVE);
+  browser.GetTabStripModel()->AddWebContents(std::move(web_contents), -1,
+                                             ui::PAGE_TRANSITION_FIRST,
+                                             AddTabTypes::ADD_ACTIVE);
 }
 
 void TriggerNavigationToUrl(content::WebContents* web_contents,
@@ -306,7 +311,7 @@ bool PressBailoutAccelerator() {
       LoginAcceleratorAction::kAppLaunchBailout);
 }
 
-Browser* OpenA11ySettings(const user_manager::User& user) {
+BrowserWindowInterface* OpenA11ySettings(const user_manager::User& user) {
   auto& session = CHECK_DEREF(KioskController::Get().GetKioskSystemSession());
   auto& settings_manager = CHECK_DEREF(ash::SettingsAppManager::Get());
 
@@ -316,9 +321,9 @@ Browser* OpenA11ySettings(const user_manager::User& user) {
 
   EXPECT_FALSE(DidKioskCloseNewWindow());
 
-  Browser& settings_browser =
+  BrowserDelegate& settings_browser =
       CHECK_DEREF(session.GetSettingsBrowserForTesting());
-  return &settings_browser;
+  return &settings_browser.GetBrowser();
 }
 
 bool DidKioskCloseNewWindow() {
@@ -329,7 +334,7 @@ bool DidKioskCloseNewWindow() {
   return new_window_closed.Take();
 }
 
-bool DidKioskHideNewWindow(Browser* browser) {
+bool DidKioskHideNewWindow(BrowserWindowInterface* browser) {
   return TestBrowserHiddenWaiter(browser).WaitUntilHidden();
 }
 
@@ -394,10 +399,11 @@ AccountId CreateDeviceLocalAccountId(std::string_view account_id,
       policy::GenerateDeviceLocalAccountUserId(account_id, type)));
 }
 
-Browser& CreateRegularBrowser(Profile& profile, const GURL& url) {
+BrowserWindowInterface& CreateRegularBrowser(Profile& profile,
+                                             const GURL& url) {
   BrowserWindowCreateParams params(&profile, /*from_user_gesture=*/true);
-  Browser& browser = CHECK_DEREF(
-      CreateBrowserWindow(std::move(params))->GetBrowserForMigrationOnly());
+  BrowserWindowInterface& browser =
+      CHECK_DEREF(CreateBrowserWindow(std::move(params)));
   browser.GetWindow()->Show();
 
   AddWebContentsToBrowser(browser, profile);
@@ -406,17 +412,17 @@ Browser& CreateRegularBrowser(Profile& profile, const GURL& url) {
   return browser;
 }
 
-Browser& CreatePopupBrowser(Profile& profile,
-                            const std::string& app_name,
-                            const GURL& url) {
+BrowserWindowInterface& CreatePopupBrowser(Profile& profile,
+                                           const std::string& app_name,
+                                           const GURL& url) {
   BrowserWindowCreateParams params =
       BrowserWindowCreateParams::CreateForAppPopup(
           app_name,
           /*trusted_source=*/true,
           /*window_bounds=*/gfx::Rect(), &profile,
           /*user_gesture=*/true);
-  Browser& browser = CHECK_DEREF(
-      CreateBrowserWindow(std::move(params))->GetBrowserForMigrationOnly());
+  BrowserWindowInterface& browser =
+      CHECK_DEREF(CreateBrowserWindow(std::move(params)));
   browser.GetWindow()->Show();
 
   AddWebContentsToBrowser(browser, profile);

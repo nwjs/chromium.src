@@ -2883,6 +2883,12 @@ class GETnHandler(TypeHandler):
   if (!WaitForCmd()) {
     return;
   }
+
+  int expected_num_results = util_.GLGetNumValuesReturned(pname);
+  DCHECK(expected_num_results != 0) << pname;
+  result->SetNumResults(
+    std::min(result->GetNumResults(), expected_num_results));
+
   result->CopyResult(%(last_arg_name)s);
   GPU_CLIENT_LOG_CODE_BLOCK({
     for (int32_t i = 0; i < result->GetNumResults(); ++i) {
@@ -4514,9 +4520,10 @@ TEST_P(%(test_name)s, %(name)sValidArgs) {
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
   CommonDecoder::Bucket* bucket = decoder_->GetBucket(kBucketId);
   ASSERT_TRUE(bucket != nullptr);
-  EXPECT_EQ(strlen(kInfo) + 1, bucket->size());
-  EXPECT_EQ(0, UNSAFE_TODO(memcmp(bucket->GetData(0, bucket->size()), kInfo,
-                        bucket->size())));
+  const std::string_view info(kInfo);
+  ASSERT_EQ(info.size() + 1u, bucket->size());
+  EXPECT_EQ(base::as_string_view(bucket->GetDataAsByteSpan(0, info.size())),
+            info);
   EXPECT_EQ(GL_NO_ERROR, GetGLError());
 }
 """
@@ -5009,6 +5016,14 @@ class EnumBaseArgument(Argument):
     index = func.GetCmdArgs().index(self)
     return str(index + 1)
 
+  def GetValidNonCachedClientSideArg(self, _):
+    """Return a glGet pname so that GLES2Util::GLGetNumValuesReturned returns
+    1, but that is also not cached on the GLES2Implementation"""
+    return 'GL_COMPILE_STATUS'
+
+  def GetValidNonCachedClientSideCmdArg(self, func):
+    return self.GetValidNonCachedClientSideArg(func)
+
   def GetValidGLArg(self, func):
     """Gets a valid value for this argument."""
     return self.GetValidArg(func)
@@ -5228,8 +5243,10 @@ class BucketPointerArgument(PointerArgument):
   def WriteGetCode(self, f):
     """Overridden from Argument."""
     f.write(
-      "  %s %s = bucket->GetData(0, %s);\n" %
-      (self.type, self.name, self.GetReservedSizeId()))
+      "  base::span<uint8_t> %s_span = bucket->GetDataAsByteSpan(0, %s);\n" %
+      (self.name, self.GetReservedSizeId()))
+    f.write(
+      "  %s %s = %s_span.data();\n" % (self.type, self.name, self.name))
 
   def WriteValidationCode(self, f, func):
     """Overridden from Argument."""

@@ -73,7 +73,7 @@ if (is_android) {
     if (is_cronet_build) {
       # Cronet's min sdk version support policy is different from the rest of
       # Chromium; Cronet explicitly supports older devices.
-      default_min_sdk_version = 23
+      default_min_sdk_version = 24
     }
 
     # Static analysis can be either "on" or "off" or "build_server". This
@@ -151,6 +151,7 @@ if (is_android) {
     import("//clank/config.gni")
   } else {
     import("//build/config/android/sdk.gni")
+
     declare_args() {
       # Which Android SDK to use.
       android_sdk_release = default_android_sdk_release
@@ -162,7 +163,7 @@ if (is_android) {
   public_android_sdk_root = "//third_party/android_sdk/public"
   public_android_sdk_platform_version = "37.0"
   public_android_sdk_build_tools_version = "37.0.0"
-  if (android_sdk_release == "b") {
+  if (android_sdk_release == "public") {
     default_android_sdk_root = public_android_sdk_root
     default_android_sdk_platform_version = public_android_sdk_platform_version
     default_android_sdk_build_tools_version =
@@ -233,9 +234,9 @@ if (is_android) {
   declare_args() {
     android_ndk_api_level = default_min_sdk_version
 
-    if (current_cpu == "riscv64" && default_min_sdk_version < 36) {
-      # Android did not support RISC-V64 before API 36.
-      android_ndk_api_level = 36
+    if (current_cpu == "riscv64" && default_min_sdk_version < 37) {
+      # The Android NDK sysroot only provides RISC-V 64 libraries for API 37+.
+      android_ndk_api_level = 37
     }
 
     android_sdk_root = default_android_sdk_root

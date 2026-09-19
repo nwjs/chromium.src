@@ -4,11 +4,12 @@
 
 import 'chrome://iwa-dev/app.js';
 
-import {MIN_UPDATE_DELAY_MS} from 'chrome://iwa-dev/app.js';
+import {getStoredUpdateOptions, getUpdateOptionsStorageKey, MIN_UPDATE_DELAY_MS, saveStoredUpdateOptions} from 'chrome://iwa-dev/app.js';
 import type {IwaDevAppElement} from 'chrome://iwa-dev/app.js';
 import type {InstalledAppListItemElement} from 'chrome://iwa-dev/installed_app_list_item.js';
-import type {IwaDevModeAppInfo, PageCallbackRouter, UpdateManifest} from 'chrome://iwa-dev/iwa_dev.mojom-webui.js';
+import type {IwaDevModeAppInfo, PageCallbackRouter, UpdateManifest, UpdateManifestOptions} from 'chrome://iwa-dev/iwa_dev.mojom-webui.js';
 import {browserProxyFactory, PageHandlerRemote} from 'chrome://iwa-dev/iwa_dev.mojom-webui.js';
+import type {IwaDevUpdateOptionsDialogElement} from 'chrome://iwa-dev/update_options_dialog.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
@@ -25,6 +26,7 @@ suite('<iwa-dev-app>', () => {
   let uninstalledListener: ((appId: string) => void)|undefined = undefined;
 
   setup(() => {
+    window.localStorage.clear();
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     handler = TestMock.fromClass(PageHandlerRemote);
     browserProxyFactory.setInstance({
@@ -59,8 +61,13 @@ suite('<iwa-dev-app>', () => {
     uninstalledListener = undefined;
   });
 
-  function createApp(devModeEnabled: boolean = true) {
-    loadTimeData.overrideValues({isIwaDevModeEnabled: devModeEnabled});
+  function createApp(
+      devModeEnabled: boolean = true,
+      devToolsRestrictedByAdmin: boolean = false) {
+    loadTimeData.overrideValues({
+      isIwaDevModeEnabled: devModeEnabled,
+      isDevToolsRestrictedByAdmin: devToolsRestrictedByAdmin,
+    });
     app = document.createElement('iwa-dev-app');
     document.body.appendChild(app);
   }
@@ -111,6 +118,20 @@ suite('<iwa-dev-app>', () => {
     };
   }
 
+  async function setupManifestInstalledApp(options?: UpdateManifestOptions):
+      Promise<IwaDevModeAppInfo> {
+    const appInfo = createManifestInstalledAppInfo();
+    if (options) {
+      saveStoredUpdateOptions(appInfo.appId, options);
+    }
+    handler.setResultFor(
+        'getInstalledAppsInfo', Promise.resolve({apps: [appInfo]}));
+    createApp(/*devModeEnabled=*/ true);
+    await handler.whenCalled('getInstalledAppsInfo');
+    await microtasksFinished();
+    return appInfo;
+  }
+
   function getListItems(): NodeListOf<InstalledAppListItemElement> {
     return app.shadowRoot.querySelectorAll<InstalledAppListItemElement>(
         'installed-app-list-item');
@@ -135,6 +156,20 @@ suite('<iwa-dev-app>', () => {
     await microtasksFinished();
   }
 
+  test(
+      'display error message when IWA dev mode is disabled by policy',
+      async () => {
+        createApp(
+            /*devModeEnabled=*/ false, /*devToolsRestrictedByAdmin=*/ true);
+        await microtasksFinished();
+
+        const message =
+            app.shadowRoot.querySelector('#dev-mode-disabled-message');
+        assertTrue(!!message);
+        assertTrue(message.textContent.includes(
+            'Isolated Web App Developer Mode is disabled by your administrator.'));
+      });
+
   test('display error message when IWA dev mode is disabled', async () => {
     createApp(/*devModeEnabled=*/ false);
     await microtasksFinished();
@@ -143,11 +178,11 @@ suite('<iwa-dev-app>', () => {
     assertTrue(!!heading);
     assertEquals('Isolated Web App Developer Tool', heading.textContent.trim());
 
-    const errorMessage = app.shadowRoot.querySelector('#error-message');
-    assertTrue(!!errorMessage);
-    assertTrue(errorMessage.textContent.includes(
+    const message = app.shadowRoot.querySelector('#dev-mode-disabled-message');
+    assertTrue(!!message);
+    assertTrue(message.textContent.includes(
         'Isolated Web App Developer Mode is disabled.'));
-    const link = errorMessage.querySelector('a');
+    const link = message.querySelector('a');
     assertTrue(!!link);
     assertEquals('chrome://flags/#enable-isolated-web-app-dev-mode', link.href);
   });
@@ -163,7 +198,13 @@ suite('<iwa-dev-app>', () => {
     assertTrue(!!heading);
     assertEquals('Isolated Web App Developer Tool', heading.textContent.trim());
 
-    assertFalse(!!app.shadowRoot.querySelector('#error-message'));
+    const subtitle = app.shadowRoot.querySelector('#installed-apps-subtitle');
+    assertTrue(!!subtitle);
+    assertEquals(
+        'Only apps installed via developer mode appear here.',
+        subtitle.textContent.trim());
+
+    assertFalse(!!app.shadowRoot.querySelector('#dev-mode-disabled-message'));
   });
 
   test('display message when no IWAs installed', async () => {
@@ -405,21 +446,18 @@ suite('<iwa-dev-app>', () => {
       'calls updateManifestInstalledApp on update click for ' +
           'manifest app (success)',
       async () => {
-        const appInfo = createManifestInstalledAppInfo();
-        handler.setResultFor(
-            'getInstalledAppsInfo', Promise.resolve({apps: [appInfo]}));
         handler.setResultFor('updateManifestInstalledApp', Promise.resolve());
-        createApp(/*devModeEnabled=*/ true);
-
-        await handler.whenCalled('getInstalledAppsInfo');
-        await microtasksFinished();
+        await setupManifestInstalledApp();
 
         assertEquals(1, getListItems().length);
 
         clickUpdateButton();
 
-        const appId = await handler.whenCalled('updateManifestInstalledApp');
+        const [appId, options] =
+            await handler.whenCalled('updateManifestInstalledApp');
         assertEquals('test-manifest-app-id', appId);
+        assertDeepEquals(
+            {allowDowngrades: false, pinnedVersion: null}, options);
 
         await waitForUpdateCompletion();
         assertTrue(app.$.toast.open);
@@ -430,16 +468,10 @@ suite('<iwa-dev-app>', () => {
       'calls updateManifestInstalledApp on update click for ' +
           'manifest app (error)',
       async () => {
-        const appInfo = createManifestInstalledAppInfo();
-        handler.setResultFor(
-            'getInstalledAppsInfo', Promise.resolve({apps: [appInfo]}));
         handler.setResultFor('updateManifestInstalledApp', Promise.reject({
           message: 'App is already on the latest version.',
         }));
-        createApp(/*devModeEnabled=*/ true);
-
-        await handler.whenCalled('getInstalledAppsInfo');
-        await microtasksFinished();
+        await setupManifestInstalledApp();
 
         assertEquals(1, getListItems().length);
 
@@ -455,20 +487,12 @@ suite('<iwa-dev-app>', () => {
       });
 
   test('disables update button while update is in progress', async () => {
-    const appInfo = createManifestInstalledAppInfo();
-    handler.setResultFor(
-        'getInstalledAppsInfo', Promise.resolve({apps: [appInfo]}));
-
     let resolveUpdate!: () => void;
     const updatePromise = new Promise<void>(resolve => {
       resolveUpdate = resolve;
     });
     handler.setResultFor('updateManifestInstalledApp', updatePromise);
-
-    createApp(/*devModeEnabled=*/ true);
-
-    await handler.whenCalled('getInstalledAppsInfo');
-    await microtasksFinished();
+    await setupManifestInstalledApp();
 
     assertFalse(
         getUpdateButton().disabled, 'Button should be enabled initially');
@@ -588,7 +612,7 @@ suite('<iwa-dev-app>', () => {
         await microtasksFinished();
 
         const errorDiv =
-            dialog.shadowRoot.querySelector<HTMLElement>('#error-message');
+            dialog.shadowRoot.querySelector<HTMLElement>('.error-message');
         assertTrue(!!errorDiv);
         assertEquals('No file selected', errorDiv.textContent?.trim());
       });
@@ -682,4 +706,343 @@ suite('<iwa-dev-app>', () => {
         assertEquals(
             'Installation successful!', app.$.toast.textContent?.trim());
       });
+
+  test(
+      'display split button with update options only for manifest apps',
+      async () => {
+        const apps = [
+          createBundleInstalledAppInfo(),
+          createProxyInstalledAppInfo(),
+          createManifestInstalledAppInfo(),
+        ];
+        handler.setResultFor('getInstalledAppsInfo', Promise.resolve({apps}));
+
+        createApp(/*devModeEnabled=*/ true);
+        await handler.whenCalled('getInstalledAppsInfo');
+        await microtasksFinished();
+
+        const items = getListItems();
+        assertEquals(3, items.length);
+
+        // Local Bundle App: no split button or update options button, no copy
+        // button
+        assertFalse(!!items[0]!.shadowRoot.querySelector('#split-button'));
+        assertFalse(
+            !!items[0]!.shadowRoot.querySelector('#update-options-btn'));
+        assertFalse(!!items[0]!.shadowRoot.querySelector('#copy-btn'));
+        assertTrue(!!items[0]!.shadowRoot.querySelector('#update-btn'));
+
+        // Proxy App: no split button or update options button, no copy button
+        assertFalse(!!items[1]!.shadowRoot.querySelector('#split-button'));
+        assertFalse(
+            !!items[1]!.shadowRoot.querySelector('#update-options-btn'));
+        assertFalse(!!items[1]!.shadowRoot.querySelector('#copy-btn'));
+        assertTrue(!!items[1]!.shadowRoot.querySelector('#update-btn'));
+
+        // Manifest App: split button, update options button, and copy button
+        // present
+        const splitButton = items[2]!.shadowRoot.querySelector('#split-button');
+        assertTrue(!!splitButton);
+        const optionsBtn =
+            items[2]!.shadowRoot.querySelector<HTMLButtonElement>(
+                '#update-options-btn');
+        assertTrue(!!optionsBtn);
+        const copyBtn =
+            items[2]!.shadowRoot.querySelector<HTMLElement>('#copy-btn');
+        assertTrue(!!copyBtn);
+      });
+
+  test(
+      'clicking copy button copies update manifest url to clipboard',
+      async () => {
+        let clipboardText = '';
+        Object.defineProperty(navigator, 'clipboard', {
+          value: {
+            writeText: (text: string) => {
+              clipboardText = text;
+              return Promise.resolve();
+            },
+            readText: () => Promise.resolve(clipboardText),
+          },
+          configurable: true,
+        });
+
+        await setupManifestInstalledApp();
+
+        const items = getListItems();
+        assertEquals(1, items.length);
+        const copyButton =
+            items[0]!.shadowRoot.querySelector<HTMLElement>('#copy-btn');
+        assertTrue(!!copyButton);
+        assertEquals('Copy update manifest URL', copyButton.title);
+        assertTrue(copyButton.classList.contains('icon-copy-content'));
+        assertFalse(copyButton.hasAttribute('iron-icon'));
+
+        copyButton.click();
+        await microtasksFinished();
+
+        assertEquals('https://example.com/manifest.json', clipboardText);
+        assertEquals('Copied', copyButton.title);
+        assertEquals('Copied', copyButton.getAttribute('aria-label'));
+        assertEquals('cr:check', copyButton.getAttribute('iron-icon'));
+        assertFalse(copyButton.classList.contains('icon-copy-content'));
+      });
+
+  function getUpdateOptionsDialog(): IwaDevUpdateOptionsDialogElement|null {
+    return app.shadowRoot.querySelector<IwaDevUpdateOptionsDialogElement>(
+        '#updateOptionsDialog');
+  }
+
+  test('opens update options dialog on button click', async () => {
+    handler.setResultFor(
+        'parseUpdateManifestFromUrl',
+        Promise.resolve({versions: [], channels: []}));
+    await setupManifestInstalledApp();
+
+    const items = getListItems();
+    const optionsBtn = items[0]!.shadowRoot.querySelector<HTMLButtonElement>(
+        '#update-options-btn')!;
+    optionsBtn.click();
+    const urlArg = await handler.whenCalled('parseUpdateManifestFromUrl');
+    assertEquals('https://example.com/manifest.json', urlArg);
+    await microtasksFinished();
+
+    const dialog = getUpdateOptionsDialog()!;
+    assertTrue(!!dialog);
+    assertTrue(dialog.$.dialog.open);
+  });
+
+  async function testSetUpdateChannel(
+      mojoResult: Promise<void>, expectedToast: string) {
+    const appInfo = createManifestInstalledAppInfo();
+    handler.setResultFor(
+        'getInstalledAppsInfo', Promise.resolve({apps: [appInfo]}));
+    handler.setResultFor('setUpdateChannel', mojoResult);
+    handler.setResultFor(
+        'parseUpdateManifestFromUrl',
+        Promise.resolve({versions: [], channels: []}));
+
+    createApp(/*devModeEnabled=*/ true);
+    await handler.whenCalled('getInstalledAppsInfo');
+    await microtasksFinished();
+
+    getListItems()[0]!.dispatchEvent(new CustomEvent('request-update-options', {
+      detail: {app: appInfo},
+    }));
+    await microtasksFinished();
+
+    const dialog = getUpdateOptionsDialog()!;
+    assertTrue(!!dialog);
+    dialog.dispatchEvent(new CustomEvent('update-options-saved', {
+      detail: {app: appInfo, selectedChannel: 'beta'},
+    }));
+
+    const [appIdArg, channelArg] = await handler.whenCalled('setUpdateChannel');
+    assertEquals(appInfo.appId, appIdArg);
+    assertEquals('beta', channelArg);
+
+    await microtasksFinished();
+    assertTrue(app.$.toast.open);
+    assertEquals(expectedToast, app.$.toast.textContent?.trim());
+  }
+
+  test('calls setUpdateChannel on update-options-saved (success)', async () => {
+    await testSetUpdateChannel(Promise.resolve(), 'Update options saved');
+  });
+
+  test('shows error toast when setUpdateChannel fails', async () => {
+    await testSetUpdateChannel(
+        Promise.reject({message: 'Channel not found'}),
+        'Failed to set update channel: Channel not found');
+  });
+
+  test('shows toast when only pinned version is saved', async () => {
+    handler.setResultFor(
+        'parseUpdateManifestFromUrl',
+        Promise.resolve({versions: [], channels: []}));
+    const appInfo = await setupManifestInstalledApp();
+    getListItems()[0]!.dispatchEvent(new CustomEvent('request-update-options', {
+      detail: {app: appInfo},
+    }));
+    await microtasksFinished();
+
+    const dialog = getUpdateOptionsDialog()!;
+    assertTrue(!!dialog);
+    dialog.dispatchEvent(new CustomEvent('update-options-saved', {
+      detail: {app: appInfo, pinnedVersion: '1.2.0'},
+    }));
+
+    await microtasksFinished();
+    assertTrue(app.$.toast.open);
+    assertEquals('Update options saved', app.$.toast.textContent?.trim());
+    assertEquals('1.2.0', getStoredUpdateOptions(appInfo.appId).pinnedVersion);
+  });
+
+  test('shows toast when both channel and version are saved', async () => {
+    handler.setResultFor('setUpdateChannel', Promise.resolve());
+    handler.setResultFor(
+        'parseUpdateManifestFromUrl',
+        Promise.resolve({versions: [], channels: []}));
+    const appInfo = await setupManifestInstalledApp();
+    getListItems()[0]!.dispatchEvent(new CustomEvent('request-update-options', {
+      detail: {app: appInfo},
+    }));
+    await microtasksFinished();
+
+    const dialog = getUpdateOptionsDialog()!;
+    assertTrue(!!dialog);
+    dialog.dispatchEvent(new CustomEvent('update-options-saved', {
+      detail: {
+        app: appInfo,
+        selectedChannel: 'beta',
+        pinnedVersion: '1.2.0',
+      },
+    }));
+
+    const [appIdArg, channelArg] = await handler.whenCalled('setUpdateChannel');
+    assertEquals(appInfo.appId, appIdArg);
+    assertEquals('beta', channelArg);
+
+    await microtasksFinished();
+    assertTrue(app.$.toast.open);
+    assertEquals('Update options saved', app.$.toast.textContent?.trim());
+    assertEquals('1.2.0', getStoredUpdateOptions(appInfo.appId).pinnedVersion);
+  });
+
+  test('shows toast when allow downgrades is saved', async () => {
+    handler.setResultFor(
+        'parseUpdateManifestFromUrl',
+        Promise.resolve({versions: [], channels: []}));
+    const appInfo = await setupManifestInstalledApp();
+    getListItems()[0]!.dispatchEvent(new CustomEvent('request-update-options', {
+      detail: {app: appInfo},
+    }));
+    await microtasksFinished();
+
+    const dialog = getUpdateOptionsDialog()!;
+    assertTrue(!!dialog);
+    dialog.dispatchEvent(new CustomEvent('update-options-saved', {
+      detail: {app: appInfo, allowDowngrades: true},
+    }));
+
+    await microtasksFinished();
+    assertTrue(app.$.toast.open);
+    assertEquals('Update options saved', app.$.toast.textContent?.trim());
+    assertTrue(getStoredUpdateOptions(appInfo.appId).allowDowngrades);
+  });
+
+  test(
+      'calls updateManifestInstalledApp with stored pinned version',
+      async () => {
+        const appInfo = await setupManifestInstalledApp(
+            {allowDowngrades: false, pinnedVersion: '2.5.0'});
+        handler.setResultFor('updateManifestInstalledApp', Promise.resolve());
+
+        clickUpdateButton();
+
+        const [appId, options] =
+            await handler.whenCalled('updateManifestInstalledApp');
+        assertEquals(appInfo.appId, appId);
+        assertDeepEquals(
+            {allowDowngrades: false, pinnedVersion: '2.5.0'}, options);
+
+        await waitForUpdateCompletion();
+      });
+
+  test(
+      'passes stored update options when opening update options dialog',
+      async () => {
+        handler.setResultFor(
+            'parseUpdateManifestFromUrl',
+            Promise.resolve({versions: [], channels: []}));
+        const appInfo = await setupManifestInstalledApp(
+            {allowDowngrades: true, pinnedVersion: '2.5.0'});
+
+        getListItems()[0]!.dispatchEvent(
+            new CustomEvent('request-update-options', {
+              detail: {app: appInfo},
+            }));
+        await microtasksFinished();
+
+        const dialog = getUpdateOptionsDialog()!;
+        assertTrue(!!dialog);
+        assertTrue(dialog.$.dialog.open);
+        assertEquals('2.5.0', dialog.currentPinnedVersion);
+        assertTrue(dialog.currentAllowDowngrades);
+      });
+
+  test(
+      'removes stored update options when unpinning version on save',
+      async () => {
+        handler.setResultFor(
+            'parseUpdateManifestFromUrl',
+            Promise.resolve({versions: [], channels: []}));
+        const appInfo = await setupManifestInstalledApp(
+            {allowDowngrades: false, pinnedVersion: '1.2.0'});
+
+        getListItems()[0]!.dispatchEvent(
+            new CustomEvent('request-update-options', {
+              detail: {app: appInfo},
+            }));
+        await microtasksFinished();
+
+        const dialog = getUpdateOptionsDialog()!;
+        assertTrue(!!dialog);
+        dialog.dispatchEvent(new CustomEvent('update-options-saved', {
+          detail: {app: appInfo, pinnedVersion: null},
+        }));
+
+        await microtasksFinished();
+        assertTrue(app.$.toast.open);
+        assertEquals('Update options saved', app.$.toast.textContent?.trim());
+        assertEquals(
+            null,
+            window.localStorage.getItem(
+                getUpdateOptionsStorageKey(appInfo.appId)));
+      });
+
+  test('cleans up stored update options on uninstall', async () => {
+    const appInfo = await setupManifestInstalledApp(
+        {allowDowngrades: false, pinnedVersion: '1.2.0'});
+    handler.setResultFor('uninstallApp', Promise.resolve({success: true}));
+
+    getListItems()[0]!.dispatchEvent(
+        new CustomEvent('request-uninstall', {detail: {app: appInfo}}));
+    await handler.whenCalled('uninstallApp');
+    await microtasksFinished();
+
+    assertEquals(
+        null,
+        window.localStorage.getItem(getUpdateOptionsStorageKey(appInfo.appId)));
+  });
+});
+
+suite('storage helpers', () => {
+  const testAppId = 'test-storage-app-id';
+
+  teardown(() => {
+    window.localStorage.removeItem(getUpdateOptionsStorageKey(testAppId));
+  });
+
+  test('removes item from localStorage when options match default', () => {
+    saveStoredUpdateOptions(
+        testAppId, {allowDowngrades: false, pinnedVersion: '1.0.0'});
+    assertTrue(
+        window.localStorage.getItem(getUpdateOptionsStorageKey(testAppId)) !==
+        null);
+
+    saveStoredUpdateOptions(
+        testAppId, {allowDowngrades: false, pinnedVersion: null});
+    assertEquals(
+        null,
+        window.localStorage.getItem(getUpdateOptionsStorageKey(testAppId)));
+  });
+
+  test('handles corrupted or missing localStorage gracefully', () => {
+    window.localStorage.setItem(
+        getUpdateOptionsStorageKey(testAppId), 'invalid-json');
+    assertDeepEquals(
+        {allowDowngrades: false, pinnedVersion: null},
+        getStoredUpdateOptions(testAppId));
+  });
 });

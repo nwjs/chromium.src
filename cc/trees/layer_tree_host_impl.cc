@@ -224,12 +224,16 @@ void DidVisibilityChange(LayerTreeHostImpl* id, bool visible) {
                   /*"LayerTreeHostImpl::SetVisible"*/ visibility_track);
 }
 
-void PopulateMetadataContentColorUsage(const FrameData* frame,
+void PopulateMetadataContentColorUsage(const LayerTreeImpl* active_tree,
+                                       const FrameData* frame,
                                        viz::CompositorFrameMetadata* metadata) {
   metadata->content_color_usage = gfx::ContentColorUsage::kSRGB;
-  for (const LayerImpl* layer : frame->will_draw_layers) {
-    metadata->content_color_usage =
-        std::max(metadata->content_color_usage, layer->GetContentColorUsage());
+  for (int layer_id : frame->will_draw_layers) {
+    const LayerImpl* layer = active_tree->LayerById(layer_id);
+    if (layer) {
+      metadata->content_color_usage = std::max(metadata->content_color_usage,
+                                               layer->GetContentColorUsage());
+    }
   }
 }
 
@@ -649,7 +653,9 @@ LayerTreeHostImpl::LayerTreeHostImpl(
         std::make_unique<CompositorFrameReportingController>(
             /*should_report_histograms=*/!settings
                 .single_thread_proxy_scheduler,
-            id,
+            /*should_report_scroll_timing=*/
+            settings.enable_scroll_performance_timing,
+            /*layer_tree_host_id=*/id,
             /*is_trees_in_viz_client=*/
             settings_.TreesInVizInClientProcess());
 #if BUILDFLAG(IS_ANDROID)
@@ -659,6 +665,7 @@ LayerTreeHostImpl::LayerTreeHostImpl(
     }
 #endif
   }
+  compositor_frame_reporting_controller_->SetVisible(visible_);
 
   if (base::FeatureList::IsEnabled(features::kTreesInViz) ||
       base::FeatureList::IsEnabled(features::kTreeAnimationsInViz)) {
@@ -1075,6 +1082,19 @@ bool LayerTreeHostImpl::HasDamage() const {
     return true;
   }
 
+  // Unbounded elements can be positioned outside the root viewport, so check if
+  // any unbounded render surface has damage even if the root surface has none.
+  if (settings_.enable_unbounded_element) {
+    for (int effect_id : active_tree->GetRenderSurfaceList()) {
+      const RenderSurfaceImpl* surface =
+          active_tree->GetRenderSurface(effect_id);
+      if (surface->IsUnbounded() &&
+          surface->GetDamageRect().Intersects(surface->content_rect())) {
+        return true;
+      }
+    }
+  }
+
   // If the root render surface has no visible damage, then don't generate a
   // frame at all.
   const RenderSurfaceImpl* root_surface = active_tree->RootRenderSurface();
@@ -1216,8 +1236,9 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame,
   size_t render_surface_list_size = frame->render_surface_list->size();
   for (size_t i = 0; i < render_surface_list_size; ++i) {
     const size_t surface_index = render_surface_list_size - 1 - i;
+    int effect_id = (*frame->render_surface_list)[surface_index];
     RenderSurfaceImpl* render_surface =
-        (*frame->render_surface_list)[surface_index];
+        active_tree_->GetRenderSurface(effect_id);
 
     const bool is_root_surface =
         render_surface->EffectTreeIndex() == kContentsRootPropertyNodeId;
@@ -1385,7 +1406,7 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame,
 
         // This is necessary in TreesInViz mode to trigger DidDraw() through
         // LayerTreeHostImpl::DidDrawAllLayers().
-        frame->will_draw_layers.push_back(layer);
+        frame->will_draw_layers.push_back(layer->id());
 
         layer->NotifyKnownResourceIdsBeforeAppendQuads(known_resource_ids);
         if (output_frame_data) {
@@ -1861,7 +1882,7 @@ void LayerTreeHostImpl::DidModifyTilePriorities(bool pending_update_tiles) {
 void LayerTreeHostImpl::SetTargetLocalSurfaceId(
     const viz::LocalSurfaceId& target_local_surface_id) {
   target_local_surface_id_ = target_local_surface_id;
-  if (layer_context_) {
+  if (layer_context_ && target_local_surface_id.is_valid()) {
     layer_context_->SetTargetLocalSurfaceId(target_local_surface_id);
   }
 }
@@ -2993,7 +3014,8 @@ std::optional<SubmitInfo> LayerTreeHostImpl::DrawLayers(FrameData* frame) {
   // The next frame should start by assuming nothing has changed, and changes
   // are noted as they occur.
   for (size_t i = 0; i < frame->render_surface_list->size(); i++) {
-    auto* surface = (*frame->render_surface_list)[i];
+    int effect_id = (*frame->render_surface_list)[i];
+    auto* surface = active_tree_->GetRenderSurface(effect_id);
     surface->damage_tracker()->DidDrawDamagedArea();
   }
   if (active_tree_->RootRenderSurface()) {
@@ -3115,7 +3137,9 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
     ViewTransitionRequest::ViewTransitionElementMap view_transition_element_map;
     const auto& capture_view_transition_tokens =
         active_tree_->GetCaptureViewTransitionTokens();
-    for (RenderSurfaceImpl* render_surface : *frame->render_surface_list) {
+    for (int effect_id : *frame->render_surface_list) {
+      RenderSurfaceImpl* render_surface =
+          active_tree_->GetRenderSurface(effect_id);
       const auto& view_transition_element_resource_id =
           render_surface->OwningEffectNode()
               ->view_transition_element_resource_id;
@@ -3184,7 +3208,7 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
     }
   }
 
-  PopulateMetadataContentColorUsage(frame, &metadata);
+  PopulateMetadataContentColorUsage(active_tree_.get(), frame, &metadata);
   metadata.has_shared_element_resources = frame->has_shared_element_resources;
   uint32_t frame_deadline = frame->deadline_in_frames.value_or(0u);
   // Set a higher frame deadline for ViewTransitions with `kAnimateRenderer` to
@@ -3195,7 +3219,11 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
   // Use the cached values because `TakeViewTransitionRequests()` clears the
   // requests from the tree.
   if (delay_layer_tree_view_deletion && has_view_transition_with_animate) {
-    frame_deadline = 240;
+    if (features::UsePerDependencyDeadlines()) {
+      metadata.view_transition_deadline_in_frames = 240u;
+    } else {
+      frame_deadline = 240;
+    }
   }
   metadata.deadline =
       viz::FrameDeadline(CurrentBeginFrameArgs().frame_time, frame_deadline,
@@ -3400,8 +3428,10 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
 void LayerTreeHostImpl::DidDrawAllLayers(const FrameData& frame) {
   // TODO(lethalantidote): LayerImpl::DidDraw can be removed when
   // VideoLayerImpl is removed.
-  for (LayerImpl* layer : frame.will_draw_layers) {
-    layer->DidDraw(resource_provider_.get());
+  for (int layer_id : frame.will_draw_layers) {
+    if (LayerImpl* layer = active_tree_->LayerById(layer_id)) {
+      layer->DidDraw(resource_provider_.get());
+    }
   }
 
   for (VideoFrameController* it : video_frame_controllers_) {

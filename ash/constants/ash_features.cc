@@ -526,9 +526,6 @@ BASE_FEATURE(kDoNotDisturbShortcut, base::FEATURE_ENABLED_BY_DEFAULT);
 // Enables or disables Sync for desk templates on ChromeOS.
 BASE_FEATURE(kDeskTemplateSync, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables or disables the new window occlusion calculator.
-BASE_FEATURE(kNewWindowOcclusionCalculator, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kDesksTemplates, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables diacritics on longpress on the physical keyboard by default.
@@ -803,19 +800,9 @@ BASE_FEATURE(kForceOnDeviceAppControlsForAllRegions,
 // For more info, see go/crosforest.
 BASE_FEATURE(kForestFeature, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables the new backend (uses `viz::ClientResourceProvider` +
-// `cc::ResourcePool`) for FrameSinkHost.
-BASE_FEATURE(kFrameSinkHostNewBackend, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables the new backend for `ViewTreeHostRootView` backend.
-BASE_FEATURE(kViewTreeHostRootViewNewBackend,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables the new backend for `FastInkHost` backend.
-BASE_FEATURE(kFastInkHostNewBackend, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables the new backend for `RoundedDisplayHost` backend.
-BASE_FEATURE(kRoundedDisplayHostNewBackend, base::FEATURE_DISABLED_BY_DEFAULT);
+// Enables low priority hint instead of overlay candidate override in
+// `FastInkHost`.
+BASE_FEATURE(kFastInkHostLowPriorityHint, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, there will be an alert bubble showing up when the device
 // returns from low brightness (e.g., sleep, closed cover) without a lock screen
@@ -1381,9 +1368,6 @@ BASE_FEATURE(kOobeSplitModifierKeyboardInfo, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables OOBE Jelly features.
 BASE_FEATURE(kOobeJelly, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables OOBE Jelly modal features.
-BASE_FEATURE(kOobeJellyModal, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables OOBE perks discovery feature.
 BASE_FEATURE(kOobePerksDiscovery, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1998,8 +1982,6 @@ BASE_FEATURE(kDeviceMoveConfigSave, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kDeviceWeeklyScheduledSuspendMgs,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables peripheral customization to be split per device.
-BASE_FEATURE(kPeripheralCustomization, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables or disables peripherals logging.
 BASE_FEATURE(kEnablePeripheralsLogging,
@@ -2463,10 +2445,6 @@ bool IsDemoModeSignInFileCleanupEnabled() {
   return base::FeatureList::IsEnabled(kDemoModeSignInFileCleanup);
 }
 
-bool IsNewWindowOcclusionCalculatorEnabled() {
-  return base::FeatureList::IsEnabled(kNewWindowOcclusionCalculator);
-}
-
 bool IsDeskTemplateSyncEnabled() {
   return base::FeatureList::IsEnabled(kDeskTemplateSync);
 }
@@ -2479,9 +2457,6 @@ bool IsDisplayPerformanceModeEnabled() {
   return base::FeatureList::IsEnabled(kDisplayPerformanceMode);
 }
 
-bool IsPeripheralCustomizationEnabled() {
-  return base::FeatureList::IsEnabled(kPeripheralCustomization);
-}
 
 bool IsPeripheralsLoggingEnabled() {
   return base::FeatureList::IsEnabled(kEnablePeripheralsLogging);
@@ -2631,20 +2606,8 @@ bool IsFullscreenAlertBubbleEnabled() {
   return base::FeatureList::IsEnabled(kFullscreenAlertBubble);
 }
 
-bool IsFrameSinkHostNewBackendEnabled() {
-  return base::FeatureList::IsEnabled(kFrameSinkHostNewBackend);
-}
-
-bool IsViewTreeHostNewBackendEnabled() {
-  return base::FeatureList::IsEnabled(kViewTreeHostRootViewNewBackend);
-}
-
-bool IsFastInkHostNewBackendEnabled() {
-  return base::FeatureList::IsEnabled(kFastInkHostNewBackend);
-}
-
-bool IsRoundedDisplayHostNewBackendEnabled() {
-  return base::FeatureList::IsEnabled(kRoundedDisplayHostNewBackend);
+bool IsFastInkHostLowPriorityHintEnabled() {
+  return base::FeatureList::IsEnabled(kFastInkHostLowPriorityHint);
 }
 
 bool IsBlockFwupdClientEnabled() {
@@ -2916,10 +2879,6 @@ bool IsOobeAiIntroEnabled() {
   return base::FeatureList::IsEnabled(kFeatureManagementOobeAiIntro);
 }
 
-bool IsOobeJellyModalEnabled() {
-  return IsOobeJellyEnabled() && base::FeatureList::IsEnabled(kOobeJellyModal);
-}
-
 bool IsBootAnimationEnabled() {
   return base::FeatureList::IsEnabled(kFeatureManagementOobeSimon);
 }
@@ -2993,8 +2952,7 @@ bool IsPerDeskShelfEnabled() {
 }
 
 bool IsPeripheralNotificationEnabled() {
-  return base::FeatureList::IsEnabled(kPeripheralNotification) &&
-         IsPeripheralCustomizationEnabled();
+  return base::FeatureList::IsEnabled(kPeripheralNotification);
 }
 
 bool IsPhoneHubMonochromeNotificationIconsEnabled() {

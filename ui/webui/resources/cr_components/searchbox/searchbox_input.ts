@@ -10,12 +10,14 @@ import {assert} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {MetricsReporterImpl} from '//resources/js/metrics_reporter/metrics_reporter.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
+import {KeywordType} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {AutocompleteMatch, InputKeywordModel, PageCallbackRouter} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 
 import {SearchboxBrowserProxy} from './searchbox_browser_proxy.js';
 import type {SearchboxIconElement} from './searchbox_icon.js';
 import {getCss} from './searchbox_input.css.js';
 import {getHtml} from './searchbox_input.html.js';
+import {markOnce} from './utils.js';
 
 // Register --placeholder-opacity as type <number> so that we can animate it.
 CSS.registerProperty({
@@ -152,7 +154,11 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
   }
 
   setInputText(text: string) {
+    // TODO(crbug.com/553005514): Investigate a way to track the rendering time
+    // and modify these markings accordingly.
+    markOnce('SearchboxInputElement::setInputText:Start');
     this.onSetInputText_(text);
+    markOnce('SearchboxInputElement::setInputText:End');
   }
 
   setInput(update: InputUpdate) {
@@ -372,6 +378,10 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
 
   protected computePlaceholderText_(): string {
     return this.placeholderText ?? this.i18n('searchBoxHint');
+  }
+
+  protected inKeywordMode_(): boolean {
+    return this.inputKeywordModel?.type === KeywordType.kInKeyword;
   }
 }
 

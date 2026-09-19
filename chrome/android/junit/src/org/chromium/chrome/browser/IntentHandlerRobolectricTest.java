@@ -6,9 +6,12 @@ package org.chromium.chrome.browser;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNativeNtpUrl;
 
@@ -43,7 +46,6 @@ import org.mockito.quality.Strictness;
 import org.robolectric.Robolectric;
 import org.robolectric.Shadows;
 import org.robolectric.android.controller.ActivityController;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowDisplayManager;
 import org.robolectric.shadows.ShadowKeyguardManager;
 import org.robolectric.shadows.ShadowPowerManager;
@@ -56,10 +58,17 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.IntentHandler.ExternalAppId;
+import org.chromium.chrome.browser.actor.ActorKeyedService;
+import org.chromium.chrome.browser.actor.ActorKeyedServiceFactory;
+import org.chromium.chrome.browser.actor.ActorNotificationFactory;
+import org.chromium.chrome.browser.actor.ActorTask;
 import org.chromium.chrome.browser.app.tabmodel.AsyncTabParamsManagerSingleton;
 import org.chromium.chrome.browser.customtabs.CustomTabsConnection;
 import org.chromium.chrome.browser.customtabs.CustomTabsIntentTestUtils;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.notifications.NotificationConstants;
+import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.AsyncTabCreationParams;
 import org.chromium.chrome.browser.tabmodel.MultiTabMetadata;
@@ -81,7 +90,6 @@ import java.util.Map;
  * than GURL/Origin).
  */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 @EnableFeatures(ChromeFeatureList.SEND_TAB_TO_SELF_PROPAGATE_SCROLL_POSITION)
 public class IntentHandlerRobolectricTest {
     private static final String[] ACCEPTED_NON_HTTP_AND_HTTPS_URLS = {
@@ -890,6 +898,40 @@ public class IntentHandlerRobolectricTest {
                 IntentHandler.shouldIgnoreIntent(untrustedIntent, /* isCustomTab= */ true));
     }
 
+    @Test
+    public void testGetGlicConversationId() {
+        Context context = ContextUtils.getApplicationContext();
+
+        assertNull(IntentHandler.getGlicConversationId(null));
+        assertNull(IntentHandler.getGlicConversationId(new Intent(Intent.ACTION_VIEW)));
+
+        // Untrusted intent with EXTRA_GLIC_CONVERSATION_ID and non-Chrome appId should return null.
+        Intent untrustedIntent = new Intent(Intent.ACTION_VIEW);
+        untrustedIntent.putExtra(NotificationConstants.EXTRA_GLIC_CONVERSATION_ID, "conv_123");
+        untrustedIntent.putExtra(Browser.EXTRA_APPLICATION_ID, "com.example.otherapp");
+        assertNull(IntentHandler.getGlicConversationId(untrustedIntent));
+
+        // Untrusted intent with EXTRA_GLIC_CONVERSATION_ID and Chrome's appId
+        // (wasIntentSenderChrome
+        // is false because it lacks trusted extras) should return null.
+        Intent chromeAppIdIntent = new Intent(Intent.ACTION_VIEW);
+        chromeAppIdIntent.putExtra(NotificationConstants.EXTRA_GLIC_CONVERSATION_ID, "conv_123");
+        chromeAppIdIntent.putExtra(Browser.EXTRA_APPLICATION_ID, context.getPackageName());
+        assertNull(IntentHandler.getGlicConversationId(chromeAppIdIntent));
+
+        // Trusted intent from Chrome with EXTRA_GLIC_CONVERSATION_ID should return the conversation
+        // ID.
+        try {
+            IntentUtils.setForceIsTrustedIntentForTesting(true);
+            Intent trustedIntent = new Intent(Intent.ACTION_VIEW);
+            trustedIntent.putExtra(NotificationConstants.EXTRA_GLIC_CONVERSATION_ID, "conv_123");
+            trustedIntent.setPackage(context.getPackageName());
+            assertEquals("conv_123", IntentHandler.getGlicConversationId(trustedIntent));
+        } finally {
+            IntentUtils.setForceIsTrustedIntentForTesting(false);
+        }
+    }
+
     private Intent createTabGroupIntent(boolean isIncognito, boolean isTrusted) {
         Intent intent = new Intent(Intent.ACTION_VIEW);
         ArrayList<Map.Entry<Integer, String>> tabIdsToUrls = new ArrayList<>();
@@ -928,5 +970,62 @@ public class IntentHandlerRobolectricTest {
             IntentUtils.addTrustedIntentExtras(intent);
         }
         return intent;
+    }
+
+    @Test
+    public void testIsActorNotificationIntent() {
+        assertFalse(IntentHandler.isActorNotificationIntent(null));
+
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        assertFalse(IntentHandler.isActorNotificationIntent(intent));
+
+        intent.putExtra(ActorNotificationFactory.EXTRA_SHOW_ACTOR_CONTROL, true);
+        assertTrue(IntentHandler.isActorNotificationIntent(intent));
+
+        intent = new Intent(Intent.ACTION_VIEW);
+        intent.putExtra(NotificationConstants.EXTRA_ACTOR_TASK_ID, 123);
+        assertTrue(IntentHandler.isActorNotificationIntent(intent));
+    }
+
+    @Test
+    public void testGetBringTabToFrontId_ActorNotification() {
+        Intent actorIntent = new Intent(Intent.ACTION_VIEW);
+        actorIntent.putExtra(ActorNotificationFactory.EXTRA_SHOW_ACTOR_CONTROL, true);
+        actorIntent.putExtra(NotificationConstants.EXTRA_ACTOR_TASK_ID, 123);
+
+        // Untrusted intent should return INVALID_TAB_ID.
+        assertEquals(
+                "Untrusted intent should return INVALID_TAB_ID.",
+                Tab.INVALID_TAB_ID,
+                IntentHandler.getBringTabToFrontId(actorIntent));
+
+        actorIntent.setPackage(ContextUtils.getApplicationContext().getPackageName());
+
+        // Trusted intent should resolve dynamically when explicit tab ID is invalid.
+        IntentUtils.addTrustedIntentExtras(actorIntent);
+
+        Profile profile = mock(Profile.class);
+        ProfileManager.setLastUsedProfileForTesting(profile);
+        ActorKeyedService actorKeyedService = mock(ActorKeyedService.class);
+        ActorKeyedServiceFactory.setForTesting(actorKeyedService);
+
+        ActorTask task = mock(ActorTask.class);
+        when(actorKeyedService.getTask(123)).thenReturn(task);
+        when(task.getTargetTabId()).thenReturn(789);
+
+        assertEquals(
+                "Should resolve tab ID dynamically for trusted actor notification intent.",
+                789,
+                IntentHandler.getBringTabToFrontId(actorIntent));
+
+        // Explicit valid tab ID should take precedence.
+        actorIntent.putExtra(IntentHandler.BRING_TAB_TO_FRONT_EXTRA, 42);
+        IntentUtils.addTrustedIntentExtras(actorIntent);
+        assertEquals(
+                "Explicit tab ID should take precedence.",
+                42,
+                IntentHandler.getBringTabToFrontId(actorIntent));
+
+        ActorKeyedServiceFactory.setForTesting(null);
     }
 }

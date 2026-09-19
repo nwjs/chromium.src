@@ -4,12 +4,10 @@
 
 #include "ash/wm/overview/overview_window_occlusion_calculator.h"
 
-#include "ash/constants/ash_features.h"
 #include "ash/shell.h"
 #include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desks_controller.h"
 #include "ash/wm/desks/desks_util.h"
-#include "ash/wm/desks/legacy_window_occlusion_calculator.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "base/trace_event/trace_event.h"
 
@@ -23,7 +21,7 @@ OverviewWindowOcclusionCalculator::OverviewWindowOcclusionCalculator(
 OverviewWindowOcclusionCalculator::~OverviewWindowOcclusionCalculator() =
     default;
 
-base::WeakPtr<WindowOcclusionCalculator>
+base::WeakPtr<DesksWindowOcclusionCalculator>
 OverviewWindowOcclusionCalculator::GetCalculator() {
   return calculator_ ? calculator_->AsWeakPtr() : nullptr;
 }
@@ -34,38 +32,16 @@ void OverviewWindowOcclusionCalculator::OnOverviewModeStarting() {
   }
   TRACE_EVENT0("ui",
                "OverviewWindowOcclusionCalculator::OnOverviewModeWillStart");
-  calculator_ = WindowOcclusionCalculator::Create();
-  // Compute initial occlusion state of all desk's windows before occlusion
-  // calculations are paused at the end of this method. Without this, the
-  // occlusion state will be unavailable when the desk's `DeskPreviewView`
-  // is built between now and the enter-overview animation's completion.
-  ComputeOcclusionStateForAllDesks();
-  aura::Window::Windows active_desk_containers;
+  calculator_ = std::make_unique<DesksWindowOcclusionCalculator>();
+  // Compute initial occlusion snapshot of all desks' windows before overview
+  // mode starts transforming windows into the overview grid.
+  aura::Window::Windows all_desk_containers;
   for (const auto& root_window : Shell::GetAllRootWindows()) {
-    active_desk_containers.push_back(
-        DesksController::Get()->active_desk()->GetDeskContainerForRoot(
-            root_window));
+    for (const auto& desk : DesksController::Get()->desks()) {
+      all_desk_containers.push_back(desk->GetDeskContainerForRoot(root_window));
+    }
   }
-  // Previewing the active desk in overview mode is a special case. When the
-  // active desk's windows get transformed to their new positions in the
-  // overview grid shortly after entering overview, a bunch of window occlusion
-  // changes get triggered because the windows are all technically visible at
-  // that point. Since `DeskPreviewView` should reflect the state of the desk's
-  // windows before they're transformed, it's important to snapshot their
-  // occlusion states here before the transformations begin.
-  calculator_->SnapshotOcclusionStateForWindows(active_desk_containers);
-  // Entering overview causes lots of occlusion computations that aren't needed
-  // and costs ~10 milliseconds of latency on low-end devices. Occlusion
-  // calculations can resume after the animation is complete.
-  enter_overview_pause_ = calculator_->Pause();
-}
-
-void OverviewWindowOcclusionCalculator::OnOverviewModeStartingAnimationComplete(
-    bool canceled) {
-  TRACE_EVENT0("ui",
-               "OverviewWindowOcclusionCalculator::"
-               "OnOverviewModeStartingAnimationComplete");
-  enter_overview_pause_.reset();
+  calculator_->SnapshotOcclusionStateForWindows(all_desk_containers);
 }
 
 void OverviewWindowOcclusionCalculator::OnOverviewModeEnding(
@@ -77,33 +53,7 @@ void OverviewWindowOcclusionCalculator::OnOverviewModeEnding(
   if (calculator_) {
     TRACE_EVENT0("ui",
                  "OverviewWindowOcclusionCalculator::OnOverviewModeEnding");
-    if (!features::IsNewWindowOcclusionCalculatorEnabled()) {
-      static_cast<legacy::WindowOcclusionCalculator*>(calculator_.get())
-          ->RemoveObserver(this);
-    }
     calculator_.reset();
-  }
-}
-
-void OverviewWindowOcclusionCalculator::ComputeOcclusionStateForAllDesks() {
-  aura::Window::Windows all_desk_containers;
-  for (const auto& root_window : Shell::GetAllRootWindows()) {
-    for (const auto& desk : DesksController::Get()->desks()) {
-      all_desk_containers.push_back(desk->GetDeskContainerForRoot(root_window));
-    }
-  }
-  CHECK(calculator_);
-  if (features::IsNewWindowOcclusionCalculatorEnabled()) {
-    calculator_->SnapshotOcclusionStateForWindows(all_desk_containers);
-  } else {
-    // `AddObserver()` is just a way of getting the `calculator_` to do an
-    // initial round of occlusion calculations for all desks (while forcing
-    // inactive desks to be visible internally) and caching the result for
-    // future calls to `GetOcclusionState()`. This class does not actually care
-    // about future changes, so `OnWindowOcclusionChanged()` is intentionally a
-    // no-op.
-    static_cast<legacy::WindowOcclusionCalculator*>(calculator_.get())
-        ->AddObserver(all_desk_containers, this);
   }
 }
 

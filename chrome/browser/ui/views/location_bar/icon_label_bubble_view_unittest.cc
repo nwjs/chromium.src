@@ -4,9 +4,6 @@
 
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 
-#include "chrome/browser/ui/views/location_bar/slide_and_crossfade_icon_label_bubble_layout_strategy.h"
-#include "chrome/browser/ui/views/location_bar/standard_icon_label_bubble_layout_strategy.h"
-
 #include <optional>
 
 #include "base/memory/raw_ptr.h"
@@ -14,10 +11,13 @@
 #include "build/build_config.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
+#include "chrome/browser/ui/views/location_bar/slide_and_crossfade_icon_label_bubble_layout_strategy.h"
+#include "chrome/browser/ui/views/location_bar/standard_icon_label_bubble_layout_strategy.h"
 #include "chrome/test/views/chrome_views_test_base.h"
 #include "components/strings/grit/components_strings.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/compositor/layer.h"
+#include "ui/base/pointer/touch_ui_controller.h"
+#include "ui/compositor/layer_textured.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/animation/animation_test_api.h"
@@ -173,8 +173,7 @@ class IconLabelBubbleViewTest : public IconLabelBubbleViewTestBase {
     ChromeViewsTestBase::SetUp();
     gfx::FontList font_list;
 
-    widget_ =
-        CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+    widget_ = CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
     generator_ = std::make_unique<ui::test::EventGenerator>(
         GetRootWindow(widget_.get()));
     view_ = widget_->SetContentsView(
@@ -807,6 +806,7 @@ TEST_F(IconLabelBubbleViewTest, AdditionalPaddingNotShownOnEmptyText) {
 
 TEST_F(IconLabelBubbleViewTest,
        AdditionalPaddingNotShownWhileCollapsedAndAnimated) {
+  gfx::Animation::SetPrefersReducedMotionForTesting(false);
   view()->SetUpAnimation();
   view()->SetSlideAnimationDuration(base::Seconds(60));
   view()->ResetSlideAnimation(false);
@@ -938,24 +938,37 @@ TEST_F(IconLabelBubbleViewTest, SlideAndCrossfadeAnimationConfiguredAndDriven) {
   view()->SetCrossfadeImage(
       ui::ImageModel::FromImage(gfx::test::CreateImage(16, 16)));
 
-  // Verify trailing icon is present and visible.
-  ASSERT_NE(view()->GetCrossfadeImageView(), nullptr);
-  EXPECT_TRUE(view()->GetCrossfadeImageView()->GetVisible());
+  // Verify trailing icon is present and visible with layer.
+  views::ImageView* trailing_image = view()->GetCrossfadeImageView();
+  ASSERT_NE(trailing_image, nullptr);
+  EXPECT_TRUE(trailing_image->GetVisible());
+  ASSERT_NE(trailing_image->layer(), nullptr);
 
   // Leading icon container layer is created.
   views::View* image_container = view()->image_container_view();
   ASSERT_NE(image_container, nullptr);
   ASSERT_NE(image_container->layer(), nullptr);
 
-  // Leading icon is fully opaque when slide animation is collapsed (0.0).
+  // Verify configured animation durations (333ms expand, 383ms collapse).
+  SlideAndCrossfadeIconLabelBubbleAnimationLayoutStrategy strategy(*view());
+  EXPECT_EQ(strategy.GetAnimationDuration(true), base::Milliseconds(333));
+  EXPECT_EQ(strategy.GetAnimationDuration(false), base::Milliseconds(383));
+
+  // Beginning state (collapsed / 0.0): leading icon is fully opaque and
+  // trailing icon is fully transparent, with identity layer transforms.
   view()->ResetSlideAnimation(false);
   view()->UpdateAnimationProgress();
   EXPECT_FLOAT_EQ(image_container->layer()->opacity(), 1.0f);
+  EXPECT_FLOAT_EQ(trailing_image->layer()->opacity(), 0.0f);
+  EXPECT_TRUE(image_container->layer()->transform().IsIdentity());
 
-  // Leading icon is fully transparent when slide animation is expanded (1.0).
+  // End state (expanded / 1.0): leading icon is fully transparent and
+  // trailing icon is fully opaque, with identity layer transforms.
   view()->ResetSlideAnimation(true);
   view()->UpdateAnimationProgress();
   EXPECT_FLOAT_EQ(image_container->layer()->opacity(), 0.0f);
+  EXPECT_FLOAT_EQ(trailing_image->layer()->opacity(), 1.0f);
+  EXPECT_TRUE(image_container->layer()->transform().IsIdentity());
 }
 
 TEST_F(IconLabelBubbleViewTest, LayerRecreationOnInkDropRegionsChange) {

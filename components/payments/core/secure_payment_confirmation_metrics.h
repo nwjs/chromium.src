@@ -36,6 +36,17 @@ enum class SecurePaymentConfirmationBrowserBoundKeyInclusionResult {
 
 // LINT.ThenChange(//tools/metrics/histograms/metadata/payment/enums.xml:BrowserBoundKeys)
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(SecurePaymentConfirmationLocaleOutcome)
+enum class SecurePaymentConfirmationLocaleOutcome {
+  kLocaleNotProvided = 0,
+  kMatch = 1,
+  kNoMatch = 2,
+  kMaxValue = kNoMatch,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/payment/enums.xml:SecurePaymentConfirmationLocaleOutcome)
+
 void RecordEnrollSystemPromptResult(
     SecurePaymentConfirmationEnrollSystemPromptResult result);
 
@@ -49,6 +60,10 @@ void RecordBrowserBoundKeyRetrieval(
     SecurePaymentConfirmationBrowserBoundKeyDeviceResult result);
 
 void RecordBrowserBoundKeyMetadataUpdated(bool success);
+
+void RecordOSStoreUplift(bool has_uplift);
+
+void RecordWebDatabaseHasOrphanedCredentials(bool has_orphaned_credentials);
 
 // TODO(crbug.com/40171413): Move other SPC metrics into this common file.
 

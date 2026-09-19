@@ -35,7 +35,7 @@
 #import "components/autofill/core/browser/foundations/test_autofill_client.h"
 #import "components/autofill/core/browser/foundations/test_autofill_manager_waiter.h"
 #import "components/autofill/core/browser/foundations/test_browser_autofill_manager.h"
-#import "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#import "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/core/common/form_data.h"
 #import "components/autofill/core/common/form_field_data.h"
@@ -56,6 +56,8 @@
 #import "components/prefs/testing_pref_service.h"
 #import "components/safe_browsing/ios/browser/safe_browsing_url_allow_list.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
+#import "ios/chrome/browser/intelligence/proto_wrappers/annotated_page_content_extraction_utils.h"
+#import "ios/chrome/browser/intelligence/proto_wrappers/frame_grafter.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_extractor_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_utils.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper_config.h"
@@ -104,8 +106,16 @@
 - (void)setBoxesToRedactForTesting:(const std::vector<CGRect>&)boxes;
 - (const std::vector<CGRect>&)boxesToRedactForTesting;
 - (optimization_guide::proto::PageContext*)pageContextForTesting;
+- (optimization_guide::proto::AnnotatedPageContent*)rootAPCNodeForTesting;
+- (FrameGrafter&)grafterForTesting;
 - (BOOL)shouldRedactDecisionForScreenshot:
     (optimization_guide::proto::RedactionDecision)decision;
+- (void)populateForRichExtractionWithValue:(const base::DictValue&)value
+                            securityOrigin:(const url::Origin&)securityOrigin
+                               isMainFrame:(BOOL)isMainFrame
+                           localFrameToken:
+                               (std::optional<autofill::LocalFrameToken>)
+                                   localFrameToken;
 @end
 
 namespace {
@@ -258,7 +268,6 @@ class PageContextWrapperTest : public PlatformTest,
     std::vector<base::test::FeatureRef> disabled_features;
     std::vector<base::test::FeatureRef> enabled_features;
     enabled_features.push_back(kPageActionMenu);
-    enabled_features.push_back(autofill::features::kAutofillAcrossIframesIos);
     if (IsRefactored()) {
       enabled_features.push_back(kPageContextExtractorRefactored);
     } else {
@@ -1046,7 +1055,7 @@ TEST_P(PageContextWrapperTest, PopulatePageContextWithAriaCustomFormControls) {
   }
 }
 
-// Tests that the wrapper records a screenshot failures.
+// Tests that the wrapper records a screenshot failure as blocking.
 TEST_P(PageContextWrapperTest, PopulatePageContext_SnapshotFailure) {
   base::HistogramTester histogram_tester;
 
@@ -1063,13 +1072,16 @@ TEST_P(PageContextWrapperTest, PopulatePageContext_SnapshotFailure) {
         wrapper.shouldGetSnapshot = YES;
       });
 
-  // Verify that the callback was called successfully even without screenshot.
-  ASSERT_TRUE(captured_response.has_value());
-  EXPECT_FALSE(captured_response.value()->has_tab_screenshot());
+  // Verify that the callback was called with a screenshot error.
+  ASSERT_FALSE(captured_response.has_value());
+  EXPECT_EQ(captured_response.error(),
+            PageContextWrapperError::kScreenshotError);
 
   // Verify that the screenshot failure metric was logged.
   histogram_tester.ExpectTotalCount(
       "IOS.PageContext.Screenshot.Failure.Latency", 1);
+  histogram_tester.ExpectTotalCount("IOS.PageContext.Overall.Failure.Latency",
+                                    1);
 }
 
 // Tests that the wrapper correctly handles a failure in one of the async tasks.
@@ -1092,26 +1104,6 @@ TEST_P(PageContextWrapperTest, PopulatePageContext_InnerTextFailure) {
   ASSERT_FALSE(captured_response.has_value());
   EXPECT_EQ(captured_response.error(),
             PageContextWrapperError::kInnerTextError);
-}
-
-// Tests that the wrapper correctly handles a snapshot failure as non-blocking.
-TEST_P(PageContextWrapperTest, PopulatePageContext_SnapshotFailureNonBlocking) {
-  auto page_structure = HtmlPage("", Paragraph("Hello"));
-  std::string main_html = page_helper_->Build(page_structure);
-  web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
-                      test_server_.GetURL(kMainPagePath), web_state());
-
-  // Set the snapshot delegate to cause a failure.
-  snapshot_delegate_.canTakeSnapshot = NO;
-
-  PageContextWrapperCallbackResponse captured_response =
-      RunPageContextWrapper(web_state(), ^(PageContextWrapper* wrapper) {
-        wrapper.shouldGetSnapshot = YES;
-      });
-
-  // Verify that the callback was called successfully even without screenshot.
-  ASSERT_TRUE(captured_response.has_value());
-  EXPECT_FALSE(captured_response.value()->has_tab_screenshot());
 }
 
 // Tests that the wrapper correctly handles a force detach signal from the
@@ -1975,8 +1967,9 @@ TEST_P(PageContextWrapperTest,
 
   const auto& annotated_page_content = page_context->annotated_page_content();
   const auto& root_node = annotated_page_content.root_node();
-  // Expect text node, iframe_a node, and a placeholder for iframe_b.
-  ASSERT_EQ(root_node.children_nodes_size(), 3);
+  // Expect text node and iframe_a node. Orphan iframe_b is dropped to prevent
+  // duplicate node_id collisions.
+  ASSERT_EQ(root_node.children_nodes_size(), 2);
 
   const optimization_guide::proto::ContentNode* text_node = nullptr;
   const optimization_guide::proto::ContentNode* iframe_a_node = nullptr;
@@ -1997,7 +1990,7 @@ TEST_P(PageContextWrapperTest,
 
   ASSERT_TRUE(text_node);
   ASSERT_TRUE(iframe_a_node);
-  ASSERT_TRUE(iframe_b_node);
+  EXPECT_FALSE(iframe_b_node);
 
   // Verify main frame text.
   EXPECT_EQ(text_node->content_attributes().text_data().text_content(),
@@ -2016,27 +2009,11 @@ TEST_P(PageContextWrapperTest,
   const auto& iframe_a_text_node = iframe_a_root_node.children_nodes(0);
   EXPECT_EQ(iframe_a_text_node.content_attributes().text_data().text_content(),
             "Child frame cross-origin text A");
-
-  // Verify iframe B is nested inside the main frame content instead of frame A
-  // because the frame B was left orphan by the grafter.
-  EXPECT_EQ(iframe_b_node->content_attributes().attribute_type(),
-            optimization_guide::proto::CONTENT_ATTRIBUTE_IFRAME);
-  const auto& iframe_b_frame_data =
-      iframe_b_node->content_attributes().iframe_data().frame_data();
-  EXPECT_EQ(iframe_b_frame_data.title(), "Child Cross Origin B");
-  EXPECT_EQ(iframe_b_frame_data.url(), iframe_b_url.spec());
-  ASSERT_EQ(iframe_b_node->children_nodes_size(), 1);
-  const auto& iframe_b_root_node = iframe_b_node->children_nodes(0);
-  ASSERT_EQ(iframe_b_root_node.children_nodes_size(), 1);
-  const auto& iframe_b_text_node = iframe_b_root_node.children_nodes(0);
-  EXPECT_EQ(iframe_b_text_node.content_attributes().text_data().text_content(),
-            "Child frame cross-origin text B");
 }
 
 // Tests that extraction with frame grafting works across origins with a complex
 // frame structure. Remote frame registration is disabled for Iframe D to make
-// it an unregistered frame that should be directly grafted under the main
-// frame.
+// it an unregistered frame that should be dropped.
 //      +----------------------------------+
 //      | Main page (Origin M)             |  - Main frame (Origin M)
 //      |                                  |    |
@@ -2177,7 +2154,9 @@ TEST_P(PageContextWrapperTest,
 
   const auto& annotated_page_content = page_context->annotated_page_content();
   const auto& root_node = annotated_page_content.root_node();
-  ASSERT_EQ(root_node.children_nodes_size(), 4);
+  // Expect 3 children: main text node, iframe_a node, and iframe_c node.
+  // Orphan iframe_d is dropped to prevent duplicate node_id collisions.
+  ASSERT_EQ(root_node.children_nodes_size(), 3);
 
   const optimization_guide::proto::ContentNode* iframe_a_node = nullptr;
   const optimization_guide::proto::ContentNode* iframe_c_node = nullptr;
@@ -2305,11 +2284,11 @@ TEST_P(PageContextWrapperTest, PopulatePageContextWithRegistrationFailure) {
   // We expect:
   // 1. Main Text.
   // 2. Empty placeholder node (from main frame's iframe tag).
-  // 3. Child frame content node (orphan).
-  ASSERT_EQ(root_node.children_nodes_size(), 3);
+  // Orphan/unregistered child frame is dropped from the tree.
+  ASSERT_EQ(root_node.children_nodes_size(), 2);
 
-  // Verify that the content of the unregistered frame was still added despite
-  // the timeout in the default location (as a children of the root node).
+  // Verify that the content of the unregistered frame was dropped rather than
+  // appended directly to the root node.
   bool found_unregistered_frame_text = false;
   for (const auto& node : root_node.children_nodes()) {
     if (node.content_attributes().has_iframe_data()) {
@@ -2325,7 +2304,7 @@ TEST_P(PageContextWrapperTest, PopulatePageContextWithRegistrationFailure) {
       }
     }
   }
-  EXPECT_TRUE(found_unregistered_frame_text);
+  EXPECT_FALSE(found_unregistered_frame_text);
 }
 
 // Tests extraction on a complex page with Rich Extraction.
@@ -2868,6 +2847,171 @@ TEST_P(PageContextWrapperTest,
   EXPECT_EQ(
       inner_p.children_nodes(0).content_attributes().text_data().text_content(),
       "Child frame 3 text");
+}
+
+// Tests that when populating for rich extraction, a valid child frame is
+// grafted into the main frame, while a child frame without a LocalFrameToken
+// (std::nullopt) is dropped and not appended to the root node.
+TEST_P(PageContextWrapperTest,
+       PopulateForRichExtraction_ChildFrameWithoutTokenDropped) {
+  if (!IsRefactored()) {
+    return;
+  }
+
+  PageContextWrapperConfig config =
+      PageContextWrapperConfigBuilder().SetUseRichExtraction(true).Build();
+
+  PageContextWrapper* wrapper =
+      [[PageContextWrapper alloc] initWithWebState:web_state()
+                                            config:config
+                                completionCallback:base::DoNothing()];
+
+  const std::string valid_child_remote_id = std::string(32, 'a');
+  const std::string valid_child_local_id = std::string(32, 'b');
+  autofill::LocalFrameToken main_token(base::UnguessableToken::Create());
+  autofill::RemoteFrameToken valid_child_remote_token(
+      *autofill::DeserializeJavaScriptFrameId(valid_child_remote_id));
+  autofill::LocalFrameToken valid_child_local_token(
+      *autofill::DeserializeJavaScriptFrameId(valid_child_local_id));
+
+  // Main Frame: Contains a text paragraph and an iframe placeholder.
+  base::DictValue main_dict = base::test::ParseJsonDict(base::StringPrintf(
+      R"({
+        "rootNode": {
+          "contentAttributes": {
+            "domNodeId": 1,
+            "attributeType": %d
+          },
+          "childrenNodes": [
+            {
+              "contentAttributes": {
+                "domNodeId": 2,
+                "attributeType": %d
+              },
+              "childrenNodes": [{
+                "contentAttributes": {
+                  "domNodeId": 3,
+                  "attributeType": %d,
+                  "textInfo": { "textContent": "Main frame text" }
+                }
+              }]
+            },
+            {
+              "contentAttributes": {
+                "domNodeId": 4,
+                "attributeType": %d,
+                "iframeData": {
+                  "remoteFrameToken": {
+                    "value": "%s"
+                  },
+                  "url": "https://valid.example.com/"
+                }
+              }
+            }
+          ]
+        }
+      })",
+      optimization_guide::proto::CONTENT_ATTRIBUTE_ROOT,
+      optimization_guide::proto::CONTENT_ATTRIBUTE_PARAGRAPH,
+      optimization_guide::proto::CONTENT_ATTRIBUTE_TEXT,
+      optimization_guide::proto::CONTENT_ATTRIBUTE_IFRAME,
+      valid_child_remote_id.c_str()));
+  [wrapper populateForRichExtractionWithValue:main_dict
+                               securityOrigin:url::Origin()
+                                  isMainFrame:YES
+                              localFrameToken:main_token];
+
+  // Working Child Frame (with a valid LocalFrameToken).
+  base::DictValue valid_child_dict =
+      base::test::ParseJsonDict(base::StringPrintf(
+          R"({
+    "rootNode": {
+      "contentAttributes": {
+        "domNodeId": 1,
+        "attributeType": %d
+      },
+      "childrenNodes": [{
+        "contentAttributes": {
+          "domNodeId": 2,
+          "attributeType": %d,
+          "textInfo": { "textContent": "Valid child text" }
+        }
+      }]
+    }
+  })",
+          optimization_guide::proto::CONTENT_ATTRIBUTE_ROOT,
+          optimization_guide::proto::CONTENT_ATTRIBUTE_TEXT));
+  [wrapper populateForRichExtractionWithValue:valid_child_dict
+                               securityOrigin:url::Origin::Create(GURL(
+                                                  "https://valid.example.com/"))
+                                  isMainFrame:NO
+                              localFrameToken:valid_child_local_token];
+
+  // Null-Token Child Frame (with std::nullopt).
+  base::DictValue null_token_child_dict =
+      base::test::ParseJsonDict(base::StringPrintf(
+          R"({
+    "rootNode": {
+      "contentAttributes": {
+        "domNodeId": 1,
+        "attributeType": %d
+      },
+      "childrenNodes": [{
+        "contentAttributes": {
+          "domNodeId": 2,
+          "attributeType": %d,
+          "textInfo": { "textContent": "Null token frame text" }
+        }
+      }]
+    }
+  })",
+          optimization_guide::proto::CONTENT_ATTRIBUTE_ROOT,
+          optimization_guide::proto::CONTENT_ATTRIBUTE_TEXT));
+  [wrapper populateForRichExtractionWithValue:null_token_child_dict
+                               securityOrigin:url::Origin::Create(GURL(
+                                                  "https://null.example.com/"))
+                                  isMainFrame:NO
+                              localFrameToken:std::nullopt];
+
+  // Resolve frame grafting.
+  autofill::ChildFrameRegistrar* registrar =
+      autofill::ChildFrameRegistrar::GetOrCreateForWebState(web_state());
+  ASSERT_TRUE(registrar);
+  registrar->RegisterMapping(valid_child_remote_token, valid_child_local_token);
+
+  optimization_guide::proto::AnnotatedPageContent* apc =
+      [wrapper rootAPCNodeForTesting];
+  ASSERT_TRUE(apc);
+
+  ResolveCrossSiteFrameContent([wrapper grafterForTesting], registrar,
+                               /*include_same_site_only=*/false, apc);
+
+  // Verify the entire tree makeup:
+  // Root contains exactly 2 children: (1) Main text paragraph, (2) Grafted
+  // iframe. The null-token frame is completely dropped and does not appear in
+  // the tree.
+  const auto& root_node = apc->root_node();
+  ASSERT_EQ(root_node.children_nodes_size(), 2);
+
+  // Child 0: Main frame paragraph
+  EXPECT_EQ(root_node.children_nodes(0)
+                .children_nodes(0)
+                .content_attributes()
+                .text_data()
+                .text_content(),
+            "Main frame text");
+
+  // Child 1: Valid grafted iframe
+  const auto& iframe_node = root_node.children_nodes(1);
+  EXPECT_EQ(iframe_node.content_attributes().attribute_type(),
+            optimization_guide::proto::CONTENT_ATTRIBUTE_IFRAME);
+  ASSERT_EQ(iframe_node.children_nodes_size(), 1);
+  EXPECT_EQ(iframe_node.children_nodes(0)
+                .children_nodes(0)
+                .content_attributes()
+                .text_data()
+                .text_content(),
+            "Valid child text");
 }
 
 // Tests that the ancestor mapping is correct.
@@ -4131,14 +4275,16 @@ TEST_P(PageContextWrapperTest, PopulatePageContext_GenericContainer_TopLayer) {
   // The root node children are usually the un-flattened elements.
   for (const auto& child : root_node.children_nodes()) {
     if (child.content_attributes().attribute_type() ==
-        optimization_guide::proto::CONTENT_ATTRIBUTE_CONTAINER) {
+            optimization_guide::proto::CONTENT_ATTRIBUTE_CONTAINER ||
+        child.content_attributes().attribute_type() ==
+            optimization_guide::proto::CONTENT_ATTRIBUTE_DIALOG_MODAL) {
       target_node = &child;
       break;
     }
   }
 
   ASSERT_TRUE(target_node)
-      << "Dialog node not found as a container in APC tree";
+      << "Dialog node not found as a dialog modal/container in APC tree";
 
   ASSERT_EQ(target_node->children_nodes_size(), 1);
   const auto& text_node = target_node->children_nodes(0);
@@ -4436,6 +4582,133 @@ TEST_P(PageContextWrapperTest,
             "MY TABLE NAME");
 }
 
+// Tests that elements with CSS table display properties (display: table,
+// display: table-row, display: table-cell, display: table-header-group) are
+// extracted as TABLE, TABLE_ROW, and TABLE_CELL nodes.
+TEST_P(PageContextWrapperTest, PopulatePageContext_RichExtraction_CssTable) {
+  if (!IsRefactored()) {
+    GTEST_SKIP() << "ApcV2 not supported for the non-refactored APC wrapper";
+  }
+
+  auto page_structure = HtmlPage(
+      "CssTable",
+      RawHtml("<div style=\"display: table;\">"
+              "  <div style=\"display: table-caption;\">CSS Table Caption</div>"
+              "  <div style=\"display: table-header-group;\">"
+              "    <div style=\"display: table-row;\">"
+              "      <div style=\"display: table-cell;\">Header Cell</div>"
+              "    </div>"
+              "  </div>"
+              "  <div style=\"display: table-row;\">"
+              "    <div style=\"display: table-cell;\">Body Cell</div>"
+              "  </div>"
+              "</div>"));
+
+  std::string main_html = page_helper_->Build(page_structure);
+  web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  PageContextWrapperConfigBuilder builder;
+  builder.SetUseRefactoredExtractor(IsRefactored());
+  builder.SetUseRichExtraction(true);
+
+  PageContextWrapperCallbackResponse response = RunPageContextWrapperWithConfig(
+      web_state(), builder.Build(), ^(PageContextWrapper* wrapper) {
+        wrapper.shouldGetAnnotatedPageContent = YES;
+      });
+
+  ASSERT_TRUE(response.has_value());
+  const auto& page_context = *response.value();
+  const auto& root_node = page_context.annotated_page_content().root_node();
+
+  ASSERT_EQ(root_node.children_nodes_size(), 1);
+  const auto& table_node = root_node.children_nodes(0);
+  EXPECT_EQ(table_node.content_attributes().attribute_type(),
+            optimization_guide::proto::CONTENT_ATTRIBUTE_TABLE);
+  EXPECT_TRUE(table_node.content_attributes().has_table_data());
+  EXPECT_EQ(table_node.content_attributes().table_data().table_name(),
+            "CSS Table Caption");
+
+  bool found_caption_text = false;
+  bool found_header_row = false;
+  bool found_body_row = false;
+
+  for (const auto& child : table_node.children_nodes()) {
+    if (child.content_attributes().attribute_type() ==
+            optimization_guide::proto::CONTENT_ATTRIBUTE_TEXT &&
+        child.content_attributes().text_data().text_content() ==
+            "CSS Table Caption") {
+      found_caption_text = true;
+    } else if (child.content_attributes().attribute_type() ==
+               optimization_guide::proto::CONTENT_ATTRIBUTE_TABLE_ROW) {
+      if (child.content_attributes().table_row_data().type() ==
+          optimization_guide::proto::TABLE_ROW_TYPE_HEADER) {
+        found_header_row = true;
+        ASSERT_GE(child.children_nodes_size(), 1);
+        EXPECT_EQ(child.children_nodes(0).content_attributes().attribute_type(),
+                  optimization_guide::proto::CONTENT_ATTRIBUTE_TABLE_CELL);
+      } else if (child.content_attributes().table_row_data().type() ==
+                 optimization_guide::proto::TABLE_ROW_TYPE_BODY) {
+        found_body_row = true;
+        ASSERT_GE(child.children_nodes_size(), 1);
+        EXPECT_EQ(child.children_nodes(0).content_attributes().attribute_type(),
+                  optimization_guide::proto::CONTENT_ATTRIBUTE_TABLE_CELL);
+      }
+    }
+  }
+
+  EXPECT_TRUE(found_caption_text);
+  EXPECT_TRUE(found_header_row);
+  EXPECT_TRUE(found_body_row);
+}
+
+// Tests that elements with ARIA table roles (role="table", role="row",
+// role="cell") are extracted as TABLE structures.
+TEST_P(PageContextWrapperTest, PopulatePageContext_RichExtraction_AriaTable) {
+  if (!IsRefactored()) {
+    GTEST_SKIP() << "ApcV2 not supported for the non-refactored APC wrapper";
+  }
+
+  auto page_structure =
+      HtmlPage("AriaTable", RawHtml("<div role=\"table\">"
+                                    "  <div role=\"row\">"
+                                    "    <div role=\"cell\">Aria Cell</div>"
+                                    "  </div>"
+                                    "</div>"));
+
+  std::string main_html = page_helper_->Build(page_structure);
+  web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  PageContextWrapperConfigBuilder builder;
+  builder.SetUseRefactoredExtractor(IsRefactored());
+  builder.SetUseRichExtraction(true);
+
+  PageContextWrapperCallbackResponse response = RunPageContextWrapperWithConfig(
+      web_state(), builder.Build(), ^(PageContextWrapper* wrapper) {
+        wrapper.shouldGetAnnotatedPageContent = YES;
+      });
+
+  ASSERT_TRUE(response.has_value());
+  const auto& page_context = *response.value();
+  const auto& root_node = page_context.annotated_page_content().root_node();
+
+  ASSERT_EQ(root_node.children_nodes_size(), 1);
+  const auto& table_node = root_node.children_nodes(0);
+  EXPECT_EQ(table_node.content_attributes().attribute_type(),
+            optimization_guide::proto::CONTENT_ATTRIBUTE_TABLE);
+
+  ASSERT_EQ(table_node.children_nodes_size(), 1);
+  const auto& row_node = table_node.children_nodes(0);
+  EXPECT_EQ(row_node.content_attributes().attribute_type(),
+            optimization_guide::proto::CONTENT_ATTRIBUTE_TABLE_ROW);
+
+  ASSERT_EQ(row_node.children_nodes_size(), 1);
+  const auto& cell_node = row_node.children_nodes(0);
+  EXPECT_EQ(cell_node.content_attributes().attribute_type(),
+            optimization_guide::proto::CONTENT_ATTRIBUTE_TABLE_CELL);
+}
+
 // Tests the extraction of form control attributes (input, textarea, select,
 // button).
 TEST_P(PageContextWrapperTest,
@@ -4689,9 +4962,10 @@ TEST_P(PageContextWrapperTest,
       input_node.content_attributes().form_control_data();
 
   // Should be identified as a password due to redaction decision
-  // REDACTED_HAS_BEEN_PASSWORD (2).
+  // REDACTED_CUSTOM_PASSWORD_CSS (6).
   EXPECT_EQ(form_control_data.redaction_decision(),
-            static_cast<optimization_guide::proto::RedactionDecision>(2));
+            optimization_guide::proto::
+                REDACTION_DECISION_REDACTED_CUSTOM_PASSWORD_CSS);
 
   // The value should be empty because it was redacted.
   EXPECT_FALSE(form_control_data.has_field_value());
@@ -4748,8 +5022,75 @@ TEST_P(PageContextWrapperTest,
 
   // Based on JS masking heuristic, this should be redacted.
   EXPECT_EQ(form_control_data.redaction_decision(),
-            static_cast<optimization_guide::proto::RedactionDecision>(2));
+            optimization_guide::proto::
+                REDACTION_DECISION_REDACTED_CUSTOM_PASSWORD_JS);
   EXPECT_EQ(form_control_data.field_value(), "");
+}
+
+// Tests that a password field with OTP attributes (e.g., name="otp",
+// autocomplete="one-time-code") is prioritized and redacted as a password
+// rather than an OTP field.
+TEST_P(PageContextWrapperTest,
+       PopulatePageContext_RichExtraction_PasswordOverOtpPriority) {
+  if (!IsRefactored()) {
+    GTEST_SKIP() << "ApcV2 not supported for the non-refactored APC wrapper";
+  }
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{kPageContextScreenshotPasswordRedaction,
+                            kPageContextAutofillOtpRedactions},
+      /*disabled_features=*/{});
+
+  auto page_structure = HtmlPage(
+      "PasswordOverOtp", RawHtml("<html><body>"
+                                 "<form>"
+                                 "<input type='password' name='otp_code' "
+                                 "autocomplete='one-time-code' value='123456'>"
+                                 "</form>"
+                                 "</body></html>"));
+  std::string main_html = page_helper_->Build(page_structure);
+  web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  PageContextWrapperConfig config =
+      PageContextWrapperConfigBuilder()
+          .SetUseRichExtraction(true)
+          .SetExtractAutofillOtpRedactions(true)
+          .SetExtractPasswordScreenshotRedactions(true)
+          .Build();
+
+  PageContextWrapperCallbackResponse response = RunPageContextWrapperWithConfig(
+      web_state(), config, ^(PageContextWrapper* wrapper) {
+        wrapper.shouldGetAnnotatedPageContent = YES;
+      });
+
+  ASSERT_TRUE(response.has_value());
+  std::unique_ptr<optimization_guide::proto::PageContext> page_context =
+      std::move(response.value());
+
+  ASSERT_TRUE(page_context);
+  ASSERT_TRUE(page_context->has_annotated_page_content());
+
+  const auto& annotated_page_content = page_context->annotated_page_content();
+  const auto& root_node = annotated_page_content.root_node();
+
+  ASSERT_EQ(root_node.children_nodes_size(), 1);
+  const auto& form_node = root_node.children_nodes(0);
+  ASSERT_EQ(form_node.children_nodes_size(), 1);
+  const auto& input_node = form_node.children_nodes(0);
+
+  EXPECT_TRUE(input_node.content_attributes().has_form_control_data());
+  const auto& form_control_data =
+      input_node.content_attributes().form_control_data();
+
+  // The field should be redacted with password priority, not OTP.
+  EXPECT_EQ(
+      form_control_data.redaction_decision(),
+      optimization_guide::proto::REDACTION_DECISION_REDACTED_HAS_BEEN_PASSWORD);
+  EXPECT_EQ(form_control_data.field_value(), "");
+  EXPECT_EQ(form_control_data.form_control_type(),
+            optimization_guide::proto::FORM_CONTROL_TYPE_INPUT_PASSWORD);
 }
 
 // Tests that Autofill metadata is correctly identified and populated in the
@@ -7535,6 +7876,12 @@ TEST_P(PageContextWrapperTest,
     return;
   }
 
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{},
+      /*disabled_features=*/{kPageContextScreenshotSensitivePaymentRedaction,
+                             kPageContextScreenshotPasswordRedaction});
+
   auto page_structure =
       HtmlPage("Sensitive Payment Geometry Disabled Test",
                RawHtml("<form>"
@@ -7702,6 +8049,153 @@ TEST_P(PageContextWrapperTest,
       otp_input.content_attributes().geometry().has_visible_bounding_box());
 }
 
+// Test that the global kPageContextScreenshotPasswordRedaction feature flag
+// enables redaction geometry extraction for password fields (standard, CSS
+// masked, and JS masked) even when actionable mode is off. Configures a test
+// page with a checkbox and password inputs with actionable mode off, and
+// verifies that enabling the feature flag forces geometry extraction for the
+// password fields while omitting geometry for the checkbox.
+TEST_P(PageContextWrapperTest,
+       PopulatePageContext_PasswordRedactionGeometry_FeatureFlag) {
+  if (!IsRefactored()) {
+    GTEST_SKIP() << "ApcV2 not supported for the non-refactored APC wrapper";
+  }
+
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      kPageContextScreenshotPasswordRedaction);
+
+  auto page_structure =
+      HtmlPage("Password Geometry Test",
+               RawHtml("<form>"
+                       "  <input type='checkbox' id='normal_checkbox'>"
+                       "  <input type='password' id='password_field'>"
+                       "  <input type='text' style='-webkit-text-security: "
+                       "disc' id='css_password'>"
+                       "  <input type='text' value='••••••••' id='js_password'>"
+                       "</form>"));
+
+  std::string main_html = page_helper_->Build(page_structure);
+  web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  PageContextWrapperConfig config =
+      PageContextWrapperConfigBuilder()
+          .SetUseRichExtraction(true)
+          .SetUseRichExtractionWithActionable(false)
+          .SetIncludeSensitivePaymentsForRedaction(false)
+          .Build();
+
+  PageContextWrapperCallbackResponse response = RunPageContextWrapperWithConfig(
+      web_state(), config, ^(PageContextWrapper* wrapper) {
+        wrapper.shouldGetAnnotatedPageContent = YES;
+      });
+
+  ASSERT_TRUE(response.has_value());
+  std::unique_ptr<optimization_guide::proto::PageContext> page_context =
+      std::move(response.value());
+  ASSERT_TRUE(page_context);
+
+  const auto& actual_apc = page_context->annotated_page_content();
+  const auto& root = actual_apc.root_node();
+
+  ASSERT_GE(root.children_nodes_size(), 1);
+  const auto& form = root.children_nodes(0);
+  ASSERT_EQ(form.children_nodes_size(), 4);
+
+  // 1. Non-password checkbox has no geometry.
+  const auto& checkbox_input = form.children_nodes(0);
+  EXPECT_FALSE(
+      checkbox_input.content_attributes().geometry().has_outer_bounding_box());
+
+  // 2. Standard password input has geometry.
+  const auto& password_input = form.children_nodes(1);
+  EXPECT_TRUE(
+      password_input.content_attributes().geometry().has_outer_bounding_box());
+  EXPECT_TRUE(password_input.content_attributes()
+                  .geometry()
+                  .has_visible_bounding_box());
+
+  // 3. CSS custom password input has geometry.
+  const auto& css_password_input = form.children_nodes(2);
+  EXPECT_TRUE(css_password_input.content_attributes()
+                  .geometry()
+                  .has_outer_bounding_box());
+  EXPECT_TRUE(css_password_input.content_attributes()
+                  .geometry()
+                  .has_visible_bounding_box());
+
+  // 4. JS custom password input has geometry.
+  const auto& js_password_input = form.children_nodes(3);
+  EXPECT_TRUE(js_password_input.content_attributes()
+                  .geometry()
+                  .has_outer_bounding_box());
+  EXPECT_TRUE(js_password_input.content_attributes()
+                  .geometry()
+                  .has_visible_bounding_box());
+}
+
+// Test that when kPageContextScreenshotPasswordRedaction is disabled and
+// actionable mode is off, geometry is omitted for all password fields
+// (standard, CSS masked, and JS masked).
+TEST_P(PageContextWrapperTest,
+       PopulatePageContext_PasswordRedactionGeometry_DisabledFeatureFlag) {
+  if (!IsRefactored()) {
+    GTEST_SKIP() << "ApcV2 not supported for the non-refactored APC wrapper";
+  }
+
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      kPageContextScreenshotPasswordRedaction);
+
+  auto page_structure =
+      HtmlPage("Password Geometry Disabled Test",
+               RawHtml("<form>"
+                       "  <input type='checkbox' id='normal_checkbox'>"
+                       "  <input type='password' id='password_field'>"
+                       "  <input type='text' style='-webkit-text-security: "
+                       "disc' id='css_password'>"
+                       "  <input type='text' value='••••••••' id='js_password'>"
+                       "</form>"));
+
+  std::string main_html = page_helper_->Build(page_structure);
+  web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  PageContextWrapperConfig config =
+      PageContextWrapperConfigBuilder()
+          .SetUseRichExtraction(true)
+          .SetUseRichExtractionWithActionable(false)
+          .SetIncludeSensitivePaymentsForRedaction(false)
+          .Build();
+
+  PageContextWrapperCallbackResponse response = RunPageContextWrapperWithConfig(
+      web_state(), config, ^(PageContextWrapper* wrapper) {
+        wrapper.shouldGetAnnotatedPageContent = YES;
+      });
+
+  ASSERT_TRUE(response.has_value());
+  std::unique_ptr<optimization_guide::proto::PageContext> page_context =
+      std::move(response.value());
+  ASSERT_TRUE(page_context);
+
+  const auto& actual_apc = page_context->annotated_page_content();
+  const auto& root = actual_apc.root_node();
+
+  ASSERT_GE(root.children_nodes_size(), 1);
+  const auto& form = root.children_nodes(0);
+  ASSERT_EQ(form.children_nodes_size(), 4);
+
+  // All fields must have geometry omitted when both actionable mode and
+  // password screenshot redaction are off.
+  for (int i = 0; i < 4; ++i) {
+    EXPECT_FALSE(form.children_nodes(i)
+                     .content_attributes()
+                     .geometry()
+                     .has_outer_bounding_box());
+  }
+}
+
 // Tests that the version and mode fields are correctly populated in the
 // AnnotatedPageContent proto based on the configured extraction mode.
 TEST_P(PageContextWrapperTest, PopulatePageContext_ApcVersionAndMode) {
@@ -7769,6 +8263,11 @@ TEST_P(PageContextWrapperTest, PopulatePageContext_ApcVersionAndMode) {
 // 2. Cross-site iframes are not extracted.
 // 3. Unresolved cross-site iframe placeholders are redacted in APCv2.
 TEST_P(PageContextWrapperTest, ExtractPageContext_SameSiteOnly) {
+  if (!IsRefactored()) {
+    GTEST_SKIP()
+        << "Frame grafter not supported for the non-refactored APC wrapper";
+  }
+
   auto page_structure = HtmlPage(
       "Main", Paragraph("Main frame text"),
       Iframe(TestOrigin::kCrossA,
@@ -7911,6 +8410,11 @@ TEST_P(PageContextWrapperTest, ExtractPageContext_SameSiteOnly) {
 // 1. Same-site cross-origin subdomain iframes are extracted and grafted.
 // 2. Cross-site iframes are ALSO extracted and grafted (not skipped/redacted).
 TEST_P(PageContextWrapperTest, ExtractPageContext_SameSiteOnlyDisabled) {
+  if (!IsRefactored()) {
+    GTEST_SKIP()
+        << "Frame grafter not supported for the non-refactored APC wrapper";
+  }
+
   auto page_structure = HtmlPage(
       "Main", Paragraph("Main frame text"),
       Iframe(TestOrigin::kCrossA,
@@ -8085,7 +8589,7 @@ TEST_P(PageContextWrapperTest, ImageRedaction_AutofillOTP) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
       /*enabled_features=*/{kPageContextAutofillOtpRedactions},
-      /*disabled_features=*/{});
+      /*disabled_features=*/{kPageContextScreenshotPasswordRedaction});
 
   PageContextWrapper* wrapper = [[PageContextWrapper alloc]
         initWithWebState:web_state()
@@ -8100,6 +8604,167 @@ TEST_P(PageContextWrapperTest, ImageRedaction_AutofillOTP) {
   EXPECT_FALSE([wrapper shouldRedactDecisionForScreenshot:
                             optimization_guide::proto::
                                 REDACTION_DECISION_REDACTED_HAS_BEEN_PASSWORD]);
+}
+
+// Test that `shouldRedactDecisionForScreenshot:` returns YES for password
+// fields (including standard passwords and custom CSS/JS password heuristics)
+// and NO for OTP and sensitive payment fields when only password screenshot
+// redaction is enabled.
+TEST_P(PageContextWrapperTest, ImageRedaction_PasswordFields) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{kPageContextScreenshotPasswordRedaction},
+      /*disabled_features=*/{kPageContextScreenshotSensitivePaymentRedaction,
+                             kPageContextAutofillOtpRedactions});
+
+  PageContextWrapper* wrapper = [[PageContextWrapper alloc]
+        initWithWebState:web_state()
+                  config:PageContextWrapperConfigBuilder().Build()
+      completionCallback:base::BindOnce(
+                             [](PageContextWrapperCallbackResponse response) {
+                             })];
+
+  EXPECT_TRUE([wrapper shouldRedactDecisionForScreenshot:
+                           optimization_guide::proto::
+                               REDACTION_DECISION_REDACTED_HAS_BEEN_PASSWORD]);
+  EXPECT_TRUE(
+      [wrapper shouldRedactDecisionForScreenshot:
+                   optimization_guide::proto::
+                       REDACTION_DECISION_REDACTED_CUSTOM_PASSWORD_CSS]);
+  EXPECT_TRUE([wrapper shouldRedactDecisionForScreenshot:
+                           optimization_guide::proto::
+                               REDACTION_DECISION_REDACTED_CUSTOM_PASSWORD_JS]);
+  EXPECT_FALSE([wrapper
+      shouldRedactDecisionForScreenshot:
+          optimization_guide::proto::REDACTION_DECISION_REDACTED_IS_OTP]);
+  EXPECT_FALSE(
+      [wrapper shouldRedactDecisionForScreenshot:
+                   optimization_guide::proto::
+                       REDACTION_DECISION_REDACTED_IS_SENSITIVE_PAYMENT_FIELD]);
+}
+
+// Tests that CSS position properties (fixed, absolute, relative, sticky)
+// are extracted into the node geometry.
+TEST_P(PageContextWrapperTest, PopulatePageContext_RichExtraction_CssPosition) {
+  if (!IsRefactored()) {
+    return;
+  }
+
+  auto page_structure = HtmlPage(
+      "CssPosition",
+      RawHtml("<div id='fixed' style='position: fixed; top: 0; left: 0; "
+              "width: 100px; height: 50px;'>Fixed</div>"
+              "<p id='absolute' style='position: absolute; top: 50px; left: 0; "
+              "width: 100px; height: 50px;'>Absolute</p>"
+              "<p id='relative' style='position: relative; width: 100px; "
+              "height: 50px;'>Relative</p>"
+              "<div id='sticky' style='position: sticky; top: 0; width: 100px; "
+              "height: 50px;'>Sticky</div>"));
+
+  std::string main_html = page_helper_->Build(page_structure);
+  web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  PageContextWrapperConfig config =
+      PageContextWrapperConfigBuilder()
+          .SetUseRichExtraction(true)
+          .SetUseRichExtractionWithActionable(true)
+          .Build();
+
+  PageContextWrapperCallbackResponse response = RunPageContextWrapperWithConfig(
+      web_state(), config, ^(PageContextWrapper* wrapper) {
+        wrapper.shouldGetAnnotatedPageContent = YES;
+      });
+
+  ASSERT_TRUE(response.has_value());
+  const auto& page_context = *response.value();
+  const auto& root_node = page_context.annotated_page_content().root_node();
+
+  bool found_fixed = false;
+  bool found_absolute = false;
+  bool found_relative = false;
+  bool found_sticky = false;
+
+  for (const auto& child : root_node.children_nodes()) {
+    if (child.has_content_attributes() &&
+        child.content_attributes().has_geometry() &&
+        child.content_attributes().geometry().has_css_position()) {
+      switch (child.content_attributes().geometry().css_position()) {
+        case optimization_guide::proto::CSS_POSITION_FIXED:
+          found_fixed = true;
+          break;
+        case optimization_guide::proto::CSS_POSITION_ABSOLUTE:
+          found_absolute = true;
+          break;
+        case optimization_guide::proto::CSS_POSITION_RELATIVE:
+          found_relative = true;
+          break;
+        case optimization_guide::proto::CSS_POSITION_STICKY:
+          found_sticky = true;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  EXPECT_TRUE(found_fixed);
+  EXPECT_TRUE(found_absolute);
+  EXPECT_TRUE(found_relative);
+  EXPECT_TRUE(found_sticky);
+}
+
+// Tests that <dialog> elements are extracted as DIALOG_MODAL or
+// DIALOG_MODELESS.
+TEST_P(PageContextWrapperTest,
+       PopulatePageContext_RichExtraction_DialogElements) {
+  if (!IsRefactored()) {
+    return;
+  }
+
+  auto page_structure = HtmlPage(
+      "DialogElements",
+      RawHtml(
+          "<dialog id='modeless' open>Modeless Dialog</dialog>"
+          "<dialog id='modal'>Modal Dialog</dialog>"
+          "<script>document.getElementById('modal').showModal();</script>"));
+
+  std::string main_html = page_helper_->Build(page_structure);
+  web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  PageContextWrapperConfig config =
+      PageContextWrapperConfigBuilder()
+          .SetUseRichExtraction(true)
+          .SetUseRichExtractionWithActionable(true)
+          .Build();
+
+  PageContextWrapperCallbackResponse response = RunPageContextWrapperWithConfig(
+      web_state(), config, ^(PageContextWrapper* wrapper) {
+        wrapper.shouldGetAnnotatedPageContent = YES;
+      });
+
+  ASSERT_TRUE(response.has_value());
+  const auto& page_context = *response.value();
+  const auto& root_node = page_context.annotated_page_content().root_node();
+
+  bool found_modeless = false;
+  bool found_modal = false;
+
+  for (const auto& child : root_node.children_nodes()) {
+    if (child.has_content_attributes()) {
+      if (child.content_attributes().attribute_type() ==
+          optimization_guide::proto::CONTENT_ATTRIBUTE_DIALOG_MODELESS) {
+        found_modeless = true;
+      } else if (child.content_attributes().attribute_type() ==
+                 optimization_guide::proto::CONTENT_ATTRIBUTE_DIALOG_MODAL) {
+        found_modal = true;
+      }
+    }
+  }
+
+  EXPECT_TRUE(found_modeless);
+  EXPECT_TRUE(found_modal);
 }
 
 INSTANTIATE_TEST_SUITE_P(,

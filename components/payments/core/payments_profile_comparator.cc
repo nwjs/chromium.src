@@ -114,16 +114,22 @@ bool PaymentsProfileComparator::IsContactEqualOrSuperset(
         !super.HasInfo(autofill::PHONE_HOME_WHOLE_NUMBER)) {
       return false;
     }
-    if (!HaveMergeablePhoneNumbers(super, sub))
+    autofill::PhoneNumber phone(&super);
+    if (MergePhoneNumbers(super, sub, phone) ==
+        autofill::AutofillProfile::ProfileMergeResult::kMergeFailed) {
       return false;
+    }
   }
   if (options_->request_payer_email()) {
     if (sub.HasInfo(autofill::EMAIL_ADDRESS) &&
         !super.HasInfo(autofill::EMAIL_ADDRESS)) {
       return false;
     }
-    if (!HaveMergeableEmailAddresses(super, sub))
+    autofill::EmailInfo email;
+    if (MergeEmailAddresses(super, sub, email) ==
+        autofill::AutofillProfile::ProfileMergeResult::kMergeFailed) {
       return false;
+    }
   }
   return true;
 }

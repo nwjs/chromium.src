@@ -21,13 +21,12 @@
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_test_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
-#include "chrome/test/base/chrome_test_utils.h"
+#include "chrome/test/base/chrome_test_path_utils.h"
 #include "chrome/test/base/test_switches.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/base/web_ui_mocha_browser_test.h"
@@ -66,26 +65,27 @@ const char* kTestWebViewURL = chrome::kChromeUIChromeSigninURL;
 const char* kTestWebViewHost = chrome::kChromeUIChromeSigninHost;
 
 // A simple WebUI controller that serves a blank page with a <webview> tag, and
-// supports loading files through the chrome://webui-test/ URL.
-// Responds with a content of "%DIR_TEST_DATA%/webui/<filename>" if the request
-// path has "/test/<filename>" format.
-class TestWebUIController : public content::WebUIController {
+// supports loading files through the chrome://webui-test/ URL (or as
+// chrome-untrusted). Responds with a content of
+// "%DIR_TEST_DATA%/webui/<filename>" if the request path has "/test/<filename>"
+// format.
+class TestWebUIControllerBase : public content::WebUIController {
  public:
-  explicit TestWebUIController(content::WebUI* web_ui)
+  TestWebUIControllerBase(content::WebUI* web_ui,
+                          const std::string& source_name,
+                          const std::string& script_src_csp)
       : content::WebUIController(web_ui) {
-    web_ui->SetBindings(
-        content::BindingsPolicySet({content::BindingsPolicyValue::kWebUi}));
     content::WebContents* web_contents = web_ui->GetWebContents();
     // Necessary for web view to be allowed.
     extensions::TabHelper::CreateForWebContents(web_contents);
     content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
-        web_contents->GetBrowserContext(), kTestWebViewHost);
+        web_contents->GetBrowserContext(), source_name);
     source->SetRequestFilter(
-        base::BindRepeating(&TestWebUIController::ShouldHandleRequestCallback),
-        base::BindRepeating(&TestWebUIController::HandleRequestCallback));
+        base::BindRepeating(
+            &TestWebUIControllerBase::ShouldHandleRequestCallback),
+        base::BindRepeating(&TestWebUIControllerBase::HandleRequestCallback));
     source->OverrideContentSecurityPolicy(
-        network::mojom::CSPDirectiveName::ScriptSrc,
-        "script-src chrome://webui-test;");
+        network::mojom::CSPDirectiveName::ScriptSrc, script_src_csp);
   }
 
  private:
@@ -144,6 +144,17 @@ class TestWebUIController : public content::WebUIController {
     std::move(callback).Run(
         base::MakeRefCounted<base::RefCountedString>(std::move(contents)));
   }
+};
+
+class TestWebUIController : public TestWebUIControllerBase {
+ public:
+  explicit TestWebUIController(content::WebUI* web_ui)
+      : TestWebUIControllerBase(web_ui,
+                                kTestWebViewHost,
+                                "script-src chrome://webui-test;") {
+    web_ui->SetBindings(
+        content::BindingsPolicySet({content::BindingsPolicyValue::kWebUi}));
+  }
 
   WEB_UI_CONTROLLER_TYPE_DECL();
 };
@@ -155,6 +166,30 @@ class TestWebUIConfig
  public:
   TestWebUIConfig()
       : DefaultWebUIConfig(content::kChromeUIScheme, kTestWebViewHost) {}
+};
+
+class UntrustedWebUIController : public TestWebUIControllerBase {
+ public:
+  explicit UntrustedWebUIController(content::WebUI* web_ui)
+      : TestWebUIControllerBase(web_ui,
+                                chrome::kChromeUILensUntrustedSidePanelURL,
+                                "script-src chrome-untrusted://webui-test;") {
+    web_ui->SetBindings(content::BindingsPolicySet({}));
+  }
+
+  WEB_UI_CONTROLLER_TYPE_DECL();
+};
+
+WEB_UI_CONTROLLER_TYPE_IMPL(UntrustedWebUIController)
+
+class UntrustedWebUIConfig
+    : public content::DefaultWebUIConfig<UntrustedWebUIController> {
+ public:
+  UntrustedWebUIConfig()
+      : DefaultWebUIConfig(content::kChromeUIUntrustedScheme,
+                           // Lens is currently the only chrome-untrusted://
+                           // page with webview permission.
+                           chrome::kChromeUILensSidePanelHost) {}
 };
 
 }  // namespace
@@ -492,6 +527,43 @@ IN_PROC_BROWSER_TEST_F(WebUIWebViewBrowserTest, ContextMenuInspectElement) {
       browser()->tab_strip_model()->GetActiveWebContents();
   TestRenderViewContextMenu menu(*web_contents->GetPrimaryMainFrame(), params);
   EXPECT_FALSE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_INSPECTELEMENT));
+}
+
+class UntrustedWebUIWebViewBrowserTest : public WebUIMochaBrowserTest {
+ public:
+  UntrustedWebUIWebViewBrowserTest() = default;
+
+  void SetUpOnMainThread() override {
+    base::FilePath test_data_dir;
+    base::PathService::Get(chrome::DIR_TEST_DATA, &test_data_dir);
+    embedded_test_server()->ServeFilesFromDirectory(test_data_dir);
+    ASSERT_TRUE(embedded_test_server()->Start());
+
+    web_ui_config_registration_ =
+        std::make_unique<content::ScopedWebUIConfigRegistration>(
+            std::make_unique<UntrustedWebUIConfig>());
+    set_test_loader_scheme(content::kChromeUIUntrustedScheme);
+    set_test_loader_host(chrome::kChromeUILensSidePanelHost);
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(
+        browser(), GURL(chrome::kChromeUILensUntrustedSidePanelURL)));
+    WebUIMochaBrowserTest::SetUpOnMainThread();
+  }
+
+  content::WebContents* GetWebContentsForTesting() {
+    return browser()->tab_strip_model()->GetActiveWebContents();
+  }
+
+ private:
+  std::unique_ptr<content::ScopedWebUIConfigRegistration>
+      web_ui_config_registration_;
+};
+
+IN_PROC_BROWSER_TEST_F(UntrustedWebUIWebViewBrowserTest, BannedApisThrow) {
+  ASSERT_TRUE(RunTestOnWebContents(GetWebContentsForTesting(),
+                                   "webview/webview_untrusted_test.js",
+                                   "runMochaTest('WebviewUntrustedBasicTest', "
+                                   "'BannedApisThrowInUntrusted')",
+                                   true));
 }
 
 #endif  // !BUILDFLAG(IS_MAC)

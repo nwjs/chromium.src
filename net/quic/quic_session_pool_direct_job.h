@@ -42,7 +42,7 @@ class QuicSessionPool::DirectJob : public QuicSessionPool::Job {
       bool require_dns_https_alpn,
       int cert_verify_flags,
       MultiplexedSessionCreationInitiator session_creation_initiator,
-      QuicSessionEstablishmentReason quic_session_establishment_reason,
+      QuicConnectionReuseDetails quic_connection_reuse_details,
       std::optional<ConnectionManagementConfig> connection_management_config,
       const NetLogWithSource& net_log);
 
@@ -93,7 +93,6 @@ class QuicSessionPool::DirectJob : public QuicSessionPool::Job {
   base::TimeTicks dns_resolution_start_time_;
   base::TimeTicks dns_resolution_end_time_;
   std::unique_ptr<QuicSessionAttempt> session_attempt_;
-  const MultiplexedSessionCreationInitiator session_creation_initiator_;
   std::optional<ConnectionManagementConfig> connection_management_config_;
   base::WeakPtrFactory<DirectJob> weak_factory_{this};
 };

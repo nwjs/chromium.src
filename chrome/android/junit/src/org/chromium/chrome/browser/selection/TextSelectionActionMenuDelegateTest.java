@@ -24,7 +24,6 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.FeatureOverrides;
 import org.chromium.base.SelectionActionMenuClientWrapper.MenuType;
@@ -55,7 +54,6 @@ import java.util.List;
 
 /** Unit tests for {@link TextSelectionActionMenuDelegate}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 @EnableFeatures(ChromeFeatureList.COPY_LINK_TO_HIGHLIGHT)
 public class TextSelectionActionMenuDelegateTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -210,8 +208,9 @@ public class TextSelectionActionMenuDelegateTest {
     }
 
     @Test
-    public void testAskGemini_notShownOnDropdownMenu_mobile() {
-        // When configured for mobile (side panel disabled), DROPDOWN menu shouldn't show the item.
+    public void testAskGemini_shownOnDropdownMenu_mobile() {
+        // When configured for mobile (side panel disabled, tab bottom sheet enabled),
+        // DROPDOWN menu should still show the item.
         enableAskGeminiForSelection();
 
         List<SelectionMenuItem> items =
@@ -221,7 +220,7 @@ public class TextSelectionActionMenuDelegateTest {
                         /* isSelectionReadOnly= */ true,
                         /* selectedText= */ "test");
 
-        assertNull(findItem(items, R.id.contextmenu_ask_gemini));
+        assertNotNull(findItem(items, R.id.contextmenu_ask_gemini));
     }
 
     @Test
@@ -239,14 +238,17 @@ public class TextSelectionActionMenuDelegateTest {
 
         SelectionMenuItem askGemini = findItem(items, R.id.contextmenu_ask_gemini);
         assertNotNull(askGemini);
-        // Placed in the secondary assist section (the default position).
-        assertTrue(askGemini.order >= ItemGroupOffset.SECONDARY_ASSIST_ITEMS);
-        assertTrue(askGemini.order < ItemGroupOffset.TEXT_PROCESSING_ITEMS);
+        // Placed among the default items, in the gap before Web Search (the default position).
+        assertEquals(
+                ItemGroupOffset.DEFAULT_ITEMS + SelectionMenuItem.ItemOrder.ASK_GEMINI,
+                askGemini.order);
+        assertTrue(askGemini.order >= ItemGroupOffset.DEFAULT_ITEMS);
+        assertTrue(askGemini.order < ItemGroupOffset.SECONDARY_ASSIST_ITEMS);
         assertEquals(R.id.select_action_menu_delegate_items, askGemini.groupId);
     }
 
     @Test
-    public void testAskGemini_notShownOnFloatingMenu_desktop() {
+    public void testAskGemini_shownOnFloatingMenu_desktop() {
         FeatureOverrides.enable(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU);
         FeatureOverrides.enable(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL);
         GlicEnabling.setEnabledForTesting(true);
@@ -258,7 +260,7 @@ public class TextSelectionActionMenuDelegateTest {
                         /* isSelectionReadOnly= */ true,
                         /* selectedText= */ "test");
 
-        assertNull(findItem(items, R.id.contextmenu_ask_gemini));
+        assertNotNull(findItem(items, R.id.contextmenu_ask_gemini));
     }
 
     @Test
@@ -325,9 +327,13 @@ public class TextSelectionActionMenuDelegateTest {
         SelectionMenuItem askGemini = findItem(items, R.id.contextmenu_ask_gemini);
         assertNotNull(askGemini);
 
-        // The default position is the secondary assist section.
-        assertTrue(askGemini.order >= ItemGroupOffset.SECONDARY_ASSIST_ITEMS);
-        assertTrue(askGemini.order < ItemGroupOffset.TEXT_PROCESSING_ITEMS);
+        // The default position interposes "Ask Gemini" among the default items, in the gap just
+        // before Web Search.
+        assertEquals(
+                ItemGroupOffset.DEFAULT_ITEMS + SelectionMenuItem.ItemOrder.ASK_GEMINI,
+                askGemini.order);
+        assertTrue(askGemini.order >= ItemGroupOffset.DEFAULT_ITEMS);
+        assertTrue(askGemini.order < ItemGroupOffset.SECONDARY_ASSIST_ITEMS);
     }
 
     @Test
@@ -496,5 +502,19 @@ public class TextSelectionActionMenuDelegateTest {
                                 .replace("\"", "")));
         assertTrue(title.endsWith("\""));
         assertTrue(title.length() < longText.length());
+    }
+
+    @Test
+    public void testGetWebSearchMenuItemTitle_searchEngineNameTooLong() {
+        TemplateUrlServiceFactory.setInstanceForTesting(mTemplateUrlService);
+        when(mTemplateUrlService.getDefaultSearchEngineTemplateUrl()).thenReturn(mTemplateUrl);
+        when(mTemplateUrl.getKeyword()).thenReturn("google");
+        when(mTemplateUrlService.getFullNameFromTemplateUrl("google")).thenReturn("a".repeat(1000));
+
+        Context context =
+                new android.view.ContextThemeWrapper(
+                        ApplicationProvider.getApplicationContext(),
+                        R.style.Theme_BrowserUI_DayNight);
+        assertNull(mDelegate.getWebSearchMenuItemTitle(context, "test query"));
     }
 }

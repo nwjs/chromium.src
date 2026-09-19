@@ -6,11 +6,17 @@
 
 #import "base/test/scoped_feature_list.h"
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_collection_utils.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_color_palette.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_constants.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_image_background_trait.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_trait.h"
+#import "ios/chrome/browser/ntp/ui_bundled/ntp_card_background_view.h"
 #import "ios/chrome/browser/ntp/ui_bundled/scroll_delegate_proxy.h"
+#import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/testing/scoped_block_swizzler.h"
 #import "testing/gtest/include/gtest/gtest.h"
+#import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "ui/base/device_form_factor.h"
@@ -19,23 +25,75 @@
 - (void)updateContentContainerInsetForOffset:(CGFloat)topOffset;
 - (void)voiceOverStatusDidChange;
 - (BOOL)isVoiceOverRunning;
+- (void)setupSuperviewConstraints;
+- (void)handleFeedPan:(UIPanGestureRecognizer*)gesture;
+- (void)applyBackgroundTheme;
 @end
 
 class NewTabPageBottomSheetViewControllerTest : public PlatformTest {
  public:
   void SetUp() override {
     PlatformTest::SetUp();
+    feature_list_.InitAndEnableFeature(kNewTabPageRedesign);
     view_controller_ = [[NewTabPageBottomSheetViewController alloc] init];
   }
 
  protected:
+  base::test::ScopedFeatureList feature_list_;
   NewTabPageBottomSheetViewController* view_controller_;
 };
 
-// Tests that the view controller loads its view correctly.
-TEST_F(NewTabPageBottomSheetViewControllerTest, TestLoadView) {
+// Tests that the view controller loads its view and default styling correctly.
+TEST_F(NewTabPageBottomSheetViewControllerTest, TestLoadViewAndDefaultStyling) {
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+    return;
+  }
   [view_controller_ loadViewIfNeeded];
   EXPECT_NE(nil, view_controller_.view);
+  EXPECT_NSEQ([UIColor colorNamed:kSurfaceContainerLowColor],
+              view_controller_.view.backgroundColor);
+
+  UIView* drag_handle = [view_controller_ valueForKey:@"_dragHandle"];
+  EXPECT_NE(nil, drag_handle);
+  EXPECT_NSEQ([UIColor colorNamed:kTextTertiaryColor],
+              drag_handle.backgroundColor);
+
+  UIVisualEffectView* blur_view =
+      [view_controller_ valueForKey:@"_blurBackgroundView"];
+  EXPECT_NE(nil, blur_view);
+  EXPECT_TRUE(blur_view.hidden);
+
+  UIView* feed_card_background =
+      [view_controller_ valueForKey:@"_feedCardBackgroundView"];
+  EXPECT_NE(nil, feed_card_background);
+
+  UIView* feed_color_view =
+      [feed_card_background valueForKey:@"_backgroundColorView"];
+  EXPECT_NE(nil, feed_color_view);
+  EXPECT_NSEQ([UIColor colorNamed:kNTPCardBackgroundColor],
+              feed_color_view.backgroundColor);
+
+  UIVisualEffectView* feed_blur_view =
+      [feed_card_background valueForKey:@"_backgroundBlurView"];
+  EXPECT_EQ(nil, feed_blur_view);
+}
+
+// Tests that the view controller applies blur background when
+// NewTabPageImageBackgroundTrait is true.
+TEST_F(NewTabPageBottomSheetViewControllerTest,
+       TestBackgroundImageBackgroundTrait) {
+  [view_controller_ loadViewIfNeeded];
+
+  [[[CustomUITraitAccessor alloc]
+      initWithMutableTraits:view_controller_.traitOverrides]
+      setBoolForNewTabPageImageBackgroundTrait:YES];
+  [view_controller_ applyBackgroundTheme];
+
+  EXPECT_NSEQ(UIColor.clearColor, view_controller_.view.backgroundColor);
+  UIVisualEffectView* blur_view =
+      [view_controller_ valueForKey:@"_blurBackgroundView"];
+  EXPECT_NE(nil, blur_view);
+  EXPECT_FALSE(blur_view.hidden);
 }
 
 // Tests that the feed view controller is correctly embedded as a child view
@@ -66,53 +124,15 @@ TEST_F(NewTabPageBottomSheetViewControllerTest,
   EXPECT_TRUE([child_vc.view isDescendantOfView:container]);
 }
 
-// Tests that the magic stack container view alpha interpolates with progress in
-// legacy mode.
-TEST_F(NewTabPageBottomSheetViewControllerTest,
-       TestMagicStackContainerLegacyAlpha) {
-  [view_controller_ loadViewIfNeeded];
-  UIView* container =
-      [view_controller_ valueForKey:@"_magicStackContainerView"];
-  EXPECT_NE(nil, container);
-
-  id mock_delegate =
-      OCMProtocolMock(@protocol(NewTabPageBottomSheetViewControllerDelegate));
-  view_controller_.delegate = mock_delegate;
-
-  OCMStub([mock_delegate
-              restingOffsetForBottomSheetViewController:view_controller_])
-      .andReturn(400.0);
-  OCMStub([mock_delegate
-              collapsedOffsetForBottomSheetViewController:view_controller_])
-      .andReturn(600.0);
-
-  CGFloat expanded = [view_controller_ expandedOffset];
-  CGFloat resting = [view_controller_ restingOffset];
-
-  // At resting offset, alpha is 1.0
-  [view_controller_ updateContentContainerInsetForOffset:resting];
-  EXPECT_FLOAT_EQ(1.0, container.alpha);
-
-  // At expanded offset, alpha is 0.0
-  [view_controller_ updateContentContainerInsetForOffset:expanded];
-  EXPECT_FLOAT_EQ(0.0, container.alpha);
-
-  // At halfway between expanded and resting, alpha is 0.5
-  [view_controller_
-      updateContentContainerInsetForOffset:(expanded + resting) / 2.0];
-  EXPECT_FLOAT_EQ(0.5, container.alpha);
-}
-
 // Tests that the magic stack container view alpha remains 1.0 across top
-// offsets in static-fakebox mode.
+// offsets.
 TEST_F(NewTabPageBottomSheetViewControllerTest,
-       TestMagicStackContainerStaticFakeboxRemainsVisible) {
+       TestMagicStackContainerRemainsVisible) {
   if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
     return;
   }
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      kNewTabPageRedesign, {{kNewTabPageRedesignStaticFakeboxParam, "true"}});
+  feature_list.InitAndEnableFeature(kNewTabPageRedesign);
 
   [view_controller_ loadViewIfNeeded];
   UIView* container =
@@ -166,12 +186,37 @@ TEST_F(NewTabPageBottomSheetViewControllerTest, TestHeaderContainerHierarchy) {
   EXPECT_TRUE([contentContainer isDescendantOfView:view_controller_.view]);
 }
 
-// Tests that the MVT container view alpha updates based on top offset when
+// Tests that the header container is placed inside feedScrollView with top
+// contentInset when feed is present.
+TEST_F(NewTabPageBottomSheetViewControllerTest,
+       TestHeaderContainerEmbeddedInFeedScrollViewWithTopInset) {
+  UIViewController* child_vc = [[UIViewController alloc] init];
+  UIScrollView* scroll_view =
+      [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, 400, 800)];
+  [child_vc.view addSubview:scroll_view];
+
+  view_controller_.feedViewController = child_vc;
+  [view_controller_ loadViewIfNeeded];
+
+  UIView* headerContainer =
+      [view_controller_ valueForKey:@"_headerContainerView"];
+  EXPECT_NE(nil, headerContainer);
+  EXPECT_TRUE([headerContainer isDescendantOfView:scroll_view]);
+
+  CGFloat expectedHeaderHeight = [view_controller_ headerHeight];
+  EXPECT_FLOAT_EQ(expectedHeaderHeight, scroll_view.contentInset.top);
+  EXPECT_FLOAT_EQ(expectedHeaderHeight,
+                  scroll_view.verticalScrollIndicatorInsets.top);
+}
+
+// Tests that the MVT container view alpha remains 1.0 across top offsets when
 // kMVTInBottomSheet is enabled.
 TEST_F(NewTabPageBottomSheetViewControllerTest,
        TestMVTContainerAlphaWhenEnabled) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(kMVTInBottomSheet);
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{kNewTabPageRedesign, kMVTInBottomSheet},
+      /*disabled_features=*/{});
 
   [view_controller_ loadViewIfNeeded];
   UIView* mvtContainer =
@@ -192,19 +237,18 @@ TEST_F(NewTabPageBottomSheetViewControllerTest,
   CGFloat expanded = [view_controller_ expandedOffset];
   CGFloat resting = [view_controller_ restingOffset];
 
-  // At resting offset, progress should be 1.0, meaning alpha is 1.0
+  // At resting offset, alpha is 1.0
   [view_controller_ updateContentContainerInsetForOffset:resting];
   EXPECT_FLOAT_EQ(1.0, mvtContainer.alpha);
 
-  // At expanded offset, progress should be 0.0, meaning alpha is 0.0
+  // At expanded offset, alpha is 1.0
   [view_controller_ updateContentContainerInsetForOffset:expanded];
-  EXPECT_FLOAT_EQ(0.0, mvtContainer.alpha);
+  EXPECT_FLOAT_EQ(1.0, mvtContainer.alpha);
 
-  // At halfway between expanded and resting, progress should be 0.5, alpha
-  // should be 0.5
+  // At halfway between expanded and resting, alpha is 1.0
   [view_controller_
       updateContentContainerInsetForOffset:(expanded + resting) / 2.0];
-  EXPECT_FLOAT_EQ(0.5, mvtContainer.alpha);
+  EXPECT_FLOAT_EQ(1.0, mvtContainer.alpha);
 }
 
 // Tests that the scroll delegate proxy is injected when VoiceOver is enabled.
@@ -248,53 +292,14 @@ TEST_F(NewTabPageBottomSheetViewControllerTest,
   EXPECT_FLOAT_EQ(120.0, [view_controller_ expandedOffset]);
 }
 
-// Tests that setting setOmniboxInBottomPosition:YES in legacy mode
-// (static-fakebox: false) does NOT apply bottom insets.
-TEST_F(NewTabPageBottomSheetViewControllerTest,
-       TestBottomOmniboxFeedInsetsLegacy) {
-  UIView* superview = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 400, 800)];
-  [superview addSubview:view_controller_.view];
-
-  UIViewController* child_vc = [[UIViewController alloc] init];
-  UIScrollView* scroll_view = [[UIScrollView alloc] init];
-  [child_vc.view addSubview:scroll_view];
-
-  view_controller_.feedViewController = child_vc;
-  [view_controller_ loadViewIfNeeded];
-
-  id mock_delegate =
-      OCMProtocolMock(@protocol(NewTabPageBottomSheetViewControllerDelegate));
-  view_controller_.delegate = mock_delegate;
-
-  OCMStub([mock_delegate
-              expandedOffsetForBottomSheetViewController:view_controller_])
-      .andReturn(100.0);
-  OCMStub([mock_delegate
-              restingOffsetForBottomSheetViewController:view_controller_])
-      .andReturn(400.0);
-  OCMStub([mock_delegate
-              collapsedOffsetForBottomSheetViewController:view_controller_])
-      .andReturn(600.0);
-
-  // Set state to expanded state (BottomSheetSnappingStateExpanded = 2)
-  [view_controller_ setValue:@(2) forKey:@"_sheetState"];
-  [view_controller_ setOmniboxInBottomPosition:YES];
-
-  UIScrollView* feedScrollView =
-      [view_controller_ valueForKey:@"_feedScrollView"];
-  EXPECT_EQ(feedScrollView.contentInset.bottom, 0.0);
-}
-
 // Tests that setting setOmniboxInBottomPosition:YES applies bottom content
-// insets in static-fakebox mode.
-TEST_F(NewTabPageBottomSheetViewControllerTest,
-       TestBottomOmniboxFeedInsetsStaticFakebox) {
+// insets.
+TEST_F(NewTabPageBottomSheetViewControllerTest, TestBottomOmniboxFeedInsets) {
   if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
     return;
   }
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      kNewTabPageRedesign, {{kNewTabPageRedesignStaticFakeboxParam, "true"}});
+  feature_list.InitAndEnableFeature(kNewTabPageRedesign);
 
   UIView* superview = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 400, 800)];
   [superview addSubview:view_controller_.view];
@@ -334,47 +339,14 @@ TEST_F(NewTabPageBottomSheetViewControllerTest,
 }
 
 // Tests that updateContentContainerInsetForOffset correctly handles resting <=
-// expanded in legacy mode.
-TEST_F(NewTabPageBottomSheetViewControllerTest,
-       TestRestingBelowExpandedLegacy) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(kMVTInBottomSheet);
-
-  [view_controller_ loadViewIfNeeded];
-  UIView* mvtContainer =
-      [view_controller_ valueForKey:@"_mostVisitedContainerView"];
-  NSLayoutConstraint* magicStackTopConstraint =
-      [view_controller_ valueForKey:@"_magicStackTopConstraint"];
-
-  id mock_delegate =
-      OCMProtocolMock(@protocol(NewTabPageBottomSheetViewControllerDelegate));
-  view_controller_.delegate = mock_delegate;
-
-  OCMStub([mock_delegate
-              expandedOffsetForBottomSheetViewController:view_controller_])
-      .andReturn(400.0);
-  OCMStub([mock_delegate
-              restingOffsetForBottomSheetViewController:view_controller_])
-      .andReturn(400.0);
-
-  [view_controller_ updateContentContainerInsetForOffset:400.0];
-  EXPECT_FLOAT_EQ(0.0, mvtContainer.alpha);
-  EXPECT_FLOAT_EQ(content_suggestions::FakeOmniboxHeight(),
-                  magicStackTopConstraint.constant);
-}
-
-// Tests that updateContentContainerInsetForOffset correctly handles resting <=
-// expanded in static-fakebox mode.
-TEST_F(NewTabPageBottomSheetViewControllerTest,
-       TestRestingBelowExpandedStaticFakebox) {
+// expanded.
+TEST_F(NewTabPageBottomSheetViewControllerTest, TestRestingBelowExpanded) {
   if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
     return;
   }
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeaturesAndParameters(
-      /*enabled_features=*/{{kNewTabPageRedesign,
-                             {{kNewTabPageRedesignStaticFakeboxParam, "true"}}},
-                            {kMVTInBottomSheet, {}}},
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{kNewTabPageRedesign, kMVTInBottomSheet},
       /*disabled_features=*/{});
 
   [view_controller_ loadViewIfNeeded];
@@ -382,8 +354,6 @@ TEST_F(NewTabPageBottomSheetViewControllerTest,
       [view_controller_ valueForKey:@"_magicStackContainerView"];
   UIView* mvtContainer =
       [view_controller_ valueForKey:@"_mostVisitedContainerView"];
-  NSLayoutConstraint* magicStackTopConstraint =
-      [view_controller_ valueForKey:@"_magicStackTopConstraint"];
 
   id mock_delegate =
       OCMProtocolMock(@protocol(NewTabPageBottomSheetViewControllerDelegate));
@@ -398,6 +368,188 @@ TEST_F(NewTabPageBottomSheetViewControllerTest,
 
   [view_controller_ updateContentContainerInsetForOffset:400.0];
   EXPECT_FLOAT_EQ(1.0, magicStackContainer.alpha);
-  EXPECT_FLOAT_EQ(0.0, mvtContainer.alpha);
-  EXPECT_FLOAT_EQ(0.0, magicStackTopConstraint.constant);
+  EXPECT_FLOAT_EQ(1.0, mvtContainer.alpha);
+}
+
+// Tests that slow upward scrolling in the feed does not alter the bottom
+// sheet's top constraint or reset gesture translation.
+TEST_F(NewTabPageBottomSheetViewControllerTest,
+       TestFeedSlowScrollDoesNotDragSheet) {
+  UIView* superview = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 400, 800)];
+  [superview addSubview:view_controller_.view];
+
+  id mock_delegate =
+      OCMProtocolMock(@protocol(NewTabPageBottomSheetViewControllerDelegate));
+  view_controller_.delegate = mock_delegate;
+
+  OCMStub([mock_delegate
+              expandedOffsetForBottomSheetViewController:view_controller_])
+      .andReturn(100.0);
+  OCMStub([mock_delegate
+              restingOffsetForBottomSheetViewController:view_controller_])
+      .andReturn(400.0);
+  OCMStub([mock_delegate
+              collapsedOffsetForBottomSheetViewController:view_controller_])
+      .andReturn(600.0);
+
+  UIViewController* child_vc = [[UIViewController alloc] init];
+  UIScrollView* scroll_view =
+      [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, 400, 800)];
+  scroll_view.contentSize = CGSizeMake(400, 2000);
+  [child_vc.view addSubview:scroll_view];
+
+  view_controller_.feedViewController = child_vc;
+  [view_controller_ loadViewIfNeeded];
+  [view_controller_ setupSuperviewConstraints];
+
+  // Set sheet to expanded state.
+  [view_controller_ setValue:@(2) forKey:@"_sheetState"];
+  NSLayoutConstraint* topConstraint =
+      [view_controller_ valueForKey:@"_bottomSheetTopConstraint"];
+  topConstraint.constant = 100.0;
+
+  id mock_gesture = OCMClassMock([UIPanGestureRecognizer class]);
+  OCMStub([mock_gesture translationInView:[OCMArg any]])
+      .andReturn(CGPointMake(0, -5.0));
+  OCMStub([mock_gesture velocityInView:[OCMArg any]])
+      .andReturn(CGPointMake(0, -10.0));
+  OCMStub([mock_gesture state]).andReturn(UIGestureRecognizerStateChanged);
+
+  // Expect that setTranslation: is NEVER called on the feed gesture recognizer.
+  [[mock_gesture reject] setTranslation:CGPointZero inView:[OCMArg any]];
+
+  [view_controller_ handleFeedPan:mock_gesture];
+
+  EXPECT_FLOAT_EQ(100.0, topConstraint.constant);
+  EXPECT_TRUE(scroll_view.bounces);
+  [mock_gesture verify];
+}
+
+// Tests that downward panning when the feed is at contentOffset.y == 0 drags
+// the bottom sheet down by the incremental delta.
+TEST_F(NewTabPageBottomSheetViewControllerTest,
+       TestFeedPullDownAtTopDragsSheetIncrementally) {
+  UIView* superview = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 400, 800)];
+  [superview addSubview:view_controller_.view];
+
+  id mock_delegate =
+      OCMProtocolMock(@protocol(NewTabPageBottomSheetViewControllerDelegate));
+  view_controller_.delegate = mock_delegate;
+
+  OCMStub([mock_delegate
+              expandedOffsetForBottomSheetViewController:view_controller_])
+      .andReturn(100.0);
+  OCMStub([mock_delegate
+              restingOffsetForBottomSheetViewController:view_controller_])
+      .andReturn(400.0);
+  OCMStub([mock_delegate
+              collapsedOffsetForBottomSheetViewController:view_controller_])
+      .andReturn(600.0);
+
+  UIViewController* child_vc = [[UIViewController alloc] init];
+  UIScrollView* scroll_view =
+      [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, 400, 800)];
+  scroll_view.contentSize = CGSizeMake(400, 2000);
+  [child_vc.view addSubview:scroll_view];
+
+  view_controller_.feedViewController = child_vc;
+  [view_controller_ loadViewIfNeeded];
+  [view_controller_ setupSuperviewConstraints];
+
+  // Set sheet to expanded state.
+  [view_controller_ setValue:@(2) forKey:@"_sheetState"];
+  NSLayoutConstraint* topConstraint =
+      [view_controller_ valueForKey:@"_bottomSheetTopConstraint"];
+  topConstraint.constant = 100.0;
+  scroll_view.contentOffset = CGPointMake(0, -scroll_view.contentInset.top);
+
+  __block UIGestureRecognizerState gestureState = UIGestureRecognizerStateBegan;
+  __block CGPoint gestureTranslation = CGPointZero;
+
+  id mock_gesture = OCMClassMock([UIPanGestureRecognizer class]);
+  [[mock_gesture reject] setTranslation:CGPointZero inView:[OCMArg any]];
+  OCMStub([mock_gesture state]).andDo(^(NSInvocation* invocation) {
+    [invocation setReturnValue:&gestureState];
+  });
+  OCMStub([mock_gesture translationInView:[OCMArg any]])
+      .andDo(^(NSInvocation* invocation) {
+        [invocation setReturnValue:&gestureTranslation];
+      });
+  OCMStub([mock_gesture velocityInView:[OCMArg any]]).andReturn(CGPointZero);
+
+  // Step 1: Gesture begins.
+  gestureState = UIGestureRecognizerStateBegan;
+  gestureTranslation = CGPointMake(0, 0.0);
+  [view_controller_ handleFeedPan:mock_gesture];
+  EXPECT_FLOAT_EQ(100.0, topConstraint.constant);
+
+  // Step 2: First downward delta (+15 pt).
+  gestureState = UIGestureRecognizerStateChanged;
+  gestureTranslation = CGPointMake(0, 15.0);
+  [view_controller_ handleFeedPan:mock_gesture];
+  EXPECT_FLOAT_EQ(115.0, topConstraint.constant);
+  EXPECT_FALSE(scroll_view.bounces);
+  EXPECT_FLOAT_EQ(-scroll_view.contentInset.top, scroll_view.contentOffset.y);
+
+  // Step 3: Second downward delta (+10 pt, cumulative +25 pt).
+  gestureTranslation = CGPointMake(0, 25.0);
+  [view_controller_ handleFeedPan:mock_gesture];
+  EXPECT_FLOAT_EQ(125.0, topConstraint.constant);
+
+  [mock_gesture verify];
+}
+
+// Tests that downward panning when the feed is scrolled down
+// (contentOffset.y > 0) does not drag the bottom sheet.
+TEST_F(NewTabPageBottomSheetViewControllerTest,
+       TestFeedPullDownWhileScrolledDownDoesNotDragSheet) {
+  UIView* superview = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 400, 800)];
+  [superview addSubview:view_controller_.view];
+
+  id mock_delegate =
+      OCMProtocolMock(@protocol(NewTabPageBottomSheetViewControllerDelegate));
+  view_controller_.delegate = mock_delegate;
+
+  OCMStub([mock_delegate
+              expandedOffsetForBottomSheetViewController:view_controller_])
+      .andReturn(100.0);
+  OCMStub([mock_delegate
+              restingOffsetForBottomSheetViewController:view_controller_])
+      .andReturn(400.0);
+  OCMStub([mock_delegate
+              collapsedOffsetForBottomSheetViewController:view_controller_])
+      .andReturn(600.0);
+
+  UIViewController* child_vc = [[UIViewController alloc] init];
+  UIScrollView* scroll_view =
+      [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, 400, 800)];
+  scroll_view.contentSize = CGSizeMake(400, 2000);
+  [child_vc.view addSubview:scroll_view];
+
+  view_controller_.feedViewController = child_vc;
+  [view_controller_ loadViewIfNeeded];
+  [view_controller_ setupSuperviewConstraints];
+
+  // Set sheet to expanded state.
+  [view_controller_ setValue:@(2) forKey:@"_sheetState"];
+  NSLayoutConstraint* topConstraint =
+      [view_controller_ valueForKey:@"_bottomSheetTopConstraint"];
+  topConstraint.constant = 100.0;
+
+  // Scrolled 50 pt into feed content.
+  scroll_view.contentOffset = CGPointMake(0, 50.0);
+
+  id mock_gesture = OCMClassMock([UIPanGestureRecognizer class]);
+  [[mock_gesture reject] setTranslation:CGPointZero inView:[OCMArg any]];
+
+  // Pulling down with translation +10.
+  OCMStub([mock_gesture translationInView:[OCMArg any]])
+      .andReturn(CGPointMake(0, 10.0));
+  OCMStub([mock_gesture state]).andReturn(UIGestureRecognizerStateChanged);
+
+  [view_controller_ handleFeedPan:mock_gesture];
+
+  EXPECT_FLOAT_EQ(100.0, topConstraint.constant);
+  EXPECT_TRUE(scroll_view.bounces);
+  [mock_gesture verify];
 }

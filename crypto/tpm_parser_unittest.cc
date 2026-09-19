@@ -22,6 +22,7 @@
 #include "crypto/test_support.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/abseil-cpp/absl/strings/str_format.h"
 
 namespace crypto::tpm {
 
@@ -41,7 +42,7 @@ constexpr ByteArray<N> ToByteArray(const uint8_t (&arr)[N]) {
   return std::to_array(arr);
 }
 
-constexpr auto kChallenge = ToByteArray({1, 2, 3, 4});
+constexpr auto kExtraData = ToByteArray({1, 2, 3, 4});
 
 // Builds a serialized TPMT_SIGNATURE containing an RSASSA signature.
 // TPMT_SIGNATURE layout (TPM 2.0 Part 2, Section 11.1.1):
@@ -97,9 +98,9 @@ std::vector<uint8_t> BuildTpmEcdsaSignature(TpmAlg hash_alg,
 // - magic (TPM_GENERATED): 4 bytes (uint32_t, e.g. magic)
 // - type (TPMI_ST_ATTEST): 2 bytes (uint16_t, e.g. type)
 // - qualifiedSigner (TPM2B_NAME): 2 bytes size + 0 bytes buffer = 2 bytes
-// - extraData (TPM2B_DATA, holds challenge):
+// - extraData (TPM2B_DATA, holds extraData):
 //   - size (uint16_t): 2 bytes
-//   - buffer (bytes): challenge.size() bytes
+//   - buffer (bytes): extra_data.size() bytes
 // - clockInfo (TPMS_CLOCK_INFO): 17 bytes (8 clock + 4 reset + 4 restart + 1
 // safe)
 // - firmwareVersion (uint64_t): 8 bytes
@@ -108,17 +109,17 @@ std::vector<uint8_t> BuildTpmEcdsaSignature(TpmAlg hash_alg,
 //   - name (TPM2B_NAME): 2 bytes size + 0 bytes buffer = 2 bytes
 //   - qualifiedName (TPM2B_NAME): 2 bytes size + 0 bytes buffer = 2 bytes
 std::vector<uint8_t> BuildFakeCertifyStatement(
-    base::span<const uint8_t> challenge,
+    base::span<const uint8_t> extra_data,
     TpmConstant magic = TPM_GENERATED_VALUE,
     TpmSt type = TPM_ST_ATTEST_CERTIFY) {
-  size_t size = 4 + 2 + 2 + 2 + challenge.size() + 17 + 8 + 2 + 2;
+  size_t size = 4 + 2 + 2 + 2 + extra_data.size() + 17 + 8 + 2 + 2;
   std::vector<uint8_t> statement(size);
   base::SpanWriter<uint8_t> writer(statement);
   writer.WriteEnumBigEndian(magic);
   writer.WriteEnumBigEndian(type);
   writer.WriteU16BigEndian(0);  // qualified_signer size = 0
-  writer.WriteU16BigEndian(challenge.size());
-  writer.Write(challenge);
+  writer.WriteU16BigEndian(extra_data.size());
+  writer.Write(extra_data);
 
   ByteArray<17> clock_info = {0};
   writer.Write(clock_info);
@@ -146,13 +147,13 @@ std::vector<uint8_t> BuildFakeCertifyStatement(
 //     - buffer (bytes): statement.size() bytes
 //   - signature (TPMT_SIGNATURE): signature.size() bytes
 std::vector<uint8_t> BuildFakeCertifyResponse(
-    base::span<const uint8_t> challenge,
+    base::span<const uint8_t> extra_data,
     base::span<const uint8_t> signature,
     uint32_t response_code = 0,
     TpmConstant magic = TPM_GENERATED_VALUE,
     TpmSt type = TPM_ST_ATTEST_CERTIFY) {
   std::vector<uint8_t> statement =
-      BuildFakeCertifyStatement(challenge, magic, type);
+      BuildFakeCertifyStatement(extra_data, magic, type);
 
   uint32_t resp_size = 10;
   if (response_code == 0) {
@@ -171,6 +172,17 @@ std::vector<uint8_t> BuildFakeCertifyResponse(
     writer.Write(signature);
   }
 
+  CHECK_EQ(writer.remaining(), 0u);
+  return resp;
+}
+
+std::vector<uint8_t> BuildFakeFlushContextResponse(uint32_t response_code = 0) {
+  uint32_t resp_size = 10;
+  std::vector<uint8_t> resp(resp_size);
+  base::SpanWriter<uint8_t> writer(resp);
+  writer.WriteEnumBigEndian(TPM_ST_NO_SESSIONS);
+  writer.WriteU32BigEndian(resp_size);
+  writer.WriteU32BigEndian(response_code);
   CHECK_EQ(writer.remaining(), 0u);
   return resp;
 }
@@ -203,6 +215,143 @@ std::vector<uint8_t> BuildFakeHashResponse(
     writer.WriteEnumBigEndian(ticket_hierarchy);
     writer.WriteU16BigEndian(ticket_digest.size());
     writer.Write(ticket_digest);
+  }
+
+  CHECK_EQ(writer.remaining(), 0u);
+  return resp;
+}
+
+std::vector<uint8_t> BuildFakeHashSequenceStartResponse(
+    uint32_t sequence_handle,
+    uint32_t response_code = 0) {
+  uint32_t resp_size = 10;
+  if (response_code == 0) {
+    resp_size += 4;
+  }
+
+  std::vector<uint8_t> resp(resp_size);
+  base::SpanWriter<uint8_t> writer(resp);
+  writer.WriteEnumBigEndian(TPM_ST_NO_SESSIONS);
+  writer.WriteU32BigEndian(resp_size);
+  writer.WriteU32BigEndian(response_code);
+
+  if (response_code == 0) {
+    writer.WriteU32BigEndian(sequence_handle);
+  }
+
+  CHECK_EQ(writer.remaining(), 0u);
+  return resp;
+}
+
+std::vector<uint8_t> BuildFakeSequenceCompleteResponse(
+    base::span<const uint8_t> digest,
+    TpmSt ticket_tag,
+    TpmRh ticket_hierarchy,
+    base::span<const uint8_t> ticket_digest,
+    uint32_t response_code = 0) {
+  // TPMT_TK_HASHCHECK size: 2 bytes tag + 4 bytes hierarchy + 2 bytes digest
+  // size prefix + digest.
+  size_t ticket_size = 2 + 4 + 2 + ticket_digest.size();
+  size_t body_size = 2 + digest.size() + ticket_size;
+  uint32_t resp_size = 10;
+  if (response_code == 0) {
+    resp_size += 4 + body_size + 5;  // parameterSize (4) + body + session (5)
+  }
+
+  std::vector<uint8_t> resp(resp_size);
+  base::SpanWriter<uint8_t> writer(resp);
+  writer.WriteEnumBigEndian(TPM_ST_SESSIONS);
+  writer.WriteU32BigEndian(resp_size);
+  writer.WriteU32BigEndian(response_code);
+
+  if (response_code == 0) {
+    writer.WriteU32BigEndian(body_size);
+    writer.WriteU16BigEndian(digest.size());
+    writer.Write(digest);
+    writer.WriteEnumBigEndian(ticket_tag);
+    writer.WriteEnumBigEndian(ticket_hierarchy);
+    writer.WriteU16BigEndian(ticket_digest.size());
+    writer.Write(ticket_digest);
+
+    // Auth Response Session
+    writer.WriteU16BigEndian(0);  // nonce size: 0
+    writer.WriteU8BigEndian(0);   // sessionAttributes: 0
+    writer.WriteU16BigEndian(0);  // hmac size: 0
+  }
+
+  CHECK_EQ(writer.remaining(), 0u);
+  return resp;
+}
+
+std::vector<uint8_t> BuildFakeSequenceUpdateResponse(
+    uint32_t response_code = 0) {
+  uint32_t resp_size = 10;
+  if (response_code == 0) {
+    resp_size += 4 + 5;  // parameter_size (4) + session (5)
+  }
+
+  std::vector<uint8_t> resp(resp_size);
+  base::SpanWriter<uint8_t> writer(resp);
+  writer.WriteEnumBigEndian(TPM_ST_SESSIONS);
+  writer.WriteU32BigEndian(resp_size);
+  writer.WriteU32BigEndian(response_code);
+
+  if (response_code == 0) {
+    writer.WriteU32BigEndian(0);  // parameter_size = 0
+    writer.WriteU16BigEndian(0);  // nonce size: 0
+    writer.WriteU8BigEndian(0);   // sessionAttributes: 0
+    writer.WriteU16BigEndian(0);  // hmac size: 0
+  }
+
+  CHECK_EQ(writer.remaining(), 0u);
+  return resp;
+}
+
+std::vector<uint8_t> BuildFakeCreateResponse(
+    base::span<const uint8_t> out_private,
+    base::span<const uint8_t> out_public,
+    base::span<const uint8_t> creation_data,
+    base::span<const uint8_t> creation_hash,
+    TpmSt ticket_tag,
+    TpmRh ticket_hierarchy,
+    base::span<const uint8_t> ticket_digest,
+    uint32_t response_code = 0) {
+  // TPMT_TK_CREATION size: 2 bytes tag + 4 bytes hierarchy + 2 bytes digest
+  // size + digest.
+  size_t ticket_size = 2 + 4 + 2 + ticket_digest.size();
+  size_t body_size = 2 + out_private.size() + 2 + out_public.size() + 2 +
+                     creation_data.size() + 2 + creation_hash.size() +
+                     ticket_size;
+  uint32_t resp_size = 10;
+  if (response_code == 0) {
+    resp_size += 4 + body_size + 5;  // parameterSize (4) + body + session (5)
+  }
+
+  std::vector<uint8_t> resp(resp_size);
+  base::SpanWriter<uint8_t> writer(resp);
+  writer.WriteEnumBigEndian(TPM_ST_SESSIONS);
+  writer.WriteU32BigEndian(resp_size);
+  writer.WriteU32BigEndian(response_code);
+
+  if (response_code == 0) {
+    writer.WriteU32BigEndian(body_size);
+    writer.WriteU16BigEndian(out_private.size());
+    writer.Write(out_private);
+    writer.WriteU16BigEndian(out_public.size());
+    writer.Write(out_public);
+    writer.WriteU16BigEndian(creation_data.size());
+    writer.Write(creation_data);
+    writer.WriteU16BigEndian(creation_hash.size());
+    writer.Write(creation_hash);
+    writer.WriteEnumBigEndian(ticket_tag);
+    writer.WriteEnumBigEndian(ticket_hierarchy);
+    writer.WriteU16BigEndian(ticket_digest.size());
+    writer.Write(ticket_digest);
+
+    // Auth Response Session
+    writer.WriteU16BigEndian(0);  // nonce size: 0
+    writer.WriteU8BigEndian(0);   // sessionAttributes: 0
+    writer.WriteU16BigEndian(0);  // hmac size: 0
   }
 
   CHECK_EQ(writer.remaining(), 0u);
@@ -411,14 +560,14 @@ TEST(TpmCppParserTest, GetSignatureAlgorithms_UnsupportedHashAlgorithm) {
 
 TEST(TpmCppParserTest, ParseCertifyResponse_Success) {
   auto rsa_priv = test::FixedRsa2048PrivateKeyForTesting();
-  std::vector<uint8_t> statement = BuildFakeCertifyStatement(kChallenge);
+  std::vector<uint8_t> statement = BuildFakeCertifyStatement(kExtraData);
   auto sig_bytes =
       sign::Sign(sign::SignatureKind::RSA_PKCS1_SHA256, rsa_priv, statement);
 
   auto sig_blob = BuildTpmRsaSignature(TPM_ALG_SHA256, sig_bytes);
-  auto resp = BuildFakeCertifyResponse(kChallenge, sig_blob);
+  auto resp = BuildFakeCertifyResponse(kExtraData, sig_blob);
 
-  EXPECT_THAT(ParseCertifyResponse(resp, kChallenge),
+  EXPECT_THAT(ParseCertifyResponse(resp, kExtraData),
               ValueIs(CertifyResponse{
                   .statement = statement,
                   .signature = sig_blob,
@@ -428,45 +577,70 @@ TEST(TpmCppParserTest, ParseCertifyResponse_Success) {
 TEST(TpmCppParserTest, ParseCertifyResponse_BadMagic) {
   auto rsa_priv = test::FixedRsa2048PrivateKeyForTesting();
   std::vector<uint8_t> statement = BuildFakeCertifyStatement(
-      kChallenge, static_cast<TpmConstant>(0x11223344));  // Bad magic
+      kExtraData, static_cast<TpmConstant>(0x11223344));  // Bad magic
   auto sig_bytes =
       sign::Sign(sign::SignatureKind::RSA_PKCS1_SHA256, rsa_priv, statement);
 
   auto sig_blob = BuildTpmRsaSignature(TPM_ALG_SHA256, sig_bytes);
-  auto resp = BuildFakeCertifyResponse(kChallenge, sig_blob, 0,
+  auto resp = BuildFakeCertifyResponse(kExtraData, sig_blob, 0,
                                        static_cast<TpmConstant>(0x11223344));
 
-  EXPECT_THAT(ParseCertifyResponse(resp, kChallenge),
+  EXPECT_THAT(ParseCertifyResponse(resp, kExtraData),
               ErrorIs(TpmParseError(TpmParseError::Type::kBadMagicNumber)));
 }
 
 TEST(TpmCppParserTest, ParseCertifyResponse_ChallengeMismatch) {
   auto rsa_priv = test::FixedRsa2048PrivateKeyForTesting();
-  std::vector<uint8_t> statement = BuildFakeCertifyStatement(kChallenge);
+  std::vector<uint8_t> statement = BuildFakeCertifyStatement(kExtraData);
   auto sig_bytes =
       sign::Sign(sign::SignatureKind::RSA_PKCS1_SHA256, rsa_priv, statement);
 
   auto sig_blob = BuildTpmRsaSignature(TPM_ALG_SHA256, sig_bytes);
-  auto resp = BuildFakeCertifyResponse(kChallenge, sig_blob);
+  auto resp = BuildFakeCertifyResponse(kExtraData, sig_blob);
 
-  static constexpr auto kWrongChallenge = ToByteArray({9, 9, 9, 9});
-  EXPECT_THAT(ParseCertifyResponse(resp, kWrongChallenge),
+  static constexpr auto kWrongExtraData = ToByteArray({9, 9, 9, 9});
+  EXPECT_THAT(ParseCertifyResponse(resp, kWrongExtraData),
               ErrorIs(TpmParseError(TpmParseError::Type::kChallengeMismatch)));
 }
 
 TEST(TpmCppParserTest, ParseCertifyResponse_TpmError) {
   auto rsa_priv = test::FixedRsa2048PrivateKeyForTesting();
-  std::vector<uint8_t> statement = BuildFakeCertifyStatement(kChallenge);
+  std::vector<uint8_t> statement = BuildFakeCertifyStatement(kExtraData);
   auto sig_bytes =
       sign::Sign(sign::SignatureKind::RSA_PKCS1_SHA256, rsa_priv, statement);
 
   auto sig_blob = BuildTpmRsaSignature(TPM_ALG_SHA256, sig_bytes);
-  auto resp = BuildFakeCertifyResponse(kChallenge, sig_blob,
+  auto resp = BuildFakeCertifyResponse(kExtraData, sig_blob,
                                        0x100);  // TPM error code 0x100
 
   EXPECT_THAT(
-      ParseCertifyResponse(resp, kChallenge),
+      ParseCertifyResponse(resp, kExtraData),
       ErrorIs(TpmParseError(TpmParseError::Type::kTpmErrorResponse, 0x100)));
+}
+
+TEST(TpmCppParserTest, BuildCertifyCommand) {
+  uint32_t object_handle = 0x81000001;
+  uint32_t sign_handle = 0x81000002;
+  static constexpr auto kQualifyingData = ToByteArray({1, 2, 3, 4});
+
+  std::vector<uint8_t> cmd =
+      BuildCertifyCommand(object_handle, sign_handle, kQualifyingData);
+  EXPECT_EQ(cmd.size(), 48u);
+
+  base::SpanReader<const uint8_t> reader(cmd);
+  EXPECT_EQ(reader.ReadEnumBigEndian<TpmSt>(), TPM_ST_SESSIONS);
+  EXPECT_EQ(reader.ReadU32BigEndian(), 48u);
+  EXPECT_EQ(reader.ReadEnumBigEndian<TpmCc>(), TPM_CC_CERTIFY);
+
+  EXPECT_EQ(reader.ReadU32BigEndian(), object_handle);
+  EXPECT_EQ(reader.ReadU32BigEndian(), sign_handle);
+
+  EXPECT_EQ(reader.ReadU32BigEndian(), 18u);  // Auth size: 2 * 9
+  EXPECT_TRUE(reader.Read<18>().has_value());
+
+  EXPECT_EQ(reader.ReadU16BigEndian(), 4u);
+  EXPECT_EQ(reader.Read<4>(), kQualifyingData);
+  EXPECT_EQ(reader.ReadEnumBigEndian<TpmAlg>(), TPM_ALG_NULL);
 }
 
 TEST(TpmCppParserTest, BuildHashCommand) {
@@ -610,6 +784,310 @@ TEST(TpmCppParserTest, ParseTpmSignature_InvalidAlgorithm) {
 TEST(TpmCppParserTest, ParseTpmSignature_MalformedBlob) {
   static constexpr auto kMalformedSig = ToByteArray({1, 2, 3});
   EXPECT_EQ(ParseTpmSignature(kMalformedSig), std::nullopt);
+}
+
+TEST(TpmCppParserTest, TpmCommandStringify) {
+  EXPECT_EQ(absl::StrFormat("%v", TpmCommand::kCertify), "Certify");
+  EXPECT_EQ(absl::StrFormat("%v", TpmCommand::kCreate), "Create");
+  EXPECT_EQ(absl::StrFormat("%v", TpmCommand::kFlushContext), "FlushContext");
+  EXPECT_EQ(absl::StrFormat("%v", TpmCommand::kHash), "Hash");
+  EXPECT_EQ(absl::StrFormat("%v", TpmCommand::kHashSequenceStart),
+            "HashSequenceStart");
+  EXPECT_EQ(absl::StrFormat("%v", TpmCommand::kSequenceComplete),
+            "SequenceComplete");
+  EXPECT_EQ(absl::StrFormat("%v", TpmCommand::kSequenceUpdate),
+            "SequenceUpdate");
+  EXPECT_EQ(absl::StrFormat("%v", TpmCommand::kSign), "Sign");
+}
+
+TEST(TpmCppParserTest, ResponseStructCommandConstants) {
+  static_assert(CertifyResponse::kCommand == TpmCommand::kCertify);
+  static_assert(CreateResponse::kCommand == TpmCommand::kCreate);
+  static_assert(FlushContextResponse::kCommand == TpmCommand::kFlushContext);
+  static_assert(HashResponse::kCommand == TpmCommand::kHash);
+  static_assert(HashSequenceStartResponse::kCommand ==
+                TpmCommand::kHashSequenceStart);
+  static_assert(SequenceCompleteResponse::kCommand ==
+                TpmCommand::kSequenceComplete);
+  static_assert(SequenceUpdateResponse::kCommand ==
+                TpmCommand::kSequenceUpdate);
+  static_assert(SignResponse::kCommand == TpmCommand::kSign);
+}
+
+TEST(TpmCppParserTest, BuildFlushContextCommand) {
+  uint32_t handle = 0x80000001;
+  std::vector<uint8_t> cmd = BuildFlushContextCommand(handle);
+  EXPECT_EQ(cmd.size(), 14u);
+
+  base::SpanReader<const uint8_t> reader(cmd);
+  EXPECT_EQ(reader.ReadEnumBigEndian<TpmSt>(), TPM_ST_NO_SESSIONS);
+  EXPECT_EQ(reader.ReadU32BigEndian(), 14u);
+  EXPECT_EQ(reader.ReadEnumBigEndian<TpmCc>(), TPM_CC_FLUSH_CONTEXT);
+  EXPECT_EQ(reader.ReadU32BigEndian(), handle);
+}
+
+TEST(TpmCppParserTest, ParseFlushContextResponse_Success) {
+  std::vector<uint8_t> resp = BuildFakeFlushContextResponse();
+
+  EXPECT_THAT(ParseFlushContextResponse(resp), ValueIs(FlushContextResponse{}));
+}
+
+TEST(TpmCppParserTest, ParseFlushContextResponse_TpmError) {
+  std::vector<uint8_t> resp = BuildFakeFlushContextResponse(0x100);
+
+  EXPECT_THAT(
+      ParseFlushContextResponse(resp),
+      ErrorIs(TpmParseError(TpmParseError::Type::kTpmErrorResponse, 0x100)));
+}
+
+TEST(TpmCppParserTest, BuildHashSequenceStartCommand) {
+  TpmAlg hash_alg = TPM_ALG_SHA256;
+  std::vector<uint8_t> cmd = BuildHashSequenceStartCommand(hash_alg);
+  EXPECT_EQ(cmd.size(), 14u);
+
+  base::SpanReader<const uint8_t> reader(cmd);
+  EXPECT_EQ(reader.ReadEnumBigEndian<TpmSt>(), TPM_ST_NO_SESSIONS);
+  EXPECT_EQ(reader.ReadU32BigEndian(), 14u);
+  EXPECT_EQ(reader.ReadEnumBigEndian<TpmCc>(), TPM_CC_HASH_SEQUENCE_START);
+  EXPECT_EQ(reader.ReadU16BigEndian(), 0u);
+  EXPECT_EQ(reader.ReadEnumBigEndian<TpmAlg>(), hash_alg);
+}
+
+TEST(TpmCppParserTest, ParseHashSequenceStartResponse_Success) {
+  uint32_t sequence_handle = 0x80000001;
+  std::vector<uint8_t> resp =
+      BuildFakeHashSequenceStartResponse(sequence_handle);
+
+  ASSERT_OK_AND_ASSIGN(auto parsed, ParseHashSequenceStartResponse(resp));
+  EXPECT_EQ(parsed.sequence_handle, sequence_handle);
+}
+
+TEST(TpmCppParserTest, ParseHashSequenceStartResponse_TpmError) {
+  std::vector<uint8_t> resp =
+      BuildFakeHashSequenceStartResponse(0x80000001, 0x100);
+
+  EXPECT_THAT(
+      ParseHashSequenceStartResponse(resp),
+      ErrorIs(TpmParseError(TpmParseError::Type::kTpmErrorResponse, 0x100)));
+}
+
+TEST(TpmCppParserTest, BuildSequenceUpdateCommand) {
+  uint32_t sequence_handle = 0x80000001;
+  static constexpr auto kData = ToByteArray({1, 2, 3, 4});
+
+  std::vector<uint8_t> cmd = BuildSequenceUpdateCommand(sequence_handle, kData);
+  EXPECT_EQ(cmd.size(), 33u);
+
+  base::SpanReader<const uint8_t> reader(cmd);
+  EXPECT_EQ(reader.ReadEnumBigEndian<TpmSt>(), TPM_ST_SESSIONS);
+  EXPECT_EQ(reader.ReadU32BigEndian(), 33u);
+  EXPECT_EQ(reader.ReadEnumBigEndian<TpmCc>(), TPM_CC_SEQUENCE_UPDATE);
+  EXPECT_EQ(reader.ReadU32BigEndian(), sequence_handle);
+  EXPECT_EQ(reader.ReadU32BigEndian(), 9u);
+  EXPECT_TRUE(reader.Read<9>().has_value());
+  EXPECT_EQ(reader.ReadU16BigEndian(), 4u);
+  EXPECT_EQ(reader.Read<4>(), kData);
+}
+
+TEST(TpmCppParserTest, ParseSequenceUpdateResponse_Success) {
+  std::vector<uint8_t> resp = BuildFakeSequenceUpdateResponse();
+
+  EXPECT_THAT(ParseSequenceUpdateResponse(resp),
+              ValueIs(SequenceUpdateResponse{}));
+}
+
+TEST(TpmCppParserTest, ParseSequenceUpdateResponse_TpmError) {
+  std::vector<uint8_t> resp = BuildFakeSequenceUpdateResponse(0x100);
+
+  EXPECT_THAT(
+      ParseSequenceUpdateResponse(resp),
+      ErrorIs(TpmParseError(TpmParseError::Type::kTpmErrorResponse, 0x100)));
+}
+
+TEST(TpmCppParserTest, BuildSequenceCompleteCommand) {
+  uint32_t sequence_handle = 0x80000001;
+  static constexpr auto kData = ToByteArray({1, 2, 3, 4});
+  TpmRh hierarchy = TPM_RH_OWNER;
+
+  std::vector<uint8_t> cmd =
+      BuildSequenceCompleteCommand(sequence_handle, kData, hierarchy);
+  EXPECT_EQ(cmd.size(), 37u);
+
+  base::SpanReader<const uint8_t> reader(cmd);
+  EXPECT_EQ(reader.ReadEnumBigEndian<TpmSt>(), TPM_ST_SESSIONS);
+  EXPECT_EQ(reader.ReadU32BigEndian(), 37u);
+  EXPECT_EQ(reader.ReadEnumBigEndian<TpmCc>(), TPM_CC_SEQUENCE_COMPLETE);
+  EXPECT_EQ(reader.ReadU32BigEndian(), sequence_handle);
+  EXPECT_EQ(reader.ReadU32BigEndian(), 9u);
+  EXPECT_TRUE(reader.Read<9>().has_value());
+  EXPECT_EQ(reader.ReadU16BigEndian(), 4u);
+  EXPECT_EQ(reader.Read<4>(), kData);
+  EXPECT_EQ(reader.ReadEnumBigEndian<TpmRh>(), hierarchy);
+}
+
+TEST(TpmCppParserTest, ParseSequenceCompleteResponse_Success) {
+  static constexpr auto kDigest = ToByteArray({1, 2, 3});
+  static constexpr auto kTicketDigest = ToByteArray({4, 5, 6});
+  std::vector<uint8_t> resp = BuildFakeSequenceCompleteResponse(
+      kDigest, TPM_ST_HASHCHECK, TPM_RH_OWNER, kTicketDigest);
+
+  ASSERT_OK_AND_ASSIGN(auto parsed, ParseSequenceCompleteResponse(resp));
+  EXPECT_THAT(parsed.digest, ElementsAreArray(kDigest));
+
+  std::vector<uint8_t> expected_ticket(2 + 4 + 2 + kTicketDigest.size());
+  base::SpanWriter<uint8_t> writer(expected_ticket);
+  writer.WriteEnumBigEndian(TPM_ST_HASHCHECK);
+  writer.WriteEnumBigEndian(TPM_RH_OWNER);
+  writer.WriteU16BigEndian(kTicketDigest.size());
+  writer.Write(kTicketDigest);
+
+  EXPECT_THAT(parsed.validation_ticket, ElementsAreArray(expected_ticket));
+}
+
+TEST(TpmCppParserTest, ParseSequenceCompleteResponse_TpmError) {
+  static constexpr auto kDigest = ToByteArray({1, 2, 3});
+  static constexpr auto kTicketDigest = ToByteArray({4, 5, 6});
+  std::vector<uint8_t> resp = BuildFakeSequenceCompleteResponse(
+      kDigest, TPM_ST_HASHCHECK, TPM_RH_OWNER, kTicketDigest, 0x100);
+
+  EXPECT_THAT(
+      ParseSequenceCompleteResponse(resp),
+      ErrorIs(TpmParseError(TpmParseError::Type::kTpmErrorResponse, 0x100)));
+}
+
+TEST(TpmCppParserTest, BuildCreateAikCommand_SupportedAlgorithms) {
+  constexpr uint32_t kParentHandle = 0x81000001;
+
+  // RSA PKCS1
+  EXPECT_TRUE(BuildCreateAikCommand(kParentHandle,
+                                    sign::SignatureKind::RSA_PKCS1_SHA256));
+  EXPECT_TRUE(BuildCreateAikCommand(kParentHandle,
+                                    sign::SignatureKind::RSA_PKCS1_SHA384));
+  EXPECT_TRUE(BuildCreateAikCommand(kParentHandle,
+                                    sign::SignatureKind::RSA_PKCS1_SHA512));
+
+  // RSA PSS
+  EXPECT_TRUE(BuildCreateAikCommand(kParentHandle,
+                                    sign::SignatureKind::RSA_PSS_SHA256));
+  EXPECT_TRUE(BuildCreateAikCommand(kParentHandle,
+                                    sign::SignatureKind::RSA_PSS_SHA384));
+  EXPECT_TRUE(BuildCreateAikCommand(kParentHandle,
+                                    sign::SignatureKind::RSA_PSS_SHA512));
+
+  // ECDSA
+  EXPECT_TRUE(
+      BuildCreateAikCommand(kParentHandle, sign::SignatureKind::ECDSA_SHA256));
+  EXPECT_TRUE(
+      BuildCreateAikCommand(kParentHandle, sign::SignatureKind::ECDSA_SHA384));
+  EXPECT_TRUE(
+      BuildCreateAikCommand(kParentHandle, sign::SignatureKind::ECDSA_SHA512));
+
+  // Check command structure for an ECC command
+  ASSERT_OK_AND_ASSIGN(
+      std::vector<uint8_t> ecc_cmd,
+      BuildCreateAikCommand(0x81000009u, sign::SignatureKind::ECDSA_SHA256));
+  EXPECT_EQ(ecc_cmd.size(), 65u);
+
+  base::SpanReader<const uint8_t> ecc_reader(ecc_cmd);
+  EXPECT_EQ(ecc_reader.ReadEnumBigEndian<TpmSt>(), TPM_ST_SESSIONS);
+  EXPECT_EQ(ecc_reader.ReadU32BigEndian(), 65u);
+  EXPECT_EQ(ecc_reader.ReadEnumBigEndian<TpmCc>(), TPM_CC_CREATE);
+  EXPECT_EQ(ecc_reader.ReadU32BigEndian(), 0x81000009u);
+
+  // Check command structure for an RSA command
+  ASSERT_OK_AND_ASSIGN(std::vector<uint8_t> rsa_cmd,
+                       BuildCreateAikCommand(
+                           0x81000001u, sign::SignatureKind::RSA_PKCS1_SHA256));
+  EXPECT_EQ(rsa_cmd.size(), 65u);
+
+  base::SpanReader<const uint8_t> rsa_reader(rsa_cmd);
+  EXPECT_EQ(rsa_reader.ReadEnumBigEndian<TpmSt>(), TPM_ST_SESSIONS);
+  EXPECT_EQ(rsa_reader.ReadU32BigEndian(), 65u);
+  EXPECT_EQ(rsa_reader.ReadEnumBigEndian<TpmCc>(), TPM_CC_CREATE);
+  EXPECT_EQ(rsa_reader.ReadU32BigEndian(), 0x81000001u);
+}
+
+TEST(TpmCppParserTest, BuildCreateAikCommand_UnsupportedAlgorithms) {
+  constexpr uint32_t kParentHandle = 0x81000001;
+  EXPECT_FALSE(BuildCreateAikCommand(kParentHandle,
+                                     sign::SignatureKind::RSA_PKCS1_SHA1));
+  EXPECT_FALSE(
+      BuildCreateAikCommand(kParentHandle, sign::SignatureKind::ECDSA_SHA1));
+  EXPECT_FALSE(
+      BuildCreateAikCommand(kParentHandle, sign::SignatureKind::ED25519));
+  EXPECT_FALSE(
+      BuildCreateAikCommand(kParentHandle, sign::SignatureKind::MLDSA_44));
+  EXPECT_FALSE(
+      BuildCreateAikCommand(kParentHandle, sign::SignatureKind::MLDSA_65));
+  EXPECT_FALSE(
+      BuildCreateAikCommand(kParentHandle, sign::SignatureKind::MLDSA_87));
+}
+
+TEST(TpmCppParserTest, ParseCreateResponse_Success) {
+  static constexpr auto kPrivate = ToByteArray({1, 2, 3});
+  static constexpr auto kPublic = ToByteArray({4, 5, 6, 7});
+  static constexpr auto kCreationData = ToByteArray({8, 9});
+  static constexpr auto kCreationHash = ToByteArray({10, 11});
+  static constexpr auto kTicketDigest = ToByteArray({12, 13, 14});
+
+  std::vector<uint8_t> resp =
+      BuildFakeCreateResponse(kPrivate, kPublic, kCreationData, kCreationHash,
+                              TPM_ST_CREATION, TPM_RH_OWNER, kTicketDigest);
+
+  static constexpr auto kExpectedPrivate = ToByteArray({0, 3, 1, 2, 3});
+  static constexpr auto kExpectedPublic = ToByteArray({0, 4, 4, 5, 6, 7});
+
+  ASSERT_OK_AND_ASSIGN(auto parsed, ParseCreateResponse(resp));
+  EXPECT_THAT(parsed.out_private, ElementsAreArray(kExpectedPrivate));
+  EXPECT_THAT(parsed.out_public, ElementsAreArray(kExpectedPublic));
+}
+
+TEST(TpmCppParserTest, ParseCreateResponse_BufferTooSmall) {
+  static constexpr auto kPrivate = ToByteArray({1, 2, 3});
+  static constexpr auto kPublic = ToByteArray({4, 5, 6, 7});
+  static constexpr auto kCreationData = ToByteArray({8, 9});
+  static constexpr auto kCreationHash = ToByteArray({10, 11});
+  static constexpr auto kTicketDigest = ToByteArray({12, 13, 14});
+
+  std::vector<uint8_t> resp =
+      BuildFakeCreateResponse(kPrivate, kPublic, kCreationData, kCreationHash,
+                              TPM_ST_CREATION, TPM_RH_OWNER, kTicketDigest);
+  resp.pop_back();
+
+  EXPECT_THAT(ParseCreateResponse(resp),
+              ErrorIs(TpmParseError(TpmParseError::Type::kBufferTooSmall)));
+}
+
+TEST(TpmCppParserTest, ParseCreateResponse_TrailingBytes) {
+  static constexpr auto kPrivate = ToByteArray({1, 2, 3});
+  static constexpr auto kPublic = ToByteArray({4, 5, 6, 7});
+  static constexpr auto kCreationData = ToByteArray({8, 9});
+  static constexpr auto kCreationHash = ToByteArray({10, 11});
+  static constexpr auto kTicketDigest = ToByteArray({12, 13, 14});
+
+  std::vector<uint8_t> resp =
+      BuildFakeCreateResponse(kPrivate, kPublic, kCreationData, kCreationHash,
+                              TPM_ST_CREATION, TPM_RH_OWNER, kTicketDigest);
+  resp.push_back(0);
+
+  EXPECT_THAT(ParseCreateResponse(resp),
+              ErrorIs(TpmParseError(TpmParseError::Type::kTrailingBytes)));
+}
+
+TEST(TpmCppParserTest, ParseCreateResponse_TpmError) {
+  static constexpr auto kPrivate = ToByteArray({1, 2, 3});
+  static constexpr auto kPublic = ToByteArray({4, 5, 6, 7});
+  static constexpr auto kCreationData = ToByteArray({8, 9});
+  static constexpr auto kCreationHash = ToByteArray({10, 11});
+  static constexpr auto kTicketDigest = ToByteArray({12, 13, 14});
+
+  std::vector<uint8_t> resp = BuildFakeCreateResponse(
+      kPrivate, kPublic, kCreationData, kCreationHash, TPM_ST_CREATION,
+      TPM_RH_OWNER, kTicketDigest, 0x100);
+
+  EXPECT_THAT(
+      ParseCreateResponse(resp),
+      ErrorIs(TpmParseError(TpmParseError::Type::kTpmErrorResponse, 0x100)));
 }
 
 }  // namespace crypto::tpm

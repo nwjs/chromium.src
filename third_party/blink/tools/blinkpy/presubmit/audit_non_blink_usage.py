@@ -91,7 +91,7 @@ _CONFIG = [
             'base::GetUniqueIdForProcess',
             'base::GetSystemMemoryInfo',
             'base::GiBS',
-            'base::GiBU',
+            'base::GiB',
             'base::HashingLRUCache',
             'base::HashInts',
             'base::HashMetricName',
@@ -115,7 +115,7 @@ _CONFIG = [
             'base::JobDelegate',
             'base::JobHandle',
             'base::KiBS',
-            'base::KiBU',
+            'base::KiB',
             'base::kCriticalMemoryPressureThreshold',
             'base::kInvalidThreadId',
             'base::kStatefulMemoryPressure',
@@ -130,7 +130,7 @@ _CONFIG = [
             'base::MemoryPressureListenerTag',
             'base::MessagePump',
             'base::MiBS',
-            'base::MiBU',
+            'base::MiB',
             'base::Microseconds',
             'base::Milliseconds',
             'base::Minutes',
@@ -422,6 +422,14 @@ _CONFIG = [
         ],
         'allowed': [
             'ui::mojom::MenuSourceType',
+        ],
+    },
+    {
+        'paths': [
+            'third_party/blink/public/common/input/',
+        ],
+        'allowed': [
+            'ui::GestureScrollRailsMode',
         ],
     },
     {
@@ -1370,6 +1378,7 @@ _CONFIG = [
     },
     {
         'paths': [
+            'third_party/blink/renderer/core/css/css_default_style_sheets.cc',
             'third_party/blink/renderer/core/timezone/timezone_controller.cc',
             'third_party/blink/renderer/core/frame/local_frame_mojo_handler.cc',
         ],
@@ -2987,13 +2996,16 @@ _CONFIG = [
         'paths': [
             'third_party/blink/renderer/modules/ml/webnn/',
             'third_party/blink/renderer/modules/ml/ml.cc',
+            'third_party/blink/renderer/modules/ml/ml.h',
             'third_party/blink/renderer/modules/ml/ml_context.cc',
             'third_party/blink/renderer/modules/ml/ml_context.h',
             'third_party/blink/renderer/modules/ml/ml_model_loader_test_util.cc',
         ],
         'allowed': [
             'blink_mojom::.+',
+            'dawn::.+',
             'webnn::.+',
+            'wgpu::.+',
             'gpu::SharedImageInterface',
             'gpu::SHARED_IMAGE_USAGE_WEBGPU_READ',
             'gpu::SHARED_IMAGE_USAGE_WEBGPU_SHARED_BUFFER',

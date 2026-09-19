@@ -7,7 +7,6 @@
 
 #include <memory>
 
-#include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
 #include "base/unguessable_token.h"
 #include "components/performance_manager/public/execution_context_priority/execution_context_priority.h"
@@ -78,11 +77,6 @@ class ForceForegroundVoterForUrls
   void ReleaseForeground(const FrameNode* frame_node);
   void ReleaseForeground(const WorkerNode* worker_node);
 
-  void RequestForeground(
-      const execution_context::ExecutionContext* execution_context);
-  void ReleaseForeground(
-      const execution_context::ExecutionContext* execution_context);
-
   bool ShouldBoost(const base::UnguessableToken& browser_context_id,
                    const GURL& url) const;
 
@@ -93,10 +87,6 @@ class ForceForegroundVoterForUrls
   absl::flat_hash_map<base::UnguessableToken,
                       std::unique_ptr<url_matcher::URLMatcher>>
       profiles_force_foreground_patterns_;
-
-  // Keeps track of foregrounded contexts.
-  base::flat_set<raw_ptr<const execution_context::ExecutionContext>>
-      foregrounded_contexts_;
 };
 }  // namespace performance_manager::execution_context_priority
 

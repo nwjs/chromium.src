@@ -14,6 +14,7 @@
 #include "build/build_config.h"
 #include "components/guest_contents/browser/guest_contents_handle.h"
 #include "components/surface_embed/browser/surface_embed_host.h"
+#include "components/surface_embed/common/constants.h"
 #include "components/surface_embed/common/features.h"
 #include "components/surface_embed/common/surface_embed.mojom.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
@@ -23,7 +24,6 @@
 #include "content/public/browser/surface_embed_connector.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
-#include "content/public/common/content_features.h"
 #include "content/public/common/result_codes.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -56,6 +56,8 @@ constexpr std::string_view kMultilevelHarnessUrl =
 constexpr std::string_view kMultilevelParentUrl =
     "/surface_embed/multilevel_parent.html";
 constexpr std::string_view kInnerPageUrl = "/surface_embed/inner_page.html";
+constexpr std::string_view kIntersectionObserverTargetUrl =
+    "/surface_embed/intersection_observer_target.html";
 constexpr size_t kSingleEmbedCount = 1;
 constexpr float kTestDeviceScaleFactor = 1.5f;
 
@@ -164,20 +166,11 @@ class SurfaceEmbedBrowserTest : public content::ContentBrowserTest {
  public:
   // If `enable_binder` is true, SurfaceEmbedTestContentBrowserClient will be
   // installed to provide a binder for SurfaceEmbedHost interface.
-  explicit SurfaceEmbedBrowserTest(
-      bool enable_binder = true,
-      bool enable_unowned_inner_web_contents = false)
-      : enable_binder_(enable_binder),
-        enable_unowned_inner_web_contents_(enable_unowned_inner_web_contents) {}
+  explicit SurfaceEmbedBrowserTest(bool enable_binder = true)
+      : enable_binder_(enable_binder) {}
 
   void SetUp() override {
-    if (enable_unowned_inner_web_contents_) {
-      scoped_feature_list_.InitWithFeatures(
-          {features::kSurfaceEmbed, ::features::kAttachUnownedInnerWebContents},
-          {});
-    } else {
-      scoped_feature_list_.InitAndEnableFeature(features::kSurfaceEmbed);
-    }
+    scoped_feature_list_.InitAndEnableFeature(features::kSurfaceEmbed);
     content::ContentBrowserTest::SetUp();
   }
 
@@ -450,7 +443,6 @@ class SurfaceEmbedBrowserTest : public content::ContentBrowserTest {
   base::test::ScopedFeatureList scoped_feature_list_;
   SurfaceEmbedHostTracker tracker_;
   bool enable_binder_;
-  bool enable_unowned_inner_web_contents_;
   std::unique_ptr<SurfaceEmbedTestContentBrowserClient> test_browser_client_;
 };
 
@@ -459,15 +451,6 @@ class SurfaceEmbedBrowserTestNoHost : public SurfaceEmbedBrowserTest {
  public:
   SurfaceEmbedBrowserTestNoHost()
       : SurfaceEmbedBrowserTest(/*enable_binder=*/false) {}
-};
-
-class SurfaceEmbedWithInnerWebContentsBrowserTest
-    : public SurfaceEmbedBrowserTest {
- public:
-  SurfaceEmbedWithInnerWebContentsBrowserTest()
-      : SurfaceEmbedBrowserTest(
-            /*enable_binder=*/true,
-            /*enable_unowned_inner_web_contents=*/true) {}
 };
 
 // Test that trying to create a web plugin w/o providing support via
@@ -600,6 +583,134 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest, DisplayNonePropagates) {
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return child_contents->GetVisibility() == content::Visibility::VISIBLE;
   }));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    SurfaceEmbedBrowserTest,
+    IntersectionObserverIgnoresEmbedderViewportUnlikeIframe) {
+  auto child_contents =
+      SetupHarnessAndChildWithContent(kIntersectionObserverTargetUrl);
+  AttachChildToEmbed(child_contents.get());
+
+  // Move the SurfaceEmbed host outside of the outer viewport.
+  ASSERT_TRUE(content::ExecJs(web_contents(), R"(
+    const embed = document.querySelector('embed');
+    embed.style.top = '10000px';
+    new Promise(resolve => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+  )"));
+
+  // Confirm that the SurfaceEmbed host is outside of the outer viewport.
+  EXPECT_TRUE(
+      content::EvalJs(web_contents(),
+                      "document.querySelector('embed').getBoundingClientRect()."
+                      "top >= window.innerHeight")
+          .ExtractBool());
+
+  // SurfaceEmbed uses the guest's viewport, ignoring the outer viewport. If
+  // this were an iframe, it would use the outer viewport and be non-
+  // intersecting.
+  EXPECT_TRUE(
+      content::EvalJs(child_contents.get(), "observeViewport()").ExtractBool());
+}
+
+IN_PROC_BROWSER_TEST_F(
+    SurfaceEmbedBrowserTest,
+    IntersectionObserverIgnoresEmbedderScrollOffsetUnlikeIframe) {
+  auto child_contents =
+      SetupHarnessAndChildWithContent(kIntersectionObserverTargetUrl);
+  AttachChildToEmbed(child_contents.get());
+
+  ASSERT_TRUE(content::ExecJs(web_contents(), R"(
+    const embed = document.querySelector('embed');
+    const scroller = document.createElement('div');
+    scroller.id = 'embed_scroller';
+    scroller.style.cssText = 'width: 100px; height: 100px; overflow: hidden';
+    const spacer = document.createElement('div');
+    spacer.style.height = '200px';
+    embed.style.position = 'static';
+    embed.style.left = '';
+    embed.style.top = '';
+    embed.style.display = 'block';
+    scroller.append(spacer, embed);
+    document.body.appendChild(scroller);
+    scroller.scrollTop = 200;
+    new Promise(resolve => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+  )"));
+
+  // Start with the SurfaceEmbed host fully in view.
+  EXPECT_TRUE(content::EvalJs(web_contents(), R"(
+    (() => {
+      const embed = document.querySelector('embed').getBoundingClientRect();
+      const scroller = document.querySelector('#embed_scroller')
+          .getBoundingClientRect();
+      return embed.top >= scroller.top && embed.bottom <= scroller.bottom;
+    })()
+  )")
+                  .ExtractBool());
+  EXPECT_TRUE(
+      content::EvalJs(child_contents.get(), "observeViewport()").ExtractBool());
+
+  // Scroll so the SurfaceEmbed host is partially clipped.
+  ASSERT_TRUE(content::ExecJs(web_contents(), R"(
+    document.querySelector('#embed_scroller').scrollTop = 150;
+    new Promise(resolve => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+  )"));
+
+  // Verify the SurfaceEmbed host is partially outside the scroller's viewport.
+  EXPECT_TRUE(content::EvalJs(web_contents(), R"(
+    (() => {
+      const embed = document.querySelector('embed').getBoundingClientRect();
+      const scroller = document.querySelector('#embed_scroller')
+          .getBoundingClientRect();
+      return embed.top > scroller.top && embed.top < scroller.bottom &&
+          embed.bottom > scroller.bottom;
+    })()
+  )")
+                  .ExtractBool());
+  // Even though the SurfaceEmbed host (embed) is partially clipped, its
+  // guest/contents remains fully intersecting. This is different from an iframe
+  // where the iframe contents would be partially intersecting.
+  EXPECT_TRUE(
+      content::EvalJs(child_contents.get(), "observeViewport()").ExtractBool());
+  EXPECT_NEAR(1.0,
+              content::EvalJs(child_contents.get(),
+                              "observeViewportIntersectionRatio()")
+                  .ExtractDouble(),
+              0.01);
+
+  // Scroll so the SurfaceEmbed host is fully out of view.
+  ASSERT_TRUE(content::ExecJs(web_contents(), R"(
+    document.querySelector('#embed_scroller').scrollTop = 0;
+    new Promise(resolve => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+  )"));
+
+  // Verify the host is fully outside the scroller's viewport.
+  EXPECT_TRUE(content::EvalJs(web_contents(), R"(
+    (() => {
+      const embed = document.querySelector('embed').getBoundingClientRect();
+      const scroller = document.querySelector('#embed_scroller')
+          .getBoundingClientRect();
+      return embed.top >= scroller.bottom;
+    })()
+  )")
+                  .ExtractBool());
+  // SurfaceEmbed remains fully intersecting. An iframe would become non-
+  // intersecting.
+  EXPECT_TRUE(
+      content::EvalJs(child_contents.get(), "observeViewport()").ExtractBool());
+  EXPECT_NEAR(1.0,
+              content::EvalJs(child_contents.get(),
+                              "observeViewportIntersectionRatio()")
+                  .ExtractDouble(),
+              0.01);
 }
 
 IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
@@ -1226,6 +1337,89 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest, FocusPreservedAfterNavigation) {
                   .ExtractBool());
 }
 
+IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
+                       AttachToFocusedEmbedHasPageFocus) {
+  NavigateToTestUrl(kFocusHarnessUrl);
+  content::ReadyForInputObserver(web_contents()).Wait();
+
+  // 1. Create an <embed> element without content ID and insert it into the DOM.
+  EXPECT_TRUE(content::ExecJs(web_contents(),
+                              content::JsReplace(R"(
+        const embed = document.createElement('embed');
+        embed.setAttribute('type', $1);
+        embed.style.position = 'absolute';
+        embed.style.left = '10px';
+        embed.style.top = '50px';
+        embed.style.width = '100px';
+        embed.style.height = '100px';
+        embed.id = 'my_embed';
+        const outer2 = document.getElementById('outer2');
+        document.body.insertBefore(embed, outer2);
+      )", kInternalPluginMimeType)));
+
+  WaitForHostCount(1);
+  SurfaceEmbedHost* host = GetHost(0);
+  ASSERT_NE(host, nullptr);
+
+  // 2. Focus the <embed> element in the outer page before attaching.
+  EXPECT_TRUE(content::ExecJs(web_contents(),
+                              "document.getElementById('my_embed').focus()"));
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return content::EvalJs(web_contents(), "document.activeElement.id") ==
+               "my_embed" &&
+           content::EvalJs(web_contents(), "document.hasFocus()").ExtractBool();
+  }));
+
+  // 3. Create the inner child WebContents.
+  auto child_contents = CreateChildWebContents();
+  NavigateChildToUrl(child_contents.get(), kInnerPageUrl);
+  content::ReadyForInputObserver(child_contents.get()).Wait();
+
+  guest_contents::GuestContentsHandle* guest_handle =
+      guest_contents::GuestContentsHandle::CreateForWebContents(
+          child_contents.get());
+  ASSERT_NE(guest_handle, nullptr);
+
+  // 4. Attach the inner WebContents to the already focused <embed> by setting
+  // data-content-id and re-triggering plugin creation.
+  EXPECT_TRUE(content::ExecJs(web_contents(),
+                              content::JsReplace(R"(
+        const embed = document.getElementById('my_embed');
+        embed.setAttribute('data-content-id', $1);
+        embed.removeAttribute('type');
+        embed.setAttribute('type', $2);
+      )", guest_handle->id().ToString(), kInternalPluginMimeType)));
+
+  // 5. Verify that the child WebContents has page focus after attaching to the
+  // already focused <embed>.
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return child_contents->GetSurfaceEmbedConnector() != nullptr &&
+           content::GetFocusedWebContents(web_contents()) ==
+               child_contents.get() &&
+           web_contents()->GetFocusedFrame() ==
+               child_contents->GetPrimaryMainFrame() &&
+           content::EvalJs(web_contents(), "document.activeElement.id") ==
+               "my_embed" &&
+           content::EvalJs(web_contents(), "document.hasFocus()")
+               .ExtractBool() &&
+           content::EvalJs(child_contents.get(), "document.hasFocus()")
+               .ExtractBool();
+  }));
+
+  EXPECT_TRUE(
+      content::EvalJs(web_contents(), "document.hasFocus()").ExtractBool());
+  EXPECT_TRUE(content::EvalJs(child_contents.get(), "document.hasFocus()")
+                  .ExtractBool());
+  EXPECT_EQ(child_contents.get(),
+            content::GetFocusedWebContents(web_contents()));
+  EXPECT_EQ(child_contents->GetPrimaryMainFrame(),
+            web_contents()->GetFocusedFrame());
+  EXPECT_EQ(child_contents.get(),
+            content::GetFocusedWebContents(child_contents.get()));
+  EXPECT_EQ(child_contents->GetPrimaryMainFrame(),
+            child_contents->GetFocusedFrame());
+}
+
 IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest, FocusByTabKey) {
   NavigateToTestUrl(kFocusHarnessUrl);
 
@@ -1606,8 +1800,8 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest, MultilevelFocusAndInput) {
                      "document.getElementById('inner').value"));
 }
 
-IN_PROC_BROWSER_TEST_F(SurfaceEmbedWithInnerWebContentsBrowserTest,
-                       FocusAndInput) {
+IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
+                       FocusAndInputWithInnerWebContents) {
   NavigateToTestUrl(kMultilevelHarnessUrl);
 
   auto parent_contents = CreateChildWebContents();
@@ -1636,13 +1830,16 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedWithInnerWebContentsBrowserTest,
 
   auto child_contents = CreateChildWebContents();
   NavigateChildToUrl(child_contents.get(), kInnerPageUrl);
-  guest_contents::GuestContentsHandle* child_guest_handle =
-      guest_contents::GuestContentsHandle::CreateForWebContents(
-          child_contents.get());
-  ASSERT_NE(child_guest_handle, nullptr);
-  child_guest_handle->AttachToOuterWebContents(child_frame);
-  ASSERT_EQ(child_contents->GetOuterWebContents(), parent_contents.get());
-  EXPECT_EQ(child_contents->GetSurfaceEmbedConnector(), nullptr);
+  content::WebContents* child_contents_ptr = child_contents.get();
+  base::test::TestFuture<content::RenderFrameHost*> prepared_frame;
+  child_frame->PrepareForInnerWebContentsAttach(prepared_frame.GetCallback());
+  child_frame = prepared_frame.Get();
+  ASSERT_NE(child_frame, nullptr);
+  parent_contents->AttachInnerWebContents(std::move(child_contents),
+                                          child_frame,
+                                          /*is_full_page=*/false);
+  ASSERT_EQ(child_contents_ptr->GetOuterWebContents(), parent_contents.get());
+  EXPECT_EQ(child_contents_ptr->GetSurfaceEmbedConnector(), nullptr);
 
   content::ReadyForInputObserver(web_contents()).Wait();
   content::SimulateMouseClickOrTapElementWithId(web_contents(), "outer1");
@@ -1659,7 +1856,7 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedWithInnerWebContentsBrowserTest,
 
   EXPECT_TRUE(base::test::RunUntil([&]() {
     auto* parent_view = parent_contents->GetRenderWidgetHostView();
-    auto* child_view = child_contents->GetRenderWidgetHostView();
+    auto* child_view = child_contents_ptr->GetRenderWidgetHostView();
     return parent_view && child_view &&
            parent_view->GetViewBounds().size() == gfx::Size(200, 150) &&
            child_view->GetViewBounds().size() == gfx::Size(100, 100);
@@ -1667,23 +1864,22 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedWithInnerWebContentsBrowserTest,
   const gfx::Rect child_embed_bounds(20, 90, 100, 100);
   VerifyRedPixelInBounds(child_embed_bounds);
   content::WaitForHitTestData(parent_contents.get());
-  content::WaitForHitTestData(child_contents.get());
-  auto inner_center = content::GetCenterCoordinatesOfElementWithId(
-      child_contents.get(), "inner");
+  content::WaitForHitTestData(child_contents_ptr);
+  auto inner_center =
+      content::GetCenterCoordinatesOfElementWithId(child_contents_ptr, "inner");
   gfx::Point click_point(static_cast<int>(inner_center.x()) + 10 + 10,
                          static_cast<int>(inner_center.y()) + 40 + 50);
 
   content::SimulateMouseClickAt(
       web_contents(), 0, blink::WebMouseEvent::Button::kLeft, click_point);
   EXPECT_TRUE(base::test::RunUntil([&]() {
-    return content::GetFocusedWebContents(web_contents()) ==
-           child_contents.get();
+    return content::GetFocusedWebContents(web_contents()) == child_contents_ptr;
   }));
-  WaitForActiveElement(child_contents.get(), "inner");
+  WaitForActiveElement(child_contents_ptr, "inner");
   WaitForActiveElement(parent_contents.get(), "child_frame");
   WaitForActiveElement(web_contents(), "parent_embed");
   for (content::WebContents* contents :
-       {web_contents(), parent_contents.get(), child_contents.get()}) {
+       {web_contents(), parent_contents.get(), child_contents_ptr}) {
     EXPECT_TRUE(base::test::RunUntil([&]() {
       return content::EvalJs(contents, "document.hasFocus()").ExtractBool();
     }));
@@ -1693,7 +1889,7 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedWithInnerWebContentsBrowserTest,
                             ui::DomCode::US_A, ui::VKEY_A, false, false, false,
                             false);
   EXPECT_EQ("c", content::EvalJsAfterLifecycleUpdate(
-                     child_contents.get(), "",
+                     child_contents_ptr, "",
                      "document.getElementById('inner').value"));
 }
 

@@ -18,21 +18,21 @@
 #include "build/build_config.h"
 #include "chrome/browser/autofill/autocomplete_history_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/webdata_services/web_data_service_factory.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/content/browser/test_autofill_manager_injector.h"
-#include "components/autofill/core/browser/data_manager/personal_data_manager_test_utils.h"
+#include "components/autofill/core/browser/data_manager/personal_data_manager_test_util.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #include "components/autofill/core/browser/foundations/test_autofill_manager_waiter.h"
 #include "components/autofill/core/browser/single_field_fillers/autocomplete/autocomplete_history_manager.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_test_helpers.h"
-#include "components/autofill/core/browser/suggestions/suggestions_context.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/browser/test_utils/test_autofill_clock.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
@@ -164,7 +164,7 @@ class AutocompleteTest : public InProcessBrowserTest {
     // Simulate a mouse click to submit the form because form submissions not
     // triggered by user gestures are ignored.
     content::SimulateMouseClick(
-        active_browser_->tab_strip_model()->GetActiveWebContents(), 0,
+        active_browser_->GetTabStripModel()->GetActiveWebContents(), 0,
         blink::WebMouseEvent::Button::kLeft);
     ASSERT_TRUE(autofill_manager()->form_submitted_waiter().Wait(1));
 
@@ -185,7 +185,9 @@ class AutocompleteTest : public InProcessBrowserTest {
     WaitForPendingDBTasks(*GetWebDataService());
   }
 
-  void set_active_browser(Browser* browser) { active_browser_ = browser; }
+  void set_active_browser(BrowserWindowInterface* browser) {
+    active_browser_ = browser;
+  }
 
   AutocompleteHistoryManager* autocomplete_history_manager() {
     return AutocompleteHistoryManagerFactory::GetForProfile(current_profile());
@@ -231,14 +233,14 @@ class AutocompleteTest : public InProcessBrowserTest {
 
  private:
   content::WebContents* web_contents() {
-    return active_browser_->tab_strip_model()->GetActiveWebContents();
+    return active_browser_->GetTabStripModel()->GetActiveWebContents();
   }
 
   Profile* current_profile() { return active_browser_->GetProfile(); }
 
   test::AutofillBrowserTestEnvironment autofill_test_environment_;
   TestAutofillManagerInjector<TestAutofillManager> autofill_manager_injector_;
-  raw_ptr<Browser> active_browser_ = nullptr;
+  raw_ptr<BrowserWindowInterface> active_browser_ = nullptr;
 };
 
 // Tests that a user can save a simple Autocomplete value.

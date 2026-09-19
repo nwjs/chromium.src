@@ -49,6 +49,10 @@ class PermissionChipInterface {
 
   virtual void SetVisible(bool visible) = 0;
   virtual bool GetVisible() const = 0;
+  virtual PermissionChipTheme GetThemeForTesting() const = 0;
+  virtual std::u16string GetTooltipText() const = 0;
+  virtual std::u16string GetTextForTesting() const = 0;
+  virtual bool GetIsRequestForTesting() const = 0;
 
   // Customize the chip.
   virtual void SetChipIcon(const gfx::VectorIcon& icon) = 0;
@@ -97,5 +101,10 @@ class PermissionChipInterface {
   virtual views::BubbleAnchor GetAnchor() = 0;
 
   virtual void SetBubbleOwner(BubbleOwnerDelegate* owner) = 0;
+
+  virtual void ExecuteForTesting() = 0;
+
+  // Unlike ResetAnimation, will always invoke the observer animation events.
+  virtual void EndAnimationForTesting() = 0;
 };
 #endif  // CHROME_BROWSER_UI_VIEWS_PERMISSIONS_CHIP_PERMISSION_CHIP_INTERFACE_H_

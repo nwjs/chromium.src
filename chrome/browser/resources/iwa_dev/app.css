@@ -17,29 +17,43 @@
 
 h1 {
   font-size: 1.75rem;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
-#learn-more {
+.subtitle {
   color: var(--cr-secondary-text-color);
   font-size: 1rem;
-  margin-bottom: 16px;
 }
 
-#learn-more a {
+.subtitle a,
+#dev-mode-disabled-message a {
   color: var(--cr-link-color);
   text-decoration: none;
 }
 
-#learn-more a:hover {
+.subtitle a:hover,
+#dev-mode-disabled-message a:hover {
   text-decoration: underline;
+}
+
+#learn-more {
+  margin-bottom: 32px;
+}
+
+#dev-mode-disabled-message {
+  font-size: 14px;
+  margin-top: 32px;
+}
+
+#dev-mode-disabled-message p {
+  margin: 6px 0;
 }
 
 .header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 
 h2 {
@@ -47,9 +61,14 @@ h2 {
   margin: 0;
 }
 
+#installed-apps-subtitle {
+  margin-top: 4px;
+}
+
 #iwa-list {
   display: flex;
   flex-direction: column;
+  padding-top: 8px;
 }
 
 #iwa-list-message:not(:empty) {
@@ -59,4 +78,11 @@ h2 {
   font-style: italic;
   padding: 24px;
   text-align: center;
+}
+
+#installButton {
+  /* Aligns perfectly with the 20px padding + 1px border of the app list cards */
+  margin-inline-end: 21px;
+  min-width: 81px;
+  gap: 4px;
 }

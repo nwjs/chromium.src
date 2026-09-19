@@ -6,6 +6,7 @@
 
 #include <atomic>
 
+#include "partition_alloc/buildflags.h"
 #include "partition_alloc/internal/partition_root_internal.h"
 #include "partition_alloc/internal/thread_cache_internal.h"
 #include "partition_alloc/internal_allocator.h"
@@ -32,7 +33,7 @@ std::atomic_bool g_no_purge = false;
 }  // namespace
 
 // Utility class to process batched-free operation.
-template <bool for_sanitized_objects = false>
+template <QuarantineTarget quarantine_target>
 class BatchFreeQueue {
  public:
   PA_ALWAYS_INLINE explicit BatchFreeQueue(PartitionRoot* root) : root_(root) {}
@@ -75,7 +76,8 @@ class BatchFreeQueue {
 };
 
 template <>
-PA_ALWAYS_INLINE void BatchFreeQueue<false>::Purge() {
+PA_ALWAYS_INLINE void
+BatchFreeQueue<QuarantineTarget::kMiracleObjects>::Purge() {
   if (!size_) {
     return;
   }
@@ -102,7 +104,8 @@ PA_ALWAYS_INLINE void BatchFreeQueue<false>::Purge() {
 }
 
 template <>
-PA_ALWAYS_INLINE void BatchFreeQueue<true>::Purge() {
+PA_ALWAYS_INLINE void
+BatchFreeQueue<QuarantineTarget::kSanitizedObjects>::Purge() {
   if (!size_) {
     return;
   }
@@ -116,8 +119,8 @@ PA_ALWAYS_INLINE void BatchFreeQueue<true>::Purge() {
     auto size_details = root_->SlotSpanToBucketSizeDetails(entry.slot_span);
 #if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
     if (root_->brp_enabled()) {
-      auto* metadata = PartitionRoot::InSlotMetadataPointerFromSlotStartAndSize(
-          entry.slot_start, size_details.slot_size);
+      auto* metadata =
+          InSlotMetadata::From({entry.slot_start, size_details.slot_size});
       if (metadata->IsAlive()) {
         // Since `FreeNoHooksImmediateInternal()` checks double-free, see if
         // the object is still alive.
@@ -150,8 +153,8 @@ PA_ALWAYS_INLINE void BatchFreeQueue<true>::Purge() {
   } while (size_);
 }
 
-template <bool thread_bound, bool for_sanitized_objects>
-SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
+template <bool thread_bound, QuarantineTarget quarantine_target>
+SchedulerLoopQuarantineBranch<thread_bound, quarantine_target>::
     SchedulerLoopQuarantineBranch(PartitionRoot* allocator_root,
                                   ThreadCache* tcache)
     : allocator_root_(allocator_root),
@@ -165,16 +168,16 @@ SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
   }
 }
 
-template <bool thread_bound, bool for_sanitized_objects>
-SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
+template <bool thread_bound, QuarantineTarget quarantine_target>
+SchedulerLoopQuarantineBranch<thread_bound, quarantine_target>::
     ~SchedulerLoopQuarantineBranch() {
   Destroy();
 }
 
-template <bool thread_bound, bool for_sanitized_objects>
-void SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
-    Configure(SchedulerLoopQuarantineRoot& root,
-              const SchedulerLoopQuarantineConfig& config) {
+template <bool thread_bound, QuarantineTarget quarantine_target>
+void SchedulerLoopQuarantineBranch<thread_bound, quarantine_target>::Configure(
+    SchedulerLoopQuarantineRoot& root,
+    const SchedulerLoopQuarantineConfig& config) {
   // Note the Quarantine could be paused here because scoped-opt outs are not
   // aware of the feature being enabled or disabled.
   PA_CHECK(allocator_root_ == &root.allocator_root_);
@@ -199,14 +202,18 @@ void SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
   enable_zapping_ = config.enable_zapping;
   leak_on_destruction_ = config.leak_on_destruction;
   bool old_pause_in_between_tasks = pause_in_between_tasks_;
-  bool old_purge_control_enabled =
-      enable_task_controlled_purge_ || pause_in_between_tasks_;
+  bool old_exclude_non_ipc_tasks = exclude_non_ipc_tasks_;
+  bool old_purge_control_enabled = enable_task_controlled_purge_ ||
+                                   pause_in_between_tasks_ ||
+                                   exclude_non_ipc_tasks_;
 
   enable_task_controlled_purge_ = config.enable_task_controlled_purge;
   pause_in_between_tasks_ = config.pause_in_between_tasks;
+  exclude_non_ipc_tasks_ = config.exclude_non_ipc_tasks;
 
-  bool new_purge_control_enabled =
-      enable_task_controlled_purge_ || pause_in_between_tasks_;
+  bool new_purge_control_enabled = enable_task_controlled_purge_ ||
+                                   pause_in_between_tasks_ ||
+                                   exclude_non_ipc_tasks_;
 
   if constexpr (kThreadBound) {
     if (task_nesting_depth_ > 0) {
@@ -217,6 +224,14 @@ void SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
       } else if (!new_purge_control_enabled && old_purge_control_enabled) {
         for (int i = 0; i < task_nesting_depth_; ++i) {
           AllowScanlessPurge();
+        }
+      }
+      if (!is_outermost_task_mojo_ipc_) {
+        if (exclude_non_ipc_tasks_ && !old_exclude_non_ipc_tasks) {
+          ++pause_quarantine_;
+        } else if (!exclude_non_ipc_tasks_ && old_exclude_non_ipc_tasks) {
+          PA_DCHECK(pause_quarantine_ > 0);
+          --pause_quarantine_;
         }
       }
     } else {
@@ -241,8 +256,8 @@ void SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
                           &allocator_root_->sentinel_bucket_));
 }
 
-template <bool thread_bound, bool for_sanitized_objects>
-bool SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
+template <bool thread_bound, QuarantineTarget quarantine_target>
+bool SchedulerLoopQuarantineBranch<thread_bound, quarantine_target>::
     IsQuarantinedForTesting(void* object) {
   ScopedGuardIfNeeded<kThreadBound> guard(lock_);
   UntaggedSlotStart slot_start = SlotStart::Unchecked(object).Untag();
@@ -254,8 +269,8 @@ bool SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
   return false;
 }
 
-template <bool thread_bound, bool for_sanitized_objects>
-bool SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
+template <bool thread_bound, QuarantineTarget quarantine_target>
+bool SchedulerLoopQuarantineBranch<thread_bound, quarantine_target>::
     IsQuarantineTarget(const internal::BucketSizeDetails& size_details) const {
   if (!enable_quarantine_ || pause_quarantine_) [[unlikely]] {
     return false;
@@ -273,24 +288,22 @@ bool SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
   return true;
 }
 
-template <bool thread_bound, bool for_sanitized_objects>
-void SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
+template <bool thread_bound, QuarantineTarget quarantine_target>
+void SchedulerLoopQuarantineBranch<thread_bound, quarantine_target>::
     SetCapacityInBytes(size_t capacity_in_bytes) {
   branch_capacity_in_bytes_.store(capacity_in_bytes, std::memory_order_relaxed);
 }
 
-template <bool thread_bound, bool for_sanitized_objects>
-void SchedulerLoopQuarantineBranch<thread_bound,
-                                   for_sanitized_objects>::Purge() {
+template <bool thread_bound, QuarantineTarget quarantine_target>
+void SchedulerLoopQuarantineBranch<thread_bound, quarantine_target>::Purge() {
   ScopedGuardIfNeeded<kThreadBound> guard(lock_);
   PurgeInternal(0);
   slots_.shrink_to_fit();
   PA_DCHECK(slots_.capacity() == 0);
 }
 
-template <bool thread_bound, bool for_sanitized_objects>
-void SchedulerLoopQuarantineBranch<thread_bound,
-                                   for_sanitized_objects>::Destroy() {
+template <bool thread_bound, QuarantineTarget quarantine_target>
+void SchedulerLoopQuarantineBranch<thread_bound, quarantine_target>::Destroy() {
 #if PA_BUILDFLAG(DCHECKS_ARE_ON)
   being_destructed_ = true;
 #endif  // PA_BUILDFLAG(DCHECKS_ARE_ON)
@@ -299,11 +312,11 @@ void SchedulerLoopQuarantineBranch<thread_bound,
   }
 }
 
-template <bool thread_bound, bool for_sanitized_objects>
-void SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
-    Quarantine(SlotStart slot_start,
-               SlotSpanMetadata* slot_span,
-               const internal::BucketSizeDetails& size_details) {
+template <bool thread_bound, QuarantineTarget quarantine_target>
+void SchedulerLoopQuarantineBranch<thread_bound, quarantine_target>::Quarantine(
+    SlotStart slot_start,
+    SlotSpanMetadata* slot_span,
+    const internal::BucketSizeDetails& size_details) {
 #if PA_BUILDFLAG(DCHECKS_ARE_ON)
   PA_DCHECK(!being_destructed_);
 #endif  // PA_BUILDFLAG(DCHECKS_ARE_ON)
@@ -360,7 +373,7 @@ void SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
                                              std::memory_order_relaxed);
 
   if (enable_zapping_) {
-    if constexpr (for_sanitized_objects) {
+    if constexpr (quarantine_target == QuarantineTarget::kSanitizedObjects) {
       internal::SecureMemset(
           slot_start.ToObject(), internal::kFreedByte,
           allocator_root_->GetSlotUsableSize(size_details, slot_span));
@@ -371,11 +384,11 @@ void SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
   }
 }
 
-template <bool thread_bound, bool for_sanitized_objects>
+template <bool thread_bound, QuarantineTarget quarantine_target>
 PA_ALWAYS_INLINE void
-SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
-    PurgeInternal(size_t target_size_in_bytes,
-                  [[maybe_unused]] bool for_destruction) {
+SchedulerLoopQuarantineBranch<thread_bound, quarantine_target>::PurgeInternal(
+    size_t target_size_in_bytes,
+    [[maybe_unused]] bool for_destruction) {
   if (g_no_purge.load(std::memory_order_relaxed)) {
     return;
   }
@@ -383,7 +396,7 @@ SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
   int64_t freed_count = 0;
   int64_t freed_size_in_bytes = 0;
 
-  BatchFreeQueue<for_sanitized_objects> queue(allocator_root_);
+  BatchFreeQueue<quarantine_target> queue(allocator_root_);
 
   // Dequarantine some entries as required.
   while (target_size_in_bytes < branch_size_in_bytes_) {
@@ -458,24 +471,24 @@ SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
 }
 
 // static
-template <bool thread_bound, bool for_sanitized_objects>
-void SchedulerLoopQuarantineBranch<thread_bound, for_sanitized_objects>::
+template <bool thread_bound, QuarantineTarget quarantine_target>
+void SchedulerLoopQuarantineBranch<thread_bound, quarantine_target>::
     DangerouslyDisablePurge() {
   g_no_purge.store(true, std::memory_order_relaxed);
 }
 
-template <bool thread_bound, bool for_sanitized_objects>
-const SchedulerLoopQuarantineConfig& SchedulerLoopQuarantineBranch<
-    thread_bound,
-    for_sanitized_objects>::GetConfigurationForTesting() {
+template <bool thread_bound, QuarantineTarget quarantine_target>
+const SchedulerLoopQuarantineConfig&
+SchedulerLoopQuarantineBranch<thread_bound,
+                              quarantine_target>::GetConfigurationForTesting() {
   return config_for_testing_;
 }
 
 template class PA_EXPORT_TEMPLATE_DEFINE(PA_COMPONENT_EXPORT(PARTITION_ALLOC))
-    SchedulerLoopQuarantineBranch<false, false>;
+    SchedulerLoopQuarantineBranch<false, QuarantineTarget::kMiracleObjects>;
 template class PA_EXPORT_TEMPLATE_DEFINE(PA_COMPONENT_EXPORT(PARTITION_ALLOC))
-    SchedulerLoopQuarantineBranch<false, true>;
+    SchedulerLoopQuarantineBranch<false, QuarantineTarget::kSanitizedObjects>;
 template class PA_EXPORT_TEMPLATE_DEFINE(PA_COMPONENT_EXPORT(PARTITION_ALLOC))
-    SchedulerLoopQuarantineBranch<true, false>;
+    SchedulerLoopQuarantineBranch<true, QuarantineTarget::kMiracleObjects>;
 
 }  // namespace partition_alloc::internal

@@ -72,14 +72,6 @@ class MockV4l2GpuClient : public VideoCaptureDevice::Client {
                              int*,
                              int*));
 
-  void OnIncomingCapturedBuffer(
-      Buffer buffer,
-      const VideoCaptureFormat& format,
-      base::TimeTicks reference_,
-      base::TimeDelta timestamp,
-      std::optional<base::TimeTicks> capture_begin_time,
-      const std::optional<VideoFrameMetadata>& metadata) override {}
-
   MOCK_METHOD8(OnIncomingCapturedBufferExt,
                void(Buffer,
                     const VideoCaptureFormat&,
@@ -96,6 +88,7 @@ class MockV4l2GpuClient : public VideoCaptureDevice::Client {
                     const std::string&));
 
   MOCK_METHOD1(OnFrameDropped, void(VideoCaptureFrameDropReason));
+  MOCK_METHOD0(InvalidateBuffers, void());
 
   double GetBufferPoolUtilization() const override { return 0.0; }
 

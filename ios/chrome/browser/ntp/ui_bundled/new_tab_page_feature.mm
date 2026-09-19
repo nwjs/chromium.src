@@ -35,6 +35,8 @@ BASE_FEATURE(kMVTInBottomSheet, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNewTabPageUICleanup, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kAimButtonRefactor, base::FEATURE_DISABLED_BY_DEFAULT);
+
 #pragma mark - Feature parameters
 
 // Feature parameters for `kOverrideFeedSettings`.
@@ -65,15 +67,23 @@ BASE_FEATURE_PARAM(int,
                    kNewTabPageUICleanupArmParam,
                    static_cast<int>(NTPUICleanupVariation::kTightPadding));
 
-const char kNewTabPageRedesignStaticFakeboxParam[] = "static-fakebox";
-
-BASE_FEATURE_PARAM(bool,
-                   kNewTabPageRedesignStaticFakeboxParamFeature,
-                   &kNewTabPageRedesign,
-                   kNewTabPageRedesignStaticFakeboxParam,
-                   false);
+const char kAimButtonRefactorArmParam[] = "aim-button-refactor-arm";
 
 #pragma mark - Helpers
+
+AimButtonRefactorArm GetAimButtonRefactorArm() {
+  if (base::FeatureList::IsEnabled(kAimButtonRefactor)) {
+    return static_cast<AimButtonRefactorArm>(
+        base::GetFieldTrialParamByFeatureAsInt(kAimButtonRefactor,
+                                               kAimButtonRefactorArmParam,
+                                               /*default_value=*/0));
+  }
+  return AimButtonRefactorArm::kDisabled;
+}
+
+bool IsAimButtonRefactorEnabled() {
+  return GetAimButtonRefactorArm() != AimButtonRefactorArm::kDisabled;
+}
 
 bool IsMVTInBottomSheetEnabled() {
   return base::FeatureList::IsEnabled(kMVTInBottomSheet);
@@ -131,11 +141,6 @@ bool IsNTPRedesignEnabled() {
          ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET;
 }
 
-bool IsNTPRedesignStaticFakeboxEnabled() {
-  return IsNTPRedesignEnabled() &&
-         kNewTabPageRedesignStaticFakeboxParamFeature.Get();
-}
-
 NTPUICleanupVariation GetNewTabPageUICleanupVariation() {
   if (base::FeatureList::IsEnabled(kNewTabPageUICleanup)) {
     return static_cast<NTPUICleanupVariation>(
@@ -151,7 +156,8 @@ bool IsNewTabPageUICleanupEnabled() {
          variation == NTPUICleanupVariation::kPreferredPadding;
 }
 
-bool IsNewTabPageUICleanupFakeboxOnlyEnabled() {
-  return GetNewTabPageUICleanupVariation() ==
-         NTPUICleanupVariation::kFakeboxBackgroundAndShadow;
+bool ShouldApplyFakeboxBackgroundAndShadow() {
+  return IsNewTabPageUICleanupEnabled() ||
+         GetNewTabPageUICleanupVariation() ==
+             NTPUICleanupVariation::kFakeboxBackgroundAndShadow;
 }

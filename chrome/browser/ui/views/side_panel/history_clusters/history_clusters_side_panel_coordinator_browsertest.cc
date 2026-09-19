@@ -6,7 +6,6 @@
 
 #include "base/values.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -43,7 +42,7 @@ IN_PROC_BROWSER_TEST_F(HistoryClustersSidePanelCoordinatorBrowserTest,
                        ShowRespectsManagedPolicy) {
   // Verify that history clusters opens when configured by policy.
   HistoryClustersSidePanelCoordinator* const history_clusters_coordinator =
-      browser()->GetFeatures().history_clusters_side_panel_coordinator();
+      HistoryClustersSidePanelCoordinator::From(browser());
   policy::PolicyMap policies;
   policies.Set(policy::key::kHistoryClustersVisible,
                policy::POLICY_LEVEL_MANDATORY, policy::POLICY_SCOPE_USER,

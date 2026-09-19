@@ -7,7 +7,7 @@
 #include "base/test/bind.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/web_apps/web_app_dialog_test_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_dialogs.h"
@@ -45,13 +45,13 @@ IN_PROC_BROWSER_TEST_F(WebAppLaunchDialogBrowserTest,
   // Open a popup and capture the new Browser* for it.
   ui_test_utils::BrowserCreatedObserver browser_observer;
   auto popup_value =
-      OpenPopupOfSize(browser()->tab_strip_model()->GetActiveWebContents(),
+      OpenPopupOfSize(browser()->GetTabStripModel()->GetActiveWebContents(),
                       embedded_test_server()->GetURL("/empty.html"),
                       /*width=*/500, /*height=*/500);
   EXPECT_TRUE(popup_value.has_value());
   content::WebContents* popup_contents = popup_value.value();
   ASSERT_TRUE(content::WaitForLoadStop(popup_contents));
-  Browser* popup_browser = browser_observer.Wait();
+  BrowserWindowInterface* popup_browser = browser_observer.Wait();
   ASSERT_NE(popup_browser, nullptr);
 
   views::NamedWidgetShownWaiter widget_waiter(
@@ -82,7 +82,7 @@ IN_PROC_BROWSER_TEST_F(WebAppLaunchDialogBrowserTest,
   ASSERT_TRUE(embedded_test_server()->Start());
 
   auto popup_value =
-      OpenPopupOfSize(browser()->tab_strip_model()->GetActiveWebContents(),
+      OpenPopupOfSize(browser()->GetTabStripModel()->GetActiveWebContents(),
                       embedded_test_server()->GetURL("/empty.html"));
   EXPECT_TRUE(popup_value.has_value());
   content::WebContents* popup_contents = popup_value.value();

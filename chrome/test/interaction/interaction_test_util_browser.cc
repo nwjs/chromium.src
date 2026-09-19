@@ -12,6 +12,8 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/test/test_browser_ui.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
@@ -251,6 +253,9 @@ class InteractionTestUtilSimulatorBrowser
         LOG(ERROR) << "WebContents not associated with any UI element.";
         return ui::test::ActionResult::kFailed;
       }
+    } else if (auto* const web_el = el->AsA<ui::TrackedElementWebUI>()) {
+      is_web_contents = true;
+      view = web_el->GetWebView();
     }
     if (!view) {
       return ui::test::ActionResult::kNotAttempted;

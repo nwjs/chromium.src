@@ -144,11 +144,13 @@ source_set("impl") {
       "//chrome/browser/ui/tabs/saved_tab_groups",
       "//chrome/browser/ui/user_education",
       "//chrome/browser/ui/views:bubble_anchor_util_views",
+      "//chrome/browser/ui/views:content_setting_bubble_contents",
       "//chrome/browser/ui/views:layout_provider",
       "//chrome/browser/ui/views/frame:toolbar_button_provider",
       "//chrome/browser/ui/views/interaction",
       "//chrome/browser/ui/views/page_action",
       "//chrome/browser/ui/views/page_info",
+      "//chrome/browser/ui/views/permissions",
       "//chrome/browser/ui/views/record_replay",
       "//chrome/browser/ui/views/sharing_hub",
       "//chrome/browser/ui/views/toolbar",
@@ -181,6 +183,7 @@ source_set("impl") {
       "//components/security_interstitials/content:security_interstitial_page",
       "//components/security_state/content",
       "//components/security_state/core",
+      "//components/startup_metric_utils",
       "//components/strings:components_strings",
       "//components/user_education/common",
       "//components/zoom",
@@ -196,6 +199,9 @@ source_set("impl") {
       "//ui/native_theme",
       "//ui/strings:ui_strings_grit",
     ]
+    if (is_mac) {
+      deps += [ "//chrome/browser/ui:fullscreen_util_mac" ]
+    }
   }
 }
 
@@ -276,6 +282,7 @@ source_set("browser_tests") {
     "//chrome/browser/ui:browser_actions",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_web_contents_delegate",
+    "//chrome/browser/ui/find_bar",
     "//chrome/browser/ui/views/frame",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//chrome/browser/ui/views/page_action",
@@ -347,6 +354,7 @@ source_set("interactive_ui_tests") {
     ":location_bar",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/lens",
+    "//chrome/browser/ui/views:content_setting_bubble_contents",
     "//chrome/browser/ui/views/frame",
     "//chrome/browser/ui/views/page_action",
     "//chrome/browser/ui/views/page_info",
@@ -364,4 +372,24 @@ source_set("interactive_ui_tests") {
     "//ui/events:test_support",
     "//ui/views:test_support",
   ]
+}
+
+source_set("test_support") {
+  testonly = true
+
+  sources = [ "location_icon_test_accessor.cc" ]
+  public = [ "location_icon_test_accessor.h" ]
+
+  deps = [
+    ":location_bar",
+    "//chrome/browser/ui",
+    "//chrome/browser/ui:bubble_anchor_util",
+    "//chrome/browser/ui/interaction",
+    "//chrome/browser/ui/page_info",
+    "//chrome/browser/ui/views/frame:toolbar_button_provider",
+    "//chrome/browser/ui/views/page_info",
+    "//chrome/browser/ui/views/toolbar",
+    "//ui/events:test_support",
+  ]
+  public_deps = [ "//base" ]
 }

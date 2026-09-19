@@ -163,6 +163,10 @@ chromium-metrics-reviews@google.com.
   <int value="1414" label="OtpTargetFrameNotFound"/>
   <int value="1415" label="OtpNoLastTabObservation"/>
   <int value="1416" label="OtpFieldNotFound"/>
+  <int value="1500" label="TranslateServiceUnavailable"/>
+  <int value="1501" label="TranslateUnsupportedLanguage"/>
+  <int value="1600" label="BookmarkModelNotLoaded"/>
+  <int value="1700" label="FindAndHighlightTextNotFound"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/actor/public/mojom/actor_types.mojom:ActionResultCode) -->
@@ -384,6 +388,7 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="kNeedsAsyncCheck"/>
   <int value="4" label="kAllowByContainerConfig"/>
   <int value="5" label="kBlockByContainerConfig"/>
+  <int value="6" label="kBlockByDangerousMimeType"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/actor/execution_engine.h:GatingDecision) -->
@@ -423,7 +428,7 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="kMojoDisconnected"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/common/actor/page_stability_metrics_common.h:PageStabilityOutcome) -->
+<!-- LINT.ThenChange(//components/actor/core/page_stability_metrics_common.h:PageStabilityOutcome) -->
 
 <!-- LINT.IfChange(RendererResolvedTargetResult) -->
 

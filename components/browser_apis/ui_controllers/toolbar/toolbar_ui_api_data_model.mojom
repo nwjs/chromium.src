@@ -10,8 +10,10 @@ import "components/browser_apis/ui_controllers/toolbar/icon_handle.mojom";
 import "components/content_settings/core/common/content_settings_types.mojom";
 import "mojo/public/mojom/base/string16.mojom";
 import "mojo/public/mojom/base/time.mojom";
+import "skia/public/mojom/skcolor.mojom";
 import "ui/gfx/geometry/mojom/geometry.mojom";
 import "ui/gfx/range/mojom/range.mojom";
+import "ui/webui/resources/js/tracked_element/tracked_element.mojom";
 
 // The context menu types that can be opened with ToolbarUIService's
 // ShowContextMenu.
@@ -119,6 +121,10 @@ struct OmniboxActionTextInput {
   // selection changes as well.
   uint32 ui_version;
 
+  // If true, this text change was an unelision (and thus should not be
+  // viewed as actually changing the URL).
+  bool unelision = false;
+
   gfx.mojom.Range selection;
 };
 
@@ -143,6 +149,9 @@ struct OmniboxActionPointer {
   // If true, asks for zero-suggest completion to start. Applies only if
   // `is_pointer_down` is false.
   bool start_zero_suggest = false;
+
+  // State of the selection in the omnibox on the WebUI side.
+  gfx.mojom.Range selection;
 };
 
 struct OmniboxActionDropText {
@@ -269,6 +278,7 @@ struct AppMenuControlState {
 enum AvatarToolbarButtonState {
   kGuestSession,
   kIncognitoProfile,
+  kEnterpriseIsolatedProfile,
   kExplicitTextShowing,
   kOnSignin,
   kShowIdentityName,
@@ -359,6 +369,14 @@ struct ContentSettingImageState {
   // Explanatory text that animates in if non empty.
   mojo_base.mojom.String16 explanatory_string;
 
+  // If true, when `explanatory_string` is displayed, it should appear via an
+  // animation.
+  bool should_run_animation;
+
+  // The TrackedElement id to use for the content setting icon button. Used for
+  // element tracking.
+  tracked_element.mojom.TrackedElementIdentifier identifier;
+
   // NOTE: The visual icon to display is determined by `type`
   // and `is_blocked`.
 };
@@ -442,7 +460,19 @@ struct PageActionState {
   // snapping shut instantly. Has no effect if `should_show_chip` is true.
   bool should_animate_chip_out;
 
-  // TODO: crbug.com/501449027 - Add remaining fields.
+  // Overrides background color from its usual behavior.
+  skia.mojom.SkColor? background_color_override;
+
+  // The TrackedElement id to use for the page action icon button. Used for
+  // element tracking.
+  tracked_element.mojom.TrackedElementIdentifier identifier;
+
+  // Whether the action is currently active, indicating there is at least one
+  // active `ScopedPageActionActivity` associated with this action in the
+  // C++ `PageActionModel` (for example, when a feature's UI like the Find bar
+  // is currently open). When true, the icon button is rendered with an active
+  // highlight state (via the `is-menu-open` attribute in WebUI).
+  bool is_active;
 };
 
 // Colors used by the omnibox.
@@ -521,6 +551,9 @@ struct LocationBarFlags {
 
   // Whether to render the AIM button as focused even when it's not.
   bool force_aim_button_focus_ring = false;
+
+  // Whether the virtual keyboard is visible.
+  bool is_virtual_keyboard_visible = false;
 };
 
 // Search keyword chip, which shows up when the user enters things like
@@ -683,7 +716,13 @@ enum SecurityLevel {
   kWarning,
 };
 
+enum SecurityChipRole {
+  kButton,
+  kImage,
+};
+
 struct SecurityChipAccessibilityState {
+  SecurityChipRole role;
   mojo_base.mojom.String16 label;
   mojo_base.mojom.String16 description;
 };
@@ -702,6 +741,7 @@ struct SecurityChipState {
   // Whether the security chip is visible. It might be hidden if it is
   // overridden by permission chips.
   bool is_visible;
+  bool is_context_menu_visible;
 };
 
 // Note: The security chip and permission chips are visually mutually exclusive.

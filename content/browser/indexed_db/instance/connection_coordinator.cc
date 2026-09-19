@@ -289,7 +289,8 @@ class ConnectionCoordinator::OpenRequest
          new_version == IndexedDBDatabaseMetadata::NO_VERSION)) {
       Log(DatabaseConnectionOpenResult::kSuccessDirectOpen,
           bucket_context_->GetHistogramSuffix());
-      if (pending_->request_shared_connection && db_->ConnectionCount() > 0) {
+      if (pending_->request_shared_connection &&
+          db_->HasConnectionForClient(pending_->client_token)) {
         OnOpenSuccess(nullptr);
       } else {
         OnOpenSuccess(db_->CreateConnection(
@@ -603,7 +604,14 @@ class ConnectionCoordinator::DeleteRequest
 
     base::ScopedClosureRunner scoped_tasks_available(tasks_available_callback_);
     if (old_version.has_value()) {
-      TakeFactoryClient()->DeleteSuccess(old_version.value());
+      // `NO_VERSION` could occur if there was an error while opening the
+      // database, causing the database to be re-created. All we can do is
+      // pretend it never existed.
+      int64_t sanitized_old_value =
+          old_version.value() == IndexedDBDatabaseMetadata::NO_VERSION
+              ? IndexedDBDatabaseMetadata::DEFAULT_VERSION
+              : old_version.value();
+      TakeFactoryClient()->DeleteSuccess(sanitized_old_value);
       state_ = RequestState::kDone;
       LogDuration(synchronous_duration_ += timer.Elapsed(),
                   "IndexedDB.BackendDuration.DeleteDatabase",
@@ -733,7 +741,8 @@ ConnectionCoordinator::ExecuteTask(bool has_connections) {
   auto& request = request_queue_.front();
   if (request->state() == RequestState::kNotStarted) {
     request->Perform(has_connections);
-    DCHECK(request->state() != RequestState::kNotStarted);
+    CHECK(request->state() != RequestState::kNotStarted,
+          base::NotFatalUntil::M158);
   }
 
   StatusOr<RequestState> state = request->state();

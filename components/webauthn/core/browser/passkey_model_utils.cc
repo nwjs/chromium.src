@@ -31,7 +31,6 @@
 #include "device/fido/attestation_statement.h"
 #include "device/fido/attested_credential_data.h"
 #include "device/fido/authenticator_data.h"
-#include "device/fido/p256_public_key.h"
 #include "device/fido/public/fido_constants.h"
 #include "device/fido/public_key.h"
 
@@ -58,8 +57,6 @@ constexpr std::string_view kAadWebauthnCredentialSpecificsPrivateKey = "";
 constexpr uint8_t kSignatureCounter[4] = {0};
 
 constexpr size_t kEncryptionSecretSize = 32;
-
-constexpr size_t kHmacSecretSize = 32;
 
 struct PasskeyComparator {
   bool operator()(const sync_pb::WebauthnCredentialSpecifics& a,
@@ -341,7 +338,7 @@ SerializedAttestationObject MakeAttestationObjectForCreation(
 
   using Flag = device::AuthenticatorData::Flag;
   std::unique_ptr<device::PublicKey> public_key =
-      device::P256PublicKey::ParseSpkiDer(
+      device::PublicKey::FromSpkiDer(
           base::strict_cast<int32_t>(device::CoseAlgorithmIdentifier::kEs256),
           public_key_spki_der);
   device::AttestedCredentialData attested_credential_data(
@@ -374,7 +371,7 @@ std::optional<std::vector<uint8_t>> GenerateEcSignature(
     base::span<const uint8_t> signed_over_data) {
   auto ec_private_key =
       crypto::keypair::PrivateKey::FromPrivateKeyInfo(pkcs8_ec_private_key);
-  if (!ec_private_key || !ec_private_key->IsEc()) {
+  if (!ec_private_key || !ec_private_key->IsEcP256()) {
     return std::nullopt;
   }
 

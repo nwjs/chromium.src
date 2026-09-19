@@ -59,20 +59,13 @@ class InheritClientPriorityVoter : public PriorityVoter,
   VoterId voter_id() const { return voter_id_; }
 
  private:
-  void OnExecutionContextAdded(const ExecutionContext* execution_context);
-  void OnBeforeExecutionContextRemoved(
-      const ExecutionContext* execution_context);
-  void OnPriorityAndReasonChanged(const ExecutionContext* execution_context,
-                                  const PriorityAndReason& previous_value);
-
   // Aggregates the votes from multiple clients of the same child worker.
   MaxVoteAggregator max_vote_aggregator_;
 
   VoterId voter_id_;
 
   // Each frame or worker gets a voting channel to cast votes for its children.
-  base::flat_map<const ExecutionContext*, OptionalVotingChannel>
-      voting_channels_;
+  base::flat_map<const ExecutionContext*, VotingChannel> voting_channels_;
 };
 
 }  // namespace execution_context_priority

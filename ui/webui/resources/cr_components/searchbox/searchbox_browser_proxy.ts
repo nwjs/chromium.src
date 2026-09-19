@@ -12,7 +12,8 @@
  * these Mojo-based searchbox types.
  */
 
-import type {AutocompleteMatch, AutocompleteResult, MatchKeywordModel, PageHandlerInterface} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {SuggestStyle} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {Action, AutocompleteMatch, AutocompleteResult, MatchKeywordModel, PageHandlerInterface} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {KeywordType, PageCallbackRouter, PageHandlerFactory, PageHandlerRemote} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 
 export function createAutocompleteMatch(
@@ -43,11 +44,11 @@ export function createAutocompleteMatch(
     isNoncannedAimSuggestion: false,
     removeButtonA11yLabel: '',
     type: '',
-    isRichSuggestion: false,
-    isWeatherAnswerSuggestion: null,
-    answer: null,
+    isTwoRowSuggestion: false,
     tailSuggestCommonPrefix: null,
     keywordModel: null,
+    fuseboxAction: null,
+    suggestStyle: SuggestStyle.kUnspecified,
   };
 
   return Object.assign(base, modifiers);
@@ -91,6 +92,18 @@ export function createMatchKeywordModelForTesting(
     chipA11y: '',
     placeholder: '',
     keyword: '',
+  };
+
+  return Object.assign(base, modifiers);
+}
+
+export function createActionForTesting(modifiers: Partial<Action> = {}):
+    Action {
+  const base: Action = {
+    hint: '',
+    suggestionContents: '',
+    iconPath: '',
+    a11yLabel: '',
   };
 
   return Object.assign(base, modifiers);

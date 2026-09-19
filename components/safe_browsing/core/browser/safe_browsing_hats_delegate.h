@@ -6,7 +6,6 @@
 #define COMPONENTS_SAFE_BROWSING_CORE_BROWSER_SAFE_BROWSING_HATS_DELEGATE_H_
 
 #include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
-#include "components/safe_browsing/core/common/proto/csd.pb.h"
 
 namespace safe_browsing {
 
@@ -27,9 +26,9 @@ class SafeBrowsingHatsDelegate {
   // A wrapper for the HaTS service LaunchSurvey method.
   virtual void LaunchRedWarningSurvey(
       // Named string values sent with user survey responses.
-      const SurveyStringData& product_specific_string_data,
+      SurveyStringData product_specific_string_data,
       // Named bit values sent with user survey responses.
-      const SurveyBitsData& product_specific_bits_data) = 0;
+      SurveyBitsData product_specific_bits_data) = 0;
 
   // Determines if the associated user is a candidate for a HaTS survey.
   static bool IsSurveyCandidate(const SBThreatType& threat_type,

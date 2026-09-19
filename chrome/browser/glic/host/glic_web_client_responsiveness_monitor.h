@@ -10,6 +10,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/host/glic_webui.mojom.h"
 #include "content/public/browser/weak_document_ptr.h"
 
 namespace content {
@@ -17,6 +18,17 @@ class RenderFrameHost;
 }
 
 namespace glic {
+
+// LINT.IfChange(WebClientUnresponsiveState)
+enum class WebClientUnresponsiveState {
+  kObsoleteEnteredWebviewEvent = 0,
+  kEnteredHeartbeat = 1,
+  kObsoleteAlreadyUnresponsiveWebviewEvent = 2,
+  kObsoleteAlreadyUnresponsiveHeartbeat = 3,
+  kExited = 4,
+  kMaxValue = kExited,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:WebClientUnresponsiveState)
 
 // Monitors the health and responsiveness of the Glic web client.
 //
@@ -66,6 +78,7 @@ class GlicWebClientResponsivenessMonitor {
   void OnCheckResponsiveResponse();
   void OnCheckResponsiveTimeout();
   void OnUnresponsiveErrorTimeout();
+  void RecordUnresponsiveExited();
 
   raw_ptr<Delegate> delegate_;
   content::WeakDocumentPtr guest_main_frame_;
@@ -75,6 +88,7 @@ class GlicWebClientResponsivenessMonitor {
   base::OneShotTimer error_timer_;
   mojom::WebClientState current_state_ = mojom::WebClientState::kResponsive;
   bool has_shown_debugger_attached_warning_ = false;
+  base::TimeTicks unresponsive_start_time_;
 
   base::WeakPtrFactory<GlicWebClientResponsivenessMonitor> weak_ptr_factory_{
       this};

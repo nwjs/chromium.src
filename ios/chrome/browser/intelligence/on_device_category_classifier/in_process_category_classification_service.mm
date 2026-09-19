@@ -10,8 +10,6 @@
 #import "base/check_op.h"
 #import "base/files/file.h"
 #import "base/functional/bind.h"
-#import "base/functional/callback.h"
-#import "base/no_destructor.h"
 #import "base/strings/strcat.h"
 #import "base/task/task_traits.h"
 #import "base/task/thread_pool.h"
@@ -19,93 +17,12 @@
 #import "components/page_content_annotations/core/page_embeddings_common.h"
 #import "components/page_content_annotations/core/simple_page_content_verbalization.h"
 #import "components/passage_embeddings/core/passage_embeddings_features.h"
-#import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
-#import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
-#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
-#import "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
 
 namespace {
 
 constexpr size_t kDefaultCacheCapacity = 50;
 
-std::unique_ptr<KeyedService> BuildInProcessCategoryClassificationService(
-    ProfileIOS* profile) {
-  if (profile->IsOffTheRecord()) {
-    return nullptr;
-  }
-  OptimizationGuideService* opt_guide =
-      OptimizationGuideServiceFactory::GetForProfile(profile);
-  if (!opt_guide) {
-    return nullptr;
-  }
-
-  return std::make_unique<InProcessCategoryClassificationService>(opt_guide);
-}
-
-class InProcessCategoryClassificationServiceFactory
-    : public ProfileKeyedServiceFactoryIOS {
- public:
-  static InProcessCategoryClassificationService* GetForProfile(
-      ProfileIOS* profile) {
-    return GetInstance()
-        ->GetServiceForProfileAs<InProcessCategoryClassificationService>(
-            profile, /*create=*/true);
-  }
-
-  static InProcessCategoryClassificationServiceFactory* GetInstance() {
-    static base::NoDestructor<InProcessCategoryClassificationServiceFactory>
-        instance;
-    return instance.get();
-  }
-
-  static TestingFactory GetDefaultFactory() {
-    return base::BindRepeating(&BuildInProcessCategoryClassificationService);
-  }
-
- private:
-  friend class base::NoDestructor<
-      InProcessCategoryClassificationServiceFactory>;
-
-  InProcessCategoryClassificationServiceFactory()
-      : ProfileKeyedServiceFactoryIOS("InProcessCategoryClassificationService",
-                                      ProfileSelection::kOwnInstanceInIncognito,
-                                      ServiceCreation::kCreateWithProfile,
-                                      TestingCreation::kNoServiceForTests) {
-    DependsOn(OptimizationGuideServiceFactory::GetInstance());
-  }
-
-  std::unique_ptr<KeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override {
-    return BuildInProcessCategoryClassificationService(profile);
-  }
-};
-
 }  // namespace
-
-#pragma mark - Service Implementation
-
-// static
-InProcessCategoryClassificationService*
-InProcessCategoryClassificationService::GetForProfile(ProfileIOS* profile) {
-  return InProcessCategoryClassificationServiceFactory::GetForProfile(profile);
-}
-
-// static
-void InProcessCategoryClassificationService::EnsureFactoryBuilt() {
-  InProcessCategoryClassificationServiceFactory::GetInstance();
-}
-
-// static
-ProfileKeyedServiceFactoryIOS*
-InProcessCategoryClassificationService::GetFactory() {
-  return InProcessCategoryClassificationServiceFactory::GetInstance();
-}
-
-// static
-ProfileKeyedServiceFactoryIOS::TestingFactory
-InProcessCategoryClassificationService::GetDefaultFactory() {
-  return InProcessCategoryClassificationServiceFactory::GetDefaultFactory();
-}
 
 InProcessCategoryClassificationService::InProcessCategoryClassificationService(
     optimization_guide::OptimizationGuideModelProvider* model_provider)
@@ -152,6 +69,7 @@ InProcessCategoryClassificationService::
 
 void InProcessCategoryClassificationService::Shutdown() {
   weak_ptr_factory_.InvalidateWeakPtrs();
+  embedder_wrapper_.Reset();
   request_tracker_.CancelAll();
 }
 
@@ -216,11 +134,6 @@ void InProcessCategoryClassificationService::ClassifyPageContext(
     return;
   }
 
-  if (page_content.empty()) {
-    std::move(callback).Run({});
-    return;
-  }
-
   // In-Memory Cache hit: Reuse existing embeddings without re-embedding.
   if (HasCachedEmbeddings(url)) {
     ClassifyWithCachedEmbeddings(url, source_id, std::move(callback));
@@ -243,26 +156,34 @@ void InProcessCategoryClassificationService::ClassifyPageContext(
     return;
   }
 
-  const size_t max_words_per_aggregate_passage =
-      passage_embeddings::kMaxWordsPerAggregatePassage.Get();
-  const size_t min_words_per_passage =
-      passage_embeddings::kMinWordsPerPassage.Get();
-
-  // Create candidate passages matching Desktop's GenerateEmbeddingsCandidates
-  // in page_content_annotations/content/embeddings_candidate_generator.cc.
-  std::vector<std::string> content_passages =
-      page_content_annotations::CreatePassagesFromText(
-          page_content, max_words_per_aggregate_passage, min_words_per_passage);
-
   std::vector<std::string> string_passages;
   std::vector<page_content_annotations::EmbeddingPassageType> passage_types;
-  string_passages.reserve(content_passages.size() + 1);
-  passage_types.reserve(content_passages.size() + 1);
 
-  for (std::string& passage : content_passages) {
-    string_passages.push_back(std::move(passage));
-    passage_types.push_back(
-        page_content_annotations::EmbeddingPassageType::kPageContent);
+  // If no page content is provided, only create a title and URL embedding.
+  if (!page_content.empty()) {
+    const size_t max_words_per_aggregate_passage =
+        passage_embeddings::kMaxWordsPerAggregatePassage.Get();
+    const size_t min_words_per_passage =
+        passage_embeddings::kMinWordsPerPassage.Get();
+
+    // Create candidate passages matching Desktop's GenerateEmbeddingsCandidates
+    // in page_content_annotations/content/embeddings_candidate_generator.cc.
+    std::vector<std::string> content_passages =
+        page_content_annotations::CreatePassagesFromText(
+            page_content, max_words_per_aggregate_passage,
+            min_words_per_passage);
+
+    string_passages.reserve(content_passages.size() + 1);
+    passage_types.reserve(content_passages.size() + 1);
+
+    for (std::string& passage : content_passages) {
+      string_passages.push_back(std::move(passage));
+      passage_types.push_back(
+          page_content_annotations::EmbeddingPassageType::kPageContent);
+    }
+  } else {
+    string_passages.reserve(1);
+    passage_types.reserve(1);
   }
 
   string_passages.push_back(base::StrCat({title, " - ", url.spec()}));

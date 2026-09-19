@@ -15,9 +15,11 @@
 #include "base/check.h"
 #include "base/check_deref.h"
 #include "base/command_line.h"
+#include "base/containers/adapters.h"
 #include "base/feature_list.h"
 #include "base/i18n/rtl.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -280,11 +282,10 @@ void CreateAndShowNewWindowWithContents(
   BrowserWindowInterface* new_browser = nullptr;
   DCHECK(original_browser->GetType() != BrowserWindowInterface::TYPE_APP_POPUP);
   if (original_browser->GetType() == BrowserWindowInterface::TYPE_APP) {
-    const Browser* browser = original_browser->GetBrowserForMigrationOnly();
     const bool is_trusted_source =
         WindowFeatureController::From(original_browser)->IsTrustedSource();
     new_browser = CreateBrowserWindow(BrowserWindowCreateParams::CreateForApp(
-        BrowserInitState::From(browser)->create_params().app_name,
+        BrowserInitState::From(original_browser)->create_params().app_name,
         is_trusted_source, gfx::Rect(), original_browser->GetProfile(), true));
   } else {
     new_browser = CreateBrowserWindow(BrowserWindowCreateParams(
@@ -410,10 +411,36 @@ void CloseSelectedTabAndRecordTabCountMetric(BrowserWindowInterface* browser) {
   browser->GetTabStripModel()->CloseSelectedTabs();
 }
 
+// Preserves the focus state in the target window if a focused tab group was
+// moved to a new window (either as an entire group or via moving all of its
+// tabs) and the target window contains only the moved group (and any pinned
+// tabs).
+void MaybePreserveFocusedGroupInTarget(
+    TabStripModel* target_model,
+    std::optional<tab_groups::TabGroupId> focused_group) {
+  if (!focused_group.has_value() || !target_model->group_model() ||
+      !target_model->group_model()->ContainsTabGroup(*focused_group)) {
+    return;
+  }
+
+  const int non_pinned_count =
+      target_model->count() - target_model->IndexOfFirstNonPinnedTab();
+  const int group_tab_count =
+      target_model->group_model()->GetTabGroup(*focused_group)->tab_count();
+  if (non_pinned_count == group_tab_count) {
+    target_model->SetFocusedGroup(*focused_group);
+  }
+}
+
 void MoveGroupToWindowImpl(BrowserWindowInterface* source,
                            BrowserWindowInterface* target,
                            tab_groups::TabGroupId group) {
   CHECK(source->GetTabStripModel()->group_model()->ContainsTabGroup(group));
+
+  const std::optional<tab_groups::TabGroupId> focused_group =
+      source->GetTabStripModel()->GetFocusedGroup() == group
+          ? std::make_optional(group)
+          : std::nullopt;
 
   tab_groups::TabGroupSyncService* tab_group_service =
       tab_groups::TabGroupSyncServiceFactory::GetForProfile(
@@ -429,6 +456,8 @@ void MoveGroupToWindowImpl(BrowserWindowInterface* source,
   target->GetTabStripModel()->InsertDetachedTabGroupAt(
       std::move(detached_group), 0);
 
+  MaybePreserveFocusedGroupInTarget(target->GetTabStripModel(), focused_group);
+
   target->GetWindow()->Show();
 }
 
@@ -441,6 +470,9 @@ void MoveTabsToWindowImpl(BrowserWindowInterface* source,
 
   TabStripModel* source_model = source->GetTabStripModel();
   TabStripModel* target_model = target->GetTabStripModel();
+
+  const std::optional<tab_groups::TabGroupId> source_focused_group =
+      source_model->GetFocusedGroup();
 
   // Store the active tab from the source tab strip since this will change as
   // tabs are detached. If the active tab from `source_model` isn't moving,
@@ -478,6 +510,9 @@ void MoveTabsToWindowImpl(BrowserWindowInterface* source,
       }
     }
   }
+
+  MaybePreserveFocusedGroupInTarget(target_model, source_focused_group);
+
   target->GetWindow()->Show();
 }
 
@@ -890,7 +925,8 @@ void NewEmptyWindow(Profile* profile, bool should_trigger_session_restore) {
   PrefService* prefs = profile->GetPrefs();
   if (off_the_record) {
     if (IncognitoModePrefs::GetAvailability(prefs) ==
-        policy::IncognitoModeAvailability::kDisabled) {
+            policy::IncognitoModeAvailability::kDisabled &&
+        !profile->IsEnterpriseIsolatedModeProfile()) {
       off_the_record = false;
     }
   } else if (profile->IsGuestSession() ||
@@ -900,16 +936,19 @@ void NewEmptyWindow(Profile* profile, bool should_trigger_session_restore) {
   }
 
   if (off_the_record) {
-    // This metric counts the Incognito and Off-The-Record Guest profiles
-    // together.
+    Profile* otr_profile =
+        profile->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+    // This metric counts the Incognito, Off-The-Record Guest, and Enterprise
+    // Isolated profiles together.
     base::RecordAction(UserMetricsAction("NewIncognitoWindow"));
     if (profile->IsGuestSession()) {
       base::RecordAction(UserMetricsAction("NewGuestWindow"));
+    } else if (otr_profile->IsEnterpriseIsolatedModeProfile()) {
+      base::RecordAction(UserMetricsAction("NewIsolatedWindow"));
     } else {
       base::RecordAction(UserMetricsAction("NewIncognitoWindow2"));
     }
-    OpenEmptyWindow(profile->GetPrimaryOTRProfile(/*create_if_needed=*/true),
-                    should_trigger_session_restore);
+    OpenEmptyWindow(otr_profile, should_trigger_session_restore);
   } else if (!should_trigger_session_restore) {
     base::RecordAction(UserMetricsAction("NewWindow"));
     OpenEmptyWindow(profile->GetOriginalProfile(),
@@ -1315,8 +1354,7 @@ void CloseWindow(BrowserWindowInterface* browser) {
 
 #if BUILDFLAG(IS_WIN)
 void OpenMoveWindow(BrowserWindowInterface* browser) {
-  HWND hwnd = BrowserView::GetBrowserViewForBrowser(
-                  browser->GetBrowserForMigrationOnly())
+  HWND hwnd = BrowserView::GetBrowserViewForBrowser(browser)
                   ->GetWidget()
                   ->GetNativeWindow()
                   ->GetHost()
@@ -1325,8 +1363,7 @@ void OpenMoveWindow(BrowserWindowInterface* browser) {
 }
 
 void OpenSizeWindow(BrowserWindowInterface* browser) {
-  HWND hwnd = BrowserView::GetBrowserViewForBrowser(
-                  browser->GetBrowserForMigrationOnly())
+  HWND hwnd = BrowserView::GetBrowserViewForBrowser(browser)
                   ->GetWidget()
                   ->GetNativeWindow()
                   ->GetHost()
@@ -1353,15 +1390,23 @@ content::WebContents& NewTab(BrowserWindowInterface* browser,
       NewTabGroupingUserData::kNewTabGroupingUserDataKey,
       std::make_unique<NewTabGroupingUserData>(active_tab_group_id));
 
+  const NavigateParams::WindowAction window_action =
+      context == NewTabTypes::kNoUserAction
+          ? NavigateParams::WindowAction::kNoAction
+          : NavigateParams::WindowAction::kShowWindow;
+
   if (WindowFeatureController::From(browser)->SupportsWindowFeature(
           WindowFeatureController::WindowFeature::kFeatureTabStrip)) {
-    return *AddAndReturnTabAt(browser, GURL(), -1, true, std::nullopt);
+    return *AddAndReturnTabAt(browser, GURL(), -1, /*foreground=*/true,
+                              std::nullopt, /*pinned=*/false, window_action);
   }
 
   ScopedTabbedBrowserDisplayer displayer(browser->GetProfile());
   BrowserWindowInterface* displayer_browser =
       displayer.browser_window_interface();
-  auto* contents = AddAndReturnTabAt(displayer_browser, GURL(), -1, true);
+  auto* contents = AddAndReturnTabAt(displayer_browser, GURL(), -1,
+                                     /*foreground=*/true, std::nullopt,
+                                     /*pinned=*/false, window_action);
   displayer_browser->GetWindow()->Show();
   // The call to AddBlankTabAt above did not set the focus to the tab as its
   // window was not active, so we have to do it explicitly.
@@ -1573,8 +1618,7 @@ void SelectLastTab(BrowserWindowInterface* browser,
   TabStripModel* model = browser->GetTabStripModel();
   std::optional<tab_groups::TabGroupId> focused_group =
       model->GetFocusedGroup();
-  for (int i = model->count() - 1; i >= 0; i--) {
-    tabs::TabInterface* tab = model->GetTabAtIndex(i);
+  for (tabs::TabInterface* tab : base::Reversed(*model)) {
     if (!IsTabSelectable(model, tab, focused_group)) {
       continue;
     }
@@ -1638,17 +1682,15 @@ bool CanMoveTabsToNewWindow(BrowserWindowInterface* browser,
 
 void MoveGroupToNewWindow(BrowserWindowInterface* browser,
                           tab_groups::TabGroupId group) {
-  Browser* current_browser = browser->GetBrowserForMigrationOnly();
   BrowserWindowInterface* new_browser;
-  if (current_browser->GetType() == BrowserWindowInterface::Type::TYPE_APP &&
-      web_app::AppBrowserController::From(current_browser)->has_tab_strip()) {
-    auto* app_controller = web_app::AppBrowserController::From(current_browser);
+  if (browser->GetType() == BrowserWindowInterface::Type::TYPE_APP &&
+      web_app::AppBrowserController::From(browser)->has_tab_strip()) {
+    auto* app_controller = web_app::AppBrowserController::From(browser);
     new_browser = CreateBrowserWindow(BrowserWindowCreateParams::CreateForApp(
-        BrowserInitState::From(current_browser)->create_params().app_name,
-        app_controller->IsTrustedSource(), gfx::Rect(),
-        current_browser->GetProfile(), true));
-    web_app::MaybeAddPinnedHomeTab(new_browser->GetBrowserForMigrationOnly(),
-                                   app_controller->app_id());
+        BrowserInitState::From(browser)->create_params().app_name,
+        app_controller->IsTrustedSource(), gfx::Rect(), browser->GetProfile(),
+        true));
+    web_app::MaybeAddPinnedHomeTab(new_browser, app_controller->app_id());
   } else {
     new_browser = CreateNewBrowser(browser, true);
   }
@@ -1662,18 +1704,16 @@ void MoveTabsToNewWindow(BrowserWindowInterface* browser,
     return;
   }
 
-  Browser* current_browser = browser->GetBrowserForMigrationOnly();
   BrowserWindowInterface* new_browser;
   base::TimeTicks now = base::TimeTicks::Now();
-  if (current_browser->GetType() == BrowserWindowInterface::Type::TYPE_APP &&
-      web_app::AppBrowserController::From(current_browser)->has_tab_strip()) {
-    auto* app_controller = web_app::AppBrowserController::From(current_browser);
+  if (browser->GetType() == BrowserWindowInterface::Type::TYPE_APP &&
+      web_app::AppBrowserController::From(browser)->has_tab_strip()) {
+    auto* app_controller = web_app::AppBrowserController::From(browser);
     new_browser = CreateBrowserWindow(BrowserWindowCreateParams::CreateForApp(
-        BrowserInitState::From(current_browser)->create_params().app_name,
-        app_controller->IsTrustedSource(), gfx::Rect(),
-        current_browser->GetProfile(), true));
-    web_app::MaybeAddPinnedHomeTab(new_browser->GetBrowserForMigrationOnly(),
-                                   app_controller->app_id());
+        BrowserInitState::From(browser)->create_params().app_name,
+        app_controller->IsTrustedSource(), gfx::Rect(), browser->GetProfile(),
+        true));
+    web_app::MaybeAddPinnedHomeTab(new_browser, app_controller->app_id());
   } else {
     new_browser = CreateNewBrowser(browser, true);
   }
@@ -1817,16 +1857,6 @@ void CloseTabGroup(BrowserWindowInterface* browser) {
       browser->GetTabStripModel()->GetTabGroupForTab(index);
   if (!group_id) {
     return;
-  }
-
-  const int num_tabs_in_group = browser->GetTabStripModel()
-                                    ->group_model()
-                                    ->GetTabGroup(group_id.value())
-                                    ->tab_count();
-  if (num_tabs_in_group == browser->GetTabStripModel()->count()) {
-    // If the group about to be closed has all of the tabs in the browser, add a
-    // new tab outside the group to prevent the browser from closing.
-    browser->GetTabStripModel()->delegate()->AddTabAt(GURL(), -1, true);
   }
 
   browser->GetTabStripModel()->CloseAllTabsInGroup(group_id.value());
@@ -2518,6 +2548,13 @@ void ToggleTabSearchPin(BrowserWindowInterface* browser) {
   prefs->SetBoolean(prefs::kTabSearchPinnedToTabstrip, !is_pinned);
 }
 
+void ToggleTabScrollButtonsPin(BrowserWindowInterface* browser) {
+  PrefService* prefs = browser->GetProfile()->GetPrefs();
+  const bool is_pinned =
+      prefs->GetBoolean(prefs::kTabScrollButtonsPinnedToTabstrip);
+  prefs->SetBoolean(prefs::kTabScrollButtonsPinnedToTabstrip, !is_pinned);
+}
+
 void ToggleContextualTasksSidePanel(BrowserWindowInterface* browser) {
   auto* controller =
       contextual_tasks::ContextualTasksPanelController::From(browser);
@@ -2660,8 +2697,7 @@ void OpenTaskManager(BrowserWindowInterface* browser,
                      task_manager::StartAction start_action) {
 #if !BUILDFLAG(IS_ANDROID)
   base::RecordAction(UserMetricsAction("TaskManager"));
-  chrome::ShowTaskManager(
-      browser ? browser->GetBrowserForMigrationOnly() : nullptr, start_action);
+  chrome::ShowTaskManager(browser, start_action);
 #else
   NOTREACHED();
 #endif
@@ -2680,7 +2716,7 @@ void OpenFeedbackDialog(BrowserWindowInterface* browser,
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 void OpenReportUnsafeSiteDialog(BrowserWindowInterface* browser) {
   base::RecordAction(UserMetricsAction("ReportUnsafeSite"));
-  feedback::ReportUnsafeSiteDialog::Show(browser->GetBrowserForMigrationOnly());
+  feedback::ReportUnsafeSiteDialog::Show(browser);
 }
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
@@ -2877,11 +2913,13 @@ BrowserWindowInterface* OpenInChrome(
         BrowserWindowCreateParams(hosted_app_browser->GetProfile(), true));
   }
 
+  base::WeakPtr<BrowserWindowInterface> target_browser_weak =
+      target_browser->GetWeakPtr();
   web_app::ReparentWebContentsIntoBrowserImpl(
       hosted_app_browser,
       hosted_app_browser->GetTabStripModel()->GetActiveWebContents(),
       target_browser);
-  return target_browser;
+  return target_browser_weak.get();
 }
 
 bool CanViewSource(BrowserWindowInterface* browser) {
@@ -2947,7 +2985,7 @@ void ToggleCaretBrowsing(BrowserWindowInterface* browser) {
 }
 
 void PromptToNameWindow(BrowserWindowInterface* browser) {
-  chrome::ShowWindowNamePrompt(browser->GetBrowserForMigrationOnly());
+  chrome::ShowWindowNamePrompt(browser);
 }
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -3029,7 +3067,7 @@ void ExecLensRegionSearch(BrowserWindowInterface* browser) {
                             CONTEXT_MENU_SEARCH_REGION_WITH_GOOGLE_LENS
                       : lens::AmbientSearchEntryPoint::
                             CONTEXT_MENU_SEARCH_REGION_WITH_WEB;
-    browser->GetFeatures().lens_region_search_controller()->Start(
+    lens::LensRegionSearchController::From(browser)->Start(
         contents,
         /*use_fullscreen_capture=*/false, is_google_dsp, entry_point);
   }

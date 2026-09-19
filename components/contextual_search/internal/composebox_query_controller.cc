@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/base64.h"
 #include "base/base64url.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/memory/raw_ptr.h"
@@ -83,7 +84,9 @@ constexpr char kAimMultiContextQueryParameter[] = "amc";
 constexpr char kLnsModeQueryParameterKey[] = "lns_mode";
 constexpr char kLnsModeQueryParameterValue[] = "cvst";
 constexpr char kVoiceSearchQueryParameterKey[] = "gs_ivs";
-
+constexpr char kEncodeResponseIfExecutableHeader[] =
+    "X-Goog-Encode-Response-If-Executable";
+constexpr char kBase64Value[] = "base64";
 // TODO(crbug.com/432348301): Move away from hardcoded entrypoint and lns
 // surface values.
 constexpr char kLnsSurfaceParameterValue[] = "42";
@@ -403,17 +406,35 @@ bool ComposeboxQueryController::HasC2paMetadata(
     base::span<const uint8_t> bytes) {
   std::string_view bytes_to_search(reinterpret_cast<const char*>(bytes.data()),
                                    std::min(bytes.size(), kMaxC2paSearchBytes));
+  // TODO(crbug.com/555150321): Improve c2pa detection heuristic.
   return bytes_to_search.find(kC2paMarker) != std::string_view::npos;
+}
+
+bool ComposeboxQueryController::IsSupportedC2paMimeType(
+    std::optional<std::string_view> mime_type) {
+  if (!mime_type.has_value()) {
+    return false;
+  }
+  return base::EqualsCaseInsensitiveASCII(*mime_type, "image/jpeg") ||
+         base::EqualsCaseInsensitiveASCII(*mime_type, "image/jpg") ||
+         base::EqualsCaseInsensitiveASCII(*mime_type, "image/png") ||
+         base::EqualsCaseInsensitiveASCII(*mime_type, "image/webp") ||
+         base::EqualsCaseInsensitiveASCII(*mime_type, "image/heic") ||
+         base::EqualsCaseInsensitiveASCII(*mime_type, "image/heif");
 }
 
 std::optional<lens::ImageData>
 ComposeboxQueryController::MaybeCreateC2paBypassImageData(
     base::span<const uint8_t> original_image_bytes,
     int width,
-    int height) {
+    int height,
+    std::optional<std::string_view> mime_type_string) {
+  // TODO(crbug.com/555150730): Pass the c2pa header detection bit from Java to
+  // c++ so that c2pa header detection can be skipped in the c++ layer.
   if (original_image_bytes.empty() ||
       !base::FeatureList::IsEnabled(
           lens::features::kLensBypassCompressionForC2pa) ||
+      !IsSupportedC2paMimeType(mime_type_string) ||
       width * height > kMaxC2paPixels ||
       !HasC2paMetadata(original_image_bytes)) {
     return std::nullopt;
@@ -488,12 +509,14 @@ ComposeboxQueryController::ComposeboxQueryController(
     variations::VariationsClient* variations_client,
     std::unique_ptr<
         contextual_search::ContextualSearchContextController::ConfigParams>
-        feature_params)
+        feature_params,
+    GetAuthHeadersCallback get_auth_headers_callback)
     : identity_manager_(identity_manager),
       url_loader_factory_(url_loader_factory),
       channel_(channel),
       locale_(locale),
       template_url_service_(template_url_service),
+      get_auth_headers_callback_(std::move(get_auth_headers_callback)),
       variations_client_(variations_client),
       cluster_info_backoff_(&kClusterInfoBackoffPolicy) {
   send_lns_surface_ = feature_params->send_lns_surface;
@@ -684,14 +707,21 @@ void ComposeboxQueryController::CreateSearchUrl(
   latest_interaction_request_data_.reset();
   num_files_in_request_ = 0;
 
+  bool is_aim_search =
+      search_url_request_info->search_url_type == SearchUrlType::kAim;
   bool should_create_multimodal_url =
       !active_files_.empty() && !search_url_request_info->file_tokens.empty();
+  bool should_wait_for_uploads =
+      is_any_context_uploading() &&
+      (!contextual_tasks::
+           GetIsContextualTasksNonBlockingUrlNavigationEnabled() ||
+       !is_aim_search);
   // If a multimodal URL is requested, but the cluster info has not been
   // received yet, store the request info and callback for later use.
   if ((should_create_multimodal_url &&
        query_controller_state_ ==
            QueryControllerState::kAwaitingClusterInfoResponse) ||
-      is_any_context_uploading()) {
+      should_wait_for_uploads) {
     // Since 1) `startFileUploadFlow` should clear past pending/files,
     // and 2) resuming the "pause" by running `pending_search_url_request`
     // clears the stashed request (callback) and calls this function:
@@ -711,8 +741,6 @@ void ComposeboxQueryController::CreateSearchUrl(
         {kVoiceSearchQueryParameterKey, "1"});
   }
 
-  bool is_aim_search =
-      search_url_request_info->search_url_type == SearchUrlType::kAim;
   bool send_upload_type =
       base::FeatureList::IsEnabled(
           contextual_tasks::kContextualTasksSendContextualInputUploadType) &&
@@ -1364,9 +1392,13 @@ void ComposeboxQueryController::StartFileUploadFlow(
   // InitializeIfNeeded().
   // Async Flow 2: Retrieve the OAuth headers.
   current_file_info.context_upload_access_token_fetcher_ =
-      CreateOAuthHeadersAndContinue(base::BindOnce(
-          &ComposeboxQueryController::OnUploadRequestHeadersReady,
-          weak_ptr_factory_.GetWeakPtr(), file_token));
+      CreateAuthHeadersAndContinue(
+          // TODO(crbug.com/534400256): Get auth_user_index from the active
+          // webpage if available
+          /*auth_user_index=*/0,
+          base::BindOnce(
+              &ComposeboxQueryController::OnUploadRequestHeadersReady,
+              weak_ptr_factory_.GetWeakPtr(), file_token));
 
   // Async Flow 3: Creating the file and viewport upload request.
   CreateUploadRequestBodiesAndContinue(
@@ -1435,6 +1467,15 @@ ComposeboxQueryController::CreateEndpointFetcher(
     const std::vector<std::string>& request_headers,
     const std::vector<std::string>& cors_exempt_headers,
     UploadProgressCallback upload_progress_callback) {
+  // TODO(crbug.com/549767486): Refactor Lens headers into
+  // EndpointFetcher::RequestParams::Header structs
+  std::vector<std::string> headers = request_headers;
+  if (lens::features::UseIdentityDelegationForLensComposeboxRequests()) {
+    // Request base64-encoded response from ESP safely.
+    headers.push_back(kEncodeResponseIfExecutableHeader);
+    headers.push_back(kBase64Value);
+  }
+
   return std::make_unique<EndpointFetcher>(
       url_loader_factory_, /*identity_manager=*/nullptr,
       EndpointFetcher::RequestParams::Builder(http_method,
@@ -1444,7 +1485,7 @@ ComposeboxQueryController::CreateEndpointFetcher(
           .SetContentType(kContentType)
           .SetCorsExemptHeaders(cors_exempt_headers)
           .SetCredentialsMode(CredentialsMode::kInclude)
-          .SetHeaders(request_headers)
+          .SetHeaders(headers)
           .SetPostData(std::move(request_string))
           .SetSetSiteForCookies(true)
           .SetTimeout(timeout)
@@ -1623,8 +1664,15 @@ ComposeboxQueryController::CreateSuggestInputs(
 // TODO(crbug.com/424869589): Clean up code duplication with
 // LensOverlayQueryController.
 std::unique_ptr<signin::PrimaryAccountAccessTokenFetcher>
-ComposeboxQueryController::CreateOAuthHeadersAndContinue(
+ComposeboxQueryController::CreateAuthHeadersAndContinue(
+    std::optional<size_t> auth_user_index,
     OAuthHeadersCreatedCallback callback) {
+  if (lens::features::UseIdentityDelegationForLensComposeboxRequests() &&
+      get_auth_headers_callback_) {
+    get_auth_headers_callback_.Run(auth_user_index, std::move(callback));
+    return nullptr;
+  }
+
   // Use OAuth if the user is logged in.
   if (identity_manager_ &&
       identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
@@ -1701,9 +1749,13 @@ void ComposeboxQueryController::SendInteractionRequest(
 
   // Start getting the OAuth headers for the interaction request.
   latest_interaction_request_data_->interaction_access_token_fetcher_ =
-      CreateOAuthHeadersAndContinue(base::BindOnce(
-          &ComposeboxQueryController::OnInteractionRequestHeadersReady,
-          weak_ptr_factory_.GetWeakPtr()));
+      CreateAuthHeadersAndContinue(
+          // TODO(crbug.com/534400256): Get auth_user_index from the active
+          // webpage if available
+          /*auth_user_index=*/0,
+          base::BindOnce(
+              &ComposeboxQueryController::OnInteractionRequestHeadersReady,
+              weak_ptr_factory_.GetWeakPtr()));
 
   lens::LensOverlayServerRequest server_request;
   if (client_logs.has_value()) {
@@ -1775,7 +1827,10 @@ void ComposeboxQueryController::FetchClusterInfo() {
     NOTREACHED() << "Cluster info access token fetcher already exists.";
 #endif  // DCHECK_IS_ON()
   }
-  cluster_info_access_token_fetcher_ = CreateOAuthHeadersAndContinue(
+  cluster_info_access_token_fetcher_ = CreateAuthHeadersAndContinue(
+      // TODO(crbug.com/534400256): Get auth_user_index from the active webpage
+      // if available
+      /*auth_user_index=*/0,
       base::BindOnce(&ComposeboxQueryController::SendClusterInfoNetworkRequest,
                      weak_ptr_factory_.GetWeakPtr()));
 }
@@ -1796,7 +1851,8 @@ void ComposeboxQueryController::SendClusterInfoNetworkRequest(
   }
 
   // Generate the URL to fetch.
-  GURL fetch_url = GURL(lens::features::GetLensOverlayClusterInfoEndpointUrl());
+  GURL fetch_url =
+      GURL(lens::features::GetLensComposeboxClusterInfoEndpointUrl());
 
   std::string request_string;
   // Create the client context to include in the request.
@@ -1860,7 +1916,14 @@ void ComposeboxQueryController::HandleClusterInfoResponse(
   cluster_info_backoff_.Reset();
 
   lens::LensOverlayServerClusterInfoResponse server_response;
-  if (!server_response.ParseFromString(response->response)) {
+  std::string response_string = response->response;
+  if (lens::features::UseIdentityDelegationForLensComposeboxRequests()) {
+    std::string decoded_response;
+    if (base::Base64Decode(response_string, &decoded_response)) {
+      response_string = decoded_response;
+    }
+  }
+  if (!server_response.ParseFromString(response_string)) {
     SetQueryControllerState(QueryControllerState::kClusterInfoInvalid);
     if (pending_search_url_request_) {
       std::move(pending_search_url_request_).Run(/*failure=*/false);
@@ -2026,6 +2089,7 @@ void ComposeboxQueryController::ProcessDecodedImageAndContinue(
     std::optional<std::string> page_title,
     std::optional<std::string> file_name,
     UploadImageType image_type,
+    std::optional<std::string> mime_type_string,
     scoped_refptr<base::RefCountedData<std::vector<uint8_t>>>
         original_image_data,
     const SkBitmap& bitmap) {
@@ -2059,6 +2123,13 @@ void ComposeboxQueryController::ProcessDecodedImageAndContinue(
                     ImageTypeToString(image_type), ".InputMaxDimension"}),
       max_dimension, 1, 10000, 50);
 
+  bool has_c2pa =
+      original_image_data && HasC2paMetadata(original_image_data->data);
+  base::UmaHistogramBoolean(
+      base::StrCat({"Lens.Composebox.ImageUpload.",
+                    ImageTypeToString(image_type), ".C2paDetected"}),
+      has_c2pa);
+
   // If the bitmap is a viewport bitmap, it will be destroyed after the
   // owning ContextualInputData is destroyed (i.e. at the end of
   // CreateUploadRequestBodiesAndContinue). To ensure the bitmap is not
@@ -2071,7 +2142,8 @@ void ComposeboxQueryController::ProcessDecodedImageAndContinue(
   if (original_image_data) {
     if (std::optional<lens::ImageData> image_data_proto =
             MaybeCreateC2paBypassImageData(original_image_data->data,
-                                           bitmap.width(), bitmap.height())) {
+                                           bitmap.width(), bitmap.height(),
+                                           mime_type_string)) {
       CreateFileUploadRequestProtoWithImageDataAndContinue(
           request_id, CreateClientContext(), ref_counted_logs,
           std::move(callback), page_url, page_title, file_name, image_type,
@@ -2102,6 +2174,7 @@ void ComposeboxQueryController::CreateImageUploadRequest(
     std::optional<std::string> page_title,
     std::optional<std::string> file_name,
     UploadImageType image_type,
+    std::optional<std::string> mime_type_string,
     RequestBodyProtoCreatedCallback callback) {
 #if !BUILDFLAG(IS_IOS)
   CHECK(image_options.has_value());
@@ -2117,7 +2190,8 @@ void ComposeboxQueryController::CreateImageUploadRequest(
       base::BindOnce(&ComposeboxQueryController::ProcessDecodedImageAndContinue,
                      weak_ptr_factory_.GetWeakPtr(), request_id,
                      image_options.value(), std::move(callback), page_url,
-                     page_title, file_name, image_type, refcounted_image_data));
+                     page_title, file_name, image_type,
+                     std::move(mime_type_string), refcounted_image_data));
 #endif  // !BUILDFLAG(IS_IOS)
 }
 
@@ -2146,6 +2220,7 @@ void ComposeboxQueryController::CreateUploadRequestBodiesAndContinue(
         std::move(image_options), contextual_input_data->page_url,
         contextual_input_data->page_title, /*file_name=*/std::nullopt,
         UploadImageType::kViewport,
+        /*mime_type_string=*/std::nullopt,
         base::BindOnce(
             &ComposeboxQueryController::AddPageIndexToUploadRequestAndContinue,
             weak_ptr_factory_.GetWeakPtr(),
@@ -2178,6 +2253,7 @@ void ComposeboxQueryController::CreateUploadRequestBodiesAndContinue(
                     request_index))),
         contextual_input_data->page_url, contextual_input_data->page_title,
         /*file_name=*/std::nullopt, UploadImageType::kViewport,
+        /*mime_type_string=*/std::nullopt,
         /*original_image_data=*/nullptr,
         // Pass ownership of the viewport screenshot to the
         // callback.
@@ -2283,7 +2359,7 @@ void ComposeboxQueryController::CreateUploadRequestBodiesAndContinue(
             std::move(contextual_input_data->context_input->front().bytes_),
             std::move(image_options), contextual_input_data->page_url,
             contextual_input_data->page_title, contextual_input_data->file_name,
-            UploadImageType::kFile,
+            UploadImageType::kFile, file_info->mime_type_string,
             base::BindOnce(
                 &ComposeboxQueryController::
                     AddLensUsageIntentToUploadRequestAndContinue,
@@ -2470,7 +2546,14 @@ void ComposeboxQueryController::HandleInteractionResponse(
   }
 
   lens::LensOverlayServerResponse server_response;
-  if (!server_response.ParseFromString(response->response)) {
+  std::string response_string = response->response;
+  if (lens::features::UseIdentityDelegationForLensComposeboxRequests()) {
+    std::string decoded_response;
+    if (base::Base64Decode(response_string, &decoded_response)) {
+      response_string = decoded_response;
+    }
+  }
+  if (!server_response.ParseFromString(response_string)) {
     return;
   }
 
@@ -2613,7 +2696,7 @@ void ComposeboxQueryController::PerformFetchRequest(
   std::string request_string;
   CHECK(request->SerializeToString(&request_string));
 
-  GURL fetch_url = GURL(lens::features::GetLensOverlayEndpointURL());
+  GURL fetch_url = GURL(lens::features::GetLensComposeboxEndpointUrl());
   PerformFetchRequest(std::move(request_string), request_headers, timeout,
                       std::move(fetcher_created_callback),
                       std::move(response_received_callback),
@@ -2808,9 +2891,13 @@ void ComposeboxQueryController::PrepareChunkedUpload(
 
   // Fetch OAuth headers first.
   file_info->context_upload_access_token_fetcher_ =
-      CreateOAuthHeadersAndContinue(base::BindOnce(
-          &ComposeboxQueryController::OnChunkedUploadHeadersReady,
-          weak_ptr_factory_.GetWeakPtr(), file_token));
+      CreateAuthHeadersAndContinue(
+          // TODO(crbug.com/534400256): Get auth_user_index from the active
+          // webpage if available
+          /*auth_user_index=*/0,
+          base::BindOnce(
+              &ComposeboxQueryController::OnChunkedUploadHeadersReady,
+              weak_ptr_factory_.GetWeakPtr(), file_token));
 }
 
 void ComposeboxQueryController::OnChunkedUploadHeadersReady(
@@ -2889,7 +2976,7 @@ void ComposeboxQueryController::UploadChunk(
           },
           std::move(completion_callback)),
       progress_callback,
-      GURL(lens::features::GetLensOverlayUploadChunkEndpointURL()));
+      GURL(lens::features::GetLensComposeboxUploadChunkEndpointUrl()));
 }
 
 void ComposeboxQueryController::OnPageContentPayloadForChunkUploadReady(

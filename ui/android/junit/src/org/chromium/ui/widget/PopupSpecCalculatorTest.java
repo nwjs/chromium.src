@@ -28,7 +28,7 @@ import org.chromium.ui.widget.AnchoredPopupWindow.VerticalOrientation;
 
 /** Unit tests for the static positioning methods in {@link PopupSpecCalculator}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE, shadows = ShadowView.class, qualifiers = "w600dp-h1000dp-mdpi")
+@Config(shadows = ShadowView.class, qualifiers = "w600dp-h1000dp-mdpi")
 public final class PopupSpecCalculatorTest {
     private Rect mWindowRect;
     private int mRootWidth;
@@ -41,6 +41,7 @@ public final class PopupSpecCalculatorTest {
     private int mPaddingY;
     private int mMarginPx;
     private int mMaxWidthPx;
+    private int mMaxHeightPx;
     private int mDesiredWidthPx;
     private int mDesiredHeightPx;
     private @HorizontalOrientation int mPreferredHorizontalOrientation;
@@ -97,7 +98,9 @@ public final class PopupSpecCalculatorTest {
                         false,
                         AnchoredPopupWindow.HorizontalOrientation.MAX_AVAILABLE_SPACE,
                         false);
-        int y = AnchoredPopupWindowUtils.getPopupY(anchorRect, mPopupHeight, false, true);
+        int y =
+                AnchoredPopupWindowUtils.getPopupY(
+                        anchorRect, mWindowRect, mPopupHeight, 0, false, true);
 
         assertEquals("Wrong x position.", 20, x);
         assertEquals("Wrong y position.", 20, y);
@@ -128,7 +131,9 @@ public final class PopupSpecCalculatorTest {
                         true,
                         AnchoredPopupWindow.HorizontalOrientation.MAX_AVAILABLE_SPACE,
                         false);
-        int y = AnchoredPopupWindowUtils.getPopupY(anchorRect, mPopupHeight, true, true);
+        int y =
+                AnchoredPopupWindowUtils.getPopupY(
+                        anchorRect, mWindowRect, mPopupHeight, 0, true, true);
 
         assertEquals("Wrong x position.", 10, x);
         assertEquals("Wrong y position.", 10, y);
@@ -146,7 +151,9 @@ public final class PopupSpecCalculatorTest {
                         false,
                         AnchoredPopupWindow.HorizontalOrientation.CENTER,
                         false);
-        int y = AnchoredPopupWindowUtils.getPopupY(anchorRect, mPopupHeight, false, true);
+        int y =
+                AnchoredPopupWindowUtils.getPopupY(
+                        anchorRect, mWindowRect, mPopupHeight, 0, false, true);
 
         assertEquals("Wrong x position.", 225, x);
         assertEquals("Wrong y position.", 20, y);
@@ -177,7 +184,9 @@ public final class PopupSpecCalculatorTest {
                         false,
                         AnchoredPopupWindow.HorizontalOrientation.MAX_AVAILABLE_SPACE,
                         positionToLeft);
-        int y = AnchoredPopupWindowUtils.getPopupY(anchorRect, mPopupHeight, false, false);
+        int y =
+                AnchoredPopupWindowUtils.getPopupY(
+                        anchorRect, mWindowRect, mPopupHeight, 0, false, false);
 
         assertEquals("Wrong x position.", 250, x);
         assertEquals("Wrong y position.", 500, y);
@@ -208,7 +217,9 @@ public final class PopupSpecCalculatorTest {
                         true,
                         AnchoredPopupWindow.HorizontalOrientation.MAX_AVAILABLE_SPACE,
                         true);
-        int y = AnchoredPopupWindowUtils.getPopupY(anchorRect, mPopupHeight, true, false);
+        int y =
+                AnchoredPopupWindowUtils.getPopupY(
+                        anchorRect, mWindowRect, mPopupHeight, 0, true, false);
 
         assertEquals("Wrong x position.", 260, x);
         assertEquals("Wrong y position.", 520, y);
@@ -244,6 +255,41 @@ public final class PopupSpecCalculatorTest {
                         true);
 
         assertEquals("Wrong x position.", 430, x);
+    }
+
+    @Test
+    public void positionParams_ClampedTopEdge() {
+        Rect anchorRect = new Rect(10, 10, 20, 20);
+        int y =
+                AnchoredPopupWindowUtils.getPopupY(
+                        anchorRect, mWindowRect, mPopupHeight, 20, true, false);
+
+        assertEquals("Wrong y position.", 20, y);
+    }
+
+    @Test
+    public void positionParams_ClampedBottomEdge() {
+        Rect anchorRect = new Rect(10, 950, 20, 960);
+        int y =
+                AnchoredPopupWindowUtils.getPopupY(
+                        anchorRect, mWindowRect, mPopupHeight, 20, true, true);
+
+        assertEquals("Wrong y position.", 680, y);
+    }
+
+    @Test
+    public void positionParams_NoClampWithoutVerticalOverlap() {
+        Rect anchorRect = new Rect(10, 950, 20, 960);
+        int yBelow =
+                AnchoredPopupWindowUtils.getPopupY(
+                        anchorRect, mWindowRect, mPopupHeight, 20, false, true);
+        assertEquals("Wrong y position.", 960, yBelow);
+
+        anchorRect = new Rect(10, 10, 20, 20);
+        int yAbove =
+                AnchoredPopupWindowUtils.getPopupY(
+                        anchorRect, mWindowRect, mPopupHeight, 20, false, false);
+        assertEquals("Wrong y position.", -290, yAbove);
     }
 
     @Test
@@ -293,6 +339,24 @@ public final class PopupSpecCalculatorTest {
 
         maxWidth = AnchoredPopupWindowUtils.getMaxContentWidth(300, 300, 10, 300);
         assertEquals("Max width should be clamped at 0.", 0, maxWidth);
+    }
+
+    @Test
+    public void spec_MaxContentHeight() {
+        int maxHeight = AnchoredPopupWindowUtils.getMaxContentHeight(300, 600, 10, 10);
+        assertEquals("Max height should be based on desired height.", 290, maxHeight);
+
+        maxHeight = AnchoredPopupWindowUtils.getMaxContentHeight(300, 300, 10, 10);
+        assertEquals("Max height should be based on root view height.", 270, maxHeight);
+
+        maxHeight = AnchoredPopupWindowUtils.getMaxContentHeight(0, 600, 10, 10);
+        assertEquals(
+                "Max height should be based on root view height when desired height is 0.",
+                570,
+                maxHeight);
+
+        maxHeight = AnchoredPopupWindowUtils.getMaxContentHeight(300, 300, 10, 300);
+        assertEquals("Max height should be clamped at 0.", 0, maxHeight);
     }
 
     // Test cases using #doTestAnchoredPopupAtRect.
@@ -780,11 +844,94 @@ public final class PopupSpecCalculatorTest {
                 /* expectedRect= */ new Rect(350, 800, 500, 1000));
     }
 
+    @Test
+    public void spec_SmartAnchorWithMaxWidth_SufficientSpaceAroundAnchor() {
+        mSmartAnchorWithMaxWidth = true;
+        mVerticalOverlapAnchor = true;
+
+        // spaceLeft = 100, spaceRight = 600 - 400 = 200.
+        // idealPopupWidth = 150 <= spaceRight (200).
+        // Since available horizontal space around anchor (200) is sufficient for ideal popup width
+        // (150), vertical overlap is not disabled.
+        // E.left = A.right = 400
+        // E.top = A.top = 200
+        // E.right = A.right + w = 400 + 150 = 550
+        // E.bottom = A.top + h = 200 + 300 = 500
+        doTestAnchoredPopupAtRect(
+                "Smart anchor with sufficient horizontal space maintains vertical overlap.",
+                /* anchoredRect= */ new Rect(100, 200, 400, 800),
+                /* expectedRect= */ new Rect(400, 200, 550, 500));
+    }
+
+    @Test
+    public void spec_VerticalOverlap_Clamped() {
+        mVerticalOverlapAnchor = true;
+        mDesiredHeightPx = 700;
+
+        // Position below:
+        // spaceAbove = 550, spaceBelow = 1000 - 350 = 650.
+        // Neither fits desired height 700, spaceBelow has more space -> position below.
+        // maxContentHeight = max(650, 1000) = 1000 -> popup height = 700.
+        // Y position before clamping = A.top = 350.
+        // Clamped: min(350, 1000 - 700) = 300.
+        // E.left = A.right = 100, E.top = 300, E.right = 250, E.bottom = 1000.
+        doTestAnchoredPopupAtRect(
+                "Vertical overlap clamped to bottom of window.",
+                /* anchoredRect= */ new Rect(100, 350, 100, 550),
+                /* expectedRect= */ new Rect(100, 300, 250, 1000));
+
+        // Position above:
+        // spaceAbove = 650, spaceBelow = 1000 - 450 = 550.
+        // Neither fits desired height 700, spaceAbove has more space -> position above.
+        // maxContentHeight = max(650, 1000) = 1000 -> popup height = 700.
+        // Y position before clamping = A.bottom - h = 650 - 700 = -50.
+        // Clamped: max(-50, 0) = 0.
+        // E.left = A.right = 100, E.top = 0, E.right = 250, E.bottom = 700.
+        doTestAnchoredPopupAtRect(
+                "Vertical overlap clamped to top of window.",
+                /* anchoredRect= */ new Rect(100, 450, 100, 650),
+                /* expectedRect= */ new Rect(100, 0, 250, 700));
+
+        // With margin:
+        mMarginPx = 10;
+        // spaceAbove = 550 - 10 = 540, spaceBelow = 1000 - 350 - 10 = 640.
+        // position below.
+        // maxContentHeight = max(640, 1000 - 20) = 980 -> popup height = 700.
+        // Y position before clamping = A.top = 350.
+        // Clamped: min(350, 1000 - 700 - 10) = 290.
+        // E.left = A.right = 100, E.top = 290, E.right = 250, E.bottom = 990.
+        doTestAnchoredPopupAtRect(
+                "Vertical overlap clamped with margin.",
+                /* anchoredRect= */ new Rect(100, 350, 100, 550),
+                /* expectedRect= */ new Rect(100, 290, 250, 990));
+    }
+
+    @Test
+    public void spec_VerticalOverlap_MaxContentHeight() {
+        mVerticalOverlapAnchor = true;
+        mPopupHeight = 600;
+        mContentView.setMinimumHeight(mPopupHeight);
+
+        // anchorRect = (100, 800, 100, 900)
+        // spaceAbove = 900, spaceBelow = 1000 - 800 = 200.
+        // idealFitsAbove = true, idealFitsBelow = false -> position above.
+        // maxContentHeight is not restricted to spaceBelow (200), but uses full available height.
+        // E.left = A.right = 100
+        // E.top = A.bottom - h = 900 - 600 = 300
+        // E.right = A.right + w = 250
+        // E.bottom = A.bottom = 900
+        doTestAnchoredPopupAtRect(
+                "Max content height allows full popup height when vertical overlap is enabled.",
+                /* anchoredRect= */ new Rect(100, 800, 100, 900),
+                /* expectedRect= */ new Rect(100, 300, 250, 900));
+    }
+
     private void setDefaultValueForAnchoredPopup() {
         mPaddingX = 0;
         mPaddingY = 0;
         mMarginPx = 0;
         mMaxWidthPx = 0;
+        mMaxHeightPx = 0;
         mDesiredWidthPx = 0;
         mDesiredHeightPx = 0;
         mPreferredHorizontalOrientation = HorizontalOrientation.MAX_AVAILABLE_SPACE;
@@ -808,10 +955,12 @@ public final class PopupSpecCalculatorTest {
                         anchoredRect,
                         mContentView,
                         mRootWidth,
+                        mRootHeight,
                         mPaddingX,
                         mPaddingY,
                         mMarginPx,
                         mMaxWidthPx,
+                        mMaxHeightPx,
                         mDesiredWidthPx,
                         mDesiredHeightPx,
                         mPreferredHorizontalOrientation,

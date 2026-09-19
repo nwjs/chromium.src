@@ -425,14 +425,6 @@
     "expires": "Dec 1, 2026"
   },
   {
-    "prefix": "container-timing-pre-paint-traversal",
-    "owners": [ "jdapena@igalia.com" ],
-    "platforms": ["Linux", "Mac", "Win"],
-    "bases": [ "external/wpt/container-timing/" ],
-    "args": [ "--enable-features=ContainerTimingPrepaintTraversal" ],
-    "expires": "Nov 1, 2026"
-  },
-  {
     "prefix": "controls-refresh-hc",
     "owners": [
       "masonf@chromium.org",
@@ -1175,7 +1167,7 @@
       "cbiesinger@chromium.org",
       "goto@chromium.org"
     ],
-    "expires": "Aug 1, 2026"
+    "expires": "Feb 1, 2027"
   },
   {
     "prefix": "fedcm-register",
@@ -1383,8 +1375,7 @@
     ],
     "args": [
       "--force-high-contrast",
-      "--enable-blink-features=ForcedColors",
-      "--enable-blink-features=CSSGapDecoration"
+      "--enable-blink-features=ForcedColors"
     ],
     "expires": "Jul 1, 2027"
   },
@@ -2122,6 +2113,26 @@
     ],
     "expires": "Jul 24, 2027"
   },
+  "These tests require an isolated capture-device environment so their exact",
+  "video-input counts do not depend on cameras attached to the host or fake",
+  "devices configured by the test runner. They run exclusively in this suite",
+  "with wrapped capture devices hidden. Fake media UI is also enabled so the",
+  "camera-opening test can call getUserMedia() without a permission prompt.",
+  {
+    "prefix": "mock-camera",
+    "platforms": ["Linux", "Mac", "Win"],
+    "bases": [
+      "http/tests/inspector-protocol/browser/add-mock-camera-device-list.js",
+      "http/tests/inspector-protocol/browser/add-mock-camera-open.js"
+    ],
+    "exclusive_tests": "ALL",
+    "args": [
+      "--video-capture-use-virtual-devices-only",
+      "--use-fake-ui-for-media-stream"
+    ],
+    "owners": ["mkim@igalia.com"],
+    "expires": "Feb 14, 2027"
+  },
   "This suite is incompatible with the default WPT Origin Isolation mode of ",
   "Site Isolation (see",
   "WebTestContentBrowserClient::GetOriginsRequiringDedicatedProcess) which",
@@ -2325,6 +2336,33 @@
       "ikilpatrick@chromium.org"
     ],
     "expires": "never"
+  },
+  {
+    "prefix": "omit-subframe-detachment-events-on-removal",
+    "platforms": [
+      "Linux",
+      "Mac",
+      "Win"
+    ],
+    "bases": [
+      "external/wpt/html/syntax/parsing/adoption-agency-reparenting-pagehide.tentative.html",
+      "fast/frames/detached-shadow-frame.html",
+      "fast/frames/frame-unload-crash2.html",
+      "fast/frames/out-of-document-iframe-has-child-frame.html",
+      "fast/frames/reattach-in-unload.html",
+      "fast/frames/set-iframe-src-in-pagehide-crash.html",
+      "fast/frames/subframe-detachment-events-on-removal.html"
+    ],
+    "exclusive_tests": [
+      "fast/frames/subframe-detachment-events-on-removal.html"
+    ],
+    "args": [
+      "--enable-blink-features=OmitSubframeDetachmentEventsOnRemoval"
+    ],
+    "owners": [
+      "nrosenthal@chromium.org"
+    ],
+    "expires": "Jan 1, 2027"
   },
   "Tests the legacy AbstractRange shape with OpaqueRange disabled. Remove when",
   "the OpaqueRange flag is removed. crbug.com/421421332",
@@ -2745,7 +2783,6 @@
       "external/wpt/html/canvas/element/manual/draw-element-image/ink-overflow.tentative.html",
       "external/wpt/html/canvas/element/manual/draw-element-image/scale.tentative.html",
       "external/wpt/html/canvas/element/manual/draw-element-image/get-element-transform.tentative.html",
-      "external/wpt/html/canvas/element/manual/draw-element-image/draw-element-image-returned-matrix.tentative.html",
       "wpt_internal/webgl/draw-element-image/webgl-css-transform-on-div.html",
       "wpt_internal/webgl/draw-element-image/webgl-ink-overflow.html",
       "wpt_internal/webgl/draw-element-image/webgl-scaling.html"
@@ -2796,7 +2833,6 @@
       "external/wpt/html/canvas/element/manual/draw-element-image/ink-overflow.tentative.html",
       "external/wpt/html/canvas/element/manual/draw-element-image/scale.tentative.html",
       "external/wpt/html/canvas/element/manual/draw-element-image/get-element-transform.tentative.html",
-      "external/wpt/html/canvas/element/manual/draw-element-image/draw-element-image-returned-matrix.tentative.html",
       "wpt_internal/webgl/draw-element-image/webgl-css-transform-on-div.html",
       "wpt_internal/webgl/draw-element-image/webgl-ink-overflow.html",
       "wpt_internal/webgl/draw-element-image/webgl-scaling.html",
@@ -4691,7 +4727,7 @@
     "owners": ["aran.donohue@gmail.com"],
     "platforms": ["Linux", "Mac", "Win"],
     "bases": [
-      "wpt_internal/webtransport/headers.https.any.js"
+      "external/wpt/webtransport/headers.https.any.js"
     ],
     "exclusive_tests": "ALL",
     "args": ["--enable-blink-features=WebTransportHeaders"],
@@ -4824,7 +4860,8 @@
       "http/tests/origin_trials/xslt-deprecation-trial-disabled.html",
       "http/tests/origin_trials/xslt-deprecation-trial-enabled.html",
       "fast/parser/xml-cap-alert-xslt-use-counter.html",
-      "fast/parser/xml-cap-alert-xslt-enabled.html"
+      "fast/parser/xml-cap-alert-xslt-enabled.html",
+      "fast/parser/xml-xslt-warning-banner.html"
     ],
     "exclusive_tests": [
       "http/tests/xsl/xslt/xsltpi-issue.js",
@@ -4851,7 +4888,8 @@
       "inspector-protocol/debugger/unpause-after-xslt-commit.js",
       "http/tests/origin_trials/xslt-deprecation-trial-disabled.html",
       "http/tests/origin_trials/xslt-deprecation-trial-enabled.html",
-      "fast/parser/xml-cap-alert-xslt-enabled.html"
+      "fast/parser/xml-cap-alert-xslt-enabled.html",
+      "fast/parser/xml-xslt-warning-banner.html"
     ],
     "args": ["--disable-blink-features=XSLTSpecialTrial"],
     "owners": [
@@ -5038,15 +5076,6 @@
     "expires": "never"
   },
   {
-    "prefix": "disable-tcp-port-randomization-mac",
-    "owners": ["arichiv@chromium.org", "awillia@chromium.org"],
-    "platforms": ["Mac"],
-    "bases": ["external/wpt/resource-timing/response-status-code.html"],
-    "exclusive_tests": "ALL",
-    "args": ["--disable-features=TcpPortRandomizationMac"],
-    "expires": "Oct 31, 2026"
-  },
-  {
     "prefix": "disable-css-line-clamp-longhands",
     "platforms": [
       "Linux"
@@ -5116,12 +5145,33 @@
       "Win"
     ],
     "bases": [
-      "wpt_internal/html/canvas/drawElementImage/css-transform-on-div-disabled.html"
+      "wpt_internal/html/canvas/drawElementImage/css-transform-on-div-disabled.html",
+      "wpt_internal/html/canvas/drawElementImage/draw-element-image-returned-matrix-disabled.html"
     ],
     "exclusive_tests": "ALL",
     "args": [
       "--disable-blink-features=ElementCanvasTransform"
     ],
     "expires": "Jan 1, 2027"
+  },
+  {
+    "prefix": "static-routing-api-devtools-improvement",
+    "platforms": [
+      "Linux",
+      "Mac",
+      "Win"
+    ],
+    "bases": [
+      "http/tests/inspector-protocol/service-worker/tentative/static-router/receive-typed-router-rules-on-update.js"
+    ],
+    "exclusive_tests": "ALL",
+    "args": [
+      "--enable-features=ServiceWorkerStaticRouterTypedRulesForDevTools"
+    ],
+    "owners": [
+      "yyanagisawa@chromium.org",
+      "tnak@chromium.org"
+    ],
+    "expires": "Jul 1, 2027"
   }
 ]

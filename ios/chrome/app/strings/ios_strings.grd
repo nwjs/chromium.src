@@ -626,7 +626,7 @@
       <message name="IDS_IOS_ASSISTANT_SHEET_GRABBER_ACCESSIBILITY_LABEL" desc="Accessibility label for the bottom sheet grabber in Assistant. Read by Text To Speech [iOS only]." meaning="Voice Over will read this to the user followed by 'Button' when the grabber is focused.">
         Sheet grabber
       </message>
-      <message name="IDS_IOS_AT_MEMORY_AI_DISCLOSURE" desc="The text shown at the bottom of the @memory bottom sheet to set user expectations regarding potential incorrect suggestions. [iOS only]">
+      <message name="IDS_IOS_AT_MEMORY_AI_DISCLOSURE" desc="The text shown at the bottom of the AtMemory bottom sheet to set user expectations regarding potential incorrect suggestions. [iOS only]">
         Gemini is AI and can make mistakes. <ph name="BEGIN_LINK">BEGIN_LINK</ph>More about relevant data sent to Google<ph name="END_LINK">END_LINK</ph>
       </message>
       <message name="IDS_IOS_AUTH_REASON" desc="A description that appears when the user needs to authenticate to use a suggestion.">
@@ -694,6 +694,22 @@
       <message name="IDS_IOS_AUTOFILL_AI_PREVIOUSLY_FILLED_SECTION_TITLE" desc="Title for the previously filled section in the Autofill AI suggestions popup. [iOS only]">
         Previously filled
       </message>
+      <!-- TODO(crbug.com/551864564): Make string translateable once finalized. -->
+      <message name="IDS_IOS_AUTOFILL_AI_REMOVE_ACTION" desc="Context menu option to remove an Autofill AI suggestion from personal context. [iOS only]" translateable="false">
+        Remove
+      </message>
+      <message name="IDS_IOS_AUTOFILL_AI_PRIVATE_INFERENCE_NOTICE_GOT_IT" desc="Primary button label for the Private Inference notice bottom sheet. [iOS only]">
+        Got it
+      </message>
+      <message name="IDS_IOS_AUTOFILL_AI_PRIVATE_INFERENCE_NOTICE_SETTINGS" desc="Secondary button label for the Private Inference notice bottom sheet. [iOS only]">
+        Settings
+      </message>
+      <message name="IDS_IOS_AUTOFILL_AI_PRIVATE_INFERENCE_NOTICE_SUBTITLE" desc="Subtitle of the bottom sheet notice for Autofill AI Private Inference. [iOS only]">
+        Chrome can now detect and fill more forms with smarter form understanding. To do this, page content and URLs can be processed in a private space in the cloud. Manage in settings.
+      </message>
+      <message name="IDS_IOS_AUTOFILL_AI_PRIVATE_INFERENCE_NOTICE_TITLE" desc="Title of the bottom sheet notice for Autofill AI Private Inference. [iOS only]">
+        Smarter autofill, kept private
+      </message>
       <message name="IDS_IOS_AUTOFILL_AI_SAVED_LOCALLY_FOOTER" desc="The notice text displayed in the footer when the Autofill AI entity (ex. Passport, Vehicle info etc.) is saved locally. [iOS only]">
           Your info is saved to your device
       </message>
@@ -753,6 +769,10 @@
       </message>
       <message name="IDS_IOS_AUTOFILL_AI_VEHICLE_VIN_NAME" desc="The display name for the vehicle identification number (VIN) in Autofill AI. [iOS only]">
         VIN
+      </message>
+      <!-- TODO(crbug.com/551864564): Make string translateable once finalized. -->
+      <message name="IDS_IOS_AUTOFILL_AI_VIEW_SOURCES" desc="Context menu option to view the source documents or origins (such as Gmail or Google Photos) of an Autofill AI suggestion. [iOS only]" translateable="false">
+        View sources
       </message>
       <message name="IDS_IOS_AUTOFILL_AI_WALLET_CONNECTION_FAILURE" desc="Instructions for the user displayed in the error dialog if they attempt to access or autofill information but the request fails due to network connectivity issues.">
         Check your connection
@@ -1666,6 +1686,15 @@
       <message name="IDS_IOS_CHOOSE_FROM_DRIVE_ACTION_NAME" desc="Title for an action to choose a file from Google Drive. 'Google Drive' is the name of the 'Google Drive' app." meaning="Title for an action to choose a file from Google Drive. 'Google Drive' is the name of the 'Google Drive' app.">
         Google Drive
       </message>
+      <message name="IDS_IOS_CHOOSE_FROM_DRIVE_CONFIRM_CHANGE_PROFILE_BUTTON" desc="Button label for a confirmation dialog that appears when a user tries to sign-in to an account associated with a different profile, while in the process of choosing a file from Google Drive. [Length: 25em] [iOS only]" meaning="User is in the process of choosing a file from Google Drive, and then tries to sign-in to an account associated with a different profile. This dialog is shown to confirm the profile switch.">
+        Switch Profiles
+      </message>
+      <message name="IDS_IOS_CHOOSE_FROM_DRIVE_CONFIRM_CHANGE_PROFILE_MESSAGE" desc="Message for a confirmation dialog that appears when a user tries to sign-in to an account associated with a different profile, while in the process of choosing a file from Google Drive. [Length: 25em] [iOS only]" meaning="User is in the process of choosing a file from Google Drive, and then tries to switch profiles. This dialog is shown to confirm the profile switch.">
+        This means you'll lose your current progress
+      </message>
+      <message name="IDS_IOS_CHOOSE_FROM_DRIVE_CONFIRM_CHANGE_PROFILE_TITLE" desc="Title for a confirmation dialog that appears when a user tries to sign-in to an account associated with a different profile, while in the process of choosing a file from Google Drive. [Length: 25em] [iOS only]" meaning="User is in the process of choosing a file from Google Drive, and then tries to sign-in to an account associated with a different profile. This dialog is shown to confirm the profile switch.">
+        You're about to switch profiles
+      </message>
       <message name="IDS_IOS_CLEAR_AUTOFILL" desc="Label for the option in settings to clear form data. [Length: 20em] [iOS only]">
         Autofill data
       </message>
@@ -1839,6 +1868,9 @@
       </message>
       <message name="IDS_IOS_COMPOSEBOX_MODEL_SELECTOR_TITLE" desc="Title for the contextual menu section for selecting the AI model to us. [iOS only].">
         Gemini <ph name="VERSION_NUMBER">$1<ex>3</ex></ph> models
+      </message>
+      <message name="IDS_IOS_COMPOSEBOX_REMOVE_TOOL_ACCESSIBILITY_LABEL" desc="The accessibility announcement read by VoiceOver for the button that removes or deselects an active AI tool or feature chip (such as Canvas, Create, or Deep Search) from the composebox query when tapped. [iOS only].">
+        Remove <ph name="TOOL_NAME">$1<ex>Canvas</ex></ph>
       </message>
       <message name="IDS_IOS_COMPOSEBOX_SELECT_TAB_ACTION" desc="The contextual menu option for opening the tab picker for selection. [iOS only].">
         Tabs
@@ -2359,6 +2391,9 @@
       </message>
       <message name="IDS_IOS_CREDENTIAL_IMPORT_CONFLICT_RESOLUTION_TITLE" desc="Title modal that enables user to resolve conflict between existing credentials in Google Password Manager and those that are currently being imported. [iOS only]">
         Merge duplicates
+      </message>
+      <message name="IDS_IOS_CREDENTIAL_IMPORT_PASSKEY_CREATION_DATE" desc="Creation date of a passkey in the credential import conflict resolution screen. [iOS only]">
+        Passkey created on <ph name="Date"><ex>2023/12/31</ex>$1</ph>
       </message>
       <message name="IDS_IOS_CREDENTIAL_PROVIDER_NEW_PASSWORD_SUGGEST_STRONG_PASSWORD" desc="Button allowing users to request Chrome suggest a strong password">
         Suggest strong password
@@ -3560,6 +3595,24 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
       <message name="IDS_IOS_GEMINI_PERMISSION_MICROPHONE_PROMPT_TITLE" desc="Title of the Gemini-specific microphone permission prompt.">
         “Chrome” would like to access your microphone
       </message>
+      <message name="IDS_IOS_GEMINI_PROMO_CAROUSEL_PLANNING_FLOATY_TEXT" desc="Text inside the floaty bubble in the Planning carousel slide animation.">
+          Add this to my calendar
+      </message>
+      <message name="IDS_IOS_GEMINI_PROMO_CAROUSEL_PLANNING_TAB_TEXT" desc="Text inside the browser tab in the Planning carousel slide animation.">
+          Dan’s Birthday
+      </message>
+      <message name="IDS_IOS_GEMINI_PROMO_CAROUSEL_SHOPPING_FLOATY_TEXT" desc="Text inside the floaty bubble in the Shopping carousel slide animation.">
+          Which should I buy?
+      </message>
+      <message name="IDS_IOS_GEMINI_PROMO_CAROUSEL_SHOPPING_TAB_TEXT" desc="Text inside the browser tab in the Shopping carousel slide animation.">
+          Headphones
+      </message>
+      <message name="IDS_IOS_GEMINI_PROMO_CAROUSEL_SUMMARIZE_FLOATY_TEXT" desc="Text inside the floaty bubble in the Summarize carousel slide animation.">
+          Summarize this article
+      </message>
+      <message name="IDS_IOS_GEMINI_PROMO_CAROUSEL_SUMMARIZE_TAB_TEXT" desc="Text inside the browser tab in the Summarize carousel slide animation.">
+          Market Report
+      </message>
       <message name="IDS_IOS_GEMINI_PROMO_REMIX_IMAGE_BOX_BODY" desc="'Remix an image' body text for the Gemini Promo page.">
         Long press an image on the web to edit with Gemini
       </message>
@@ -4575,6 +4628,27 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
       <message name="IDS_IOS_LEVEL_UP_PIN_TABS_IPH" desc="IPH bubble message highlighting how to pin a tab in the Tab Grid. [iOS only]">
         Press and hold to pin this tab
       </message>
+      <message name="IDS_IOS_LEVEL_UP_PROMO_CONTENT_1" desc="Text for the Level Up promo content checklist item 1. [iOS only]">
+        Get organized and save time
+      </message>
+      <message name="IDS_IOS_LEVEL_UP_PROMO_CONTENT_2" desc="Text for the Level Up promo content checklist item 2. [iOS only]">
+        Protect your privacy and stay safe
+      </message>
+      <message name="IDS_IOS_LEVEL_UP_PROMO_CONTENT_3" desc="Text for the Level Up promo content checklist item 3. [iOS only]">
+        Use AI to get more done
+      </message>
+      <message name="IDS_IOS_LEVEL_UP_PROMO_PRIMARY_BUTTON" desc="Text for the Level Up promo primary button. [iOS only]">
+        Get started
+      </message>
+      <message name="IDS_IOS_LEVEL_UP_PROMO_PRIVACY_DISCLAIMER" desc="Text for the Level Up promo privacy disclaimer. [iOS only]">
+        Google uses your feature usage data to recommend tasks and update progress. You can turn off Level Up at any time.
+      </message>
+      <message name="IDS_IOS_LEVEL_UP_PROMO_SECONDARY_BUTTON" desc="Text for the Level Up promo secondary button. [iOS only]">
+        Not now
+      </message>
+      <message name="IDS_IOS_LEVEL_UP_PROMO_TITLE" desc="Text for the Level Up promo title. [iOS only]">
+        Level up your browsing
+      </message>
       <message name="IDS_IOS_LEVEL_UP_SEE_ALL" desc="Link button to open all available level-up tasks. [iOS only]">
         See All
       </message>
@@ -4589,8 +4663,8 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
       </message>
       <message name="IDS_IOS_LEVEL_UP_STAT_PASSWORDS_VERIFIED" desc="Title for the passwords verified statistic card. [iOS only]">
         {count, plural,
-          =1 {1 password instantly verified}
-          other {# passwords instantly verified}}
+          =1 {You checked 1 password}
+          other {You checked # passwords}}
       </message>
       <message name="IDS_IOS_LEVEL_UP_STAT_PHOTO_SEARCHES_PERFORMED" desc="Title for the manual searches skipped statistic card. [iOS only]">
         {count, plural,
@@ -4598,7 +4672,7 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
           other {You used # photos to search}}
       </message>
       <message name="IDS_IOS_LEVEL_UP_STAT_SUBTITLE_PASSWORDS_VERIFIED" desc="Statistic card subtitle displaying the source task for passwords verified. [iOS only]">
-        since using Password checkup
+        since completing "Check your passwords"
       </message>
       <message name="IDS_IOS_LEVEL_UP_STAT_SUBTITLE_PHOTO_SEARCHES_PERFORMED" desc="Statistic card subtitle displaying the source task for manual searches skipped. [iOS only]">
         since completing "Use a photo to search with Google Lens"
@@ -4630,16 +4704,16 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
       <message name="IDS_IOS_LEVEL_UP_TASK_COMPLETED_AUTOFILL" desc="Completion snackbar message for the Autofill task. [iOS only]">
         Passwords and Autofill completed!
       </message>
-      <message name="IDS_IOS_LEVEL_UP_TASK_COMPLETED_CAMERA_SEARCH" desc="Completion snackbar message for the Camera Search task. [iOS only]">
-        Search with camera completed!
-      </message>
       <message name="IDS_IOS_LEVEL_UP_TASK_COMPLETED_GEMINI" desc="Completion snackbar message for the Gemini task. [iOS only]">
         Use Gemini in Chrome completed!
       </message>
       <message name="IDS_IOS_LEVEL_UP_TASK_COMPLETED_INCOGNITO" desc="Completion snackbar message for the Incognito task. [iOS only]">
         Go Incognito completed!
       </message>
-      <message name="IDS_IOS_LEVEL_UP_TASK_COMPLETED_LENS_SEARCH" desc="Completion snackbar message for the Lens Search task. [iOS only]">
+      <message name="IDS_IOS_LEVEL_UP_TASK_COMPLETED_LENS_CAMERA_SEARCH" desc="Completion snackbar message for the Lens Camera Search task. [iOS only]">
+        Search with camera completed!
+      </message>
+      <message name="IDS_IOS_LEVEL_UP_TASK_COMPLETED_LENS_WEBSITE_SEARCH" desc="Completion snackbar message for the Lens Website Search task. [iOS only]">
         Google Lens completed!
       </message>
       <message name="IDS_IOS_LEVEL_UP_TASK_COMPLETED_PASSWORD_CHECKUP" desc="Completion snackbar message for the Password Checkup task. [iOS only]">
@@ -4659,6 +4733,9 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
       </message>
       <message name="IDS_IOS_LEVEL_UP_TASK_COMPLETED_TAB_GROUPS" desc="Completion snackbar message for the Tab Groups task. [iOS only]">
         Tab Groups completed!
+      </message>
+      <message name="IDS_IOS_LEVEL_UP_TURN_OFF_LEVEL_UP" desc="The context menu item to turn off Level Up. [iOS only]">
+        Turn off Level Up
       </message>
       <message name="IDS_IOS_LEVEL_UP_TURN_OFF_PROGRESS_UPDATES" desc="The context menu item to turn off Level Up progress updates. [iOS only]">
         Turn off progress updates
@@ -5613,6 +5690,9 @@ Handoff must also be enabled in the General section of Settings, and your device
       </message>
       <message name="IDS_IOS_PASSKEY_INCOGNITO_INTERSTITIAL_DIALOG_TITLE" desc="Title of the dialog shown when a user tries to create a passkey while in Incognito mode.">
         Create a passkey outside of Incognito?
+      </message>
+      <message name="IDS_IOS_PASSKEY_LABEL" desc="Label indicating that the credential is a passkey. Refer to Glossary for the meaning of 'passkey', do not translate it as 'password' [iOS only]">
+        Passkey
       </message>
       <message name="IDS_IOS_PASSKEY_PARTIAL_BOOTSTRAPPING_TITLE" desc="Title of the screen shown when the user needs to create their Google Password Manager pin to set up passkeys on their device.">
         Set up passkeys for this device
@@ -7897,9 +7977,6 @@ Handoff must also be enabled in the General section of Settings, and your device
       <message name="IDS_IOS_SHOW_ME_HOW_FIRST_RUN_TITLE" desc="Tertiary action button text that leads to a list of instructions">
           Show me how
       </message>
-      <message name="IDS_IOS_SHOW_PASSKEY_CREATION_DATE" desc="Label indicating that the text displayed below is the date at which the passkey was created. [Length: 20em] [iOS only]">
-        Passkey
-      </message>
       <message name="IDS_IOS_SHOW_PASSKEY_DISPLAY_NAME" desc="Label indicating that the text displayed below is the display name (usually a legal name, as opposed to username, which is usually an email address) to which a saved passkey corresponds. [Length: 20em] [iOS only]">
         Display name
       </message>
@@ -8167,23 +8244,23 @@ Handoff must also be enabled in the General section of Settings, and your device
       <message name="IDS_IOS_SWITCH_PROFILE_SWITCH_TITLE" desc="Title for the switch profile developer panel in Settings-&gt;Switch Profile giving the list of loaded profiles [iOS only]">
         Switch to another profile
       </message>
-      <message name="IDS_IOS_SYNCED_SET_UP_SNACKBAR_APPLIED_ACTION" desc="The action button text for the snackbar shown after New Tab page preferences have been applied. [iOS only]">
+      <message name="IDS_IOS_SYNCED_SET_UP_SNACKBAR_APPLIED_ACTION" desc="The action button text for the snackbar shown after appearance preferences have been applied. [iOS only]">
         Undo
       </message>
-      <message name="IDS_IOS_SYNCED_SET_UP_SNACKBAR_APPLIED_MESSAGE_NTP" desc="The message text for the snackbar shown after New Tab page preferences have been applied. [iOS only]">
-        Applied your New Tab page preferences
+      <message name="IDS_IOS_SYNCED_SET_UP_SNACKBAR_APPLIED_MESSAGE" desc="The message text for the snackbar shown after appearance preferences have been applied. [iOS only]">
+        Applied your appearance preferences
       </message>
-      <message name="IDS_IOS_SYNCED_SET_UP_SNACKBAR_PROMO_ACTION" desc="The action button text for the snackbar that prompts the user to apply their synced New Tab page settings. [iOS only]">
+      <message name="IDS_IOS_SYNCED_SET_UP_SNACKBAR_PROMO_ACTION" desc="The action button text for the snackbar that prompts the user to apply their synced appearance settings. [iOS only]">
         Apply
       </message>
-      <message name="IDS_IOS_SYNCED_SET_UP_SNACKBAR_PROMO_MESSAGE_NTP" desc="The message text for the snackbar that prompts the user to apply their synced New Tab page settings from another device. [iOS only]">
-        Apply your New Tab page preferences?
+      <message name="IDS_IOS_SYNCED_SET_UP_SNACKBAR_PROMO_MESSAGE" desc="The message text for the snackbar that prompts the user to apply their synced appearance settings from another device. [iOS only]">
+        Apply your appearance preferences?
       </message>
-      <message name="IDS_IOS_SYNCED_SET_UP_SNACKBAR_REMOVED_ACTION" desc="The action button text for the snackbar shown after New Tab page preferences have been removed. [iOS only]">
+      <message name="IDS_IOS_SYNCED_SET_UP_SNACKBAR_REMOVED_ACTION" desc="The action button text for the snackbar shown after appearance preferences have been removed. [iOS only]">
         Redo
       </message>
-      <message name="IDS_IOS_SYNCED_SET_UP_SNACKBAR_REMOVED_MESSAGE_NTP" desc="The message text for the snackbar shown after New Tab page preferences have been removed. [iOS only]">
-        Removed your New Tab page preferences
+      <message name="IDS_IOS_SYNCED_SET_UP_SNACKBAR_REMOVED_MESSAGE" desc="The message text for the snackbar shown after appearance preferences have been removed. [iOS only]">
+        Removed your appearance preferences
       </message>
       <message name="IDS_IOS_SYNCED_SET_UP_SUBTITLE_TEXT" desc="Subtitle text on the Synced Set Up screen, indicating that the user's data is being loaded. [iOS only]">
         Getting your stuff…

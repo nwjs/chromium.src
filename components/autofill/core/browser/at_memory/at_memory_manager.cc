@@ -16,6 +16,7 @@
 
 #include "base/check.h"
 #include "base/check_deref.h"
+#include "base/containers/adapters.h"
 #include "base/containers/extend.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
@@ -24,8 +25,10 @@
 #include "base/notreached.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
-#include "components/autofill/core/browser/at_memory/at_memory_enablement_utils.h"
+#include "components/autofill/core/browser/at_memory/at_memory_enablement_util.h"
 #include "components/autofill/core/browser/at_memory/at_memory_metrics_recorder.h"
+#include "components/autofill/core/browser/at_memory/at_memory_persisted_state_manager.h"
+#include "components/autofill/core/browser/at_memory/at_memory_search_state.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
@@ -216,71 +219,6 @@ std::vector<Suggestion> CreateFooterSuggestions(
   return suggestions;
 }
 
-Suggestion TransformResultIntoSuggestion(const MemorySearchResult& entry,
-                                         std::string_view app_locale) {
-  const bool is_personal_context_sourced =
-      !IsMemorySearchResultAutofillSourced(entry);
-  Suggestion suggestion(
-      MaybeObfuscateValue(entry.value, entry.type, is_personal_context_sourced),
-      SuggestionType::kAtMemorySearchResult);
-  suggestion.icon = GetSuggestionIcon(
-      entry.type,
-      /*is_autofill_only=*/entry.sources.size() == 1 &&
-          entry.sources.front().type == MemoryEntrySourceType::kAutofill);
-
-  // Label row: [type_name, metadata[0].value, ...]
-  std::vector<Suggestion::Text> label_row;
-  std::u16string type_name = GetSuggestionLabelTypeName(entry);
-  if (!type_name.empty()) {
-    label_row.emplace_back(type_name);
-  }
-  for (const EntryMetadata& metadata : entry.metadata_list) {
-    // CVCs are always fully obfuscated. They add no value to a label.
-    if (metadata.type == MemoryDataType::kCreditCardSecurityCode) {
-      continue;
-    }
-    if (!label_row.empty()) {
-      label_row.emplace_back(u"\u2022");  // Bullet (•)
-    }
-    std::u16string label_value = FormatMemoryDataTypeLabelValue(
-        metadata.type, metadata.value, metadata.typed_value, app_locale);
-    label_row.emplace_back(MaybeObfuscateValue(label_value, metadata.type,
-                                               is_personal_context_sourced));
-  }
-  if (!label_row.empty()) {
-    suggestion.labels.emplace_back(std::move(label_row));
-  }
-  Suggestion::AtMemoryPayload at_memory_payload(entry.value, entry.type);
-  at_memory_payload.type_name = std::move(type_name);
-  at_memory_payload.identifier =
-      GetPayloadIdentifier(entry.type, entry.identifier);
-  at_memory_payload.is_personal_context_sourced = is_personal_context_sourced;
-
-  std::underlying_type_t<MemoryEntrySourceType> sources_bitmask = 0;
-  for (const auto& source : entry.sources) {
-    sources_bitmask |= std::to_underlying(source.type);
-  }
-  at_memory_payload.sources_bitmask = sources_bitmask;
-
-  suggestion.payload = std::move(at_memory_payload);
-  suggestion.filtration_policy = Suggestion::FiltrationPolicy::kStatic;
-
-  suggestion.children =
-      CreateSecondarySuggestions(entry, is_personal_context_sourced);
-  std::vector<Suggestion> footer_children = CreateFooterSuggestions(entry);
-
-  // Add a separator only when there are both secondary suggestions above and
-  // footer links below so they do not visually blend together.
-  if (!suggestion.children.empty() && !footer_children.empty()) {
-    Suggestion separator(SuggestionType::kSeparator);
-    separator.filtration_policy = Suggestion::FiltrationPolicy::kStatic;
-    suggestion.children.emplace_back(std::move(separator));
-  }
-  base::Extend(suggestion.children, std::move(footer_children));
-
-  return suggestion;
-}
-
 // Creates a suggestion to display when the query is supported, but yields no
 // results.
 Suggestion CreateNoDataSuggestion() {
@@ -355,15 +293,89 @@ bool ShouldEraseMemorySearchResult(MemoryDataType type,
   if (!action) {
     return false;
   }
-  return !MayPerformAtMemoryAction(
+  std::string debug_reason;
+  const bool may_perform = MayPerformAtMemoryAction(
       *action, client,
       /*url=*/std::nullopt,
       RetrieveForFillingParams{.is_spii = IsSpiiMemoryDataType(type),
                                .sources = sources,
-                               .is_context_secure = is_context_secure});
+                               .is_context_secure = is_context_secure},
+      &debug_reason);
+  if (!may_perform) {
+    LogAtMemorySuppression(*action, client.GetCurrentLogManager(),
+                           debug_reason);
+  }
+  return !may_perform;
 }
 
 }  // namespace
+
+// static
+Suggestion AtMemoryManager::TransformResultIntoSuggestion(
+    const MemorySearchResult& entry,
+    std::string_view app_locale) {
+  const bool is_personal_context_sourced =
+      !IsMemorySearchResultAutofillSourced(entry);
+  Suggestion suggestion(
+      MaybeObfuscateValue(entry.value, entry.type, is_personal_context_sourced),
+      SuggestionType::kAtMemorySearchResult);
+  suggestion.icon = GetSuggestionIcon(
+      entry.type,
+      /*is_autofill_only=*/entry.sources.size() == 1 &&
+          entry.sources.front().type == MemoryEntrySourceType::kAutofill);
+
+  // Label row: [type_name, metadata[0].value, ...]
+  std::vector<Suggestion::Text> label_row;
+  std::u16string type_name = GetSuggestionLabelTypeName(entry);
+  if (!type_name.empty()) {
+    label_row.emplace_back(type_name);
+  }
+  for (const EntryMetadata& metadata : entry.metadata_list) {
+    // CVCs are always fully obfuscated. They add no value to a label.
+    if (metadata.type == MemoryDataType::kCreditCardSecurityCode) {
+      continue;
+    }
+    if (!label_row.empty()) {
+      label_row.emplace_back(u"\u2022");  // Bullet (•)
+    }
+    std::u16string label_value = FormatMemoryDataTypeLabelValue(
+        metadata.type, metadata.value, metadata.typed_value, app_locale);
+    label_row.emplace_back(MaybeObfuscateValue(label_value, metadata.type,
+                                               is_personal_context_sourced));
+  }
+  if (!label_row.empty()) {
+    suggestion.labels.emplace_back(std::move(label_row));
+  }
+  Suggestion::AtMemoryPayload at_memory_payload(entry.value, entry.type);
+  at_memory_payload.type_name = std::move(type_name);
+  at_memory_payload.identifier =
+      GetPayloadIdentifier(entry.type, entry.identifier);
+  at_memory_payload.is_personal_context_sourced = is_personal_context_sourced;
+
+  std::underlying_type_t<MemoryEntrySourceType> sources_bitmask = 0;
+  for (const MemoryEntrySource& source : entry.sources) {
+    sources_bitmask |= std::to_underlying(source.type);
+  }
+  at_memory_payload.sources_bitmask = sources_bitmask;
+
+  suggestion.payload = std::move(at_memory_payload);
+  suggestion.filtration_policy = Suggestion::FiltrationPolicy::kStatic;
+
+  suggestion.children =
+      CreateSecondarySuggestions(entry, is_personal_context_sourced);
+  std::vector<Suggestion> footer_children = CreateFooterSuggestions(entry);
+
+  // Add a separator only when there are both secondary suggestions above and
+  // footer links below so they do not visually blend together.
+  if (!suggestion.children.empty() && !footer_children.empty()) {
+    Suggestion separator(SuggestionType::kSeparator);
+    separator.filtration_policy = Suggestion::FiltrationPolicy::kStatic;
+    suggestion.children.emplace_back(std::move(separator));
+  }
+  base::Extend(suggestion.children, std::move(footer_children));
+
+  return suggestion;
+}
 
 // static
 Suggestion AtMemoryManager::CreateSourceAttributionSuggestion() {
@@ -376,28 +388,36 @@ Suggestion AtMemoryManager::CreateSourceAttributionSuggestion() {
   return source_info;
 }
 
-AtMemoryManager::AtMemoryManager(AutofillClient* client)
-    : client_(CHECK_DEREF(client)) {}
+AtMemoryManager::AtMemoryManager(AutofillClient* client,
+                                 history::HistoryService* history_service)
+    : client_(CHECK_DEREF(client)), state_manager_(history_service) {}
 
 AtMemoryManager::~AtMemoryManager() = default;
 
-BrowserAutofillManager* AtMemoryManager::GetBrowserAutofillManager(
-    const FormGlobalId& form_id,
-    const FieldGlobalId& field_id) {
-  CHECK(!client_->UsesPlatformAutofill());
-  for (AutofillDriver* driver :
-       client_->GetAutofillDriverFactory().GetExistingDrivers()) {
-    auto* manager =
-        static_cast<BrowserAutofillManager*>(&driver->GetAutofillManager());
-    auto [form, field] = manager->FindFormAndField(form_id, field_id);
-    if (form && field) {
-      return manager;
+AtMemorySearchState AtMemoryManager::GetStateForField(
+    const FieldGlobalId& field_id,
+    const url::Origin& field_origin) {
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillAtMemorySearchStatefulness)) {
+    if (const std::optional<AtMemorySearchState>& state =
+            state_manager_.GetStateForField(field_id, field_origin)) {
+      return *state;
     }
+  } else {
+    target_field_origin_ = field_origin;
   }
-  return nullptr;
+  return {.suggestions = GetEmptyQuerySuggestions()};
+}
+
+const url::Origin& AtMemoryManager::target_field_origin() const {
+  return base::FeatureList::IsEnabled(
+             features::kAutofillAtMemorySearchStatefulness)
+             ? state_manager_.field_origin()
+             : target_field_origin_;
 }
 
 void AtMemoryManager::OnPopupShown(
+    BrowserAutofillManager& bam,
     const FormGlobalId& form_id,
     const FieldGlobalId& field_id,
     AutofillSuggestionTriggerSource trigger_source,
@@ -408,39 +428,40 @@ void AtMemoryManager::OnPopupShown(
   if (!IsAtMemoryTriggerSource(trigger_source)) {
     return;
   }
-  if (!parent_suggestion_metadata && !session_state_) {
-    BrowserAutofillManager* manager =
-        GetBrowserAutofillManager(form_id, field_id);
-    const auto [form, field] =
-        manager ? manager->FindFormAndField(form_id, field_id)
-                : AutofillManager::FormAndField();
+  if (!parent_suggestion_metadata && !popup_state_) {
+    const auto [form, field] = bam.FindFormAndField(form_id, field_id);
     const FormSignature form_signature =
         form ? form->form_signature() : FormSignature(0);
     const FieldSignature field_signature =
         field ? field->GetFieldSignature() : FieldSignature(0);
-    if (field) {
-      target_field_origin_ = field->origin();
+    if (!base::FeatureList::IsEnabled(
+            features::kAutofillAtMemorySearchStatefulness)) {
+      target_field_origin_ = field ? field->origin() : url::Origin();
     }
-    session_state_.emplace(SessionState{
-        .trigger_source = trigger_source,
-        .update_callback = std::move(update_callback),
-        .metrics_recorder = std::make_unique<AtMemoryMetricsRecorder>(
-            client_->GetMqlsUploadService(), client_->GetUkmRecorder(),
-            ukm_source_id, client_->GetLastCommittedPrimaryMainFrameURL(),
-            client_->GetPageTitle(), field_id, form_signature, field_signature),
-    });
+    popup_state_.emplace();
+    popup_state_->trigger_source = trigger_source;
+    popup_state_->update_callback = std::move(update_callback);
+    popup_state_->metrics_recorder = std::make_unique<AtMemoryMetricsRecorder>(
+        client_->GetMqlsUploadService(), client_->GetUkmRecorder(),
+        ukm_source_id, client_->GetLastCommittedPrimaryMainFrameURL(),
+        client_->GetPageTitle(), field_id, form_signature, field_signature);
+    // TODO(crbug.com/535486238): Restart `fetching_timer` if search is still
+    // in progress when reopening the popup.
   }
 
-  if (session_state_ && session_state_->metrics_recorder) {
-    session_state_->metrics_recorder->OnPopupShown(trigger_source,
-                                                   parent_suggestion_metadata);
+  if (popup_state_ && popup_state_->metrics_recorder) {
+    popup_state_->metrics_recorder->OnPopupShown(trigger_source,
+                                                 parent_suggestion_metadata);
   }
 }
 
 bool AtMemoryManager::OnFilterChanged(const std::u16string& filter) {
-  if (!session_state_ ||
-      !IsAtMemoryTriggerSource(session_state_->trigger_source)) {
+  if (!popup_state_ || !IsAtMemoryTriggerSource(popup_state_->trigger_source)) {
     return false;
+  }
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillAtMemorySearchStatefulness)) {
+    state_manager_.OnFilterChanged(filter);
   }
   if (filter.empty()) {
     CancelPendingQueries();
@@ -452,56 +473,27 @@ bool AtMemoryManager::OnFilterChanged(const std::u16string& filter) {
 }
 
 bool AtMemoryManager::OnSearchSubmitted(const std::u16string& filter) {
-  if (!session_state_ ||
-      !IsAtMemoryTriggerSource(session_state_->trigger_source)) {
+  if (!popup_state_ || !IsAtMemoryTriggerSource(popup_state_->trigger_source)) {
     return false;
   }
-  if (session_state_->metrics_recorder) {
-    session_state_->metrics_recorder->OnQuerySubmitted(filter);
+  if (popup_state_->metrics_recorder) {
+    popup_state_->metrics_recorder->OnQuerySubmitted(filter);
   }
   ExecuteQuery(filter);
   return true;
 }
 
 void AtMemoryManager::OnPopupHidden() {
-  session_state_.reset();
-  CancelPendingQueries();
-  target_field_origin_ = url::Origin();
-  credit_card_fetch_in_progress_ = false;
-  ccam_observation_.Reset();
-}
-
-IsAsync AtMemoryManager::FillOrPreviewSearchResult(
-    mojom::ActionPersistence action_persistence,
-    const FormGlobalId& form_id,
-    const FieldGlobalId& field_id,
-    const Suggestion& suggestion,
-    base::optional_ref<const AutofillSuggestionDelegate::SuggestionMetadata>
-        metadata) {
-  const Suggestion::AtMemoryPayload& payload =
-      suggestion.GetPayload<Suggestion::AtMemoryPayload>();
-
-  switch (action_persistence) {
-    case mojom::ActionPersistence::kPreview:
-      if (BrowserAutofillManager* bam =
-              GetBrowserAutofillManager(form_id, field_id)) {
-        bam->FillOrPreviewField(
-            action_persistence,
-            mojom::FieldActionType::kReplaceSelectionForAtMemory, form_id,
-            field_id,
-            MaybeObfuscateValue(payload.value, payload.memory_data_type,
-                                payload.is_personal_context_sourced),
-            FillingProduct::kAtMemory,
-            /*field_type_used=*/std::nullopt);
-      }
-      return IsAsync(false);
-    case mojom::ActionPersistence::kFill: {
-      return FillSearchResult(form_id, field_id, suggestion, metadata);
-    }
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillAtMemorySearchStatefulness)) {
+    CancelPendingQueries();
+    target_field_origin_ = url::Origin();
   }
+  popup_state_.reset();
 }
 
 IsAsync AtMemoryManager::FillSearchResult(
+    BrowserAutofillManager& bam,
     const FormGlobalId& form_id,
     const FieldGlobalId& field_id,
     const Suggestion& suggestion,
@@ -509,171 +501,168 @@ IsAsync AtMemoryManager::FillSearchResult(
         metadata) {
   const Suggestion::AtMemoryPayload& payload =
       suggestion.GetPayload<Suggestion::AtMemoryPayload>();
-  if (session_state_ && session_state_->metrics_recorder) {
-    session_state_->metrics_recorder->OnSuggestionAccepted(
+  if (popup_state_ && popup_state_->metrics_recorder) {
+    popup_state_->metrics_recorder->OnSuggestionAccepted(
         payload.memory_data_type, payload.sources_bitmask, metadata);
   }
   // Transfer ownership of the metrics session to the filling path.
   // Ensures that the metrics will be properly recorded once the suggestion
   // is filled or one of the async steps in between fails.
   std::unique_ptr<AtMemoryMetricsRecorder> metrics;
-  if (session_state_) {
-    metrics = std::move(session_state_->metrics_recorder);
+  if (popup_state_) {
+    metrics = std::move(popup_state_->metrics_recorder);
   }
 
-  switch (payload.memory_data_type) {
-    case MemoryDataType::kIban: {
-      IsAsync is_async(false);
-      std::visit(
-          absl::Overload{[&](const Iban::Guid& guid) {
-                           is_async = FillIban(guid, form_id, field_id,
-                                               suggestion, std::move(metrics));
-                         },
-                         [&](const Iban::InstrumentId& instrument_id) {
-                           is_async = FillIban(instrument_id, form_id, field_id,
-                                               suggestion, std::move(metrics));
-                         },
-                         [](std::monostate) { NOTREACHED(); },
-                         [](const std::string&) { NOTREACHED(); },
-                         [](const EntityInstance::EntityId&) { NOTREACHED(); }},
-          payload.identifier);
-      return is_async;
-    }
-    case MemoryDataType::kCreditCardNumber:
-    case MemoryDataType::kCreditCardSecurityCode: {
-      CHECK(std::holds_alternative<std::string>(payload.identifier));
-      return FillCreditCard(std::get<std::string>(payload.identifier), form_id,
-                            field_id, suggestion, std::move(metrics));
-    }
-    case MemoryDataType::kPassportNumber:
-    case MemoryDataType::kDriversLicenseNumber:
-    case MemoryDataType::kNationalIdCardNumber:
-    case MemoryDataType::kKnownTravelerNumberNumber:
-    case MemoryDataType::kRedressNumberNumber: {
-      return FillSensitiveAutofillAiOrPersonalContextData(
-          form_id, field_id, suggestion, std::move(metrics));
-    }
-
-    case MemoryDataType::kNameFull:
-    case MemoryDataType::kAddressFull:
-    case MemoryDataType::kAddressStreetAddress:
-    case MemoryDataType::kAddressCity:
-    case MemoryDataType::kAddressState:
-    case MemoryDataType::kAddressZip:
-    case MemoryDataType::kAddressCountry:
-    case MemoryDataType::kPhone:
-    case MemoryDataType::kEmail:
-    case MemoryDataType::kCompanyName: {
-      RecordAddressProfileUse(payload.identifier);
-      if (metrics) {
-        metrics->MarkFilled();
+  IsAsync is_async = [&]() {
+    switch (payload.memory_data_type) {
+      case MemoryDataType::kIban: {
+        std::visit(absl::Overload{
+                       [&](const Iban::Guid& guid) {
+                         FillIban(bam, guid, form_id, field_id, suggestion,
+                                  std::move(metrics));
+                       },
+                       [&](const Iban::InstrumentId& instrument_id) {
+                         FillIban(bam, instrument_id, form_id, field_id,
+                                  suggestion, std::move(metrics));
+                       },
+                       [](std::monostate) { NOTREACHED(); },
+                       [](const std::string&) { NOTREACHED(); },
+                       [](const EntityInstance::EntityId&) { NOTREACHED(); }},
+                   payload.identifier);
+        return IsAsync(false);
       }
-      if (BrowserAutofillManager* bam =
-              GetBrowserAutofillManager(form_id, field_id)) {
-        bam->FillOrPreviewField(
+      case MemoryDataType::kCreditCardNumber:
+      case MemoryDataType::kCreditCardSecurityCode: {
+        CHECK(std::holds_alternative<std::string>(payload.identifier));
+        FillCreditCard(bam, std::get<std::string>(payload.identifier), form_id,
+                       field_id, suggestion, std::move(metrics));
+        return IsAsync(false);
+      }
+      case MemoryDataType::kPassportNumber:
+      case MemoryDataType::kDriversLicenseNumber:
+      case MemoryDataType::kNationalIdCardNumber:
+      case MemoryDataType::kKnownTravelerNumberNumber:
+      case MemoryDataType::kRedressNumberNumber: {
+        return FillSensitiveAutofillAiOrPersonalContextData(
+            bam, form_id, field_id, suggestion, std::move(metrics));
+      }
+
+      case MemoryDataType::kNameFull:
+      case MemoryDataType::kAddressFull:
+      case MemoryDataType::kAddressStreetAddress:
+      case MemoryDataType::kAddressCity:
+      case MemoryDataType::kAddressState:
+      case MemoryDataType::kAddressZip:
+      case MemoryDataType::kAddressCountry:
+      case MemoryDataType::kPhone:
+      case MemoryDataType::kEmail:
+      case MemoryDataType::kCompanyName: {
+        RecordAddressProfileUse(payload.identifier);
+        if (metrics) {
+          metrics->MarkFilled();
+        }
+        bam.FillOrPreviewField(
             mojom::ActionPersistence::kFill,
             mojom::FieldActionType::kReplaceSelectionForAtMemory, form_id,
             field_id, payload.value, FillingProduct::kAtMemory,
             /*field_type_used=*/std::nullopt);
+        return IsAsync(false);
       }
-      return IsAsync(false);
-    }
 
-    case MemoryDataType::kCreditCardExpirationDate:
-    case MemoryDataType::kCreditCardNameOnCard: {
-      RecordCreditCardUse(payload.identifier);
-      if (metrics) {
-        metrics->MarkFilled();
-      }
-      if (BrowserAutofillManager* bam =
-              GetBrowserAutofillManager(form_id, field_id)) {
-        bam->FillOrPreviewField(
+      case MemoryDataType::kCreditCardExpirationDate:
+      case MemoryDataType::kCreditCardNameOnCard: {
+        RecordCreditCardUse(payload.identifier);
+        if (metrics) {
+          metrics->MarkFilled();
+        }
+        bam.FillOrPreviewField(
             mojom::ActionPersistence::kFill,
             mojom::FieldActionType::kReplaceSelectionForAtMemory, form_id,
             field_id, payload.value, FillingProduct::kAtMemory,
             /*field_type_used=*/std::nullopt);
+        return IsAsync(false);
       }
-      return IsAsync(false);
-    }
 
-    case MemoryDataType::kVehicleMake:
-    case MemoryDataType::kVehicleModel:
-    case MemoryDataType::kVehicleYear:
-    case MemoryDataType::kVehicleOwner:
-    case MemoryDataType::kVehiclePlateNumber:
-    case MemoryDataType::kVehiclePlateState:
-    case MemoryDataType::kVehicleVin:
-    case MemoryDataType::kPassportName:
-    case MemoryDataType::kPassportCountry:
-    case MemoryDataType::kPassportIssueDate:
-    case MemoryDataType::kPassportExpirationDate:
-    case MemoryDataType::kFlightReservationFlightNumber:
-    case MemoryDataType::kFlightReservationTicketNumber:
-    case MemoryDataType::kFlightReservationConfirmationCode:
-    case MemoryDataType::kFlightReservationPassengerName:
-    case MemoryDataType::kFlightReservationDepartureAirport:
-    case MemoryDataType::kFlightReservationArrivalAirport:
-    case MemoryDataType::kFlightReservationDepartureDate:
-    case MemoryDataType::kFlightReservationArrivalDate:
-    case MemoryDataType::kShipmentTrackingNumber:
-    case MemoryDataType::kShipmentAssociatedOrderId:
-    case MemoryDataType::kShipmentDeliveryAddress:
-    case MemoryDataType::kShipmentDeliveryZipCode:
-    case MemoryDataType::kShipmentCarrierName:
-    case MemoryDataType::kShipmentCarrierDomain:
-    case MemoryDataType::kShipmentEstimatedDeliveryDate:
-    case MemoryDataType::kShipmentShippedDate:
-    case MemoryDataType::kNationalIdCardName:
-    case MemoryDataType::kNationalIdCardCountry:
-    case MemoryDataType::kNationalIdCardIssueDate:
-    case MemoryDataType::kNationalIdCardExpirationDate:
-    case MemoryDataType::kRedressNumberName:
-    case MemoryDataType::kKnownTravelerNumberName:
-    case MemoryDataType::kKnownTravelerNumberExpirationDate:
-    case MemoryDataType::kDriversLicenseName:
-    case MemoryDataType::kDriversLicenseState:
-    case MemoryDataType::kDriversLicenseIssueDate:
-    case MemoryDataType::kDriversLicenseExpirationDate:
-    case MemoryDataType::kOrderId:
-    case MemoryDataType::kOrderAccount:
-    case MemoryDataType::kOrderDate:
-    case MemoryDataType::kOrderMerchantName:
-    case MemoryDataType::kOrderMerchantDomain:
-    case MemoryDataType::kOrderProductNames:
-    case MemoryDataType::kOrderGrandTotal: {
-      RecordAutofillAiEntityUse(payload.identifier);
-      if (metrics) {
-        metrics->MarkFilled();
-      }
-      if (BrowserAutofillManager* bam =
-              GetBrowserAutofillManager(form_id, field_id)) {
-        bam->FillOrPreviewField(
+      case MemoryDataType::kVehicleMake:
+      case MemoryDataType::kVehicleModel:
+      case MemoryDataType::kVehicleYear:
+      case MemoryDataType::kVehicleOwner:
+      case MemoryDataType::kVehiclePlateNumber:
+      case MemoryDataType::kVehiclePlateState:
+      case MemoryDataType::kVehicleVin:
+      case MemoryDataType::kPassportName:
+      case MemoryDataType::kPassportCountry:
+      case MemoryDataType::kPassportIssueDate:
+      case MemoryDataType::kPassportExpirationDate:
+      case MemoryDataType::kFlightReservationFlightNumber:
+      case MemoryDataType::kFlightReservationTicketNumber:
+      case MemoryDataType::kFlightReservationConfirmationCode:
+      case MemoryDataType::kFlightReservationPassengerName:
+      case MemoryDataType::kFlightReservationDepartureAirport:
+      case MemoryDataType::kFlightReservationArrivalAirport:
+      case MemoryDataType::kFlightReservationDepartureDate:
+      case MemoryDataType::kFlightReservationArrivalDate:
+      case MemoryDataType::kShipmentTrackingNumber:
+      case MemoryDataType::kShipmentAssociatedOrderId:
+      case MemoryDataType::kShipmentDeliveryAddress:
+      case MemoryDataType::kShipmentDeliveryZipCode:
+      case MemoryDataType::kShipmentCarrierName:
+      case MemoryDataType::kShipmentCarrierDomain:
+      case MemoryDataType::kShipmentEstimatedDeliveryDate:
+      case MemoryDataType::kShipmentShippedDate:
+      case MemoryDataType::kNationalIdCardName:
+      case MemoryDataType::kNationalIdCardCountry:
+      case MemoryDataType::kNationalIdCardIssueDate:
+      case MemoryDataType::kNationalIdCardExpirationDate:
+      case MemoryDataType::kRedressNumberName:
+      case MemoryDataType::kKnownTravelerNumberName:
+      case MemoryDataType::kKnownTravelerNumberExpirationDate:
+      case MemoryDataType::kDriversLicenseName:
+      case MemoryDataType::kDriversLicenseState:
+      case MemoryDataType::kDriversLicenseIssueDate:
+      case MemoryDataType::kDriversLicenseExpirationDate:
+      case MemoryDataType::kOrderId:
+      case MemoryDataType::kOrderAccount:
+      case MemoryDataType::kOrderDate:
+      case MemoryDataType::kOrderMerchantName:
+      case MemoryDataType::kOrderMerchantDomain:
+      case MemoryDataType::kOrderProductNames:
+      case MemoryDataType::kOrderGrandTotal: {
+        RecordAutofillAiEntityUse(payload.identifier);
+        if (metrics) {
+          metrics->MarkFilled();
+        }
+        bam.FillOrPreviewField(
             mojom::ActionPersistence::kFill,
             mojom::FieldActionType::kReplaceSelectionForAtMemory, form_id,
             field_id, payload.value, FillingProduct::kAtMemory,
             /*field_type_used=*/std::nullopt);
+        return IsAsync(false);
       }
-      return IsAsync(false);
-    }
 
-    case MemoryDataType::kCreditCardNickname:
-    case MemoryDataType::kIbanNickname:
-    case MemoryDataType::kUnknown: {
-      if (metrics) {
-        metrics->MarkFilled();
-      }
-      if (BrowserAutofillManager* bam =
-              GetBrowserAutofillManager(form_id, field_id)) {
-        bam->FillOrPreviewField(
+      case MemoryDataType::kCreditCardNickname:
+      case MemoryDataType::kIbanNickname:
+      case MemoryDataType::kUnknown: {
+        if (metrics) {
+          metrics->MarkFilled();
+        }
+        bam.FillOrPreviewField(
             mojom::ActionPersistence::kFill,
             mojom::FieldActionType::kReplaceSelectionForAtMemory, form_id,
             field_id, payload.value, FillingProduct::kAtMemory,
             /*field_type_used=*/std::nullopt);
+        return IsAsync(false);
       }
-      return IsAsync(false);
     }
+    NOTREACHED();
+  }();
+
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillAtMemorySearchStatefulness)) {
+    state_manager_.OnSuggestionAccepted(suggestion);
   }
-  NOTREACHED();
+
+  return is_async;
 }
 
 void AtMemoryManager::RecordAddressProfileUse(
@@ -717,7 +706,11 @@ void AtMemoryManager::RecordAutofillAiEntityUse(
 }
 
 bool AtMemoryManager::IsSearching() const {
-  return session_state_ && session_state_->is_searching;
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillAtMemorySearchStatefulness)) {
+    return state_manager_.IsSearching();
+  }
+  return popup_state_ && popup_state_->is_searching;
 }
 
 void AtMemoryManager::MaybeAppendPersonalContextNotice(
@@ -748,11 +741,11 @@ void AtMemoryManager::MaybeAppendPersonalContextNotice(
   suggestions.insert(suggestions.begin(), std::move(notice));
 }
 
-// static
 void AtMemoryManager::MaybeAppendPreviouslyFilledSuggestions(
-    std::vector<Suggestion>& suggestions) {
+    std::vector<Suggestion>& suggestions) const {
   if (!base::FeatureList::IsEnabled(
-          features::kAutofillAtMemoryPreviouslyFilled)) {
+          features::kAutofillAtMemoryPreviouslyFilled) ||
+      state_manager_.previously_filled_suggestions().empty()) {
     return;
   }
   Suggestion suggestion(
@@ -761,15 +754,16 @@ void AtMemoryManager::MaybeAppendPreviouslyFilledSuggestions(
   suggestion.filtration_policy = Suggestion::FiltrationPolicy::kStatic;
   suggestion.acceptability =
       Suggestion::Acceptability::kUnselectableAndUnacceptable;
-  // TODO(crbug.com/494559543): Add the actual suggestions.
   suggestions.push_back(std::move(suggestion));
+  base::Extend(suggestions,
+               base::Reversed(state_manager_.previously_filled_suggestions()));
 }
 
 void AtMemoryManager::ExecuteQuery(const std::u16string& filter) {
   AtMemoryQueryService* query_service = client_->GetAtMemoryQueryService();
-  if (!query_service || !session_state_ ||
-      !IsAtMemoryTriggerSource(session_state_->trigger_source) ||
-      !session_state_->update_callback) {
+  if (!query_service || !popup_state_ ||
+      !IsAtMemoryTriggerSource(popup_state_->trigger_source) ||
+      !popup_state_->update_callback) {
     return;
   }
 
@@ -782,10 +776,15 @@ void AtMemoryManager::ExecuteQuery(const std::u16string& filter) {
     return;
   }
 
-  session_state_->is_searching = true;
-  fetching_string_index_ = 0;
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillAtMemorySearchStatefulness)) {
+    state_manager_.OnFilterSubmitted(filter);
+  } else {
+    popup_state_->is_searching = true;
+  }
+  popup_state_->fetching_string_index = 0;
   ShowFetchingStateSuggestions();
-  fetching_timer_.Start(
+  popup_state_->fetching_timer.Start(
       FROM_HERE, kFetchingMessageInterval,
       base::BindRepeating(&AtMemoryManager::AdvanceFetchingSuggestion,
                           query_weak_ptr_factory_.GetWeakPtr()));
@@ -802,7 +801,7 @@ Suggestion AtMemoryManager::CreateUnsupportedQuerySuggestion(
     const std::u16string& query) {
   Suggestion suggestion(
       l10n_util::GetStringUTF16(IDS_AUTOFILL_AT_MEMORY_UNSUPPORTED_QUERY_TITLE),
-      SuggestionType::kOpenGemini);
+      SuggestionType::kAtMemoryOpenGemini);
   suggestion.labels = {{Suggestion::Text(l10n_util::GetStringUTF16(
       IDS_AUTOFILL_AT_MEMORY_UNSUPPORTED_QUERY_DESCRIPTION))}};
   suggestion.acceptability =
@@ -877,29 +876,41 @@ Suggestion AtMemoryManager::CreateNoConnectionSuggestion(std::u16string query) {
 }
 
 void AtMemoryManager::CancelPendingQueries() {
-  fetching_timer_.Stop();
-  fetching_string_index_ = 0;
+  if (popup_state_) {
+    popup_state_->fetching_timer.Stop();
+    popup_state_->fetching_string_index = 0;
+  }
   query_weak_ptr_factory_.InvalidateWeakPtrs();
-  if (session_state_) {
-    session_state_->is_searching = false;
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillAtMemorySearchStatefulness)) {
+    state_manager_.StopSearching();
+  } else if (popup_state_) {
+    popup_state_->is_searching = false;
   }
 }
 
 void AtMemoryManager::SendSuggestions(std::vector<Suggestion> suggestions) {
-  if (session_state_ && session_state_->update_callback) {
-    session_state_->update_callback.Run(std::move(suggestions),
-                                        session_state_->trigger_source);
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillAtMemorySearchStatefulness)) {
+    state_manager_.OnSuggestionsChanged(suggestions);
+  }
+  if (popup_state_ && popup_state_->update_callback) {
+    popup_state_->update_callback.Run(std::move(suggestions),
+                                      popup_state_->trigger_source);
   }
 }
 
 void AtMemoryManager::AdvanceFetchingSuggestion() {
-  fetching_string_index_++;
+  CHECK(popup_state_);
+  popup_state_->fetching_string_index++;
   ShowFetchingStateSuggestions();
 }
 
 void AtMemoryManager::ShowFetchingStateSuggestions() {
+  CHECK(popup_state_);
   std::vector<Suggestion> suggestions;
-  suggestions.emplace_back(CreateFetchingSuggestion(fetching_string_index_));
+  suggestions.emplace_back(
+      CreateFetchingSuggestion(popup_state_->fetching_string_index));
   MaybeAppendPersonalContextNotice(suggestions);
   SendSuggestions(std::move(suggestions));
 }
@@ -971,9 +982,9 @@ void AtMemoryManager::ShowNoResultsStateSuggestions(
 
 void AtMemoryManager::OnSearchResultsReceived(const std::u16string& query,
                                               MemorySearchResults result) {
-  if (!session_state_ ||
-      !IsAtMemoryTriggerSource(session_state_->trigger_source) ||
-      !session_state_->update_callback || !session_state_->is_searching) {
+  if ((!popup_state_ && !base::FeatureList::IsEnabled(
+                            features::kAutofillAtMemorySearchStatefulness)) ||
+      !IsSearching()) {
     return;
   }
 
@@ -983,8 +994,10 @@ void AtMemoryManager::OnSearchResultsReceived(const std::u16string& query,
     CancelPendingQueries();
   }
 
-  if (session_state_->metrics_recorder) {
-    session_state_->metrics_recorder->OnQueryResponseReceived(result);
+  // TODO(crbug.com/535486238): Handle metrics recording when background query
+  // finishes with the popup closed.
+  if (popup_state_ && popup_state_->metrics_recorder) {
+    popup_state_->metrics_recorder->OnQueryResponseReceived(result);
   }
 
   const bool is_context_secure = client_->IsContextSecure();
@@ -1013,7 +1026,8 @@ void AtMemoryManager::OnSearchResultsReceived(const std::u16string& query,
   ShowNoResultsStateSuggestions(query, result);
 }
 
-IsAsync AtMemoryManager::FillIban(
+void AtMemoryManager::FillIban(
+    BrowserAutofillManager& bam,
     const std::variant<Iban::Guid, Iban::InstrumentId>& identifier,
     const FormGlobalId& form_id,
     const FieldGlobalId& field_id,
@@ -1029,29 +1043,27 @@ IsAsync AtMemoryManager::FillIban(
   IbanAccessManager* iban_access_manager =
       client_->GetPaymentsAutofillClient()->GetIbanAccessManager();
   if (!iban_access_manager) {
-    return IsAsync(false);
+    return;
   }
 
   if (metrics) {
     metrics->OnFetchPiiStarted(AtMemoryMetricsRecorder::FetchPiiSource::kIban);
   }
 
-  return iban_access_manager->FetchValue(
+  iban_access_manager->FetchValue(
       iban_payload,
       base::BindOnce(
           [](base::WeakPtr<AtMemoryManager> manager,
+             base::WeakPtr<BrowserAutofillManager> bam,
              const FormGlobalId& form_id, const FieldGlobalId& field_id,
              const Suggestion& suggestion,
              std::unique_ptr<AtMemoryMetricsRecorder> metrics,
              std::variant<Iban::Guid, Iban::InstrumentId> identifier,
              base::expected<std::u16string, IbanAccessManager::FailureReason>
                  unmasked_value) {
-            if (!manager) {
+            if (!manager || !bam) {
               return;
             }
-            manager->client_->HideSuggestions(
-                SuggestionHidingReason::kAcceptSuggestion,
-                FillingProduct::kAtMemory);
             if (!unmasked_value.has_value()) {
               return;
             }
@@ -1076,70 +1088,35 @@ IsAsync AtMemoryManager::FillIban(
               Iban mutable_iban = *iban;
               pdm.RecordUseOfIban(mutable_iban);
             }
-            if (BrowserAutofillManager* bam =
-                    manager->GetBrowserAutofillManager(form_id, field_id)) {
-              bam->FillOrPreviewField(
-                  mojom::ActionPersistence::kFill,
-                  mojom::FieldActionType::kReplaceSelectionForAtMemory, form_id,
-                  field_id, *unmasked_value, FillingProduct::kAtMemory,
-                  /*field_type_used=*/std::nullopt);
-            }
+            bam->FillOrPreviewField(
+                mojom::ActionPersistence::kFill,
+                mojom::FieldActionType::kReplaceSelectionForAtMemory, form_id,
+                field_id, *unmasked_value, FillingProduct::kAtMemory,
+                /*field_type_used=*/std::nullopt);
           },
-          fill_weak_ptr_factory_.GetWeakPtr(), form_id, field_id, suggestion,
+          fill_weak_ptr_factory_.GetWeakPtr(),
+          bam.GetBrowserAutofillManagerWeakPtr(), form_id, field_id, suggestion,
           std::move(metrics), identifier));
 }
 
-void AtMemoryManager::OnCreditCardFetchStarted(CreditCardAccessManager&,
-                                               const CreditCard&) {
-  credit_card_fetch_in_progress_ = true;
-}
-
-void AtMemoryManager::OnCreditCardFetchSucceeded(CreditCardAccessManager&,
-                                                 const CreditCard&) {
-  credit_card_fetch_in_progress_ = false;
-  ccam_observation_.Reset();
-}
-
-void AtMemoryManager::OnCreditCardFetchFailed(CreditCardAccessManager&,
-                                              const CreditCard*) {
-  if (credit_card_fetch_in_progress_) {
-    credit_card_fetch_in_progress_ = false;
-    ccam_observation_.Reset();
-    client_->HideSuggestions(SuggestionHidingReason::kAcceptSuggestion,
-                             FillingProduct::kAtMemory);
-  }
-}
-
-void AtMemoryManager::OnCreditCardAccessManagerDestroyed(
-    CreditCardAccessManager&) {
-  credit_card_fetch_in_progress_ = false;
-  ccam_observation_.Reset();
-}
-
-IsAsync AtMemoryManager::FillCreditCard(
+void AtMemoryManager::FillCreditCard(
+    BrowserAutofillManager& bam,
     const std::string& guid,
     const FormGlobalId& form_id,
     const FieldGlobalId& field_id,
     const Suggestion& suggestion,
     std::unique_ptr<AtMemoryMetricsRecorder> metrics) {
-  CreditCardAccessManager* credit_card_access_manager = nullptr;
-  if (BrowserAutofillManager* bam =
-          GetBrowserAutofillManager(form_id, field_id)) {
-    credit_card_access_manager = bam->GetCreditCardAccessManager();
-  }
+  CreditCardAccessManager* credit_card_access_manager =
+      bam.GetCreditCardAccessManager();
   if (!credit_card_access_manager) {
-    return IsAsync(false);
+    return;
   }
 
   const PersonalDataManager& pdm = client_->GetPersonalDataManager();
   const CreditCard* credit_card =
       pdm.payments_data_manager().GetCreditCardByGUID(guid);
   if (!credit_card) {
-    return IsAsync(false);
-  }
-
-  if (credit_card_fetch_in_progress_) {
-    return IsAsync(true);
+    return;
   }
 
   if (metrics) {
@@ -1147,26 +1124,19 @@ IsAsync AtMemoryManager::FillCreditCard(
         AtMemoryMetricsRecorder::FetchPiiSource::kCreditCard);
   }
 
-  if (!ccam_observation_.IsObservingSource(credit_card_access_manager)) {
-    ccam_observation_.Reset();
-    ccam_observation_.Observe(credit_card_access_manager);
-  }
-
   // TODO(crbug.com/497795513): Consider caching fetched cards.
   credit_card_access_manager->FetchCreditCard(
       credit_card,
       base::BindOnce(
           [](base::WeakPtr<AtMemoryManager> manager,
+             base::WeakPtr<BrowserAutofillManager> bam,
              const FormGlobalId& form_id, const FieldGlobalId& field_id,
              const Suggestion& suggestion,
              std::unique_ptr<AtMemoryMetricsRecorder> metrics,
              const CreditCard& fetched_card) {
-            if (!manager) {
+            if (!manager || !bam) {
               return;
             }
-            manager->client_->HideSuggestions(
-                SuggestionHidingReason::kAcceptSuggestion,
-                FillingProduct::kAtMemory);
             if (metrics) {
               metrics->OnFetchPiiCompleted();
               metrics->MarkFilled();
@@ -1187,22 +1157,19 @@ IsAsync AtMemoryManager::FillCreditCard(
               default:
                 NOTREACHED();
             }
-
-            if (BrowserAutofillManager* bam =
-                    manager->GetBrowserAutofillManager(form_id, field_id)) {
-              bam->FillOrPreviewField(
-                  mojom::ActionPersistence::kFill,
-                  mojom::FieldActionType::kReplaceSelectionForAtMemory, form_id,
-                  field_id, fill_value, FillingProduct::kAtMemory,
-                  /*field_type_used=*/std::nullopt);
-            }
+            bam->FillOrPreviewField(
+                mojom::ActionPersistence::kFill,
+                mojom::FieldActionType::kReplaceSelectionForAtMemory, form_id,
+                field_id, fill_value, FillingProduct::kAtMemory,
+                /*field_type_used=*/std::nullopt);
           },
-          fill_weak_ptr_factory_.GetWeakPtr(), form_id, field_id, suggestion,
+          fill_weak_ptr_factory_.GetWeakPtr(),
+          bam.GetBrowserAutofillManagerWeakPtr(), form_id, field_id, suggestion,
           std::move(metrics)));
-  return IsAsync(credit_card_fetch_in_progress_);
 }
 
 IsAsync AtMemoryManager::FillSensitivePersonalContextData(
+    BrowserAutofillManager& bam,
     const FormGlobalId& form_id,
     const FieldGlobalId& field_id,
     const Suggestion& suggestion,
@@ -1224,23 +1191,27 @@ IsAsync AtMemoryManager::FillSensitivePersonalContextData(
   query_service->AuthenticateAndFetchPiiEntity(
       *client_,
       GetAuthenticationMessage(
-          GetTargetFieldOrigin(target_field_origin_, *client_)),
+          GetTargetFieldOrigin(target_field_origin(), *client_)),
       payload.value, payload.memory_data_type,
       GetMetadataFromSuggestion(suggestion),
       base::BindOnce(&AtMemoryManager::OnSensitivePersonalContextDataFetched,
-                     fill_weak_ptr_factory_.GetWeakPtr(), form_id, field_id,
+                     fill_weak_ptr_factory_.GetWeakPtr(),
+                     bam.GetBrowserAutofillManagerWeakPtr(), form_id, field_id,
                      std::move(metrics)));
   return IsAsync(true);
 }
 
 void AtMemoryManager::OnSensitivePersonalContextDataFetched(
+    base::WeakPtr<BrowserAutofillManager> bam,
     const FormGlobalId& form_id,
     const FieldGlobalId& field_id,
     std::unique_ptr<AtMemoryMetricsRecorder> metrics,
     AtMemoryQueryService::SpiiRetrievalResult result) {
+  if (!bam) {
+    return;
+  }
   client_->HideSuggestions(SuggestionHidingReason::kAcceptSuggestion,
                            FillingProduct::kAtMemory);
-
   if (!result.has_value()) {
     if (metrics) {
       metrics->OnFetchPersonalContextPiiDataFailed(result.error());
@@ -1258,18 +1229,15 @@ void AtMemoryManager::OnSensitivePersonalContextDataFetched(
     metrics->OnFetchPiiCompleted();
     metrics->MarkFilled();
   }
-
-  if (BrowserAutofillManager* bam =
-          GetBrowserAutofillManager(form_id, field_id)) {
     bam->FillOrPreviewField(
         mojom::ActionPersistence::kFill,
         mojom::FieldActionType::kReplaceSelectionForAtMemory, form_id, field_id,
         *result, FillingProduct::kAtMemory,
         /*field_type_used=*/std::nullopt);
-  }
 }
 
 IsAsync AtMemoryManager::FillSensitiveAutofillAiOrPersonalContextData(
+    BrowserAutofillManager& bam,
     const FormGlobalId& form_id,
     const FieldGlobalId& field_id,
     const Suggestion& suggestion,
@@ -1278,7 +1246,7 @@ IsAsync AtMemoryManager::FillSensitiveAutofillAiOrPersonalContextData(
       suggestion.GetPayload<Suggestion::AtMemoryPayload>();
 
   if (payload.is_personal_context_sourced) {
-    return FillSensitivePersonalContextData(form_id, field_id, suggestion,
+    return FillSensitivePersonalContextData(bam, form_id, field_id, suggestion,
                                             std::move(metrics));
   } else if (const EntityInstance::EntityId* entity_id =
                  std::get_if<EntityInstance::EntityId>(&payload.identifier);
@@ -1288,7 +1256,7 @@ IsAsync AtMemoryManager::FillSensitiveAutofillAiOrPersonalContextData(
     if (!attribute_type) {
       return IsAsync(false);
     }
-    return FillSensitiveAutofillAiData(*entity_id, form_id, field_id,
+    return FillSensitiveAutofillAiData(bam, *entity_id, form_id, field_id,
                                        suggestion, *attribute_type,
                                        std::move(metrics));
   }
@@ -1296,6 +1264,7 @@ IsAsync AtMemoryManager::FillSensitiveAutofillAiOrPersonalContextData(
 }
 
 IsAsync AtMemoryManager::FillSensitiveAutofillAiData(
+    BrowserAutofillManager& bam,
     const EntityInstance::EntityId& entity_id,
     const FormGlobalId& form_id,
     const FieldGlobalId& field_id,
@@ -1318,20 +1287,17 @@ IsAsync AtMemoryManager::FillSensitiveAutofillAiData(
 
   // TODO(crbug.com/c/536814322): Show loading dialog on Android after
   // successful authentication.
-  BrowserAutofillManager* bam = GetBrowserAutofillManager(form_id, field_id);
-  if (!bam) {
-    return IsAsync(false);
-  }
-
-  return IsAsync(bam->GetAutofillAiAccessManager().FetchEntityInstance(
+  return IsAsync(bam.GetAutofillAiAccessManager().FetchEntityInstance(
       *entity, /*will_fill_sensitive_info=*/true,
-      GetTargetFieldOrigin(target_field_origin_, *client_), base::DoNothing(),
+      GetTargetFieldOrigin(target_field_origin(), *client_), base::DoNothing(),
       base::BindOnce(&AtMemoryManager::OnAutofillAiFetched,
-                     fill_weak_ptr_factory_.GetWeakPtr(), form_id, field_id,
+                     fill_weak_ptr_factory_.GetWeakPtr(),
+                     bam.GetBrowserAutofillManagerWeakPtr(), form_id, field_id,
                      suggestion, attribute_type, std::move(metrics))));
 }
 
 void AtMemoryManager::OnAutofillAiFetched(
+    base::WeakPtr<BrowserAutofillManager> bam,
     const FormGlobalId& form_id,
     const FieldGlobalId& field_id,
     const Suggestion& suggestion,
@@ -1341,6 +1307,9 @@ void AtMemoryManager::OnAutofillAiFetched(
         result,
     bool reauth_attempted,
     bool did_fetch_from_server) {
+  if (!bam) {
+    return;
+  }
   client_->HideSuggestions(SuggestionHidingReason::kAcceptSuggestion,
                            FillingProduct::kAtMemory);
   if (!result.has_value()) {
@@ -1352,11 +1321,6 @@ void AtMemoryManager::OnAutofillAiFetched(
   }
 
   const EntityInstance& fetched_entity = result.value();
-
-  BrowserAutofillManager* bam = GetBrowserAutofillManager(form_id, field_id);
-  if (!bam) {
-    return;
-  }
 
   std::optional<std::u16string> attribute_fill_value = GetAttributeFillValue(
       fetched_entity, attribute_type, form_id, field_id, *bam);

@@ -35,11 +35,13 @@ if (!is_chromeos) {
     sources = [ "idle_dialog_view.cc" ]
     public_deps = [
       "//base",
+      "//chrome/browser/ui:idle_dialog",
       "//ui/views",
     ]
     deps = [
       "//chrome/app:branded_strings",
       "//chrome/app:generated_resources",
+      "//chrome/browser/ui:idle_dialog",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/views:layout_provider",
       "//chrome/browser/ui/views/relaunch_notification",

@@ -654,11 +654,19 @@ int ProfileAttributesEntry::GetAiSubscriptionTier() const {
 }
 
 void ProfileAttributesEntry::SetIsGlicEligible(bool value) {
-  SetBool(kIsGlicEligible, value);
+  if (SetBool(kIsGlicEligible, value)) {
+    profile_attributes_storage_->NotifyProfileIsGlicEligibleChanged(
+        profile_path_);
+  }
 }
 
 void ProfileAttributesEntry::SetAiSubscriptionTier(int tier) {
+  int old_value = GetAiSubscriptionTier();
   SetInteger(kAiSubscriptionKey, tier);
+  if (old_value != tier) {
+    profile_attributes_storage_->NotifyProfileAiSubscriptionTierUpdated(
+        profile_path_, tier);
+  }
 }
 
 void ProfileAttributesEntry::SetLocalProfileName(const std::u16string& name,

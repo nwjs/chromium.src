@@ -41,6 +41,7 @@ Aspetti da considerare:
 <translation id="1580570086594302477">Apre una nuova scheda Incognito di Chrome.</translation>
 <translation id="1605168141396675642">Evita la seccatura di copiare. Apri i link direttamente in Chrome.</translation>
 <translation id="1646463005043273333">Apre l'impostazione di Chrome per impostare Chrome come browser predefinito.</translation>
+<translation id="1668930590094369898">Usa Chrome come browser predefinito</translation>
 <translation id="1670609221633730681">Suggerimento per Chrome: scegli la posizione della barra degli indirizzi</translation>
 <translation id="1683863426423719967">Per ricevere promemoria delle schede da Chrome, attiva le notifiche nelle Impostazioni di iOS.</translation>
 <translation id="1759842336958782510">Chrome</translation>
@@ -57,6 +58,7 @@ Aspetti da considerare:
 <translation id="1973910962341002002">Dalle impostazioni "<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />", attiva "Chrome"</translation>
 <translation id="1984705450038014246">Sincronizza i tuoi dati di Chrome</translation>
 <translation id="1987779152850321833">Completa le azioni suggerite di seguito per usare al meglio Chrome.</translation>
+<translation id="2049569996960148258">Nascondi Usa Chrome come browser predefinito</translation>
 <translation id="2055826352861631739">Usa Chrome per iPad per impostazione predefinita</translation>
 <translation id="2056123005618757196">Aumenta la tua produttività grazie a Google Chrome, che ti offre semplicità, sicurezza e velocità senza precedenti.</translation>
 <translation id="2120238739383482109">Consente di aprire i preferiti di Chrome.</translation>
@@ -74,6 +76,7 @@ Aspetti da considerare:
 <translation id="2427791862912929107">Chrome offre funzionalità che ti consentono di gestire i tuoi dati Internet e la velocità di caricamento delle pagine web.
 <ph name="BEGIN_LINK" />Scopri di più<ph name="END_LINK" /></translation>
 <translation id="2450221499140985490">Apri i link da messaggi e documenti direttamente in Chrome.</translation>
+<translation id="2459400997522001951">Completa attività rapide e scopri come usare al meglio Chrome:</translation>
 <translation id="2464852008153767546">{THRESHOLD,plural, =1{Questo accade quando Chrome non viene utilizzato per {THRESHOLD} minuto. Potrebbero essere inclusi la cronologia e la compilazione automatica.}other{Questo accade quando Chrome non viene utilizzato per {THRESHOLD} minuti. Potrebbero essere inclusi la cronologia e la compilazione automatica.}}</translation>
 <translation id="2561231791489583059">Usa Chrome come browser predefinito per proteggerti da siti pericolosi e tenere al sicuro le tue password</translation>
 <translation id="2574249610672786438">Esegui l'accesso su tutti i dispositivi su cui utilizzi Chrome per visualizzare le tue schede</translation>
@@ -261,6 +264,7 @@ Per modificare questa impostazione, <ph name="BEGIN_LINK" />elimina i dati di Ch
 Per altre impostazioni che utilizzano i dati per migliorare la tua esperienza con Chrome, vai alle impostazioni dei <ph name="BEGIN_LINK" />servizi Google<ph name="END_LINK" />.</translation>
 <translation id="6922332667202044570">Elimina i dati di navigazione in Chrome.</translation>
 <translation id="6924922227983877439">Apri i link in Chrome per impostazione predefinita</translation>
+<translation id="6926395711547387358">Imposta Chrome come browser predefinito</translation>
 <translation id="6975725306479268850">Scegli Chrome per la compilazione automatica</translation>
 <translation id="7001031184470316752">Sposta Chrome nel dock</translation>
 <translation id="7038674195294813388">Apri le impostazioni di App predefinite in iOS, quindi tocca "App browser" e seleziona Chrome.</translation>

@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ui/views/media_picker_utils.h"
 
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -23,7 +22,7 @@ class MediaPickerUtilsTest : public InProcessBrowserTest {
 IN_PROC_BROWSER_TEST_F(MediaPickerUtilsTest, CreateMediaPickerDialogWidget) {
   // Setup for opening a media picker.
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   views::DialogDelegate delegate;
   delegate.SetModalType(ui::mojom::ModalType::kChild);
   gfx::NativeWindow context = web_contents->GetTopLevelNativeWindow();
@@ -45,7 +44,7 @@ IN_PROC_BROWSER_TEST_F(MediaPickerUtilsTest,
                        CreateMediaPickerDialogWidget_ExtensionPopup) {
   // Pretend the active tab is an extension popup.
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   extensions::SetViewType(web_contents,
                           extensions::mojom::ViewType::kExtensionPopup);
 

@@ -51,8 +51,6 @@ public class WebApkValidatorTest {
     private static final String URL_WITHOUT_WEBAPK = "https://www.other.com";
     private static final String TEST_DATA_DIR = "webapks/";
     private static final String TEST_STARTURL = "https://non-empty.com/starturl";
-    private static final String MAPSLITE_PACKAGE_NAME = "com.google.android.apps.mapslite";
-    private static final String MAPSLITE_EXAMPLE_STARTURL = "https://www.google.com/maps";
     private static final String MANIFEST_URL = "https://www.foo.com/manifest.json";
     private static final int SHELL_VERSION = 100;
 
@@ -322,69 +320,6 @@ public class WebApkValidatorTest {
     }
 
     /**
-     * Tests {@link WebApkValidator.isValidWebApk} returns true if the package name is maps lite and
-     * the start url matches the correct prefix.
-     */
-    @Test
-    public void testIsValidWebApkForMapsLite() {
-        mPackageManager.addPackage(
-                newPackageInfoWithBrowserSignature(
-                        MAPSLITE_PACKAGE_NAME,
-                        new Signature(SIGNATURE_1),
-                        MAPSLITE_EXAMPLE_STARTURL,
-                        null));
-        mPackageManager.addPackage(
-                newPackageInfoWithBrowserSignature(
-                        MAPSLITE_PACKAGE_NAME + ".other",
-                        new Signature(SIGNATURE_1),
-                        MAPSLITE_EXAMPLE_STARTURL,
-                        null));
-
-        assertTrue(
-                WebApkValidator.isValidWebApk(
-                        RuntimeEnvironment.application, MAPSLITE_PACKAGE_NAME));
-        assertFalse(
-                WebApkValidator.isValidWebApk(
-                        RuntimeEnvironment.application, MAPSLITE_PACKAGE_NAME + ".other"));
-        assertFalse(
-                WebApkValidator.isValidWebApk(
-                        RuntimeEnvironment.application, MAPSLITE_PACKAGE_NAME + ".notfound"));
-    }
-
-    /** Tests {@link WebApkValidator.canWebApkHandleUrl} returns false and shows a toast. */
-    @Test
-    public void testMapsLiteWebApkShowsWarning() {
-        // Invalid MapsLite WebAPK is not verified and does not show toast.
-        addWebApkResolveInfoWithPackageName(
-                MAPSLITE_EXAMPLE_STARTURL, MAPSLITE_PACKAGE_NAME + ".other", SIGNATURE_1);
-        assertFalse(
-                WebApkValidator.canWebApkHandleUrl(
-                        RuntimeEnvironment.application,
-                        MAPSLITE_PACKAGE_NAME + ".other",
-                        MAPSLITE_EXAMPLE_STARTURL,
-                        0));
-        assertNull(ShadowToast.getLatestToast());
-
-        // Valid MapsLite WebAPK returns false as "not handled" and shows a toast.
-        addWebApkResolveInfoWithPackageName(
-                MAPSLITE_EXAMPLE_STARTURL, MAPSLITE_PACKAGE_NAME, SIGNATURE_1);
-        assertFalse(
-                WebApkValidator.canWebApkHandleUrl(
-                        RuntimeEnvironment.application,
-                        MAPSLITE_PACKAGE_NAME,
-                        MAPSLITE_EXAMPLE_STARTURL,
-                        0));
-        assertNotNull(ShadowToast.getLatestToast());
-        // assertTextFromLatestToast(R.string.copied);
-        TextView textView = (TextView) ShadowToast.getLatestToast().getView();
-        String actualText = textView == null ? "" : textView.getText().toString();
-        assertEquals(
-                ContextUtils.getApplicationContext()
-                        .getString(R.string.webapk_mapsgo_deprecation_warning, ""),
-                actualText);
-    }
-
-    /**
      * Tests {@link WebApkValidator.canWebApkHandleUrl} returns false and shows a toast when the
      * shell version is out-of-date (older than the min_version).
      */
@@ -417,19 +352,6 @@ public class WebApkValidatorTest {
                 ContextUtils.getApplicationContext()
                         .getString(R.string.webapk_deprecation_warning, ""),
                 actualText);
-    }
-
-    /**
-     * Tests {@link WebApkValidator.isValidWebApk} returns false when the startUrl is not correct.
-     */
-    @Test
-    public void testIsNotValidWebApkForMapsLiteBadStartUrl() {
-        mPackageManager.addPackage(
-                newPackageInfoWithBrowserSignature(
-                        MAPSLITE_PACKAGE_NAME, new Signature(SIGNATURE_1), TEST_STARTURL, null));
-        assertFalse(
-                WebApkValidator.isValidWebApk(
-                        RuntimeEnvironment.application, MAPSLITE_PACKAGE_NAME));
     }
 
     /**
@@ -562,28 +484,9 @@ public class WebApkValidatorTest {
                         RuntimeEnvironment.application, INVALID_WEBAPK_PACKAGE_NAME));
     }
 
-    /** Tests {@link WebApkValidator.isValidV1WebApk} returns false if the package name is maps lite. */
-    @Test
-    public void testIsValidV1WebApkFalseForMapsLite() {
-        mPackageManager.addPackage(
-                newPackageInfoWithBrowserSignature(
-                        MAPSLITE_PACKAGE_NAME,
-                        new Signature(SIGNATURE_1),
-                        MAPSLITE_EXAMPLE_STARTURL,
-                        null));
-        mPackageManager.addPackage(
-                newPackageInfoWithBrowserSignature(
-                        MAPSLITE_PACKAGE_NAME + ".other",
-                        new Signature(SIGNATURE_1),
-                        MAPSLITE_EXAMPLE_STARTURL,
-                        null));
-
-        assertFalse(
-                WebApkValidator.isValidV1WebApk(
-                        RuntimeEnvironment.application, MAPSLITE_PACKAGE_NAME));
-    }
-
-    /** Tests {@link WebApkValidator#queryBoundWebApkForManifestUrl()} for a valid installed entry. */
+    /**
+     * Tests {@link WebApkValidator#queryBoundWebApkForManifestUrl()} for a valid installed entry.
+     */
     @Test
     public void testQueryBoundWebApkForManifestUrl() {
         mPackageManager.addPackage(
@@ -837,5 +740,170 @@ public class WebApkValidatorTest {
         } catch (URISyntaxException e) {
             throw new AssertionError("URI is invalid.", e);
         }
+    }
+
+    /** Tests {@link WebApkValidator#isValidWebApk} returns false if the APK has splitNames. */
+    @Test
+    public void testIsValidWebApkReturnsFalseForSplitApkWithSplitNames() {
+        PackageInfo packageInfo =
+                newPackageInfoWithBrowserSignature(
+                        WEBAPK_PACKAGE_NAME,
+                        new Signature(EXPECTED_SIGNATURE),
+                        TEST_STARTURL,
+                        null);
+        packageInfo.splitNames = new String[] {"split_feature"};
+        mPackageManager.addPackage(packageInfo);
+
+        assertFalse(
+                WebApkValidator.isValidWebApk(RuntimeEnvironment.application, WEBAPK_PACKAGE_NAME));
+    }
+
+    /**
+     * Tests {@link WebApkValidator#isValidWebApk} returns false if the APK has
+     * applicationInfo.splitNames.
+     */
+    @Test
+    public void testIsValidWebApkReturnsFalseForSplitApkWithAppInfoSplitNames() {
+        PackageInfo packageInfo =
+                newPackageInfoWithBrowserSignature(
+                        WEBAPK_PACKAGE_NAME,
+                        new Signature(EXPECTED_SIGNATURE),
+                        TEST_STARTURL,
+                        null);
+        packageInfo.applicationInfo.splitNames = new String[] {"split_feature"};
+        mPackageManager.addPackage(packageInfo);
+
+        assertFalse(
+                WebApkValidator.isValidWebApk(RuntimeEnvironment.application, WEBAPK_PACKAGE_NAME));
+    }
+
+    /**
+     * Tests {@link WebApkValidator#isValidWebApk} returns false if the APK has
+     * applicationInfo.splitSourceDirs.
+     */
+    @Test
+    public void testIsValidWebApkReturnsFalseForSplitApkWithSplitSourceDirs() {
+        PackageInfo packageInfo =
+                newPackageInfoWithBrowserSignature(
+                        WEBAPK_PACKAGE_NAME,
+                        new Signature(EXPECTED_SIGNATURE),
+                        TEST_STARTURL,
+                        null);
+        packageInfo.applicationInfo.splitSourceDirs = new String[] {"/path/to/split.apk"};
+        mPackageManager.addPackage(packageInfo);
+
+        assertFalse(
+                WebApkValidator.isValidWebApk(RuntimeEnvironment.application, WEBAPK_PACKAGE_NAME));
+    }
+
+    /**
+     * Tests {@link WebApkValidator#isValidWebApk} returns false if the APK has
+     * applicationInfo.splitPublicSourceDirs.
+     */
+    @Test
+    public void testIsValidWebApkReturnsFalseForSplitApkWithSplitPublicSourceDirs() {
+        PackageInfo packageInfo =
+                newPackageInfoWithBrowserSignature(
+                        WEBAPK_PACKAGE_NAME,
+                        new Signature(EXPECTED_SIGNATURE),
+                        TEST_STARTURL,
+                        null);
+        packageInfo.applicationInfo.splitPublicSourceDirs = new String[] {"/path/to/split.apk"};
+        mPackageManager.addPackage(packageInfo);
+
+        assertFalse(
+                WebApkValidator.isValidWebApk(RuntimeEnvironment.application, WEBAPK_PACKAGE_NAME));
+    }
+
+    /** Tests {@link WebApkValidator#isValidV1WebApk} returns false if the APK has splits. */
+    @Test
+    public void testIsValidV1WebApkReturnsFalseForSplitApk() {
+        PackageInfo packageInfo =
+                newPackageInfoWithBrowserSignature(
+                        WEBAPK_PACKAGE_NAME,
+                        new Signature(EXPECTED_SIGNATURE),
+                        TEST_STARTURL,
+                        null);
+        packageInfo.splitNames = new String[] {"split_feature"};
+        mPackageManager.addPackage(packageInfo);
+
+        assertFalse(
+                WebApkValidator.isValidV1WebApk(
+                        RuntimeEnvironment.application, WEBAPK_PACKAGE_NAME));
+    }
+
+    /** Tests {@link WebApkValidator#isValidWebApk} returns false for comment signed split APK. */
+    @Test
+    public void testIsValidCommentSignedWebApkReturnsFalseForSplitApk() {
+        String packageName = "com.webapk.a9c419502bb98fcb7";
+        Signature[] signature = new Signature[] {new Signature(SIGNATURE_1)};
+
+        PackageInfo packageInfo =
+                newPackageInfo(
+                        packageName, signature, testFilePath("example.apk"), TEST_STARTURL, null);
+        packageInfo.splitNames = new String[] {"split_feature"};
+        mPackageManager.addPackage(packageInfo);
+
+        assertFalse(WebApkValidator.isValidWebApk(RuntimeEnvironment.application, packageName));
+    }
+
+    /** Tests {@link WebApkValidator#queryBoundWebApkForManifestUrl} returns null for split APK. */
+    @Test
+    public void testQueryBoundWebApkForManifestUrlWithSplitApk() {
+        PackageInfo packageInfo =
+                newPackageInfoWithBrowserSignature(
+                        WEBAPK_PACKAGE_NAME, new Signature(EXPECTED_SIGNATURE), null, MANIFEST_URL);
+        packageInfo.splitNames = new String[] {"split_feature"};
+        mPackageManager.addPackage(packageInfo);
+
+        assertNull(
+                WebApkValidator.queryBoundWebApkForManifestUrl(
+                        RuntimeEnvironment.application, MANIFEST_URL));
+    }
+
+    /** Tests {@link WebApkValidator#canWebApkHandleUrl} returns false for split APK. */
+    @Test
+    public void testCanWebApkHandleUrlReturnsFalseForSplitApk() {
+        try {
+            Intent intent = Intent.parseUri(URL_OF_WEBAPK, Intent.URI_INTENT_SCHEME);
+            intent.addCategory(Intent.CATEGORY_BROWSABLE);
+            intent.setPackage(WEBAPK_PACKAGE_NAME);
+
+            mPackageManager.addResolveInfoForIntent(intent, newResolveInfo(WEBAPK_PACKAGE_NAME));
+            PackageInfo packageInfo =
+                    newPackageInfoWithBrowserSignature(
+                            WEBAPK_PACKAGE_NAME,
+                            new Signature(EXPECTED_SIGNATURE),
+                            TEST_STARTURL,
+                            null);
+            packageInfo.splitNames = new String[] {"split_feature"};
+            mPackageManager.addPackage(packageInfo);
+
+            assertFalse(
+                    WebApkValidator.canWebApkHandleUrl(
+                            RuntimeEnvironment.application, WEBAPK_PACKAGE_NAME, URL_OF_WEBAPK, 0));
+        } catch (URISyntaxException e) {
+            throw new AssertionError("URI is invalid.", e);
+        }
+    }
+
+    /**
+     * Tests when override validation is set, {@link WebApkValidator#isValidWebApk} returns false
+     * when the APK has splits.
+     */
+    @Test
+    public void testIsValidWebApkOverridesReturnsFalseForSplitApk() {
+        PackageInfo packageInfo =
+                newPackageInfoWithBrowserSignature(
+                        WEBAPK_PACKAGE_NAME,
+                        new Signature(EXPECTED_SIGNATURE),
+                        TEST_STARTURL,
+                        null);
+        packageInfo.splitNames = new String[] {"split_feature"};
+        mPackageManager.addPackage(packageInfo);
+
+        WebApkValidator.setDisableValidationForTesting(true);
+        assertFalse(
+                WebApkValidator.isValidWebApk(RuntimeEnvironment.application, WEBAPK_PACKAGE_NAME));
     }
 }

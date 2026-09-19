@@ -63,7 +63,7 @@ public class AwUserAgentMetadata {
         String BITNESS = "BITNESS";
         String WOW64 = "WOW64";
         String FORM_FACTORS = "FORM_FACTORS";
-    };
+    }
 
     public static final int BITNESS_DEFAULT = 0;
 
@@ -94,7 +94,7 @@ public class AwUserAgentMetadata {
         String XR = "XR";
         String EINK = "EInk";
         String WATCH = "Watch";
-    };
+    }
 
     // To better manage the data within this class, make the constructor as private to avoid
     // creating instances outside of the class.
@@ -183,7 +183,7 @@ public class AwUserAgentMetadata {
     }
 
     @CalledByNative
-    private @FormFactors String[] getFormFactors() {
+    private @FormFactors @JniType("std::vector<std::string>") String[] getFormFactors() {
         return mFormFactors;
     }
 
@@ -202,7 +202,7 @@ public class AwUserAgentMetadata {
             boolean mobile,
             @JniType("std::string") String bitness,
             boolean wow64,
-            @FormFactors String[] formFactors) {
+            @FormFactors @JniType("std::vector<std::string>") String[] formFactors) {
         AwUserAgentMetadata result = new AwUserAgentMetadata();
         result.mBrandVersionList = new String[brandVersionList.length][BRAND_VERSION_LENGTH];
         for (int i = 0; i < brandVersionList.length; i++) {

@@ -414,7 +414,7 @@ SqlPersistentStore::InitResultOrError SqlPersistentStore::Backend::Initialize(
     result_max_bytes =
         user_max_bytes > 0
             ? user_max_bytes
-            : disk_cache::PreferredCacheSizeForPath(path_, type_);
+            : disk_cache::PreferredCacheSizeForPath(path_, type_).InBytes();
   }
   std::optional<InMemoryIndexAndDoomedResIds> in_memory_data;
   if (net::features::kSqlDiskCacheLoadIndexOnInit.Get()) {
@@ -481,7 +481,7 @@ Error SqlPersistentStore::Backend::InitializeInternal(
       // write, SQLite silently ignores subsequent auto_vacuum changes. We must
       // run VACUUM here to force SQLite to apply the incremental vacuum setting
       // and rewrite the header.
-      std::ignore = db_.Execute("VACUUM");
+      std::ignore = db_.Vacuum();
     }
   }
 

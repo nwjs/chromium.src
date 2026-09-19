@@ -294,6 +294,8 @@ static_library("common") {
     "api/messaging/port_context.h",
     "api/messaging/port_id.cc",
     "api/messaging/port_id.h",
+    "api/messaging/signing_certificate.cc",
+    "api/messaging/signing_certificate.h",
     "api/printer_provider/usb_printer_manifest_data.cc",
     "api/printer_provider/usb_printer_manifest_data.h",
     "api/printer_provider/usb_printer_manifest_handler.cc",
@@ -702,6 +704,7 @@ source_set("unit_tests") {
     "hashed_extension_id_unittest.cc",
     "icons/extension_icon_set_unittest.cc",
     "image_util_unittest.cc",
+    "install_warning_unittest.cc",
     "manifest_handler_perf_test.cc",
     "manifest_handler_unittest.cc",
     "manifest_handlers/chrome_url_overrides_unittest.cc",
@@ -799,54 +802,50 @@ source_set("unit_tests") {
   ]
 }
 
-# TODO(https://crbug.com/356905053): Gradually include more of these sources
-# in the desktop-android build.
-if (enable_extensions) {
-  fuzzer_test("extension_fuzzer") {
-    sources = [ "extension_fuzzer.cc" ]
-    deps = [
-      ":common",
-      "//base",
-    ]
-  }
+fuzzer_test("extension_fuzzer") {
+  sources = [ "extension_fuzzer.cc" ]
+  deps = [
+    ":common",
+    "//base",
+  ]
+}
 
-  fuzzer_test("extension_manifest_fuzzer") {
-    sources = [ "manifest_fuzzer.cc" ]
-    deps = [
-      ":common",
-      "//base",
-      "//content/public/common",
-      "//content/test:test_support",
-      "//extensions:test_support",
-    ]
-  }
+fuzzer_test("extension_manifest_fuzzer") {
+  sources = [ "manifest_fuzzer.cc" ]
+  deps = [
+    ":common",
+    "//base",
+    "//content/public/common",
+    "//content/test:test_support",
+    "//extensions:test_support",
+  ]
+}
 
-  fuzzer_test("extension_url_pattern_fuzzer") {
-    sources = [ "url_pattern_fuzzer.cc" ]
-    deps = [
-      ":common",
-      "//base",
-    ]
-  }
+fuzzer_test("extension_url_pattern_fuzzer") {
+  sources = [ "url_pattern_fuzzer.cc" ]
+  deps = [
+    ":common",
+    "//base",
+  ]
+}
 
-  fuzzer_test("extension_csp_validator_fuzzer") {
-    sources = [ "csp_validator_fuzzer.cc" ]
-    deps = [
-      ":common",
-      "//base",
-      "//third_party/icu/fuzzers:fuzzer_support",
-    ]
-  }
+fuzzer_test("extension_csp_validator_fuzzer") {
+  sources = [ "csp_validator_fuzzer.cc" ]
+  deps = [
+    ":common",
+    "//base",
+    "//third_party/icu/fuzzers:fuzzer_support",
+  ]
+}
 
-  fuzzer_test("extension_api_scripts_internal_serialization_fuzzer") {
-    sources = [ "api/scripts_internal/script_serialization_fuzzer.cc" ]
-    deps = [
-      ":common",
-      "//base",
-      "//extensions:test_support",
-      "//extensions/common/api",
-      "//third_party/abseil-cpp:absl",
-      "//third_party/icu/fuzzers:fuzzer_support",
-    ]
-  }
+fuzzer_test("extension_api_scripts_internal_serialization_fuzzer") {
+  sources = [ "api/scripts_internal/script_serialization_fuzzer.cc" ]
+  deps = [
+    ":common",
+    "//base",
+    "//extensions:test_support",
+    "//extensions/common/api",
+    "//third_party/abseil-cpp:absl",
+    "//third_party/icu/fuzzers:fuzzer_support",
+  ]
 }

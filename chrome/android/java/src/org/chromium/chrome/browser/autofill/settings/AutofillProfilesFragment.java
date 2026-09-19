@@ -13,6 +13,7 @@ import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.app.AlertDialog;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
@@ -192,7 +193,8 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
         if (sObserverForTest != null) sObserverForTest.onEditorDismiss();
     }
 
-    private void rebuildProfileList() {
+    @VisibleForTesting
+    void rebuildProfileList() {
         PreferenceScreen screen = getPreferenceScreen();
         screen.removeAll();
         screen.setOrderingAsAdded(true);
@@ -209,7 +211,7 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
         if (!disabledSettingsInThirdPartyMode(getProfile())) {
             addAddAddressButton(screen);
         }
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.EMAIL_VERIFICATION_ANDROID)) {
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.EMAIL_VERIFICATION_PROTOCOL)) {
             addEmailVerificationSection(screen);
         }
         // LINT.ThenChange(:DynamicPreferences)
@@ -232,9 +234,17 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
                 PersonalDataManagerFactory.getForProfile(getProfile());
         ChromeSwitchPreference autofillSwitch =
                 new ChromeSwitchPreference(getStyledContext(), null);
+        // Do not persist this toggle to Android's SharedPreferences. Chrome natively
+        // persists this state across platforms via PersonalDataManager and UserPrefs.
+        // Failing to set this to false causes Android's PreferenceManager to override
+        // setChecked() with cached SharedPreferences values upon binding.
+        autofillSwitch.setPersistent(false);
         autofillSwitch.setTitle(R.string.autofill_enable_profiles_toggle_label);
         autofillSwitch.setSummary(R.string.autofill_enable_profiles_toggle_sublabel);
-        autofillSwitch.setChecked(personalDataManager.isAutofillProfileEnabled());
+        boolean disabledSettings = disabledSettingsInThirdPartyMode(getProfile());
+        autofillSwitch.setEnabled(!disabledSettings);
+        autofillSwitch.setChecked(
+                personalDataManager.isAutofillProfileEnabled() && !disabledSettings);
         autofillSwitch.setOnPreferenceChangeListener(
                 (preference, newValue) -> {
                     personalDataManager.setAutofillProfileEnabled((boolean) newValue);
@@ -246,20 +256,10 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
                     public boolean isPreferenceControlledByPolicy(Preference preference) {
                         return personalDataManager.isAutofillProfileManaged();
                     }
-
-                    @Override
-                    public boolean isPreferenceClickDisabled(Preference preference) {
-                        return personalDataManager.isAutofillProfileManaged()
-                                && !personalDataManager.isAutofillProfileEnabled();
-                    }
                 });
         // For testing.
         autofillSwitch.setKey(SAVE_AND_FILL_ADDRESSES);
         // LINT.ThenChange(:DynamicAutofillSwitch)
-        if (disabledSettingsInThirdPartyMode(getProfile())) {
-            autofillSwitch.setChecked(false);
-            autofillSwitch.setEnabled(false);
-        }
 
         screen.addPreference(autofillSwitch);
     }
@@ -532,7 +532,7 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
                                 indexData, profile, getPrefFragmentName());
                     }
                     addAutofillSwitch(indexData);
-                    if (ChromeFeatureList.isEnabled(ChromeFeatureList.EMAIL_VERIFICATION_ANDROID)) {
+                    if (ChromeFeatureList.isEnabled(ChromeFeatureList.EMAIL_VERIFICATION_PROTOCOL)) {
                         addEmailVerificationSwitch(indexData);
                     }
                     // LINT.ThenChange(:RebuildProfileList)
@@ -576,7 +576,7 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
             AutofillAiDelegate.maybeAddDisabledWalletDataSharingDataCard(
                     indexData, profile, prefFragmentName);
         }
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.EMAIL_VERIFICATION_ANDROID)) {
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.EMAIL_VERIFICATION_PROTOCOL)) {
             if (indexData.getEntryForKey(prefFragmentName, PREF_EMAIL_VERIFICATION) == null) {
                 indexData.addEntryForKey(
                         prefFragmentName,

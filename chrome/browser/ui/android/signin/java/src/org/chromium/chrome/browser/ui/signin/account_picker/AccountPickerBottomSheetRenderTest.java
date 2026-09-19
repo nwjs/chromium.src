@@ -41,11 +41,13 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.night_mode.ChromeNightModeTestUtils;
 import org.chromium.chrome.browser.signin.services.AccountPreviewDataService;
+import org.chromium.chrome.browser.signin.services.AccountPreviewPreference;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
@@ -58,6 +60,8 @@ import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.signin.test.util.SigninMatchers;
 import org.chromium.components.signin.test.util.TestAccounts;
+import org.chromium.components.sync.DataType;
+import org.chromium.components.sync.protocol.SyncEnums;
 import org.chromium.ui.test.util.DeviceRestriction;
 import org.chromium.ui.test.util.NightModeTestUtils;
 import org.chromium.ui.test.util.RenderTestRule;
@@ -70,6 +74,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @RunWith(ParameterizedRunner.class)
 @ParameterAnnotations.UseRunnerDelegate(ChromeJUnit4RunnerDelegate.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+@EnableFeatures(SigninFeatures.ENABLE_ACCOUNT_PREVIEW_PREFERRED_ACCOUNT)
 @DoNotBatch(reason = "Cascading failures across tests in this suite, see crbug.com/509527338")
 // TODO(crbug.com/354128847): Fix NPE when launching DeviceLockActivity on automotive.
 @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
@@ -77,7 +82,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Rule
     public final RenderTestRule mRenderTestRule =
             RenderTestRule.Builder.withPublicCorpus()
-                    .setRevision(8)
+                    .setRevision(9)
                     .setBugComponent(RenderTestRule.Component.SERVICES_SIGN_IN)
                     .build();
 
@@ -130,6 +135,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Mock(strictness = Mock.Strictness.LENIENT)
     private SigninManager mSigninManagerMock;
 
+    // TODO(crbug.com/553426053): Use real implementation of AccountPreviewDataService instead.
     @Mock private AccountPreviewDataService mAccountPreviewDataServiceMock;
 
     private final AtomicReference<Boolean> mIsNextSigninSuccessful = new AtomicReference<>();
@@ -176,6 +182,7 @@ public class AccountPickerBottomSheetRenderTest {
         when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
         when(mSigninManagerMock.extractDomainName(any()))
                 .thenReturn(TestAccounts.ACCOUNT1.getEmail());
+        when(mAccountPreviewDataServiceMock.getPreferredAccountForPromo()).thenReturn(null);
     }
 
     @AfterClass
@@ -242,6 +249,93 @@ public class AccountPickerBottomSheetRenderTest {
         mRenderTestRule.render(
                 mCoordinator.getBottomSheetViewForTesting(),
                 "collapsed_sheet_with_account_for_bookmarks");
+    }
+
+    @Test
+    @MediumTest
+    @Feature("RenderTest")
+    @Features.EnableFeatures({
+        SigninFeatures.SMART_EMAIL_LINE_BREAKING,
+        SigninFeatures.ENABLE_ACCOUNT_PREVIEW_PREFERRED_ACCOUNT
+    })
+    @UseMethodParameter(NightModeTestUtils.NightModeParams.class)
+    public void testCollapsedSheetWithPreferredAccountForWebSigninEntryPoint(
+            boolean nightModeEnabled) throws IOException {
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
+        AccountPreviewPreference preference =
+                new AccountPreviewPreference(
+                        TestAccounts.ACCOUNT1.getGaiaId(),
+                        new int[] {DataType.BOOKMARKS},
+                        SyncEnums.DeviceFormFactor.DEVICE_FORM_FACTOR_PHONE);
+        when(mAccountPreviewDataServiceMock.getPreferredAccountForPromo()).thenReturn(preference);
+
+        buildAndShowCollapsedBottomSheet();
+
+        ViewUtils.waitForVisibleView(
+                allOf(
+                        SigninMatchers.withFormattedEmailText(TestAccounts.ACCOUNT1.getEmail()),
+                        isDisplayed()));
+        ViewUtils.waitForVisibleView(
+                allOf(withText(TestAccounts.ACCOUNT1.getFullName()), isDisplayed()));
+        String deviceName =
+                mActivityTestRule.getActivity().getString(R.string.signin_device_type_phone);
+        ViewUtils.waitForVisibleView(
+                allOf(
+                        withText(
+                                mActivityTestRule
+                                        .getActivity()
+                                        .getString(
+                                                R.string
+                                                        .signin_account_picker_bottom_sheet_subtitle_for_web_signin_device_type_bookmarks,
+                                                deviceName)),
+                        isDisplayed()));
+        mRenderTestRule.render(
+                mCoordinator.getBottomSheetViewForTesting(),
+                "collapsed_sheet_with_preferred_account_for_web_signin");
+    }
+
+    @Test
+    @MediumTest
+    @Feature("RenderTest")
+    @Features.EnableFeatures({
+        SigninFeatures.SMART_EMAIL_LINE_BREAKING,
+        SigninFeatures.ENABLE_ACCOUNT_PREVIEW_PREFERRED_ACCOUNT
+    })
+    @UseMethodParameter(NightModeTestUtils.NightModeParams.class)
+    public void testCollapsedSheetWithPreferredAccountForNtpSignedOutIconEntryPoint(
+            boolean nightModeEnabled) throws IOException {
+        mSigninAccessPoint = SigninAccessPoint.NTP_SIGNED_OUT_ICON;
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
+        AccountPreviewPreference preference =
+                new AccountPreviewPreference(
+                        TestAccounts.ACCOUNT1.getGaiaId(),
+                        new int[] {DataType.BOOKMARKS},
+                        SyncEnums.DeviceFormFactor.DEVICE_FORM_FACTOR_PHONE);
+        when(mAccountPreviewDataServiceMock.getPreferredAccountForPromo()).thenReturn(preference);
+
+        buildAndShowCollapsedBottomSheet();
+
+        ViewUtils.waitForVisibleView(
+                allOf(
+                        SigninMatchers.withFormattedEmailText(TestAccounts.ACCOUNT1.getEmail()),
+                        isDisplayed()));
+        ViewUtils.waitForVisibleView(
+                allOf(withText(TestAccounts.ACCOUNT1.getFullName()), isDisplayed()));
+        String deviceName =
+                mActivityTestRule.getActivity().getString(R.string.signin_device_type_phone);
+        ViewUtils.waitForVisibleView(
+                allOf(
+                        withText(
+                                mActivityTestRule
+                                        .getActivity()
+                                        .getString(
+                                                R.string
+                                                        .signin_account_picker_bottom_sheet_subtitle_for_device_type_bookmarks,
+                                                deviceName)),
+                        isDisplayed()));
+        mRenderTestRule.render(
+                mCoordinator.getBottomSheetViewForTesting(),
+                "collapsed_sheet_with_preferred_account_for_ntp_signed_out_icon");
     }
 
     @Test
@@ -443,6 +537,7 @@ public class AccountPickerBottomSheetRenderTest {
                                     mAccountManagerTestRule.getIdentityManager(),
                                     mSigninManagerMock,
                                     mAccountPreviewDataServiceMock,
+                                    mActivityTestRule.getActivity().getModalDialogManager(),
                                     getBottomSheetController(),
                                     mAccountPickerDelegate,
                                     AccountPickerBottomSheetTestUtil.getBottomSheetStrings(

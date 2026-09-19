@@ -72,7 +72,10 @@ class PageLoadMetricsForwardObserver final
   ObservePolicy ShouldObserveScheme(const GURL& url) const override;
   void OnTimingUpdate(content::RenderFrameHost* subframe_rfh,
                       const mojom::PageLoadTiming& timing) override;
-  void OnSoftNavigation() override;
+  void OnSoftNavigationFirstContentfulPaint(
+      const mojom::SoftNavigationMetrics& soft_navigation_metrics) override;
+  void OnSoftNavigationCompleted(
+      const SoftNavigationData& soft_navigation_data) override;
   void OnSoftNavigationLargestContentfulPaint(uint64_t num_soft_lcps) override;
   void OnEventTimingUpdate(
       content::RenderFrameHost* subframe_rfh,
@@ -148,6 +151,8 @@ class PageLoadMetricsForwardObserver final
       const FailedProvisionalLoadInfo& failed_provisional_load_info) override;
   void OnLoadedResource(
       const ExtraRequestCompleteInfo& extra_request_complete_info) override;
+  void DidLoadResourceFromMemoryCache(
+      const MemoryResourceLoadInfo& memory_resource_load_info) override;
   void FrameReceivedUserActivation(
       content::RenderFrameHost* render_frame_host) override;
   void FrameDisplayStateChanged(content::RenderFrameHost* render_frame_host,
@@ -176,7 +181,6 @@ class PageLoadMetricsForwardObserver final
                          const GURL& first_party_url,
                          bool blocked_by_policy,
                          StorageType access_type) override;
-  void OnPrefetchLikely() override;
   void DidActivatePrerenderedPage(
       content::NavigationHandle* navigation_handle) override;
   void OnSharedStorageWorkletHostCreated() override;

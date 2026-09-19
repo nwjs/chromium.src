@@ -97,25 +97,47 @@ class COMPONENT_EXPORT(LANGUAGE_TAG) LanguageTag {
   // Notice that this does not necessarily represent the language itself as some
   // of them need their region, script and variant to be properly represented.
   constexpr std::string_view language_subtag() const LIFETIME_BOUND {
-    return i18n_internal::ParseBcp47Tag(tag_string())
-        .value_or(i18n_internal::ParsedBcp47Tag())
-        .language;
+    std::string_view tag = tag_string();
+    size_t hyphen_pos = tag.find('-');
+    return hyphen_pos == std::string_view::npos ? tag
+                                                : tag.substr(0, hyphen_pos);
   }
   // Creates a new `LanguageTag` containing only the language subtag.
   LanguageTag WithLanguageSubtagOnly() const;
 
+  // Returns the script subtag in the language tag, if present.
+  // Examples:
+  // - "zh-Hant-TW" -> "Hant"
+  // - "zh-TW" -> ""
+  // - "sr-Latn" -> "Latn"
+  // - "zh-Hans" -> "Hans"
+  constexpr std::string_view script_subtag() const LIFETIME_BOUND {
+    return i18n_internal::ParseBcp47Tag(tag_string())
+        .value_or(i18n_internal::ParsedBcp47Tag())
+        .script;
+  }
   // Returns the region subtag in the language tag if present.
   // Examples:
   // - "en-US" -> "US"
   // - "zh-Hant-TW" -> "TW"
   // - "en" -> ""
   // - "sr-Latn" -> ""
-  // Note that the region subtag is not always present, if it is not set, an
-  // empty string is returned.
   constexpr std::string_view region_subtag() const LIFETIME_BOUND {
     return i18n_internal::ParseBcp47Tag(tag_string())
         .value_or(i18n_internal::ParsedBcp47Tag())
         .region;
+  }
+
+  // Returns the variant subtags in the language tag if present.
+  // Examples:
+  // - "en-US" -> []
+  // - "en-GB-oxendict" -> ["oxendict"]
+  // - "sl-IT-rozaj-biske" -> ["biske", "rozaj"]
+  constexpr std::vector<std::string_view> variant_subtags() const
+      LIFETIME_BOUND {
+    return i18n_internal::ParseBcp47Tag(tag_string())
+        .value_or(i18n_internal::ParsedBcp47Tag())
+        .variants;
   }
 
   // Returns the parent language tag of this language tag by stripping the most
@@ -184,6 +206,12 @@ class COMPONENT_EXPORT(LANGUAGE_TAG) LanguageTag {
   LanguageTag WithExtension(const UnicodeExtension& extension) const;
   LanguageTag WithExtension(const PrivateUseSubtags& extension) const;
   LanguageTag WithExtension(const Extension& extension) const;
+
+  // Removes the extension keyed by `key`.
+  // Examples:
+  // "en-u-ca-gregory".WithExtensionRemoved("u") -> "en"
+  // "en-u-ca-gregory".WithExtensionRemoved("t") -> "en-u-ca-gregory"
+  LanguageTag WithExtensionRemoved(char key) const;
 
  private:
   friend class LanguageTagConverter;

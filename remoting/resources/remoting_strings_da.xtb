@@ -48,6 +48,7 @@ Hvis "<ph name="SERVICE_SCRIPT_NAME" />" allerede er markeret, skal du fjerne ma
 <translation id="3197730452537982411">Fjernskrivebord</translation>
 <translation id="3236334139428307578">Copyright 2026 The Chromium Authors. Alle rettigheder forbeholdes.</translation>
 <translation id="324272851072175193">Send disse anvisninger i en mail</translation>
+<translation id="3254626532848657899">Flyt til bunden</translation>
 <translation id="3305934114213025800"><ph name="PRODUCT_NAME" /> ønsker at foretage ændringer.</translation>
 <translation id="3339299787263251426">Få sikker adgang til din computer via internettet</translation>
 <translation id="3385242214819933234">Ugyldig hostejer.</translation>
@@ -166,6 +167,7 @@ Hvis "<ph name="SERVICE_SCRIPT_NAME" />" allerede er markeret, skal du fjerne ma
 <translation id="8073845705237259513">Hvis du vil bruge Chrome Fjernskrivebord, skal du føje en Google-konto til din enhed.</translation>
 <translation id="809687642899217504">Mine computere</translation>
 <translation id="8116630183974937060">Der opstod en netværksfejl. Kontrollér, at din enhed er online, og prøv igen.</translation>
+<translation id="8249310407154411074">Flyt til toppen</translation>
 <translation id="8295077433896346116">For at bruge <ph name="PRODUCT_NAME" /> skal du give tilladelsen "Tilgængelighed", så input fra fjerncomputeren kan sendes til denne Mac.
 
 Hvis du vil give denne tilladelse, skal du klikke på "<ph name="BUTTON_NAME" />" nedenfor. I ruden med præferencer for "Tilgængelighed", som åbnes, skal du markere afkrydsningsfeltet ud for "<ph name="SERVICE_SCRIPT_NAME" />".

@@ -26,9 +26,19 @@ constexpr char kNotificationsHelpUrl[] =
     "https://support.google.com/chrome/answer/3220216";
 }  // namespace
 
+DEFINE_USER_DATA(BrowserContentSettingBubbleModelDelegate);
+
+// static
+BrowserContentSettingBubbleModelDelegate*
+BrowserContentSettingBubbleModelDelegate::From(
+    BrowserWindowInterface* browser) {
+  return Get(browser->GetUnownedUserDataHost());
+}
+
 BrowserContentSettingBubbleModelDelegate::
     BrowserContentSettingBubbleModelDelegate(BrowserWindowInterface* browser)
-    : browser_(CHECK_DEREF(browser)) {}
+    : scoped_unowned_user_data_(browser->GetUnownedUserDataHost(), *this),
+      browser_(CHECK_DEREF(browser)) {}
 
 BrowserContentSettingBubbleModelDelegate::
     ~BrowserContentSettingBubbleModelDelegate() = default;
@@ -72,6 +82,6 @@ void BrowserContentSettingBubbleModelDelegate::ShowLearnMorePage(
     default:
       return;
   }
-  chrome::AddSelectedTabWithURL(browser_->GetBrowserForMigrationOnly(),
-                                learn_more_url, ui::PAGE_TRANSITION_LINK);
+  chrome::AddSelectedTabWithURL(&*browser_, learn_more_url,
+                                ui::PAGE_TRANSITION_LINK);
 }

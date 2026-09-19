@@ -8,6 +8,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -21,7 +23,6 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.modules.readaloud.Feedback.FeedbackType;
@@ -33,7 +34,6 @@ import org.chromium.content_public.browser.WebContents;
 
 /** Unit tests for {@link NativePlayback}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class NativePlaybackUnitTest {
     private static final String LANGUAGE = "en";
     private static final String CANONICAL_URL = "https://example.com/article";
@@ -63,12 +63,25 @@ public class NativePlaybackUnitTest {
         assertEquals(CANONICAL_URL, mPlayback.getMetadata().canonicalUrl());
         assertEquals(PlaybackMode.CLASSIC, mPlayback.getMetadata().playbackMode());
         assertEquals(PlaybackListener.State.BUFFERING, mPlayback.getState());
+        verify(mBridgeMock).setPlaybackMode(PlaybackMode.CLASSIC.getValue());
+        mPlayback.initializeSession();
+        verify(mBridgeMock).initializeSession(mWebContents);
+    }
+
+    @Test
+    public void testConstructor_setsOverviewPlaybackModeOnBridge() {
+        NativePlayback playback =
+                new NativePlayback(
+                        mBridgeMock, mWebContents, LANGUAGE, CANONICAL_URL, PlaybackMode.OVERVIEW);
+        verify(mBridgeMock).setPlaybackMode(PlaybackMode.OVERVIEW.getValue());
+        assertEquals(PlaybackMode.OVERVIEW, playback.getMetadata().playbackMode());
     }
 
     @Test
     public void testAddListenerNotifiesInitialData() {
         mPlayback.addListener(mListener);
         verify(mListener).onPlaybackDataChanged(mDataCaptor.capture());
+        verify(mListener).onMetadataChanged(eq(mPlayback.getMetadata()));
         assertEquals(PlaybackListener.State.BUFFERING, mDataCaptor.getValue().state());
     }
 
@@ -110,9 +123,12 @@ public class NativePlaybackUnitTest {
 
     @Test
     public void testUpdateMetadata() {
+        mPlayback.addListener(mListener);
+        reset(mListener);
         mPlayback.updateMetadata("Title", "Publisher");
         assertEquals("Title", mPlayback.getMetadata().title());
         assertEquals("Publisher", mPlayback.getMetadata().publisher());
+        verify(mListener).onMetadataChanged(mPlayback.getMetadata());
     }
 
     @Test

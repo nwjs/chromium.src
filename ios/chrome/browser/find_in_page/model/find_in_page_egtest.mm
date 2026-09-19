@@ -4,9 +4,9 @@
 
 #import "base/ios/ios_util.h"
 #import "base/test/ios/wait_util.h"
+#import "components/omnibox/browser/omnibox_pref_names.h"
 #import "ios/chrome/browser/find_in_page/model/find_in_page_app_interface.h"
 #import "ios/chrome/browser/popup_menu/public/popup_menu_constants.h"
-#import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
@@ -898,18 +898,11 @@ FindInPageTestCrossOriginFramePageHttpResponse(
 }
 
 // Tests that FIP works properly with bottom omnibox.
-- (void)testWithBottomOmnibox {
 // TODO(crbug.com/437314322): Re-enable the test.
-#if !TARGET_OS_SIMULATOR
-  if (base::ios::IsRunningOnIOS26OrLater()) {
-    if (![ChromeEarlGrey isIPadIdiom]) {
-      EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
-    }
-  }
-#endif
-
+- (void)DISABLED_testWithBottomOmnibox {
   // Set bottom Omnibox.
-  [ChromeEarlGrey setBoolValue:YES forLocalStatePref:prefs::kBottomOmnibox];
+  [ChromeEarlGrey setBoolValue:YES
+             forLocalStatePref:omnibox::kIsOmniboxInBottomPosition];
 
   // Load test page.
   [self setUpTestServersForWebPageTest];

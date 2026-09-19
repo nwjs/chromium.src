@@ -20,7 +20,7 @@
 #import "ios/chrome/browser/composebox/public/composebox_model_option.h"
 #import "ios/chrome/browser/composebox/public/features.h"
 #import "ios/chrome/browser/composebox/shared/ui/composebox_ui_constants.h"
-#import "ios/chrome/browser/composebox/ui/composebox_strings.h"
+#import "ios/chrome/browser/composebox/ui/composebox_ui_config.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_input_state.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_util.h"
 #import "ios/chrome/browser/keyboard/ui_bundled/UIKeyCommand+Chrome.h"
@@ -109,24 +109,6 @@ BOOL IsToolType(ComposeboxMenuItemType type) {
   }
 }
 
-// Maps a tool mode to its corresponding icon.
-UIImage* IconForTool(ComposeboxMode mode) {
-  switch (mode) {
-    case ComposeboxMode::kAIM:
-      return SymbolWithPointSize(SymbolMagnifyingglassSpark,
-                                 kSymbolActionPointSize);
-    case ComposeboxMode::kImageGeneration:
-      return GetBananaIcon(kSymbolActionPointSize);
-    case ComposeboxMode::kDeepSearch:
-      return SymbolWithPointSize(SymbolDeepSearch, kSymbolActionPointSize);
-    case ComposeboxMode::kCanvas:
-      return SymbolWithPointSize(SymbolDocumentBadgeSpark,
-                                 kSymbolActionPointSize);
-    case ComposeboxMode::kRegularSearch:
-      return nil;
-  }
-}
-
 // Maps a model option to its corresponding menu item type.
 ComposeboxMenuItemType MenuItemTypeForModel(ComposeboxModelOption option) {
   switch (option) {
@@ -142,24 +124,6 @@ ComposeboxMenuItemType MenuItemTypeForModel(ComposeboxModelOption option) {
       return ComposeboxMenuItemType::kModelFlash;
     case ComposeboxModelOption::kNone:
       return ComposeboxMenuItemType::kUnknown;
-  }
-}
-
-// Maps a model option to its corresponding icon.
-UIImage* IconForModel(ComposeboxModelOption option) {
-  switch (option) {
-    case ComposeboxModelOption::kRegular:
-      return SymbolWithPointSize(SymbolAcute, kSymbolActionPointSize);
-    case ComposeboxModelOption::kAuto:
-      return SymbolWithPointSize(SymbolArrowTrianglehead2ClockwiseRotate90,
-                                 kSymbolActionPointSize);
-    case ComposeboxModelOption::kThinking:
-    case ComposeboxModelOption::kThinkingNoGenUI:
-      return SymbolWithPointSize(SymbolClock, kSymbolActionPointSize);
-    case ComposeboxModelOption::kFlash:
-      return SymbolWithPointSize(SymbolBolt, kSymbolActionPointSize);
-    case ComposeboxModelOption::kNone:
-      return nil;
   }
 }
 
@@ -285,7 +249,7 @@ UIImage* IconForModel(ComposeboxModelOption option) {
     [sections addObject:sharedTabsSection];
   }
 
-  ComposeboxStrings* strings = _inputState.strings;
+  ComposeboxUIConfig* uiConfig = _inputState.uiConfig;
 
   // Tools Section
   NSMutableArray<ComposeboxMenuItem*>* toolsItems =
@@ -298,8 +262,8 @@ UIImage* IconForModel(ComposeboxModelOption option) {
     if (![_inputState isToolHidden:mode]) {
       [toolsItems
           addObject:[[ComposeboxMenuItem alloc]
-                        initWithTitle:[strings menuLabelForTool:mode]
-                                image:IconForTool(mode)
+                        initWithTitle:[uiConfig menuLabelForTool:mode]
+                                image:[uiConfig iconForTool:mode]
                                  type:MenuItemTypeForTool(mode)
                              disabled:[_inputState isToolDisabled:mode]]];
     }
@@ -307,7 +271,7 @@ UIImage* IconForModel(ComposeboxModelOption option) {
 
   if (toolsItems.count > 0) {
     ComposeboxMenuSection* toolsSection = [[ComposeboxMenuSection alloc]
-        initWithTitle:strings.toolsSectionHeader
+        initWithTitle:uiConfig.toolsSectionHeader
                 items:toolsItems
            identifier:ComposeboxMenuSectionIdentifier::kTools];
     [sections addObject:toolsSection];
@@ -325,8 +289,8 @@ UIImage* IconForModel(ComposeboxModelOption option) {
     if (![_inputState isModelHidden:option]) {
       [modelsItems
           addObject:[[ComposeboxMenuItem alloc]
-                        initWithTitle:[strings menuLabelForModel:option]
-                                image:IconForModel(option)
+                        initWithTitle:[uiConfig menuLabelForModel:option]
+                                image:[uiConfig iconForModel:option]
                                  type:MenuItemTypeForModel(option)
                              disabled:[_inputState isModelDisabled:option]]];
     }
@@ -334,7 +298,7 @@ UIImage* IconForModel(ComposeboxModelOption option) {
 
   if (modelsItems.count > 0) {
     ComposeboxMenuSection* modelsSection = [[ComposeboxMenuSection alloc]
-        initWithTitle:strings.modelSectionHeader
+        initWithTitle:uiConfig.modelSectionHeader
                 items:modelsItems
            identifier:ComposeboxMenuSectionIdentifier::kModels];
     [sections addObject:modelsSection];

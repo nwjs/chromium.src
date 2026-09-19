@@ -565,6 +565,47 @@ EVENT_TYPE(TCP_CONNECT)
 //   }
 EVENT_TYPE(TCP_CONNECT_ATTEMPT)
 
+// The bind attempt by the EphemeralPortRandomizer nested within
+// TCP_CONNECT_ATTEMPT. There may be multiple attempts to bind different ports
+// for some failure cases. Currently MacOS only.
+//
+// The START event will describe the settings before a port is picked:
+//
+//   {
+//     "remote_endpoint": <The remote endpoint, as a string>,
+//     "attempt": <The index of the attempt, as an integer>,
+//     "randomizer_range_first": <The lowest possible port, as an integer>,
+//     "randomizer_range_last": <The highest possible port, as an integer>,
+//     "randomizer_recent_ports_by_remote_endpoint_size":
+//       <The number of ports believed to be in use for the remote endpoint,
+//        as an integer>,
+//   }
+//
+// The END event will contain one of the following:
+//
+// On EphemeralPortRandomizer::PickPort exhaustion:
+//   {
+//   }
+//
+// On SockaddrStorage::ToSockAddr failure:
+//   {
+//     "local_address": <The local address, as a string>,
+//     "attempted_port": <The local port attempted for use, as an integer>,
+//   }
+//
+// On bind success:
+//   {
+//     "local_endpoint": <The local endpoint, as a string>,
+//   }
+//
+// On bind failure:
+//   {
+//     "attempted_local_endpoint":
+//       <The local endpoint attempted for use, as a string>,
+//     "os_error": <Integer error code the operating system returned>
+//   }
+EVENT_TYPE(TCP_RANDOMIZER_BIND_ATTEMPT)
+
 // The start/end of a TCP accept(). This corresponds with a call to
 // TCPServerSocket::Accept().
 //
@@ -4217,6 +4258,8 @@ EVENT_TYPE(CERT_VERIFY_PROC_INPUT_CERT)
 // The event parameters are:
 //   {
 //      "version_major": <The major version of the Chrome Root Store>
+//      "signer_set_timestamp": <Optionally, the timestamp of the SignerSet
+//                               in seconds since the unix epoch.>
 //      "mtc_metadata_update_time": <Optionally, the update time of the
 //                                   MtcMetadata in seconds since the unix
 //                                   epoch.>
@@ -4281,6 +4324,25 @@ EVENT_TYPE(CERT_VERIFY_PROC_PATH_BUILT)
 //    "path_builder_debug": <String - message sent from the path builder>
 // }
 EVENT_TYPE(CERT_VERIFY_PROC_PATH_BUILDER_DEBUG)
+
+// This event is created when cosigner policy is checked for a Merkle Tree
+// Certificate.
+// parameters:
+// {
+//    "is_valid": <True if policy was satisfied for any reason.>
+//    "reason": <String - reason why policy was or was not satisfied.>
+//    "verified_cosigners": <List of cosigner status, only lists
+//                           mirrors that had a valid cosignature.>
+// }
+//
+// Where each cosigner status is an object:
+// {
+//    "id": <String - cosigner ID>,
+//    "status": <Optionally, a string describing the status of considering this
+//               cosigner. Absent if cosigner policy evaluation concluded
+//               before considering this consigner.>
+// }
+EVENT_TYPE(CERT_MTC_COSIGNER_POLICY_CHECKED)
 
 // -----------------------------------------------------------------------------
 // FTP events.

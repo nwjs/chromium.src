@@ -228,7 +228,6 @@ coverage_builder(
                 # This is necessary due to this builder running the
                 # telemetry_perf_unittests suite.
                 "chromium_with_telemetry_dependencies",
-                "enable_wpr_tests",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -961,7 +960,7 @@ coverage_builder(
             "mac_default_arm64",
             "mac_toolchain",
             "out_dir_arg",
-            "xcode_26_main",
+            "xcode_27_main",
             "xctest",
         ],
     ),

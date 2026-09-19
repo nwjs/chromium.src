@@ -8,6 +8,10 @@ import {hasGoogleIdentifier} from './voice_language_conversions.js';
 // </if>
 // clang-format on
 
+import type {VisualBrowserProxy} from '../app/visual_browser_proxy.js';
+import {VisualBrowserProxyImpl} from '../app/visual_browser_proxy.js';
+import type {AudioBrowserProxy} from './audio_browser_proxy.js';
+import {AudioBrowserProxyImpl} from './audio_browser_proxy.js';
 import type {SpeechBrowserProxy} from './speech_browser_proxy.js';
 import {SpeechBrowserProxyImpl} from './speech_browser_proxy.js';
 import {getFilteredVoiceList} from './tts_voice_filtering.js';
@@ -27,6 +31,10 @@ export class VoiceLanguageController {
       VoiceNotificationManager.getInstance();
   private model_: VoiceLanguageModel = new VoiceLanguageModel();
   private speech_: SpeechBrowserProxy = SpeechBrowserProxyImpl.getInstance();
+  private audioBrowserProxy_: AudioBrowserProxy =
+      AudioBrowserProxyImpl.getInstance();
+  private visualBrowserProxy_: VisualBrowserProxy =
+      VisualBrowserProxyImpl.getInstance();
   private listeners_: VoiceLanguageListener[] = [];
 
   // The extension is responsible for installing the Natural voices. If the
@@ -36,8 +44,17 @@ export class VoiceLanguageController {
   private speechExtensionResponseCallbackHandle_?: number;
 
   constructor() {
-    this.model_.setCurrentLanguage(chrome.readingMode.baseLanguageForSpeech);
+    this.model_.setCurrentLanguage(
+        this.audioBrowserProxy_.getBaseLanguageForSpeech());
     this.speech_.setOnVoicesChanged(this.onVoicesChanged.bind(this));
+    this.audioBrowserProxy_.updateVoicePackStatus.addListener(
+        this.updateLanguageStatus.bind(this));
+    this.audioBrowserProxy_.onTtsEngineInstalled.addListener(
+        this.onTtsEngineInstalled.bind(this));
+    this.audioBrowserProxy_.languageChanged.addListener(
+        this.onPageLanguageChanged.bind(this));
+    this.visualBrowserProxy_.restoreSettingsFromPrefs.addListener(
+        this.restoreFromPrefs.bind(this));
   }
 
   addListener(listener: VoiceLanguageListener) {
@@ -199,7 +216,7 @@ export class VoiceLanguageController {
     // Enable the preferred locale for this lang if one exists. Otherwise,
     // enable a Google TTS supported locale for this language if one exists.
     this.refreshAvailableVoices_();
-    const preferredVoice = chrome.readingMode.getStoredVoice();
+    const preferredVoice = this.audioBrowserProxy_.getStoredVoice();
     const preferredVoiceLang = this.getAvailableVoices()
                                    .find(voice => voice.name === preferredVoice)
                                    ?.lang;
@@ -222,11 +239,12 @@ export class VoiceLanguageController {
 
   setUserPreferredVoice(selectedVoice: SpeechSynthesisVoice): void {
     this.setCurrentVoice_(selectedVoice);
-    chrome.readingMode.onVoiceChange(selectedVoice.name, selectedVoice.lang);
+    this.audioBrowserProxy_.onVoiceChange(
+        selectedVoice.name, selectedVoice.lang);
   }
 
   onPageLanguageChanged() {
-    const lang = chrome.readingMode.baseLanguageForSpeech;
+    const lang = this.audioBrowserProxy_.getBaseLanguageForSpeech();
     this.model_.setCurrentLanguage(lang);
 
     // Don't check for Google locales when the language has changed.
@@ -256,7 +274,8 @@ export class VoiceLanguageController {
       this.disableLang_(toggledLanguage);
     }
 
-    chrome.readingMode.onLanguagePrefChange(toggledLanguage, !currentlyEnabled);
+    this.audioBrowserProxy_.onLanguagePrefChange(
+        toggledLanguage, !currentlyEnabled);
 
     if (!currentlyEnabled) {
       // If there were no enabled languages (and thus no selected voice),
@@ -266,7 +285,7 @@ export class VoiceLanguageController {
   }
 
   private setUserPreferredVoiceFromPrefs_(): void {
-    const storedVoiceName = chrome.readingMode.getStoredVoice();
+    const storedVoiceName = this.audioBrowserProxy_.getStoredVoice();
     if (!storedVoiceName) {
       this.setCurrentVoice_(this.getDefaultVoice_());
       return;
@@ -391,7 +410,7 @@ export class VoiceLanguageController {
     // </if>
 
     if (disableLang) {
-      chrome.readingMode.onLanguagePrefChange(lowerLang, false);
+      this.audioBrowserProxy_.onLanguagePrefChange(lowerLang, false);
       this.getEnabledLangs().forEach(enabledLang => {
         if (getVoicePackConvertedLangIfExists(enabledLang) === lowerLang) {
           this.disableLang_(enabledLang);
@@ -437,7 +456,7 @@ export class VoiceLanguageController {
     nowAvailableLangs.forEach(lang => {
       const lowerLang = lang.toLowerCase();
       this.enableLang(lowerLang);
-      chrome.readingMode.onLanguagePrefChange(lowerLang, true);
+      this.audioBrowserProxy_.onLanguagePrefChange(lowerLang, true);
       this.model_.removePossiblyDisabledLang(lowerLang);
     });
   }
@@ -451,15 +470,17 @@ export class VoiceLanguageController {
     // We need to make sure the languages we choose correspond to voices, so
     // refresh the list of voices and available langs
     this.refreshAvailableVoices_();
-    this.model_.setCurrentLanguage(chrome.readingMode.baseLanguageForSpeech);
-    const storedLanguagesPref = chrome.readingMode.getLanguagesEnabledInPref();
+    this.model_.setCurrentLanguage(
+        this.audioBrowserProxy_.getBaseLanguageForSpeech());
+    const storedLanguagesPref =
+        this.audioBrowserProxy_.getLanguagesEnabledInPref();
     const langOfDefaultVoice = this.getDefaultVoice_()?.lang;
 
     // We need to restore enabled languages prior to selecting the preferred
     // voice to ensure we have the right voices available, and prior to updating
     // the preferences so we can check against what's available and enabled.
     const langs = createInitialListOfEnabledLanguages(
-        chrome.readingMode.baseLanguageForSpeech, storedLanguagesPref,
+        this.audioBrowserProxy_.getBaseLanguageForSpeech(), storedLanguagesPref,
         this.getAvailableLangs(), langOfDefaultVoice);
     langs.forEach((l: string) => this.enableLang(l));
 
@@ -487,7 +508,7 @@ export class VoiceLanguageController {
         continue;
       }
       const langDisplayName =
-          chrome.readingMode.getDisplayNameForLocale(langLower, langLower);
+          this.audioBrowserProxy_.getDisplayNameForLocale(langLower, langLower);
       if (langDisplayName) {
         localeToDisplayName[langLower] = langDisplayName;
       }
@@ -670,7 +691,7 @@ export class VoiceLanguageController {
     if (voicePackLang) {
       this.notificationManager_.onCancelDownload(voicePackLang);
       this.model_.removeLanguageForDownload(voicePackLang);
-      chrome.readingMode.sendUninstallVoiceRequest(voicePackLang);
+      this.audioBrowserProxy_.sendUninstallVoiceRequest(voicePackLang);
     }
   }
 
@@ -696,7 +717,7 @@ export class VoiceLanguageController {
         convertLangOrLocaleForVoicePackManager(langOrLocale);
     if (langOrLocaleForPackManager) {
       this.setSpeechExtensionResponseTimeout_();
-      chrome.readingMode.sendGetVoicePackInfoRequest(
+      this.audioBrowserProxy_.sendGetVoicePackInfoRequest(
           langOrLocaleForPackManager);
     }
   }
@@ -706,7 +727,7 @@ export class VoiceLanguageController {
         language,
         isRetry ? VoiceClientSideStatusCode.SENT_INSTALL_REQUEST_ERROR_RETRY :
                   VoiceClientSideStatusCode.SENT_INSTALL_REQUEST);
-    chrome.readingMode.sendInstallVoicePackRequest(language);
+    this.audioBrowserProxy_.sendInstallVoicePackRequest(language);
   }
 
   // Schedules a timer that will notify the user if the speech extension is
@@ -738,7 +759,7 @@ export class VoiceLanguageController {
     // preferences here and add 'pt-br' below.
     languagesInPref.forEach(storedLanguage => {
       if (!this.isLangEnabled(storedLanguage)) {
-        chrome.readingMode.onLanguagePrefChange(storedLanguage, false);
+        this.audioBrowserProxy_.onLanguagePrefChange(storedLanguage, false);
 
         // Keep track of these languages in case they become available
         // after the TTS engine extension is installed.
@@ -748,8 +769,8 @@ export class VoiceLanguageController {
       }
     });
     this.model_.getEnabledLangs().forEach(
-        enabledLanguage =>
-            chrome.readingMode.onLanguagePrefChange(enabledLanguage, true));
+        enabledLanguage => this.audioBrowserProxy_.onLanguagePrefChange(
+            enabledLanguage, true));
   }
 
   private getAvailableVoicesForLang_(lang: string): SpeechSynthesisVoice[] {
@@ -758,7 +779,7 @@ export class VoiceLanguageController {
   }
 
   private currentVoiceIsUserChosen_(): boolean {
-    const storedVoiceName = chrome.readingMode.getStoredVoice();
+    const storedVoiceName = this.audioBrowserProxy_.getStoredVoice();
 
     // getCurrentVoice() is not necessarily chosen by the user, it is just
     // the voice that read aloud is using. It may be a default voice chosen by

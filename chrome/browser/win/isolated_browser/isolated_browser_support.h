@@ -1,0 +1,93 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef CHROME_BROWSER_WIN_ISOLATED_BROWSER_ISOLATED_BROWSER_SUPPORT_H_
+#define CHROME_BROWSER_WIN_ISOLATED_BROWSER_ISOLATED_BROWSER_SUPPORT_H_
+
+#include <optional>
+
+#include "base/functional/callback_forward.h"
+#include "base/process/process.h"
+#include "base/types/expected.h"
+#include "base/win/access_token.h"
+#include "base/win/scoped_handle.h"
+#include "base/win/windows_types.h"
+
+namespace base {
+class CommandLine;
+}  // namespace base
+
+class PrefService;
+
+namespace chrome {
+
+// Encapsulates the isolated browser process handle along with its Job Object
+// and I/O Completion Port. This ensures the stub process can wait for all
+// child/helper processes in the job object to terminate cleanly before exiting,
+// while maintaining the JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE guarantee.
+class IsolatedBrowserProcess {
+ public:
+  // Attempt to launch an isolated browser process with the command line
+  // `command_line`. If successful, an `IsolatedBrowserProcess` instance is
+  // returned, otherwise an HRESULT containing the error.
+  static base::expected<IsolatedBrowserProcess, HRESULT> Launch(
+      const base::CommandLine& command_line);
+
+  ~IsolatedBrowserProcess();
+
+  IsolatedBrowserProcess(IsolatedBrowserProcess&&);
+  IsolatedBrowserProcess& operator=(IsolatedBrowserProcess&&);
+
+  // Waits for the main isolated browser process and all child/helper processes
+  // in the job object to fully exit before returning the exit code of the main
+  // isolated browser, or std::nullopt if waiting failed.
+  std::optional<int> WaitForExit() const;
+
+ private:
+  IsolatedBrowserProcess(base::Process process,
+                         base::win::ScopedHandle job,
+                         base::win::ScopedHandle iocp);
+
+  base::Process process_;
+  base::win::ScopedHandle job_;
+  base::win::ScopedHandle iocp_;
+};
+
+// Returns true if the platform configuration indicates that the browser process
+// with the specified `command_line` should launch the isolated browser. To
+// check for isolation merely being enabled by configuration, pass nullptr.
+bool IsIsolationEnabled(const base::CommandLine* command_line = nullptr);
+
+// Returns true if the currently running browser process is isolated. Note, that
+// not all `IsolatedBrowser` returned from the `Launch' function above will be
+// fully isolated, so checking the command line alone is not sufficient.
+bool IsRunningIsolated();
+
+// Returns a token that can be used for un-isolated operations such as starting
+// unisolated child processes. Returns std::nullopt if the token could not be
+// obtained. If the current process is not isolated, it will return the current
+// process token.
+std::optional<base::win::AccessToken> GetUnisolatedAccessToken();
+
+enum class IsolationState {
+  kIsolationDisabled = 0,
+  kProcessIsolation = 1,
+  kMaxValue = kProcessIsolation,
+};
+
+// Sets the isolation state to `state`. Re-encrypted prefs are written to
+// `local_state` if needed. Once the operation has been completed successfully
+// then the new isolation state is returned in the callback, otherwise an
+// HRESULT containing an error is returned. If successful, the new state only
+// applies on the next browser restart. Only call after browser initialization
+// has completed on the UI sequence.
+void SetIsolationState(
+    IsolationState state,
+    PrefService* local_state,
+    base::OnceCallback<void(base::expected<IsolationState, HRESULT>)>
+        completed);
+
+}  // namespace chrome
+
+#endif  // CHROME_BROWSER_WIN_ISOLATED_BROWSER_ISOLATED_BROWSER_SUPPORT_H_

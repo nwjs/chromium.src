@@ -186,7 +186,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualCueing.V2.CueFormFactor.Hidden" enum="CueFormFactor"
-    expires_after="2026-11-15">
+    expires_after="2027-02-14">
   <owner>sophiechang@chromium.org</owner>
   <owner>iwells@chromium.org</owner>
   <summary>
@@ -212,6 +212,17 @@ chromium-metrics-reviews@google.com.
   <summary>
     The user interaction for a Contextual Cueing V2 cue. Recorded when a user
     interacts with a contextual cue.
+  </summary>
+</histogram>
+
+<histogram name="ContextualCueing.V2.CueInteraction.PageType.Pdf"
+    enum="ContextualCueingInteraction" expires_after="2027-01-24">
+  <owner>sophiechang@chromium.org</owner>
+  <owner>iwells@chromium.org</owner>
+  <owner>xiaochenzh@chromium.org</owner>
+  <summary>
+    The user interaction for a Contextual Cueing V2 cue on a PDF document.
+    Recorded when a user interacts with a contextual cue on a PDF page.
   </summary>
 </histogram>
 
@@ -244,6 +255,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="ContextualCueing.V2.CueShown.PageType.Pdf" units="hash"
+    expires_after="2027-02-07">
+  <owner>sophiechang@chromium.org</owner>
+  <owner>pulkitaga@google.com</owner>
+  <owner>xiaochenzh@chromium.org</owner>
+  <summary>
+    The hashed string of the CUJ for a contextual cue shown on a PDF document.
+    Recorded when the contextual cue is shown to the user on a PDF page.
+  </summary>
+</histogram>
+
 <histogram name="ContextualCueing.V2.CueShownLatency" units="ms"
     expires_after="2026-12-20">
   <owner>sophiechang@chromium.org</owner>
@@ -265,7 +287,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualCueing.V2.MissingFaviconCount" units="count"
-    expires_after="2026-11-15">
+    expires_after="2027-02-14">
   <owner>sophiechang@chromium.org</owner>
   <owner>iwells@chromium.org</owner>
   <summary>

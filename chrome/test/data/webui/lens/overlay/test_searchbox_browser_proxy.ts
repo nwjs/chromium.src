@@ -2,8 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import type {SuggestInventory} from '//resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
 import type {NavigationPredictor} from '//resources/mojo/components/omnibox/browser/omnibox.mojom-webui.js';
-import type {ActionModifiers, InputMethod, OmniboxPopupSelection, PageHandlerInterface, PageRemote, PlaceholderConfig, SelectedFileInfo, SmartComposeStats, SuggestInventory} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {ActionModifiers, InputMethod, OmniboxPopupSelection, PageHandlerInterface, PageRemote, PlaceholderConfig, SelectedFileInfo, SmartComposeStats} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {DriveDisclaimerStatus} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {ModelMode, ToolMode} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import type {BigBuffer} from '//resources/mojo/mojo/public/mojom/base/big_buffer.mojom-webui.js';
@@ -33,6 +34,7 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
       'deleteAutocompleteMatch',
       'deleteContext',
       'deleteTabContext',
+      'dismissFre',
       'executeAction',
       'getCyclingPlaceholderConfig',
       'getDriveDisclaimerStatus',
@@ -48,6 +50,7 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
       'onNavigationLikely',
       'onThumbnailRemoved',
       'openAutocompleteMatch',
+      'openHotkeySettings',
       'openLensSearch',
       'openPopupSelection',
       'openProfilePicker',
@@ -61,7 +64,9 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
       'setSmartComposeStats',
       'setSmartTabSharingActive',
       'showContextMenu',
+      'showScreenshotMenu',
       'startScreenshare',
+      'captureRegionScreenshot',
       'stopAutocomplete',
       'submitQuery',
       'toggleSuggestionGroupIdVisibility',
@@ -96,6 +101,10 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
     this.methodCalled('showContextMenu', {point});
   }
 
+  showScreenshotMenu(
+      anchorRect: {x: number, y: number, width: number, height: number}) {
+    this.methodCalled('showScreenshotMenu', {anchorRect});
+  }
   executeAction(
       line: number, actionIndex: number, url: Url,
       matchSelectionTimestamp: TimeTicks, mouseButton: number, altKey: boolean,
@@ -140,11 +149,13 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
   }
 
   queryAutocomplete(
-      queryId: number, input: String16, preventInlineAutocomplete: boolean,
-      cursorPosition: number, suggestInventory: SuggestInventory,
-      isOnFocus: boolean, keyword: string, inputMethod: InputMethod) {
+      queryId: number, tabId: (number|null), input: String16,
+      preventInlineAutocomplete: boolean, cursorPosition: number,
+      suggestInventory: SuggestInventory, isOnFocus: boolean, keyword: string,
+      inputMethod: InputMethod) {
     this.methodCalled('queryAutocomplete', {
       queryId,
+      tabId,
       input,
       preventInlineAutocomplete,
       cursorPosition,
@@ -245,8 +256,8 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
     this.methodCalled('openProfilePicker');
   }
 
-  setActiveToolMode(tool: ToolMode, isSetByServer: boolean) {
-    this.methodCalled('setActiveToolMode', tool, isSetByServer);
+  setActiveToolMode(tool: ToolMode, isSetByAim: boolean = false) {
+    this.methodCalled('setActiveToolMode', tool, isSetByAim);
   }
 
   recordToolSelectionAction(tool: ToolMode) {
@@ -300,6 +311,19 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
   startScreenshare(preferEntireScreen: boolean) {
     this.methodCalled('startScreenshare', {preferEntireScreen});
     return Promise.resolve({token: null});
+  }
+
+  captureRegionScreenshot() {
+    this.methodCalled('captureRegionScreenshot');
+    return Promise.resolve({token: null});
+  }
+
+  dismissFre() {
+    this.methodCalled('dismissFre');
+  }
+
+  openHotkeySettings() {
+    this.methodCalled('openHotkeySettings');
   }
 }
 

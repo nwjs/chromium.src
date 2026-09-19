@@ -7,13 +7,19 @@
 #include <memory>
 
 #include "base/memory/raw_ptr.h"
+#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
+#include "chrome/browser/contextual_tasks/aim_message_poster.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/actions/chrome_actions.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/contextual_search/contextual_search_service.h"
+#include "components/contextual_search/contextual_search_session_handle.h"
+#include "components/contextual_search/mock_contextual_search_context_controller.h"
+#include "components/contextual_search/mock_contextual_search_session_handle.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/omnibox/browser/mock_aim_eligibility_service.h"
 #include "content/public/test/browser_task_environment.h"
@@ -62,16 +68,16 @@ class ContextualTasksUtilsTest : public testing::Test {
 
 TEST_F(ContextualTasksUtilsTest, UpdatePinButtonVisibilityState_NullWindow) {
   // Should return early and not crash.
-  UpdatePinButtonVisibilityState(nullptr, true);
+  UpdatePinButtonVisibilityState(nullptr);
 }
 
 TEST_F(ContextualTasksUtilsTest, UpdatePinButtonVisibilityState_NullActions) {
-  UpdatePinButtonVisibilityState(browser_window_.get(), true);
+  UpdatePinButtonVisibilityState(browser_window_.get());
 }
 
 TEST_F(ContextualTasksUtilsTest, UpdatePinButtonVisibilityState_NullRootActionItem) {
   // browser_actions_ already has a null root_action_item_ initially.
-  UpdatePinButtonVisibilityState(browser_window_.get(), true);
+  UpdatePinButtonVisibilityState(browser_window_.get());
 }
 
 TEST_F(ContextualTasksUtilsTest, UpdatePinButtonVisibilityState_ActionNotFound) {
@@ -80,10 +86,18 @@ TEST_F(ContextualTasksUtilsTest, UpdatePinButtonVisibilityState_ActionNotFound) 
 
   browser_actions_->set_root_action_item_for_testing(root_action_.get());
 
-  UpdatePinButtonVisibilityState(browser_window_.get(), true);
+  UpdatePinButtonVisibilityState(browser_window_.get());
 }
 
 TEST_F(ContextualTasksUtilsTest, UpdatePinButtonVisibilityState_Eligible_Pinned) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{contextual_tasks::
+                                kEnableContextualTasksPinButtonInToolbar,
+                            contextual_tasks::
+                                kContextualTasksForceEntryPointEligibility},
+      /*disabled_features=*/{});
+
   root_action_ = actions::ActionItem::Builder().Build();
   actions::ActionItem* action_item = root_action_->AddChild(
       actions::ActionItem::Builder()
@@ -98,13 +112,21 @@ TEST_F(ContextualTasksUtilsTest, UpdatePinButtonVisibilityState_Eligible_Pinned)
   model->UpdatePinnedState(kActionSidePanelShowContextualTasks, true);
   ASSERT_TRUE(model->Contains(kActionSidePanelShowContextualTasks));
 
-  UpdatePinButtonVisibilityState(browser_window_.get(), true);
+  UpdatePinButtonVisibilityState(browser_window_.get());
 
   EXPECT_TRUE(action_item->GetVisible());
   EXPECT_TRUE(model->Contains(kActionSidePanelShowContextualTasks));
 }
 
-TEST_F(ContextualTasksUtilsTest, UpdatePinButtonVisibilityState_Ineligible_Pinned) {
+TEST_F(ContextualTasksUtilsTest,
+       UpdatePinButtonVisibilityState_Eligible_Pinned_FeatureDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{contextual_tasks::
+                                kContextualTasksForceEntryPointEligibility},
+      /*disabled_features=*/{contextual_tasks::
+                                 kEnableContextualTasksPinButtonInToolbar});
+
   root_action_ = actions::ActionItem::Builder().Build();
   actions::ActionItem* action_item = root_action_->AddChild(
       actions::ActionItem::Builder()
@@ -119,7 +141,32 @@ TEST_F(ContextualTasksUtilsTest, UpdatePinButtonVisibilityState_Ineligible_Pinne
   model->UpdatePinnedState(kActionSidePanelShowContextualTasks, true);
   ASSERT_TRUE(model->Contains(kActionSidePanelShowContextualTasks));
 
-  UpdatePinButtonVisibilityState(browser_window_.get(), false);
+  UpdatePinButtonVisibilityState(browser_window_.get());
+
+  EXPECT_FALSE(action_item->GetVisible());
+  EXPECT_TRUE(model->Contains(kActionSidePanelShowContextualTasks));
+}
+
+TEST_F(ContextualTasksUtilsTest, UpdatePinButtonVisibilityState_Ineligible_Pinned) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      contextual_tasks::kEnableContextualTasksPinButtonInToolbar);
+
+  root_action_ = actions::ActionItem::Builder().Build();
+  actions::ActionItem* action_item = root_action_->AddChild(
+      actions::ActionItem::Builder()
+          .SetActionId(kActionSidePanelShowContextualTasks)
+          .SetVisible(true)
+          .SetEnabled(true)
+          .Build());
+
+  browser_actions_->set_root_action_item_for_testing(root_action_.get());
+
+  auto* model = PinnedToolbarActionsModel::Get(profile_.get());
+  model->UpdatePinnedState(kActionSidePanelShowContextualTasks, true);
+  ASSERT_TRUE(model->Contains(kActionSidePanelShowContextualTasks));
+
+  UpdatePinButtonVisibilityState(browser_window_.get());
 
   EXPECT_FALSE(action_item->GetVisible());
   EXPECT_TRUE(model->Contains(kActionSidePanelShowContextualTasks));
@@ -140,7 +187,7 @@ TEST_F(ContextualTasksUtilsTest, UpdatePinButtonVisibilityState_Ineligible_Unpin
   ASSERT_FALSE(model->Contains(kActionSidePanelShowContextualTasks));
 
   // Should NOT hide the action item because it is unpinned.
-  UpdatePinButtonVisibilityState(browser_window_.get(), false);
+  UpdatePinButtonVisibilityState(browser_window_.get());
 
   EXPECT_TRUE(action_item->GetVisible());
   EXPECT_FALSE(model->Contains(kActionSidePanelShowContextualTasks));
@@ -167,7 +214,7 @@ TEST_F(ContextualTasksUtilsTest, UpdatePinButtonVisibilityState_Ineligible_Pinne
   ASSERT_TRUE(model->Contains(kActionSidePanelShowContextualTasks));
 
   // Should NOT hide the action item because we are in an incognito window.
-  UpdatePinButtonVisibilityState(browser_window_.get(), false);
+  UpdatePinButtonVisibilityState(browser_window_.get());
 
   EXPECT_TRUE(action_item->GetVisible());
   EXPECT_TRUE(model->Contains(kActionSidePanelShowContextualTasks));
@@ -302,6 +349,46 @@ TEST_F(ContextualTasksUtilsTest, ShouldUseDarkMode_IncognitoProfile) {
   Profile* otr_profile = profile_->GetPrimaryOTRProfile(true);
   EXPECT_TRUE(ShouldUseDarkMode(otr_profile));
   EXPECT_TRUE(ShouldUseDarkMode(otr_profile, GURL("https://example.com")));
+}
+
+class MockAimMessagePoster : public AimMessagePoster {
+ public:
+  MOCK_METHOD(void,
+              PostAimMessage,
+              (const lens::ClientToAimMessage&),
+              (override));
+};
+
+TEST_F(ContextualTasksUtilsTest,
+       PrepareClientToAimRequestInfo_PreservesTokenOrder) {
+  testing::NiceMock<MockAimMessagePoster> message_poster;
+  testing::NiceMock<contextual_search::MockContextualSearchContextController>
+      mock_controller;
+  testing::NiceMock<contextual_search::MockContextualSearchSessionHandle>
+      mock_session;
+
+  ON_CALL(mock_session, GetController())
+      .WillByDefault(testing::Return(&mock_controller));
+
+  base::UnguessableToken token1 = base::UnguessableToken::Create();
+  base::UnguessableToken token2 = base::UnguessableToken::Create();
+  base::UnguessableToken token3 = base::UnguessableToken::Create();
+  base::UnguessableToken overlay_token = base::UnguessableToken::Create();
+
+  mock_session.GetUploadedContextTokensForTesting() = {token1, token2, token3};
+
+  auto request_info = PrepareClientToAimRequestInfo(
+      "test query", &mock_session, &message_poster,
+      omnibox::ToolMode::TOOL_MODE_UNSPECIFIED,
+      omnibox::ModelMode::MODEL_MODE_UNSPECIFIED,
+      /*active_tab_context_id=*/std::nullopt, overlay_token,
+      /*is_voice_search=*/false, /*additional_cgi_params=*/{});
+
+  ASSERT_EQ(request_info->file_tokens.size(), 4u);
+  EXPECT_EQ(request_info->file_tokens[0], token1);
+  EXPECT_EQ(request_info->file_tokens[1], token2);
+  EXPECT_EQ(request_info->file_tokens[2], token3);
+  EXPECT_EQ(request_info->file_tokens[3], overlay_token);
 }
 
 }  // namespace

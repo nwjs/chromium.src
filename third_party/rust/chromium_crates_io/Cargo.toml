@@ -24,10 +24,10 @@ bytes = "1"
 chrono = "0.4.43"
 cxx = "1"
 fend-core = "1"
-font-types = "0.12.1"
+font-types = "0.12.4"
 hex = "0.4"
 hmac-sha256 = "1.1.12"
-incremental-font-transfer = "0.5.0"
+incremental-font-transfer = "0.7.0"
 indexmap = "2.12.1"
 itertools = "0.14.0"
 jpeg-encoder = "=0.7.1"
@@ -46,7 +46,7 @@ rustc-demangle-capi = "0.1"
 serde = "1.0.219"
 serde_json = "1.0.149"
 shared-brotli-patch-decoder = "0.1.3"
-skrifa = "0.44.0"
+skrifa = "0.46.2"
 small_ctor = "0.1"
 smallvec = "1"
 static_assertions = "1"
@@ -69,8 +69,11 @@ version = "1"
 artifact = "bin"
 
 [dependencies.harfrust]
-version = "0.12.0"
-features = ["experimental_font_api"]
+version = "0.13.2"
+features = [
+    "experimental_font_api",
+    "icu",
+]
 
 [dependencies.icu_capi]
 version = "2.2"
@@ -120,7 +123,7 @@ default-features = false
 features = ["bmp", "ico"]
 
 [dependencies.jxl]
-version = "0.5.1"
+version = "0.6.0"
 features = ["all-simd"]
 
 [dependencies.llguidance]
@@ -139,7 +142,7 @@ version = "0.8.1"
 default-features = false
 
 [dependencies.read-fonts]
-version = "0.41.0"
+version = "0.43.2"
 features = ["agl"]
 
 [dependencies.rustfft]
@@ -174,9 +177,16 @@ version = "0.6.0"
 # codecs specifically added in `features`. Enabling new codec support requires a
 # package configuration through gnrt vendor and gnrt gen.
 default-features = false
-features = ["flac", "mpa", "pcm", "vorbis", "opt-simd"]
+features = ["flac", "mp3", "ogg", "wav", "mkv", "pcm", "isomp4", "vorbis", "opt-simd"]
 
+# TODO(https://crbug.com/540235303): Remove direct dependency on syn-v2 after
+# migrating Crubit, WebRTC, and other third-party libraries to syn-v3.
 [dependencies.syn]
+version = "3"
+features = ["full"]
+
+[dependencies.syn_v2]
+package = "syn"
 version = "2"
 features = ["full"]
 

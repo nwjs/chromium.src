@@ -30,10 +30,12 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <variants name="DatabaseTag">
-  <variant name="AccessibilityAnnotator" summary="AccessibilityAnnotator"/>
+  <variant name="AccessibilityAnnotator"
+      summary="AccessibilityAnnotator (deprecated 08/2026)"/>
   <variant name="Activity" summary="Activity"/>
   <variant name="Affiliation" summary="Affiliation"/>
   <variant name="AnnotationStorage" summary="AnnotationStorage"/>
+  <variant name="ArcContentUrlDatabase" summary="ArcContentUrlDatabase"/>
   <variant name="BackgroundRequestQueue" summary="BackgroundRequestQueue"/>
   <variant name="BrowsingTopics" summary="BrowsingTopics"/>
   <variant name="CdmStorage" summary="CdmStorage"/>
@@ -136,7 +138,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Database.Open.FailureReason.{DatabaseTag}"
-    enum="OpenDatabaseFailedReason" expires_after="2026-12-16">
+    enum="OpenDatabaseFailedReason" expires_after="2027-02-14">
   <owner>anthonyvd@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <summary>
@@ -147,7 +149,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Database.Open.FirstAttempt.Error.{DatabaseTag}"
-    enum="SqliteResultCode" expires_after="2026-12-16">
+    enum="SqliteResultCode" expires_after="2027-02-14">
   <owner>anthonyvd@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <summary>
@@ -158,7 +160,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Database.Open.SecondAttempt.Error.{DatabaseTag}"
-    enum="SqliteResultCode" expires_after="2026-12-16">
+    enum="SqliteResultCode" expires_after="2027-02-14">
   <owner>anthonyvd@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <summary>

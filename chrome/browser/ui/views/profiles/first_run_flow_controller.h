@@ -113,6 +113,8 @@ class FirstRunFlowController : public ProfileManagementFlowControllerImpl {
  private:
   bool is_feature_showcase_eligible() const;
 
+  void OnWelcomeCompleted();
+
   void HandleIntroSigninChoice(IntroChoice choice);
 
   void StartBrowsing();
@@ -137,8 +139,12 @@ class FirstRunFlowController : public ProfileManagementFlowControllerImpl {
 
   void PlaySound(audio::SoundsManager::SoundKey sound_key);
 
+  void RegisterAndSwitchToIntroStep(bool effects_button_shown_by_default);
+
   const raw_ptr<Profile> profile_;
   ProfilePicker::FirstRunExitedCallback first_run_exited_callback_;
+  ProfilePicker::FirstRunFinishReason finish_reason_ =
+      ProfilePicker::FirstRunFinishReason::kFinishedFlow;
 
   FinishOrContinueChoice finish_or_continue_choice_ =
       FinishOrContinueChoice::kStartBrowsing;

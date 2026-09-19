@@ -13,11 +13,8 @@ source_set("side_panel") {
     "bookmarks/bookmarks_side_panel_coordinator.h",
     "comments/comments_side_panel_coordinator.cc",
     "comments/comments_side_panel_coordinator.h",
-    "extensions/extension_side_panel_coordinator.cc",
-    "extensions/extension_side_panel_coordinator.h",
-    "extensions/extension_side_panel_manager.cc",
-    "extensions/extension_side_panel_manager.h",
-    "extensions/extension_side_panel_utils.cc",
+    "extensions/extension_side_panel_action_item_util.cc",
+    "extensions/extension_side_panel_action_item_util.h",
     "history/history_side_panel_coordinator.cc",
     "history/history_side_panel_coordinator.h",
     "history_clusters/history_clusters_side_panel_controller.cc",
@@ -36,6 +33,8 @@ source_set("side_panel") {
     "reading_list/reading_list_side_panel_coordinator.h",
     "side_panel.cc",
     "side_panel.h",
+    "side_panel_animation_content_view.cc",
+    "side_panel_animation_content_view.h",
     "side_panel_coordinator.cc",
     "side_panel_coordinator.h",
     "side_panel_header.cc",
@@ -77,6 +76,7 @@ source_set("side_panel") {
     "//ui/actions:actions_headers",
     "//ui/base",
     "//ui/base/mojom:ui_base_types",
+    "//ui/base/unowned_user_data",
     "//ui/color:color_headers",
     "//ui/gfx",
     "//ui/gfx/animation",
@@ -176,7 +176,7 @@ source_set("side_panel") {
     "//ui/webui",
   ]
 
-  if (enable_extensions) {
+  if (enable_extensions_core) {
     public_deps += [
       "//extensions/browser",
       "//extensions/common",

@@ -10,6 +10,7 @@
 #import <string>
 #import <vector>
 
+#import "base/callback_list.h"
 #import "base/memory/raw_ptr.h"
 #import "base/memory/weak_ptr.h"
 #import "components/autofill/core/browser/country_type.h"
@@ -57,11 +58,14 @@ class WebState;
 
 namespace autofill {
 
+class AtMemoryManager;
 class AtMemoryQueryService;
 class AutofillAiSaveEntityInfoBarDelegateIOS;
 class AutofillSuggestionDelegate;
 class LogRouter;
 class AutofillAiPersonalContextAccessManager;
+class EntitySuppressionManager;
+class FormPredictionsTracker;
 
 enum class SuggestionType;
 
@@ -106,6 +110,7 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   PersonalDataManager& GetPersonalDataManager() override;
   ValuablesDataManager* GetValuablesDataManager() override;
   EntityDataManager* GetEntityDataManager() override;
+  EntitySuppressionManager* GetEntitySuppressionManager() override;
   WalletPassAccessManager* GetWalletPassAccessManager() override;
   FieldClassificationModelHandler*
   GetAutofillFieldClassificationModelHandler() override;
@@ -124,6 +129,7 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   consent_auditor::ConsentAuditor* GetConsentAuditor() final;
   optimization_guide::RemoteModelExecutor* GetRemoteModelExecutor() override;
   AtMemoryQueryService* GetAtMemoryQueryService() override;
+  AtMemoryManager* GetAtMemoryManager() override;
   personal_context::PersonalContextEligibilityState
   GetPersonalContextEligibilityState() const override;
   personal_context::PersonalContextEligibilityService*
@@ -136,6 +142,7 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   metrics::ProfileMetricsService* GetProfileMetricsService() override;
   const GoogleGroupsManager* GetGoogleGroupsManager() const override;
   FormDataImporter* GetFormDataImporter() override;
+  FormPredictionsTracker* GetFormPredictionsTracker() override;
   payments::IOSChromePaymentsAutofillClient* GetPaymentsAutofillClient()
       override;
   strike_database::StrikeDatabase* GetStrikeDatabase() final;
@@ -177,6 +184,7 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
       override;
   const AutofillAblationStudy& GetAblationStudy() const override;
   bool IsLastQueriedField(FieldGlobalId field_id) override;
+  bool IsTabInActorMode() const override;
   bool ShouldFormatForLargeKeyboardAccessory() const override;
   // Returns a pointer to a DeviceAuthenticator. Might be nullptr if the given
   // platform is not supported.
@@ -221,6 +229,9 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   // Shows the detailed save/update UI for Autofill AI entities.
   void ShowAutofillAiSaveUpdateUI();
 
+  // Invoked when the actuation state for the associated WebState changes.
+  void OnActorTaskStateChange(bool is_actuating);
+
   raw_ptr<PrefService, DanglingUntriaged> pref_service_;
   raw_ptr<syncer::SyncService, DanglingUntriaged> sync_service_;
   std::unique_ptr<AutofillCrowdsourcingManager> crowdsourcing_manager_;
@@ -240,7 +251,9 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
       this};
   const AutofillAblationStudy ablation_study_;
   std::unique_ptr<AutofillAiManager> autofill_ai_manager_;
+  std::unique_ptr<FormPredictionsTracker> form_predictions_tracker_;
   PageContextWrapper* page_context_wrapper_;
+  std::unique_ptr<AtMemoryManager> at_memory_manager_;
 
   // Order matters for this initialization. This initialization must happen
   // after all of the members passed into the constructor of
@@ -263,6 +276,9 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   // If this is true, we consider the form to be secure.
   // Only use this for testing purposes!
   bool consider_as_secure_for_testing_ = false;
+
+  // Subscription that tracks changes in tab actuation state.
+  base::CallbackListSubscription actor_actuation_state_subscription_;
 
   base::WeakPtrFactory<ChromeAutofillClientIOS> weak_ptr_factory_{this};
 };

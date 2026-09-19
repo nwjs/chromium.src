@@ -590,10 +590,11 @@ struct NetworkContextParams {
   // Whether "Compression dictionary transport" feature should be enabled.
   bool shared_dictionary_enabled = false;
 
-  // Maximum size of the shared dictionary cache. If this value is 0, the max
-  // size will be propagated via SetSharedDictionaryCacheMaxSize message.
-  // Ignored if `shared_dictionary_enabled` field is false.
-  uint64 shared_dictionary_cache_max_size = 0;
+  // Initial maximum size of the shared dictionary cache. If null,
+  // no byte limit is enforced at initialization time (an automatic limit is
+  // typically calculated and set later via SetSharedDictionaryCacheMaxSize).
+  // Ignored if `shared_dictionary_enabled` is false.
+  mojo_base.mojom.ByteSize? shared_dictionary_cache_max_size;
 
   // Parameters for constructing the FirstPartySetsAccessDelegate.
   // |first_party_sets_access_delegate_params| is the initial configuration to
@@ -1070,6 +1071,13 @@ interface NetworkContext {
   //
   // If |role| == SCRIPT, this interface can be safely handed out to a process
   // that is known to represent the given origin, such as a renderer process.
+  //
+  // If |prefer_bound_cookie_context| is true, cookie access decisions use
+  // |isolation_info|'s site_for_cookies and top_frame_origin instead of the
+  // renderer-provided per-call values. Set when the browser holds an
+  // authoritative cookie context that the renderer cannot compute (e.g., a
+  // frame whose effective top frame for storage partitioning differs from
+  // the actual top frame).
   GetRestrictedCookieManager(
       pending_receiver<RestrictedCookieManager> restricted_cookie_manager,
       RestrictedCookieManagerRole role,
@@ -1077,6 +1085,7 @@ interface NetworkContext {
       IsolationInfo isolation_info,
       CookieSettingOverrides cookie_setting_overrides,
       CookieSettingOverrides devtools_cookie_setting_overrides,
+      bool prefer_bound_cookie_context,
       pending_remote<CookieAccessObserver>? cookie_observer);
 
   // Provides a TrustTokenQueryAnswerer scoped to the given top-frame origin
@@ -1314,6 +1323,12 @@ interface NetworkContext {
   // that source. This is called when the reporting source (document or worker)
   // is destroyed.
   SendReportsAndRemoveSource(
+      mojo_base.mojom.UnguessableToken reporting_source);
+
+  // Queues any outstanding reports for a single |reporting_source| (which
+  // must not be empty) to be sent immediately, without removing the reporting
+  // endpoint configuration for that source.
+  SendReportsForSource(
       mojo_base.mojom.UnguessableToken reporting_source);
 
   // Queues a report via the Reporting API. `type` describes the type of report
@@ -1825,8 +1840,11 @@ interface NetworkContext {
       mojo_base.mojom.Time start_time, mojo_base.mojom.Time end_time)
       => (array<url.mojom.Origin> origins);
 
-  // Sets maximum size of the shared dictionary cache.
-  SetSharedDictionaryCacheMaxSize(uint64 cache_max_size);
+  // Sets or updates the maximum size of the shared dictionary cache.
+  // - If null: disables byte limits (unlimited cache size).
+  // - If 0: enforces a 0-byte limit (evicts all cached dictionaries).
+  // - If >0: enforces an explicit byte limit.
+  SetSharedDictionaryCacheMaxSize(mojo_base.mojom.ByteSize? cache_max_size);
 
   // Preloads matching dictionaries for loading documents of the `urls`.
   PreloadSharedDictionaryInfoForDocument(
@@ -1901,19 +1919,4 @@ interface NetworkContext {
 
   // Updates the variations headers to be used for requests.
   SetVariationsHeaders(variations.mojom.VariationsHeaders? variations_headers);
-
-  // Sets the expected target network to test Chrome's multi-networking.
-  // See net::URLRequestContext::set_expected_target_network_for_testing, and
-  // chrome/browser/multi_network_browser_test.cc, for details.
-  // NOTE: Ideally we would expose this via NetworkServiceTest's mojo APIs.
-  // Having said that, we need the ability to target the NetworkContext
-  // associated with the default storage partition. Doing that via a
-  // NetworkContext API is trivial, since the test environment already has
-  // access to the NetworkContext it cares about. Doing so via a
-  // NetworkServiceTest API requires being able to identify and target specific
-  // NetworkContexts, which is currently not possible.
-  // TODO(crbug.com/543274233): Drop this in favor of an API exposed via
-  // NetworkServiceTest that directly affects the socket layer. See the bug and
-  // https://crrev.com/c/7904261/comment/43ee0e22_e82eef35/ for more details.
-  SetExpectedTargetNetworkForTesting(int64? target_network);
 };

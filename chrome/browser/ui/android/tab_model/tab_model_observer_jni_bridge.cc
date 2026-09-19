@@ -103,6 +103,19 @@ void TabModelObserverJniBridge::OnFinishingMultipleTabClosure(
   }
 }
 
+void TabModelObserverJniBridge::OnTabCloseCommitted(
+    JNIEnv* env,
+    const std::vector<TabAndroid*>& tabs,
+    bool is_all_tabs,
+    bool can_restore,
+    int source) {
+  for (auto& observer : model_observers_) {
+    observer.OnTabCloseCommitted(
+        tabs, is_all_tabs, can_restore,
+        static_cast<TabModel::TabClosingSource>(source));
+  }
+}
+
 void TabModelObserverJniBridge::WillAddTab(JNIEnv* env,
                                            TabAndroid* tab,
                                            int type) {
@@ -266,9 +279,22 @@ void TabModelObserverJniBridge::OnTabGroupVisualsChanged(JNIEnv* env,
   }
 }
 
-void TabModelObserverJniBridge::OnActiveChanged(JNIEnv* env, bool active) {
+void TabModelObserverJniBridge::OnWillActiveStateChange(JNIEnv* env,
+                                                        TabModel* tab_model,
+                                                        bool active) {
+  for (auto& observer : model_observers_) {
+    observer.OnWillActiveStateChange(*tab_model, active);
+  }
+}
+
+void TabModelObserverJniBridge::OnDidActiveStateChange(JNIEnv* env,
+                                                       TabModel* tab_model,
+                                                       bool active) {
+  for (auto& observer : model_observers_) {
+    observer.OnDidActiveStateChange(*tab_model, active);
+  }
   for (auto& observer : interface_observers_) {
-    observer.OnTabListActiveChanged(*tab_model_, active);
+    observer.OnTabListActiveChanged(*tab_model, active);
   }
 }
 

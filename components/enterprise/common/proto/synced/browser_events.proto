@@ -210,7 +210,8 @@ message TriggeredRuleInfo {
     WARN = 2;
     BLOCK = 3;
     FORCE_SAVE_TO_CLOUD = 4;
-    KEEP_IN_MANAGED_CHROME = 5;
+    JUSTIFICATION_REQUIRED = 5;
+    KEEP_IN_MANAGED_CHROME = 6;
   }
 
   Action action = 5;
@@ -610,7 +611,7 @@ enum DataTransferEventTrigger {
   MOUSE_ACTION = 10;
 }
 
-// Next ID: 22.
+// Next ID: 23.
 message SafeBrowsingInterstitialEvent {
   reserved 2, 6, 8, 9, 10, 11, 12, 13, 15;
 
@@ -679,6 +680,15 @@ message SafeBrowsingInterstitialEvent {
   // The referrers of the webpage that sent the user to the url that triggered
   // the event.
   repeated UrlInfo referrers = 21;
+
+  // The title of the tab when the interstitial event is logged.
+  string tab_title = 22
+      // copybara:datapol_begin
+      // [
+      //   (datapol.semantic_type) = ST_USER_CONTENT
+      // ]
+      // copybara:datapol_end
+      ;
 }
 
 // A DLP (Data Loss Prevention) event where sensitive data may have leaked.
@@ -1280,7 +1290,7 @@ message BrowserCrashEvent {
   repeated SecurityAgent security_agents = 7;
 }
 
-// Next ID: 15.
+// Next ID: 16.
 message UrlFilteringInterstitialEvent {
   // Top level URL that triggers this interstitial.
   string url = 1;
@@ -1351,6 +1361,13 @@ message UrlFilteringInterstitialEvent {
   // The total scan time in milliseconds on the server side before reporting
   // this event.
   int64 server_scan_latency_millis = 14;
+
+  // The title of the tab when the interstitial event is logged.
+  string tab_title = 15
+      // copybara:datapol_begin
+      // [(datapol.semantic_type) = ST_USER_CONTENT]
+      // copybara:datapol_end
+      ;
 }
 
 // Next ID: 5

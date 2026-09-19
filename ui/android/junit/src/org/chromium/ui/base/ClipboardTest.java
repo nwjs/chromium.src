@@ -4,6 +4,8 @@
 
 package org.chromium.ui.base;
 
+import static android.content.ClipDescription.MIMETYPE_TEXT_HTML;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -13,6 +15,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -28,6 +31,7 @@ import android.content.res.AssetFileDescriptor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.PersistableBundle;
+import android.os.TransactionTooLargeException;
 import android.provider.OpenableColumns;
 import android.text.SpannableString;
 import android.text.style.RelativeSizeSpan;
@@ -41,6 +45,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
@@ -57,6 +62,7 @@ import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.ui.R;
+import org.chromium.ui.base.Clipboard.ClipboardUriMetadata;
 import org.chromium.ui.widget.ToastManager;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
@@ -69,22 +75,43 @@ import java.util.Map;
 
 /** Tests logic in the Clipboard class. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class ClipboardTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private Context mMockContext;
     @Mock private PackageManager mMockPm;
     @Mock private ClipboardManager mMockClipboardManager;
+    @Mock private ContentResolver mMockContentResolver;
+    @Mock private AssetFileDescriptor mMockAssetFileDescriptor;
+    @Captor private ArgumentCaptor<ClipData> mClipDataCaptor;
 
     private static final String PLAIN_TEXT = "plain";
     private static final String HTML_TEXT = "<span style=\"color: red;\">HTML</span>";
     private Uri mTempImageUri;
+    private ClipboardImpl mClipboard;
+    private Context mRealContext;
+    private String mPackageName;
 
     @Before
     public void setup() {
         mTempImageUri = Uri.parse("content://tmp/test/image.jpg");
         ClipboardImpl.setSkipImageMimeTypeCheckForTesting(true);
+        mClipboard = (ClipboardImpl) Clipboard.getInstance();
+
+        mRealContext = ContextUtils.getApplicationContext();
+        mPackageName = mRealContext.getPackageName();
+
+        when(mMockContext.getPackageName()).thenReturn(mPackageName);
+        when(mMockContext.getPackageManager()).thenReturn(mMockPm);
+        when(mMockContext.getContentResolver()).thenReturn(mRealContext.getContentResolver());
+        when(mMockContext.getResources()).thenReturn(mRealContext.getResources());
+        when(mMockContext.getString(anyInt()))
+                .thenAnswer(inv -> mRealContext.getString((Integer) inv.getArgument(0)));
+        ContextUtils.initApplicationContextForTests(mMockContext);
+
+        ProviderInfo info = new ProviderInfo();
+        info.packageName = mPackageName;
+        when(mMockPm.resolveContentProvider(eq(mPackageName), anyInt())).thenReturn(info);
     }
 
     @After
@@ -92,6 +119,8 @@ public class ClipboardTest {
         ToastManager.resetForTesting();
         ShadowToast.reset();
         Clipboard.resetForTesting();
+        ClipboardTextDataProvider.clearForTesting();
+        ContextUtils.initApplicationContextForTests(mRealContext);
     }
 
     @Test
@@ -235,14 +264,6 @@ public class ClipboardTest {
         Clipboard clipboard = Clipboard.getInstance();
         ((ClipboardImpl) clipboard).overrideClipboardManagerForTesting(mMockClipboardManager);
 
-        Context appContext = ContextUtils.getApplicationContext();
-
-        when(mMockContext.getPackageName()).thenReturn(appContext.getPackageName());
-        when(mMockContext.getPackageManager()).thenReturn(mMockPm);
-        when(mMockContext.getContentResolver()).thenReturn(appContext.getContentResolver());
-
-        ContextUtils.initApplicationContextForTests(mMockContext);
-
         ClipData clipData = createTwoFilesClipData();
         when(mMockClipboardManager.getPrimaryClip()).thenReturn(clipData);
 
@@ -255,7 +276,7 @@ public class ClipboardTest {
 
         // Rejected.
         ProviderInfo ownAppInfo = new ProviderInfo();
-        ownAppInfo.packageName = appContext.getPackageName();
+        ownAppInfo.packageName = mPackageName;
         when(mMockPm.resolveContentProvider(eq("tmp"), anyInt())).thenReturn(ownAppInfo);
         assertFalse(clipboard.hasFilenames());
         assertEquals(0, clipboard.getFilenames().length);
@@ -384,10 +405,12 @@ public class ClipboardTest {
     }
 
     @Test
+    @EnableFeatures({UiAndroidFeatures.CLIPBOARD_CONFUSED_DEPUTY_DEFENSE_TEXT})
     public void testGetHtmlTextOversized() throws Exception {
         Context mockContext = Mockito.mock(Context.class);
         ContentResolver cr = Mockito.mock(ContentResolver.class);
         when(mockContext.getContentResolver()).thenReturn(cr);
+        when(mockContext.getPackageManager()).thenReturn(mMockPm);
         ContextUtils.initApplicationContextForTests(mockContext);
 
         ClipboardManager clipboardManager = Mockito.mock(ClipboardManager.class);
@@ -425,6 +448,59 @@ public class ClipboardTest {
         assertEquals(oversizedHtml, clipboard.getHTMLText());
     }
 
+    @Test
+    public void testSetClipboardTextCoercesPlainText() {
+        mClipboard.overrideClipboardManagerForTesting(mMockClipboardManager);
+        mClipboard.setClipboardText(
+                Map.of(ClipDescription.MIMETYPE_TEXT_HTML, "<b>Hello World</b>"));
+
+        verify(mMockClipboardManager).setPrimaryClip(mClipDataCaptor.capture());
+        ClipData clipData = mClipDataCaptor.getValue();
+        assertEquals("<b>Hello World</b>", clipData.getItemAt(0).getHtmlText());
+        assertEquals("Hello World", clipData.getItemAt(0).getText().toString());
+    }
+
+    @Test
+    @EnableFeatures({UiAndroidFeatures.CLIPBOARD_OVERSIZED_PAYLOAD_PROVIDER})
+    public void testSetPrimaryClipOversizedFallbackHtmlOnly() {
+        mockPrimaryClipTransactionTooLarge(1);
+
+        mClipboard.setHTMLText(HTML_TEXT, PLAIN_TEXT);
+
+        verify(mMockClipboardManager, Mockito.times(2)).setPrimaryClip(mClipDataCaptor.capture());
+
+        // Second attempt has inline text and HTML stored in ClipboardTextDataProvider URI.
+        ClipData secondClip = mClipDataCaptor.getAllValues().get(1);
+        assertEquals(PLAIN_TEXT, secondClip.getItemAt(0).getText().toString());
+        assertNull(secondClip.getItemAt(0).getHtmlText());
+        assertNotNull(secondClip.getItemAt(0).getUri());
+    }
+
+    @Test
+    @EnableFeatures({UiAndroidFeatures.CLIPBOARD_OVERSIZED_PAYLOAD_PROVIDER})
+    public void testSetPrimaryClipOversizedFallbackBothToUri() {
+        mockPrimaryClipTransactionTooLarge(2);
+
+        mClipboard.setHTMLText(HTML_TEXT, PLAIN_TEXT);
+
+        verify(mMockClipboardManager, Mockito.times(3)).setPrimaryClip(mClipDataCaptor.capture());
+
+        // Third attempt has both text and HTML offloaded to ClipboardTextDataProvider URI.
+        ClipData thirdClip = mClipDataCaptor.getAllValues().get(2);
+        assertNull(thirdClip.getItemAt(0).getText());
+        assertNull(thirdClip.getItemAt(0).getHtmlText());
+        assertNotNull(thirdClip.getItemAt(0).getUri());
+    }
+
+    private void mockPrimaryClipTransactionTooLarge(int failureCount) {
+        mClipboard.overrideClipboardManagerForTesting(mMockClipboardManager);
+        var stub = Mockito.doThrow(new RuntimeException(new TransactionTooLargeException()));
+        for (int i = 1; i < failureCount; i++) {
+            stub = stub.doThrow(new RuntimeException(new TransactionTooLargeException()));
+        }
+        stub.doNothing().when(mMockClipboardManager).setPrimaryClip(any(ClipData.class));
+    }
+
     private void registerMockFileUri(String uriString) {
         ContentResolver cr = ContextUtils.getApplicationContext().getContentResolver();
         ShadowContentResolver shadowContentResolver = Shadows.shadowOf(cr);
@@ -445,5 +521,71 @@ public class ClipboardTest {
                 "Text for toast shown does not match.",
                 ContextUtils.getApplicationContext().getString(strRes),
                 actualText);
+    }
+
+    @Test
+    @EnableFeatures(UiAndroidFeatures.CLIPBOARD_CONFUSED_DEPUTY_DEFENSE_TEXT)
+    public void testClipDataToHtmlText_ConfusedDeputy_AllowsLegitimateOwnAppUri() throws Exception {
+        mClipboard.overrideClipboardManagerForTesting(mMockClipboardManager);
+        when(mMockContext.getContentResolver()).thenReturn(mMockContentResolver);
+
+        // Setup a mock HTML payload and its ContentProvider URI.
+        final String expectedHtml = "<b><p>Oversized HTML</p></b>";
+        Uri legitimateUri = Uri.parse("content://" + mPackageName + "/oversized_html");
+
+        when(mMockContentResolver.getStreamTypes(legitimateUri, MIMETYPE_TEXT_HTML))
+                .thenReturn(new String[] {MIMETYPE_TEXT_HTML});
+        when(mMockContentResolver.openTypedAssetFileDescriptor(
+                        legitimateUri, MIMETYPE_TEXT_HTML, /* opts= */ null))
+                .thenReturn(mMockAssetFileDescriptor);
+
+        File tempFile = File.createTempFile("clipboard_test", ".html");
+        tempFile.deleteOnExit();
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write(expectedHtml);
+        }
+        when(mMockAssetFileDescriptor.createInputStream())
+                .thenReturn(new FileInputStream(tempFile));
+
+        // Setup last copied metadata for the URI.
+        final long currentClipboardTimestamp = 123456789L;
+        ClipboardTextDataProvider.storeLastCopiedMetadata(
+                new ClipboardUriMetadata(legitimateUri, currentClipboardTimestamp));
+
+        // Setup a clip description with the same timestamp.
+        ClipDescription description =
+                new ClipDescription("label", new String[] {MIMETYPE_TEXT_HTML});
+        ClipDescription spyDescription = spy(description);
+        when(spyDescription.getTimestamp()).thenReturn(currentClipboardTimestamp);
+
+        ClipData clipData =
+                new ClipData(spyDescription, new ClipData.Item(null, null, legitimateUri));
+        when(mMockClipboardManager.getPrimaryClipDescription()).thenReturn(spyDescription);
+
+        assertEquals(expectedHtml, mClipboard.clipDataToHtmlText(clipData));
+    }
+
+    @Test
+    @EnableFeatures(UiAndroidFeatures.CLIPBOARD_CONFUSED_DEPUTY_DEFENSE_TEXT)
+    public void testClipDataToHtmlText_ConfusedDeputy_RejectsOnTimestampMismatch() {
+        mClipboard.overrideClipboardManagerForTesting(mMockClipboardManager);
+
+        Uri uri = Uri.parse("content://" + mPackageName + "/oversized_html");
+        final long originalTimestamp = 1000L;
+        ClipboardTextDataProvider.storeLastCopiedMetadata(
+                new ClipboardUriMetadata(uri, originalTimestamp));
+
+        // Simulate a timestamp mismatch.
+        final long newerClipboardTimestamp = 2000L;
+        ClipDescription description =
+                new ClipDescription("label", new String[] {MIMETYPE_TEXT_HTML});
+        ClipDescription spyDescription = spy(description);
+        when(spyDescription.getTimestamp()).thenReturn(newerClipboardTimestamp);
+
+        ClipData clipData = new ClipData(spyDescription, new ClipData.Item(null, null, uri));
+        when(mMockClipboardManager.getPrimaryClipDescription()).thenReturn(spyDescription);
+
+        assertNull(mClipboard.clipDataToHtmlText(clipData));
+        assertNull(ClipboardTextDataProvider.getLastCopiedMetadata());
     }
 }

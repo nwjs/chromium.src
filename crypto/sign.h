@@ -9,7 +9,6 @@
 #include "crypto/crypto_export.h"
 #include "crypto/keypair.h"
 #include "third_party/boringssl/src/include/openssl/base.h"
-#include "third_party/boringssl/src/include/openssl/evp.h"
 
 namespace crypto::sign {
 
@@ -41,6 +40,8 @@ enum SignatureKind {
   // Note: ML-DSA cannot be used in streaming modes and has to be passed the
   // entire message to sign; it does not take a separate hash function.
   MLDSA_44,
+  MLDSA_65,
+  MLDSA_87,
 };
 
 // One-shot signature function: produce a signature of `data` using `key`.

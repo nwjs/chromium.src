@@ -17,6 +17,7 @@ import androidx.annotation.VisibleForTesting;
 import org.jni_zero.CalledByNative;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.ObserverList;
 import org.chromium.base.PackageUtils;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.ThreadUtils;
@@ -67,6 +68,37 @@ import java.util.Set;
  */
 @NullMarked
 public class WebappRegistry {
+    /** Observer for changes in the list of installed web apps. */
+    public interface Observer {
+        void onOriginsWithInstalledAppChanged();
+    }
+
+    private @Nullable ObserverList<Observer> mObservers;
+
+    private ObserverList<Observer> getObservers() {
+        if (mObservers == null) {
+            mObservers = new ObserverList<>();
+        }
+        return mObservers;
+    }
+
+    public void registerObserver(Observer observer) {
+        ThreadUtils.assertOnUiThread();
+        getObservers().addObserver(observer);
+    }
+
+    public void unregisterObserver(Observer observer) {
+        ThreadUtils.assertOnUiThread();
+        getObservers().removeObserver(observer);
+    }
+
+    public void notifyOriginsWithInstalledAppChanged() {
+        ThreadUtils.assertOnUiThread();
+        for (Observer observer : getObservers()) {
+            observer.onOriginsWithInstalledAppChanged();
+        }
+    }
+
     static final String REGISTRY_FILE_NAME = "webapp_registry";
     static final String KEY_WEBAPP_SET = "webapp_set";
     static final String KEY_LAST_CLEANUP = "last_cleanup";
@@ -113,6 +145,7 @@ public class WebappRegistry {
         mPreferences = openSharedPreferences();
         mStorages = new HashMap<>();
         mPermissionStore = new InstalledWebappPermissionStore();
+        mPermissionStore.setListener(this::notifyOriginsWithInstalledAppChanged);
     }
 
     /** Returns the singleton WebappRegistry instance. Creates the instance on first call. */
@@ -141,6 +174,12 @@ public class WebappRegistry {
         Holder.sInstance = new WebappRegistry();
         getInstance().clearStoragesForTesting();
         getInstance().initStorages(null);
+    }
+
+    public static void setInstanceForTests(WebappRegistry registry) {
+        var oldValue = Holder.sInstance;
+        Holder.sInstance = registry;
+        ResettersForTesting.register(() -> Holder.sInstance = oldValue);
     }
 
     /**
@@ -173,12 +212,17 @@ public class WebappRegistry {
                 mStorages.put(webappId, storage);
                 mPreferences.edit().putStringSet(KEY_WEBAPP_SET, mStorages.keySet()).apply();
                 storage.updateLastUsedTime();
+                if (storage.getId() != null
+                        && storage.getId().startsWith(WebApkConstants.WEBAPK_ID_PREFIX)) {
+                    storage.resetWebApkUninstallTimestamp();
+                }
                 if (callback != null) callback.onWebappDataStorageRetrieved(storage);
 
                 String manifestId = storage.getWebApkManifestId();
                 if (manifestId != null) {
                     mPendingManifestIdToPackageName.remove(manifestId);
                 }
+                notifyOriginsWithInstalledAppChanged();
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
@@ -191,6 +235,24 @@ public class WebappRegistry {
      */
     public @Nullable WebappDataStorage getWebappDataStorage(@Nullable String webappId) {
         return mStorages.get(webappId);
+    }
+
+    /**
+     * Returns the WebappDataStorage object for the specified WebAPK package name, or null if one
+     * cannot be found.
+     *
+     * @param packageName The package name of the WebAPK to look up.
+     * @return The storage object for the WebAPK, or null if one cannot be found.
+     */
+    public @Nullable WebappDataStorage getWebappDataStorageForPackage(
+            @Nullable String packageName) {
+        if (packageName == null) return null;
+        for (WebappDataStorage storage : mStorages.values()) {
+            if (packageName.equals(storage.getWebApkPackageName())) {
+                return storage;
+            }
+        }
+        return null;
     }
 
     /**
@@ -256,6 +318,7 @@ public class WebappRegistry {
         for (WebappDataStorage storage : mStorages.values()) {
             String scope = getWebApkScopeFromStorage(storage);
             if (scope.isEmpty()) continue;
+            if (storage.getWebApkUninstallTimestamp() > 0) continue;
 
             Origin origin = Origin.create(scope);
             assumeNonNull(origin);
@@ -498,6 +561,7 @@ public class WebappRegistry {
             return;
         }
 
+        boolean deleted = false;
         Iterator<Map.Entry<String, WebappDataStorage>> it = mStorages.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, WebappDataStorage> entry = it.next();
@@ -513,6 +577,7 @@ public class WebappRegistry {
             }
             storage.delete();
             it.remove();
+            deleted = true;
         }
 
         WebApkSyncService.removeOldWebAPKsFromSync(currentTime);
@@ -522,6 +587,10 @@ public class WebappRegistry {
                 .putLong(KEY_LAST_CLEANUP, currentTime)
                 .putStringSet(KEY_WEBAPP_SET, mStorages.keySet())
                 .apply();
+
+        if (deleted) {
+            notifyOriginsWithInstalledAppChanged();
+        }
     }
 
     /**
@@ -560,6 +629,7 @@ public class WebappRegistry {
      */
     @VisibleForTesting
     void unregisterWebappsForUrlsImpl(UrlFilter urlFilter) {
+        boolean deleted = false;
         Iterator<Map.Entry<String, WebappDataStorage>> it = mStorages.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, WebappDataStorage> entry = it.next();
@@ -567,6 +637,7 @@ public class WebappRegistry {
             if (urlFilter.matchesUrl(storage.getUrl())) {
                 storage.delete();
                 it.remove();
+                deleted = true;
             }
         }
 
@@ -574,6 +645,10 @@ public class WebappRegistry {
             mPreferences.edit().clear().apply();
         } else {
             mPreferences.edit().putStringSet(KEY_WEBAPP_SET, mStorages.keySet()).apply();
+        }
+
+        if (deleted) {
+            notifyOriginsWithInstalledAppChanged();
         }
     }
 
@@ -660,6 +735,9 @@ public class WebappRegistry {
         }
         if (isInitalizing) {
             WebApkUmaRecorder.recordWebApksCount(getOriginsWithWebApk().size());
+        }
+        if (!initedStorages.isEmpty()) {
+            notifyOriginsWithInstalledAppChanged();
         }
     }
 

@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/check_op.h"
+#include "base/containers/to_vector.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
@@ -39,6 +40,7 @@
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
+#include "components/autofill/core/browser/suggestions/suggestion_util.h"
 #include "components/autofill/core/browser/ui/autofill_suggestion_delegate.h"
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -132,7 +134,7 @@ std::u16string GetAccountEmail(content::WebContents* web_contents) {
   const std::optional<AccountInfo> account =
       GetPrimaryAccountInfoFromBrowserContext(
           web_contents->GetBrowserContext());
-  return account ? base::UTF8ToUTF16(account->email) : std::u16string();
+  return account ? base::UTF8ToUTF16(account->GetEmail()) : std::u16string();
 }
 
 // Gets the text for a dialog to confirm removing an autocomplete suggestion.
@@ -587,10 +589,8 @@ void AutofillKeyboardAccessoryControllerImpl::Show(
   // TODO(crbug.com/535486238): Plumb search_bar_initial_value through to the
   // UI.
   ui_session_id_ = ui_session_id;
-  suggestions_filling_product_ =
-      !suggestions.empty() && IsStandaloneSuggestionType(suggestions[0].type)
-          ? GetFillingProductFromSuggestionType(suggestions[0].type)
-          : FillingProduct::kNone;
+  suggestions_filling_product_ = GetFillingProductFromSuggestionTypes(
+      base::ToVector(suggestions, &Suggestion::type), trigger_source);
   if (auto* rwhv = web_contents_->GetRenderWidgetHostView();
       !rwhv || !rwhv->HasFocus()) {
     Hide(SuggestionHidingReason::kNoFrameHasFocus);
@@ -772,6 +772,47 @@ void AutofillKeyboardAccessoryControllerImpl::OpenSettingsForEntityType(
       break;
     default:
       break;
+  }
+}
+
+void AutofillKeyboardAccessoryControllerImpl::SelectSuggestion(int index) {
+  if (!base::FeatureList::IsEnabled(
+          autofill::features::kAutofillAndroidKeyboardAccessoryHoverPreview)) {
+    return;
+  }
+
+  if (!delegate_) {
+    return;
+  }
+
+  if (base::checked_cast<size_t>(index) >= suggestions_.size()) {
+    return;
+  }
+
+  // If the mouse pointer is locked by the webpage, hide the suggestions to
+  // prevent unexpected or untrusted interactions.
+  if (IsPointerLocked(web_contents_.get())) {
+    Hide(SuggestionHidingReason::kMouseLocked);
+    return;
+  }
+
+  const Suggestion& suggestion = GetSuggestionAt(index);
+
+  if (suggestion.IsSelectable()) {
+    delegate_->DidSelectSuggestion(suggestion);
+  } else {
+    delegate_->ClearPreviewedForm();
+  }
+}
+
+void AutofillKeyboardAccessoryControllerImpl::UnselectSuggestion() {
+  if (!base::FeatureList::IsEnabled(
+          autofill::features::kAutofillAndroidKeyboardAccessoryHoverPreview)) {
+    return;
+  }
+
+  if (delegate_) {
+    delegate_->ClearPreviewedForm();
   }
 }
 

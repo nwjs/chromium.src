@@ -5,6 +5,7 @@
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/test/scoped_feature_list.h"
+#include "build/build_config.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/webui_url_constants.h"
@@ -13,6 +14,7 @@
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/omnibox/browser/mock_aim_eligibility_service.h"
 #include "content/public/test/browser_test.h"
+#include "extensions/buildflags/buildflags.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
@@ -67,6 +69,21 @@ class ContextualTasksBrowserTest : public WebUIMochaBrowserTest {
 // TODO(crbug.com/487147580): Re-enable the test
 IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest, DISABLED_App) {
   RunTest("contextual_tasks/app_test.js", "mocha.run();");
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest,
+                       App_TracksFinishedTopLevelNavigation) {
+  RunTest("contextual_tasks/app_test.js",
+          "runMochaTest('ContextualTasksAppTest', "
+          "'tracks finished top level navigation')");
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest,
+                       App_TracksFinishedTopLevelNavigationRace) {
+  RunTest(
+      "contextual_tasks/app_test.js",
+      "runMochaTest('ContextualTasksAppTest', "
+      "'tracks finished top level navigation when content load wins race')");
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -139,16 +156,52 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest, Composebox_Files) {
           "runMochaSuite('ContextualTasksComposeboxFilesTest')");
 }
 
-IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest, Composebox_Files_ForkTrue) {
+IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest,
+                       Composebox_Files_ForkTrue_LensBehavior) {
   RunTest("contextual_tasks/composebox_files_test.js",
           "runMochaSuite('ContextualTasksComposeboxForkFilesTest "
-          "\\\\(useContextualTasksComposeboxFork = true\\\\)')");
+          "\\\\(useContextualTasksComposeboxFork = true\\\\) "
+          "LensBehavior')");
 }
 
-IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest, Composebox_Files_ForkFalse) {
+IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest,
+                       Composebox_Files_ForkTrue_FileInputsAndUploads) {
   RunTest("contextual_tasks/composebox_files_test.js",
           "runMochaSuite('ContextualTasksComposeboxForkFilesTest "
-          "\\\\(useContextualTasksComposeboxFork = false\\\\)')");
+          "\\\\(useContextualTasksComposeboxFork = true\\\\) "
+          "FileInputsAndUploads')");
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest,
+                       Composebox_Files_ForkTrue_PlaceholderHints) {
+  RunTest("contextual_tasks/composebox_files_test.js",
+          "runMochaSuite('ContextualTasksComposeboxForkFilesTest "
+          "\\\\(useContextualTasksComposeboxFork = true\\\\) "
+          "PlaceholderHints')");
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest,
+                       Composebox_Files_ForkFalse_LensBehavior) {
+  RunTest("contextual_tasks/composebox_files_test.js",
+          "runMochaSuite('ContextualTasksComposeboxForkFilesTest "
+          "\\\\(useContextualTasksComposeboxFork = false\\\\) "
+          "LensBehavior')");
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest,
+                       Composebox_Files_ForkFalse_FileInputsAndUploads) {
+  RunTest("contextual_tasks/composebox_files_test.js",
+          "runMochaSuite('ContextualTasksComposeboxForkFilesTest "
+          "\\\\(useContextualTasksComposeboxFork = false\\\\) "
+          "FileInputsAndUploads')");
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest,
+                       Composebox_Files_ForkFalse_PlaceholderHints) {
+  RunTest("contextual_tasks/composebox_files_test.js",
+          "runMochaSuite('ContextualTasksComposeboxForkFilesTest "
+          "\\\\(useContextualTasksComposeboxFork = false\\\\) "
+          "PlaceholderHints')");
 }
 
 // Run each AutoTab arm's nested suites as separate browser tests so each group
@@ -161,8 +214,16 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest,
           "ChipCreationAndMismatch')");
 }
 
+// TODO(crbug.com/556296442): Flaky on Linux.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_Composebox_AutoTab_ForkTrue_DeletionSemantics \
+  DISABLED_Composebox_AutoTab_ForkTrue_DeletionSemantics
+#else
+#define MAYBE_Composebox_AutoTab_ForkTrue_DeletionSemantics \
+  Composebox_AutoTab_ForkTrue_DeletionSemantics
+#endif
 IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest,
-                       Composebox_AutoTab_ForkTrue_DeletionSemantics) {
+                       MAYBE_Composebox_AutoTab_ForkTrue_DeletionSemantics) {
   RunTest("contextual_tasks/composebox_files_test.js",
           "runMochaSuite('ContextualTasksComposeboxForkAutoTabTest "
           "\\\\(useContextualTasksComposeboxFork = true\\\\) "
@@ -263,6 +324,12 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest,
           "runMochaSuite('ContextualTasksComposeboxForkErrorScrimTest "
           "\\\\(useContextualTasksComposeboxFork = false\\\\)')");
 }
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest, InputPlate) {
+  RunTest("contextual_tasks/input_plate_test.js", "mocha.run();");
+}
+#endif
 
 // TODO(crbug.com/480689282): Flaky on ChromeOS debug.
 // TODO(crbug.com/487147580): Re-enable on Linux.
@@ -431,9 +498,17 @@ IN_PROC_BROWSER_TEST_F(
           "coherence = true\\\\) CoherenceControlsFilesAndLifecycle')");
 }
 
+// TODO(crbug.com/556296442): Flaky on Linux.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_Composebox_Voice_CoherenceControlsFilesAndLifecycle_ForkFalse \
+  DISABLED_Composebox_Voice_CoherenceControlsFilesAndLifecycle_ForkFalse
+#else
+#define MAYBE_Composebox_Voice_CoherenceControlsFilesAndLifecycle_ForkFalse \
+  Composebox_Voice_CoherenceControlsFilesAndLifecycle_ForkFalse
+#endif
 IN_PROC_BROWSER_TEST_F(
     ContextualTasksBrowserTest,
-    Composebox_Voice_CoherenceControlsFilesAndLifecycle_ForkFalse) {
+    MAYBE_Composebox_Voice_CoherenceControlsFilesAndLifecycle_ForkFalse) {
   RunTest("contextual_tasks/composebox_test.js",
           "runMochaSuite('ContextualTasksComposeboxForkVoiceTest "
           "\\\\(useContextualTasksComposeboxFork = false, "

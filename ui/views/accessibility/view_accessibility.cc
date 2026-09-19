@@ -167,6 +167,7 @@ void ViewAccessibility::AddVirtualChildViewAt(
   added_view->OnOwnerViewChanged();
 
   AXUpdateNotifier::Get()->NotifyChildAdded(added_view, this);
+  added_view->OnVirtualViewAddedToWidget();
   FireLiveRegionChangedIfNeeded(LiveRegionEventTrigger::kAdditions);
 }
 
@@ -177,6 +178,9 @@ std::unique_ptr<AXVirtualView> ViewAccessibility::RemoveVirtualChildView(
   if (!cur_index.has_value()) {
     return {};
   }
+
+  AXVirtualView* child_to_remove = virtual_children_[cur_index.value()].get();
+  child_to_remove->OnVirtualViewRemovedFromWidget();
 
   std::unique_ptr<AXVirtualView> child =
       std::move(virtual_children_[cur_index.value()]);
@@ -1604,7 +1608,20 @@ void ViewAccessibility::SetMaxValueForRange(float value) {
 
 void ViewAccessibility::SetDefaultActionVerb(
     const ax::mojom::DefaultActionVerb default_action_verb) {
+  if (data_.GetDefaultActionVerb() == default_action_verb) {
+    return;
+  }
+
+  if (default_action_verb == ax::mojom::DefaultActionVerb::kNone) {
+    RemoveDefaultActionVerb();
+    return;
+  }
+
   data_.SetDefaultActionVerb(default_action_verb);
+
+  OnIntAttributeChanged(ax::mojom::IntAttribute::kDefaultActionVerb,
+                        static_cast<int32_t>(default_action_verb));
+  NotifyDataChanged();
 }
 
 ax::mojom::DefaultActionVerb ViewAccessibility::GetDefaultActionVerb() const {
@@ -1878,27 +1895,89 @@ gfx::NativeViewAccessible ViewAccessibility::GetNativeObject() const {
 }
 
 void ViewAccessibility::AnnounceAlert(std::u16string_view text) {
-  if (auto* const widget = GetWidget()) {
-    if (auto* const root_view =
-            static_cast<internal::RootView*>(widget->GetRootView())) {
-      root_view->AnnounceTextAs(std::u16string(text),
-                                ui::AXPlatformNode::AnnouncementType::kAlert);
-    }
-  }
+  Announce(text, ax::mojom::AriaNotificationPriority::kHigh);
 }
 
 void ViewAccessibility::AnnouncePolitely(std::u16string_view text) {
-  if (auto* const widget = GetWidget()) {
-    if (auto* const root_view =
-            static_cast<internal::RootView*>(widget->GetRootView())) {
-      root_view->AnnounceTextAs(std::u16string(text),
-                                ui::AXPlatformNode::AnnouncementType::kPolite);
-    }
-  }
+  Announce(text, ax::mojom::AriaNotificationPriority::kNormal);
 }
 
 void ViewAccessibility::AnnounceText(std::u16string_view text) {
   AnnounceAlert(text);
+}
+
+void ViewAccessibility::Announce(std::u16string_view text,
+                                 ax::mojom::AriaNotificationPriority priority) {
+  if (text.empty()) {
+    return;
+  }
+
+  auto* widget = GetWidget();
+  if (!widget) {
+    return;
+  }
+
+  auto* root_view = static_cast<internal::RootView*>(widget->GetRootView());
+  if (!root_view) {
+    return;
+  }
+
+  if (IsViewsAccessibilityTreeEnabled()) {
+    if (auto* manager = widget->ax_manager();
+        manager && manager->is_enabled()) {
+      root_view->GetViewAccessibility().AddAriaNotification(text, priority);
+    }
+    return;
+  }
+
+  root_view->AnnounceTextAs(
+      std::u16string(text),
+      priority == ax::mojom::AriaNotificationPriority::kHigh
+          ? ui::AXPlatformNode::AnnouncementType::kAlert
+          : ui::AXPlatformNode::AnnouncementType::kPolite);
+}
+
+void ViewAccessibility::AddAriaNotification(
+    std::u16string_view text,
+    ax::mojom::AriaNotificationPriority priority) {
+  auto announcements = data_.GetStringListAttribute(
+      ax::mojom::StringListAttribute::kAriaNotificationAnnouncements);
+  auto priority_properties = data_.GetIntListAttribute(
+      ax::mojom::IntListAttribute::kAriaNotificationPriorityProperties);
+  auto interrupt_properties = data_.GetIntListAttribute(
+      ax::mojom::IntListAttribute::kAriaNotificationInterruptProperties);
+  auto types = data_.GetStringListAttribute(
+      ax::mojom::StringListAttribute::kAriaNotificationTypes);
+
+  announcements.push_back(base::UTF16ToUTF8(text));
+  priority_properties.push_back(static_cast<int32_t>(priority));
+  interrupt_properties.push_back(
+      static_cast<int32_t>(ax::mojom::AriaNotificationInterrupt::kNone));
+  types.emplace_back();
+
+  data_.AddStringListAttribute(
+      ax::mojom::StringListAttribute::kAriaNotificationAnnouncements,
+      announcements);
+  data_.AddIntListAttribute(
+      ax::mojom::IntListAttribute::kAriaNotificationPriorityProperties,
+      priority_properties);
+  data_.AddIntListAttribute(
+      ax::mojom::IntListAttribute::kAriaNotificationInterruptProperties,
+      interrupt_properties);
+  data_.AddStringListAttribute(
+      ax::mojom::StringListAttribute::kAriaNotificationTypes, types);
+  NotifyDataChanged();
+}
+
+void ViewAccessibility::ClearPendingAriaNotifications() {
+  data_.RemoveStringListAttribute(
+      ax::mojom::StringListAttribute::kAriaNotificationAnnouncements);
+  data_.RemoveIntListAttribute(
+      ax::mojom::IntListAttribute::kAriaNotificationPriorityProperties);
+  data_.RemoveIntListAttribute(
+      ax::mojom::IntListAttribute::kAriaNotificationInterruptProperties);
+  data_.RemoveStringListAttribute(
+      ax::mojom::StringListAttribute::kAriaNotificationTypes);
 }
 
 ui::AXPlatformNodeId ViewAccessibility::GetUniqueId() const {

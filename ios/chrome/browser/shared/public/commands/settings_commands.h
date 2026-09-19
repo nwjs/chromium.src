@@ -39,6 +39,9 @@ enum class PushNotificationClientId;
 // Shows the Gemini settings UI.
 - (void)showGeminiSettings;
 
+// Shows the Suggestions from Gemini Help Improve settings UI.
+- (void)showSuggestionsFromGeminiHelpImprove;
+
 // TODO(crbug.com/41352590) : Do not pass baseViewController through dispatcher.
 // Shows the Google services settings UI, presenting from `baseViewController`.
 // If `baseViewController` is nil BVC will be used as presenterViewController.
@@ -168,6 +171,10 @@ enum class PushNotificationClientId;
 
 // Shows the Autofill settings UI from an Autofill notice (no back button).
 - (void)showAutofillSettingsFromNotice;
+
+// Shows the Enhanced Autofill settings UI (no back button). `completion` is
+// executed after the UI is dismissed.
+- (void)showEnhancedAutofillSettingsWithCompletion:(ProceduralBlock)completion;
 
 @end
 

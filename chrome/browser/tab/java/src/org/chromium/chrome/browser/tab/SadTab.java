@@ -38,7 +38,7 @@ import org.chromium.url.GURL;
  * moving this to its own target.
  */
 @NullMarked
-public class SadTab extends EmptyTabObserver implements UserData, TabViewProvider {
+public class SadTab implements TabObserver, UserData, TabViewProvider {
     private static final Class<SadTab> USER_DATA_KEY = SadTab.class;
 
     private final Tab mTab;
@@ -289,10 +289,10 @@ public class SadTab extends EmptyTabObserver implements UserData, TabViewProvide
     private static void recordEvent(boolean sendFeedbackView, int event) {
         if (sendFeedbackView) {
             RecordHistogram.recordEnumeratedHistogram(
-                    "Tabs.SadTab.Feedback.Event", event, SadTabEvent.MAX_SAD_TAB_EVENT);
+                    "Tabs.SadTab.Feedback.Event", event, SadTabEvent.COUNT);
         } else {
             RecordHistogram.recordEnumeratedHistogram(
-                    "Tabs.SadTab.Reload.Event", event, SadTabEvent.MAX_SAD_TAB_EVENT);
+                    "Tabs.SadTab.Reload.Event", event, SadTabEvent.COUNT);
         }
     }
 

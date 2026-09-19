@@ -25,10 +25,10 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ssl/typed_navigation_upgrade_throttle.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/browser/ui/hats/mock_hats_service.h"
@@ -74,6 +74,7 @@
 #include "content/public/test/no_renderer_crashes_assertion.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/url_loader_interceptor.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
 #include "ui/accessibility/ax_action_data.h"
@@ -155,7 +156,7 @@ class OmniboxViewViewsTest : public InProcessBrowserTest {
     return &triggered_feature_service_;
   }
 
-  static void GetOmniboxViewForBrowser(Browser* browser,
+  static void GetOmniboxViewForBrowser(BrowserWindowInterface* browser,
                                        OmniboxView** omnibox_view) {
     BrowserWindow* window = BrowserWindow::FromBrowser(browser);
     ASSERT_TRUE(window);
@@ -216,7 +217,7 @@ class OmniboxViewViewsTest : public InProcessBrowserTest {
 
   void PressEnterAndWaitForNavigations(size_t num_expected_navigations) {
     content::TestNavigationObserver navigation_observer(
-        browser()->tab_strip_model()->GetActiveWebContents(),
+        browser()->GetTabStripModel()->GetActiveWebContents(),
         num_expected_navigations);
     EXPECT_TRUE(ui_test_utils::SendKeyPressSync(browser(), ui::VKEY_RETURN,
                                                 false, false, false, false));
@@ -283,7 +284,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, AyncDropCallback) {
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(), VIEW_ID_OMNIBOX));
   EXPECT_TRUE(omnibox_view_views->IsSelectAll());
   EXPECT_FALSE(
-      browser()->tab_strip_model()->GetActiveWebContents()->IsLoading());
+      browser()->GetTabStripModel()->GetActiveWebContents()->IsLoading());
 }
 
 // Flaky: https://crbug.com/41432033.
@@ -895,7 +896,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, DISABLED_ReloadAfterKill) {
                                            chrome::ChromeUINewTabURLAsGURL()));
 
   content::WebContents* tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   // Kill the tab with chrome://kill
   {
     content::ScopedAllowRendererCrashes scoped_allow_renderer_crashes;
@@ -1208,7 +1209,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsIMETest, TextInputTypeInitRespectsIME) {
   OmniboxMockInputMethod* input_method = new OmniboxMockInputMethod();
   ui::SetUpInputMethodForTesting(input_method);
   input_method->SetInputLocaleCJK(/*is_cjk=*/true);
-  Browser* browser_2 = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* browser_2 = CreateBrowser(browser()->GetProfile());
   OmniboxView* view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxViewForBrowser(browser_2, &view));
   OmniboxViewViews* omnibox_view_views = static_cast<OmniboxViewViews*>(view);
@@ -1277,7 +1278,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, MAYBE_HandleExternalProtocolURLs) {
                                                 false, false, false, false));
 
     content::WebContents* tab =
-        browser()->tab_strip_model()->GetActiveWebContents();
+        browser()->GetTabStripModel()->GetActiveWebContents();
     EXPECT_TRUE(content::WaitForLoadStop(tab));
 
     EXPECT_EQ(ExternalProtocolHandler::BLOCK,
@@ -1355,7 +1356,7 @@ IN_PROC_BROWSER_TEST_F(
   omnibox()->SetUserText(base::UTF8ToUTF16(url.spec()), true);
   PressEnterAndWaitForNavigations(1);
   content::WebContents* contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   EXPECT_EQ(url, contents->GetLastCommittedURL());
   EXPECT_FALSE(chrome_browser_interstitials::IsShowingInterstitial(contents));
 
@@ -1824,7 +1825,7 @@ class OmniboxViewViewsPlaceholderTest : public InProcessBrowserTest {
   }
 
   content::WebContents* web_contents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
  private:

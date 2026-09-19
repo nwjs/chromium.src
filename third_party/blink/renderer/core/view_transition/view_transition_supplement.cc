@@ -23,7 +23,6 @@
 #include "third_party/blink/renderer/core/page/page_animator.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/route_matching/navigation_state.h"
-#include "third_party/blink/renderer/core/route_matching/route_map.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/view_transition/dom_view_transition.h"
 #include "third_party/blink/renderer/core/view_transition/page_swap_event.h"
@@ -249,10 +248,8 @@ void ViewTransitionSupplement::StartTransition(
         [](Document* document,
            ViewTransition::ViewTransitionStateCallback callback,
            const ViewTransitionState& state) {
-          if (document) {
-            if (RouteMap* route_map = RouteMap::Get(document)) {
-              route_map->OnPreviewFinished();
-            }
+          if (auto* navigation_state = NavigationState::Get(document)) {
+            navigation_state->OnPreviewFinished();
           }
           std::move(callback).Run(state);
         },
@@ -362,7 +359,7 @@ void ViewTransitionSupplement::OnTransitionFinished(
     }
   }
 
-  if (RuntimeEnabledFeatures::NavigationStateEnabled()) {
+  if (RuntimeEnabledFeatures::NavigationSourcePseudoClassEnabled()) {
     // This view transition, which is now finished, may be the one reason why
     // there's still a "current navigation state". Therefore, attempt finish any
     // current navigation.

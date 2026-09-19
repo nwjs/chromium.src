@@ -40,6 +40,7 @@
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
+#include "base/memory/raw_ptr.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -410,10 +411,13 @@ struct SameSizeAsDocumentLoader
   LoaderFreezeMode defers_loading;
   bool last_navigation_had_transient_user_activation;
   bool last_navigation_had_trusted_initiator;
+  bool is_secure_context_root;
+  mojom::blink::ScriptInjectionPolicy script_injection_policy;
   bool had_sticky_activation;
   bool is_browser_initiated;
   bool is_prerendering;
   bool has_text_fragment_token;
+  bool text_fragment_token_had_trusted_initiator;
   std::optional<String> internal_scroll_to_text_fragment;
   bool was_discarded;
   bool loading_main_document_from_mhtml_archive;
@@ -428,7 +432,8 @@ struct SameSizeAsDocumentLoader
   Member<PrefetchedSignedExchangeManager> prefetched_signed_exchange_manager;
   ukm::SourceId ukm_source_id;
   UseCounterImpl use_counter;
-  const base::TickClock* clock;
+  raw_ptr<const base::TickClock, UnprotectedInRelease | DanglingUntriaged>
+      clock;
   const Vector<mojom::blink::OriginTrialFeature>
       initiator_origin_trial_features;
   const Vector<String> force_enabled_origin_trials;
@@ -637,6 +642,7 @@ DocumentLoader::DocumentLoader(
   DCHECK(frame_);
   DCHECK(params_);
   is_secure_context_root_ = params_->is_secure_context_root;
+  script_injection_policy_ = params_->script_injection_policy;
 
   // See `archive_` attribute documentation.
   if (!frame_->IsMainFrame()) {
@@ -650,6 +656,10 @@ DocumentLoader::DocumentLoader(
   // consume its token.
   has_text_fragment_token_ = TextFragmentAnchor::GenerateNewToken(*this) ||
                              params_->has_text_fragment_token;
+  if (params_->has_text_fragment_token) {
+    text_fragment_token_had_trusted_initiator_ =
+        params_->text_fragment_token_had_trusted_initiator;
+  }
 
   if (params_->internal_scroll_to_text_fragment) {
     // We store this in a separate member because params_ is cleared after
@@ -776,6 +786,7 @@ DocumentLoader::CreateWebNavigationParamsToCloneDocument() {
       last_navigation_had_transient_user_activation_;
   params->is_browser_initiated = is_browser_initiated_;
   params->was_discarded = was_discarded_;
+  params->script_injection_policy = script_injection_policy_;
   params->document_ukm_source_id = ukm_source_id_;
   params->is_cross_site_cross_browsing_context_group =
       is_cross_site_cross_browsing_context_group_;
@@ -783,6 +794,8 @@ DocumentLoader::CreateWebNavigationParamsToCloneDocument() {
   params->should_have_sticky_user_activation =
       frame_->HasStickyUserActivation() && !frame_->IsMainFrame();
   params->has_text_fragment_token = has_text_fragment_token_;
+  params->text_fragment_token_had_trusted_initiator =
+      text_fragment_token_had_trusted_initiator_;
   if (internal_scroll_to_text_fragment_) {
     params->internal_scroll_to_text_fragment =
         WebString(*internal_scroll_to_text_fragment_);
@@ -1137,6 +1150,10 @@ void DocumentLoader::UpdateForSameDocumentNavigation(
     has_text_fragment_token_ =
         TextFragmentAnchor::GenerateNewTokenForSameDocument(
             *this, type, same_document_navigation_type);
+    if (has_text_fragment_token_) {
+      text_fragment_token_had_trusted_initiator_ =
+          last_navigation_had_trusted_initiator_;
+    }
   }
 
   SetHistoryItemStateForCommit(history_item_.Get(), type,
@@ -3008,6 +3025,9 @@ void DocumentLoader::CommitNavigation() {
   DCHECK(!frame_->GetDocument() ||
          frame_->GetDocument()->ConnectedSubframeCount() == 0);
   state_ = kCommitted;
+  if (frame_->IsLocalRoot()) {
+    frame_->UpdateExtensionScriptTracking();
+  }
 
   // Prepare a DocumentInit before clearing the frame, because it may need to
   // inherit an aliased security context.
@@ -3307,6 +3327,10 @@ void DocumentLoader::CommitNavigation() {
   // API).
   last_navigation_had_trusted_initiator_ =
       !requestor_origin_ || is_same_origin_initiator;
+  if (has_text_fragment_token_) {
+    text_fragment_token_had_trusted_initiator_ =
+        last_navigation_had_trusted_initiator_;
+  }
 
   // The PaintHolding feature defers compositor commits until content has been
   // painted or 500ms have passed, whichever comes first. We require that this

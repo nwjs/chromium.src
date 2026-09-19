@@ -37,12 +37,17 @@ class ScenarioBuilder final {
                                  const std::string& base_model);
   ScenarioBuilder& AddUnsafeSolution(const std::string& use_case,
                                      const std::string& model);
+  ScenarioBuilder& AddUnsafeSolution(const std::string& use_case,
+                                     const std::string& model,
+                                     proto::SolutionConfig config);
   ScenarioBuilder& AddSafeSolution(const std::string& use_case,
                                    const std::string& model,
                                    const std::string& safety_model,
                                    proto::SolutionConfig config);
   ScenarioBuilder& SetFeatureConfig(DeviceCategory category,
                                     const std::string& use_case,
+                                    const proto::Any& config);
+  ScenarioBuilder& SetFeatureConfig(const std::string& use_case,
                                     const proto::Any& config);
   ScenarioBuilder& SetValidationTask(DeviceCategory category,
                                      proto::ValidationTask task);

@@ -19,7 +19,7 @@
             },
             {
                 "domain": "Browser",
-                "include": ["getVersion", "getHistograms", "getHistogram", "getBrowserCommandLine", "grantPermissions", "setDownloadBehavior", "cancelDownload", "resetPermissions", "crash", "crashGpuProcess", "setPermission"],
+                "include": ["getVersion", "getHistograms", "getHistogram", "getBrowserCommandLine", "grantPermissions", "setDownloadBehavior", "cancelDownload", "resetPermissions", "crash", "crashGpuProcess", "setPermission", "getGlobalPrivacyControl", "setGlobalPrivacyControl", "addMockCamera"],
                 "async": ["grantPermissions", "resetPermissions", "setPermission"]
             },
             {
@@ -187,7 +187,7 @@
             {
                 "domain": "Storage",
                 "exclude": ["runBounceTrackingMitigations", "getRelatedWebsiteSets"],
-                "async": ["getUsageAndQuota", "clearDataForOrigin", "clearDataForStorageKey", "getCookies", "setCookies", "clearCookies", "overrideQuotaForOrigin", "getTrustTokens", "clearTrustTokens", "getSharedStorageMetadata", "getSharedStorageEntries", "setSharedStorageEntry", "deleteSharedStorageEntry", "clearSharedStorageEntries", "resetSharedStorageBudget", "getStorageBucketList"]
+                "async": ["getUsageAndQuota", "clearDataForOrigin", "clearDataForStorageKey", "getCookies", "setCookies", "clearCookies", "overrideQuotaForOrigin", "getTrustTokens", "clearTrustTokens", "getStorageBucketList"]
             },
             {
                 "domain": "SystemInfo",
@@ -204,7 +204,7 @@
             },
             {
                 "domain": "Tracing",
-                "async": ["start", "getCategories", "requestMemoryDump"]
+                "async": ["start", "getCategories", "requestMemoryDump", "getTrackEventDescriptor"]
             },
             {
                 "domain": "VisualDebugger",

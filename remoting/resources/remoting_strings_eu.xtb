@@ -48,6 +48,7 @@ Baimen hori emateko, sakatu beheko "<ph name="BUTTON_NAME" />" botoia pantailare
 <translation id="3197730452537982411">Urruneko pantaila</translation>
 <translation id="3236334139428307578">Copyright 2026 The Chromium Authors. Eskubide guztiak erreserbatuta.</translation>
 <translation id="324272851072175193">Bidali argibideak posta elektronikoz</translation>
+<translation id="3254626532848657899">Eraman behera</translation>
 <translation id="3305934114213025800"><ph name="PRODUCT_NAME" /> aplikazioak aldaketak egin nahi ditu.</translation>
 <translation id="3339299787263251426">Atzitu ordenagailua modu seguruan Internet bidez</translation>
 <translation id="3385242214819933234">Ez du balio ostalari-jabeak.</translation>
@@ -166,6 +167,7 @@ Baimen hori emateko, sakatu beheko "<ph name="BUTTON_NAME" />" botoia pantailare
 <translation id="8073845705237259513">Chrome-ren Urruneko pantaila erabili ahal izateko, Google-ko kontu bat gehitu beharko duzu gailuan.</translation>
 <translation id="809687642899217504">Nire ordenagailuak</translation>
 <translation id="8116630183974937060">Sareko errore bat gertatu da. Egiaztatu gailua konektatuta daukazula eta saiatu berriro.</translation>
+<translation id="8249310407154411074">Eraman goraino</translation>
 <translation id="8295077433896346116"><ph name="PRODUCT_NAME" /> erabiltzeko, erabilerraztasun-eginbideak erabiltzeko baimena eman behar diozu, urruneko gailuko sarrerak Mac honetan aplika daitezen.
 
 Baimen hori emateko, sakatu beheko "<ph name="BUTTON_NAME" />" botoia. Erabilerraztasun-eginbideen hobespen-panela irekitzen denean, markatu "<ph name="SERVICE_SCRIPT_NAME" />" elementuaren ondoan dagoen koadroa.

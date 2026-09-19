@@ -11,9 +11,10 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/page_info/about_this_site_service_factory.h"
 #include "chrome/browser/safe_browsing/chrome_password_protection_service.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/location_bar/location_icon_view.h"
+#include "chrome/browser/ui/views/location_bar/location_icon_test_accessor.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view.h"
 #include "chrome/browser/ui/views/page_info/page_info_cookies_content_view.h"
 #include "chrome/browser/ui/views/page_info/page_info_main_view.h"
@@ -75,13 +76,8 @@ constexpr char kMerchantTrustUrl[] = "b.test";
 constexpr char kMerchantTrustUrlWithoutSummary[] = "c.test";
 
 // Clicks the location icon to open the page info bubble.
-void OpenPageInfoBubble(Browser* browser) {
-  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
-  LocationIconView* location_icon_view =
-      browser_view->toolbar()->location_bar_view()->location_icon_view();
-  ASSERT_TRUE(location_icon_view);
-  ui::test::TestEvent event;
-  location_icon_view->ShowBubble(event);
+void OpenPageInfoBubble(BrowserWindowInterface* browser) {
+  LocationIconTestAccessor(browser).ShowBubble();
   views::BubbleDialogDelegateView* page_info =
       PageInfoBubbleView::GetPageInfoBubbleForTesting();
   EXPECT_NE(nullptr, page_info);
@@ -90,7 +86,7 @@ void OpenPageInfoBubble(Browser* browser) {
 
 // Opens the Page Info bubble and retrieves the UI view identified by
 // |view_id|.
-views::View* GetView(Browser* browser, int view_id) {
+views::View* GetView(BrowserWindowInterface* browser, int view_id) {
   views::Widget* page_info_bubble =
       PageInfoBubbleView::GetPageInfoBubbleForTesting()->GetWidget();
   EXPECT_TRUE(page_info_bubble);
@@ -392,8 +388,7 @@ class PageInfoBubbleViewDialogBrowserTest : public DialogBrowserTest {
       bubble_view->OpenSecurityPage();
     }
 
-    if (name != kInsecure && name.find(kInternal) == std::string::npos &&
-        name != kFile) {
+    if (name != kInsecure && !name.contains(kInternal) && name != kFile) {
       identity.site_identity = kSiteOrigin;
       // The bubble may be PageInfoBubbleView or InternalPageInfoBubbleView. The
       // latter is only used for |kInternal|, so it is safe to static_cast here.
@@ -770,7 +765,7 @@ class PageInfoBubbleViewIsolatedWebAppBrowserTest : public DialogBrowserTest {
     // https://crbug.com/41419544.
     set_should_verify_dialog_bounds(false);
 
-    Browser* iwa_browser =
+    BrowserWindowInterface* iwa_browser =
         web_app::LaunchWebAppBrowserAndWait(browser()->GetProfile(), app_id_);
 
     ASSERT_TRUE(iwa_browser);
@@ -886,7 +881,7 @@ class PageInfoBubbleViewWebAppBrowserTest
     }
 #endif
 
-    Browser* app_browser = browser();
+    BrowserWindowInterface* app_browser = browser();
     switch (GetParam()) {
       case WebAppWindowMode::kBrowserTab:
         ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), start_url_));

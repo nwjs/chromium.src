@@ -26,7 +26,7 @@ namespace context_hub {
 class ContextHubDatabase {
  public:
   // Current database schema version.
-  static constexpr int kCurrentVersionNumber = 1;
+  static constexpr int kCurrentVersionNumber = 2;
 
   ContextHubDatabase();
   ContextHubDatabase(const ContextHubDatabase&) = delete;
@@ -39,10 +39,17 @@ class ContextHubDatabase {
 
   // Operations on memory bank entries (delegates to MemoryBankTable):
   bool AddOrUpdateMemoryBankEntry(const MemoryBankEntry& entry);
+  bool UpdateMemoryBankEntryAnnotations(
+      int64_t id,
+      const std::vector<std::string>& tags,
+      const std::optional<std::string>& note,
+      const std::optional<std::string>& collection);
   std::optional<MemoryBankEntry> GetMemoryBankEntry(int64_t id);
   std::vector<MemoryBankEntry> GetMemoryBankEntriesByIds(
       base::span<const int64_t> ids);
   std::vector<MemoryBankEntry> GetAllMemoryBankEntries();
+  std::vector<std::string> GetAllMemoryBankTags();
+  std::vector<std::string> GetAllMemoryBankCollections();
   bool DeleteMemoryBankEntries(base::span<const int64_t> ids);
 
  private:
@@ -51,6 +58,9 @@ class ContextHubDatabase {
   // Migrates the database schema from `detected_user_version` to
   // `kCurrentVersionNumber`.
   bool MigrateOldVersionsAsNeeded(int detected_user_version);
+
+  // Migrates the database schema to `version`.
+  bool MigrateToVersion(int version);
 
   std::unique_ptr<sql::Database> db_;
 

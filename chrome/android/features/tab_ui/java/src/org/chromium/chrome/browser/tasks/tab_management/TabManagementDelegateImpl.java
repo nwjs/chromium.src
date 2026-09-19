@@ -28,7 +28,6 @@ import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.hub.HubManager;
 import org.chromium.chrome.browser.hub.Pane;
 import org.chromium.chrome.browser.hub.PaneManager;
@@ -149,13 +148,12 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
                             () -> activity,
                             multiInstanceManager,
                             dragDropDelegate,
-                            dragHandlerManager);
+                            dragHandlerManager,
+                            /* fadeDragShadow= */ true);
             tabSwitcherDragHandler.setTabModelSelector(tabModelSelector);
-            if (ChromeFeatureList.sEscCancelDrag.isEnabled()) {
-                if (!backPressManager.has(BackPressHandler.Type.CANCEL_TAB_SWITCHER_DRAG)) {
-                    backPressManager.addHandler(
-                            dragHandlerManager, BackPressHandler.Type.CANCEL_TAB_SWITCHER_DRAG);
-                }
+            if (!backPressManager.has(BackPressHandler.Type.CANCEL_TAB_SWITCHER_DRAG)) {
+                backPressManager.addHandler(
+                        dragHandlerManager, BackPressHandler.Type.CANCEL_TAB_SWITCHER_DRAG);
             }
         }
 

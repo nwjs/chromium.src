@@ -16,11 +16,12 @@
 #include "chrome/browser/download/download_permission_request.h"
 #include "chrome/browser/permissions/quiet_notification_permission_ui_config.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/permissions/chip/chip_controller.h"
 #include "chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.h"
@@ -92,6 +93,20 @@ class PermissionPromptBubbleBaseViewBrowserTest : public DialogBrowserTest {
     const std::string& actual_name = name.substr(0, name.find("/"));
     AddRequestForContentSetting(actual_name);
     base::RunLoop().RunUntilIdle();
+
+    // In WebUI Toolbar mode, permission chips use WebUIPermissionChip, which
+    // drives expand animations via asynchronous Mojo IPCs instead of native
+    // gfx::Animation. `base::RunLoop().RunUntilIdle()` alone does not wait for
+    // the WebUI IPC callback to arrive. If the chip is still animating,
+    // forcibly snap the chip to expanded and trigger `OnExpandAnimationEnded()`
+    // so the prompt bubble widget is created synchronously before `ShowUi()`
+    // returns.
+    ChipController* chip_controller = GetChipController();
+    if (chip_controller && chip_controller->IsAnimating()) {
+      chip_controller->chip()->ResetAnimation(
+          PermissionChipInterface::AnimationState::kExpanded);
+      chip_controller->OnExpandAnimationEnded();
+    }
   }
 
   GURL GetTestUrl() { return test_url_; }
@@ -99,7 +114,7 @@ class PermissionPromptBubbleBaseViewBrowserTest : public DialogBrowserTest {
 
   content::RenderFrameHost* GetActiveMainFrame() {
     return browser()
-        ->tab_strip_model()
+        ->GetTabStripModel()
         ->GetActiveWebContents()
         ->GetPrimaryMainFrame();
   }
@@ -241,11 +256,16 @@ IN_PROC_BROWSER_TEST_F(PermissionPromptBubbleBaseViewBrowserTest,
 // make sure no crashes.
 IN_PROC_BROWSER_TEST_F(PermissionPromptBubbleBaseViewBrowserTest,
                        SwitchBetweenChipAndBubble) {
+  // TODO(crbug.com/545160323): Support testing location bar hiding in WebUI
+  // toolbar mode.
+  if (features::IsWebUIToolbarEnabled()) {
+    GTEST_SKIP() << "Test requires Views LocationBarView";
+  }
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
   browser_view->GetLocationBarView()->SetVisible(false);
   ShowUi("geolocation");
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   permissions::PermissionRequestManager* permission_request_manager =
       permissions::PermissionRequestManager::FromWebContents(web_contents);
   permission_request_manager->UpdateAnchor();
@@ -272,7 +292,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // Simulate a render process crash while the permission prompt is pending.
   content::RenderViewHost* render_view_host = browser()
-                                                  ->tab_strip_model()
+                                                  ->GetTabStripModel()
                                                   ->GetActiveWebContents()
                                                   ->GetPrimaryMainFrame()
                                                   ->GetRenderViewHost();
@@ -295,8 +315,8 @@ IN_PROC_BROWSER_TEST_F(
   // Wait until the WebContents, and with it, the PermissionRequestManager, is
   // gone, and make sure nothing crashes.
   content::WebContentsDestroyedWatcher web_contents_destroyed_watcher(
-      browser()->tab_strip_model()->GetActiveWebContents());
-  browser()->tab_strip_model()->CloseAllTabs();
+      browser()->GetTabStripModel()->GetActiveWebContents());
+  browser()->GetTabStripModel()->CloseAllTabs();
   web_contents_destroyed_watcher.Wait();
 }
 
@@ -546,7 +566,7 @@ class TestPermissionPromptObserver : public PermissionPromptObserver::Observer {
 IN_PROC_BROWSER_TEST_F(PermissionPromptBubbleBaseViewBrowserTest,
                        PermissionPromptBubbleNotifiesObserver) {
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   PermissionPromptObserver* observer =
       PermissionPromptObserver::FromWebContents(web_contents);
   if (!observer) {

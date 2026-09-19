@@ -182,6 +182,8 @@ message SharingSpecificFields {
     ONE_TIME_TOKEN_BACKEND_NOTIFICATION = 10;
     // Supports experimental triggering.
     GLIC_EXPERIMENTAL_TRIGGERING = 11;
+    // Supports browser actuator.
+    BROWSER_ACTUATOR = 12;
   }
   // LINT.ThenChange(/components/sync_device_info/device_info.h:SharingFeature)
 
@@ -265,6 +267,9 @@ message GooglePlayServicesVersionInfo {
 // Device specific information for Personal Context feature.
 message PersonalContextSpecificFields {
   // Public key for message encryption using Personal Context sender ID.
-  optional bytes p256dh_v2 = 1;
+  optional bytes p256dh_v2 = 1 [deprecated = true];
+
+  // Serialized proto bytes of tink.Keyset
+  optional bytes serialized_tink_keyset = 2;
 }
 

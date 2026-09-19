@@ -746,7 +746,8 @@ class CORE_EXPORT Document : public ContainerNode,
 
   void EvaluateMediaQueryList();
 
-  FormController& GetFormController();
+  FormController& EnsureFormController();
+  FormController* GetFormController() const { return form_controller_.Get(); }
   DocumentState* GetDocumentState() const;
   void SetStateForNewControls(const Vector<String>&);
 
@@ -948,7 +949,8 @@ class CORE_EXPORT Document : public ContainerNode,
 
   // Dispatches "pagehide", "visibilitychange" and "unload" events, if not
   // dispatched already. Fills `unload_timing_info` if present.
-  void DispatchUnloadEvents(UnloadEventTimingInfo* unload_timing_info);
+  void DispatchUnloadEvents(UnloadEventTimingInfo* unload_timing_info,
+                            bool will_commit_new_document_in_this_frame = true);
 
   void DispatchFreezeEvent();
 
@@ -1990,10 +1992,7 @@ class CORE_EXPORT Document : public ContainerNode,
     return slot_assignment_recalc_depth_;
   }
   bool IsInSlotAssignmentRecalc() const {
-    // Since we forbid recursive slot assignement recalc, the depth should be
-    // <= 1.
-    DCHECK_LE(slot_assignment_recalc_depth_, 1u);
-    return slot_assignment_recalc_depth_ == 1;
+    return slot_assignment_recalc_depth_ > 0;
   }
 
   bool IsVerticalScrollEnforced() const { return is_vertical_scroll_enforced_; }
@@ -2557,6 +2556,7 @@ class CORE_EXPORT Document : public ContainerNode,
   void BeginLifecycleUpdatesIfRenderingReady();
 
   void ChildrenChanged(const ChildrenChange&) override;
+  void DefaultEventHandler(Event&) override;
 
   String nodeName() const final;
   bool ChildTypeAllowed(NodeType) const final;

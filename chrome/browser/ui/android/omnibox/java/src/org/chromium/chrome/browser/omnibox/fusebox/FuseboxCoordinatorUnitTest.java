@@ -53,6 +53,7 @@ import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
+import org.chromium.base.supplier.SupplierUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -177,13 +178,9 @@ public class FuseboxCoordinatorUnitTest {
                 mTabModelSelectorSupplier,
                 mTemplateUrlServiceSupplier,
                 mSnackbarManager,
-                /* scrimAnchorViewSupplier= */ () -> null,
+                /* scrimAnchorViewSupplier= */ SupplierUtils.ofNull(),
                 mBackPressManager,
-                /* onActivationChipClickedWithQuery= */ () -> {},
-                /* clearUrlBarTextRunnable= */ () -> {},
-                /* urlBarTextSupplier= */ () -> "",
-                isForcedPhoneStyleOmnibox,
-                ObservableSuppliers.createNonNull(true));
+                isForcedPhoneStyleOmnibox);
     }
 
     private FuseboxSessionState createSession() {

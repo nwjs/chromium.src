@@ -28,6 +28,7 @@ struct TargetDetails;
 class DictationBrowserTestBase : public PlatformBrowserTest {
  public:
   DictationBrowserTestBase();
+  explicit DictationBrowserTestBase(bool session_ends_on_stream_end);
   ~DictationBrowserTestBase() override;
 
   // PlatformBrowserTest:
@@ -50,6 +51,9 @@ class DictationBrowserTestBase : public PlatformBrowserTest {
   // item isn't available.
   void SimulateInvokeViaContextMenu(content::RenderFrameHost* render_frame_host,
                                     blink::DOMNodeIdType node_id);
+
+  // Waits until the session reaches the expected state.
+  void WaitForSessionState(SessionState target_state);
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;

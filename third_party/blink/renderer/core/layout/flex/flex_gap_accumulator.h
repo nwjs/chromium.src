@@ -5,16 +5,18 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_FLEX_FLEX_GAP_ACCUMULATOR_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_FLEX_FLEX_GAP_ACCUMULATOR_H_
 
+#include <optional>
+
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/flex/flex_break_token_data.h"
 #include "third_party/blink/renderer/core/layout/flex/flex_line.h"
+#include "third_party/blink/renderer/core/layout/gap/gap_geometry.h"
 #include "third_party/blink/renderer/platform/geometry/layout_unit.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {
 
 class BoxFragmentBuilder;
-class GapGeometry;
 struct LogicalOffset;
 struct FlexLine;
 
@@ -124,13 +126,15 @@ class CORE_EXPORT FlexGapAccumulator {
   STACK_ALLOCATED();
 
  public:
-  explicit FlexGapAccumulator(LayoutUnit gap_between_items,
-                              LayoutUnit effective_gap_between_lines,
-                              wtf_size_t num_lines,
-                              wtf_size_t num_flex_items,
-                              bool is_column,
-                              LayoutUnit border_scrollbar_padding_block_start,
-                              LayoutUnit border_scrollbar_padding_inline_start);
+  explicit FlexGapAccumulator(
+      LayoutUnit gap_between_items,
+      LayoutUnit effective_gap_between_lines,
+      wtf_size_t num_lines,
+      wtf_size_t num_flex_items,
+      bool is_column,
+      LayoutUnit border_scrollbar_padding_block_start,
+      LayoutUnit border_scrollbar_padding_inline_start,
+      std::optional<GapGeometry::FlexGapPlacementReversal> placement_reversal);
 
   const GapGeometry* BuildGapGeometry(
       const BoxFragmentBuilder& container_builder);
@@ -196,6 +200,7 @@ class CORE_EXPORT FlexGapAccumulator {
   // `third_party/blink/renderer/core/layout/gap/README.md`.
   void BuildGapsForCurrentItem(const FlexLineVector& flex_lines,
                                wtf_size_t global_line_index,
+                               wtf_size_t item_index_in_line,
                                LogicalOffset item_offset,
                                bool is_first_item,
                                bool is_last_item,
@@ -259,6 +264,14 @@ class CORE_EXPORT FlexGapAccumulator {
       std::optional<LayoutUnit> new_cross_end = std::nullopt);
 
  private:
+  // Stores the index used to select the color, style, and width for the
+  // `CrossGap` just added. This is needed because its fragment-local index may
+  // differ from its index in the unfragmented flexbox.
+  void RecordFragmentedFlexCrossGapDecorationIndex(
+      const FlexLineVector& flex_lines,
+      wtf_size_t global_line_index,
+      wtf_size_t item_index_in_line);
+
   // This must be done after we are done laying out, so that we know the final
   // block size of the fragment. This only needs to be done for column
   // flexboxes, since the main end in such cases will be the final block end
@@ -299,6 +312,10 @@ class CORE_EXPORT FlexGapAccumulator {
   // row gaps exist per line in a column flex container while in the case of a
   // row flex container, row gaps separate flex lines in a given fragment.
   Vector<FlexRowGapBreakTokenData> row_gap_break_token_data_;
+
+  // For every flex line, stores its first `CrossGap` index and number of
+  // `CrossGap`s in the full flexbox.
+  Vector<GapGeometry::GapIndexRange> fragmented_flex_line_gap_ranges_;
 };
 
 }  // namespace blink

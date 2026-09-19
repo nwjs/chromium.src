@@ -12,21 +12,23 @@
 #include "base/run_loop.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/contextual_search/searchbox_context_data.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_state_manager.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_aim_presenter.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/webui/searchbox/searchbox_test_utils.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/lens/lens_features.h"
 #include "content/public/test/browser_test.h"
@@ -67,7 +69,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupFileSelectorBrowserTest,
       browser()->GetWindow()->GetNativeWindow());
 
   file_selector.OpenFileUploadDialog(
-      browser()->tab_strip_model()->GetActiveWebContents(),
+      browser()->GetTabStripModel()->GetActiveWebContents(),
       /*is_image=*/true, &mock_edit_model, std::nullopt,
       /*was_ai_mode_open=*/true);
 
@@ -87,7 +89,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupFileSelectorBrowserTest,
       browser()->GetWindow()->GetNativeWindow());
 
   file_selector.OpenFileUploadDialog(
-      browser()->tab_strip_model()->GetActiveWebContents(),
+      browser()->GetTabStripModel()->GetActiveWebContents(),
       /*is_image=*/true, &mock_edit_model, std::nullopt,
       /*was_ai_mode_open=*/false);
 
@@ -105,7 +107,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupFileSelectorBrowserTest,
   OmniboxPopupFileSelector file_selector(
       browser()->GetWindow()->GetNativeWindow());
 
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
   file_selector.OpenFileUploadDialog(web_contents,
                                      /*is_image=*/false, &mock_edit_model,
                                      std::nullopt,
@@ -132,7 +134,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupFileSelectorBrowserTest,
   // Verify that the unsupported "text/plain" file information was successfully
   // injected into the SearchboxContextData for the frontend to handle.
   SearchboxContextData* searchbox_context_data =
-      browser()->GetFeatures().searchbox_context_data();
+      SearchboxContextData::From(browser());
   ASSERT_TRUE(searchbox_context_data);
 
   auto context = searchbox_context_data->TakePendingContext();
@@ -156,7 +158,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupFileSelectorBrowserTest,
   OmniboxPopupFileSelector file_selector(
       browser()->GetWindow()->GetNativeWindow());
 
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
   file_selector.OpenFileUploadDialog(web_contents,
                                      /*is_image=*/false, &mock_edit_model,
                                      std::nullopt,
@@ -195,7 +197,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupFileSelectorBrowserTest,
   OmniboxPopupFileSelector file_selector(
       browser()->GetWindow()->GetNativeWindow());
 
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
 
   file_selector.OpenFileUploadDialog(web_contents,
                                      /*is_image=*/true, &mock_edit_model,
@@ -215,7 +217,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupFileSelectorBrowserTest,
 
   // Assert.
   SearchboxContextData* searchbox_context_data =
-      browser()->GetFeatures().searchbox_context_data();
+      SearchboxContextData::From(browser());
   ASSERT_TRUE(searchbox_context_data);
 
   auto context = searchbox_context_data->TakePendingContext();
@@ -239,7 +241,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupFileSelectorBrowserTest,
   OmniboxPopupFileSelector file_selector(
       browser()->GetWindow()->GetNativeWindow());
 
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
 
   file_selector.OpenFileUploadDialog(web_contents,
                                      /*is_image=*/false, &mock_edit_model,
@@ -259,7 +261,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupFileSelectorBrowserTest,
 
   // Assert.
   SearchboxContextData* searchbox_context_data =
-      browser()->GetFeatures().searchbox_context_data();
+      SearchboxContextData::From(browser());
   ASSERT_TRUE(searchbox_context_data);
 
   auto context = searchbox_context_data->TakePendingContext();
@@ -283,7 +285,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupFileSelectorBrowserTest,
   OmniboxPopupFileSelector file_selector(
       browser()->GetWindow()->GetNativeWindow());
 
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
 
   file_selector.OpenFileUploadDialog(web_contents,
                                      /*is_image=*/false, &mock_edit_model,
@@ -303,7 +305,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupFileSelectorBrowserTest,
 
   // Assert.
   SearchboxContextData* searchbox_context_data =
-      browser()->GetFeatures().searchbox_context_data();
+      SearchboxContextData::From(browser());
   ASSERT_TRUE(searchbox_context_data);
 
   auto context = searchbox_context_data->TakePendingContext();
@@ -323,7 +325,8 @@ class OmniboxPopupFileSelectorAimBrowserTest : public InProcessBrowserTest {
         {omnibox::internal::kWebUIOmniboxAimPopup,
          omnibox::internal::kWebUIOmniboxPopup,
          omnibox::kOmniboxKeepOpenOnFileSelection},
-        {lens::features::kLensSendRawFileMediaTypes});
+        {lens::features::kLensSendRawFileMediaTypes,
+         features::kWebUILocationBar});
   }
 
   void SetUpOnMainThread() override {
@@ -363,7 +366,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupFileSelectorAimBrowserTest,
   EXPECT_FALSE(presenter->has_active_blockers());
 
   file_selector.OpenFileUploadDialog(
-      browser()->tab_strip_model()->GetActiveWebContents(),
+      browser()->GetTabStripModel()->GetActiveWebContents(),
       /*is_image=*/true, &mock_edit_model, std::nullopt,
       /*was_ai_mode_open=*/true);
 
@@ -384,7 +387,8 @@ class OmniboxPopupFileSelectorClassicWebuiBrowserTest
         {omnibox::internal::kWebUIOmniboxPopup,
          omnibox::kOmniboxKeepOpenOnFileSelection},
         {omnibox::internal::kWebUIOmniboxAimPopup,
-         lens::features::kLensSendRawFileMediaTypes});
+         lens::features::kLensSendRawFileMediaTypes,
+         features::kWebUILocationBar});
   }
 
   void SetUpOnMainThread() override {
@@ -422,7 +426,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(presenter->has_active_blockers());
 
   file_selector.OpenFileUploadDialog(
-      browser()->tab_strip_model()->GetActiveWebContents(),
+      browser()->GetTabStripModel()->GetActiveWebContents(),
       /*is_image=*/true, &mock_edit_model, std::nullopt,
       /*was_ai_mode_open=*/false);
 

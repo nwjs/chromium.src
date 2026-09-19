@@ -14,6 +14,7 @@
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
+#include "chrome/browser/enterprise/isolated_mode/isolated_mode_settings_service_factory.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/page_image_service/image_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -148,6 +149,9 @@ BookmarksSidePanelUI::BookmarksSidePanelUI(content::WebUI* web_ui)
       {"menuOpenIncognito", IDS_BOOKMARK_MANAGER_MENU_OPEN_INCOGNITO},
       {"menuOpenIncognitoWithCount",
        IDS_BOOKMARK_MANAGER_MENU_OPEN_ALL_INCOGNITO_WITH_COUNT},
+      {"menuOpenIsolated", IDS_BOOKMARK_MANAGER_MENU_OPEN_ISOLATED},
+      {"menuOpenIsolatedWithCount",
+       IDS_BOOKMARK_MANAGER_MENU_OPEN_ALL_ISOLATED_WITH_COUNT},
       {"menuOpenNewTabGroup", IDS_BOOKMARK_MANAGER_MENU_OPEN_IN_NEW_TAB_GROUP},
       {"menuOpenNewTabGroupWithCount",
        IDS_BOOKMARK_MANAGER_MENU_OPEN_ALL_NEW_TAB_GROUP_WITH_COUNT},
@@ -208,6 +212,9 @@ BookmarksSidePanelUI::BookmarksSidePanelUI(content::WebUI* web_ui)
   source->AddBoolean("guestMode", profile->IsGuestSession());
   source->AddBoolean("incognitoMode", profile->IsIncognitoProfile());
   source->AddBoolean("isIncognitoModeAvailable", IsIncognitoModeAvailable());
+  source->AddBoolean(
+      "isIsolatedModeEnabled",
+      enterprise_isolated_mode::IsolatedModeReplacesIncognito(profile));
 
   source->AddBoolean(
       "isBookmarksMigrationUiChanges",

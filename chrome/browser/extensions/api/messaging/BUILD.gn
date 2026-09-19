@@ -27,7 +27,14 @@ source_set("messaging") {
       "native_messaging_policy_handler.h",
     ]
 
-    if (!is_android) {
+    if (is_android) {
+      sources += [
+        "android/native_message_android_port.cc",
+        "android/native_message_android_port.h",
+        "android/native_messaging_manager.cc",
+        "android/native_messaging_manager.h",
+      ]
+    } else {
       sources += [
         "launch_context.cc",
         "launch_context.h",
@@ -78,13 +85,16 @@ source_set("messaging") {
     "//chrome/common/extensions",
     "//components/infobars/content",
     "//components/infobars/core",
+    "//components/keyed_service/core",
     "//components/policy/core/browser",
     "//components/prefs",
     "//components/strings:components_strings",
     "//url",
   ]
 
-  if (!is_android) {
+  if (is_android) {
+    deps += [ "//chrome/browser/extensions/api/messaging/android:jni_headers" ]
+  } else {
     deps += [ "//components/keep_alive_registry" ]
   }
 
@@ -100,14 +110,10 @@ source_set("messaging") {
 
   if (is_win) {
     deps += [
-      "//chrome/browser/win:isolated_browser_support",
+      "//chrome/browser/win/isolated_browser:isolated_browser_support",
       "//components/app_launch_prefetch",
       "//ui/views",
     ]
-  }
-
-  if (is_android) {
-    deps += [ "android" ]
   }
 }
 
@@ -201,7 +207,7 @@ if (!is_android) {
 
     sources = [
       "message_tracker_browsertest.cc",
-      #"native_messaging_apitest.cc",
+      #"native_messaging_apitest_desktop.cc",
     ]
 
     deps = [

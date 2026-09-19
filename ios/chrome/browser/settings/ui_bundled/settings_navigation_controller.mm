@@ -9,6 +9,7 @@
 #import "base/ios/ios_util.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
+#import "base/notreached.h"
 #import "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #import "components/autofill/core/browser/metrics/autofill_settings_metrics.h"
 #import "components/password_manager/core/browser/ui/credential_ui_entry.h"
@@ -27,6 +28,7 @@
 #import "ios/chrome/browser/settings/autofill/autofill_and_passwords/coordinator/travel_info_coordinator.h"
 #import "ios/chrome/browser/settings/autofill/payments/coordinator/autofill_credit_card_coordinator.h"
 #import "ios/chrome/browser/settings/autofill/payments/coordinator/autofill_credit_card_coordinator_delegate.h"
+#import "ios/chrome/browser/settings/autofill/suggestions_from_gemini/ui/suggestions_from_gemini_help_improve_table_view_controller.h"
 #import "ios/chrome/browser/settings/google_services/coordinator/google_services_settings_coordinator.h"
 #import "ios/chrome/browser/settings/google_services/ui/google_services_settings_view_controller.h"
 #import "ios/chrome/browser/settings/manage_accounts/coordinator/manage_accounts_coordinator.h"
@@ -37,6 +39,7 @@
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_credit_card_table_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_profile_edit_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_profile_table_view_controller.h"
+#import "ios/chrome/browser/settings/ui_bundled/autofill/enhanced_autofill_table_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/bwg/coordinator/gemini_settings_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/content_settings/content_settings_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/content_settings/content_settings_table_view_controller.h"
@@ -284,6 +287,20 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
                              browser:browser
                             delegate:delegate];
   [navigationController showGeminiSettingsPage];
+  return navigationController;
+}
+
++ (instancetype)
+    geminiHelpImproveControllerForBrowser:(Browser*)browser
+                                 delegate:
+                                     (id<SettingsNavigationControllerDelegate>)
+                                         delegate {
+  SettingsNavigationController* navigationController =
+      [[SettingsNavigationController alloc]
+          initWithRootViewController:nil
+                             browser:browser
+                            delegate:delegate];
+  [navigationController showSuggestionsFromGeminiHelpImprove];
   return navigationController;
 }
 
@@ -910,6 +927,7 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
     // No need to open it.
     return;
   }
+  [self stopContentSettingsCoordinator];
   self.contentSettingsCoordinator = [[ContentSettingsCoordinator alloc]
       initWithBaseNavigationController:self
                                browser:self.browser];
@@ -1411,6 +1429,12 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
   [self showGeminiSettingsPage];
 }
 
+- (void)showSuggestionsFromGeminiHelpImprove {
+  SuggestionsFromGeminiHelpImproveTableViewController* viewController =
+      [[SuggestionsFromGeminiHelpImproveTableViewController alloc] init];
+  [self pushViewController:viewController animated:NO];
+}
+
 // TODO(crbug.com/41352590) : Do not pass `baseViewController` through
 // dispatcher.
 - (void)showGoogleServicesSettingsFromViewController:
@@ -1659,6 +1683,20 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
   } else {
     [self showProfileSettingsFromViewController:nil];
   }
+}
+
+- (void)showEnhancedAutofillSettings {
+  EnhancedAutofillTableViewController* controller =
+      [[EnhancedAutofillTableViewController alloc]
+          initWithBrowser:self.browser];
+  ConfigureHandlers(controller, self.browser->GetCommandDispatcher());
+  [self pushViewController:controller animated:self.viewControllers.count > 0];
+}
+
+// `SceneCoordinator` is the entrypoint that handles presentation and captures
+// the dismissal completion block.
+- (void)showEnhancedAutofillSettingsWithCompletion:(ProceduralBlock)completion {
+  NOTREACHED();
 }
 
 #pragma mark - SyncEncryptionPassphraseTableViewControllerPresentationDelegate

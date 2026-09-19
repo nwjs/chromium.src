@@ -18,6 +18,7 @@ source_set("picture_in_picture") {
   sources = [
     "picture_in_picture_bounds_cache.h",
     "picture_in_picture_window_manager.h",
+    "video_overlay_window.h",
 
     # Common Auto Picture-in-Picture files
     "auto_picture_in_picture_safe_browsing_checker_client.h",
@@ -222,7 +223,6 @@ source_set("unit_tests") {
       "picture_in_picture_window_manager_uma_helper_unittest.cc",
     ]
     deps += [
-      "//chrome/browser",
       "//chrome/browser/ui/hats:test_support",
       "//chrome/browser/ui/safety_hub:test_support",
       "//components/safe_browsing/core/browser/db:v5_get_hash_protocol_manager",
@@ -270,8 +270,10 @@ if (!is_android) {
       "//chrome/browser/preloading:test_support",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:bubble_anchor_util",
       "//chrome/browser/ui:recently_audible_helper",
       "//chrome/browser/ui:ui_features",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/hats:test_support",
       "//chrome/browser/ui/views/overlay",
       "//chrome/browser/ui/views/page_info",
@@ -329,6 +331,7 @@ if (!is_android) {
       ":test_support_ui",
       "//base/test:test_support",
       "//chrome/browser/ui",
+      "//chrome/browser/ui/browser_window",
       "//testing/gtest",
     ]
   }
@@ -347,6 +350,7 @@ if (!is_android) {
     ]
     deps = [
       "//chrome/browser/ui",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip",
       "//content/public/browser",
       "//content/test:test_support",

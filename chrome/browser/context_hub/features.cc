@@ -34,6 +34,12 @@ BASE_FEATURE_PARAM(size_t,
                    "max_todo_feedback_cache_size",
                    50);
 
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kAutoTodosCacheTTL,
+                   &browser::context_hub::mojom::kAutoTodos,
+                   "auto_todos_cache_ttl",
+                   base::Days(30));
+
 BASE_FEATURE(kMemoryBanks, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE_PARAM(size_t,
@@ -55,5 +61,8 @@ BASE_FEATURE_PARAM(size_t,
                    20);
 
 BASE_FEATURE(kContextHubDatabaseStorage, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kContextHubTabContextSyncStorage,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace context_hub::features

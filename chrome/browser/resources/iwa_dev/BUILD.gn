@@ -14,9 +14,10 @@ build_webui("build") {
   css_files = [
     "app.css",
     "install_dialog.css",
-    "install_tab.css",
+    "shared_style.css",
     "install_update_manifest_tab.css",
     "installed_app_list_item.css",
+    "update_options_dialog.css",
   ]
 
   ts_files = [
@@ -33,6 +34,8 @@ build_webui("build") {
     "install_update_manifest_tab.ts",
     "installed_app_list_item.html.ts",
     "installed_app_list_item.ts",
+    "update_options_dialog.html.ts",
+    "update_options_dialog.ts",
   ]
 
   mojo_files_deps =

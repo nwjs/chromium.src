@@ -57,6 +57,12 @@ const char* GetJavaAlgorithm(uint16_t algorithm) {
       return "SHA384withRSA/PSS";
     case SSL_SIGN_RSA_PSS_SHA512:
       return "SHA512withRSA/PSS";
+    case SSL_SIGN_ML_DSA_44:
+      return "ML-DSA-44";
+    case SSL_SIGN_ML_DSA_65:
+      return "ML-DSA-65";
+    case SSL_SIGN_ML_DSA_87:
+      return "ML-DSA-87";
     default:
       return nullptr;
   }
@@ -163,13 +169,19 @@ scoped_refptr<SSLPrivateKey> WrapJavaPrivateKey(
     const X509Certificate* certificate,
     const JavaRef<jobject>& key) {
   bssl::UniquePtr<EVP_PKEY> pubkey = GetClientCertPublicKey(certificate);
+  if (!pubkey) {
+    return nullptr;
+  }
   return WrapJavaPrivateKey(std::move(pubkey), key);
 }
 
 scoped_refptr<SSLPrivateKey> WrapJavaPrivateKey(
     bssl::UniquePtr<EVP_PKEY> pubkey,
     const JavaRef<jobject>& key) {
-   if (!pubkey) {
+  int key_type = EVP_PKEY_id(pubkey.get());
+  if (key_type != EVP_PKEY_RSA && key_type != EVP_PKEY_EC &&
+      key_type != EVP_PKEY_ML_DSA_44 && key_type != EVP_PKEY_ML_DSA_65 &&
+      key_type != EVP_PKEY_ML_DSA_87) {
     return nullptr;
   }
   return base::MakeRefCounted<ThreadedSSLPrivateKey>(

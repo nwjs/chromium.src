@@ -7,16 +7,21 @@
 #include <memory>
 #include <optional>
 
-#include "base/test/run_until.h"
+#include "base/run_loop.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/scheme_registry.h"
+#include "third_party/blink/public/web/web_script_source.h"
+#include "third_party/blink/renderer/core/ad_tracker/ad_tracker.h"
 #include "third_party/blink/renderer/core/ad_tracker/script_initiation_monitor.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/html/html_iframe_element.h"
+#include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_test.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
@@ -50,15 +55,6 @@ class TestExtensionScriptTracker final : public ExtensionScriptTracker {
       }
     }
     return V8ScriptId();
-  }
-
-  V8ScriptId WaitAndFindScriptIdByUrl(const String& url_substring) const {
-    V8ScriptId found_id;
-    EXPECT_TRUE(base::test::RunUntil([&]() {
-      found_id = FindScriptIdByUrl(url_substring);
-      return found_id != V8ScriptId();
-    }));
-    return found_id;
   }
 
  private:
@@ -155,15 +151,21 @@ TEST_F(ExtensionScriptTrackerTest, ScriptLoadedWhileExecutingExtensionScript) {
     document.body.appendChild(script);
     )SCRIPT");
 
+  // Wait for script to run and initiate subresource request.
+  base::RunLoop().RunUntilIdle();
+
   V8ScriptId extension_script_id =
-      tracker_->WaitAndFindScriptIdByUrl("abcdefghijklmnop/script.js");
+      tracker_->FindScriptIdByUrl("abcdefghijklmnop/script.js");
   EXPECT_NE(V8ScriptId(), extension_script_id);
   EXPECT_TRUE(tracker_->IsMarkedScript(extension_script_id));
 
   vanilla_script.Complete("");
 
+  // Wait for vanilla_script to compile and run.
+  base::RunLoop().RunUntilIdle();
+
   V8ScriptId vanilla_script_id =
-      tracker_->WaitAndFindScriptIdByUrl("vanilla_script.js");
+      tracker_->FindScriptIdByUrl("vanilla_script.js");
   EXPECT_NE(V8ScriptId(), vanilla_script_id);
   EXPECT_TRUE(tracker_->IsMarkedScript(vanilla_script_id));
 }
@@ -188,4 +190,195 @@ TEST_F(ExtensionScriptTrackerTest, InjectedExtensionScriptExecutionScope) {
   EXPECT_TRUE(tracker_->IsMarkedScript(script_id));
 }
 
+TEST_F(ExtensionScriptTrackerTest, AsyncAdTrackerSideEffect) {
+  GetDocument().GetFrame()->SetAdTrackerForTesting(
+      MakeGarbageCollected<AdTracker>(
+          GetDocument().GetFrame(),
+          GetDocument().GetFrame()->GetOrCreateScriptInitiationMonitor()));
+
+  const char kExtensionUrl[] = "chrome-extension://abcdefghijklmnop/script.js";
+  SimSubresourceRequest extension_resource(kExtensionUrl, "text/javascript");
+
+  main_resource_->Complete(
+      "<body></body><script "
+      "src='chrome-extension://abcdefghijklmnop/script.js'></script>");
+
+  extension_resource.Complete(R"SCRIPT(
+    setTimeout(() => {
+      const btn = document.createElement('button');
+      btn.id = 'mybtn';
+      btn.setAttribute('onclick', 'console.log("button clicked");');
+      document.body.appendChild(btn);
+      btn.dispatchEvent(new Event('click'));
+    }, 0);
+    )SCRIPT");
+
+  base::RunLoop().RunUntilIdle();
+
+  V8ScriptId inline_id = tracker_->FindScriptIdByUrl("{ id ");
+  EXPECT_NE(V8ScriptId(), inline_id);
+  EXPECT_TRUE(tracker_->IsMarkedScript(inline_id));
+
+  AdTracker* ad_tracker = GetDocument().GetFrame()->GetAdTracker();
+  ASSERT_TRUE(ad_tracker);
+
+  // AdTracker should not incorrectly read the extension's async context and
+  // tag it as an ad.
+  EXPECT_FALSE(ad_tracker->IsMarkedScript(inline_id));
+}
+
+TEST_F(ExtensionScriptTrackerTest, AsyncExtensionTrackerSideEffect) {
+  AdTracker* ad_tracker = MakeGarbageCollected<AdTracker>(
+      GetDocument().GetFrame(),
+      GetDocument().GetFrame()->GetOrCreateScriptInitiationMonitor());
+  GetDocument().GetFrame()->SetAdTrackerForTesting(ad_tracker);
+
+  SimRequest iframe_resource("https://example.com/ad_frame.html", "text/html");
+  main_resource_->Complete(
+      "<body><iframe src='https://example.com/ad_frame.html'></iframe></body>");
+
+  LocalFrame* child_frame =
+      To<LocalFrame>(GetDocument().GetFrame()->Tree().FirstChild());
+  ASSERT_TRUE(child_frame);
+
+  FrameAdEvidence ad_evidence(/*parent_is_ad=*/false);
+  ad_evidence.set_created_by_ad_script(
+      mojom::FrameCreationStackEvidence::kCreatedByAdScript);
+  ad_evidence.set_is_complete();
+  child_frame->SetAdEvidence(ad_evidence);
+
+  iframe_resource.Complete(R"HTML(
+    <script>
+    setTimeout(() => {
+      const btn = document.createElement('button');
+      btn.id = 'mybtn';
+      btn.setAttribute('onclick', 'console.log("button clicked");');
+      document.body.appendChild(btn);
+      btn.dispatchEvent(new Event('click'));
+    }, 0);
+    </script>
+  )HTML");
+
+  base::RunLoop().RunUntilIdle();
+
+  V8ScriptId inline_id = tracker_->FindScriptIdByUrl("{ id ");
+  EXPECT_NE(V8ScriptId(), inline_id);
+
+  // AdTracker should have tagged the async inline script as an ad.
+  EXPECT_TRUE(ad_tracker->IsMarkedScript(inline_id));
+
+  // ExtensionScriptTracker should not incorrectly read the ad tracker's async
+  // context and tag it as an extension script.
+  EXPECT_FALSE(tracker_->IsMarkedScript(inline_id));
+}
+
+TEST_F(ExtensionScriptTrackerTest, FrameCreatedByExtensionScriptTagged) {
+  const char kExtensionUrl[] = "chrome-extension://abcdefghijklmnop/script.js";
+  SimSubresourceRequest extension_resource(kExtensionUrl, "text/javascript");
+
+  main_resource_->Complete(
+      "<body></body><script "
+      "src='chrome-extension://abcdefghijklmnop/script.js'></script>");
+
+  extension_resource.Complete(R"SCRIPT(
+    const iframe = document.createElement("iframe");
+    iframe.srcdoc = "<script>console.log('srcdoc');</script>";
+    document.body.appendChild(iframe);
+    )SCRIPT");
+
+  test::RunPendingTasks();
+
+  V8ScriptId srcdoc_script_id = tracker_->FindScriptIdByUrl("{ id ");
+  EXPECT_GT(srcdoc_script_id.value(), 0);
+  EXPECT_TRUE(tracker_->IsMarkedScript(srcdoc_script_id));
+}
+
+TEST_F(ExtensionScriptTrackerTest,
+       FrameCreatedByExtensionScriptPreservedAcrossSameProcessNavigation) {
+  const char kExtensionUrl[] = "chrome-extension://abcdefghijklmnop/script.js";
+  SimSubresourceRequest extension_resource(kExtensionUrl, "text/javascript");
+  SimRequest child_frame_doc1("https://example.com/frame1.html", "text/html");
+
+  main_resource_->Complete(
+      "<body><script "
+      "src='chrome-extension://abcdefghijklmnop/script.js'></script></body>");
+
+  extension_resource.Complete(R"SCRIPT(
+    var iframe = document.createElement("iframe");
+    iframe.id = "target_frame";
+    iframe.src = "frame1.html";
+    document.body.appendChild(iframe);
+    )SCRIPT");
+
+  test::RunPendingTasks();
+  child_frame_doc1.Complete("<body>frame 1</body>");
+
+  auto* child_frame =
+      To<LocalFrame>(GetDocument().GetFrame()->Tree().FirstChild());
+  ASSERT_TRUE(child_frame);
+  EXPECT_TRUE(tracker_->IsMarkedFrame(child_frame));
+
+  // Navigate the child iframe same-process to frame2.html (LocalFrame <->
+  // LocalFrame swap).
+  SimRequest child_frame_doc2("https://example.com/frame2.html", "text/html");
+  SimSubresourceRequest child_script("https://example.com/child_script.js",
+                                     "text/javascript");
+  MainFrame().ExecuteScript(WebScriptSource(
+      "document.getElementById('target_frame').src = 'frame2.html';"));
+
+  base::RunLoop().RunUntilIdle();
+  child_frame_doc2.Complete("<script src='child_script.js'></script>");
+  child_script.Complete("console.log('in frame 2');");
+  base::RunLoop().RunUntilIdle();
+
+  auto* new_child_frame =
+      To<LocalFrame>(GetDocument().GetFrame()->Tree().FirstChild());
+  ASSERT_TRUE(new_child_frame);
+  EXPECT_TRUE(tracker_->IsMarkedFrame(new_child_frame));
+
+  // Verify that script running in the navigated frame is tracked as an
+  // extension script.
+  V8ScriptId frame2_script_id = tracker_->FindScriptIdByUrl("child_script.js");
+  EXPECT_GT(frame2_script_id.value(), 0);
+  EXPECT_TRUE(tracker_->IsMarkedScript(frame2_script_id));
+}
+
+TEST_F(ExtensionScriptTrackerTest, ScriptInjectionPolicyLifecycle) {
+  SimRequest child_resource("https://example.com/child.html", "text/html");
+  main_resource_->Complete(R"(
+    <iframe id="child" src="https://example.com/child.html"></iframe>
+  )");
+  child_resource.Complete("");
+
+  LocalFrame* frame = GetDocument().GetFrame();
+  ASSERT_TRUE(frame);
+  auto* child_element = To<HTMLIFrameElement>(
+      GetDocument().getElementById(AtomicString("child")));
+  ASSERT_TRUE(child_element);
+  LocalFrame* child_frame = To<LocalFrame>(child_element->ContentFrame());
+  ASSERT_TRUE(child_frame);
+
+  EXPECT_EQ(nullptr, frame->GetExtensionScriptTracker());
+  EXPECT_EQ(nullptr, child_frame->GetExtensionScriptTracker());
+
+  frame->Loader().GetDocumentLoader()->SetScriptInjectionPolicyForTesting(
+      mojom::blink::ScriptInjectionPolicy::kNavigationProtection);
+  frame->UpdateExtensionScriptTracking();
+  ExtensionScriptTracker* tracker = frame->GetExtensionScriptTracker();
+  EXPECT_NE(nullptr, tracker);
+  EXPECT_EQ(tracker, child_frame->GetExtensionScriptTracker());
+
+  // Calling again maintains the same tracker.
+  frame->UpdateExtensionScriptTracking();
+  EXPECT_EQ(tracker, frame->GetExtensionScriptTracker());
+  EXPECT_EQ(tracker, child_frame->GetExtensionScriptTracker());
+
+  // Setting policy to kNone shuts down and clears the tracker for both root
+  // and subframe.
+  frame->Loader().GetDocumentLoader()->SetScriptInjectionPolicyForTesting(
+      mojom::blink::ScriptInjectionPolicy::kNone);
+  frame->UpdateExtensionScriptTracking();
+  EXPECT_EQ(nullptr, frame->GetExtensionScriptTracker());
+  EXPECT_EQ(nullptr, child_frame->GetExtensionScriptTracker());
+}
 }  // namespace blink

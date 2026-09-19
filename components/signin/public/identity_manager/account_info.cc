@@ -183,7 +183,7 @@ std::optional<gfx::Image> AccountInfo::GetAvatarImage() const {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 std::optional<signin_metrics::AccessPoint>
 AccountInfo::GetLastAuthenticationAccessPoint() const {
-  return access_point;
+  return access_point_;
 }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
@@ -196,15 +196,15 @@ signin::Tribool AccountInfo::IsChildAccount() const {
 }
 
 std::optional<std::string_view> AccountInfo::GetLocale() const {
-  if (locale.empty()) {
+  if (locale_.empty()) {
     return std::nullopt;
   }
-  return locale;
+  return locale_;
 }
 
 bool AccountInfo::IsEmpty() const {
   return CoreAccountInfo::IsEmpty() && hosted_domain_.empty() &&
-         full_name_.empty() && given_name_.empty() && locale.empty() &&
+         full_name_.empty() && given_name_.empty() && locale_.empty() &&
          picture_url_.empty();
 }
 
@@ -227,12 +227,14 @@ bool AccountInfo::UpdateWith(const AccountInfo& other) {
   modified |= UpdateField(&given_name_, other.given_name_, nullptr);
   modified |=
       UpdateField(&hosted_domain_, other.hosted_domain_, kNoHostedDomainFound);
-  modified |= UpdateField(&locale, other.locale, nullptr);
+  modified |= UpdateField(&locale_, other.locale_, nullptr);
   modified |=
       UpdateField(&picture_url_, other.picture_url_, kNoPictureURLFound);
   modified |= UpdateField(&is_child_account_, other.is_child_account_);
-  modified |= UpdateField(&access_point, other.access_point,
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  modified |= UpdateField(&access_point_, other.access_point_,
                           std::optional<signin_metrics::AccessPoint>());
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
   modified |= UpdateField(&is_under_advanced_protection,
                           other.is_under_advanced_protection);
   modified |= capabilities_.UpdateWith(other.capabilities_);
@@ -369,7 +371,7 @@ AccountInfo::Builder& AccountInfo::Builder::SetAvatarImage(
 AccountInfo::Builder& AccountInfo::Builder::SetLocale(
     std::string_view locale_val) {
   CHECK(!locale_val.empty());
-  account_info_.locale = std::string(locale_val);
+  account_info_.locale_ = std::string(locale_val);
   return *this;
 }
 
@@ -388,11 +390,13 @@ AccountInfo::Builder& AccountInfo::Builder::SetAvatarUrl(
   return *this;
 }
 
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
 AccountInfo::Builder& AccountInfo::Builder::SetLastAuthenticationAccessPoint(
     signin_metrics::AccessPoint access_point_val) {
-  account_info_.access_point = access_point_val;
+  account_info_.access_point_ = access_point_val;
   return *this;
 }
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 AccountInfo::Builder& AccountInfo::Builder::SetIsChildAccount(
     signin::Tribool is_child_account) {
@@ -423,6 +427,21 @@ AccountInfo::Builder AccountInfo::Builder::CreateWithPossiblyEmptyGaiaId(
       << "Creating AccountInfo with empty GaiaId is not allowed when "
          "kGaiaAccountIdEnforcement is enabled";
   CHECK(!email.empty());
+  AccountInfo::Builder builder;
+  builder.account_info_.gaia = gaia_id;
+  builder.account_info_.email = email;
+  return builder;
+}
+
+// static
+AccountInfo::Builder
+AccountInfo::Builder::CreateWithPossiblyEmptyGaiaIdAndEmail(
+    const GaiaId& gaia_id,
+    std::string_view email) {
+  CHECK(!gaia_id.empty() ||
+        !base::FeatureList::IsEnabled(switches::kGaiaAccountIdEnforcement))
+      << "Creating AccountInfo with empty GaiaId is not allowed when "
+         "kGaiaAccountIdEnforcement is enabled";
   AccountInfo::Builder builder;
   builder.account_info_.gaia = gaia_id;
   builder.account_info_.email = email;

@@ -43,7 +43,6 @@
 #include "chrome/browser/policy/developer_tools_policy_handler.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
@@ -1553,7 +1552,7 @@ IN_PROC_BROWSER_TEST_P(IwaCacheVersionManagementTest, PRE_InstallBetaChannel) {
   AddNewIwaToServer(IwaServerConfig{kWebBundleId1, GetBaseVersion(), kKeyPair1},
                     std::vector{kBetaChannel});
 
-  LaunchSession(kWebBundleId1, /*should_wait_for_initial_update=*/false);
+  LaunchSession(kWebBundleId1);
   AssertAppInstalledAtVersion(kWebBundleId1, GetBaseVersion());
   WaitUntilPathExists(GetCachedBundlePath(kWebBundleId1, GetBaseVersion()));
 }
@@ -1567,7 +1566,7 @@ IN_PROC_BROWSER_TEST_P(IwaCacheVersionManagementTest, InstallBetaChannel) {
   AddNewIwaToServer(
       IwaServerConfig{kWebBundleId1, GetUpdateVersion(), kKeyPair1});
 
-  LaunchSession(kWebBundleId1, /*should_wait_for_initial_update=*/false);
+  LaunchSession(kWebBundleId1);
 
   AssertAppInstalledAtVersion(kWebBundleId1, GetBaseVersion());
 }

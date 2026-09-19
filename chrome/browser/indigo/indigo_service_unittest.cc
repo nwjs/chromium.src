@@ -7,9 +7,9 @@
 #include "base/command_line.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/run_until.h"
-#include "base/test/scoped_command_line.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
@@ -72,14 +72,16 @@ class IndigoServiceTest : public testing::Test {
             contextual_cueing::ChromeSuggestionsSettingsValue::kEnabled));
 
     if (set_script_switch_in_setup_) {
-      scoped_command_line_.GetProcessCommandLine()->AppendSwitchASCII(
-          "indigo-script", "/dummy/path");
+      // Command line changes are automatically reset between unit tests by
+      // base::TestSuite's ResetCommandLineBetweenTests listener after all
+      // tasks have finished running.
+      base::CommandLine::ForCurrentProcess()->AppendSwitchASCII("indigo-script",
+                                                                "/dummy/path");
     }
   }
 
   void TearDown() override {
     component_updater::ResetIndigoInstallDirForTesting();
-    glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
   }
 
   void CreateService() {
@@ -156,13 +158,16 @@ class IndigoServiceTest : public testing::Test {
   }
 
  protected:
+  // Must be declared before `task_environment_` so background tasks are
+  // stopped before scoped state is torn down.
+  base::test::ScopedFeatureList scoped_feature_list_;
+
   content::BrowserTaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   TestingProfile profile_;
   TestingPrefServiceSimple prefs_;
   signin::IdentityTestEnvironment identity_test_env_;
   std::unique_ptr<IndigoService> service_;
-  base::test::ScopedFeatureList scoped_feature_list_;
   RemoteEligibility mock_remote_eligibility_ =
       RemoteEligibility{.is_service_supported_for_account = true,
                         .has_user_image = true};
@@ -170,7 +175,6 @@ class IndigoServiceTest : public testing::Test {
   IndigoService::RemoteEligibilityCallback pending_remote_eligibility_callback_;
   bool auto_complete_remote_eligibility_fetch_ = true;
   bool set_script_switch_in_setup_ = true;
-  base::test::ScopedCommandLine scoped_command_line_;
 };
 
 TEST_F(IndigoServiceTest, DefaultStateNotSignedIn) {
@@ -245,13 +249,12 @@ TEST_F(IndigoServiceTest, GlicRequirementEnabledAndDisabled) {
 
   // Initially Glic is not enabled for the profile, so local eligibility becomes
   // kGlicDisabledForProfile.
-  glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
   EXPECT_TRUE(
       LocalEligibilityBecomes(LocalEligibility::kGlicDisabledForProfile));
 
   // Once Glic is enabled (bypassing enablement checks), local eligibility
   // becomes kEligible.
-  glic::GlicEnabling::SetBypassEnablementChecksForTesting(true);
+  glic::GlicEnabling::ScopedBypassEnablementChecksForTesting scoped_glic_bypass;
   {
     CoreAccountId account_id =
         identity_test_env_.identity_manager()->GetPrimaryAccountId(
@@ -332,6 +335,8 @@ TEST_F(IndigoServiceTest, MultipleCallsConsecutively_TriggersOneFetch) {
   base::test::TestFuture<CombinedEligibility> future1;
   base::test::TestFuture<CombinedEligibility> future2;
 
+  base::HistogramTester histogram_tester;
+
   service_->GetCombinedEligibility(
       future1.GetCallback<const CombinedEligibility&>());
   service_->GetCombinedEligibility(
@@ -342,6 +347,8 @@ TEST_F(IndigoServiceTest, MultipleCallsConsecutively_TriggersOneFetch) {
   EXPECT_TRUE(future1.Get().remote_eligibility.has_value());
   EXPECT_TRUE(future2.Get().remote_eligibility.has_value());
   EXPECT_EQ(remote_eligibility_fetch_count_, 1);
+  histogram_tester.ExpectTotalCount(
+      "Indigo.Discovery.EligibilityCheck.RequestLatency", 1);
 }
 
 TEST_F(IndigoServiceTest, CallsAfterCompletion_TriggersNewFetch) {
@@ -549,8 +556,10 @@ TEST_F(IndigoServiceTest, LoadConfigFromCommandLine) {
   ASSERT_TRUE(proto.SerializeToString(&serialized));
   ASSERT_TRUE(base::WriteFile(config_path, serialized));
 
-  // Set the command line switch.
-  scoped_command_line_.GetProcessCommandLine()->AppendSwitchPath(
+  // Set the command line switch. Command line changes are automatically
+  // reset between unit tests by base::TestSuite's
+  // ResetCommandLineBetweenTests listener after all tasks have finished.
+  base::CommandLine::ForCurrentProcess()->AppendSwitchPath(
       "indigo-config-proto", config_path);
 
   CreateService();

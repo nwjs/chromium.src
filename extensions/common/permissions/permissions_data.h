@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "base/synchronization/lock.h"
 #include "base/threading/thread_checker.h"
@@ -166,7 +167,7 @@ class PermissionsData {
   // TODO(mpcomplete): drop the "API" from these names, it's confusing.
   bool HasAPIPermission(mojom::APIPermissionID permission,
                         bool ignore_override = false) const;
-  bool HasAPIPermission(const std::string& permission_name,
+  bool HasAPIPermission(std::string_view permission_name,
                         bool ignore_override = false) const;
   bool HasAPIPermissionForTab(int tab_id,
                               mojom::APIPermissionID permission) const;

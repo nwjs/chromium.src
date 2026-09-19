@@ -32,6 +32,7 @@
 #include "base/memory_coordinator/memory_coordinator_features.h"
 #include "base/memory_coordinator/traits.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/numerics/clamped_math.h"
 #include "base/task/single_thread_task_runner.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/platform/platform.h"
@@ -141,24 +142,6 @@ static constexpr base::TimeDelta kDefaultStrongReferencePruneDelay =
     base::Minutes(5);
 #endif
 
-// Feature to control the duration for which a strong reference may remain
-// in the MemoryCache after its last access.
-BASE_FEATURE(kMemoryCacheChangeStrongReferencePruneDelay,
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
-
-// Parameter defining the delay after which a strong reference is removed
-// from the MemoryCache after its last access.
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kMemoryCacheStrongReferencePruneDelay,
-                   &kMemoryCacheChangeStrongReferencePruneDelay,
-                   "strong_reference_prune_delay",
-                   kDefaultStrongReferencePruneDelay);
-
 ScopedMemoryCacheForTesting::ScopedMemoryCacheForTesting(
     Persistent<MemoryCache> cache) {
   if (!g_memory_cache) {
@@ -204,19 +187,14 @@ MemoryCache* MemoryCache::Get() {
 
 MemoryCache::MemoryCache(
     scoped_refptr<base::SingleThreadTaskRunner> task_runner)
-    : memory_pressure_listener_registration_(
-          FROM_HERE,
-          base::MemoryPressureListenerTag::kMemoryCache,
-          this),
-      memory_consumer_registration_(
+    : memory_consumer_registration_(
           "MemoryCache",
           kMemoryCacheTraits,
           this,
           MemoryConsumerRegistration::CheckUnregister::kDisabled),
       strong_references_max_size_(
           features::kMemoryCacheStrongReferenceTotalSizeThresholdParam.Get()),
-      strong_references_prune_duration_(
-          kMemoryCacheStrongReferencePruneDelay.Get()),
+      strong_references_prune_duration_(kDefaultStrongReferencePruneDelay),
       task_runner_(std::move(task_runner)) {
   MemoryCacheDumpProvider::Instance()->SetMemoryCache(this);
   OnUpdateMemoryLimit();
@@ -233,7 +211,6 @@ void MemoryCache::Trace(Visitor* visitor) const {
 }
 
 void MemoryCache::Dispose() {
-  memory_pressure_listener_registration_.Dispose();
   memory_consumer_registration_.Dispose();
 }
 
@@ -289,11 +266,13 @@ void MemoryCache::AddInternal(ResourceMap* resource_map,
   if (it != resource_map->end()) {
     Resource* old_resource = it->value->GetResource();
     CHECK_NE(old_resource, resource);
+    RemoveDataURIStrongReference(old_resource);
     Update(old_resource, old_resource->size(), 0);
     strong_references_.erase(old_resource);
   }
   resource_map->Set(url, entry);
   Update(resource, 0, resource->size());
+  AddOrTouchDataURIStrongReference(resource);
 }
 
 void MemoryCache::Remove(Resource* resource) {
@@ -331,6 +310,7 @@ void MemoryCache::RemoveInternal(ResourceMap* resource_map,
   Resource* resource = it->value->GetResource();
   DCHECK(resource);
 
+  RemoveDataURIStrongReference(resource);
   Update(resource, resource->size(), 0);
   resource_map->erase(it);
   if (base::FeatureList::IsEnabled(features::kMemoryCacheIntelligentPruning)) {
@@ -344,11 +324,6 @@ void MemoryCache::RemoveInternal(ResourceMap* resource_map,
     // Otherwise, the resource can only be in the original strong references
     // set.
     strong_references_.erase(resource);
-  }
-  // Also remove from data URI strong references if present.
-  if (data_uri_strong_references_.Contains(resource)) {
-    data_uri_strong_references_total_bytes_ -= resource->size();
-    data_uri_strong_references_.erase(resource);
   }
 }
 
@@ -369,13 +344,12 @@ bool MemoryCache::Contains(const Resource* resource) const {
   return resource == resources_it->value->GetResource();
 }
 
-Resource* MemoryCache::ResourceForURLForTesting(
-    const KURL& resource_url) const {
+Resource* MemoryCache::ResourceForURLForTesting(const KURL& resource_url) {
   return ResourceForURL(resource_url, DefaultCacheIdentifier());
 }
 
 Resource* MemoryCache::ResourceForURL(const KURL& resource_url,
-                                      const String& cache_identifier) const {
+                                      const String& cache_identifier) {
   DCHECK(IsMainThread());
   if (!resource_url.IsValid() || resource_url.IsNull())
     return nullptr;
@@ -397,6 +371,9 @@ Resource* MemoryCache::ResourceForURL(const KURL& resource_url,
   if (resource &&
       base::FeatureList::IsEnabled(features::kMemoryCacheIntelligentPruning)) {
     resource->UpdateMemoryCacheLastAccessedTime();
+  }
+  if (resource) {
+    AddOrTouchDataURIStrongReference(resource);
   }
 
   return resource;
@@ -426,6 +403,23 @@ void MemoryCache::Update(Resource* resource, size_t old_size, size_t new_size) {
   }
   if (strong_references_.Contains(resource)) {
     PruneStrongReferences();
+  }
+  if (data_uri_strong_references_.Contains(resource)) {
+    if (new_size > old_size) {
+      data_uri_strong_references_total_bytes_ = base::ClampAdd(
+          data_uri_strong_references_total_bytes_, new_size - old_size);
+      const size_t max_total_size = static_cast<size_t>(
+          features::kDataURIMemoryCacheTotalSizeThresholdParam.Get());
+      if (new_size > max_total_size) {
+        RemoveDataURIStrongReference(resource);
+      } else {
+        PruneDataURIStrongReferences();
+      }
+    } else {
+      const size_t data_uri_delta = old_size - new_size;
+      CHECK_LT(data_uri_delta, data_uri_strong_references_total_bytes_);
+      data_uri_strong_references_total_bytes_ -= data_uri_delta;
+    }
   }
 }
 
@@ -563,16 +557,7 @@ bool MemoryCache::OnMemoryDump(WebMemoryDumpLevelOfDetail level_of_detail,
   return true;
 }
 
-void MemoryCache::OnMemoryPressure(base::MemoryPressureLevel level) {
-  if (level == base::MEMORY_PRESSURE_LEVEL_NONE) {
-    return;
-  }
 
-  if (base::FeatureList::IsEnabled(
-          features::kReleaseResourceStrongReferencesOnMemoryPressure)) {
-    ClearStrongReferences();
-  }
-}
 
 size_t MemoryCache::GetTargetStrongReferencesMaxSize() const {
   const size_t baseline = static_cast<size_t>(
@@ -757,44 +742,79 @@ void MemoryCache::PruneStrongReferences() {
   }
 }
 
-void MemoryCache::SaveDataURIStrongReference(Resource* resource) {
+void MemoryCache::AddOrTouchDataURIStrongReference(Resource* resource) {
   if (!base::FeatureList::IsEnabled(features::kDataURIMemoryCache)) {
     return;
   }
-  CHECK(resource);
-  CHECK(resource->Url().ProtocolIsData());
-
-  const size_t max_total_size = static_cast<size_t>(
-      features::kDataURIMemoryCacheTotalSizeThresholdParam.Get());
-
-  // Move to end if already present (LRU touch).
-  if (data_uri_strong_references_.Contains(resource)) {
-    data_uri_strong_references_.AppendOrMoveToLast(resource);
+  if (!resource->Url().ProtocolIsData()) {
     return;
   }
 
-  const size_t resource_size = resource->size();
+  const size_t max_total_size = static_cast<size_t>(
+      features::kDataURIMemoryCacheTotalSizeThresholdParam.Get());
+  if (resource->size() > max_total_size) {
+    RemoveDataURIStrongReference(resource);
+    return;
+  }
 
-  // Evict oldest entries (LRU) to stay within the size budget.
-  while ((data_uri_strong_references_total_bytes_ + resource_size) >
-             max_total_size &&
+  // Appends, or moves to the end if already present (LRU touch).
+  auto result = data_uri_strong_references_.AppendOrMoveToLast(resource);
+  if (result.is_new_entry) {
+    data_uri_strong_references_total_bytes_ = base::ClampAdd(
+        data_uri_strong_references_total_bytes_, resource->size());
+    PruneDataURIStrongReferences();
+  }
+}
+
+void MemoryCache::PruneDataURIStrongReferences() {
+  DCHECK(IsMainThread());
+  const size_t max_total_size = static_cast<size_t>(
+      features::kDataURIMemoryCacheTotalSizeThresholdParam.Get());
+
+#if DCHECK_IS_ON()
+  // The total is maintained incrementally by the callers. Recompute it from
+  // live sizes to catch any path that changes a resource's size without
+  // reporting it.
+  size_t expected_total_size = 0;
+  for (const Resource* resource : data_uri_strong_references_) {
+    DCHECK(resource->Url().ProtocolIsData());
+    expected_total_size = base::ClampAdd(expected_total_size, resource->size());
+  }
+  DCHECK_EQ(expected_total_size, data_uri_strong_references_total_bytes_);
+#endif
+
+  while (data_uri_strong_references_total_bytes_ > max_total_size &&
          !data_uri_strong_references_.empty()) {
     Resource* front_resource = data_uri_strong_references_.front();
+    CHECK_LE(front_resource->size(), data_uri_strong_references_total_bytes_);
     data_uri_strong_references_total_bytes_ -= front_resource->size();
     data_uri_strong_references_.erase(data_uri_strong_references_.begin());
   }
+  if (data_uri_strong_references_.empty()) {
+    data_uri_strong_references_total_bytes_ = 0;
+  }
+  CHECK_LE(data_uri_strong_references_total_bytes_, max_total_size);
+}
 
-  data_uri_strong_references_.AppendOrMoveToLast(resource);
-  data_uri_strong_references_total_bytes_ += resource_size;
+void MemoryCache::RemoveDataURIStrongReference(Resource* resource) {
+  DCHECK(IsMainThread());
+  if (resource->Url().ProtocolIsData()) {
+    auto it = data_uri_strong_references_.find(resource);
+    if (it != data_uri_strong_references_.end()) {
+      CHECK_GE(data_uri_strong_references_total_bytes_, resource->size());
+      data_uri_strong_references_total_bytes_ -= resource->size();
+      data_uri_strong_references_.erase(it);
+    }
+  }
 }
 
 void MemoryCache::ClearStrongReferences() {
   strong_references_.clear();
   tiered_strong_references_.clear();
   // Data URI strong references are intentionally NOT cleared here. They have
-  // their own size budget (5MB default) and are designed to survive memory
-  // pressure to persist across navigations. They are cleared in
-  // EvictResources() when the cache is fully emptied.
+  // their own size budget and are designed to survive memory pressure to
+  // persist across navigations. They are cleared in EvictResources() when the
+  // cache is fully emptied.
 }
 
 void MemoryCache::ClearDataURIStrongReferences() {

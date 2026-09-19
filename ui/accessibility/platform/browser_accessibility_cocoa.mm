@@ -474,6 +474,33 @@ bool ui::HasNonEmptyGroupSemantics(const ui::AXNodeData& data) {
   return false;
 }
 
+namespace {
+
+bool UsesShowMenuForDefaultAction(const ui::BrowserAccessibility& node) {
+  // TODO(accessibility): Add a primary-menu action so macOS pop-up buttons and
+  // select comboboxes can serialize AXShowMenu directly.
+  return !node.manager()->IsWebContentSource() && node.HasDefaultAction() &&
+         !node.HasAction(ax::mojom::Action::kShowContextMenu) &&
+         (node.GetRole() == ax::mojom::Role::kPopUpButton ||
+          node.GetRole() == ax::mojom::Role::kComboBoxSelect);
+}
+
+bool SupportsShowMenuAction(const ui::BrowserAccessibility& node) {
+  return node.manager()->IsWebContentSource() ||
+         node.HasAction(ax::mojom::Action::kShowContextMenu) ||
+         UsesShowMenuForDefaultAction(node);
+}
+
+void PerformShowMenuAction(ui::BrowserAccessibility& node) {
+  if (UsesShowMenuForDefaultAction(node)) {
+    node.manager()->DoDefaultAction(node);
+  } else {
+    node.manager()->ShowContextMenu(node);
+  }
+}
+
+}  // namespace
+
 namespace ui {
 void EnableAXCustomActionNamesForTestingProjection() {
   g_enable_ax_custom_action_names_for_testing_projection = true;
@@ -2524,7 +2551,7 @@ bool IsAXCustomActionNamesForTestingProjectionEnabled() {
     //
     // Note that hard line breaks are on a line of their own.
     AXPosition startPosition = position->CreatePreviousLineStartPosition(
-        ui::AXMovementOptions(ui::AXBoundaryBehavior::kStopAtAnchorBoundary,
+        ui::AXMovementOptions(ui::AXBoundaryBehavior::kStopAtLastAnchorBoundary,
                               ui::AXBoundaryDetection::kCheckInitialPosition));
     AXPosition endPosition =
         startPosition->CreateNextLineStartPosition(ui::AXMovementOptions(
@@ -2967,16 +2994,29 @@ bool IsAXCustomActionNamesForTestingProjectionEnabled() {
     return [NSMutableArray array];
   }
 
-  NSMutableArray* actions = [NSMutableArray
-      arrayWithObjects:NSAccessibilityShowMenuAction,
-                       NSAccessibilityScrollToVisibleAction, nil];
+  NSMutableArray* actions = [NSMutableArray array];
 
   // VoiceOver expects the "press" action to be first.
-  if (_owner->IsClickable())
+  if (_owner->HasDefaultAction()) {
     [actions insertObject:NSAccessibilityPressAction atIndex:0];
+  }
 
-  if (ui::IsMenuRelated(_owner->GetRole()))
+  if (SupportsShowMenuAction(*_owner)) {
+    [actions addObject:NSAccessibilityShowMenuAction];
+  }
+
+  // TODO(accessibility): Should Views descendants of a scroll area support
+  // AXScrollToVisible?
+  if (_owner->manager()->IsWebContentSource()) {
+    [actions addObject:NSAccessibilityScrollToVisibleAction];
+  }
+
+  // TODO(accessibility): Views should probably support this action to dismiss
+  // a menu too.
+  if (_owner->manager()->IsWebContentSource() &&
+      ui::IsMenuRelated(_owner->GetRole())) {
     [actions addObject:NSAccessibilityCancelAction];
+  }
 
   if ([self internalRole] == ax::mojom::Role::kSlider ||
       [self internalRole] == ax::mojom::Role::kSpinButton) {
@@ -3286,8 +3326,13 @@ bool IsAXCustomActionNamesForTestingProjectionEnabled() {
     node->SetData(data);  // Set the data back in the node.
     // LINT.ThenChange(accessibilityPerformPress)
   } else if ([action isEqualToString:NSAccessibilityShowMenuAction]) {
-    manager->ShowContextMenu(*actionTarget);
+    if (SupportsShowMenuAction(*actionTarget)) {
+      PerformShowMenuAction(*actionTarget);
+    }
   } else if ([action isEqualToString:NSAccessibilityScrollToVisibleAction]) {
+    if (!actionTarget->manager()->IsWebContentSource()) {
+      return;
+    }
     ui::AXPlatformNodeBase* mac_obj =
         [ObjCCastStrict<BrowserAccessibilityCocoa>(
             actionTarget->GetNativeViewAccessible().Get()) node];
@@ -3344,8 +3389,10 @@ bool IsAXCustomActionNamesForTestingProjectionEnabled() {
     return NO;
   }
   BrowserAccessibility* actionTarget = [self actionTarget];
-  BrowserAccessibilityManager* manager = actionTarget->manager();
-  manager->ShowContextMenu(*actionTarget);
+  if (!SupportsShowMenuAction(*actionTarget)) {
+    return NO;
+  }
+  PerformShowMenuAction(*actionTarget);
   return YES;
 }
 

@@ -17,6 +17,7 @@ import org.chromium.ui.listmenu.ListMenuDelegate;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModel.WritableBooleanPropertyKey;
+import org.chromium.ui.modelutil.PropertyModel.WritableIntDefPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableIntPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
 
@@ -52,6 +53,9 @@ public class ImprovedBookmarkRowProperties {
     public static final WritableBooleanPropertyKey DESCRIPTION_VISIBLE =
             new WritableBooleanPropertyKey();
     public static final WritableIntPropertyKey START_IMAGE_VISIBILITY =
+            new WritableIntPropertyKey();
+    public static final WritableIntPropertyKey START_IMAGE_SIZE = new WritableIntPropertyKey();
+    public static final WritableIntPropertyKey START_IMAGE_CORNER_RADIUS =
             new WritableIntPropertyKey();
     // Sets the background color for the start image.
     public static final WritableIntPropertyKey START_AREA_BACKGROUND_COLOR =
@@ -94,7 +98,8 @@ public class ImprovedBookmarkRowProperties {
     public static final WritableObjectPropertyKey<BooleanSupplier> ROW_LONG_CLICK_LISTENER =
             new WritableObjectPropertyKey<>();
 
-    public static final WritableIntPropertyKey END_IMAGE_VISIBILITY = new WritableIntPropertyKey();
+    public static final WritableIntDefPropertyKey<ImageVisibility> END_IMAGE_VISIBILITY =
+            new WritableIntDefPropertyKey<>(ImageVisibility.NONE);
     public static final WritableIntPropertyKey END_IMAGE_RES = new WritableIntPropertyKey();
 
     public static final WritableObjectPropertyKey<ShoppingAccessoryCoordinator>
@@ -126,6 +131,8 @@ public class ImprovedBookmarkRowProperties {
         DESCRIPTION,
         DESCRIPTION_VISIBLE,
         START_IMAGE_VISIBILITY,
+        START_IMAGE_SIZE,
+        START_IMAGE_CORNER_RADIUS,
         START_AREA_BACKGROUND_COLOR,
         START_ICON_TINT,
         START_ICON_DRAWABLE,

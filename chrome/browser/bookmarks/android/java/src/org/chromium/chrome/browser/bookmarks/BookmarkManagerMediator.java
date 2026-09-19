@@ -28,6 +28,7 @@ import org.chromium.base.ObserverList;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
+import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
@@ -407,6 +408,7 @@ class BookmarkManagerMediator
     // Keep track of the currently highlighted bookmark - used for "show in folder" action.
     private @Nullable BookmarkId mHighlightedBookmark;
     private @Nullable PropertyModel mSearchBoxPropertyModel;
+    private RecyclerView.@Nullable OnChildAttachStateChangeListener mChildAttachListener;
 
     // Whether this instance has been destroyed.
     private boolean mIsDestroyed;
@@ -418,6 +420,7 @@ class BookmarkManagerMediator
     private boolean mIsBookmarkModelReorderingInProgress;
     // Whether the shopping feature is available and there are price-tracked bookmarks.
     private boolean mShoppingFilterAvailable;
+    private boolean mSearchBoxInline;
 
     BookmarkManagerMediator(
             Activity activity,
@@ -521,6 +524,8 @@ class BookmarkManagerMediator
                         mBookmarkUiPrefs,
                         mShoppingService);
 
+        mSearchBoxInline = !BookmarkUtils.isDesktopBookmarksLayoutEnabled();
+
         initializeToLoadingState();
         if (!sPreventLoadingForTesting) {
             finishLoadingBookmarkModel();
@@ -554,6 +559,11 @@ class BookmarkManagerMediator
         mBookmarkQueryHandler.destroy();
         mCallbackController.destroy();
         mBatchUploadCardCoordinator.destroy();
+
+        if (mChildAttachListener != null) {
+            mRecyclerView.removeOnChildAttachStateChangeListener(mChildAttachListener);
+            mChildAttachListener = null;
+        }
 
         mBookmarkUiPrefs.removeObserver(mBookmarkUiPrefsObserver);
 
@@ -933,7 +943,12 @@ class BookmarkManagerMediator
 
         @BookmarkUiMode int currentUiMode = getCurrentUiMode();
         @Nullable BookmarkUiState currentState = getCurrentUiState();
-        if (Objects.equals(currentState, state)) return;
+        if (Objects.equals(currentState, state)) {
+            if (mNativePage != null && !TextUtils.equals(mNativePage.getUrl(), state.mUrl)) {
+                notifyUi(state, false);
+            }
+            return;
+        }
 
         // The loading state is not persisted in history stack and once we have a valid state it
         // shall be removed.
@@ -986,7 +1001,21 @@ class BookmarkManagerMediator
                         TextUtils.equals(mNativePage.getUrl(), getOriginalBookmarksUrl())
                                 || TextUtils.equals(
                                         mNativePage.getUrl(), getOriginalNativeBookmarksUrl());
-                mNativePage.onStateChange(state.mUrl, replaceLastUrl);
+                if (replaceLastUrl) {
+                    // When navigating to chrome://bookmarks, the initial entry commits
+                    // asynchronously in NavigationController. Post to UI_DEFAULT so the initial
+                    // navigation commits before replacing it on the backstack.
+                    PostTask.postTask(
+                            TaskTraits.UI_DEFAULT,
+                            mCallbackController.makeCancelable(
+                                    () -> {
+                                        if (mNativePage != null) {
+                                            mNativePage.onStateChange(state.mUrl, true);
+                                        }
+                                    }));
+                } else {
+                    mNativePage.onStateChange(state.mUrl, false);
+                }
             }
         } else if (state.mUiMode == BookmarkUiMode.SEARCHING) {
             String searchText = getCurrentSearchText();
@@ -1090,7 +1119,7 @@ class BookmarkManagerMediator
         int index = 0;
 
         // Don't replace if it already exists. The text box is stateful.
-        if (BookmarkUtils.isDesktopBookmarksLayoutEnabled()) {
+        if (!isSearchBoxInline()) {
             getOrCreateSearchBoxPropertyModel();
         } else {
             if (getCurrentSearchBoxIndex() < 0) {
@@ -1113,7 +1142,7 @@ class BookmarkManagerMediator
         }
 
         // Only show the empty state if there's only a searchbox.
-        int emptyListThreshold = BookmarkUtils.isDesktopBookmarksLayoutEnabled() ? 0 : 1;
+        int emptyListThreshold = isSearchBoxInline() ? 1 : 0;
         boolean listIsEmpty = index == emptyListThreshold;
         if (listIsEmpty) {
             updateOrAdd(index++, buildEmptyStateListItem());
@@ -1216,6 +1245,17 @@ class BookmarkManagerMediator
                                 searchText, mCurrentPowerFilter));
                 return;
             }
+        }
+
+        // Pop any invalid states from the top of the stack (e.g. if an account bookmark folder was
+        // removed upon sign out). If the stack is now empty, fall back to the default folder.
+        while (!mStateStack.isEmpty() && !mStateStack.peekLast().isValid(mBookmarkModel)) {
+            mStateStack.removeLast();
+        }
+        if (mStateStack.isEmpty()) {
+            BookmarkId defaultFolder = assumeNonNull(mBookmarkModel.getDefaultFolderViewLocation());
+            setState(BookmarkUiState.createFolderState(defaultFolder, mBookmarkModel));
+            return;
         }
 
         notifyUi(mStateStack.peekLast(), /* preserveFolderBookmarksOnEmptySearch= */ false);
@@ -1430,6 +1470,47 @@ class BookmarkManagerMediator
 
     private ListItem buildSearchBoxRow() {
         return new ListItem(ViewType.SEARCH_BOX, getOrCreateSearchBoxPropertyModel());
+    }
+
+    /**
+     * Sets whether the search box should be displayed inline in the bookmarks list. This is only
+     * applicable when desktop bookmarks layout is enabled.
+     *
+     * @param isInline Whether the search box is inline.
+     */
+    public void setSearchBoxInline(boolean isInline) {
+        if (!BookmarkUtils.isDesktopBookmarksLayoutEnabled()) {
+            return;
+        }
+        if (mSearchBoxInline == isInline) {
+            return;
+        }
+        mSearchBoxInline = isInline;
+
+        if (mStateStack.isEmpty() || !mBookmarkModel.isBookmarkModelLoaded()) {
+            return;
+        }
+
+        int searchBoxIndex = getCurrentSearchBoxIndex();
+        if (mSearchBoxInline) {
+            if (searchBoxIndex < 0) {
+                boolean isScrollPositionAtTop = !mRecyclerView.canScrollVertically(-1);
+                mModelList.add(0, buildSearchBoxRow());
+                updateSearchBoxShoppingFilterVisibility(assumeNonNull(getSearchBoxPropertyModel()));
+                if (isScrollPositionAtTop) {
+                    mRecyclerView.scrollToPosition(0);
+                }
+            }
+        } else {
+            if (searchBoxIndex >= 0) {
+                mModelList.removeAt(searchBoxIndex);
+            }
+        }
+    }
+
+    @VisibleForTesting
+    boolean isSearchBoxInline() {
+        return mSearchBoxInline;
     }
 
     private ListItem buildEmptyStateListItem() {
@@ -1883,7 +1964,28 @@ class BookmarkManagerMediator
 
     @VisibleForTesting
     void changeSelectionMode(boolean selectionEnabled) {
+        boolean wasSelectionEnabled = mIsSelectionEnabled;
         mIsSelectionEnabled = selectionEnabled;
+
+        if (!wasSelectionEnabled && selectionEnabled) {
+            int count = mSelectionDelegate.getSelectedItems().size();
+            String announcement =
+                    mContext.getString(
+                            R.string.accessibility_toolbar_screen_position,
+                            Integer.toString(count));
+            mSelectableListLayout.announceAccessibilityText(announcement);
+
+            List<BookmarkId> selectedList = mSelectionDelegate.getSelectedItemsAsList();
+            if (!selectedList.isEmpty()) {
+                BookmarkId primaryBookmarkId = selectedList.get(0);
+                mRecyclerView.post(
+                        mCallbackController.makeCancelable(
+                                () -> focusRowForBookmark(primaryBookmarkId)));
+            }
+        } else if (wasSelectionEnabled && !selectionEnabled) {
+            String announcement = mContext.getString(R.string.accessibility_toolbar_exit_select);
+            mSelectableListLayout.announceAccessibilityText(announcement);
+        }
 
         int startIndex = getBookmarkItemStartIndex();
         int endIndex = getBookmarkItemEndIndex();
@@ -1900,6 +2002,54 @@ class BookmarkManagerMediator
             model.set(
                     ImprovedBookmarkRowProperties.SELECTED, mSelectionDelegate.isItemSelected(id));
             model.set(ImprovedBookmarkRowProperties.SELECTION_ACTIVE, mIsSelectionEnabled);
+        }
+    }
+
+    @VisibleForTesting
+    void focusRowForBookmark(BookmarkId bookmarkId) {
+        if (!mIsSelectionEnabled || !mSelectionDelegate.isItemSelected(bookmarkId)) {
+            return;
+        }
+
+        int position = getPositionForBookmark(bookmarkId);
+        if (position < 0) return;
+
+        if (mChildAttachListener != null) {
+            mRecyclerView.removeOnChildAttachStateChangeListener(mChildAttachListener);
+            mChildAttachListener = null;
+        }
+
+        RecyclerView.ViewHolder holder = mRecyclerView.findViewHolderForAdapterPosition(position);
+        if (holder == null) {
+            mChildAttachListener =
+                    new RecyclerView.OnChildAttachStateChangeListener() {
+                        @Override
+                        public void onChildViewAttachedToWindow(View view) {
+                            int pos = mRecyclerView.getChildAdapterPosition(view);
+                            if (pos == position) {
+                                mRecyclerView.removeOnChildAttachStateChangeListener(this);
+                                mChildAttachListener = null;
+                                view.post(
+                                        mCallbackController.makeCancelable(
+                                                () -> {
+                                                    if (mIsSelectionEnabled
+                                                            && mSelectionDelegate.isItemSelected(
+                                                                    bookmarkId)) {
+                                                        view.requestFocus();
+                                                    }
+                                                }));
+                            }
+                        }
+
+                        @Override
+                        public void onChildViewDetachedFromWindow(View view) {}
+                    };
+            mRecyclerView.addOnChildAttachStateChangeListener(mChildAttachListener);
+            mRecyclerView.scrollToPosition(position);
+            return;
+        }
+        if (holder.itemView != null) {
+            holder.itemView.requestFocus();
         }
     }
 

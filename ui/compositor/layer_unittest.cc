@@ -36,6 +36,7 @@
 #include "cc/animation/keyframe_effect.h"
 #include "cc/layers/layer.h"
 #include "cc/layers/mirror_layer.h"
+#include "cc/layers/surface_layer.h"
 #include "cc/paint/filter_operation.h"
 #include "cc/test/pixel_comparator.h"
 #include "cc/test/pixel_test_utils.h"
@@ -57,7 +58,14 @@
 #include "ui/compositor/layer_animation_sequence.h"
 #include "ui/compositor/layer_animator.h"
 #include "ui/compositor/layer_delegate.h"
+#include "ui/compositor/layer_nine_patch.h"
+#include "ui/compositor/layer_not_drawn.h"
+#include "ui/compositor/layer_solid_color.h"
+#include "ui/compositor/layer_surface.h"
+#include "ui/compositor/layer_test_api.h"
+#include "ui/compositor/layer_textured.h"
 #include "ui/compositor/layer_type.h"
+#include "ui/compositor/layer_with_external_texture.h"
 #include "ui/compositor/paint_context.h"
 #include "ui/compositor/paint_recorder.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
@@ -634,7 +642,7 @@ void ReturnMailbox(bool* run, const gpu::SyncToken& sync_token, bool is_lost) {
 }
 
 TEST(LayerStandaloneTest, ReleaseMailboxOnDestruction) {
-  auto layer = std::make_unique<LayerTextured>();
+  auto layer = std::make_unique<LayerWithExternalTexture>();
   bool callback_run = false;
 
   auto resource = viz::TransferableResource::Make(
@@ -769,8 +777,8 @@ TEST_P(LayerWithRealCompositorTest, DrawTree) {
   EXPECT_FALSE(d3.painted());
 }
 
-// Tests that scheduling paint on a layer with a mask updates the mask.
-TEST_P(LayerWithRealCompositorTest, SchedulePaintUpdatesMask) {
+// Tests that scheduling paint on a layer with a mask does not update the mask.
+TEST_P(LayerWithRealCompositorTest, SchedulePaintDoesNotUpdateMask) {
   std::unique_ptr<Layer> layer =
       CreateColorLayer(SK_ColorRED, gfx::Rect(20, 20, 400, 400));
   auto mask_layer = CreateLayer<LayerTextured>();
@@ -788,6 +796,14 @@ TEST_P(LayerWithRealCompositorTest, SchedulePaintUpdatesMask) {
   layer->SchedulePaint(gfx::Rect(5, 5, 5, 5));
   WaitForDraw();
   EXPECT_TRUE(d1.painted());
+  EXPECT_FALSE(d2.painted());
+
+  // Scheduling paint directly on the mask should update it.
+  d1.Reset();
+  d2.Reset();
+  mask_layer->SchedulePaint(gfx::Rect(5, 5, 5, 5));
+  WaitForDraw();
+  EXPECT_FALSE(d1.painted());
   EXPECT_TRUE(d2.painted());
 }
 
@@ -920,7 +936,8 @@ TEST_P(LayerWithDelegateTest, Cloning) {
 
   // Color and opaqueness targets should be preserved during cloning, even after
   // switching away from solid color content.
-  ASSERT_TRUE(layer->SwitchCCLayerForTest());
+  ui::LayerTestApi layer_test_api(layer.get());
+  ASSERT_TRUE(layer_test_api.SwitchToSolidColorLayer());
 
   clone = layer->Clone();
 
@@ -933,8 +950,10 @@ TEST_P(LayerWithDelegateTest, Cloning) {
   EXPECT_FLOAT_EQ(new_layer_hue_rotation, clone->layer_hue_rotation());
   EXPECT_FALSE(clone->LayerHasCustomColorMatrix());
   EXPECT_FALSE(clone->fills_bounds_opaquely());
+}
 
-  layer = CreateLayer<LayerSolidColor>();
+TEST_P(LayerWithDelegateTest, Cloning_AnimationTargets) {
+  auto layer = CreateLayer<LayerSolidColor>();
   layer->SetVisible(true);
   layer->SetOpacity(1.0f);
   layer->SetColor(SkColors::kRed);
@@ -948,7 +967,7 @@ TEST_P(LayerWithDelegateTest, Cloning) {
   EXPECT_EQ(1.0f, layer->opacity());
   EXPECT_EQ(SkColors::kRed, layer->background_color());
 
-  clone = layer->Clone();
+  auto clone = layer->Clone();
 
   // Cloning copies animation targets.
   EXPECT_FALSE(clone->visible());
@@ -958,38 +977,44 @@ TEST_P(LayerWithDelegateTest, Cloning) {
 
 TEST_P(LayerWithDelegateTest, CloneWithCacheRenderSurface) {
   auto layer = CreateLayer<LayerSolidColor>();
-  EXPECT_FALSE(layer->cc_layer_for_testing()->cache_render_surface());
+  ui::LayerTestApi layer_test_api(layer.get());
+  EXPECT_FALSE(layer_test_api.cc_layer()->cache_render_surface());
 
   {
     ScopedCacheRenderSurfaceLock lock(layer.get());
-    EXPECT_TRUE(layer->cc_layer_for_testing()->cache_render_surface());
+    EXPECT_TRUE(layer_test_api.cc_layer()->cache_render_surface());
 
     auto clone = layer->Clone();
     // Cloning should not preserve cache_render_surface flag.
-    EXPECT_FALSE(clone->cc_layer_for_testing()->cache_render_surface());
+    ui::LayerTestApi clone_test_api(clone.get());
+    EXPECT_FALSE(clone_test_api.cc_layer()->cache_render_surface());
   }
 
-  EXPECT_FALSE(layer->cc_layer_for_testing()->cache_render_surface());
+  EXPECT_FALSE(layer_test_api.cc_layer()->cache_render_surface());
 }
 
 TEST_P(LayerWithDelegateTest, CloneWithTrilinearFiltering) {
   auto layer = CreateLayer<LayerSolidColor>();
-  EXPECT_FALSE(layer->cc_layer_for_testing()->trilinear_filtering());
+  ui::LayerTestApi layer_test_api(layer.get());
+  EXPECT_FALSE(layer_test_api.cc_layer()->trilinear_filtering());
 
   {
     ScopedTrilinearFilteringLock lock(layer.get());
-    EXPECT_TRUE(layer->cc_layer_for_testing()->trilinear_filtering());
+    EXPECT_TRUE(layer_test_api.cc_layer()->trilinear_filtering());
 
     auto clone = layer->Clone();
     // Cloning should not preserve trilinear_filtering flag.
-    EXPECT_FALSE(clone->cc_layer_for_testing()->trilinear_filtering());
+    ui::LayerTestApi clone_test_api(clone.get());
+    EXPECT_FALSE(clone_test_api.cc_layer()->trilinear_filtering());
   }
 
-  EXPECT_FALSE(layer->cc_layer_for_testing()->trilinear_filtering());
+  EXPECT_FALSE(layer_test_api.cc_layer()->trilinear_filtering());
 }
 
 TEST_P(LayerWithDelegateTest, CloneDamagedRegion) {
   auto layer = CreateLayer<LayerTextured>();
+  ui::LayerTestApi layer_test_api(layer.get());
+
   // Set a delegate so that the damage region is accumulated.
   DrawTreeLayerDelegate delegate(gfx::Rect(0, 0, 10, 10));
   layer->set_delegate(&delegate);
@@ -1001,10 +1026,11 @@ TEST_P(LayerWithDelegateTest, CloneDamagedRegion) {
   for (auto rect : damaged_region)
     layer->SchedulePaint(rect);
 
-  ASSERT_EQ(damaged_region, layer->damaged_region());
+  ASSERT_EQ(damaged_region, layer_test_api.damaged_region());
 
   auto clone = layer->Clone();
-  EXPECT_EQ(damaged_region, clone->damaged_region());
+  ui::LayerTestApi clone_test_api(clone.get());
+  EXPECT_EQ(damaged_region, clone_test_api.damaged_region());
 }
 
 TEST_P(LayerWithDelegateTest, Mirroring) {
@@ -1032,26 +1058,28 @@ TEST_P(LayerWithDelegateTest, Mirroring) {
   delegate.Reset();
 
   // Both layers should be clean.
-  EXPECT_TRUE(child->damaged_region_for_testing().IsEmpty());
-  EXPECT_TRUE(mirror1->damaged_region_for_testing().IsEmpty());
+  ui::LayerTestApi child_test_api(child.get());
+  EXPECT_TRUE(child_test_api.damaged_region().IsEmpty());
+  ui::LayerTestApi mirror1_test_api(mirror1.get());
+  EXPECT_TRUE(mirror1_test_api.damaged_region().IsEmpty());
 
   const gfx::Rect damaged_rect(10, 10, 20, 20);
   EXPECT_TRUE(child->SchedulePaint(damaged_rect));
-  EXPECT_EQ(damaged_rect, child->damaged_region_for_testing().bounds());
+  EXPECT_EQ(damaged_rect, child_test_api.damaged_region().bounds());
 
   DrawTree(root.get());
   EXPECT_TRUE(delegate.painted());
   delegate.Reset();
 
   // Damage should be propagated to the mirror.
-  EXPECT_EQ(damaged_rect, mirror1->damaged_region_for_testing().bounds());
-  EXPECT_TRUE(child->damaged_region_for_testing().IsEmpty());
+  EXPECT_EQ(damaged_rect, mirror1_test_api.damaged_region().bounds());
+  EXPECT_TRUE(child_test_api.damaged_region().IsEmpty());
 
   DrawTree(root.get());
   EXPECT_TRUE(delegate.painted());
 
   // Mirror should be clean.
-  EXPECT_TRUE(mirror1->damaged_region_for_testing().IsEmpty());
+  EXPECT_TRUE(mirror1_test_api.damaged_region().IsEmpty());
 
   const auto mirror2 = child->Mirror();
   root->Add(mirror2.get());
@@ -1079,6 +1107,11 @@ TEST_P(LayerWithDelegateTest, Mirroring) {
   child->SetIsFastRoundedCorner(true);
   EXPECT_EQ(kCornerRadii, mirror1->rounded_corner_radii());
   EXPECT_TRUE(mirror1->is_fast_rounded_corner());
+
+  EXPECT_TRUE(child_test_api.ContainsMirror(mirror1.get()));
+  EXPECT_TRUE(child_test_api.ContainsMirror(mirror2.get()));
+  EXPECT_TRUE(child_test_api.ContainsMirror(mirror3.get()));
+  EXPECT_FALSE(child_test_api.ContainsMirror(root.get()));
 }
 
 // Tests for SurfaceLayer cloning and mirroring. This tests certain properties
@@ -1087,7 +1120,8 @@ TEST_P(LayerWithDelegateTest, SurfaceLayerCloneAndMirror) {
   const viz::FrameSinkId arbitrary_frame_sink(1, 1);
   viz::ParentLocalSurfaceIdAllocator allocator;
   auto layer = CreateLayer<LayerSurface>();
-  layer->SetBackgroundColor(SkColors::kRed);
+  ui::LayerTestApi layer_test_api(layer.get());
+  layer->SetFallbackBackgroundColor(SkColors::kRed);
 
   allocator.GenerateId();
   viz::LocalSurfaceId local_surface_id = allocator.GetCurrentLocalSurfaceId();
@@ -1096,23 +1130,28 @@ TEST_P(LayerWithDelegateTest, SurfaceLayerCloneAndMirror) {
                         cc::DeadlinePolicy::UseDefaultDeadline(), false);
   EXPECT_FALSE(layer->StretchContentToFillBounds());
 
-  auto clone = layer->Clone();
-  EXPECT_FALSE(clone->AsSurface()->StretchContentToFillBounds());
-  EXPECT_EQ(SkColors::kRed, clone->AsSurface()->GetBackgroundColor());
-  EXPECT_EQ(SkColors::kRed, clone->cc_layer_for_testing()->background_color());
+  {
+    auto clone = layer->Clone();
+    ui::LayerTestApi clone_test_api(clone.get());
+    EXPECT_FALSE(clone->AsSurface()->StretchContentToFillBounds());
+    EXPECT_EQ(SkColors::kRed, clone->AsSurface()->GetFallbackBackgroundColor());
+    EXPECT_EQ(SkColors::kRed, clone_test_api.cc_layer()->background_color());
 
-  auto mirror = layer->Mirror();
-  EXPECT_FALSE(mirror->AsSurface()->StretchContentToFillBounds());
-  EXPECT_EQ(SkColors::kRed, mirror->AsSurface()->GetBackgroundColor());
-  EXPECT_EQ(SkColors::kRed, mirror->cc_layer_for_testing()->background_color());
+    auto mirror = layer->Mirror();
+    ui::LayerTestApi mirror_test_api(mirror.get());
+    EXPECT_FALSE(mirror->AsSurface()->StretchContentToFillBounds());
+    EXPECT_EQ(SkColors::kRed,
+              mirror->AsSurface()->GetFallbackBackgroundColor());
+    EXPECT_EQ(SkColors::kRed, mirror_test_api.cc_layer()->background_color());
 
-  // Background color updates propagate to the mirror, but not to the clone.
-  layer->SetBackgroundColor(SkColors::kGreen);
-  EXPECT_EQ(SkColors::kGreen, layer->GetBackgroundColor());
-  EXPECT_EQ(SkColors::kGreen, mirror->AsSurface()->GetBackgroundColor());
-  EXPECT_EQ(SkColors::kGreen,
-            mirror->cc_layer_for_testing()->background_color());
-  EXPECT_EQ(SkColors::kRed, clone->AsSurface()->GetBackgroundColor());
+    // Background color updates propagate to the mirror, but not to the clone.
+    layer->SetFallbackBackgroundColor(SkColors::kGreen);
+    EXPECT_EQ(SkColors::kGreen, layer->GetFallbackBackgroundColor());
+    EXPECT_EQ(SkColors::kGreen,
+              mirror->AsSurface()->GetFallbackBackgroundColor());
+    EXPECT_EQ(SkColors::kGreen, mirror_test_api.cc_layer()->background_color());
+    EXPECT_EQ(SkColors::kRed, clone->AsSurface()->GetFallbackBackgroundColor());
+  }
 
   allocator.GenerateId();
   local_surface_id = allocator.GetCurrentLocalSurfaceId();
@@ -1121,22 +1160,26 @@ TEST_P(LayerWithDelegateTest, SurfaceLayerCloneAndMirror) {
                         cc::DeadlinePolicy::UseDefaultDeadline(), true);
   EXPECT_TRUE(layer->StretchContentToFillBounds());
 
-  clone = layer->Clone();
-  EXPECT_TRUE(clone->AsSurface()->StretchContentToFillBounds());
-  EXPECT_EQ(SkColors::kGreen, clone->AsSurface()->GetBackgroundColor());
-  EXPECT_EQ(SkColors::kGreen,
-            clone->cc_layer_for_testing()->background_color());
+  {
+    auto clone = layer->Clone();
+    ui::LayerTestApi clone_test_api(clone.get());
+    EXPECT_TRUE(clone->AsSurface()->StretchContentToFillBounds());
+    EXPECT_EQ(SkColors::kGreen,
+              clone->AsSurface()->GetFallbackBackgroundColor());
+    EXPECT_EQ(SkColors::kGreen, clone_test_api.cc_layer()->background_color());
 
-  mirror = layer->Mirror();
-  EXPECT_TRUE(mirror->AsSurface()->StretchContentToFillBounds());
-  EXPECT_EQ(SkColors::kGreen, mirror->AsSurface()->GetBackgroundColor());
-  EXPECT_EQ(SkColors::kGreen,
-            mirror->cc_layer_for_testing()->background_color());
+    auto mirror = layer->Mirror();
+    ui::LayerTestApi mirror_test_api(mirror.get());
+    EXPECT_TRUE(mirror->AsSurface()->StretchContentToFillBounds());
+    EXPECT_EQ(SkColors::kGreen,
+              mirror->AsSurface()->GetFallbackBackgroundColor());
+    EXPECT_EQ(SkColors::kGreen, mirror_test_api.cc_layer()->background_color());
+  }
 }
 
 class LayerWithNullDelegateTest : public LayerWithDelegateTest {
  public:
-  LayerWithNullDelegateTest() {}
+  LayerWithNullDelegateTest() = default;
 
   LayerWithNullDelegateTest(const LayerWithNullDelegateTest&) = delete;
   LayerWithNullDelegateTest& operator=(const LayerWithNullDelegateTest&) =
@@ -1191,52 +1234,55 @@ INSTANTIATE_TEST_SUITE_P(All,
                          LayerWithDelegateTest::ParamInfoToString);
 
 TEST_P(LayerWithNullDelegateTest, LayerContentOpaqueness) {
-  std::unique_ptr<Layer> layer = CreateLayer<LayerTextured>();
+  auto layer = CreateLayer<LayerTextured>();
 
-  EXPECT_EQ(layer->cc_layer_for_testing()->background_color(),
+  ui::LayerTestApi layer_test_api(layer.get());
+  EXPECT_EQ(layer_test_api.cc_layer()->background_color(),
             SkColors::kTransparent);
-  EXPECT_EQ(layer->cc_layer_for_testing()->SafeOpaqueBackgroundColor(),
+  EXPECT_EQ(layer_test_api.cc_layer()->SafeOpaqueBackgroundColor(),
             SkColors::kWhite);
   EXPECT_TRUE(layer->fills_bounds_opaquely());
-  EXPECT_TRUE(layer->cc_layer_for_testing()->contents_opaque());
+  EXPECT_TRUE(layer_test_api.cc_layer()->contents_opaque());
 
   layer->SetFillsBoundsOpaquely(false);
-  EXPECT_EQ(layer->cc_layer_for_testing()->background_color(),
+  EXPECT_EQ(layer_test_api.cc_layer()->background_color(),
             SkColors::kTransparent);
-  EXPECT_EQ(layer->cc_layer_for_testing()->SafeOpaqueBackgroundColor(),
+  EXPECT_EQ(layer_test_api.cc_layer()->SafeOpaqueBackgroundColor(),
             SkColors::kTransparent);
   EXPECT_FALSE(layer->fills_bounds_opaquely());
-  EXPECT_FALSE(layer->cc_layer_for_testing()->contents_opaque());
+  EXPECT_FALSE(layer_test_api.cc_layer()->contents_opaque());
+}
 
+TEST_P(LayerWithNullDelegateTest, LayerContentOpaqueness_SolidColor) {
   // For LAYER_SOLID_COLOR, the background color dictates content opaqueness.
-  layer = CreateLayer<LayerSolidColor>();
+  auto layer = CreateLayer<LayerSolidColor>();
+  ui::LayerTestApi layer_test_api(layer.get());
 
   // The default background color is transparent.
-  EXPECT_EQ(layer->cc_layer_for_testing()->background_color(),
+  EXPECT_EQ(layer_test_api.cc_layer()->background_color(),
             SkColors::kTransparent);
-  EXPECT_EQ(layer->cc_layer_for_testing()->SafeOpaqueBackgroundColor(),
+  EXPECT_EQ(layer_test_api.cc_layer()->SafeOpaqueBackgroundColor(),
             SkColors::kTransparent);
   EXPECT_FALSE(layer->fills_bounds_opaquely());
-  EXPECT_FALSE(layer->cc_layer_for_testing()->contents_opaque());
+  EXPECT_FALSE(layer_test_api.cc_layer()->contents_opaque());
 
   // Set an opaque color.
-  layer->AsSolidColor()->SetColor(SkColors::kRed);
-  EXPECT_EQ(layer->cc_layer_for_testing()->background_color(), SkColors::kRed);
-  EXPECT_EQ(layer->cc_layer_for_testing()->SafeOpaqueBackgroundColor(),
+  layer->SetColor(SkColors::kRed);
+  EXPECT_EQ(layer_test_api.cc_layer()->background_color(), SkColors::kRed);
+  EXPECT_EQ(layer_test_api.cc_layer()->SafeOpaqueBackgroundColor(),
             SkColors::kRed);
   EXPECT_TRUE(layer->fills_bounds_opaquely());
-  EXPECT_TRUE(layer->cc_layer_for_testing()->contents_opaque());
+  EXPECT_TRUE(layer_test_api.cc_layer()->contents_opaque());
 
   // Set color with alpha.
   const SkColor4f color_with_alpha =
       SkColor4f::FromColor(SkColorSetARGB(100, 255, 0, 0));
-  layer->AsSolidColor()->SetColor(color_with_alpha);
-  EXPECT_EQ(layer->cc_layer_for_testing()->background_color(),
-            color_with_alpha);
-  EXPECT_EQ(layer->cc_layer_for_testing()->SafeOpaqueBackgroundColor(),
+  layer->SetColor(color_with_alpha);
+  EXPECT_EQ(layer_test_api.cc_layer()->background_color(), color_with_alpha);
+  EXPECT_EQ(layer_test_api.cc_layer()->SafeOpaqueBackgroundColor(),
             color_with_alpha);
   EXPECT_FALSE(layer->fills_bounds_opaquely());
-  EXPECT_FALSE(layer->cc_layer_for_testing()->contents_opaque());
+  EXPECT_FALSE(layer_test_api.cc_layer()->contents_opaque());
 }
 
 TEST_P(LayerWithNullDelegateTest, SwitchLayerPreservesCCLayerState) {
@@ -1254,98 +1300,40 @@ TEST_P(LayerWithNullDelegateTest, SwitchLayerPreservesCCLayerState) {
   gradient_mask.AddStep(.5, 50);
   l1->SetGradientMask(gradient_mask);
 
-  EXPECT_EQ(gfx::Point3F(), l1->cc_layer_for_testing()->transform_origin());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->draws_content());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->contents_opaque());
-  EXPECT_EQ(l1->cc_layer_for_testing()->background_color(), SkColors::kBlack);
-  EXPECT_TRUE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_EQ(gfx::Size(4, 5), l1->cc_layer_for_testing()->bounds());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->HasRoundedCorner());
-  EXPECT_EQ(l1->cc_layer_for_testing()->corner_radii(), kCornerRadii);
-  EXPECT_TRUE(l1->cc_layer_for_testing()->is_fast_rounded_corner());
-  EXPECT_EQ(kSubtreeCaptureId,
-            l1->cc_layer_for_testing()->subtree_capture_id());
+  ui::LayerTestApi l1_test_api(l1.get());
+  EXPECT_EQ(gfx::Point3F(), l1_test_api.cc_layer()->transform_origin());
+  EXPECT_TRUE(l1_test_api.cc_layer()->draws_content());
+  EXPECT_TRUE(l1_test_api.cc_layer()->contents_opaque());
+  EXPECT_EQ(l1_test_api.cc_layer()->background_color(), SkColors::kBlack);
+  EXPECT_TRUE(l1_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_EQ(gfx::Size(4, 5), l1_test_api.cc_layer()->bounds());
+  EXPECT_TRUE(l1_test_api.cc_layer()->HasRoundedCorner());
+  EXPECT_EQ(l1_test_api.cc_layer()->corner_radii(), kCornerRadii);
+  EXPECT_TRUE(l1_test_api.cc_layer()->is_fast_rounded_corner());
+  EXPECT_EQ(kSubtreeCaptureId, l1_test_api.cc_layer()->subtree_capture_id());
   EXPECT_EQ(kSubtreeCaptureId, l1->GetSubtreeCaptureId());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->HasGradientMask());
-  EXPECT_EQ(l1->cc_layer_for_testing()->gradient_mask(), gradient_mask);
+  EXPECT_TRUE(l1_test_api.cc_layer()->HasGradientMask());
+  EXPECT_EQ(l1_test_api.cc_layer()->gradient_mask(), gradient_mask);
 
-  cc::Layer* before_layer = l1->cc_layer_for_testing();
+  cc::Layer* before_layer = l1_test_api.cc_layer();
 
-  bool callback1_run = false;
-  auto resource = viz::TransferableResource::Make(
-      gpu::ClientSharedImage::CreateForTesting(),
-      viz::TransferableResource::ResourceSource::kUI, gpu::SyncToken());
-  l1->SetTransferableResource(resource,
-                              base::BindOnce(ReturnMailbox, &callback1_run),
-                              gfx::Size(10, 10));
+  EXPECT_TRUE(l1_test_api.SwitchToSolidColorLayer());
 
-  EXPECT_NE(before_layer, l1->cc_layer_for_testing());
+  EXPECT_NE(before_layer, l1_test_api.cc_layer());
 
-  EXPECT_EQ(gfx::Point3F(), l1->cc_layer_for_testing()->transform_origin());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->draws_content());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->contents_opaque());
-  EXPECT_EQ(l1->cc_layer_for_testing()->background_color(), SkColors::kBlack);
-  EXPECT_TRUE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_EQ(gfx::Size(4, 5), l1->cc_layer_for_testing()->bounds());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->HasRoundedCorner());
-  EXPECT_EQ(l1->cc_layer_for_testing()->corner_radii(), kCornerRadii);
-  EXPECT_TRUE(l1->cc_layer_for_testing()->is_fast_rounded_corner());
-  EXPECT_EQ(kSubtreeCaptureId,
-            l1->cc_layer_for_testing()->subtree_capture_id());
+  EXPECT_EQ(gfx::Point3F(), l1_test_api.cc_layer()->transform_origin());
+  EXPECT_TRUE(l1_test_api.cc_layer()->draws_content());
+  EXPECT_TRUE(l1_test_api.cc_layer()->contents_opaque());
+  EXPECT_EQ(l1_test_api.cc_layer()->background_color(), SkColors::kBlack);
+  EXPECT_TRUE(l1_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_EQ(gfx::Size(4, 5), l1_test_api.cc_layer()->bounds());
+  EXPECT_TRUE(l1_test_api.cc_layer()->HasRoundedCorner());
+  EXPECT_EQ(l1_test_api.cc_layer()->corner_radii(), kCornerRadii);
+  EXPECT_TRUE(l1_test_api.cc_layer()->is_fast_rounded_corner());
+  EXPECT_EQ(kSubtreeCaptureId, l1_test_api.cc_layer()->subtree_capture_id());
   EXPECT_EQ(kSubtreeCaptureId, l1->GetSubtreeCaptureId());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->HasGradientMask());
-  EXPECT_EQ(gradient_mask, l1->cc_layer_for_testing()->gradient_mask());
-  EXPECT_FALSE(callback1_run);
-
-  bool callback2_run = false;
-  resource = viz::TransferableResource::Make(
-      gpu::ClientSharedImage::CreateForTesting(),
-      viz::TransferableResource::ResourceSource::kUI, gpu::SyncToken());
-  l1->SetTransferableResource(resource,
-                              base::BindOnce(ReturnMailbox, &callback2_run),
-                              gfx::Size(10, 10));
-  EXPECT_TRUE(callback1_run);
-  EXPECT_FALSE(callback2_run);
-
-  // Show solid color instead.
-  l1->SetShowSolidColorContent();
-  EXPECT_EQ(gfx::Point3F(), l1->cc_layer_for_testing()->transform_origin());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->draws_content());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->contents_opaque());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_EQ(gfx::Size(4, 5), l1->cc_layer_for_testing()->bounds());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->HasRoundedCorner());
-  EXPECT_EQ(l1->cc_layer_for_testing()->corner_radii(), kCornerRadii);
-  EXPECT_TRUE(l1->cc_layer_for_testing()->is_fast_rounded_corner());
-  EXPECT_EQ(l1->cc_layer_for_testing()->gradient_mask(), gradient_mask);
-  EXPECT_TRUE(callback2_run);
-
-  before_layer = l1->cc_layer_for_testing();
-
-  // Back to a texture, without changing the bounds of the layer or the texture.
-  bool callback3_run = false;
-  resource = viz::TransferableResource::Make(
-      gpu::ClientSharedImage::CreateForTesting(),
-      viz::TransferableResource::ResourceSource::kUI, gpu::SyncToken());
-  l1->SetTransferableResource(resource,
-                              base::BindOnce(ReturnMailbox, &callback3_run),
-                              gfx::Size(10, 10));
-
-  EXPECT_NE(before_layer, l1->cc_layer_for_testing());
-
-  EXPECT_EQ(gfx::Point3F(), l1->cc_layer_for_testing()->transform_origin());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->draws_content());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->contents_opaque());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_EQ(gfx::Size(4, 5), l1->cc_layer_for_testing()->bounds());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->HasRoundedCorner());
-  EXPECT_EQ(l1->cc_layer_for_testing()->corner_radii(), kCornerRadii);
-  EXPECT_TRUE(l1->cc_layer_for_testing()->is_fast_rounded_corner());
-  EXPECT_EQ(l1->cc_layer_for_testing()->gradient_mask(), gradient_mask);
-  EXPECT_FALSE(callback3_run);
-
-  // Release the on |l1| mailbox to clean up the test.
-  l1->SetShowSolidColorContent();
+  EXPECT_TRUE(l1_test_api.cc_layer()->HasGradientMask());
+  EXPECT_EQ(gradient_mask, l1_test_api.cc_layer()->gradient_mask());
 }
 
 // Various visible/drawn assertions.
@@ -1365,9 +1353,12 @@ TEST_P(LayerWithNullDelegateTest, Visibility) {
   EXPECT_TRUE(l1->IsVisible());
   EXPECT_TRUE(l2->IsVisible());
   EXPECT_TRUE(l3->IsVisible());
-  EXPECT_FALSE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_FALSE(l2->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_FALSE(l3->cc_layer_for_testing()->hide_layer_and_subtree());
+  ui::LayerTestApi l1_test_api(l1.get());
+  EXPECT_FALSE(l1_test_api.cc_layer()->hide_layer_and_subtree());
+  ui::LayerTestApi l2_test_api(l2.get());
+  EXPECT_FALSE(l2_test_api.cc_layer()->hide_layer_and_subtree());
+  ui::LayerTestApi l3_test_api(l3.get());
+  EXPECT_FALSE(l3_test_api.cc_layer()->hide_layer_and_subtree());
 
   compositor()->SetRootLayer(l1.get());
 
@@ -1377,25 +1368,25 @@ TEST_P(LayerWithNullDelegateTest, Visibility) {
   EXPECT_FALSE(l1->IsVisible());
   EXPECT_FALSE(l2->IsVisible());
   EXPECT_FALSE(l3->IsVisible());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_FALSE(l2->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_FALSE(l3->cc_layer_for_testing()->hide_layer_and_subtree());
+  EXPECT_TRUE(l1_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_FALSE(l2_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_FALSE(l3_test_api.cc_layer()->hide_layer_and_subtree());
 
   l3->SetVisible(false);
   EXPECT_FALSE(l1->IsVisible());
   EXPECT_FALSE(l2->IsVisible());
   EXPECT_FALSE(l3->IsVisible());
-  EXPECT_TRUE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_FALSE(l2->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_TRUE(l3->cc_layer_for_testing()->hide_layer_and_subtree());
+  EXPECT_TRUE(l1_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_FALSE(l2_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_TRUE(l3_test_api.cc_layer()->hide_layer_and_subtree());
 
   l1->SetVisible(true);
   EXPECT_TRUE(l1->IsVisible());
   EXPECT_TRUE(l2->IsVisible());
   EXPECT_FALSE(l3->IsVisible());
-  EXPECT_FALSE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_FALSE(l2->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_TRUE(l3->cc_layer_for_testing()->hide_layer_and_subtree());
+  EXPECT_FALSE(l1_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_FALSE(l2_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_TRUE(l3_test_api.cc_layer()->hide_layer_and_subtree());
 }
 
 // Various visible/drawn assertions.
@@ -1415,9 +1406,12 @@ TEST_P(LayerWithNullDelegateTest, MirroringVisibility) {
   EXPECT_TRUE(l1->IsVisible());
   EXPECT_TRUE(l2->IsVisible());
   EXPECT_TRUE(l2_mirror->IsVisible());
-  EXPECT_FALSE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_FALSE(l2->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_FALSE(l2_mirror->cc_layer_for_testing()->hide_layer_and_subtree());
+  ui::LayerTestApi l1_test_api(l1.get());
+  EXPECT_FALSE(l1_test_api.cc_layer()->hide_layer_and_subtree());
+  ui::LayerTestApi l2_test_api(l2.get());
+  EXPECT_FALSE(l2_test_api.cc_layer()->hide_layer_and_subtree());
+  ui::LayerTestApi l2_mirror_test_api(l2_mirror.get());
+  EXPECT_FALSE(l2_mirror_test_api.cc_layer()->hide_layer_and_subtree());
 
   compositor()->SetRootLayer(l1.get());
 
@@ -1432,9 +1426,9 @@ TEST_P(LayerWithNullDelegateTest, MirroringVisibility) {
   EXPECT_FALSE(l2_mirror->IsVisible());
 
   // The visibitily property for the subtree is rooted at |l1|.
-  EXPECT_TRUE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_FALSE(l2->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_FALSE(l2_mirror->cc_layer_for_testing()->hide_layer_and_subtree());
+  EXPECT_TRUE(l1_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_FALSE(l2_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_FALSE(l2_mirror_test_api.cc_layer()->hide_layer_and_subtree());
 
   // Hiding |l2| should also set the visibility on its mirror layer. In this
   // case the visibility of |l2| will be mirrored by |l2_mirror|.
@@ -1447,9 +1441,9 @@ TEST_P(LayerWithNullDelegateTest, MirroringVisibility) {
 
   // Visibility property is set on every node and hence their subtree is also
   // hidden.
-  EXPECT_TRUE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_TRUE(l2->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_TRUE(l2_mirror->cc_layer_for_testing()->hide_layer_and_subtree());
+  EXPECT_TRUE(l1_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_TRUE(l2_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_TRUE(l2_mirror_test_api.cc_layer()->hide_layer_and_subtree());
 
   // Setting visibility on the root layer should make that layer visible and its
   // subtree ready for visibility.
@@ -1457,9 +1451,9 @@ TEST_P(LayerWithNullDelegateTest, MirroringVisibility) {
   EXPECT_TRUE(l1->IsVisible());
   EXPECT_FALSE(l2->IsVisible());
   EXPECT_FALSE(l2_mirror->IsVisible());
-  EXPECT_FALSE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_TRUE(l2->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_TRUE(l2_mirror->cc_layer_for_testing()->hide_layer_and_subtree());
+  EXPECT_FALSE(l1_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_TRUE(l2_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_TRUE(l2_mirror_test_api.cc_layer()->hide_layer_and_subtree());
 
   // Setting visibility on the mirrored layer should not effect its source
   // layer.
@@ -1467,9 +1461,9 @@ TEST_P(LayerWithNullDelegateTest, MirroringVisibility) {
   EXPECT_TRUE(l1->IsVisible());
   EXPECT_FALSE(l2->IsVisible());
   EXPECT_TRUE(l2_mirror->IsVisible());
-  EXPECT_FALSE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_TRUE(l2->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_FALSE(l2_mirror->cc_layer_for_testing()->hide_layer_and_subtree());
+  EXPECT_FALSE(l1_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_TRUE(l2_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_FALSE(l2_mirror_test_api.cc_layer()->hide_layer_and_subtree());
 
   // Setting visibility on the source layer should keep the mirror layer in
   // sync and not cause any invalid state.
@@ -1477,9 +1471,9 @@ TEST_P(LayerWithNullDelegateTest, MirroringVisibility) {
   EXPECT_TRUE(l1->IsVisible());
   EXPECT_TRUE(l2->IsVisible());
   EXPECT_TRUE(l2_mirror->IsVisible());
-  EXPECT_FALSE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_FALSE(l2->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_FALSE(l2_mirror->cc_layer_for_testing()->hide_layer_and_subtree());
+  EXPECT_FALSE(l1_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_FALSE(l2_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_FALSE(l2_mirror_test_api.cc_layer()->hide_layer_and_subtree());
 
   // Setting visibility on the mirrored layer should not effect its source
   // layer.
@@ -1487,9 +1481,9 @@ TEST_P(LayerWithNullDelegateTest, MirroringVisibility) {
   EXPECT_TRUE(l1->IsVisible());
   EXPECT_TRUE(l2->IsVisible());
   EXPECT_FALSE(l2_mirror->IsVisible());
-  EXPECT_FALSE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_FALSE(l2->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_TRUE(l2_mirror->cc_layer_for_testing()->hide_layer_and_subtree());
+  EXPECT_FALSE(l1_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_FALSE(l2_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_TRUE(l2_mirror_test_api.cc_layer()->hide_layer_and_subtree());
 
   // Setting source layer's visibility to true should update the mirror layer
   // even if the source layer did not change in the process.
@@ -1497,9 +1491,9 @@ TEST_P(LayerWithNullDelegateTest, MirroringVisibility) {
   EXPECT_TRUE(l1->IsVisible());
   EXPECT_TRUE(l2->IsVisible());
   EXPECT_TRUE(l2_mirror->IsVisible());
-  EXPECT_FALSE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_FALSE(l2->cc_layer_for_testing()->hide_layer_and_subtree());
-  EXPECT_FALSE(l2_mirror->cc_layer_for_testing()->hide_layer_and_subtree());
+  EXPECT_FALSE(l1_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_FALSE(l2_test_api.cc_layer()->hide_layer_and_subtree());
+  EXPECT_FALSE(l2_mirror_test_api.cc_layer()->hide_layer_and_subtree());
 
   // Disable visibility sync on the mirrored layer. Changes in |l2|'s visibility
   // shouldn't affect the visibility of |l2_mirror_no_sync|.
@@ -1509,10 +1503,10 @@ TEST_P(LayerWithNullDelegateTest, MirroringVisibility) {
   l2_mirror_no_sync->SetVisible(true);
   l2->SetVisible(false);
   EXPECT_FALSE(l2->IsVisible());
-  EXPECT_TRUE(l2->cc_layer_for_testing()->hide_layer_and_subtree());
+  EXPECT_TRUE(l2_test_api.cc_layer()->hide_layer_and_subtree());
   EXPECT_TRUE(l2_mirror_no_sync->IsVisible());
-  EXPECT_FALSE(
-      l2_mirror_no_sync->cc_layer_for_testing()->hide_layer_and_subtree());
+  ui::LayerTestApi l2_mirror_no_sync_test_api(l2_mirror_no_sync.get());
+  EXPECT_FALSE(l2_mirror_no_sync_test_api.cc_layer()->hide_layer_and_subtree());
 }
 
 TEST_P(LayerWithDelegateTest, RoundedCorner) {
@@ -1665,7 +1659,8 @@ TEST_P(LayerWithNullDelegateTest, SetBoundsSchedulesPaint) {
   WaitForDraw();
 }
 
-// Checks that the damage rect for a TextureLayer is empty after a commit.
+// Checks that the damage rect for a LayerWithExternalTexture is empty after a
+// commit.
 TEST_P(LayerWithNullDelegateTest, EmptyDamagedRect) {
   base::RunLoop run_loop;
   viz::ReleaseCallback callback = base::BindOnce(
@@ -1673,7 +1668,7 @@ TEST_P(LayerWithNullDelegateTest, EmptyDamagedRect) {
          bool is_lost) { run_loop->Quit(); },
       base::Unretained(&run_loop));
 
-  auto root = CreateLayer<LayerSolidColor>();
+  auto root = CreateLayer<LayerWithExternalTexture>();
   auto resource = viz::TransferableResource::Make(
       gpu::ClientSharedImage::CreateForTesting(),
       viz::TransferableResource::ResourceSource::kUI, gpu::SyncToken());
@@ -1687,14 +1682,19 @@ TEST_P(LayerWithNullDelegateTest, EmptyDamagedRect) {
 
   gfx::Rect damaged_rect(0, 0, 5, 5);
   root->SchedulePaint(damaged_rect);
-  EXPECT_EQ(damaged_rect, root->damaged_region_for_testing().bounds());
+  ui::LayerTestApi root_test_api(root.get());
+  EXPECT_EQ(damaged_rect, root_test_api.damaged_region().bounds());
   WaitForCommit();
-  EXPECT_TRUE(root->damaged_region_for_testing().IsEmpty());
+  EXPECT_TRUE(root_test_api.damaged_region().IsEmpty());
 
   // The texture mailbox has a reference from an in-flight texture layer.
   // We clear the texture mailbox from the root layer and draw a new frame
   // to ensure that the texture mailbox is released.
-  root->SetShowSolidColorContent();
+  root->ClearTexture();
+  // Set a blank solid color root layer to draw a new frame without the texture
+  // layer so the display compositor releases the in-flight texture resource.
+  auto blank = CreateLayer<LayerSolidColor>();
+  compositor()->SetRootLayer(blank.get());
   Draw();
 
   // Wait for texture mailbox release to avoid DCHECKs.
@@ -1705,9 +1705,10 @@ TEST_P(LayerWithNullDelegateTest, EmptyDamagedRect) {
 TEST_P(LayerWithNullDelegateTest, UpdateDamageInDeferredPaint) {
   gfx::Rect bound(gfx::Rect(500, 500));
   auto root = CreateTextureRootLayer(bound);
-  EXPECT_EQ(bound, root->damaged_region_for_testing());
+  ui::LayerTestApi root_test_api(root.get());
+  EXPECT_EQ(bound, root_test_api.damaged_region());
   WaitForCommit();
-  EXPECT_EQ(gfx::Rect(), root->damaged_region_for_testing());
+  EXPECT_EQ(gfx::Rect(), root_test_api.damaged_region());
   EXPECT_EQ(bound, LastInvalidation());
 
   gfx::Rect expected_invalidation;
@@ -1721,9 +1722,9 @@ TEST_P(LayerWithNullDelegateTest, UpdateDamageInDeferredPaint) {
     gfx::Rect bound1(gfx::Rect(100, 100));
     root->SchedulePaint(bound1);
     expected_invalidation.Union(bound1);
-    EXPECT_EQ(expected_invalidation, root->damaged_region_for_testing());
+    EXPECT_EQ(expected_invalidation, root_test_api.damaged_region());
     root->SendDamagedRects();
-    EXPECT_EQ(gfx::Rect(), root->cc_layer_for_testing()->update_rect());
+    EXPECT_EQ(gfx::Rect(), root_test_api.cc_layer()->update_rect());
     root->PaintContentsToDisplayList();
     EXPECT_EQ(gfx::Rect(), LastInvalidation());
 
@@ -1731,10 +1732,9 @@ TEST_P(LayerWithNullDelegateTest, UpdateDamageInDeferredPaint) {
     gfx::Rect bound2(gfx::Rect(100, 200, 100, 100));
     expected_invalidation.Union(bound2);
     root->SchedulePaint(bound2);
-    EXPECT_EQ(expected_invalidation,
-              root->damaged_region_for_testing().bounds());
+    EXPECT_EQ(expected_invalidation, root_test_api.damaged_region().bounds());
     root->SendDamagedRects();
-    EXPECT_EQ(gfx::Rect(), root->cc_layer_for_testing()->update_rect());
+    EXPECT_EQ(gfx::Rect(), root_test_api.cc_layer()->update_rect());
     root->PaintContentsToDisplayList();
     EXPECT_EQ(gfx::Rect(), LastInvalidation());
   }
@@ -1742,7 +1742,7 @@ TEST_P(LayerWithNullDelegateTest, UpdateDamageInDeferredPaint) {
   // The invalidation region should be accumulated invalid_rect during deferred
   // paint, i.e. union of bound1 and bound2.
   root->SendDamagedRects();
-  EXPECT_EQ(expected_invalidation, root->cc_layer_for_testing()->update_rect());
+  EXPECT_EQ(expected_invalidation, root_test_api.cc_layer()->update_rect());
   root->PaintContentsToDisplayList();
   EXPECT_EQ(expected_invalidation, LastInvalidation());
 }
@@ -1751,19 +1751,21 @@ TEST_P(LayerWithNullDelegateTest, UpdateDamageInDeferredPaint) {
 // present, even if it shouldn't send its damaged regions itself.
 TEST_P(LayerWithNullDelegateTest, AlwaysSendsMaskDamagedRects) {
   gfx::Rect bound(gfx::Rect(2, 2));
-  std::unique_ptr<Layer> mask = CreateTextureLayer(bound);
+  auto mask = CreateTextureLayer(bound);
   std::unique_ptr<Layer> root = CreateTextureRootLayer(bound);
   root->SetMaskLayer(mask.get());
 
   WaitForCommit();
-  EXPECT_EQ(root->damaged_region_for_testing().bounds(), gfx::Rect());
-  EXPECT_EQ(mask->damaged_region_for_testing().bounds(), gfx::Rect());
+  ui::LayerTestApi root_test_api(root.get());
+  EXPECT_EQ(root_test_api.damaged_region().bounds(), gfx::Rect());
+  ui::LayerTestApi mask_test_api(mask.get());
+  EXPECT_EQ(mask_test_api.damaged_region().bounds(), gfx::Rect());
 
   const gfx::Rect invalid_rect(gfx::Size(1, 1));
   mask->SchedulePaint(invalid_rect);
-  EXPECT_EQ(mask->damaged_region_for_testing().bounds(), invalid_rect);
+  EXPECT_EQ(mask_test_api.damaged_region().bounds(), invalid_rect);
   root->SendDamagedRects();
-  EXPECT_EQ(mask->damaged_region_for_testing().bounds(), gfx::Rect());
+  EXPECT_EQ(mask_test_api.damaged_region().bounds(), gfx::Rect());
 }
 
 // Tests that mask layer could be set to different layers and released
@@ -1778,7 +1780,7 @@ TEST_P(LayerWithNullDelegateTest, ReusedMaskLayer) {
   root->Add(l2.get());
 
   {
-    std::unique_ptr<Layer> mask = CreateTextureLayer(bound);
+    auto mask = CreateTextureLayer(bound);
     // Set `mask` to `l1`, then `l2`.
     l1->SetMaskLayer(mask.get());
     EXPECT_EQ(mask.get(), l1->layer_mask_layer());
@@ -1808,24 +1810,27 @@ TEST_P(LayerWithNullDelegateTest, ReusedMaskLayer) {
 // reflected layers are updated properly.
 TEST_P(LayerWithNullDelegateTest, SetShowReflectedLayerSubtree) {
   auto reflected_layer_1 = CreateLayer<LayerSolidColor>();
-  auto* reflected_layer_1_cc = reflected_layer_1->cc_layer_for_testing();
+  auto* reflected_layer_1_cc =
+      ui::LayerTestApi(reflected_layer_1.get()).cc_layer();
 
   auto reflected_layer_2 = CreateLayer<LayerSolidColor>();
-  auto* reflected_layer_2_cc = reflected_layer_2->cc_layer_for_testing();
+  auto* reflected_layer_2_cc =
+      ui::LayerTestApi(reflected_layer_2.get()).cc_layer();
 
   auto reflecting_layer = CreateLayer<LayerSolidColor>();
 
   // Originally, mirror counts should be zero.
-  auto* reflecting_layer_cc = reflecting_layer->mirror_layer_for_testing();
+  ui::LayerTestApi reflecting_layer_test_api(reflecting_layer.get());
+  auto* reflecting_layer_cc = reflecting_layer_test_api.mirror_layer();
   EXPECT_EQ(nullptr, reflecting_layer_cc);
   EXPECT_EQ(0, reflected_layer_1_cc->mirror_count());
   EXPECT_EQ(0, reflected_layer_2_cc->mirror_count());
 
   // Mirror the first layer. Its mirror count should be increased.
   reflecting_layer->SetShowReflectedLayerSubtree(reflected_layer_1.get());
-  reflecting_layer_cc = reflecting_layer->mirror_layer_for_testing();
+  reflecting_layer_cc = reflecting_layer_test_api.mirror_layer();
   ASSERT_NE(nullptr, reflecting_layer_cc);
-  EXPECT_EQ(reflecting_layer->cc_layer_for_testing(), reflecting_layer_cc);
+  EXPECT_EQ(reflecting_layer_test_api.cc_layer(), reflecting_layer_cc);
   EXPECT_EQ(reflected_layer_1_cc, reflecting_layer_cc->mirrored_layer());
   EXPECT_EQ(1, reflected_layer_1_cc->mirror_count());
   EXPECT_EQ(0, reflected_layer_2_cc->mirror_count());
@@ -1833,16 +1838,16 @@ TEST_P(LayerWithNullDelegateTest, SetShowReflectedLayerSubtree) {
   // Mirror the second layer. Its mirror count should be increased, but mirror
   // count for the first mirrored layer should be set back to zero.
   reflecting_layer->SetShowReflectedLayerSubtree(reflected_layer_2.get());
-  reflecting_layer_cc = reflecting_layer->mirror_layer_for_testing();
+  reflecting_layer_cc = reflecting_layer_test_api.mirror_layer();
   ASSERT_NE(nullptr, reflecting_layer_cc);
-  EXPECT_EQ(reflecting_layer->cc_layer_for_testing(), reflecting_layer_cc);
+  EXPECT_EQ(reflecting_layer_test_api.cc_layer(), reflecting_layer_cc);
   EXPECT_EQ(reflected_layer_2_cc, reflecting_layer_cc->mirrored_layer());
   EXPECT_EQ(0, reflected_layer_1_cc->mirror_count());
   EXPECT_EQ(1, reflected_layer_2_cc->mirror_count());
 
   // Un-mirror the layer. All mirror counts should be set to zero.
   reflecting_layer->SetShowSolidColorContent();
-  reflecting_layer_cc = reflecting_layer->mirror_layer_for_testing();
+  reflecting_layer_cc = reflecting_layer_test_api.mirror_layer();
   EXPECT_EQ(nullptr, reflecting_layer_cc);
   EXPECT_EQ(0, reflected_layer_1_cc->mirror_count());
   EXPECT_EQ(0, reflected_layer_2_cc->mirror_count());
@@ -1881,7 +1886,8 @@ TEST_P(LayerWithNullDelegateTest, SetShowReflectedLayerSubtreeBounds) {
 TEST_P(LayerWithNullDelegateTest, NOTDRAWNShouldHaveNoDamage) {
   auto layer = CreateLayerNotDrawn({100, 100});
   layer->SchedulePaint({100, 100});
-  EXPECT_TRUE(layer->damaged_region_for_testing().IsEmpty());
+  ui::LayerTestApi layer_test_api(layer.get());
+  EXPECT_TRUE(layer_test_api.damaged_region().IsEmpty());
 }
 
 void ExpectRgba(int x, int y, SkColor expected_color, SkColor actual_color) {
@@ -2349,11 +2355,12 @@ TEST_P(LayerWithNullDelegateTest, BackdropFilterBoundsSetOnBlur) {
   layer->SetBounds(gfx::Rect(0, 0, 100, 50));
 
   // Initially, no backdrop filter bounds should be set.
-  EXPECT_FALSE(layer->cc_layer_for_testing()->backdrop_filter_bounds());
+  ui::LayerTestApi layer_test_api(layer.get());
+  EXPECT_FALSE(layer_test_api.cc_layer()->backdrop_filter_bounds());
 
   // Setting background blur should auto-set backdrop filter bounds.
   layer->SetBackgroundBlur(10.0f);
-  auto bounds = layer->cc_layer_for_testing()->backdrop_filter_bounds();
+  auto bounds = layer_test_api.cc_layer()->backdrop_filter_bounds();
   ASSERT_TRUE(bounds.has_value());
 
   SkRect rect;
@@ -2369,7 +2376,8 @@ TEST_P(LayerWithNullDelegateTest, BackdropFilterBoundsSetOnZoom) {
 
   // Setting background zoom should auto-set backdrop filter bounds.
   layer->SetBackgroundZoom(2.0f, 0);
-  auto bounds = layer->cc_layer_for_testing()->backdrop_filter_bounds();
+  ui::LayerTestApi layer_test_api(layer.get());
+  auto bounds = layer_test_api.cc_layer()->backdrop_filter_bounds();
   ASSERT_TRUE(bounds.has_value());
 
   SkRect rect;
@@ -2385,7 +2393,8 @@ TEST_P(LayerWithNullDelegateTest, BackdropFilterBoundsUpdateOnResize) {
 
   // Resize the layer.
   layer->SetBounds(gfx::Rect(0, 0, 200, 150));
-  auto bounds = layer->cc_layer_for_testing()->backdrop_filter_bounds();
+  ui::LayerTestApi layer_test_api(layer.get());
+  auto bounds = layer_test_api.cc_layer()->backdrop_filter_bounds();
   ASSERT_TRUE(bounds.has_value());
 
   SkRect rect;
@@ -2404,7 +2413,8 @@ TEST_P(LayerWithNullDelegateTest, BackdropFilterBoundsWithRoundedCorners) {
 
   // Set rounded corners.
   layer->SetRoundedCornerRadius(gfx::RoundedCornersF(10.0f));
-  auto bounds = layer->cc_layer_for_testing()->backdrop_filter_bounds();
+  ui::LayerTestApi layer_test_api(layer.get());
+  auto bounds = layer_test_api.cc_layer()->backdrop_filter_bounds();
   ASSERT_TRUE(bounds.has_value());
 
   // The backdrop filter bounds should still be a simple rect (not rrect).
@@ -2425,7 +2435,8 @@ TEST_P(LayerWithNullDelegateTest, ExplicitBackdropFilterBoundsNotOverridden) {
   gfx::RRectF explicit_bounds(gfx::RectF(20, 20, 60, 30), 5);
   layer->SetBackdropFilterBounds(explicit_bounds);
 
-  auto bounds = layer->cc_layer_for_testing()->backdrop_filter_bounds();
+  ui::LayerTestApi layer_test_api(layer.get());
+  auto bounds = layer_test_api.cc_layer()->backdrop_filter_bounds();
   ASSERT_TRUE(bounds.has_value());
 
   // The explicit bounds should be preserved, not the auto-computed ones.
@@ -2436,7 +2447,7 @@ TEST_P(LayerWithNullDelegateTest, ExplicitBackdropFilterBoundsNotOverridden) {
 
   // Resizing the layer should not override explicit bounds.
   layer->SetBounds(gfx::Rect(0, 0, 200, 150));
-  bounds = layer->cc_layer_for_testing()->backdrop_filter_bounds();
+  bounds = layer_test_api.cc_layer()->backdrop_filter_bounds();
   ASSERT_TRUE(bounds.has_value());
   ASSERT_TRUE(bounds->isRRect(&rrect));
   EXPECT_EQ(SkRect::MakeXYWH(20, 20, 60, 30), rrect.rect());
@@ -2453,7 +2464,8 @@ TEST_P(LayerWithNullDelegateTest, ClearBackdropFilterBoundsResetsToAuto) {
 
   // Clear explicit bounds -- should revert to auto-computed bounds.
   layer->ClearBackdropFilterBounds();
-  auto bounds = layer->cc_layer_for_testing()->backdrop_filter_bounds();
+  ui::LayerTestApi layer_test_api(layer.get());
+  auto bounds = layer_test_api.cc_layer()->backdrop_filter_bounds();
   ASSERT_TRUE(bounds.has_value());
 
   // Should be auto-computed from layer size.
@@ -2467,11 +2479,12 @@ TEST_P(LayerWithNullDelegateTest, BackdropFilterBoundsClearedOnBlurRemoval) {
   auto layer = CreateLayer<LayerTextured>();
   layer->SetBounds(gfx::Rect(0, 0, 100, 50));
   layer->SetBackgroundBlur(10.0f);
-  ASSERT_TRUE(layer->cc_layer_for_testing()->backdrop_filter_bounds());
+  ui::LayerTestApi layer_test_api(layer.get());
+  ASSERT_TRUE(layer_test_api.cc_layer()->backdrop_filter_bounds());
 
   // Remove the blur.
   layer->SetBackgroundBlur(0.0f);
-  EXPECT_FALSE(layer->cc_layer_for_testing()->backdrop_filter_bounds());
+  EXPECT_FALSE(layer_test_api.cc_layer()->backdrop_filter_bounds());
 }
 
 // Opacity is rendered correctly.
@@ -2609,9 +2622,11 @@ TEST_P(LayerWithRealCompositorTest, ScaleUpDown) {
 
   EXPECT_EQ("10,20 200x220", root->bounds().ToString());
   EXPECT_EQ("10,20 140x180", l1->bounds().ToString());
-  gfx::Size cc_bounds_size = root->cc_layer_for_testing()->bounds();
+  ui::LayerTestApi root_test_api(root.get());
+  gfx::Size cc_bounds_size = root_test_api.cc_layer()->bounds();
   EXPECT_EQ("200x220", cc_bounds_size.ToString());
-  cc_bounds_size = l1->cc_layer_for_testing()->bounds();
+  ui::LayerTestApi l1_test_api(l1.get());
+  cc_bounds_size = l1_test_api.cc_layer()->bounds();
   EXPECT_EQ("140x180", cc_bounds_size.ToString());
   // No scale change, so no scale notification.
   EXPECT_EQ(0.0f, root_delegate.device_scale_factor());
@@ -2624,9 +2639,9 @@ TEST_P(LayerWithRealCompositorTest, ScaleUpDown) {
   EXPECT_EQ("10,20 200x220", root->bounds().ToString());
   EXPECT_EQ("10,20 140x180", l1->bounds().ToString());
   // CC layer should still match the UI layer bounds.
-  cc_bounds_size = root->cc_layer_for_testing()->bounds();
+  cc_bounds_size = root_test_api.cc_layer()->bounds();
   EXPECT_EQ("200x220", cc_bounds_size.ToString());
-  cc_bounds_size = l1->cc_layer_for_testing()->bounds();
+  cc_bounds_size = l1_test_api.cc_layer()->bounds();
   EXPECT_EQ("140x180", cc_bounds_size.ToString());
   // New scale factor must have been notified. Make sure painting happens at
   // right scale.
@@ -2640,9 +2655,9 @@ TEST_P(LayerWithRealCompositorTest, ScaleUpDown) {
   EXPECT_EQ("10,20 200x220", root->bounds().ToString());
   EXPECT_EQ("10,20 140x180", l1->bounds().ToString());
   // CC layer should still match the UI layer bounds.
-  cc_bounds_size = root->cc_layer_for_testing()->bounds();
+  cc_bounds_size = root_test_api.cc_layer()->bounds();
   EXPECT_EQ("200x220", cc_bounds_size.ToString());
-  cc_bounds_size = l1->cc_layer_for_testing()->bounds();
+  cc_bounds_size = l1_test_api.cc_layer()->bounds();
   EXPECT_EQ("140x180", cc_bounds_size.ToString());
   // New scale factor must have been notified. Make sure painting happens at
   // right scale.
@@ -2679,7 +2694,8 @@ TEST_P(LayerWithRealCompositorTest, ScaleReparent) {
 
   root->Add(l1.get());
   EXPECT_EQ("10,20 140x180", l1->bounds().ToString());
-  gfx::Size cc_bounds_size = l1->cc_layer_for_testing()->bounds();
+  ui::LayerTestApi l1_test_api(l1.get());
+  gfx::Size cc_bounds_size = l1_test_api.cc_layer()->bounds();
   EXPECT_EQ("140x180", cc_bounds_size.ToString());
   EXPECT_EQ(0.0f, l1_delegate.device_scale_factor());
 
@@ -2692,12 +2708,12 @@ TEST_P(LayerWithRealCompositorTest, ScaleReparent) {
                                    allocator.GetCurrentLocalSurfaceId());
   // Sanity check on root and l1.
   EXPECT_EQ("10,20 200x220", root->bounds().ToString());
-  cc_bounds_size = l1->cc_layer_for_testing()->bounds();
+  cc_bounds_size = l1_test_api.cc_layer()->bounds();
   EXPECT_EQ("140x180", cc_bounds_size.ToString());
 
   root->Add(l1.get());
   EXPECT_EQ("10,20 140x180", l1->bounds().ToString());
-  cc_bounds_size = l1->cc_layer_for_testing()->bounds();
+  cc_bounds_size = l1_test_api.cc_layer()->bounds();
   EXPECT_EQ("140x180", cc_bounds_size.ToString());
   EXPECT_EQ(2.0f, l1_delegate.device_scale_factor());
 }
@@ -2754,17 +2770,17 @@ TEST_P(LayerWithDelegateTest, ExternalContent) {
   viz::FrameSinkId frame_sink_id(1u, 1u);
   viz::ParentLocalSurfaceIdAllocator allocator;
   allocator.GenerateId();
-  child->SetBackgroundColor(SkColors::kWhite);
+  child->SetFallbackBackgroundColor(SkColors::kWhite);
   child->SetShowSurface(
       viz::SurfaceId(frame_sink_id, allocator.GetCurrentLocalSurfaceId()),
       gfx::Size(10, 10), cc::DeadlinePolicy::UseDefaultDeadline(), false);
-  scoped_refptr<cc::Layer> after = child->cc_layer_for_testing();
+  scoped_refptr<cc::Layer> after = ui::LayerTestApi(child.get()).cc_layer();
   const auto* surface = static_cast<cc::SurfaceLayer*>(after.get());
   EXPECT_TRUE(after.get());
   EXPECT_EQ(std::nullopt, surface->deadline_in_frames());
 
   allocator.GenerateId();
-  child->SetBackgroundColor(SkColors::kWhite);
+  child->SetFallbackBackgroundColor(SkColors::kWhite);
   child->SetShowSurface(
       viz::SurfaceId(frame_sink_id, allocator.GetCurrentLocalSurfaceId()),
       gfx::Size(10, 10), cc::DeadlinePolicy::UseSpecifiedDeadline(4u), false);
@@ -2773,7 +2789,7 @@ TEST_P(LayerWithDelegateTest, ExternalContent) {
 
 TEST_P(LayerWithDelegateTest, ExternalContentMirroring) {
   auto layer = CreateLayer<LayerSurface>();
-  layer->SetBackgroundColor(SkColors::kWhite);
+  layer->SetFallbackBackgroundColor(SkColors::kWhite);
 
   viz::SurfaceId surface_id(
       viz::FrameSinkId(0, 1),
@@ -2782,7 +2798,8 @@ TEST_P(LayerWithDelegateTest, ExternalContentMirroring) {
                         cc::DeadlinePolicy::UseDefaultDeadline(), false);
 
   const auto mirror = layer->Mirror();
-  auto* const cc_layer = mirror->cc_layer_for_testing();
+  ui::LayerTestApi mirror_test_api(mirror.get());
+  auto* const cc_layer = mirror_test_api.cc_layer();
   const auto* surface = static_cast<cc::SurfaceLayer*>(cc_layer);
 
   // Mirroring preserves surface state.
@@ -2795,7 +2812,7 @@ TEST_P(LayerWithDelegateTest, ExternalContentMirroring) {
                         cc::DeadlinePolicy::UseDefaultDeadline(), false);
 
   // The mirror should continue to use the same cc_layer.
-  EXPECT_EQ(cc_layer, mirror->cc_layer_for_testing());
+  EXPECT_EQ(cc_layer, ui::LayerTestApi(mirror.get()).cc_layer());
   layer->SetShowSurface(surface_id, gfx::Size(20, 20),
                         cc::DeadlinePolicy::UseDefaultDeadline(), false);
 
@@ -2805,19 +2822,20 @@ TEST_P(LayerWithDelegateTest, ExternalContentMirroring) {
 
 TEST_P(LayerWithDelegateTest, SurfaceLayerBackgroundColor) {
   auto layer = CreateLayer<LayerSurface>();
+  ui::LayerTestApi test_api(layer.get());
 
-  layer->SetBackgroundColor(SkColors::kRed);
-  EXPECT_EQ(SkColors::kRed, layer->GetBackgroundColor());
+  layer->SetFallbackBackgroundColor(SkColors::kRed);
+  EXPECT_EQ(SkColors::kRed, layer->GetFallbackBackgroundColor());
 
-  auto* surface = static_cast<cc::SurfaceLayer*>(layer->cc_layer_for_testing());
+  auto* surface = static_cast<cc::SurfaceLayer*>(test_api.cc_layer());
   EXPECT_EQ(SkColors::kRed, surface->background_color());
 
-  layer->SetBackgroundColor(SkColors::kGreen);
+  layer->SetFallbackBackgroundColor(SkColors::kGreen);
   EXPECT_EQ(SkColors::kGreen, surface->background_color());
 }
 
 TEST_P(LayerWithDelegateTest, TransferableResourceMirroring) {
-  auto layer = CreateLayer<LayerSolidColor>();
+  auto layer = CreateLayer<LayerWithExternalTexture>();
 
   auto resource = viz::TransferableResource::Make(
       gpu::ClientSharedImage::CreateForTesting(),
@@ -2828,10 +2846,11 @@ TEST_P(LayerWithDelegateTest, TransferableResourceMirroring) {
       resource, base::BindOnce(ReturnMailbox, &release_callback_run),
       gfx::Size(10, 10));
   EXPECT_FALSE(release_callback_run);
-  EXPECT_TRUE(layer->HasExternalContent());
+  EXPECT_TRUE(layer->HasTransferableResource());
 
   auto mirror = layer->Mirror();
-  EXPECT_TRUE(mirror->HasExternalContent());
+  ASSERT_TRUE(mirror->AsWithExternalTexture());
+  EXPECT_TRUE(mirror->AsWithExternalTexture()->HasTransferableResource());
 
   // Clearing the resource on a mirror layer should not release the source layer
   // resource.
@@ -2839,14 +2858,14 @@ TEST_P(LayerWithDelegateTest, TransferableResourceMirroring) {
   EXPECT_FALSE(release_callback_run);
 
   mirror = layer->Mirror();
-  EXPECT_TRUE(mirror->HasExternalContent());
+  ASSERT_TRUE(mirror->AsWithExternalTexture());
 
   // Clearing the transferable resource on the source layer should clear it from
   // the mirror layer as well.
-  layer->SetShowSolidColorContent();
+  layer->ClearTexture();
   EXPECT_TRUE(release_callback_run);
-  EXPECT_FALSE(layer->HasExternalContent());
-  EXPECT_FALSE(mirror->HasExternalContent());
+  EXPECT_FALSE(layer->HasTransferableResource());
+  EXPECT_FALSE(mirror->AsWithExternalTexture()->HasTransferableResource());
 
   resource = viz::TransferableResource::Make(
       gpu::ClientSharedImage::CreateForTesting(),
@@ -2859,8 +2878,9 @@ TEST_P(LayerWithDelegateTest, TransferableResourceMirroring) {
       resource, base::BindOnce(ReturnMailbox, &release_callback_run),
       gfx::Size(10, 10));
   EXPECT_FALSE(release_callback_run);
-  EXPECT_TRUE(layer->HasExternalContent());
-  EXPECT_TRUE(mirror->HasExternalContent());
+  EXPECT_TRUE(layer->HasTransferableResource());
+  ASSERT_TRUE(mirror->AsWithExternalTexture());
+  EXPECT_TRUE(mirror->AsWithExternalTexture()->HasTransferableResource());
 
   layer.reset();
 }
@@ -2870,25 +2890,21 @@ TEST_P(LayerWithDelegateTest, TransferableResourceMirroring) {
 TEST_P(LayerWithDelegateTest, LayerFiltersSurvival) {
   auto layer = CreateLayer<LayerTextured>();
   layer->SetBounds(gfx::Rect(0, 0, 10, 10));
-  EXPECT_TRUE(layer->cc_layer_for_testing());
-  EXPECT_EQ(0u, layer->cc_layer_for_testing()->filters().size());
+  ui::LayerTestApi layer_test_api(layer.get());
+  EXPECT_TRUE(layer_test_api.cc_layer());
+  EXPECT_EQ(0u, layer_test_api.cc_layer()->filters().size());
 
   layer->SetLayerGrayscale(0.5f);
   EXPECT_EQ(layer->layer_grayscale(), 0.5f);
-  EXPECT_EQ(1u, layer->cc_layer_for_testing()->filters().size());
+  EXPECT_EQ(1u, layer_test_api.cc_layer()->filters().size());
 
-  // Showing transferable resource changes the underlying cc layer.
-  scoped_refptr<cc::Layer> before = layer->cc_layer_for_testing();
-  auto resource = viz::TransferableResource::Make(
-      gpu::ClientSharedImage::CreateForTesting(),
-      viz::TransferableResource::ResourceSource::kUI, gpu::SyncToken());
-  layer->AsTextured()->SetTransferableResource(
-      resource, base::BindOnce([](const gpu::SyncToken&, bool) {}),
-      gfx::Size(10, 10));
+  // Switching the underlying cc layer should preserve the filters.
+  scoped_refptr<cc::Layer> before = layer_test_api.cc_layer();
+  EXPECT_TRUE(layer_test_api.SwitchToTexturedLayer());
   EXPECT_EQ(layer->layer_grayscale(), 0.5f);
-  EXPECT_TRUE(layer->cc_layer_for_testing());
-  EXPECT_NE(before.get(), layer->cc_layer_for_testing());
-  EXPECT_EQ(1u, layer->cc_layer_for_testing()->filters().size());
+  EXPECT_TRUE(layer_test_api.cc_layer());
+  EXPECT_NE(before.get(), layer_test_api.cc_layer());
+  EXPECT_EQ(1u, layer_test_api.cc_layer()->filters().size());
 }
 
 // Tests Layer::AddThreadedAnimation and Layer::RemoveThreadedAnimation.
@@ -2955,7 +2971,8 @@ TEST_P(LayerWithRealCompositorTest, SwitchCCLayerAnimations) {
   l1->SetOpacity(0.5f);
 
   // Change l1's cc::Layer.
-  ASSERT_TRUE(l1->SwitchCCLayerForTest());
+  ui::LayerTestApi l1_test_api(l1.get());
+  ASSERT_TRUE(l1_test_api.SwitchToTexturedLayer());
 
   // Ensure that the opacity animation completed.
   EXPECT_FLOAT_EQ(l1->opacity(), 0.5f);
@@ -2975,7 +2992,8 @@ TEST_P(LayerWithRealCompositorTest, SwitchCCLayerSolidColorNotAnimating) {
   EXPECT_EQ(SkColors::kTransparent, root->GetTargetColor());
 
   // Changing the underlying layer should not affect targets.
-  ASSERT_TRUE(root->SwitchCCLayerForTest());
+  ui::LayerTestApi root_test_api(root.get());
+  ASSERT_TRUE(root_test_api.SwitchToSolidColorLayer());
 
   EXPECT_FALSE(root->fills_bounds_opaquely());
   EXPECT_FALSE(
@@ -3011,7 +3029,8 @@ TEST_P(LayerWithRealCompositorTest, SwitchCCLayerSolidColorWhileAnimating) {
   EXPECT_EQ(SkColors::kTransparent, root->GetTargetColor());
 
   // Changing the underlying layer should not affect targets.
-  ASSERT_TRUE(root->SwitchCCLayerForTest());
+  ui::LayerTestApi root_test_api(root.get());
+  ASSERT_TRUE(root_test_api.SwitchToSolidColorLayer());
 
   EXPECT_TRUE(root->fills_bounds_opaquely());
   EXPECT_TRUE(
@@ -3039,10 +3058,11 @@ TEST_P(LayerWithRealCompositorTest, SwitchCCLayerCacheRenderSurface) {
   ScopedCacheRenderSurfaceLock cache_render_surface_lock(l1.get());
 
   // Change l1's cc::Layer.
-  ASSERT_TRUE(l1->SwitchCCLayerForTest());
+  ui::LayerTestApi l1_test_api(l1.get());
+  ASSERT_TRUE(l1_test_api.SwitchToTexturedLayer());
 
   // Ensure that the cache_render_surface flag is maintained.
-  EXPECT_TRUE(l1->cc_layer_for_testing()->cache_render_surface());
+  EXPECT_TRUE(l1_test_api.cc_layer()->cache_render_surface());
 }
 
 // Tests that when a layer with trilinear_filtering flag has its CC layer
@@ -3056,10 +3076,11 @@ TEST_P(LayerWithRealCompositorTest, SwitchCCLayerTrilinearFiltering) {
   ScopedTrilinearFilteringLock trilinear_lock(l1.get());
 
   // Change l1's cc::Layer.
-  ASSERT_TRUE(l1->SwitchCCLayerForTest());
+  ui::LayerTestApi l1_test_api(l1.get());
+  ASSERT_TRUE(l1_test_api.SwitchToTexturedLayer());
 
   // Ensure that the trilinear_filtering flag is maintained.
-  EXPECT_TRUE(l1->cc_layer_for_testing()->trilinear_filtering());
+  EXPECT_TRUE(l1_test_api.cc_layer()->trilinear_filtering());
 }
 
 // Tests that when a layer with masks_to_bounds flag has its CC layer switched,
@@ -3071,13 +3092,14 @@ TEST_P(LayerWithRealCompositorTest, SwitchCCLayerMasksToBounds) {
   root->Add(l1.get());
 
   l1->SetMasksToBounds(true);
-  EXPECT_TRUE(l1->cc_layer_for_testing()->masks_to_bounds());
+  ui::LayerTestApi l1_test_api(l1.get());
+  EXPECT_TRUE(l1_test_api.cc_layer()->masks_to_bounds());
 
   // Change l1's cc::Layer.
-  ASSERT_TRUE(l1->SwitchCCLayerForTest());
+  ASSERT_TRUE(l1_test_api.SwitchToTexturedLayer());
 
   // Ensure that the trilinear_filtering flag is maintained.
-  EXPECT_TRUE(l1->cc_layer_for_testing()->masks_to_bounds());
+  EXPECT_TRUE(l1_test_api.cc_layer()->masks_to_bounds());
 }
 
 // Tests that no crash happens when switching cc layer with an animation
@@ -3103,7 +3125,7 @@ TEST_P(LayerWithRealCompositorTest, SwitchCCLayerDeleteLayer) {
   }
 
   // Fails but no crash.
-  EXPECT_FALSE(l1->SwitchCCLayerForTest());
+  EXPECT_FALSE(ui::LayerTestApi(l1.get()).SwitchToTexturedLayer());
 }
 
 // Triggerring a OnDeviceScaleFactorChanged while a layer is undergoing

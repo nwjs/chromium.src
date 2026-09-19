@@ -6,6 +6,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_accessibility_test.h"
 #include "chrome/common/chrome_features.h"
 #include "components/prefs/pref_service.h"
@@ -88,15 +89,15 @@ IN_PROC_BROWSER_TEST_P(BackButtonAccessibilityTest, MAYBE_MiddleClickBack) {
       WaitForElementNonzeroSize(kToolbarBackButtonElementId),
       NavigateWebContents(kWebContentsElementId, url1),
       NavigateWebContents(kWebContentsElementId, url2),
-      Check([&]() { return browser()->tab_strip_model()->count() == 1; }),
+      Check([&]() { return browser()->GetTabStripModel()->count() == 1; }),
       PollState(kTabCountState,
-                [this]() { return browser()->tab_strip_model()->count(); }),
+                [this]() { return browser()->GetTabStripModel()->count(); }),
       // Middle-click back
       MoveMouseToElement(kToolbarBackButtonElementId),
       ClickMouse(ui_controls::MIDDLE), WaitForState(kTabCountState, 2),
       Check([&]() {
         return browser()
-                   ->tab_strip_model()
+                   ->GetTabStripModel()
                    ->GetWebContentsAt(1)
                    ->GetVisibleURL() == url1;
       }));

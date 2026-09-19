@@ -440,8 +440,7 @@ public class NotificationContentDetectionManager {
             sWarningNotificationAttributesByOrigin.put(
                     notificationOrigin,
                     new SuspiciousNotificationWarningDetailsForOrigin(
-                            /* warningNotificationId= */ notificationId,
-                            new HashMap<String, WarningNotificationWrapperAttributes>()));
+                            /* warningNotificationId= */ notificationId, new HashMap<>()));
         }
         sWarningNotificationAttributesByOrigin
                 .get(notificationOrigin)
@@ -693,7 +692,7 @@ public class NotificationContentDetectionManager {
         RecordHistogram.recordEnumeratedHistogram(
                 SUSPICIOUS_NOTIFICATION_WARNING_INTERACTIONS_HISTOGRAM_NAME,
                 value,
-                SuspiciousNotificationWarningInteractions.MAX_VALUE);
+                SuspiciousNotificationWarningInteractions.MAX_VALUE + 1);
     }
 
     /**
@@ -719,7 +718,7 @@ public class NotificationContentDetectionManager {
             return "";
         }
 
-        return (String) notificationExtras.getString(extraType);
+        return notificationExtras.getString(extraType);
     }
 
     private static boolean getBooleanFromBackupBundle(
@@ -728,7 +727,7 @@ public class NotificationContentDetectionManager {
             return defaultValue;
         }
 
-        return (boolean) notificationExtras.getBoolean(extraType);
+        return notificationExtras.getBoolean(extraType);
     }
 
     private static void appendUnsubscribeButton(

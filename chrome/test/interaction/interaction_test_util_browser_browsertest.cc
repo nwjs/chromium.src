@@ -10,8 +10,8 @@
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
@@ -71,7 +71,8 @@ class InteractionTestUtilBrowserTest : public InteractiveBrowserTest {
 };
 
 IN_PROC_BROWSER_TEST_F(InteractionTestUtilBrowserTest, GetBrowserFromContext) {
-  Browser* const other_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* const other_browser =
+      CreateBrowser(browser()->GetProfile());
   EXPECT_EQ(browser(), InteractionTestUtilBrowser::GetBrowserFromContext(
                            BrowserElements::From(browser())->GetContext()));
   EXPECT_EQ(other_browser,
@@ -105,7 +106,7 @@ IN_PROC_BROWSER_TEST_F(InteractionTestUtilBrowserTest,
                        CompareScreenshot_TrackedElementWebUI) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kTestWebUIElementId);
   auto* const web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   auto handler = std::make_unique<ui::TrackedElementHandler>(
       web_contents, BrowserElements::From(browser())->GetContext(),
       std::vector<ui::ElementIdentifier>{kTestWebUIElementId});
@@ -126,7 +127,7 @@ IN_PROC_BROWSER_TEST_F(InteractionTestUtilBrowserTest,
                        CompareScreenshot_TrackedElementWebUIWithClipBounds) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kTestWebUIElementId);
   auto* const web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   auto handler = std::make_unique<ui::TrackedElementHandler>(
       web_contents, BrowserElements::From(browser())->GetContext(),
       std::vector<ui::ElementIdentifier>{kTestWebUIElementId});
@@ -253,9 +254,7 @@ class InteractionTestUtilBrowserSelectTabTest
       public testing::WithParamInterface<
           ui::test::InteractionTestUtil::InputType> {
  public:
-  InteractionTestUtilBrowserSelectTabTest() {
-    feature_list_.InitAndEnableFeature(tabs::kVerticalTabs);
-  }
+  InteractionTestUtilBrowserSelectTabTest() = default;
   ~InteractionTestUtilBrowserSelectTabTest() override = default;
 
   void SetVerticalTabsEnabled(bool enabled) {
@@ -263,9 +262,6 @@ class InteractionTestUtilBrowserSelectTabTest
         ->SetVerticalTabsEnabled(enabled);
     RunScheduledLayouts();
   }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_P(InteractionTestUtilBrowserSelectTabTest,

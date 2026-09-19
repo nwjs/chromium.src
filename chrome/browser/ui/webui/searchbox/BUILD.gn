@@ -92,6 +92,7 @@ source_set("searchbox") {
       "//chrome/browser/contextual_tasks",
       "//chrome/browser/resources/new_tab_page:resources",
       "//chrome/browser/resources/new_tab_page:resources_grit",
+      "//chrome/browser/ui:tab_ui_helper",
       "//chrome/browser/ui/bookmarks",
       "//chrome/browser/ui/search",
       "//chrome/browser/ui/tabs:tab_strip",
@@ -123,7 +124,6 @@ source_set("searchbox_test_utils") {
     "//components/contextual_search/internal:test_support",
     "//components/lens",
     "//components/omnibox/browser",
-    "//components/omnibox/browser:test_support",
     "//mojo/public/cpp/bindings",
     "//services/network:test_support",
     "//testing/gmock",
@@ -139,6 +139,11 @@ source_set("searchbox_test_utils") {
     "//components/search",
   ]
   if (!is_android) {
+    public_deps += [
+      "//chrome/browser/tab_list:test_support",
+      "//chrome/browser/ui/browser_window/test:test_support",
+      "//components/tabs:test_support",
+    ]
     deps += [ "//chrome/browser/ui/webui/omnibox_popup/mojom" ]
   }
 }
@@ -219,12 +224,17 @@ source_set("unit_tests") {
   ]
 
   if (!is_android) {
-    sources += [ "contextual_searchbox_handler_unittest.cc" ]
+    sources += [
+      "contextual_searchbox_handler_unittest.cc",
+      "contextual_searchbox_screenshare_controller_unittest.cc",
+    ]
     deps += [
       "//chrome/browser/contextual_tasks",
       "//chrome/browser/feature_engagement",
+      "//chrome/browser/media/webrtc",
       "//chrome/browser/search_engines",
       "//chrome/browser/signin",
+      "//chrome/browser/ui:tab_ui_helper",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/views/drive_picker_host",
       "//chrome/browser/ui/webui/cr_components/composebox",
@@ -238,7 +248,10 @@ source_set("unit_tests") {
       "//components/omnibox/common:features",
       "//components/omnibox/composebox:mojo_bindings",
       "//components/prefs",
+      "//components/sessions",
+      "//third_party/webrtc_overrides:webrtc_component",
       "//ui/base:test_support",
+      "//ui/gfx/codec",
     ]
 
     if (is_chromeos) {
@@ -256,12 +269,15 @@ source_set("unit_tests") {
     deps += [
       ":searchbox",
       "//chrome/browser/bookmarks",
+      "//chrome/browser/contextual_tasks:ui",
+      "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/omnibox",
       "//chrome/browser/ui/omnibox:test_support",
       "//chrome/browser/ui/webui/cr_components/searchbox",
       "//chrome/test:test_support",
       "//components/bookmarks/browser",
       "//components/contextual_search:public",
+      "//components/omnibox/common:features",
       "//components/variations",
       "//ui/webui/resources/cr_components/composebox:mojo_bindings",
     ]
@@ -293,6 +309,7 @@ if (enable_webui_ntp && !is_android) {
       "//chrome/browser/contextual_search",
       "//chrome/browser/signin",
       "//chrome/browser/ui",
+      "//chrome/browser/ui/views/frame:contents_web_view",
       "//chrome/browser/ui/views/page_action:test_support",
       "//chrome/browser/ui/webui/new_tab_page/composebox/variations",
       "//chrome/browser/ui/webui/test_support",

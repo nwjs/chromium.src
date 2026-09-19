@@ -48,6 +48,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/startup_helper.h"
 #include "chrome/browser/first_run/first_run.h"
+#include "chrome/browser/global_features.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
@@ -63,11 +64,13 @@
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/sessions/exit_type_service.h"
 #include "chrome/browser/signin/signin_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
+#include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_controller.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/startup/launch_mode_recorder.h"
 #include "chrome/browser/ui/startup/profile_launch_observer.h"
 #include "chrome/browser/ui/startup/startup_browser_creator_impl.h"
@@ -250,6 +253,12 @@ StartupProfileMode GetStartupProfileMode(
   // side of not opening the app directly.
   if (command_line.HasSwitch(switches::kApp) ||
       command_line.HasSwitch(switches::kAppId)) {
+    return StartupProfileMode::kBrowserWindow;
+  }
+
+  // Don't show the picker if Omnibox Everywhere is explicitly requested to
+  // open. `OmniboxEverywhereController` will decide which profile to load.
+  if (command_line.HasSwitch(switches::kOmniboxEverywhere)) {
     return StartupProfileMode::kBrowserWindow;
   }
 
@@ -675,10 +684,18 @@ StartupBrowserCreator::~StartupBrowserCreator() {
   // background-extension subsequent startups should not execute restarted
   // behaviors.
   was_restarted_read_ = false;
+  was_restore_last_session_read_ = true;
+  restore_last_session_active_ = false;
 }
 
 // static
 bool StartupBrowserCreator::was_restarted_read_ = false;
+
+// static
+bool StartupBrowserCreator::was_restore_last_session_read_ = false;
+
+// static
+bool StartupBrowserCreator::restore_last_session_active_ = false;
 
 // static
 bool StartupBrowserCreator::in_synchronous_profile_launch_ = false;
@@ -872,6 +889,24 @@ bool StartupBrowserCreator::WasRestarted() {
 }
 
 // static
+bool StartupBrowserCreator::ShouldRestoreLastSession(
+    const base::CommandLine& command_line) {
+#if BUILDFLAG(IS_CHROMEOS)
+  // On ChromeOS, session restoration is handled by Ash FullRestore, which
+  // dynamically sets switches::kRestoreLastSession when launching a user's
+  // browser session post-login.
+  return command_line.HasSwitch(switches::kRestoreLastSession);
+#else
+  if (!was_restore_last_session_read_) {
+    restore_last_session_active_ =
+        command_line.HasSwitch(switches::kRestoreLastSession);
+    was_restore_last_session_read_ = true;
+  }
+  return restore_last_session_active_;
+#endif
+}
+
+// static
 SessionStartupPref StartupBrowserCreator::GetSessionStartupPref(
     const base::CommandLine& command_line,
     const Profile* profile) {
@@ -912,8 +947,7 @@ SessionStartupPref StartupBrowserCreator::GetSessionStartupPref(
   // However, new profiles can be created from a browser process that has this
   // switch so do not set the session pref to SessionStartupPref::LAST for
   // those as there is nothing to restore.
-  bool restore_last_session =
-      command_line.HasSwitch(switches::kRestoreLastSession);
+  bool restore_last_session = ShouldRestoreLastSession(command_line);
   if ((restore_last_session || did_restart) && !profile->IsNewProfile()) {
     pref.type = SessionStartupPref::LAST;
   }
@@ -943,6 +977,9 @@ SessionStartupPref StartupBrowserCreator::GetSessionStartupPref(
 // static
 void StartupBrowserCreator::ClearLaunchedProfilesForTesting() {
   ProfileLaunchObserver::ClearForTesting();  // IN-TEST
+  was_restarted_read_ = false;
+  was_restore_last_session_read_ = false;
+  restore_last_session_active_ = false;
 }
 
 // static
@@ -1334,6 +1371,20 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
     return true;
   }
 #endif  // BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+  const bool is_omnibox_everywhere_enabled =
+      command_line.HasSwitch(switches::kOmniboxEverywhere) &&
+      base::FeatureList::IsEnabled(omnibox::kOmniboxEverywhere) &&
+      g_browser_process && g_browser_process->GetFeatures() &&
+      g_browser_process->GetFeatures()->omnibox_everywhere_controller();
+  if (is_omnibox_everywhere_enabled) {
+    return g_browser_process->GetFeatures()
+        ->omnibox_everywhere_controller()
+        ->InvokeForStartup(omnibox_everywhere::InvocationSource::kCommandLine,
+                           /*fallback_profile=*/privacy_safe_profile);
+  }
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 
   if (command_line.HasSwitch(switches::kAppId)) {
     // `switches::kAppId` presence suppresses the profile picker, see

@@ -5,12 +5,10 @@ import type {CrActionMenuElement} from '//resources/cr_elements/cr_action_menu/c
 import {AnchorAlignment} from '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import {isRTL} from '//resources/js/util.js';
 
+import {ContentBrowserProxyImpl} from '../content/content_browser_proxy.js';
 import type {ShowAtConfigPrefs} from '../content/read_anything_types.js';
 import {TextSegmenter} from '../read_aloud/text_segmenter.js';
 
-// Determined by experimentation - can be adjusted to fine tune for different
-// platforms.
-export const minOverflowLengthToScroll = 75;
 export const spinnerDebounceTimeout = 150;
 export const playFromSelectionTimeout = spinnerDebounceTimeout + 25;
 
@@ -82,6 +80,6 @@ export function getWordCount(text: string): number {
 
 // Returns true if the active distillation method is readability.
 export function isDistilledByReadability(): boolean {
-  return chrome.readingMode.activeDistillationMethod ===
-      chrome.readingMode.distillationTypeReadability;
+  return ContentBrowserProxyImpl.getInstance().getActiveDistillationMethod() ===
+      ContentBrowserProxyImpl.getInstance().getDistillationTypeReadability();
 }

@@ -17,7 +17,6 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -27,7 +26,6 @@ import java.util.Set;
 
 /** Tests for ProfileKeyedMap. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class ProfileKeyedMapTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -139,5 +137,42 @@ public class ProfileKeyedMapTest {
         Assert.assertEquals(originalObj1, map.getForProfile(mProfile1, (profile) -> originalObj1));
         Assert.assertEquals(
                 originalObj1, map.getForProfile(mIncognitoProfile1, (profile) -> incognitoObj1));
+    }
+
+    @Test
+    public void testRemoveForProfile() {
+        Set<Object> destroyedObjects = new HashSet<>();
+        ProfileKeyedMap<Object> map = new ProfileKeyedMap<>((obj) -> destroyedObjects.add(obj));
+
+        Object obj1 = new Object();
+        Assert.assertEquals(obj1, map.getForProfile(mProfile1, (profile) -> obj1));
+        Assert.assertEquals(1, map.size());
+
+        Object removed = map.removeForProfile(mProfile1);
+        Assert.assertEquals(obj1, removed);
+        Assert.assertEquals(0, map.size());
+        // Verify destroy action was not triggered during removal.
+        MatcherAssert.assertThat(destroyedObjects, Matchers.not(Matchers.hasItem(obj1)));
+
+        // Verify that a subsequent get creates a new instance.
+        Object obj2 = new Object();
+        Assert.assertEquals(obj2, map.getForProfile(mProfile1, (profile) -> obj2));
+        Assert.assertEquals(1, map.size());
+    }
+
+    @Test
+    public void testRemoveForProfile_redirectedToOriginal() {
+        ProfileKeyedMap<Object> map =
+                new ProfileKeyedMap<>(
+                        ProfileKeyedMap.ProfileSelection.REDIRECTED_TO_ORIGINAL,
+                        noRequiredCleanupAction());
+        Object originalObj1 = new Object();
+        Assert.assertEquals(
+                originalObj1, map.getForProfile(mIncognitoProfile1, (profile) -> originalObj1));
+        Assert.assertEquals(1, map.size());
+
+        Object removed = map.removeForProfile(mIncognitoProfile1);
+        Assert.assertEquals(originalObj1, removed);
+        Assert.assertEquals(0, map.size());
     }
 }

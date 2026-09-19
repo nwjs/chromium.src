@@ -8,6 +8,7 @@
 #include "base/functional/function_ref.h"
 #include "third_party/blink/renderer/core/layout/grid/grid_layout_algorithm.h"
 #include "third_party/blink/renderer/core/layout/grid/grid_sizing_tree.h"
+#include "third_party/blink/renderer/core/layout/grid_lanes/grid_lanes_node.h"
 #include "third_party/blink/renderer/core/style/grid_enums.h"
 #include "third_party/blink/renderer/core/style/grid_track_size.h"
 #include "third_party/blink/renderer/platform/fonts/font_baseline.h"
@@ -75,12 +76,16 @@ class BaselineAccumulator {
   virtual std::optional<LayoutUnit> LastBaseline() const = 0;
 };
 
-// Performs a layout of `grid_item` for measurement purposes. Disables layout
-// side effects when appropriate.
+// Performs a layout of `grid_item` for measurement purposes, disabling layout
+// side effects when the resulting fragment must not be written back to the
+// item. Set `is_measure_after_layout` when this item has already been laid out
+// and its fragment stored, as no subsequent layout will overwrite the fragment
+// measured here.
 const LayoutResult* LayoutGridItemForMeasure(
     const GridItemData& grid_item,
     const ConstraintSpace& constraint_space,
-    SizingConstraint sizing_constraint);
+    SizingConstraint sizing_constraint,
+    bool is_measure_after_layout = false);
 
 // Update the provided `available_size`, `min_available_size`, and
 // `max_available_size` to their appropriate values.
@@ -354,16 +359,24 @@ void AppendSubgriddedItems(const NodeType& node, GridItems* grid_items) {
       continue;
     }
 
-    // TODO(almaher): This should eventually support grid lanes, as well.
     bool must_invalidate_placement_cache = false;
-    const auto subgrid = To<GridNode>(current_item.node);
-
-    auto* subgridded_items = subgrid.ConstructGridItems(
-        subgrid.CachedLineResolver(), root_grid_style, subgrid.Style(),
-        current_item.must_consider_grid_items_for_column_sizing,
-        current_item.must_consider_grid_items_for_row_sizing,
-        &must_invalidate_placement_cache,
-        /*parent_is_auto_placed=*/current_item.is_auto_placed);
+    GridItems* subgridded_items;
+    if (current_item.node.IsGridLanes()) {
+      const auto subgrid = To<GridLanesNode>(current_item.node);
+      subgridded_items = subgrid.ConstructGridItems(
+          subgrid.CachedLineResolver(), root_grid_style, subgrid.Style(),
+          current_item.must_consider_grid_items_for_column_sizing,
+          &must_invalidate_placement_cache,
+          /*parent_is_auto_placed=*/current_item.is_auto_placed);
+    } else {
+      const auto subgrid = To<GridNode>(current_item.node);
+      subgridded_items = subgrid.ConstructGridItems(
+          subgrid.CachedLineResolver(), root_grid_style, subgrid.Style(),
+          current_item.must_consider_grid_items_for_column_sizing,
+          current_item.must_consider_grid_items_for_row_sizing,
+          &must_invalidate_placement_cache,
+          /*parent_is_auto_placed=*/current_item.is_auto_placed);
+    }
 
     DCHECK(!must_invalidate_placement_cache)
         << "We shouldn't need to invalidate the placement cache if we relied "
@@ -438,7 +451,8 @@ void ComputeBaselineAlignmentForEachSubgrid(
     const LayoutAlgorithmType& algorithm,
     const GridLayoutTree* layout_tree,
     const std::optional<GridTrackSizingDirection>& opt_track_direction,
-    SizingConstraint sizing_constraint) {
+    SizingConstraint sizing_constraint,
+    bool is_measure_after_layout = false) {
   // TODO(almaher): Support grid-lanes subgrids as well.
   ForEachSubgrid(
       sizing_subtree, algorithm,
@@ -448,14 +462,14 @@ void ComputeBaselineAlignmentForEachSubgrid(
         subgrid_algorithm.ComputeBaselineAlignment(
             layout_tree, subgrid_subtree, subgrid_data,
             subgrid_data->RelativeDirectionFilterInSubgrid(opt_track_direction),
-            sizing_constraint);
+            sizing_constraint, is_measure_after_layout);
       });
 }
 
 // Validates the min/max sizes cache for subgrids in the sizing tree. A
 // subgrid might need to invalidate the cache if it inherited a different track
 // collection in its subgridded axis. Returns true if invalidation was needed.
-bool ValidateMinMaxSizesCache(const BlockNode& grid_node,
+bool ValidateMinMaxSizesCache(const BlockNode& node,
                               const GridSizingSubtree& sizing_subtree,
                               GridTrackSizingDirection track_direction);
 

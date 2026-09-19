@@ -204,8 +204,9 @@ void GlicE2ETest::LoginTestAccountOrForceFakeSignin() {
         GetTestAccounts()->GetAccount(account_label);
     signin::test::SignInFunctions sign_in_functions =
         signin::test::SignInFunctions(
-            base::BindLambdaForTesting(
-                [this]() -> Browser* { return this->browser(); }),
+            base::BindLambdaForTesting([this]() -> BrowserWindowInterface* {
+              return this->browser();
+            }),
             base::BindLambdaForTesting(
                 [this](int index, const GURL& url,
                        ui::PageTransition transition) -> bool {
@@ -213,7 +214,10 @@ void GlicE2ETest::LoginTestAccountOrForceFakeSignin() {
                 }));
     // Sign in to opted in test account.
     CHECK(test_account.has_value());
-    sign_in_functions.TurnOnSync(*test_account, 0);
+    sign_in_functions.SignInFromSettingsWithSyncChoice(
+        *test_account, 0,
+        signin::test::SignInFunctions::SyncChoice::
+            kAcceptAllOptionalDataTypesSync);
   } else {
     SigninWithPrimaryAccount(browser()->GetProfile());
     SetGlicCapability(browser()->GetProfile(), true);

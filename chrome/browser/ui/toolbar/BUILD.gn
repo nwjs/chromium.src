@@ -302,7 +302,6 @@ if (!is_android) {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/signin",
       "//chrome/browser/ui:ui_features",
-      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/global_error",
       "//chrome/browser/ui/hats",
       "//chrome/browser/ui/hats:test_support",
@@ -487,6 +486,9 @@ if (!is_android) {
           "//ui/views",
           "//url",
         ]
+        if (is_mac) {
+          deps += [ "//chrome/browser/ui:fullscreen_util_mac" ]
+        }
       }
     }
   }

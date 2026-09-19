@@ -4,6 +4,7 @@
 
 #include "remoting/host/client_session.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -23,7 +24,6 @@
 #include "remoting/base/logging.h"
 #include "remoting/base/session_policies.h"
 #include "remoting/host/base/desktop_environment_options.h"
-#include "remoting/host/host_extension.h"
 #include "remoting/protocol/authenticator.h"
 #include "remoting/protocol/connection_to_client.h"
 #include "remoting/protocol/errors.h"
@@ -32,16 +32,20 @@
 
 namespace remoting {
 
+namespace {
+
+constexpr base::TimeDelta kMinMaximumSessionDuration = base::Minutes(30);
+
+}  // namespace
+
 ClientSession::ClientSession(
     EventHandler* event_handler,
     std::unique_ptr<protocol::Session> session,
     PeerSessionFactory* peer_session_factory,
     const DesktopEnvironmentOptions& desktop_environment_options,
-    const std::vector<raw_ptr<HostExtension, VectorExperimental>>& extensions,
     const LocalSessionPoliciesProvider* local_session_policies_provider)
     : event_handler_(event_handler),
       desktop_environment_options_(desktop_environment_options),
-      extensions_(extensions),
       peer_session_factory_(peer_session_factory),
       session_(std::move(session)),
       client_jid_(session_->jid()),
@@ -62,6 +66,7 @@ void ClientSession::DisconnectSession(ErrorCode error,
                                       std::string_view error_details,
                                       const SourceLocation& error_location) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  max_duration_timer_.Stop();
   if (peer_session_) {
     peer_session_->DisconnectSession(error, error_details, error_location);
     return;
@@ -140,21 +145,31 @@ void ClientSession::OnConnectionAuthenticated(
 
   is_authenticated_ = true;
 
+  base::TimeDelta max_duration =
+      effective_policies_.maximum_session_duration.value_or(base::TimeDelta());
+  if (max_duration.is_positive()) {
+    max_duration = std::max(max_duration, kMinMaximumSessionDuration);
+    max_duration_timer_.Start(
+        FROM_HERE, max_duration,
+        base::BindOnce(&ClientSession::DisconnectSession,
+                       base::Unretained(this), ErrorCode::MAX_SESSION_LENGTH,
+                       "Maximum session duration has been reached.",
+                       FROM_HERE));
+  }
+
   const SessionOptions session_options =
       SessionOptions::Parse(host_experiment_session_plugin_.configuration());
   DesktopEnvironmentOptions desktop_environment_options =
       desktop_environment_options_;
   desktop_environment_options.ApplySessionOptions(session_options);
+  desktop_environment_options.ApplySessionPolicies(effective_policies_);
 
   peer_session_ = peer_session_factory_->Create();
 
   session_->SetTransport(peer_session_->transport());
 
-  std::vector<HostExtension*> extension_ptrs;
-  extension_ptrs.assign(extensions_.begin(), extensions_.end());
-
   peer_session_->Start(this, client_jid_, desktop_environment_options,
-                       extension_ptrs, effective_policies_, session_options);
+                       effective_policies_, session_options);
 
   for (auto& receiver : pending_session_services_receivers_) {
     peer_session_->OnSessionServicesClientConnected(std::move(receiver));
@@ -188,6 +203,7 @@ void ClientSession::OnSessionClosed(protocol::ErrorCode error,
     return;
   }
   is_closing_ = true;
+  max_duration_timer_.Stop();
 
   if (session_) {
     session_->Close(error, error_details, error_location);

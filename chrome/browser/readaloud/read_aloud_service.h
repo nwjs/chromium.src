@@ -13,6 +13,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
+#include "chrome/browser/readaloud/read_aloud_audio_broker.h"
 #include "chrome/common/readaloud/read_aloud.mojom.h"
 #include "components/dom_distiller/core/task_tracker.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -147,7 +148,8 @@ class ReadAloudService
 
   explicit ReadAloudService(
       Profile* profile,
-      PlaybackControllerBinder controller_binder = {});
+      PlaybackControllerBinder controller_binder = {},
+      ReadAloudAudioBroker::AudioStreamFactoryBinder factory_binder = {});
 
   ReadAloudService(const ReadAloudService&) = delete;
   ReadAloudService& operator=(const ReadAloudService&) = delete;
@@ -193,6 +195,7 @@ class ReadAloudService
 
   // Sets the playback mode (e.g., classic full read or summary overview).
   void SetPlaybackMode(PlaybackMode mode);
+  PlaybackMode playback_mode() const { return playback_mode_; }
 
   // Enables or disables synchronized word highlighting in the UI.
   void SetHighlightingEnabled(bool enabled);
@@ -232,6 +235,7 @@ class ReadAloudService
   // utility process is connected.
   void Initialize(content::WebContents* web_contents);
 
+  // TODO(b/553612030): Refactor out GetViewerHandleForTesting().
   dom_distiller::ViewerHandle* GetViewerHandleForTesting() const {
     return viewer_handle_.get();
   }
@@ -248,16 +252,28 @@ class ReadAloudService
       read_aloud::mojom::ReadAloudPlaybackControllerClient::
           RequestSpeechSynthesisCallback callback) override;
 
+ private:
+  // Sends page title and publisher metadata to the UI delegate.
+  void ProvideInitialMetadata();
   void EnsurePlaybackControllerConnected();
+  void InitializeAudioStream();
+  void OnAudioStreamCreated(
+      const media::AudioParameters& params,
+      mojo::PendingRemote<media::mojom::AudioOutputStream> stream_remote,
+      media::mojom::ReadWriteAudioDataPipePtr data_pipe);
   void OnUtilityDisconnect();
   void ResetUtilityConnection();
   PlaybackState GetCurrentPlaybackState() const;
 
   raw_ptr<Profile> profile_;
   PlaybackControllerBinder controller_binder_;
+  std::unique_ptr<ReadAloudAudioBroker> audio_broker_;
   std::unique_ptr<dom_distiller::ViewerHandle> viewer_handle_;
   std::unique_ptr<Delegate> delegate_;
   base::TimeTicks distillation_start_time_;
+  std::string current_title_;
+  std::string current_publisher_;
+  base::TimeDelta current_duration_;
 
   // Connection to the Utility process Factory.
   mojo::Remote<read_aloud::mojom::ReadAloudPlaybackControllerFactory>
@@ -270,6 +286,7 @@ class ReadAloudService
 
   std::unique_ptr<ReadAloudPlaybackSession> active_session_;
   std::unique_ptr<SpeechSynthesisBroker> speech_synthesis_broker_;
+  PlaybackMode playback_mode_ = PlaybackMode::kClassic;
 
   base::WeakPtrFactory<ReadAloudService> weak_factory_{this};
 };

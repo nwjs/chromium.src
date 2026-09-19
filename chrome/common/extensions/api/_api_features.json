@@ -321,21 +321,12 @@
     "dependencies": ["manifest:commands"],
     "contexts": ["privileged_extension"]
   },
-  "contentSettings": [{
+  "contentSettings": {
     "dependencies": ["permission:contentSettings"],
     "contexts": [
       "privileged_extension"
-    ],
-    "default_parent": true
-  },{
-    "channel": "stable",
-    "contexts": [
-      "webui_untrusted"
-    ],
-    "matches": [
-      "chrome-untrusted://boca-app/*"
     ]
-  }],
+  },
   "contentSettings.clipboard": {
     "feature_flag": "ApiContentSettingsClipboard"
   },
@@ -902,10 +893,6 @@
     "dependencies": ["permission:smartCardProviderPrivate"],
     "contexts": ["privileged_extension"]
   },
-  "speechRecognitionPrivate": {
-    "dependencies": ["permission:speechRecognitionPrivate"],
-    "contexts": ["privileged_extension"]
-  },
   "systemLog": {
     "dependencies": ["permission:systemLog"],
     "contexts": ["privileged_extension"]
@@ -949,6 +936,9 @@
     ],
     "platforms": ["chromeos"]
   }],
+  "tabs.createSplit": {
+    "feature_flag": "ApiTabsSplitView"
+  },
   "tabs.executeScript": {
     "max_manifest_version": 2
   },

@@ -20,7 +20,6 @@
 #include "chrome/browser/ui/read_anything/read_anything_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_enums.h"
 #include "chrome/browser/ui/read_anything/read_anything_lifecycle_observer.h"
-#include "chrome/browser/ui/read_anything/read_anything_side_panel_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/common/read_anything/distillation_evaluator.mojom.h"
@@ -87,6 +86,24 @@ enum class ReadAnythingDistillationScheme {
 };
 
 // LINT.ThenChange(/tools/metrics/histograms/metadata/accessibility/enums.xml:ReadAnythingDistillationScheme)
+
+// LINT.IfChange(ReadAnythingRendererRequestResult)
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class ReadAnythingRendererRequestResult {
+  kAllowed = 0,
+  kNotObservedTree = 1,
+  kDisallowedActionOnPageType = 2,
+  kMaxValue = kDisallowedActionOnPageType,
+};
+
+// LINT.ThenChange(/tools/metrics/histograms/metadata/accessibility/enums.xml:ReadAnythingRendererRequestResult)
+
+enum class ListenToThisPagePlaybackMetricState {
+  kInactive = 0,
+  kWaitingForAudioStart,
+  kWaitingForSustainedPlayback,
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 // ReadAnythingWebContentsObserver
@@ -184,6 +201,15 @@ class ReadAnythingUntrustedPageHandler :
   static constexpr base::TimeDelta kReadingModeHiddenAckTimeout =
       base::Seconds(2);
 
+  // The maximum amount of time for Read Aloud to start playing audio to
+  // consider a successful playback from the "Listen to this page" entry point.
+  static constexpr base::TimeDelta kListenToThisPagePlaybackStartupTimeout =
+      base::Seconds(5);
+  // The minimum amount of time that Read Aloud must play audio to consider a
+  // successful playback from the "Listen to this page" entry point.
+  static constexpr base::TimeDelta kListenToThisPagePlaybackSustainedDuration =
+      base::Seconds(2);
+
   void AccessibilityEventReceived(const ui::AXUpdatesAndEvents& details);
   void AccessibilityLocationChangesReceived(
       const ui::AXTreeID& tree_id,
@@ -220,9 +246,6 @@ class ReadAnythingUntrustedPageHandler :
   void OnLineFocusChanged(
       read_anything::mojom::LineFocus current_line_focus,
       read_anything::mojom::LineFocus last_non_disabled_line_focus) override;
-  void OnLineFocusFeatureUsed() override;
-  void ShouldShowLineFocusNewBadge(
-      ShouldShowLineFocusNewBadgeCallback callback) override;
   void GetVoicePackInfo(const std::string& language) override;
   void InstallVoicePack(const std::string& language) override;
   void UninstallVoice(const std::string& language) override;
@@ -271,6 +294,8 @@ class ReadAnythingUntrustedPageHandler :
   void OnLockStateChanged(bool locked) override;
 #endif
 
+  void RecordListenToThisPagePlaybackMetricForTesting(bool successful_playback);
+
  protected:
   void OnImageDataDownloaded(const ui::AXTreeID& target_tree_id,
                              ui::AXNodeID,
@@ -316,6 +341,11 @@ class ReadAnythingUntrustedPageHandler :
   // Used to verify that an incoming action request is for the currently
   // observed tree. If it's not, it may be a malicious request.
   bool IsObservingTree(const ui::AXTreeID& tree_id) const;
+
+  // Used to verify if an incoming action request (e.g. clicking a link or
+  // downloading an image) is allowed on the current tree. Actions are allowed
+  // if the page is HTTP/HTTPS or a PDF.
+  bool AreActionsAllowedInTree(const ui::AXTreeID& tree_id) const;
 
   // ui::AXActionHandlerObserver:
   void TreeRemoved(ui::AXTreeID ax_tree_id) override;
@@ -372,6 +402,8 @@ class ReadAnythingUntrustedPageHandler :
 
   content::WebContents* GetWebContents() const;
 
+  bool HasTransientUserActivation() const;
+
   // Returns the actual language of the text currently displayed in the Reading
   // Mode panel.
   std::string GetDisplayLanguage();
@@ -408,14 +440,14 @@ class ReadAnythingUntrustedPageHandler :
   void OnAXTreeSnapshotReceived(const std::string& distilled_html,
                                 ui::AXTreeUpdate& snapshot);
 
-  // The Reading Mode controller for both immersive and side-panel reading mode,
-  // used when the immersive reading mode flag is enabled.
+  // Updates the playback state for "Listen to this page" and starts/stops the
+  // timer for recording the Listen to this page playback metric.
+  void UpdateForListenToThisPage(bool& playing);
+
+  void RecordListenToThisPagePlaybackMetric(bool successful_playback);
+
+  // The Reading Mode controller for both immersive and side-panel reading mode.
   raw_ptr<ReadAnythingController> read_anything_controller_;
-  // Legacy side-panel reading mode controller, only to be used when the
-  // immersive reading mode flag is disabled.
-  // TODO: (crbug.com/449162079) Remove this when immersive reading mode flag is
-  // fully rolled out.
-  raw_ptr<ReadAnythingSidePanelController> side_panel_controller_;
   const raw_ptr<Profile> profile_;
   const raw_ptr<content::WebUI> web_ui_;
   raw_ptr<tabs::TabInterface> tab_;
@@ -503,6 +535,11 @@ class ReadAnythingUntrustedPageHandler :
   // is hidden.
   base::OneShotTimer reading_mode_hidden_ack_timer_;
   bool ack_timed_out_for_testing_ = false;
+
+  // Timer for tracking "Listen to this page" startup and sustained playback.
+  base::OneShotTimer listen_to_this_page_playback_timer_;
+  ListenToThisPagePlaybackMetricState listen_to_this_page_playback_state_ =
+      ListenToThisPagePlaybackMetricState::kInactive;
 
   // Hold DOM distiller distillation results.
   std::optional<std::string> dom_distiller_title_;

@@ -15,6 +15,7 @@ import './collapsible_autofill_settings_card.js';
 import '/shared/settings/prefs/prefs.js';
 import '../settings_page/settings_section.js';
 import '../icons.html.js';
+import '../privacy_icons.html.js';
 // <if expr="_google_chrome">
 import '../internal/icons.html.js';
 
@@ -41,7 +42,7 @@ import {getTemplate} from './autofill_page.html.js';
 import type {DataCategoryClickEvent, DataChipClickEvent} from './category_reference_card.js';
 import type {EntityDataManagerProxy, EntityInstancesChangedListener} from './entity_data_manager_proxy.js';
 import {EntityDataManagerProxyImpl} from './entity_data_manager_proxy.js';
-import {PasswordManagerImpl, PasswordManagerPage} from './password_manager_proxy.js';
+import {PasswordManagerImpl, PasswordManagerPage} from './passwords/password_manager_proxy.js';
 import {PaymentsManagerImpl} from './payments/payments_manager_proxy.js';
 import type {PaymentsManagerProxy} from './payments/payments_manager_proxy.js';
 import {DataManagementSurvey, SavedInfoHandlerImpl} from './saved_info_handler_proxy.js';
@@ -269,9 +270,7 @@ export class SettingsAutofillPageElement extends
           {
             id: YourSavedInfoDataChip.TRAVEL_INFO,
             label: this.i18n('yourSavedInfoTravelInfoChip'),
-            icon: loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
-                'privacy20:person-check' :
-                'privacy20:person-check-old',
+            icon: 'privacy20:person-check',
             isVisibleWhenNoEntitiesOfTypeExists: () =>
                 this.availableAutofillAiTypes_.has(
                     EntityTypeName.kKnownTravelerNumber) ||

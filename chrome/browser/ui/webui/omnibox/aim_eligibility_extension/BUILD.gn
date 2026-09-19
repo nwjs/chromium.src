@@ -14,6 +14,12 @@ source_set("aim_eligibility_extension") {
     "aim_eligibility_extension_bridge.h",
     "aim_eligibility_extension_bridge_factory.cc",
     "aim_eligibility_extension_bridge_factory.h",
+    "aim_eligibility_extension_config_provider.cc",
+    "aim_eligibility_extension_config_provider.h",
+    "aim_eligibility_extension_frame_page_handler_factory.cc",
+    "aim_eligibility_extension_frame_page_handler_factory.h",
+    "aim_eligibility_extension_service_worker_page_handler_factory.cc",
+    "aim_eligibility_extension_service_worker_page_handler_factory.h",
   ]
 
   public_deps = [
@@ -25,11 +31,13 @@ source_set("aim_eligibility_extension") {
     "//chrome/browser/autocomplete:aim_eligibility_service",
     "//chrome/browser/extensions",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui/webui/omnibox",
     "//chrome/common",
     "//content/public/browser",
     "//extensions/browser",
     "//extensions/common",
     "//mojo/public/cpp/bindings",
+    "//third_party/abseil-cpp:absl",
     "//ui/webui",
     "//ui/webui/resources/cr_components/color_change_listener:mojom",
   ]

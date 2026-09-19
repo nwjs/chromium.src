@@ -436,12 +436,20 @@ public class TabGroupContextMenuCoordinator extends TabStripReorderingHelper<Tok
                                 currentWindowHasOtherTabs));
             }
         }
+
+        boolean isVerticalTabs = mTabStripLayout == TabStripLayoutType.VERTICAL;
+        int moveStartStringId =
+                isVerticalTabs ? R.string.move_tab_group_up : R.string.move_tab_group_left;
+        int moveEndStringId =
+                isVerticalTabs ? R.string.move_tab_group_down : R.string.move_tab_group_right;
+
         List<MVCListAdapter.ListItem> reorderItems =
                 createReorderItems(
                         id,
-                        assumeNonNull(mContext).getString(R.string.move_tab_group_left),
-                        mContext.getString(R.string.move_tab_group_right),
-                        isIncognito);
+                        assumeNonNull(mContext).getString(moveStartStringId),
+                        mContext.getString(moveEndStringId),
+                        isIncognito,
+                        isVerticalTabs);
         // Need to check list is non-empty before calling addAll; otherwise we get assertion error.
         if (!reorderItems.isEmpty()) itemList.addAll(reorderItems);
 
@@ -808,7 +816,6 @@ public class TabGroupContextMenuCoordinator extends TabStripReorderingHelper<Tok
                 inflatedRoot.findViewById(R.id.color_picker_container);
         mTabGroupColorPickerCoordinator =
                 new TabGroupColorPickerCoordinator(
-                        context,
                         TabGroupColorPickerUtils.getTabGroupColorIdList(),
                         container,
                         TabGroupColorPickerType.TAB_GROUP,

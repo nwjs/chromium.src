@@ -116,7 +116,8 @@ class PageContextExtractorJavaScriptFeatureTest
           use_rich_extraction_with_actionable, extract_paid_content,
           attempt_paid_content_json_fixing,
           /*include_sensitive_payments_for_redaction=*/false,
-          /*extract_autofill_otp_redactions=*/false, nonce, timeout,
+          /*extract_autofill_otp_redactions=*/false,
+          /*extract_password_screenshot_redactions=*/false, nonce, timeout,
           base::BindOnce(
               [](base::OnceCallback<void(std::optional<base::Value>)> callback,
                  const base::Value* value) {
@@ -130,10 +131,33 @@ class PageContextExtractorJavaScriptFeatureTest
           use_rich_extraction_with_actionable, extract_paid_content,
           attempt_paid_content_json_fixing,
           /*include_sensitive_payments_for_redaction=*/false,
-          /*extract_autofill_otp_redactions=*/false, nonce, timeout,
+          /*extract_autofill_otp_redactions=*/false,
+          /*extract_password_screenshot_redactions=*/false, nonce, timeout,
           future.GetCallback());
     }
     return future.Take();
+  }
+
+  // Returns true if the given APC node dictionary contains
+  // CLICKABILITY_REASON_CURSOR_POINTER.
+  bool HasCursorPointerClickability(const base::DictValue& node) {
+    const base::DictValue* interaction_info =
+        node.FindDictByDottedPath("contentAttributes.nodeInteractionInfo");
+    if (!interaction_info) {
+      return false;
+    }
+    const base::ListValue* click_reasons =
+        interaction_info->FindList("clickabilityReasons");
+    if (!click_reasons) {
+      return false;
+    }
+    for (const auto& reason : *click_reasons) {
+      if (static_cast<int>(reason.GetDouble()) ==
+          optimization_guide::proto::CLICKABILITY_REASON_CURSOR_POINTER) {
+        return true;
+      }
+    }
+    return false;
   }
 
   web::ScopedTestingWebClient web_client_;
@@ -563,34 +587,109 @@ TEST_P(PageContextExtractorJavaScriptFeatureTest,
   ASSERT_TRUE(children);
   ASSERT_GE(children->size(), 3u);
 
-  auto has_cursor_pointer_clickability = [](const base::DictValue& node) {
-    const base::DictValue* interaction_info =
-        node.FindDictByDottedPath("contentAttributes.nodeInteractionInfo");
-    if (!interaction_info) {
-      return false;
-    }
-    const base::ListValue* click_reasons =
-        interaction_info->FindList("clickabilityReasons");
-    if (!click_reasons) {
-      return false;
-    }
-    for (const auto& reason : *click_reasons) {
-      if (static_cast<int>(reason.GetDouble()) ==
-          optimization_guide::proto::CLICKABILITY_REASON_CURSOR_POINTER) {
-        return true;
-      }
-    }
-    return false;
-  };
+  // `<a href="...">` has CURSOR_POINTER.
+  EXPECT_TRUE(HasCursorPointerClickability((*children)[0].GetDict()));
 
-  // 1. <a href="..."> has CURSOR_POINTER.
-  EXPECT_TRUE(has_cursor_pointer_clickability((*children)[0].GetDict()));
+  // `<a name="...">` without href does not have CURSOR_POINTER.
+  EXPECT_FALSE(HasCursorPointerClickability((*children)[1].GetDict()));
 
-  // 2. <a name="..."> without href does not have CURSOR_POINTER.
-  EXPECT_FALSE(has_cursor_pointer_clickability((*children)[1].GetDict()));
+  // `<a href="..." style="cursor: default">` does not have CURSOR_POINTER.
+  EXPECT_FALSE(HasCursorPointerClickability((*children)[2].GetDict()));
+}
 
-  // 3. <a href="..." style="cursor: default"> does not have CURSOR_POINTER.
-  EXPECT_FALSE(has_cursor_pointer_clickability((*children)[2].GetDict()));
+// Tests that an element inheriting cursor: pointer from an ancestor does NOT
+// receive CURSOR_POINTER clickability, unless explicitly set on itself.
+TEST_P(PageContextExtractorJavaScriptFeatureTest,
+       ExtractPageContext_CursorPointerInheritance) {
+  web::test::LoadHtml(
+      @"<html><body>"
+       "<div id=\"parent\" style=\"cursor: pointer\">"
+       "  <div id=\"child-inherit\">Inherited Pointer</div>"
+       "  <div id=\"child-explicit\" style=\"cursor: pointer\">Explicit "
+       "Pointer</div>"
+       "</div>"
+       "</body></html>",
+      test_server_.GetURL(kMainPagePath), web_state());
+
+  std::optional<base::Value> result_value = RunExtraction(
+      web_state()->GetPageWorldWebFramesManager()->GetMainWebFrame(),
+      /*include_cross_origin_frame_content=*/false,
+      /*use_rich_extraction=*/true,
+      /*use_rich_extraction_with_actionable=*/true,
+      /*extract_paid_content=*/false,
+      /*attempt_paid_content_json_fixing=*/false, "nonce", base::Seconds(1));
+
+  ASSERT_TRUE(result_value);
+
+  const base::DictValue& dict = result_value->GetDict();
+  const base::DictValue* root_node = dict.FindDict("rootNode");
+  ASSERT_TRUE(root_node);
+  const base::ListValue* children = root_node->FindList("childrenNodes");
+  ASSERT_TRUE(children);
+  ASSERT_GE(children->size(), 1u);
+
+  const base::DictValue& parent_node = (*children)[0].GetDict();
+  EXPECT_TRUE(HasCursorPointerClickability(parent_node));
+
+  const base::ListValue* parent_children =
+      parent_node.FindList("childrenNodes");
+  ASSERT_TRUE(parent_children);
+  ASSERT_EQ(parent_children->size(), 2u);
+
+  EXPECT_FALSE(HasCursorPointerClickability((*parent_children)[0].GetDict()));
+  EXPECT_TRUE(HasCursorPointerClickability((*parent_children)[1].GetDict()));
+}
+
+// Tests that a <summary> with cursor: pointer receives CURSOR_POINTER, but its
+// nested <span>, <svg>, and <path> children do NOT receive CURSOR_POINTER.
+TEST_P(PageContextExtractorJavaScriptFeatureTest,
+       ExtractPageContext_CursorPointerInheritance_DetailsSummarySvg) {
+  web::test::LoadHtml(@"<html><head><style>"
+                       "  summary { cursor: pointer; }"
+                       "</style></head><body>"
+                       "<details class=\"menu-drawer-container\">"
+                       "  <summary class=\"header__icon\">"
+                       "    <span>"
+                       "      <svg viewBox=\"0 0 20 20\">"
+                       "        <path d=\"M0 0h20v2H0z\" />"
+                       "        <path d=\"M0 6h20v2H0z\" />"
+                       "        <path d=\"M0 12h20v2H0z\" />"
+                       "      </svg>"
+                       "    </span>"
+                       "  </summary>"
+                       "</details>"
+                       "</body></html>",
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  std::optional<base::Value> result_value = RunExtraction(
+      web_state()->GetPageWorldWebFramesManager()->GetMainWebFrame(),
+      /*include_cross_origin_frame_content=*/false,
+      /*use_rich_extraction=*/true,
+      /*use_rich_extraction_with_actionable=*/true,
+      /*extract_paid_content=*/false,
+      /*attempt_paid_content_json_fixing=*/false, "nonce", base::Seconds(1));
+
+  ASSERT_TRUE(result_value);
+
+  const base::DictValue& dict = result_value->GetDict();
+  const base::DictValue* root_node = dict.FindDict("rootNode");
+  ASSERT_TRUE(root_node);
+  const base::ListValue* children = root_node->FindList("childrenNodes");
+  ASSERT_TRUE(children);
+  ASSERT_GE(children->size(), 1u);
+
+  // <summary> is extracted as a direct child of root and receives
+  // CURSOR_POINTER.
+  const base::DictValue& summary_node = (*children)[0].GetDict();
+  EXPECT_TRUE(HasCursorPointerClickability(summary_node));
+
+  // The nested SVG child inside <summary> does NOT receive CURSOR_POINTER.
+  const base::ListValue* summary_children =
+      summary_node.FindList("childrenNodes");
+  ASSERT_TRUE(summary_children);
+  ASSERT_GE(summary_children->size(), 1u);
+  const base::DictValue& svg_node = (*summary_children)[0].GetDict();
+  EXPECT_FALSE(HasCursorPointerClickability(svg_node));
 }
 
 // Test the extraction of the text size.
@@ -788,6 +887,90 @@ TEST_P(PageContextExtractorJavaScriptFeatureTest,
   // Verifies that text from nested spans and strong tags is correctly extracted
   // and that the uppercase transformation still applies to the nested text.
   EXPECT_EQ(*table_name, "MY NESTED TABLE NAME");
+}
+
+// Tests that elements styled with CSS table display types (display: table,
+// display: table-row, display: table-cell, display: table-header-group,
+// display: table-caption) are extracted as table structures at the JS layer.
+TEST_P(PageContextExtractorJavaScriptFeatureTest,
+       ExtractPageContext_RichExtraction_CssTable) {
+  const std::string html =
+      "<html><body>"
+      "<div style=\"display: table;\">"
+      "  <div style=\"display: table-caption;\">CSS Table Caption</div>"
+      "  <div style=\"display: table-header-group;\">"
+      "    <div style=\"display: table-row;\">"
+      "      <div style=\"display: table-cell;\">Header</div>"
+      "    </div>"
+      "  </div>"
+      "  <div style=\"display: table-row;\">"
+      "    <div style=\"display: table-cell;\">Body</div>"
+      "  </div>"
+      "</div>"
+      "</body></html>";
+  web::test::LoadHtml(base::SysUTF8ToNSString(html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  std::optional<base::Value> result_value = RunExtraction(
+      web_state()->GetPageWorldWebFramesManager()->GetMainWebFrame(),
+      /*include_cross_origin_frame_content=*/false,
+      /*use_rich_extraction=*/true,
+      /*use_rich_extraction_with_actionable=*/false,
+      /*extract_paid_content=*/false,
+      /*attempt_paid_content_json_fixing=*/false, "nonce", base::Seconds(1));
+
+  ASSERT_TRUE(result_value);
+  const base::DictValue& dict = result_value->GetDict();
+  const base::DictValue* root_node = dict.FindDict("rootNode");
+  ASSERT_TRUE(root_node);
+  const base::ListValue* children = root_node->FindList("childrenNodes");
+  ASSERT_TRUE(children);
+  ASSERT_EQ(children->size(), 1u);
+
+  const base::DictValue& table_node = (*children)[0].GetDict();
+  std::optional<double> attribute_type =
+      table_node.FindDoubleByDottedPath("contentAttributes.attributeType");
+  ASSERT_TRUE(attribute_type.has_value());
+  EXPECT_EQ(
+      static_cast<int>(attribute_type.value()),
+      static_cast<int>(optimization_guide::proto::CONTENT_ATTRIBUTE_TABLE));
+
+  const std::string* table_name = table_node.FindStringByDottedPath(
+      "contentAttributes.tableData.tableName");
+  ASSERT_TRUE(table_name);
+  EXPECT_EQ(*table_name, "CSS Table Caption");
+
+  const base::ListValue* rows = table_node.FindList("childrenNodes");
+  ASSERT_TRUE(rows);
+  ASSERT_EQ(rows->size(), 3u);
+
+  const base::DictValue& header_row = (*rows)[1].GetDict();
+  std::optional<double> header_row_type =
+      header_row.FindDoubleByDottedPath("contentAttributes.attributeType");
+  ASSERT_TRUE(header_row_type.has_value());
+  EXPECT_EQ(
+      static_cast<int>(header_row_type.value()),
+      static_cast<int>(optimization_guide::proto::CONTENT_ATTRIBUTE_TABLE_ROW));
+
+  std::optional<double> header_type = header_row.FindDoubleByDottedPath(
+      "contentAttributes.tableRowData.rowType");
+  ASSERT_TRUE(header_type.has_value());
+  EXPECT_EQ(static_cast<int>(header_type.value()),
+            static_cast<int>(optimization_guide::proto::TABLE_ROW_TYPE_HEADER));
+
+  const base::DictValue& body_row = (*rows)[2].GetDict();
+  std::optional<double> body_row_type =
+      body_row.FindDoubleByDottedPath("contentAttributes.attributeType");
+  ASSERT_TRUE(body_row_type.has_value());
+  EXPECT_EQ(
+      static_cast<int>(body_row_type.value()),
+      static_cast<int>(optimization_guide::proto::CONTENT_ATTRIBUTE_TABLE_ROW));
+
+  std::optional<double> body_type =
+      body_row.FindDoubleByDottedPath("contentAttributes.tableRowData.rowType");
+  ASSERT_TRUE(body_type.has_value());
+  EXPECT_EQ(static_cast<int>(body_type.value()),
+            static_cast<int>(optimization_guide::proto::TABLE_ROW_TYPE_BODY));
 }
 
 // Verifies that internal SVG structural and metadata elements (like <title>,

@@ -5,13 +5,13 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/metrics/chrome_metrics_services_manager_client.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/web_ui_mocha_browser_test.h"
 #include "components/metrics/enabled_state_provider.h"
 #include "components/metrics/metrics_service.h"
 #include "components/metrics/unsent_log_store.h"
 #include "components/metrics_services_manager/metrics_services_manager.h"
+#include "components/tabs/public/tab_interface.h"
 #include "components/ukm/ukm_reporting_service.h"
 #include "components/ukm/ukm_service.h"
 #include "components/ukm/ukm_test_helper.h"
@@ -66,7 +66,7 @@ class MetricsInternalsUIBrowserTestWithLog
 
   void SetUpOnMainThread() override {
     content::WebContents* web_contents =
-        browser()->tab_strip_model()->GetActiveWebContents();
+        browser()->GetActiveTabInterface()->GetContents();
     DCHECK(web_contents);
     // Note that we stop observing automatically in the destructor of
     // content::WebContentsObserver, so no need to do it manually.

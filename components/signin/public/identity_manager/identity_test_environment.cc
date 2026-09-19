@@ -424,7 +424,7 @@ void IdentityTestEnvironment::WaitForRefreshTokensLoaded() {
 }
 
 CoreAccountInfo IdentityTestEnvironment::SetPrimaryAccount(
-    const std::string& email,
+    std::string_view email,
     ConsentLevel consent_level) {
   return signin::SetPrimaryAccount(identity_manager(), email, consent_level);
 }
@@ -442,7 +442,7 @@ void IdentityTestEnvironment::RemoveRefreshTokenForPrimaryAccount() {
 }
 
 AccountInfo IdentityTestEnvironment::MakePrimaryAccountAvailable(
-    const std::string& email,
+    std::string_view email,
     ConsentLevel consent_level) {
   return signin::MakePrimaryAccountAvailable(identity_manager(), email,
                                              consent_level);
@@ -763,13 +763,13 @@ void IdentityTestEnvironment::EnableRemovalOfExtendedAccountInfo() {
 
 void IdentityTestEnvironment::SimulateSuccessfulFetchOfAccountInfo(
     const CoreAccountId& account_id,
-    const std::string& email,
+    std::string_view email,
     const GaiaId& gaia,
-    const std::string& hosted_domain,
-    const std::string& full_name,
-    const std::string& given_name,
-    const std::string& locale,
-    const std::string& picture_url) {
+    std::string_view hosted_domain,
+    std::string_view full_name,
+    std::string_view given_name,
+    std::string_view locale,
+    std::string_view picture_url) {
   signin::SimulateSuccessfulFetchOfAccountInfo(
       identity_manager(), account_id, email, gaia, hosted_domain, full_name,
       given_name, locale, picture_url);

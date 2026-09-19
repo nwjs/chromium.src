@@ -40,6 +40,7 @@ import org.robolectric.shadows.ShadowLooper;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.ui.xr.scenecore.XrCurvedSurfaceEntityHolder;
 import org.chromium.ui.xr.scenecore.XrPanelEntityHolder;
+import org.chromium.ui.xr.scenecore.XrPixelDensity;
 import org.chromium.ui.xr.scenecore.XrSurfaceEntityHolder;
 import org.chromium.ui.xr.scenecore.XrSurfaceEntityShape;
 
@@ -185,6 +186,19 @@ public class XrSceneCoreSessionManagerImplTest {
     }
 
     @Test
+    public void testCreateSurfaceEntity_SeamlessSphere() {
+        XrSurfaceEntityHolder holder =
+                mManager.createSurfaceEntity(XrSurfaceEntityShape.SEAMLESS_SPHERE);
+        assertNotNull(holder);
+        assertTrue(holder instanceof XrCurvedSurfaceEntityHolder);
+
+        SurfaceEntity surfaceEntity = (SurfaceEntity) holder.getEntity();
+        assertEquals(StereoMode.MONO, surfaceEntity.getStereoMode());
+        assertTrue(surfaceEntity.getShape() instanceof Shape.CustomMesh);
+        assertEquals(XrSurfaceEntityShape.SEAMLESS_SPHERE, holder.getSurfaceShape());
+    }
+
+    @Test
     public void testCreatePanelEntity() {
         XrPanelEntityHolder holder = mManager.createPanelEntity(mView, "test-panel");
         assertNotNull(holder);
@@ -217,5 +231,12 @@ public class XrSceneCoreSessionManagerImplTest {
 
         mManager.setHeadTrackingEnabled(true);
         assertTrue(mManager.startHeadPoseTracking());
+    }
+
+    @Test
+    public void testGetPixelDensity() {
+        XrPixelDensity density = mManager.getPixelDensity();
+        assertNotNull(density);
+        assertTrue(density.getPixelsPerMeter() > 0f);
     }
 }

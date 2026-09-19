@@ -17,6 +17,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/timer/timer.h"
+#include "components/contextual_tasks/public/host_override.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/omnibox/browser/aim_eligibility_service_features.h"
 #include "components/prefs/pref_change_registrar.h"
@@ -116,6 +117,10 @@ class AimEligibilityService
     // The value for the `Sec-CH-UA-Full-Version-List` HTTP Header. The header
     // is skipped if it is empty.
     std::string full_version_list;
+
+    // The value for the `Chrome-Search-Capabilities-Version` HTTP Header. The
+    // header is skipped if it is empty.
+    std::string search_capabilities_version;
   };
 
   // Returns the current server eligibility request mode based on the feature
@@ -217,6 +222,9 @@ class AimEligibilityService
   // Checks if the user is eligible for AIM Fuseboxes.
   virtual bool IsFuseboxEligible() const;
 
+  // Checks if the user is eligible for Contextual Search Box (CSB).
+  virtual bool IsCsbEligible() const;
+
   // Returns whether `url` is a valid AIM URL (i.e. would navigate a user to the
   // AIM feature). All of the host, path, and URL params are checked to
   // determine this. This method does not incorporate checks for params that
@@ -225,14 +233,16 @@ class AimEligibilityService
   // the eligibility service backend. In practice, this method is primarily used
   // to determine whether the browser should intercept a navigation and redirect
   // to an internal page.
-  virtual bool IsAimUrl(const GURL& url,
-                        std::optional<std::string> host_override) const;
+  virtual bool IsAimUrl(
+      const GURL& url,
+      std::optional<contextual_tasks::HostOverride> host_override) const;
 
   // Returns whether `url` has a host which would qualify it as an AIM URL. This
   // method alone does not determine whether the URL would actually navigate a
   // user to AIM, things like path and URL params would also need to be checked.
-  virtual bool IsAimHost(const GURL& url,
-                         std::optional<std::string> host_override) const;
+  virtual bool IsAimHost(
+      const GURL& url,
+      std::optional<contextual_tasks::HostOverride> host_override) const;
 
   // Returns whether `url` has the collection of URL params that qualify it as
   // an AIM URL. This method alone does not determine whether the URL would
@@ -289,7 +299,8 @@ class AimEligibilityService
     kRefreshTokenRemoved = 7,
     kRefreshTokenError = 8,
     kOAuthFallbackCookieChange = 9,
-    kMaxValue = kOAuthFallbackCookieChange,
+    kLocaleChange = 10,
+    kMaxValue = kLocaleChange,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/histograms.xml:AimEligibilityRequestSource)
 

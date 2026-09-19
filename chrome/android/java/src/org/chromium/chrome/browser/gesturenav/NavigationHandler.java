@@ -34,7 +34,6 @@ import org.chromium.cc.input.BrowserControlsState;
 import org.chromium.chrome.browser.back_press.BackPressMetrics;
 import org.chromium.chrome.browser.gesturenav.BackActionDelegate.ActionType;
 import org.chromium.chrome.browser.gesturenav.NavigationBubble.CloseTarget;
-import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabBrowserControlsConstraintsHelper;
 import org.chromium.chrome.browser.tab.TabObserver;
@@ -97,7 +96,6 @@ class NavigationHandler implements TouchEventObserver {
     }
 
     private final ViewGroup mParentView;
-    private final Context mContext;
     private final Handler mHandler = new Handler();
 
     private GestureDetector mDetector;
@@ -131,7 +129,7 @@ class NavigationHandler implements TouchEventObserver {
     private boolean mBackGestureForTabHistoryInProgress;
     private boolean mStartNavDuringOngoingGesture;
     private final TabObserver mTabObserver =
-            new EmptyTabObserver() {
+            new TabObserver() {
                 @Override
                 public void onDidStartNavigationInPrimaryMainFrame(
                         Tab tab, NavigationHandle navigationHandle) {
@@ -163,7 +161,7 @@ class NavigationHandler implements TouchEventObserver {
             Supplier<Boolean> supplier) {
         mModel = model;
         mParentView = parentView;
-        mContext = parentView.getContext();
+        Context context = parentView.getContext();
         mBackActionDelegate = backActionDelegate;
         mWillNavigateSupplier = supplier;
         mState = GestureState.NONE;
@@ -171,7 +169,7 @@ class NavigationHandler implements TouchEventObserver {
         mTriggerUiCallSource = TriggerUiCallSource.NO_TRIGGER;
 
         mEdgeWidthPx = EDGE_WIDTH_DP * parentView.getResources().getDisplayMetrics().density;
-        mDetector = new GestureDetector(mContext, new SideNavGestureListener());
+        mDetector = new GestureDetector(context, new SideNavGestureListener());
         mAttachStateListener =
                 new View.OnAttachStateChangeListener() {
                     @Override
@@ -327,13 +325,13 @@ class NavigationHandler implements TouchEventObserver {
             StringBuilder assertMsgBuilder = new StringBuilder(256);
             assertMsgBuilder
                     .append("triggerUi has been already called. mInitiatingEdge: ")
-                    .append(String.valueOf(mInitiatingEdge))
+                    .append(mInitiatingEdge)
                     .append(". initiatingEdge passed to the function: ")
-                    .append(String.valueOf(initiatingEdge))
+                    .append(initiatingEdge)
                     .append(". Previous triggerUi call source: ")
-                    .append(String.valueOf(mTriggerUiCallSource))
+                    .append(mTriggerUiCallSource)
                     .append(". Current triggerUi call source: ")
-                    .append(String.valueOf(triggerUiCallSource));
+                    .append(triggerUiCallSource);
 
             assert false : assertMsgBuilder.toString();
             Log.i(NavigationHandler.class.getSimpleName(), assertMsgBuilder.toString());

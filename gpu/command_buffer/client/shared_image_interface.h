@@ -298,7 +298,7 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT SharedImageInterface
         gpu::SyncToken&>
   void VerifySyncTokens(Range&& sync_token_range, Proj proj = {}) {
     bool flush_required = false;
-    for (auto const& element : sync_token_range) {
+    for (auto& element : sync_token_range) {
       gpu::SyncToken& sync_token = proj(element);
       if (sync_token.verified_flush()) {
         continue;
@@ -325,6 +325,11 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT SharedImageInterface
   // this interface on the service side. This is an async wait for all the
   // previous commands which will be sent to server on the next flush().
   virtual void WaitSyncToken(const gpu::SyncToken& sync_token) = 0;
+
+  // Asynchronously waits until all `sync_tokens` are signaled, then runs
+  // `callback` on the calling thread.
+  virtual void SignalSyncToken(std::vector<SyncToken> sync_tokens,
+                               base::OnceClosure callback);
 
   // Informs that existing |mailbox| with the specified metadata can be passed
   // to DestroySharedImage().

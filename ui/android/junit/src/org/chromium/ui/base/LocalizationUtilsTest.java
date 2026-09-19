@@ -12,13 +12,13 @@ import androidx.test.filters.SmallTest;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 
+import java.util.Locale;
+
 /** Tests for LocalizationUtils class. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class LocalizationUtilsTest {
     @Test
     @SmallTest
@@ -48,5 +48,22 @@ public class LocalizationUtilsTest {
         // reasons. The corresponding Chromium locale name is "fil".
         // Check that the method only deals with Chromium locale names.
         assertFalse(LocalizationUtils.chromiumLocaleMatchesLanguage("fil", "tl"));
+    }
+
+    @Test
+    @SmallTest
+    public void testGetJavaLocaleForBcp47Tag() {
+        Locale enUs = LocalizationUtils.getJavaLocaleForBcp47Tag("en-US");
+        assertEquals("en", enUs.getLanguage());
+        assertEquals("US", enUs.getCountry());
+
+        Locale jaJp = LocalizationUtils.getJavaLocaleForBcp47Tag("ja-JP");
+        assertEquals("ja", jaJp.getLanguage());
+        assertEquals("JP", jaJp.getCountry());
+
+        Locale zhHans = LocalizationUtils.getJavaLocaleForBcp47Tag("zh-Hans-CN");
+        assertEquals("zh", zhHans.getLanguage());
+        assertEquals("CN", zhHans.getCountry());
+        assertEquals("Hans", zhHans.getScript());
     }
 }

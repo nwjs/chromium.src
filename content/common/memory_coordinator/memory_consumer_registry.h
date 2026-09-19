@@ -35,6 +35,8 @@ class CONTENT_EXPORT MemoryConsumerRegistry
 
   // MemoryConsumerGroupHost:
   void UpdateConsumers(std::vector<MemoryConsumerUpdate> updates) override;
+  void SetOverrideLimit(uint32_t consumer_id, int percentage) override;
+  void ClearOverrideLimit(uint32_t consumer_id, int policy_limit) override;
 
   // Returns the number of consumers with different IDs.
   size_t size() const { return consumer_groups_.size(); }
@@ -50,7 +52,7 @@ class CONTENT_EXPORT MemoryConsumerRegistry
     ~ConsumerGroup();
 
     void ReleaseMemory();
-    void UpdateMemoryLimit(int percentage);
+    void UpdateMemoryLimit(base::MemoryLimit memory_limit);
 
     // Adds/removes a consumer.
     void AddMemoryConsumer(base::MemoryConsumer* consumer);
@@ -65,7 +67,7 @@ class CONTENT_EXPORT MemoryConsumerRegistry
    private:
     base::MemoryConsumerTraits traits_;
 
-    int memory_limit_ = base::MemoryConsumer::kDefaultMemoryLimit;
+    base::MemoryLimit memory_limit_ = base::MemoryLimit::Default();
 
     base::ObserverList<base::MemoryConsumer> memory_consumers_;
     std::string consumer_name_;

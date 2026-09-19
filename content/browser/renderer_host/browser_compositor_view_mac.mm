@@ -59,7 +59,7 @@ BrowserCompositorMac::BrowserCompositorMac(
   root_layer_ = std::make_unique<ui::LayerSurface>();
   // Ensure that this layer draws nothing when it does not not have delegated
   // content (otherwise this solid color will be flashed during navigation).
-  root_layer_->SetBackgroundColor(SkColors::kTransparent);
+  root_layer_->SetFallbackBackgroundColor(SkColors::kTransparent);
   root_layer_->SetFillsBoundsOpaquely(false);
   delegated_frame_host_ = std::make_unique<DelegatedFrameHost>(
       frame_sink_id, this, true /* should_register_frame_sink_id */);
@@ -449,6 +449,12 @@ ui::Compositor* BrowserCompositorMac::GetCompositor() const {
 void BrowserCompositorMac::InvalidateSurfaceAllocationGroup() {
   dfh_local_surface_id_allocator_.Invalidate(
       /*also_invalidate_allocation_group=*/true);
+}
+
+void BrowserCompositorMac::SetEvictOnHide(bool evict_on_hide) {
+  if (delegated_frame_host_) {
+    delegated_frame_host_->SetEvictOnHide(evict_on_hide);
+  }
 }
 
 }  // namespace content

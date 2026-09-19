@@ -5,14 +5,20 @@
 import 'chrome://contextual-tasks/strings.m.js';
 import './test_composebox_mixin.js';
 
-import {ComposeboxFile, ContextType, ContextualSearchInputStateDeletionType, TabUploadOrigin} from 'chrome://resources/cr_components/composebox/common.js';
+import {ComposeboxFile, ComposeboxInputModel, ContextType, ContextualSearchInputStateDeletionType, isValidTabId, TabUploadOrigin} from 'chrome://resources/cr_components/composebox/common.js';
+import type {ComposeboxFuseboxActionRequest} from 'chrome://resources/cr_components/composebox/common.js';
 import {PageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
 import type {ComposeboxInputElement} from 'chrome://resources/cr_components/composebox/composebox_input.js';
-import {ComposeboxProxyImpl} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
+import type {ComposeboxEmbedderMixinInterface} from 'chrome://resources/cr_components/composebox/composebox_mixin.js';
+import {ComposeboxProxyImpl, createAutocompleteMatch} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
 import type {ContextualEntrypointAndMenuElement} from 'chrome://resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
+import type {ContextualEntrypointButtonElement} from 'chrome://resources/cr_components/composebox/contextual_entrypoint_button.js';
 import type {ComposeboxFileCarouselElement} from 'chrome://resources/cr_components/composebox/file_carousel.js';
+import {createAutocompleteResultForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import {DriveDisclaimerStatus, DriveUploadError, InputMethod, PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {InputSource, QueryActionOverride, SearchboxOverride, SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
+import type {FuseboxAction} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
+import {DriveDisclaimerStatus, DriveUploadError, InputMethod, PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {AutocompleteMatch, AutocompleteResult, PageRemote as SearchboxPageRemote, SelectedFileInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {ContextUploadStatus, InputType, ModelMode, ToolMode} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import type {InputState} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
@@ -55,6 +61,24 @@ function setSelectionOffset(input: HTMLElement, offset: number) {
   }
 }
 
+function createFuseboxActionRequest(
+    overrides: Partial<FuseboxAction> = {}, suggestion = '') {
+  const fuseboxAction: FuseboxAction = {
+    queryActionOverride: null,
+    preferredInventory: null,
+    preselectedInputSource: null,
+    preselectedModel: null,
+    preselectedTool: null,
+    searchboxOverride: null,
+    ...overrides,
+  };
+  return {suggestion, files: [], fuseboxAction};
+}
+
+function createInputSourceRequest(inputSource: InputSource) {
+  return createFuseboxActionRequest({preselectedInputSource: inputSource});
+}
+
 suite('ComposeboxMixinTest', () => {
   let element: TestComposeboxMixinElement;
   let searchboxHandler: SearchboxPageHandlerRemote&
@@ -91,6 +115,28 @@ suite('ComposeboxMixinTest', () => {
     document.body.appendChild(element);
     await microtasksFinished();
   });
+
+  // Sets up matches mirroring the production structure: index 0 is the
+  // hidden verbatim match (no action), and index 1 is the Fusebox action match.
+  async function showFuseboxMatches(
+      fuseboxAction: FuseboxAction, originalInput: string = 'typed input',
+      fillIntoEdit: string = 'action suggestion') {
+    await microtasksFinished();
+    element.input = originalInput;
+    element.lastQueriedInput = originalInput;
+    element.result = {
+      input: originalInput,
+      matches: [
+        createAutocompleteMatch({
+          allowedToBeDefaultMatch: true,
+          fillIntoEdit: originalInput,
+        }),
+        createAutocompleteMatch({fillIntoEdit, fuseboxAction}),
+      ],
+    } as AutocompleteResult;
+    await element.updateComplete;
+    await microtasksFinished();
+  }
 
   test(
       'refreshTabSuggestions() dedupes restored tabs with same tabId',
@@ -348,6 +394,81 @@ suite('ComposeboxMixinTest', () => {
       });
 
   test(
+      'refreshTabSuggestions() does not call deleteTabContext for historical tabs with non-positive tabId',
+      async () => {
+        const openTab = {
+          tabId: 10,
+          title: 'Open Tab',
+          url: 'about:blank?1',
+          showInCurrentTabChip: false,
+          showInPreviousTabChip: false,
+          lastActive: {internalValue: 0n},
+        };
+        const historicalTab1 = {
+          tabId: 0,
+          title: 'Historical Tab 1',
+          url: 'https://example.com/hist1',
+          showInCurrentTabChip: false,
+          showInPreviousTabChip: false,
+          lastActive: {internalValue: 0n},
+        };
+        const historicalTab2 = {
+          tabId: -1,
+          title: 'Historical Tab 2',
+          url: 'https://example.com/hist2',
+          showInCurrentTabChip: false,
+          showInPreviousTabChip: false,
+          lastActive: {internalValue: 0n},
+        };
+
+        searchboxHandler.setResultFor(
+            'getRecentTabs', Promise.resolve({tabs: [openTab]}));
+
+        element.tabDeselectionEnabled = true;
+        element.aimThreadRestoredTabs =
+            [openTab, historicalTab1, historicalTab2];
+
+        await element.refreshTabSuggestions();
+
+        // Verify: deleteTabContext is NOT called for historical tabs with tabId
+        // <= 0.
+        const deleteTabContextCalls =
+            searchboxHandler.getCallCount('deleteTabContext');
+        assertEquals(0, deleteTabContextCalls);
+      });
+
+  test('isValidTabId() validates tab IDs correctly', () => {
+    assertTrue(isValidTabId(1));
+    assertTrue(isValidTabId(42));
+    assertFalse(isValidTabId(0));
+    assertFalse(isValidTabId(-1));
+    assertFalse(isValidTabId(-100));
+    assertFalse(isValidTabId(undefined));
+    assertFalse(isValidTabId(null));
+  });
+
+  test(
+      'onDeleteTabContext() does not call deleteTabContext if tab is not in ' +
+          'tabSuggestions',
+      () => {
+        element.tabSuggestions = [];
+        element.aimThreadRestoredTabs = [{
+          tabId: 20,
+          title: 'Historical Tab',
+          url: 'about:blank?hist',
+          showInCurrentTabChip: false,
+          showInPreviousTabChip: false,
+          lastActive: {internalValue: 0n},
+        }];
+
+        element.onDeleteTabContext(
+            new CustomEvent('delete-tab-context', {detail: {tabId: 20}}));
+
+        assertEquals(0, searchboxHandler.getCallCount('deleteTabContext'));
+        assertEquals(0, element.aimThreadRestoredTabs.length);
+      });
+
+  test(
       'refreshTabSuggestions() filters navigated tabs when tabDeselectionEnabled true',
       async () => {
         const tab1 = {
@@ -399,7 +520,7 @@ suite('ComposeboxMixinTest', () => {
               url: 'about:blank?original',
             });
 
-        element.files = new Map([[tokenTab, mockTabFile]]);
+        element.attachedContext = new Map([[tokenTab, mockTabFile]]);
         element.addedTabsIds = new Map([[selectedTabId, tokenTab]]);
 
         const freshTab = {
@@ -415,7 +536,7 @@ suite('ComposeboxMixinTest', () => {
 
         await element.refreshTabSuggestions();
 
-        assertFalse(element.files.has(tokenTab));
+        assertFalse(element.attachedContext.has(tokenTab));
         assertFalse(element.addedTabsIds.has(selectedTabId));
         assertEquals(1, searchboxHandler.getCallCount('deleteContext'));
       });
@@ -431,7 +552,7 @@ suite('ComposeboxMixinTest', () => {
         });
 
     // Add the selected tab to the active files and added tabs maps.
-    element.files = new Map([[tokenTab, mockTabFile]]);
+    element.attachedContext = new Map([[tokenTab, mockTabFile]]);
     element.addedTabsIds = new Map([[selectedTabId, tokenTab]]);
 
     await microtasksFinished();
@@ -441,7 +562,7 @@ suite('ComposeboxMixinTest', () => {
     // Verify: The selected Tab 100 must be completely removed from the
     // current active selection.
     assertFalse(element.addedTabsIds.has(selectedTabId));
-    assertFalse(element.files.has(tokenTab));
+    assertFalse(element.attachedContext.has(tokenTab));
   });
 
   test(
@@ -462,7 +583,7 @@ suite('ComposeboxMixinTest', () => {
               url: 'about:blank?2',
             });
 
-        element.files = new Map([[token1, tab1], [token2, tab2]]);
+        element.attachedContext = new Map([[token1, tab1], [token2, tab2]]);
         element.addedTabsIds = new Map([[1, token1], [2, token2]]);
         element.aimThreadRestoredTabs = [
           {
@@ -535,6 +656,7 @@ suite('ComposeboxMixinTest', () => {
     const args = await searchboxHandler.whenCalled('queryAutocomplete');
     assertDeepEquals(args, [
       0,
+      null,
       'hello',
       false,
       3,
@@ -567,6 +689,7 @@ suite('ComposeboxMixinTest', () => {
         const args = await searchboxHandler.whenCalled('queryAutocomplete');
         assertDeepEquals(args, [
           0,
+          null,
           'hello world',
           false,
           11,
@@ -682,6 +805,169 @@ suite('ComposeboxMixinTest', () => {
     assertEquals('', element.lastQueriedInput);
   });
 
+  test('routes suggestion actions on click only', async () => {
+    const makeAction = (overrides: Partial<FuseboxAction> = {}) =>
+        createFuseboxActionRequest(overrides).fuseboxAction;
+    const originalHandler = element.handleFuseboxAction;
+    const requests: ComposeboxFuseboxActionRequest[] = [];
+    element.handleFuseboxAction = async request => {
+      requests.push(request);
+      await originalHandler.call(element, request);
+    };
+
+    // Track handler side-effects and event dispatches in invocation order
+    // to assert their relative sequence and call counts at each step.
+    const effects: string[] = [];
+    searchboxHandler.setResultMapperFor(
+        'setSmartComposeStats', () => effects.push('stats'));
+    searchboxHandler.setResultMapperFor(
+        'openAutocompleteMatch', () => effects.push('open'));
+    element.showZps = false;
+    let closeCount = 0;
+    element.addEventListener('close-composebox', () => ++closeCount);
+    let matchClickCount = 0;
+    element.addEventListener('match-click', () => ++matchClickCount);
+    const dropdown = element.getDropdownElement();
+
+    // Clicks the visible action match at index 1 (index 0 is the hidden
+    // verbatim match, which cannot be clicked by users).
+    function clickActionMatch() {
+      const matchEls =
+          dropdown.shadowRoot.querySelectorAll('cr-composebox-match');
+      assertEquals(2, matchEls.length);
+      const matchEl = matchEls[1]! as HTMLElement;
+      assertFalse(matchEl.hidden);
+      matchEl.dispatchEvent(new MouseEvent(
+          'click',
+          {button: 0, bubbles: true, cancelable: true, composed: true}));
+    }
+
+    try {
+      // 1. When suggestion fusebox actions are disabled (default), clicking an
+      // action match falls back to standard match opening instead of calling
+      // handleFuseboxAction.
+      await showFuseboxMatches(makeAction({
+        queryActionOverride: QueryActionOverride.kPaste,
+      }));
+      clickActionMatch();
+      await microtasksFinished();
+
+      assertEquals(0, requests.length);
+      assertDeepEquals(['open'], effects);
+      assertEquals(1, matchClickCount);
+      assertTrue(element.submitting);
+
+      // 2. When suggestion fusebox actions are enabled, selecting an action
+      // match via keyboard and pressing Enter does not trigger
+      // handleFuseboxAction; it submits the query as normal.
+      element.submitting = false;
+      element.suggestionFuseboxActionsEnabled = true;
+      await showFuseboxMatches(makeAction({
+        queryActionOverride: QueryActionOverride.kPaste,
+      }));
+      dropdown.selectIndex(1);
+      await microtasksFinished();
+      element.submitQuery(new KeyboardEvent('keydown', {key: 'Enter'}));
+      await microtasksFinished();
+
+      assertEquals(0, requests.length);
+      assertDeepEquals(['open', 'stats', 'open'], effects);
+      assertEquals(1, matchClickCount);
+      assertTrue(element.submitting);
+
+      // 3. Clicking a fusebox action match routes the action to
+      // handleFuseboxAction with the action payload, preserves existing files,
+      // and does not submit.
+      element.submitting = false;
+      const action = makeAction({
+        preferredInventory: SuggestInventory.kTravel,
+        preselectedInputSource: InputSource.kInputSourceUnspecified,
+        preselectedModel: ModelMode.kGeminiRegular,
+        preselectedTool: ToolMode.kDeepSearch,
+        searchboxOverride: SearchboxOverride.kComposebox,
+      });
+      await showFuseboxMatches(action);
+      const file = ComposeboxFile.createFromFile(
+          'existing-file', {name: 'existing.pdf', type: 'application/pdf'});
+      element.files.set(file.uuid, file);
+      clickActionMatch();
+      await microtasksFinished();
+      await element.updateComplete;
+
+      assertEquals(1, requests.length);
+      assertEquals('action suggestion', requests[0]!.suggestion);
+      assertEquals(0, requests[0]!.files.length);
+      assertEquals(action, requests[0]!.fuseboxAction);
+      assertDeepEquals(['open', 'stats', 'open'], effects);
+      assertTrue(element.files.has(file.uuid));
+      assertFalse(element.submitting);
+      assertEquals(1, matchClickCount);
+      assertEquals(0, closeCount);
+      assertEquals(null, element.result);
+
+      // 4. For kHint actions, clicking the match executes handleFuseboxAction,
+      // restores the original typed input, and re-queries autocomplete.
+      element.files.clear();
+      const originalInput = 'original typed input';
+      await showFuseboxMatches(
+          makeAction({
+            preselectedTool: ToolMode.kDeepSearch,
+            queryActionOverride: QueryActionOverride.kHint,
+          }),
+          originalInput, 'hint suggestion');
+      dropdown.selectIndex(1);
+      await microtasksFinished();
+      assertEquals('hint suggestion', element.input);
+      const initialQueryCount =
+          searchboxHandler.getCallCount('queryAutocomplete');
+      clickActionMatch();
+      await microtasksFinished();
+
+      assertEquals(2, requests.length);
+      assertDeepEquals(['open', 'stats', 'open'], effects);
+      assertEquals(originalInput, element.input);
+      assertEquals(
+          initialQueryCount + 1,
+          searchboxHandler.getCallCount('queryAutocomplete'));
+      assertFalse(element.submitting);
+      assertEquals(-1, element.activeQueryId);
+
+      // Verify that subsequent async autocomplete responses for the reissued
+      // query do not overwrite the restored user input.
+      const actionQueryId =
+          searchboxHandler.getArgs('queryAutocomplete').at(-1)![0] as number;
+      searchboxCallbackRouterRemote.autocompleteResultChanged(
+          createAutocompleteResultForTesting({
+            input: originalInput,
+            matches: [createAutocompleteMatch({
+              allowedToBeDefaultMatch: true,
+              fillIntoEdit: 'async replacement',
+            })],
+            queryId: actionQueryId,
+          }));
+      await searchboxCallbackRouterRemote.$.flushForTesting();
+      await microtasksFinished();
+
+      assertEquals(originalInput, element.input);
+      assertEquals(null, element.result);
+
+      // 5. Actions with kDefault queryActionOverride are submitted normally
+      // rather than intercepted by handleFuseboxAction.
+      await showFuseboxMatches(makeAction({
+        queryActionOverride: QueryActionOverride.kDefault,
+      }));
+      clickActionMatch();
+      await microtasksFinished();
+
+      assertEquals(2, requests.length);
+      assertDeepEquals(['open', 'stats', 'open', 'open'], effects);
+      assertEquals(2, matchClickCount);
+      assertTrue(element.submitting);
+    } finally {
+      element.handleFuseboxAction = originalHandler;
+    }
+  });
+
   test('activeQueryId is not reset to -1 when selection cleared and input is empty', async () => {
     element.input = '';
     element.activeQueryId = 0;
@@ -715,6 +1001,28 @@ suite('ComposeboxMixinTest', () => {
     element.selectedMatchIndex = -1;
     await element.updateComplete;
 
+    assertEquals(-1, element.activeQueryId);
+  });
+
+  test('clearAutocompleteMatches preserves typed draft input', async () => {
+    element.input = 'Draft text';
+    element.lastQueriedInput = 'Draft text';
+    element.activeQueryId = 1;
+
+    const matches = [
+      {fillIntoEdit: 'Draft text suggestion', supportsDeletion: false} as
+          AutocompleteMatch,
+    ];
+    element.result = {input: 'Draft text', matches} as AutocompleteResult;
+    element.selectedMatchIndex = 0;
+    await element.updateComplete;
+
+    element.clearAutocompleteMatches();
+    await element.updateComplete;
+
+    assertEquals('Draft text', element.input);
+    assertEquals(-1, element.selectedMatchIndex);
+    assertEquals(null, element.result);
     assertEquals(-1, element.activeQueryId);
   });
 
@@ -766,7 +1074,7 @@ suite('ComposeboxMixinTest', () => {
                           name: 'Google',
                           url: 'http://google.com',
                         } as Partial<ComposeboxFile>) as ComposeboxFile;
-        freshComposebox.files = new Map([
+        freshComposebox.attachedContext = new Map([
           ['uuid-1' as unknown as UnguessableToken, regularFile],
           ['uuid-2' as unknown as UnguessableToken, tabFile],
         ]);
@@ -796,7 +1104,7 @@ suite('ComposeboxMixinTest', () => {
                       name: 'Google',
                       url: 'http://google.com',
                     } as Partial<ComposeboxFile>) as ComposeboxFile;
-    freshComposebox.files = new Map([
+    freshComposebox.attachedContext = new Map([
       ['uuid-1' as unknown as UnguessableToken, regularFile],
       ['uuid-2' as unknown as UnguessableToken, tabFile],
     ]);
@@ -864,8 +1172,8 @@ suite('ComposeboxMixinTest', () => {
     }]);
 
     await microtasksFinished();
-    assertTrue(element.files.has(token));
-    const file = element.files.get(token)!;
+    assertTrue(element.attachedContext.has(token));
+    const file = element.attachedContext.get(token)!;
     assertEquals('file.png', file.name);
     assertEquals('image/png', file.type);
     assertFalse(element.showDropdown);
@@ -905,7 +1213,7 @@ suite('ComposeboxMixinTest', () => {
       // </if>
     };
     await microtasksFinished();
-    assertTrue(element.files.has(token));
+    assertTrue(element.attachedContext.has(token));
     assertEquals('hello', element.input);
   });
 
@@ -972,7 +1280,7 @@ suite('ComposeboxMixinTest', () => {
         await element.updateComplete;
 
         assertEquals('hello world', element.input);
-        assertEquals(1, element.files.size);
+        assertEquals(1, element.attachedContext.size);
         assertEquals(1, searchboxHandler.getCallCount('setActiveToolMode'));
         assertEquals(
             ToolMode.kDeepSearch,
@@ -1440,6 +1748,7 @@ suite('ComposeboxMixinTest', () => {
           menuLabel: 'Regular',
           hintText: 'Hint Regular',
           menuTooltip: '',
+          icon: 0,
         },
         {
           model: ModelMode.kGeminiPro,
@@ -1447,6 +1756,7 @@ suite('ComposeboxMixinTest', () => {
           menuLabel: 'Pro',
           hintText: 'Hint Pro',
           menuTooltip: '',
+          icon: 0,
         },
       ],
       modelSectionConfig: null,
@@ -1871,7 +2181,7 @@ suite('ComposeboxMixinTest', () => {
             dummyToken2, 123, 'Tab Title',
             {url: 'about:blank'} as unknown as Url, {isDeletable: false});
 
-        element.files = new Map([
+        element.attachedContext = new Map([
           [dummyToken1, undeletableFile],
           [dummyToken2, tabFile],
         ]);
@@ -1882,8 +2192,8 @@ suite('ComposeboxMixinTest', () => {
         await microtasksFinished();
 
         // Verify: tab is deleted, but non-deletable file remains.
-        assertFalse(element.files.has(dummyToken2));
-        assertTrue(element.files.has(dummyToken1));
+        assertFalse(element.attachedContext.has(dummyToken2));
+        assertTrue(element.attachedContext.has(dummyToken1));
       });
 
   test(
@@ -1963,6 +2273,131 @@ suite('ComposeboxMixinTest', () => {
     assertFalse(element.isListening);
   });
 
+  test('handleFuseboxAction maps state and preserves hint', async () => {
+    const request = createFuseboxActionRequest(
+        {
+          preferredInventory: SuggestInventory.kTravel,
+          preselectedModel: ModelMode.kGeminiRegular,
+          preselectedTool: ToolMode.kDeepSearch,
+        },
+        'query');
+    await element.handleFuseboxAction(request);
+    const state = element.state!;
+    assertDeepEquals(request.files, state.files);
+    assertEquals(ModelMode.kGeminiRegular, state.model);
+    assertEquals(ToolMode.kDeepSearch, state.mode);
+    assertEquals(SuggestInventory.kTravel, state.suggestInventory);
+    assertEquals(request.suggestion, state.text);
+
+    await element.handleFuseboxAction(
+        {suggestion: 'without action', files: []});
+    assertEquals(ModelMode.kUnspecified, element.state!.model);
+    assertEquals(ToolMode.kUnspecified, element.state!.mode);
+
+    element.input = 'existing input';
+    await element.handleFuseboxAction(createFuseboxActionRequest(
+        {queryActionOverride: QueryActionOverride.kHint}, 'action hint'));
+    await microtasksFinished();
+    await element.updateComplete;
+    assertEquals('existing input', element.input);
+    assertEquals('action hint', element.inputPlaceholder);
+
+    element.onInputStateChanged(new MockInputState({hintText: 'server hint'}));
+    await microtasksFinished();
+    await element.updateComplete;
+    assertEquals('action hint', element.inputPlaceholder);
+  });
+
+  test('handleFuseboxAction dispatches input sources', async () => {
+    element.contextMenuEnabled = true;
+    const fileInputs = element.$.fileInputs;
+    const originalFilePicker = fileInputs.openFilePicker;
+    const originalImagePicker = fileInputs.openImagePicker;
+    const originalVoiceHandler = element.onVoiceSearchButtonClick;
+    const effects: string[] = [];
+    const run = (inputSource: InputSource) =>
+        element.handleFuseboxAction(createInputSourceRequest(inputSource));
+    fileInputs.openFilePicker = () => effects.push('file');
+    fileInputs.openImagePicker = () => effects.push('gallery');
+    element.onVoiceSearchButtonClick = () => effects.push('voice');
+
+    try {
+      await Promise.all([
+        InputSource.kInputSourceFilePicker,
+        InputSource.kInputSourceGallery,
+        InputSource.kInputSourceVoice,
+      ].map(run));
+      assertDeepEquals(['file', 'gallery', 'voice'], effects);
+
+      const originalGetter = element.getFileInputsElement;
+      try {
+        element.getFileInputsElement = () => null;
+        await Promise.all([
+          InputSource.kInputSourceFilePicker,
+          InputSource.kInputSourceGallery,
+        ].map(run));
+      } finally {
+        element.getFileInputsElement = originalGetter;
+      }
+
+      await Promise.all([
+        InputSource.kInputSourceCamera,
+        InputSource.kInputSourceUnspecified,
+      ].map(run));
+      assertDeepEquals(['file', 'gallery', 'voice'], effects);
+    } finally {
+      fileInputs.openFilePicker = originalFilePicker;
+      fileInputs.openImagePicker = originalImagePicker;
+      element.onVoiceSearchButtonClick = originalVoiceHandler;
+    }
+  });
+
+  test('handleFuseboxAction guards and opens tab picker', async () => {
+    await element.updateComplete;
+    const mixinView: ComposeboxEmbedderMixinInterface = element;
+    const originalGetter = mixinView.getContextEntrypointElement;
+    const inputStateCalls = searchboxHandler.getCallCount('getInputState');
+    const recentTabsCalls = searchboxHandler.getCallCount('getRecentTabs');
+
+    try {
+      mixinView.getContextEntrypointElement = () =>
+        document.createElement('cr-composebox-contextual-entrypoint-button');
+      element.inputState = null;
+
+      const blocked = element.handleFuseboxAction(createInputSourceRequest(
+        InputSource.kInputSourceTabPicker));
+      assertEquals(
+        inputStateCalls, searchboxHandler.getCallCount('getInputState'));
+      await blocked;
+      assertEquals(
+          recentTabsCalls, searchboxHandler.getCallCount('getRecentTabs'));
+      assertFalse(element.shareTabsFlyoutOpen);
+    } finally {
+      mixinView.getContextEntrypointElement = originalGetter;
+    }
+
+    element.inputState = new MockInputState();
+    await element.updateComplete;
+    const menu = element.$.contextEntrypoint;
+    await menu.updateComplete;
+    const button =
+        menu.shadowRoot.querySelector<ContextualEntrypointButtonElement>(
+            '#entrypointButton')!;
+    await button.updateComplete;
+    const entrypoint =
+        button.shadowRoot.querySelector<HTMLElement>('#entrypoint')!;
+    let clicked = false;
+    entrypoint.addEventListener('click', () => clicked = true);
+    searchboxHandler.resetResolver('getRecentTabs');
+    searchboxHandler.setPromiseResolveFor('getRecentTabs', {tabs: []});
+
+    await element.handleFuseboxAction(
+        createInputSourceRequest(InputSource.kInputSourceTabPicker));
+    assertEquals(1, searchboxHandler.getCallCount('getRecentTabs'));
+    assertTrue(element.shareTabsFlyoutOpen);
+    assertTrue(clicked);
+  });
+
   // <if expr="not is_android">
   test(
       'connectedCallback calls getSmartTabSharingActive when' +
@@ -2027,6 +2462,141 @@ suite('ComposeboxMixinTest', () => {
       });
 
   test(
+      'observeSmartTabSharingActive clears files, addedTabsIds and resets' +
+          ' restored tabs when smartTabSharingVisible is true and active' +
+          ' becomes false',
+      async () => {
+        const dummyToken = {
+          high: 1n,
+          low: 1n,
+        } as unknown as UnguessableToken;
+        const tab = {
+          tabId: 10,
+          title: 'Restored Tab',
+          url: 'about:blank?10',
+          showInCurrentTabChip: false,
+          showInPreviousTabChip: false,
+          lastActive: {internalValue: 0n},
+        };
+        const tabFile = ComposeboxFile.createFromTab(
+            dummyToken, 10, 'Restored Tab', 'about:blank?10');
+
+        element.smartTabSharingVisible = true;
+        element.smartTabSharingActive = true;
+        element.files = new Map([[dummyToken, tabFile]]);
+        element.addedTabsIds = new Map([[10, dummyToken]]);
+        element.aimThreadRestoredTabs = [tab];
+
+        searchboxCallbackRouterRemote.updateSmartTabSharingActive(false);
+        await searchboxCallbackRouterRemote.$.flushForTesting();
+        await microtasksFinished();
+
+        assertFalse(element.smartTabSharingActive);
+        assertEquals(0, element.files.size);
+        assertEquals(0, element.addedTabsIds.size);
+        assertEquals(0, element.aimThreadRestoredTabs.length);
+      });
+
+  test(
+      'observeSmartTabSharingActive clears files, addedTabsIds and preserves' +
+          ' restored tabs when smartTabSharingVisible is true and active' +
+          ' becomes true',
+      async () => {
+        const dummyToken = {
+          high: 1n,
+          low: 1n,
+        } as unknown as UnguessableToken;
+        const tab = {
+          tabId: 10,
+          title: 'Restored Tab',
+          url: 'about:blank?10',
+          showInCurrentTabChip: false,
+          showInPreviousTabChip: false,
+          lastActive: {internalValue: 0n},
+        };
+        const tabFile = ComposeboxFile.createFromTab(
+            dummyToken, 10, 'Restored Tab', 'about:blank?10');
+
+        element.smartTabSharingVisible = true;
+        element.smartTabSharingActive = false;
+        element.files = new Map([[dummyToken, tabFile]]);
+        element.addedTabsIds = new Map([[10, dummyToken]]);
+        element.aimThreadRestoredTabs = [tab];
+
+        searchboxCallbackRouterRemote.updateSmartTabSharingActive(true);
+        await searchboxCallbackRouterRemote.$.flushForTesting();
+        await microtasksFinished();
+
+        assertTrue(element.smartTabSharingActive);
+        assertEquals(0, element.files.size);
+        assertEquals(0, element.addedTabsIds.size);
+        assertEquals(1, element.aimThreadRestoredTabs.length);
+      });
+
+  test(
+      'observeSmartTabSharingActive preserves addedTabsIds and restored tabs' +
+          ' when smartTabSharingVisible is false and active becomes false',
+      async () => {
+        const dummyToken = {
+          high: 1n,
+          low: 1n,
+        } as unknown as UnguessableToken;
+        const tab = {
+          tabId: 10,
+          title: 'Restored Tab',
+          url: 'about:blank?10',
+          showInCurrentTabChip: false,
+          showInPreviousTabChip: false,
+          lastActive: {internalValue: 0n},
+        };
+
+        element.smartTabSharingVisible = false;
+        element.smartTabSharingActive = true;
+        element.addedTabsIds = new Map([[10, dummyToken]]);
+        element.aimThreadRestoredTabs = [tab];
+
+        searchboxCallbackRouterRemote.updateSmartTabSharingActive(false);
+        await searchboxCallbackRouterRemote.$.flushForTesting();
+        await microtasksFinished();
+
+        assertFalse(element.smartTabSharingActive);
+        assertEquals(1, element.addedTabsIds.size);
+        assertTrue(element.addedTabsIds.has(10));
+        assertEquals(1, element.aimThreadRestoredTabs.length);
+      });
+
+  test(
+      'observeSmartTabSharingActive preserves automaticActiveTab in' +
+          ' addedTabsIds when smartTabSharingVisible is true and active' +
+          ' becomes false',
+      async () => {
+        const dummyToken = {
+          high: 1n,
+          low: 1n,
+        } as unknown as UnguessableToken;
+        const autoTab = {
+          uuid: dummyToken,
+          tabId: 10,
+          name: 'Auto Tab',
+          type: 'tab',
+          inputType: InputType.kBrowserTab,
+        } as unknown as ComposeboxFile;
+
+        element.smartTabSharingVisible = true;
+        element.automaticActiveTab = autoTab;
+        element.addedTabsIds = new Map([[10, dummyToken]]);
+
+        searchboxCallbackRouterRemote.updateSmartTabSharingActive(false);
+        await searchboxCallbackRouterRemote.$.flushForTesting();
+        await microtasksFinished();
+
+        assertFalse(element.smartTabSharingActive);
+        assertEquals(1, element.addedTabsIds.size);
+        assertTrue(element.addedTabsIds.has(10));
+        assertEquals(dummyToken, element.addedTabsIds.get(10));
+      });
+
+  test(
       'resetSession resets submitting, input, tool, and models', async () => {
         element.submitting = true;
         element.input = 'previous query';
@@ -2049,5 +2619,143 @@ suite('ComposeboxMixinTest', () => {
             [ModelMode.kUnspecified, /*isSetByServer=*/ false],
             searchboxHandler.getArgs('setActiveModelMode')[0]);
       });
+
+  test(
+      'hasTabs returns true when tab files are present and tabFaviconChipsToCoinsEnabled is true',
+      () => {
+        element.tabFaviconChipsToCoinsEnabled = true;
+        const tabFile = ComposeboxFile.createFromTab(
+            'tab-uuid', 1, 'Example Tab', 'https://example.com');
+        element.attachedContext = new Map([[tabFile.uuid, tabFile]]);
+        assertTrue(element.hasTabs());
+      });
+
+  test(
+      'hasTabs returns false when tab files are present but tabFaviconChipsToCoinsEnabled is false',
+      () => {
+        element.tabFaviconChipsToCoinsEnabled = false;
+        const tabFile = ComposeboxFile.createFromTab(
+            'tab-uuid', 1, 'Example Tab', 'https://example.com');
+        element.attachedContext = new Map([[tabFile.uuid, tabFile]]);
+        assertFalse(element.hasTabs());
+      });
+
+  test(
+      'hasTabs returns true when smartTabSharingActive is true regardless of files',
+      () => {
+        element.attachedContext = new Map();
+        element.smartTabSharingActive = true;
+        assertTrue(element.hasTabs());
+      });
+
+  test(
+      'hasTabs returns false when no tab files and smartTabSharingActive is false',
+      () => {
+        element.attachedContext = new Map();
+        element.smartTabSharingActive = false;
+        assertFalse(element.hasTabs());
+      });
   // </if>
+
+  test(
+      'ComposeboxInputModel correctly computes tabs, files, and query state',
+      () => {
+        const tabFile = ComposeboxFile.createFromTab(
+            'tab-uuid', 1, 'Tab 1', 'https://example.com');
+        const imageFile = ComposeboxFile.createFromFile(
+            'img-uuid', {name: 'image.png', type: 'image/png'});
+        const unimodalFile = ComposeboxFile.createFromFile(
+            'uni-uuid', {name: 'unimodal.png', type: 'image/png'},
+            ContextUploadStatus.kUploadSuccessful, {supportsUnimodal: true});
+
+        const emptyModel = new ComposeboxInputModel();
+        assertFalse(emptyModel.hasTabs());
+        assertFalse(emptyModel.hasNonTabFiles());
+        assertFalse(emptyModel.hasFiles());
+        assertEquals(0, emptyModel.getNonTabFileNum());
+        assertEquals(0, emptyModel.getSharedTabs().length);
+        assertFalse(emptyModel.hasValidQuery());
+        assertFalse(emptyModel.hasContent());
+        assertFalse(emptyModel.canSubmit());
+
+        const tabModel = new ComposeboxInputModel({
+          attachedContext: new Map([[tabFile.uuid, tabFile]]),
+          tabFaviconChipsToCoinsEnabled: true,
+        });
+        assertTrue(tabModel.hasTabs());
+        assertFalse(tabModel.hasNonTabFiles());
+        assertTrue(tabModel.hasFiles());
+        assertEquals(0, tabModel.getNonTabFileNum());
+        assertEquals(1, tabModel.getSharedTabs().length);
+        assertEquals('Tab 1', tabModel.getSharedTabs()[0]!.title);
+        assertTrue(tabModel.canSubmit());
+
+        const mixedModel = new ComposeboxInputModel({
+          attachedContext:
+              new Map([[tabFile.uuid, tabFile], [imageFile.uuid, imageFile]]),
+          tabFaviconChipsToCoinsEnabled: true,
+        });
+        assertTrue(mixedModel.hasTabs());
+        assertTrue(mixedModel.hasNonTabFiles());
+        assertTrue(mixedModel.hasFiles());
+        assertEquals(1, mixedModel.getNonTabFileNum());
+
+        const stsModel = new ComposeboxInputModel({
+          smartTabSharingActive: true,
+        });
+        assertTrue(stsModel.hasTabs());
+
+        const unimodalModel = new ComposeboxInputModel({
+          attachedContext: new Map([[unimodalFile.uuid, unimodalFile]]),
+        });
+        assertTrue(unimodalModel.hasUnimodalFile());
+        assertTrue(unimodalModel.hasValidQuery());
+
+        const textModel = new ComposeboxInputModel({
+          input: 'hello world',
+        });
+        assertTrue(textModel.hasValidQuery());
+        assertTrue(textModel.hasContent());
+
+        const toolModel = new ComposeboxInputModel({
+          activeTool: ToolMode.kDeepSearch,
+        });
+        assertTrue(toolModel.hasContent());
+      });
+
+  test(
+      'element inputModel reflects element state and delegates getters', () => {
+        element.tabFaviconChipsToCoinsEnabled = true;
+        element.smartTabSharingActive = false;
+        element.input = '';
+        element.attachedContext = new Map();
+
+        assertFalse(element.hasTabs());
+        assertFalse(element.hasNonTabFiles());
+        assertFalse(element.hasFiles());
+        assertEquals(element.inputModel.hasTabs(), element.hasTabs());
+        assertEquals(
+            element.inputModel.hasNonTabFiles(), element.hasNonTabFiles());
+        assertEquals(element.inputModel.hasFiles(), element.hasFiles());
+        assertEquals(
+            element.inputModel.canSubmit(), element.computeSubmitEnabled());
+
+        const tabFile = ComposeboxFile.createFromTab(
+            'tab-uuid', 10, 'Tab Title', 'https://example.com/tab');
+        const imgFile = ComposeboxFile.createFromFile(
+            'img-uuid', {name: 'photo.jpg', type: 'image/jpeg'});
+        element.attachedContext =
+            new Map([[tabFile.uuid, tabFile], [imgFile.uuid, imgFile]]);
+
+        assertTrue(element.hasTabs());
+        assertTrue(element.hasNonTabFiles());
+        assertTrue(element.hasFiles());
+        assertTrue(element.computeSubmitEnabled());
+        assertEquals(element.inputModel.hasTabs(), element.hasTabs());
+        assertEquals(
+            element.inputModel.hasNonTabFiles(), element.hasNonTabFiles());
+        assertEquals(element.inputModel.hasFiles(), element.hasFiles());
+        assertEquals(
+            element.inputModel.canSubmit(), element.computeSubmitEnabled());
+      });
 });

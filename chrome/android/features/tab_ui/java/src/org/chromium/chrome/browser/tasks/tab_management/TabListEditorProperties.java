@@ -8,14 +8,16 @@ import android.content.res.ColorStateList;
 import android.view.View;
 
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.CreationMode;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.modelutil.PropertyModel.WritableIntDefPropertyKey;
 
 /** {@link PropertyKey} list for TabListEditor. */
 @NullMarked
 public class TabListEditorProperties {
-    public static final PropertyModel.WritableIntPropertyKey CREATION_MODE =
-            new PropertyModel.WritableIntPropertyKey();
+    public static final WritableIntDefPropertyKey<CreationMode> CREATION_MODE =
+            new WritableIntDefPropertyKey<>(CreationMode.FULL_SCREEN);
 
     public static final PropertyModel.WritableObjectPropertyKey<View.OnClickListener>
             DONE_BUTTON_CLICK_HANDLER = new PropertyModel.WritableObjectPropertyKey<>();
@@ -24,6 +26,9 @@ public class TabListEditorProperties {
             new PropertyModel.WritableBooleanPropertyKey();
 
     public static final PropertyModel.WritableBooleanPropertyKey IS_DONE_BUTTON_ENABLED =
+            new PropertyModel.WritableBooleanPropertyKey();
+
+    public static final PropertyModel.WritableBooleanPropertyKey IS_INCOGNITO =
             new PropertyModel.WritableBooleanPropertyKey();
 
     public static final PropertyModel.WritableBooleanPropertyKey IS_VISIBLE =
@@ -56,6 +61,7 @@ public class TabListEditorProperties {
                 DONE_BUTTON_CLICK_HANDLER,
                 DONE_BUTTON_VISIBILITY,
                 IS_DONE_BUTTON_ENABLED,
+                IS_INCOGNITO,
                 IS_VISIBLE,
                 PRIMARY_COLOR,
                 TOOLBAR_BACKGROUND_COLOR,

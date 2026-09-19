@@ -64,6 +64,7 @@ public final class ProductionSupportedFlagList {
      * updating the "LoginCustomFlags" field in tools/metrics/histograms/enums.xml.
      */
     public static final Flag[] sFlagList = {
+        Flag.baseFeature("AwMetricsLogTrimming", "Auto-generated flag for AwMetricsLogTrimming."),
         Flag.commandLine(
                 AwSwitches.HIGHLIGHT_ALL_WEBVIEWS,
                 "Highlight the contents (including web contents) of all WebViews with a yellow "
@@ -227,6 +228,9 @@ public final class ProductionSupportedFlagList {
                 "Accelerate all canvases in webview."),
         Flag.baseFeature("RustyJpegFeature", "Enables Rust-based JPEG image decoding."),
         Flag.baseFeature(
+                AwFeatures.WEBVIEW_BOOST_RENDERER_PRIORITY_ON_NAVIGATION,
+                "Enables boosting the renderer main thread priority during navigation."),
+        Flag.baseFeature(
                 AwFeatures.WEBVIEW_MIXED_CONTENT_AUTOUPGRADES,
                 "Enables autoupgrades for audio/video/image mixed content when mixed content "
                         + "mode is set to MIXED_CONTENT_COMPATIBILITY_MODE"),
@@ -250,6 +254,10 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_ACCEPT_DOM_MUTATION_AFTER_AUTOFILL_SUBMISSION,
                 "Accepts DOM_MUTATION_AFTER_AUTOFILL submissions detected on password forms."),
+        Flag.baseFeature(
+                AutofillFeatures.AUTOFILL_ANDROID_USE_GLOBAL_ID_FOR_FORM_COMPARISON,
+                "When enabled, forms are compared using FormGlobalIds instead of attribute-based"
+                        + " similarity."),
         Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_BETTER_LOCAL_HEURISTIC_PLACEHOLDER_SUPPORT,
                 "Treats placeholders as a separate signal for Autofill local heuristics"),
@@ -492,6 +500,8 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 NetFeatures.ASYNC_QUIC_SESSION, "Enables asynchronous QUIC session creation"),
         Flag.baseFeature(
+                NetFeatures.ASYNC_DNS_QUIC_JOB, "Enables asynchronous DNS resolutions for QUIC"),
+        Flag.baseFeature(
                 NetFeatures.SPDY_HEADERS_TO_HTTP_RESPONSE_USE_BUILDER,
                 "Enables new optimized implementation of SpdyHeadersToHttpResponse. No behavior"
                         + " change."),
@@ -657,6 +667,7 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature("V8BaselineBatchCompilation"),
         Flag.baseFeature("V8ConcurrentSparkplug"),
         Flag.baseFeature("V8Flag_homomorphic_ic"),
+        Flag.baseFeature("V8Flag_intl_date_time_pattern_generator_cache_eviction"),
         Flag.baseFeature("V8Flag_incremental_marking_always_user_visible"),
         Flag.baseFeature("V8Flag_large_page_pool"),
         Flag.baseFeature("V8Flag_late_heap_limit_check"),
@@ -730,9 +741,6 @@ public final class ProductionSupportedFlagList {
                 BaseFeatures.POST_POWER_MONITOR_BROADCAST_RECEIVER_INIT_TO_BACKGROUND,
                 "If enabled, it posts PowerMonitor broadcast receiver init to a background"
                         + " thread."),
-        Flag.baseFeature(
-                BaseFeatures.POST_GET_MY_MEMORY_STATE_TO_BACKGROUND,
-                "If enabled, getMyMemoryState IPC will be posted to background."),
         Flag.baseFeature(
                 BaseFeatures.USE_HIGH_PRIORITY_THREAD_GROUP,
                 "Enables high priority thread groups (presentation and audio "
@@ -1003,6 +1011,10 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature("ServiceWorkerAutoPreload"),
         Flag.baseFeature(GpuFeatures.WEB_GPU_USE_SPIRV14, "Use WebGPU's SPIR-V 1.4"),
         Flag.commandLine(
+                AwSwitches.WEBVIEW_RUN_STARTUP_TASKS_SYNC,
+                "Forces WebView startup tasks to run synchronously on the UI thread instead of "
+                        + "asynchronously."),
+        Flag.commandLine(
                 AwSwitches.STARTUP_NON_BLOCKING_WEBVIEW_CONSTRUCTOR,
                 "When enabled, WebView constructor will not block on WebView process global"
                         + " startup"),
@@ -1027,13 +1039,6 @@ public final class ProductionSupportedFlagList {
                 AccessibilityFeatures.ACCESSIBILITY_TEXT_FORMATTING,
                 "Enables text formatting information to be surfaced as Spans on"
                     + " AccessibilityNodeInfo text for consumption by ATs like screen readers."),
-        Flag.baseFeature(
-                ContentFeatures.SPARE_RENDERER_PROCESS_PRIORITY,
-                "When enabled, sends the spare renderer information when setting the priority of"
-                        + " renderers. Currently only Android handles the spare renderer"
-                        + " information in priority. The target priority of a spare renderer in"
-                        + " Android is decided by the feature parameters in"
-                        + " ContentFeatureList.java."),
         Flag.baseFeature(
                 ContentFeatures.WEBVIEW_ASYNC_DRAW_ONLY,
                 "Disable synchronous draw. Experiment to reduce ANRs."),
@@ -1228,11 +1233,8 @@ public final class ProductionSupportedFlagList {
                         + " through it to receive IPCs directly."),
 
         // Features for PerfCombined2025_WebView study
-        Flag.baseFeature("AsyncSetCookie"),
         Flag.baseFeature("ReducePPMs"),
-        Flag.baseFeature("GCOnArrayBufferAllocationFailure"),
         Flag.baseFeature("RemoveCancelledScriptedIdleTasks"),
-        Flag.baseFeature("SlimDirectReceiverIpc"),
         Flag.baseFeature("MemoryCacheChangeStrongReferencePruneDelay"),
         Flag.baseFeature("MemoryCacheStrongReference"),
         Flag.baseFeature("ReleaseResourceStrongReferencesOnMemoryPressure"),
@@ -1375,6 +1377,11 @@ public final class ProductionSupportedFlagList {
                 "EarlyCookieLoadOnPreconnect",
                 "When enabled, cookies are loaded early on preconnect requests."),
         Flag.baseFeature(
+                "PreconnectManagerDirectFastPath",
+                "When enabled, PreconnectManager bypasses intermediate proxy and host lookups"
+                        + " for direct StartPreconnectUrl calls and immediately issues"
+                        + " NetworkContext::PreconnectSockets."),
+        Flag.baseFeature(
                 "NoVarySearchCacheLoadOnSeparateTaskRunner",
                 "Enable loading the No Vary Search cache on a separate task runner."),
         Flag.baseFeature(
@@ -1457,9 +1464,24 @@ public final class ProductionSupportedFlagList {
                 "Enables draining the prefetch queue before loading the URL in the WebView"
                         + " navigate method"),
         Flag.baseFeature(
+                AwFeatures.CREATE_SPARE_RENDERER_FOR_DEFAULT_PROFILE,
+                "When enabled, creates a spare renderer process for the default WebView profile."),
+        Flag.baseFeature(
                 AwFeatures.WEBVIEW_SINGLE_SHARED_CONTEXT_STATE,
                 "Allows Webview to allocate and share a single shared context for all the"
                         + " webview instances."),
+        Flag.baseFeature("ComponentsBase32InRust", "Enables the Rust-based Base32 implementation."),
+        Flag.baseFeature(
+                AwFeatures.WEBVIEW_SUB_FRAME_CREATED_DO_NOT_UPDATE_CLIENT_MAP,
+                "When enabled, the browser ignores SubFrameCreated IPC and does not update"
+                        + " RfhToIoThreadClientMap."),
+        Flag.baseFeature(
+                "DomStorageSqliteNewDatabases",
+                "Controls the on-disk rollout of the SQLite backend for DomStorage on new"
+                        + " databases."),
+        Flag.baseFeature(
+                PaymentFeatureList.THREE_D_SECURE_TELEMETRY,
+                "When enabled, collect telemetry for 3D Secure challenge flow."),
         // Add new commandline switches and features above. The final entry should have a
         // trailing comma for cleaner diffs.
     };

@@ -7,8 +7,9 @@ import 'chrome://new-tab-page/new_tab_page.js';
 import {SearchboxBrowserProxy} from 'chrome://new-tab-page/new_tab_page.js';
 import type {SearchboxMatchElement} from 'chrome://new-tab-page/new_tab_page.js';
 import {createAutocompleteMatch, createMatchKeywordModelForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
+import type {AriaNotificationOptions} from 'chrome://resources/cr_components/searchbox/utils.js';
 import {NavigationPredictor} from 'chrome://resources/mojo/components/omnibox/browser/omnibox.mojom-webui.js';
-import {SelectionLineState} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {KeywordType, SelectionLineState} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertArrayEquals, assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
@@ -302,23 +303,6 @@ suite('CrComponentsRealboxMatchTest', () => {
         contentsEl.innerHTML);
   });
 
-  test('EscapesAnswerDescription', async () => {
-    const match = createAutocompleteMatch();
-    match.answer = {
-      firstLine: 'test@example.com',
-      secondLine: '<email>Contact Info</email>',
-    };
-    matchEl.match = match;
-    await microtasksFinished();
-
-    const descriptionEl = matchEl.shadowRoot.querySelector('#description');
-    assertTrue(!!descriptionEl);
-    // `<email>` XHTML tag is escaped. Answer description is rendered unstyled.
-    assertEquals(
-        '<span>&lt;email&gt;Contact Info&lt;/email&gt;</span>',
-        descriptionEl.innerHTML);
-    assertEquals(0, descriptionEl.querySelectorAll('email').length);
-  });
 
   test('EscapesContentsAndDescription', async () => {
     const match = createAutocompleteMatch();
@@ -411,5 +395,76 @@ suite('CrComponentsRealboxMatchTest', () => {
     };
     await microtasksFinished();
     assertEquals('Search Google, Google', matchEl.ariaLabel);
+  });
+
+  test('VirtualFocusAnnouncesOnSelectionChange', async () => {
+    matchEl.virtualFocusEnabled = true;
+    const match = createAutocompleteMatch();
+    match.a11yLabel = 'Search Google';
+    matchEl.match = match;
+    matchEl.matchIndex = 0;
+    await microtasksFinished();
+
+    const notifications:
+        Array<{message: string, options?: AriaNotificationOptions}> = [];
+    matchEl.ariaNotify =
+        (message: string, options?: AriaNotificationOptions) => {
+          notifications.push({message, options});
+        };
+
+    matchEl.selection = {
+      line: 0,
+      state: SelectionLineState.kNormal,
+      actionIndex: 0,
+    };
+    await microtasksFinished();
+    assertEquals(1, notifications.length);
+    assertEquals('Search Google', notifications[0]!.message);
+    assertEquals('high', notifications[0]!.options?.priority);
+
+    // Selection on a different line does not announce on this match.
+    matchEl.selection = {
+      line: 1,
+      state: SelectionLineState.kNormal,
+      actionIndex: 0,
+    };
+    await microtasksFinished();
+    assertEquals(1, notifications.length);
+  });
+
+  test('InstantKeywordMatchClickFiresKeywordClickAndRefocuses', async () => {
+    matchEl.match = createAutocompleteMatch({
+      destinationUrl: 'http://bookmarks',
+      keywordModel: createMatchKeywordModelForTesting({
+        type: KeywordType.kInstant,
+        keyword: '@bookmarks',
+        chipHint: 'Bookmarks',
+      }),
+    });
+    matchEl.matchIndex = 1;
+    await microtasksFinished();
+
+    // Mousedown on instant keyword match prevents default (avoiding focus
+    // loss).
+    const mousedownEvent = new MouseEvent('mousedown', {
+      button: 0,
+      cancelable: true,
+    });
+    matchEl.dispatchEvent(mousedownEvent);
+    assertTrue(mousedownEvent.defaultPrevented);
+
+    const keywordClickPromise = eventToPromise('keyword-click', matchEl);
+    const clickEvent = new MouseEvent('click', {
+      button: 0,
+      cancelable: true,
+    });
+    matchEl.dispatchEvent(clickEvent);
+
+    const event = await keywordClickPromise as CustomEvent;
+    assertEquals(matchEl.match, event.detail.match);
+    assertEquals(1, event.detail.matchIndex);
+
+    assertEquals(1, testProxy.handler.getCallCount('activateKeyword'));
+    assertEquals(0, testProxy.handler.getCallCount('openAutocompleteMatch'));
   });
 });

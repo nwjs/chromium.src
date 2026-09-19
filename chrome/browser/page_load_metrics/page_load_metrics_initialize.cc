@@ -16,10 +16,11 @@
 #include "components/page_load_metrics/browser/observers/core/uma_page_load_metrics_observer.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/restore_type.h"
 #endif
@@ -70,6 +71,7 @@
 #include "components/page_load_metrics/browser/page_load_tracker.h"
 #include "components/page_load_metrics/google/browser/from_gws_abandoned_page_load_metrics_observer.h"
 #include "components/page_load_metrics/google/browser/gws_abandoned_page_load_metrics_observer.h"
+#include "components/page_load_metrics/google/browser/gws_prewarm_page_load_metrics_observer.h"
 #include "content/public/browser/internal_webui_config.h"
 #include "content/public/browser/preload_serving_metrics_capsule.h"
 #include "content/public/browser/web_contents.h"
@@ -182,8 +184,7 @@ void PageLoadMetricsEmbedder::RegisterObservers(
 
 #if !BUILDFLAG(IS_ANDROID)
   if (HasWebUIConfig(navigation_handle->GetURL()) &&
-      waap::IsForInitialWebUI(navigation_handle->GetURL()) &&
-      waap::IsInitialWebUIMetricsLoggingEnabled()) {
+      waap::IsForInitialWebUI(navigation_handle->GetURL())) {
     tracker->AddObserver(
         std::make_unique<InitialWebUIPageLoadMetricsObserver>());
   }
@@ -229,6 +230,7 @@ void PageLoadMetricsEmbedder::RegisterObservers(
     tracker->AddObserver(
         std::make_unique<ChromeGWSAbandonedPageLoadMetricsObserver>());
     tracker->AddObserver(std::make_unique<GWSHpPageLoadMetricsObserver>());
+    tracker->AddObserver(std::make_unique<GWSPrewarmPageLoadMetricsObserver>());
     tracker->AddObserver(std::make_unique<ForegroundDurationUKMObserver>());
     tracker->AddObserver(
         std::make_unique<DocumentWritePageLoadMetricsObserver>());
@@ -313,10 +315,7 @@ void PageLoadMetricsEmbedder::RegisterObservers(
   tracker->AddObserver(std::make_unique<ZstdPageLoadMetricsObserver>());
 
 #if !BUILDFLAG(IS_ANDROID)
-  if (features::IsImmersiveReadAnythingEnabled()) {
-    tracker->AddObserver(
-        std::make_unique<ReadAnythingSoftNavigationObserver>());
-  }
+  tracker->AddObserver(std::make_unique<ReadAnythingSoftNavigationObserver>());
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)

@@ -9,13 +9,16 @@
 #include <utility>
 
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "media/base/media_permission.h"
+#include "media/base/media_switches.h"
 #include "media/base/output_device_info.h"
 #include "media/base/video_types.h"
 #include "media/capture/mojom/video_capture_types.mojom.h"
 #include "media/capture/video/video_capture_device_descriptor.h"
 #include "media/capture/video_capture_types.h"
+#include "media/media_buildflags.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -60,7 +63,9 @@
 #include "third_party/blink/renderer/modules/mediastream/input_device_info.h"
 #include "third_party/blink/renderer/modules/mediastream/media_device_info.h"
 #include "third_party/blink/renderer/modules/mediastream/media_permission_testing_platform.h"
+#include "third_party/blink/renderer/modules/mediastream/media_stream_constraints_util_audio.h"
 #include "third_party/blink/renderer/modules/mediastream/restriction_target.h"
+#include "third_party/blink/renderer/platform/bindings/dom_wrapper_world.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
@@ -171,6 +176,8 @@ class MockMediaDevicesDispatcherHost final
     audio_capabilities->group_id = String(enumeration_[0][1].group_id);
     audio_capabilities->parameters =
         media::AudioParameters::UnavailableDeviceParams();
+    audio_capabilities->parameters.set_effects(
+        media::AudioParameters::PlatformEffectsMask::VOICE_ISOLATION_SUPPORTED);
     audio_capabilities->is_valid = true;
     audio_input_capabilities_.push_back(std::move(audio_capabilities));
 
@@ -566,6 +573,16 @@ void VerifyAudioInputCapabilities(
       EXPECT_TRUE(
           std::ranges::contains(echo_cancellation, EchoCancellationMode::kAll));
     }
+    EXPECT_TRUE(capabilities->hasVoiceIsolation());
+    Vector<bool> voice_isolation = capabilities->voiceIsolation();
+    if (IsVoiceIsolationSupported() &&
+        (effects & media::AudioParameters::VOICE_ISOLATION_SUPPORTED)) {
+      EXPECT_TRUE(std::ranges::contains(voice_isolation, true));
+      EXPECT_TRUE(std::ranges::contains(voice_isolation, false));
+    } else {
+      EXPECT_FALSE(std::ranges::contains(voice_isolation, true));
+      EXPECT_TRUE(std::ranges::contains(voice_isolation, false));
+    }
   }
 }
 
@@ -714,6 +731,8 @@ class MediaDevicesTest : public PageTestBase {
     platform()->RunUntilIdle();
   }
 
+  void RunEnumerateDevicesTest();
+
   void ExpectEnumerateDevicesHistogramReport(
       EnumerateDevicesResult expected_result) {
     histogram_tester_.ExpectTotalCount(
@@ -784,7 +803,7 @@ TEST_F(MediaDevicesTest, GetUserMediaCanBeCalled) {
   VLOG(1) << "Exception message is" << scope.GetExceptionState().Message();
 }
 
-TEST_F(MediaDevicesTest, EnumerateDevices) {
+void MediaDevicesTest::RunEnumerateDevicesTest() {
   V8TestingScope scope;
   auto* media_devices = GetMediaDevices(*GetDocument().domWindow());
   ScriptPromiseTester tester(
@@ -831,6 +850,23 @@ TEST_F(MediaDevicesTest, EnumerateDevices) {
     }
   }
 }
+
+TEST_F(MediaDevicesTest, EnumerateDevices) {
+  RunEnumerateDevicesTest();
+}
+
+#if BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION)
+// Verifies that when voice isolation is supported by the browser (via
+// `kWebRtcVoiceIsolationDenoiser`), `VerifyAudioInputCapabilities()` checks
+// that audio input devices reporting `VOICE_ISOLATION_SUPPORTED` in their
+// platform effects expose `capabilities.voiceIsolation = {true, false}`, while
+// devices without the effect only expose `{false}`.
+TEST_F(MediaDevicesTest, EnumerateDevicesWithVoiceIsolation) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(media::kWebRtcVoiceIsolationDenoiser);
+  RunEnumerateDevicesTest();
+}
+#endif
 
 TEST_F(MediaDevicesTest, EnumerateDevicesAfterConnectionError) {
   V8TestingScope scope;
@@ -1606,6 +1642,153 @@ TEST_P(ProduceSubCaptureTargetTest, DuplicateId) {
   ASSERT_FALSE(second_result.empty());
 
   EXPECT_EQ(first_result, second_result);
+}
+
+TEST_P(ProduceSubCaptureTargetTest,
+       DuplicateCallBeforePromiseResolutionSameWorld) {
+  V8TestingScope scope;
+  auto* media_devices = GetMediaDevices(*GetDocument().domWindow());
+  ASSERT_TRUE(media_devices);
+
+  dispatcher_host().SetNextId(type_,
+                              String("983bf2ff-7410-416c-808a-78421cbd8fdc"));
+
+  SetBodyContent(R"HTML(
+    <div id='test-div'></div>
+  )HTML");
+
+  Document& document = GetDocument();
+  Element* const div = document.getElementById(AtomicString("test-div"));
+
+  v8::Local<v8::Promise> first_v8_promise;
+  v8::Local<v8::Promise> second_v8_promise;
+  std::optional<ScriptPromiseTester> first_tester;
+  std::optional<ScriptPromiseTester> second_tester;
+
+  if (type_ == SubCaptureTarget::Type::kCropTarget) {
+    auto p1 = media_devices->ProduceCropTarget(scope.GetScriptState(), div,
+                                               scope.GetExceptionState());
+    first_v8_promise = p1.V8Promise();
+    first_tester.emplace(scope.GetScriptState(), p1);
+
+    auto p2 = media_devices->ProduceCropTarget(scope.GetScriptState(), div,
+                                               scope.GetExceptionState());
+    second_v8_promise = p2.V8Promise();
+    second_tester.emplace(scope.GetScriptState(), p2);
+  } else {
+    auto p1 = media_devices->ProduceRestrictionTarget(
+        scope.GetScriptState(), div, scope.GetExceptionState());
+    first_v8_promise = p1.V8Promise();
+    first_tester.emplace(scope.GetScriptState(), p1);
+
+    auto p2 = media_devices->ProduceRestrictionTarget(
+        scope.GetScriptState(), div, scope.GetExceptionState());
+    second_v8_promise = p2.V8Promise();
+    second_tester.emplace(scope.GetScriptState(), p2);
+  }
+
+  // The two promises must be distinct objects.
+  EXPECT_FALSE(first_v8_promise.IsEmpty());
+  EXPECT_FALSE(second_v8_promise.IsEmpty());
+  EXPECT_NE(first_v8_promise, second_v8_promise);
+
+  first_tester->WaitUntilSettled();
+  second_tester->WaitUntilSettled();
+
+  EXPECT_TRUE(first_tester->IsFulfilled());
+  EXPECT_TRUE(second_tester->IsFulfilled());
+  EXPECT_FALSE(scope.GetExceptionState().HadException());
+
+  const String first_result =
+      ToSubCaptureTarget(first_tester->Value())->GetId();
+  const String second_result =
+      ToSubCaptureTarget(second_tester->Value())->GetId();
+
+  EXPECT_EQ(first_result, "983bf2ff-7410-416c-808a-78421cbd8fdc");
+  EXPECT_EQ(first_result, second_result);
+}
+
+TEST_P(ProduceSubCaptureTargetTest,
+       DuplicateCallBeforePromiseResolutionDifferentWorlds) {
+  V8TestingScope scope;
+  auto* media_devices = GetMediaDevices(*GetDocument().domWindow());
+  ASSERT_TRUE(media_devices);
+
+  dispatcher_host().SetNextId(type_,
+                              String("983bf2ff-7410-416c-808a-78421cbd8fdc"));
+
+  SetBodyContent(R"HTML(
+    <div id='test-div'></div>
+  )HTML");
+
+  Document& document = GetDocument();
+  Element* const div = document.getElementById(AtomicString("test-div"));
+
+  constexpr int32_t kIsolatedWorldId = 1;
+  DOMWrapperWorld* isolated_world = DOMWrapperWorld::EnsureIsolatedWorld(
+      scope.GetIsolate(), kIsolatedWorldId);
+  scope.GetFrame().GetWindowProxy(*isolated_world);  // Force initialization.
+  ScriptState* isolated_script_state =
+      ToScriptState(&scope.GetFrame(), *isolated_world);
+  ASSERT_TRUE(isolated_script_state);
+
+  // First call from the isolated world.
+  std::optional<ScriptPromiseTester> isolated_tester;
+  {
+    ScriptState::Scope isolated_scope(isolated_script_state);
+    DummyExceptionStateForTesting exception_state;
+    if (type_ == SubCaptureTarget::Type::kCropTarget) {
+      auto p = media_devices->ProduceCropTarget(isolated_script_state, div,
+                                                exception_state);
+      EXPECT_FALSE(p.IsEmpty());
+      EXPECT_EQ(p.V8Promise()->GetCreationContextChecked(),
+                isolated_script_state->GetContext());
+      isolated_tester.emplace(isolated_script_state, p);
+    } else {
+      auto p = media_devices->ProduceRestrictionTarget(isolated_script_state,
+                                                       div, exception_state);
+      EXPECT_FALSE(p.IsEmpty());
+      EXPECT_EQ(p.V8Promise()->GetCreationContextChecked(),
+                isolated_script_state->GetContext());
+      isolated_tester.emplace(isolated_script_state, p);
+    }
+    EXPECT_FALSE(exception_state.HadException());
+  }
+  ASSERT_TRUE(isolated_tester);
+
+  // Second call from the main world before the first promise is resolved.
+  std::optional<ScriptPromiseTester> main_tester;
+  if (type_ == SubCaptureTarget::Type::kCropTarget) {
+    auto p = media_devices->ProduceCropTarget(scope.GetScriptState(), div,
+                                              scope.GetExceptionState());
+    EXPECT_FALSE(p.IsEmpty());
+    EXPECT_EQ(p.V8Promise()->GetCreationContextChecked(), scope.GetContext());
+    main_tester.emplace(scope.GetScriptState(), p);
+  } else {
+    auto p = media_devices->ProduceRestrictionTarget(
+        scope.GetScriptState(), div, scope.GetExceptionState());
+    EXPECT_FALSE(p.IsEmpty());
+    EXPECT_EQ(p.V8Promise()->GetCreationContextChecked(), scope.GetContext());
+    main_tester.emplace(scope.GetScriptState(), p);
+  }
+  ASSERT_TRUE(main_tester);
+
+  isolated_tester->WaitUntilSettled();
+  main_tester->WaitUntilSettled();
+
+  EXPECT_TRUE(isolated_tester->IsFulfilled());
+  EXPECT_TRUE(main_tester->IsFulfilled());
+  String isolated_result;
+  {
+    ScriptState::Scope isolated_scope(isolated_script_state);
+    isolated_result = ToSubCaptureTarget(isolated_tester->Value())->GetId();
+  }
+  const String main_result = ToSubCaptureTarget(main_tester->Value())->GetId();
+
+  EXPECT_EQ(isolated_result, "983bf2ff-7410-416c-808a-78421cbd8fdc");
+  EXPECT_EQ(isolated_result, main_result);
+
+  isolated_world->Dispose();
 }
 
 TEST_P(ProduceSubCaptureTargetTest, CorrectTokenClassInstantiated) {

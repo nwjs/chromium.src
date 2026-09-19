@@ -59,7 +59,6 @@ import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 import org.robolectric.fakes.RoboMenu;
 import org.robolectric.util.ReflectionHelpers;
 
@@ -111,8 +110,7 @@ import java.util.List;
 
 /** Unit tests for {@link SelectionPopupController}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
-@Features.EnableFeatures({ContentFeatures.NO_SELECTION_MENU_CACHING})
+@Features.DisableFeatures({ContentFeatures.NO_SELECTION_MENU_CACHING})
 public class SelectionPopupControllerTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     private MenuModelBridge mMenuModelBridge;
@@ -864,7 +862,6 @@ public class SelectionPopupControllerTest {
     }
 
     @Test
-    @Features.DisableFeatures({ContentFeatures.NO_SELECTION_MENU_CACHING})
     public void testMenuIsCachedForSameSelectionStateIfDelegateIsNull() {
         Assert.assertNull(mController.getSelectionMenuCachedResultForTesting());
 
@@ -887,7 +884,6 @@ public class SelectionPopupControllerTest {
     }
 
     @Test
-    @Features.DisableFeatures({ContentFeatures.NO_SELECTION_MENU_CACHING})
     public void testCacheHitBypassesClassificationRequest() {
         Assert.assertNull(mController.getSelectionMenuCachedResultForTesting());
 
@@ -920,7 +916,21 @@ public class SelectionPopupControllerTest {
     }
 
     @Test
-    @Features.DisableFeatures({ContentFeatures.NO_SELECTION_MENU_CACHING})
+    public void testMenuCacheClearedOnWindowAndroidChanged() {
+        showSelectionMenu(
+                mController,
+                AMPHITHEATRE_FULL,
+                /* selectionStartOffset= */ 0,
+                MenuSourceType.MOUSE);
+        mController.getPendingSelectionMenu(MenuType.FLOATING);
+        Assert.assertNotNull(mController.getSelectionMenuCachedResultForTesting());
+
+        mController.onWindowAndroidChanged(Mockito.mock(WindowAndroid.class));
+
+        Assert.assertNull(mController.getSelectionMenuCachedResultForTesting());
+    }
+
+    @Test
     public void testSelectionHandlesCleared_clearsClassificationResult() {
         when(mView.startActionMode(any(), anyInt())).thenReturn(mActionMode);
         mTestSelectionClient.setResult(resultForNoChange());
@@ -944,7 +954,6 @@ public class SelectionPopupControllerTest {
     }
 
     @Test
-    @Features.DisableFeatures({ContentFeatures.NO_SELECTION_MENU_CACHING})
     public void testSelectionChangedToEmpty_clearsClassificationResult() {
         when(mView.startActionMode(any(), anyInt())).thenReturn(mActionMode);
         mTestSelectionClient.setResult(resultForNoChange());
@@ -968,7 +977,6 @@ public class SelectionPopupControllerTest {
     }
 
     @Test
-    @Features.DisableFeatures({ContentFeatures.NO_SELECTION_MENU_CACHING})
     public void testSelectionHandlesMovedDuringDrag_clearsClassificationResult() {
         when(mView.startActionMode(any(), anyInt())).thenReturn(mActionMode);
         mTestSelectionClient.setResult(resultForNoChange());
@@ -1000,7 +1008,6 @@ public class SelectionPopupControllerTest {
     }
 
     @Test
-    @Features.DisableFeatures({ContentFeatures.NO_SELECTION_MENU_CACHING})
     public void testSelectionHandlesMovedNotDuringDrag_doesNotClearClassificationResult() {
         when(mView.startActionMode(any(), anyInt())).thenReturn(mActionMode);
         mTestSelectionClient.setResult(resultForNoChange());
@@ -1023,7 +1030,6 @@ public class SelectionPopupControllerTest {
     }
 
     @Test
-    @Features.DisableFeatures({ContentFeatures.NO_SELECTION_MENU_CACHING})
     public void testMenuIsProcessedForSameSelectionStateIfCachingNotEnabledByDelegate() {
         Assert.assertNull(mController.getSelectionMenuCachedResultForTesting());
         SelectionActionMenuDelegate delegate = Mockito.mock(SelectionActionMenuDelegate.class);
@@ -1051,7 +1057,6 @@ public class SelectionPopupControllerTest {
     }
 
     @Test
-    @Features.DisableFeatures({ContentFeatures.NO_SELECTION_MENU_CACHING})
     public void testMenuIsCachedForSameSelectionStateIfCachingEnabledByDelegate() {
         Assert.assertNull(mController.getSelectionMenuCachedResultForTesting());
         SelectionActionMenuDelegate delegate = Mockito.mock(SelectionActionMenuDelegate.class);
@@ -1080,7 +1085,6 @@ public class SelectionPopupControllerTest {
 
     @Test
     @SuppressWarnings("AssertSameIncompatible")
-    @Features.DisableFeatures({ContentFeatures.NO_SELECTION_MENU_CACHING})
     public void testNewMenuIsProcessedForDifferentSelectionState() {
         Assert.assertNull(mController.getSelectionMenuCachedResultForTesting());
 
@@ -1556,5 +1560,49 @@ public class SelectionPopupControllerTest {
         assertEquals("Ask Gemini", items.get(0).model.get(TITLE));
         assertEquals("Extension", items.get(1).model.get(TITLE));
         assertEquals("Inspect", items.get(2).model.get(TITLE));
+    }
+
+    @Test
+    @SmallTest
+    @Feature("ExtensionContextMenuItems")
+    public void testIntersperseMenuItems_sanitizesConsecutiveAndEdgeDividers() {
+        ModelList items = new ModelList();
+        // Leading divider.
+        items.add(new ListItem(ListItemType.DIVIDER, new PropertyModel(new PropertyKey[] {})));
+        items.add(
+                new ListItem(
+                        ListItemType.MENU_ITEM,
+                        new PropertyModel.Builder(ListMenuItemProperties.ALL_KEYS)
+                                .with(ListMenuItemProperties.ORDER, 100)
+                                .with(TITLE, "Item 1")
+                                .build()));
+
+        // Duplicate dividers.
+        items.add(new ListItem(ListItemType.DIVIDER, new PropertyModel(new PropertyKey[] {})));
+        items.add(new ListItem(ListItemType.DIVIDER, new PropertyModel(new PropertyKey[] {})));
+
+        List<ListItem> extraItems = new ArrayList<>();
+        extraItems.add(
+                new ListItem(
+                        ListItemType.MENU_ITEM,
+                        new PropertyModel.Builder(ListMenuItemProperties.ALL_KEYS)
+                                .with(ListMenuItemProperties.ORDER, 300000)
+                                .with(TITLE, "Item 2")
+                                .build()));
+        // Trailing divider.
+        extraItems.add(
+                new ListItem(
+                        ListItemType.DIVIDER,
+                        new PropertyModel.Builder(ListMenuItemProperties.ALL_KEYS)
+                                .with(ListMenuItemProperties.ORDER, 400000)
+                                .build()));
+
+        SelectionPopupControllerImpl.intersperseMenuItems(items, extraItems);
+
+        // Leading, duplicate, and trailing dividers are stripped.
+        assertEquals(3, items.size());
+        assertEquals("Item 1", items.get(0).model.get(TITLE));
+        assertEquals(ListItemType.DIVIDER, items.get(1).type);
+        assertEquals("Item 2", items.get(2).model.get(TITLE));
     }
 }

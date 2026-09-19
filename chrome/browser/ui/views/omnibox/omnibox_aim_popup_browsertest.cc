@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_closer.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/permissions/permission_request_manager_test_api.h"
@@ -27,6 +28,7 @@
 #include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/omnibox/browser/mock_aim_eligibility_service.h"
 #include "components/permissions/permission_request_manager.h"
+#include "components/permissions/test/mock_permission_prompt_factory.h"
 #include "components/permissions/test/mock_permission_request.h"
 #include "components/permissions/test/permission_request_observer.h"
 #include "components/variations/service/variations_service.h"
@@ -85,7 +87,7 @@ class OmniboxAimPopupBrowserTest : public InProcessBrowserTest {
   OmniboxAimPopupBrowserTest() {
     feature_list_.InitWithFeatures({omnibox::internal::kWebUIOmniboxAimPopup,
                                     omnibox::internal::kWebUIOmniboxPopup},
-                                   {});
+                                   {features::kWebUILocationBar});
   }
 
   void TriggerMenuClosed(OmniboxPopupWebUIBaseContent* content) {
@@ -328,21 +330,29 @@ IN_PROC_BROWSER_TEST_F(OmniboxAimPopupBrowserTest,
   auto* presenter = location_bar()->GetOmniboxPopupAimPresenter();
   ASSERT_TRUE(presenter);
 
+  // Wait for the WebContents to finish loading and popup state transition to
+  // finish.
+  content::WaitForLoadStop(content->GetWebContents());
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return !location_bar()->in_popup_state_transition(); }));
+
   auto* permission_manager =
       permissions::PermissionRequestManager::FromWebContents(
           content->GetWebContents());
   ASSERT_TRUE(permission_manager);
 
+  permissions::MockPermissionPromptFactory prompt_factory(permission_manager);
+
   // Add a mock permission request for a standard origin to set
   // IsRequestInProgress() to true without auto-approving. This avoids needing
   // a page navigation while allowing for a website to request a permission.
   // Cannot be about:blank due to DCheck.
-  permissions::PermissionRequestObserver observer(content->GetWebContents());
   auto request = std::make_unique<permissions::MockPermissionRequest>(
-      GURL("https://example.com"), permissions::RequestType::kMicStream);
+      GURL("https://example.com"), permissions::RequestType::kMicStream,
+      permissions::PermissionRequestGestureType::GESTURE);
   permission_manager->AddRequest(
       content->GetWebContents()->GetPrimaryMainFrame(), std::move(request));
-  observer.Wait();
+  prompt_factory.WaitForPermissionBubble();
 
   EXPECT_TRUE(permission_manager->IsRequestInProgress());
 
@@ -890,7 +900,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxAimPopupBrowserTest,
   // (Verifies `PermissionRequestManager` did NOT set it).
   EXPECT_FALSE(presenter->IsPermissionPromptPreventingClose());
 
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
   TestPermissionPromptDelegate test_delegate(web_contents);
 
   // Directly call `PermissionPromptFactory::CreatePermissionPrompt`
@@ -933,7 +943,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxAimPopupBrowserTest,
   ASSERT_TRUE(presenter);
   EXPECT_FALSE(presenter->IsShown());
 
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
   TestPermissionPromptDelegate test_delegate(web_contents);
 
   // Directly call PermissionPromptFactory::CreatePermissionPrompt synchronously
@@ -960,7 +970,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(presenter->IsShown());
 
   // Allow prompt to drop if it cannot show quietly.
-  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  auto* web_contents = browser()->GetTabStripModel()->GetActiveWebContents();
   TestPermissionPromptDelegate test_delegate(web_contents);
   test_delegate.set_should_drop(true);
 

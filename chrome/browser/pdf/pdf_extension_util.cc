@@ -225,6 +225,7 @@ base::DictValue GetPdfViewerStrings() {
       {"ink2TextFontSize", IDS_PDF_INK2_TEXT_FONT_SIZE},
       {"ink2TextStyleBold", IDS_PDF_INK2_TEXT_STYLE_BOLD},
       {"ink2TextStyleItalic", IDS_PDF_INK2_TEXT_STYLE_ITALIC},
+      {"ink2TextStyleStrikethrough", IDS_PDF_INK2_TEXT_STYLE_STRIKETHROUGH},
       {"ink2TextStyles", IDS_PDF_INK2_TEXT_STYLES},
       {"ink2Tool", IDS_PDF_INK2_ANNOTATION_TOOL},
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
@@ -382,9 +383,13 @@ base::DictValue GetAdditionalData(content::WebContents* web_contents) {
 
 #if BUILDFLAG(ENABLE_PDF_INK2)
   const bool use_ink2 = IsPdfInk2AnnotationsEnabled(context);
+  const bool text_annotations_enabled =
+      use_ink2 && chrome_pdf::features::kPdfInk2TextAnnotations.Get();
   dict.Set("pdfInk2Enabled", use_ink2);
-  dict.Set("pdfTextAnnotationsEnabled",
-           use_ink2 && chrome_pdf::features::kPdfInk2TextAnnotations.Get());
+  dict.Set("pdfTextAnnotationsEnabled", text_annotations_enabled);
+  dict.Set("pdfTextAnnotationsExtraStylesEnabled",
+           text_annotations_enabled &&
+               chrome_pdf::features::kPdfInk2TextAnnotationsExtraStyles.Get());
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
 
 #if BUILDFLAG(ENABLE_PDF_SAVE_TO_DRIVE)

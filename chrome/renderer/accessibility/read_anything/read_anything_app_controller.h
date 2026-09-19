@@ -237,13 +237,6 @@ class ReadAnythingAppController
   int HighlightGranularity() const;
   int LastNonDisabledLineFocus() const;
   bool IsLineFocusOn() const;
-  // The following 3 functions are for handling the auto-disappearing logic
-  // for the line focus new badge.
-  // TODO(crbug.com/543113387): Remove these when the WebUI new badge supports
-  // auto-disappearing logic itself.
-  void RequestShouldShowLineFocusNewBadge();
-  void OnShouldShowLineFocusNewBadgeResponse(bool show);
-  void OnLineFocusFeatureUsed();
   bool IsHighlightOn();
   int StandardLineSpacing() const;
   int LooseLineSpacing() const;
@@ -302,7 +295,6 @@ class ReadAnythingAppController
   std::string GetDomDistillerContentHtml() const;
   // Serializes accessibility tree anchors into a V8 object for the frontend.
   v8::Local<v8::Value> GetDomDistillerAnchors() const;
-  // Will only return a state if IsImmersiveReadAnythingEnabled() is true.
   // Returns the presentation through the OnGetPresentationState callback.
   void SendGetPresentationStateRequest() const;
   // The results of these are sent back via UntrustedPage::OnGetVoicePackInfo.
@@ -334,7 +326,6 @@ class ReadAnythingAppController
   v8::Local<v8::Value> GetAXMapping(int index);
   bool IsGoogleDocs() const;
   bool IsPdf() const;
-  bool IsImmersiveEnabled() const;
   bool IsImprovedReadAloudEnabled() const;
   bool IsReadAnythingImprovedUiEnabled() const;
   bool IsReadAnythingTranslateEntryPointEnabled() const;
@@ -440,27 +431,6 @@ class ReadAnythingAppController
 
   void Draw(bool recompute_display_nodes);
 
-  // Snapshot_lite is a data structure which resembles an
-  // AXTreeUpdate. E.g.:
-  //   const axTree = {
-  //     root_id: 1,
-  //     nodes: [
-  //       {
-  //         id: 1,
-  //         role: 'rootWebArea',
-  //         child_ids: [2],
-  //       },
-  //       {
-  //         id: 2,
-  //         role: 'staticText',
-  //         name: 'Some text.',
-  //       },
-  //     ],
-  //   };
-  void SetContentForTesting(v8::Local<v8::Value> v8_snapshot_lite,
-                            std::vector<ui::AXNodeID> content_node_ids);
-  void SetAnchorsForTesting(v8::Local<v8::Value> v8_snapshot_lite,
-                            std::vector<ui::AXNodeID> content_node_ids);
   void SetLanguageForTesting(const std::string& language_code);
   void set_forced_distillation_method_for_testing(
       ReadAnythingAppModel::DistillationMethod method) {

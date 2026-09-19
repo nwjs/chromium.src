@@ -15,6 +15,8 @@ namespace allocator_shim {
 using AllocToken =
     partition_alloc::internal::base::StrongAlias<class AllocTokenTag, size_t>;
 
+inline constexpr AllocToken kDefaultAllocToken = AllocToken(0);
+
 struct AllocatorDispatch {
   using AllocFn = void*(size_t size, AllocToken alloc_token, void* context);
   using AllocUncheckedFn = void*(size_t size,
@@ -32,6 +34,10 @@ struct AllocatorDispatch {
                                size_t size,
                                AllocToken alloc_token,
                                void* context);
+  using AllocAlignedUncheckedFn = void*(size_t alignment,
+                                        size_t size,
+                                        AllocToken alloc_token,
+                                        void* context);
   using ReallocFn = void*(void* address,
                           size_t size,
                           AllocToken alloc_token,
@@ -85,6 +91,7 @@ struct AllocatorDispatch {
   AllocZeroInitializedFn* alloc_zero_initialized_function;
   AllocZeroInitializedUncheckedFn* alloc_zero_initialized_unchecked_function;
   AllocAlignedFn* alloc_aligned_function;
+  AllocAlignedUncheckedFn* alloc_aligned_unchecked_function;
   ReallocFn* realloc_function;
   ReallocUncheckedFn* realloc_unchecked_function;
   FreeFn* free_function;
@@ -159,6 +166,7 @@ struct AllocatorDispatch {
     COPY_IF_NULLPTR(alloc_zero_initialized_function);
     COPY_IF_NULLPTR(alloc_zero_initialized_unchecked_function);
     COPY_IF_NULLPTR(alloc_aligned_function);
+    COPY_IF_NULLPTR(alloc_aligned_unchecked_function);
     COPY_IF_NULLPTR(realloc_function);
     COPY_IF_NULLPTR(realloc_unchecked_function);
     COPY_IF_NULLPTR(free_function);

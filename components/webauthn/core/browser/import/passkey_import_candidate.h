@@ -1,0 +1,35 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef COMPONENTS_WEBAUTHN_CORE_BROWSER_IMPORT_PASSKEY_IMPORT_CANDIDATE_H_
+#define COMPONENTS_WEBAUTHN_CORE_BROWSER_IMPORT_PASSKEY_IMPORT_CANDIDATE_H_
+
+#include <stdint.h>
+
+#include <optional>
+#include <string>
+#include <vector>
+
+#include "base/time/time.h"
+
+namespace webauthn {
+
+// Represents a candidate passkey that is about to be imported.
+struct PasskeyImportCandidate {
+  std::string rp_id;
+  std::string user_name;
+  std::string user_display_name;
+  std::vector<uint8_t> credential_id;
+  std::vector<uint8_t> user_id;
+  std::vector<uint8_t> private_key;
+  std::optional<base::Time> exporter_creation_time;
+  std::vector<uint8_t> hmac_secret;
+  std::optional<std::string> hmac_secret_algorithm;
+  std::optional<std::vector<uint8_t>> large_blob;
+  std::optional<uint64_t> large_blob_uncompressed_size;
+};
+
+}  // namespace webauthn
+
+#endif  // COMPONENTS_WEBAUTHN_CORE_BROWSER_IMPORT_PASSKEY_IMPORT_CANDIDATE_H_

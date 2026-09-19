@@ -4,9 +4,11 @@
 
 #include <string>
 
+#include "base/containers/span.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/protobuf_matchers.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
@@ -21,7 +23,13 @@
 #include "chrome/browser/sync/test/integration/sync_test.h"
 #include "components/browser_sync/browser_sync_switches.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
+#include "components/personal_context/core/personal_context_features.h"
+#include "components/personal_context/core/personal_context_key_manager.h"
+#include "components/personal_context/core/personal_context_prefs.h"
+#include "components/prefs/pref_service.h"
+#include "components/signin/public/base/hybrid_encryption_key.pb.h"
 #include "components/signin/public/base/signin_switches.h"
+#include "components/signin/public/base/tink_key.pb.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/base/features.h"
@@ -49,6 +57,7 @@
 
 namespace {
 
+using base::test::EqualsProto;
 using bookmarks_helper::GetBookmarkModel;
 using bookmarks_helper::StoreType;
 using device_info_helper::HasCacheGuid;
@@ -86,6 +95,12 @@ MATCHER_P(HasInterestedDataType, expected_data_type, "") {
     }
   }
   return false;
+}
+
+MATCHER_P(HasPersonalContextFields, matcher, "") {
+  return testing::ExplainMatchResult(
+      matcher, arg.specifics().device_info().personal_context_fields(),
+      result_listener);
 }
 
 std::string CacheGuidForSuffix(int suffix) {
@@ -215,6 +230,17 @@ class SingleClientDeviceInfoSyncTest
       const SingleClientDeviceInfoSyncTest&) = delete;
 
   ~SingleClientDeviceInfoSyncTest() override = default;
+
+  [[nodiscard]] bool SetupSync() {
+    if (!SyncTest::SetupSync()) {
+      return false;
+    }
+
+    // Wait for committing DeviceInfo with sharing_fields, it may happen
+    // asynchronously due to FCM token registration.
+    return device_info_helper::WaitForFullDeviceInfoCommitted(
+        GetLocalCacheGuid());
+  }
 
   SyncTest::SetupSyncMode GetSetupSyncMode() const override {
     return GetParam();
@@ -401,6 +427,132 @@ IN_PROC_BROWSER_TEST_P(SingleClientDeviceInfoSyncTestWithServerDeterminedName,
 
 INSTANTIATE_TEST_SUITE_P(,
                          SingleClientDeviceInfoSyncTestWithServerDeterminedName,
+                         GetSyncTestModes(),
+                         testing::PrintToStringParamName());
+
+class SingleClientDeviceInfoSyncTestWithPersonalContext
+    : public SingleClientDeviceInfoSyncTest {
+ public:
+  SingleClientDeviceInfoSyncTestWithPersonalContext() {
+    feature_list_.InitAndEnableFeature(
+        personal_context::features::kPersonalContextHandleEncryptedPayloads);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_P(SingleClientDeviceInfoSyncTestWithPersonalContext,
+                       UploadLocalPersonalContextPublicKey) {
+  ASSERT_TRUE(SetupSync());
+
+  std::vector<uint8_t> expected_public_key =
+      personal_context::PersonalContextKeyManager::
+          GetOrCreateLocalPublicKeyBytes(GetProfile(0)->GetPrefs());
+  ASSERT_FALSE(expected_public_key.empty());
+
+  tink::Keyset keyset;
+  ASSERT_TRUE(keyset.ParseFromArray(expected_public_key.data(),
+                                    expected_public_key.size()));
+  ASSERT_EQ(keyset.primary_key_id(), 1u);
+  ASSERT_EQ(keyset.key_size(), 1);
+  ASSERT_EQ(keyset.key(0).key_data().type_url(),
+            "type.googleapis.com/google.crypto.tink.HpkePublicKey");
+
+  tink::HpkePublicKey hpke_public_key;
+  ASSERT_TRUE(hpke_public_key.ParseFromString(
+      keyset.key(0).key_data().value()));
+  EXPECT_EQ(hpke_public_key.version(), 0u);
+  EXPECT_EQ(hpke_public_key.params().kem(), tink::HpkeKem::ML_KEM768);
+  EXPECT_EQ(hpke_public_key.params().kdf(), tink::HpkeKdf::HKDF_SHA256);
+  EXPECT_EQ(hpke_public_key.params().aead(), tink::HpkeAead::AES_128_GCM);
+  EXPECT_EQ(hpke_public_key.public_key().size(), 1184u);
+
+  sync_pb::PersonalContextSpecificFields expected_personal_context_fields;
+  expected_personal_context_fields.set_serialized_tink_keyset(
+      expected_public_key.data(), expected_public_key.size());
+
+  // The local device with the personal context public key should be committed
+  // to the server.
+  EXPECT_TRUE(
+      ServerDeviceInfoMatchChecker(ElementsAre(AllOf(
+          HasCacheGuid(GetLocalCacheGuid()),
+          HasPersonalContextFields(
+              EqualsProto(expected_personal_context_fields)))))
+          .Wait());
+
+  // Verify that the local DeviceInfo in the tracker contains the personal
+  // context info.
+  const syncer::DeviceInfo* local_device =
+      GetDeviceInfoTracker()->GetDeviceInfo(GetLocalCacheGuid());
+  ASSERT_TRUE(local_device);
+  ASSERT_TRUE(local_device->personal_context_info().has_value());
+  EXPECT_EQ(local_device->personal_context_info()->serialized_tink_keyset,
+            expected_public_key);
+}
+
+IN_PROC_BROWSER_TEST_P(SingleClientDeviceInfoSyncTestWithPersonalContext,
+                       KeyGenerationTriggersImmediateDeviceInfoCommit) {
+  ASSERT_TRUE(SetupSync());
+
+  const syncer::DeviceInfo* local_device =
+      GetDeviceInfoTracker()->GetDeviceInfo(GetLocalCacheGuid());
+  ASSERT_TRUE(local_device);
+
+  // Clear existing private key from prefs to simulate first-time generation.
+  GetProfile(0)->GetPrefs()->ClearPref(
+      personal_context::prefs::kPersonalContextPrivateKey);
+
+  // Trigger key generation via PersonalContextKeyManager with DeviceInfoSyncService.
+  personal_context::PersonalContextKeyManager key_manager(
+      GetProfile(0)->GetPrefs(),
+      DeviceInfoSyncServiceFactory::GetForProfile(GetProfile(0)));
+  key_manager.GetOrCreatePrivateKey();
+  std::vector<uint8_t> expected_public_key =
+      personal_context::PersonalContextKeyManager::
+          GetOrCreateLocalPublicKeyBytes(GetProfile(0)->GetPrefs());
+
+  sync_pb::PersonalContextSpecificFields expected_personal_context_fields;
+  expected_personal_context_fields.set_serialized_tink_keyset(
+      expected_public_key.data(), expected_public_key.size());
+
+  // Verify that RefreshLocalDeviceInfo() was called and immediately triggered
+  // a commit to the server with the new public key.
+  EXPECT_TRUE(
+      ServerDeviceInfoMatchChecker(ElementsAre(AllOf(
+          HasCacheGuid(GetLocalCacheGuid()),
+          HasPersonalContextFields(
+              EqualsProto(expected_personal_context_fields)))))
+          .Wait());
+}
+
+IN_PROC_BROWSER_TEST_P(SingleClientDeviceInfoSyncTestWithPersonalContext,
+                       DownloadRemoteDeviceWithPersonalContextInfo) {
+  const std::vector<uint8_t> kRemoteKeyset = {1, 2, 3, 4, 5};
+  sync_pb::DeviceInfoSpecifics specifics = CreateSpecifics(/*suffix=*/1);
+  specifics.mutable_personal_context_fields()->set_serialized_tink_keyset(
+      kRemoteKeyset.data(), kRemoteKeyset.size());
+  InjectDeviceInfoSpecificsToServer(specifics);
+
+  ASSERT_TRUE(SetupSync());
+
+  // Verify the remote device is downloaded.
+  ASSERT_THAT(
+      GetDeviceInfoTracker()->GetAllDeviceInfo(),
+      UnorderedElementsAre(ModelEntryHasCacheGuid(GetLocalCacheGuid()),
+                           ModelEntryHasCacheGuid(CacheGuidForSuffix(1))));
+
+  const syncer::DeviceInfo* remote_device =
+      GetDeviceInfoTracker()->GetDeviceInfo(CacheGuidForSuffix(1));
+  ASSERT_TRUE(remote_device);
+  ASSERT_TRUE(remote_device->personal_context_info().has_value());
+  EXPECT_EQ(remote_device->personal_context_info()->serialized_tink_keyset,
+            kRemoteKeyset);
+}
+
+
+INSTANTIATE_TEST_SUITE_P(,
+                         SingleClientDeviceInfoSyncTestWithPersonalContext,
                          GetSyncTestModes(),
                          testing::PrintToStringParamName());
 

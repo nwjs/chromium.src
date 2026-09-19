@@ -6,6 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_RESOLVER_CASCADE_RESOLVER_H_
 
 #include "base/containers/adapters.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/values_equivalent.h"
 #include "base/types/strong_alias.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -65,7 +66,8 @@ class CORE_EXPORT CascadeResolver {
         return a.HasEqualCSSPropertyName(b);
       };
       return type == o.type &&
-             base::ValuesEquivalent(property, o.property, property_name_eq) &&
+             base::ValuesEquivalent(property.get(), o.property.get(),
+                                    property_name_eq) &&
              name == o.name && function == o.function;
     }
 
@@ -73,11 +75,18 @@ class CORE_EXPORT CascadeResolver {
 
     const Type type;
     // Used for Type::kProperty.
-    const CSSProperty* property;
+    raw_ptr<const CSSProperty, UnprotectedInRelease | DanglingUntriaged>
+        property;
     // Used for Type::kAttribute and Type::kLocalVariable.
     const AtomicString name;
     // Used for Type::kFunction and Type::kLocalVariable.
     const Member<const StyleRuleFunction> function;
+    // Tracks the number of random() functions evaluated early during arbitrary
+    // substitutions (arbsubs) as part of substitution rather than as the
+    // substitution value itself (e.g. within an if() condition). This maintains
+    // the correct sequential index in parse order for evaluation caching across
+    // all substitutions in the property.
+    wtf_size_t random_value_count = 0;
   };
 
   // TODO(crbug.com/985047): Probably use a HashMap for this.
@@ -131,6 +140,24 @@ class CORE_EXPORT CascadeResolver {
 
   // The CSSProperty::Flags of all properties rejected by the CascadeFilter.
   CSSProperty::Flags RejectedFlags() const { return rejected_flags_; }
+
+  wtf_size_t RandomValueCount() const {
+    return stack_.empty() ? 0 : stack_.back().random_value_count;
+  }
+
+  void SetRandomValueCount(wtf_size_t count) {
+    if (!stack_.empty()) {
+      stack_.back().random_value_count = count;
+    }
+  }
+
+  wtf_size_t FunctionInvocationCount() const {
+    return function_invocation_count_;
+  }
+
+  wtf_size_t NextFunctionInvocationCount() {
+    return ++function_invocation_count_;
+  }
 
   // Automatically locks and unlocks the given property. (See
   // CascadeResolver::IsLocked).
@@ -201,6 +228,7 @@ class CORE_EXPORT CascadeResolver {
     const cssvalue::CSSPendingSubstitutionValue* value = nullptr;
     HeapVector<CSSPropertyValue, 64> parsed_properties;
   } shorthand_cache_;
+  wtf_size_t function_invocation_count_ = 0;
 };
 
 }  // namespace blink

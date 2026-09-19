@@ -11,7 +11,9 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/simple_test_tick_clock.h"
 #include "base/test/test_timeouts.h"
+#include "base/time/default_tick_clock.h"
 #include "build/build_config.h"
 #include "chrome/browser/navigation_predictor/navigation_predictor_features.h"
 #include "chrome/browser/navigation_predictor/navigation_predictor_keyed_service.h"
@@ -23,7 +25,7 @@
 #include "chrome/browser/preloading/scoped_prewarm_feature_list.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/subresource_filter/subresource_filter_browser_test_harness.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/search_test_utils.h"
@@ -198,14 +200,52 @@ IN_PROC_BROWSER_TEST_F(NavigationPredictorPreconnectClientBrowserTest,
   WaitForPreresolveCount(2);
   EXPECT_EQ(2, preresolve_done_count_);
 
-  browser()->tab_strip_model()->GetActiveWebContents()->WasHidden();
+  browser()->GetTabStripModel()->GetActiveWebContents()->WasHidden();
 
-  browser()->tab_strip_model()->GetActiveWebContents()->WasShown();
+  browser()->GetTabStripModel()->GetActiveWebContents()->WasShown();
 
   // After showing the contents again, there should be another preconnect client
   // preconnect.
   WaitForPreresolveCount(3);
   EXPECT_EQ(3, preresolve_done_count_);
+}
+
+IN_PROC_BROWSER_TEST_F(NavigationPredictorPreconnectClientBrowserTest,
+                       SearchEnginePreconnectorVisibilityUpdatedCorrectly) {
+  base::SimpleTestTickClock tick_clock;
+  tick_clock.SetNowTicks(base::TimeTicks::Now());
+
+  SearchEnginePreconnector* preconnector = GetSearchEnginePreconnector();
+  ASSERT_TRUE(preconnector);
+  preconnector->SetTickClockForTesting(&tick_clock);
+
+  const GURL& url = GetTestURL("/anchors_different_area.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  // Hide the active tab.
+  web_contents->WasHidden();
+
+  // Advance time beyond the 1-second cooldown threshold.
+  tick_clock.Advance(base::Seconds(2));
+
+  // The SearchEnginePreconnector should now consider the browser app in the
+  // background.
+  EXPECT_FALSE(preconnector->IsBrowserAppLikelyInForeground());
+
+  // Show the active tab again.
+  web_contents->WasShown();
+
+  // Advance time beyond the cooldown threshold.
+  tick_clock.Advance(base::Seconds(2));
+
+  // The SearchEnginePreconnector should now consider the browser app in the
+  // foreground.
+  EXPECT_TRUE(preconnector->IsBrowserAppLikelyInForeground());
+
+  preconnector->SetTickClockForTesting(base::DefaultTickClock::GetInstance());
 }
 
 class NavigationPredictorPreconnectClientBrowserTestWithUnusedIdleSocketTimeout
@@ -409,7 +449,7 @@ class NavigationPredictorPreconnectClientFencedFrameBrowserTest
   }
 
   content::WebContents* GetWebContents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
  private:
@@ -461,11 +501,9 @@ class NavigationPredictorPreconnectClientConnectionAllowlistBrowserTest
     subresource_filter::SubresourceFilterBrowserTest::SetUp();
   }
 
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    NavigationPredictorPreconnectClientBrowserTest::SetUpCommandLine(
-        command_line);
-    feature_list_.InitWithFeatures(
-        {network::features::kConnectionAllowlists}, {});
+  base::flat_set<base::test::FeatureRef> GetSubresourceFilterEnabledFeatures()
+      const override {
+    return {network::features::kConnectionAllowlists};
   }
 
   void SetUpOnMainThread() override {
@@ -490,9 +528,6 @@ class NavigationPredictorPreconnectClientConnectionAllowlistBrowserTest
 
  protected:
   std::map<GURL, bool> preresolve_results_;
-
- private:
-  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(
@@ -521,7 +556,7 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(loading_predictor);
 
   auto* primary_main_frame = browser()
-                                 ->tab_strip_model()
+                                 ->GetTabStripModel()
                                  ->GetActiveWebContents()
                                  ->GetPrimaryMainFrame();
   loading_predictor->PrepareForPageLoad(

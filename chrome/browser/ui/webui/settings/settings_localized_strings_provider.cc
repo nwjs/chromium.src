@@ -47,6 +47,7 @@
 #include "chrome/browser/subscription_eligibility/subscription_eligibility_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/managed_ui.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/side_panel/side_panel_prefs.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
@@ -68,15 +69,13 @@
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
-#include "components/autofill/content/browser/content_autofill_driver.h"
-#include "components/autofill/content/browser/content_autofill_driver_factory.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/payments/payments_service_url.h"
 #include "components/autofill/core/browser/payments/payments_util.h"
-#include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
+#include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_util.h"
 #include "components/autofill/core/browser/studies/autofill_experiments.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -507,7 +506,7 @@ void AddAiStrings(content::WebUIDataSource* html_source) {
       {"aiSuggestionsConsider2Link",
        IDS_CONTEXTUAL_CUEING_SETTINGS_CONSIDER_2_LINK},
 
-      // Dictation (Voice typing) strings.
+      // Dictation (Talk to type) strings.
       {"dictationSettingLabel", IDS_SETTINGS_DICTATION_SETTING_LABEL},
       {"dictationSettingSublabel", IDS_SETTINGS_DICTATION_SETTING_SUBLABEL},
       {"dictationPreferencesHeader", IDS_SETTINGS_DICTATION_PREFERENCES_HEADER},
@@ -603,6 +602,7 @@ void AddAppearanceStrings(content::WebUIDataSource* html_source,
       {"showOrganizerPanelButton", IDS_SETTINGS_SHOW_ORGANIZER_PANEL_BUTTON},
       {"showEverythingMenuButton", IDS_SETTINGS_SHOW_EVERYTHING_MENU_BUTTON},
       {"tabStripPosition", IDS_SETTINGS_TAB_STRIP_POSITION},
+      {"tabScrollAutoShowOnOverflow", IDS_TAB_SCROLL_AUTO_SHOW_ON_OVERFLOW},
       {"showVerticalTabsExpandOnHover",
        IDS_SETTINGS_VERTICAL_TABS_EXPAND_ON_HOVER},
       {"allowSplitViewDragAndDrop",
@@ -672,8 +672,6 @@ void AddAppearanceStrings(content::WebUIDataSource* html_source,
   html_source->AddBoolean(
       "showHoverCardImagesOption",
       base::FeatureList::IsEnabled(features::kTabHoverCardImages));
-  html_source->AddBoolean("showVerticalTabsEnabled",
-                          tabs::IsVerticalTabsFeatureEnabled());
   html_source->AddBoolean("showGlassEffectEnabled",
                           features::IsGlassFrameEnabled());
   html_source->AddBoolean("showVerticalTabsExpandOnHoverEnabled",
@@ -686,6 +684,9 @@ void AddAppearanceStrings(content::WebUIDataSource* html_source,
 
   html_source->AddBoolean("showCtrlTabMru",
                           base::FeatureList::IsEnabled(features::kCtrlTabMru));
+  html_source->AddBoolean(
+      "tabStripUnificationEnabled",
+      base::FeatureList::IsEnabled(tabs::kTabStripUnification));
 
   std::string configurable_alignments_json;
   base::JSONWriter::Write(
@@ -1656,6 +1657,7 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
       {"enableProfilesSublabel", IDS_AUTOFILL_ENABLE_PROFILES_TOGGLE_SUBLABEL},
       {"enableGmailOtpFillingTitle",
        IDS_AUTOFILL_GMAIL_OTP_FILLING_TOGGLE_TITLE},
+      {"gmailOtpRequiredTitle", IDS_AUTOFILL_GMAIL_OTP_REQUIRED_TITLE},
       {"emailVerificationLabel",
        IDS_AUTOFILL_SETTINGS_EMAIL_VERIFICATION_LABEL},
       {"emailVerificationSectionTitle",
@@ -1957,14 +1959,28 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
 
   html_source->AddString("manageAddressesUrl",
                          autofill::payments::GetManageAddressesUrl().spec());
-  html_source->AddString(
-      "manageCreditCardsLabel",
-      l10n_util::GetStringFUTF16(
-          IDS_SETTINGS_PAYMENTS_MANAGE_LOYALTY_CARDS_AND_PAYMENT_METHODS,
-          base::UTF8ToUTF16(
-              autofill::payments::GetManageLoyaltyCardsUrl().spec()),
-          base::UTF8ToUTF16(
-              autofill::payments::GetManageInstrumentsUrl().spec())));
+  if (base::FeatureList::IsEnabled(
+          autofill::features::kAutofillEnableWalletReminderNotice)) {
+    html_source->AddString(
+        "manageCreditCardsLabel",
+        l10n_util::GetStringFUTF16(
+            IDS_SETTINGS_PAYMENTS_MANAGE_WALLET_DATA,
+            base::UTF8ToUTF16(
+                autofill::payments::GetManageSettingsUrl().spec()),
+            base::UTF8ToUTF16(
+                autofill::payments::GetManageInstrumentsUrl().spec()),
+            base::UTF8ToUTF16(
+                autofill::payments::GetManagePassesUrl().spec())));
+  } else {
+    html_source->AddString(
+        "manageCreditCardsLabel",
+        l10n_util::GetStringFUTF16(
+            IDS_SETTINGS_PAYMENTS_MANAGE_LOYALTY_CARDS_AND_PAYMENT_METHODS,
+            base::UTF8ToUTF16(
+                autofill::payments::GetManageLoyaltyCardsUrl().spec()),
+            base::UTF8ToUTF16(
+                autofill::payments::GetManageInstrumentsUrl().spec())));
+  }
   html_source->AddString("managePaymentMethodsUrl",
                          autofill::payments::GetManageInstrumentsUrl().spec());
   html_source->AddString("managePrivatePassesUrl",
@@ -2064,6 +2080,18 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
           l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB)));
   html_source->AddString("gmailOtpFillingLearnMoreUrl",
                          chrome::kGmailOtpFillingLearnMoreURL);
+
+  html_source->AddString(
+      "gmailOtpRequiredStep1",
+      l10n_util::GetStringFUTF16(
+          IDS_AUTOFILL_GMAIL_OTP_REQUIRED_STEP_1, chrome::kGmailSettingsURL,
+          l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB)));
+  html_source->AddString(
+      "gmailOtpRequiredStep2",
+      l10n_util::GetStringFUTF16(
+          IDS_AUTOFILL_GMAIL_OTP_REQUIRED_STEP_2,
+          chrome::kGmailSmartFeaturesURL,
+          l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB)));
 
   auto* autofill_client =
       autofill::ContentAutofillClient::FromWebContents(web_contents);
@@ -3164,8 +3192,27 @@ void AddSearchStrings(content::WebUIDataSource* html_source, Profile* profile) {
        IDS_SETTINGS_CONTROLLED_BY_EXTENSION_WITH_DISABLE_AND_MANAGE_OPTION},
       {"controlledByExtensionWithoutDisableOption",
        IDS_SETTINGS_CONTROLLED_BY_EXTENSION_WITH_MANAGE_OPTION},
+      {"omniboxEverywhereTitle", IDS_SETTINGS_OMNIBOX_EVERYWHERE_TITLE},
+      {"omniboxEverywhereToggleTitle", IDS_SETTINGS_OMNIBOX_EVERYWHERE_TOGGLE},
+      {"omniboxEverywhereToggleSublabel",
+       IDS_SETTINGS_OMNIBOX_EVERYWHERE_TOGGLE_SUBLABEL},
+      {"omniboxEverywhereShortcutTitle",
+       IDS_SETTINGS_OMNIBOX_EVERYWHERE_SHORTCUT_TITLE},
+      {"omniboxEverywhereShortcutSublabel",
+       IDS_SETTINGS_OMNIBOX_EVERYWHERE_SHORTCUT_SUBLABEL},
+      {"omniboxEverywhereShowShortcutsTitle",
+       IDS_SETTINGS_OMNIBOX_EVERYWHERE_SHOW_SHORTCUTS_TITLE},
+      {"omniboxEverywhereShowShortcutsSublabel",
+       IDS_SETTINGS_OMNIBOX_EVERYWHERE_SHOW_SHORTCUTS_SUBLABEL},
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
+  // The Omnibox Everywhere settings section is displayed whenever a profile is
+  // eligible, regardless of whether the user currently has the feature toggled
+  // on or off.
+  html_source->AddBoolean("omniboxEverywhereSettingsEnabled",
+                          omnibox::IsOmniboxEverywhereEligible(profile));
+  html_source->AddString("omniboxEverywhereLearnMoreURL",
+                         chrome::kOmniboxLearnMoreURL);
   html_source->AddString("searchExplanationLearnMoreURL",
                          chrome::kOmniboxLearnMoreURL);
 
@@ -3278,10 +3325,19 @@ void AddSiteSettingsStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_SITE_SETTINGS_RECENT_ACTIVITY},
       {"siteSettingsCategoryCamera", IDS_SITE_SETTINGS_TYPE_CAMERA},
       {"siteSettingsCameraLabel", IDS_SITE_SETTINGS_TYPE_CAMERA},
+      {"siteRequestsSubHeader", IDS_SETTINGS_SITE_REQUESTS_SUB_HEADER},
+      {"thirdPartyCookiesSubHeader",
+       IDS_SETTINGS_THIRD_PARTY_COOKIES_SUB_HEADER},
       {"thirdPartyCookiesPageTitle",
        IDS_SETTINGS_THIRD_PARTY_COOKIES_PAGE_TITLE},
       {"thirdPartyCookiesLinkRowLabel",
        IDS_SETTINGS_THIRD_PARTY_COOKIES_LINK_ROW_LABEL},
+      {"thirdPartyCookiesAndSiteDataPageTitle",
+       IDS_SETTINGS_THIRD_PARTY_COOKIES_AND_SITE_DATA_PAGE_TITLE},
+      {"thirdPartyCookiesAndSiteDataLinkRowLabel",
+       IDS_SETTINGS_THIRD_PARTY_COOKIES_AND_SITE_DATA_LINK_ROW_LABEL},
+      {"thirdPartyCookiesAndSiteDataLinkRowSublabel",
+       IDS_SETTINGS_THIRD_PARTY_COOKIES_AND_SITE_DATA_LINK_ROW_SUB_LABEL},
       {"thirdPartyCookiesLinkRowSublabelEnabled",
        IDS_SETTINGS_THIRD_PARTY_COOKIES_LINK_ROW_SUB_LABEL_ENABLED},
       {"thirdPartyCookiesLinkRowSublabelDisabled",
@@ -3301,6 +3357,10 @@ void AddSiteSettingsStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_TRACKING_PROTECTION_ADVANCED_LABEL},
       {"trackingProtectionDoNotTrackToggleSubLabel",
        IDS_SETTINGS_TRACKING_PROTECTION_DO_NOT_TRACK_TOGGLE_SUB_LABEL},
+      {"trackingProtectionDoNotTrackDisclaimerToggleSubLabel",
+       IDS_SETTINGS_TRACKING_PROTECTION_DO_NOT_TRACK_DISCLAIMER_TOGGLE_SUB_LABEL},
+      {"universalOptOutLabel", IDS_SETTINGS_UNIVERSAL_OPT_OUT_LABEL},
+      {"universalOptOutSubLabel", IDS_SETTINGS_UNIVERSAL_OPT_OUT_SUB_LABEL},
       {"trackingProtectionSitesAllowedCookiesTitle",
        IDS_SETTINGS_TRACKING_PROTECTION_SITES_ALLOWED_COOKIES_TITLE},
       {"trackingProtectionSitesAllowedCookiesDescription",

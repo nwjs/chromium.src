@@ -10,6 +10,7 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_trait.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/elements/gradient/gradient_view.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/ui_util.h"
@@ -23,22 +24,16 @@ constexpr CGFloat kFakeboxHighlightDuration = 0.4;
 constexpr CGFloat kFakeboxHighlightAlpha = 0.06;
 
 // Fakebox shadow parameters for NTP UI cleanup.
-constexpr CGFloat kFakeboxShadowRadius = 12.0;
-constexpr CGFloat kFakeboxShadowVerticalOffset = 2.0;
-constexpr CGFloat kFakeboxShadowOpacity = 0.15;
-
-// Returns whether the fakebox background color and shadow should be applied.
-bool ShouldApplyFakeboxBackgroundAndShadow() {
-  return IsNewTabPageUICleanupEnabled() ||
-         IsNewTabPageUICleanupFakeboxOnlyEnabled();
-}
+constexpr CGFloat kFakeboxShadowRadius = 14.0;
+constexpr CGFloat kFakeboxShadowVerticalOffset = 3.0;
+constexpr CGFloat kFakeboxShadowOpacity = 0.16;
 
 // Helper function to resolve dynamic fakebox background color. The fakebox
-// background color is dependent on if kNewTabPageUICleanup is enabled.
+// background color is dependent on if `kNewTabPageUICleanup` is enabled.
 UIColor* DynamicFakeboxColor(NSString* solid_color_name,
                              NSString* gradient_color_name) {
   if (ShouldApplyFakeboxBackgroundAndShadow()) {
-    return [UIColor colorNamed:kPrimaryBackgroundColor];
+    return [UIColor colorNamed:kNTPRedesignFakeboxBackgroundColor];
   }
   return UIAccessibilityIsReduceTransparencyEnabled()
              ? [UIColor colorNamed:solid_color_name]
@@ -153,6 +148,10 @@ UIColor* FakeboxBottomColor() {
 - (void)updateColorsWithProgress:(CGFloat)progress
                     colorPalette:(NewTabPageColorPalette*)colorPalette {
   UIColor* pinnedColor = [UIColor colorNamed:kTextfieldBackgroundColor];
+  if (!CanShowTabStrip(self) && ShouldApplyFakeboxBackgroundAndShadow()) {
+    pinnedColor = colorPalette ? colorPalette.omniboxColor
+                               : [UIColor colorNamed:kSolidWhiteColor];
+  }
 
   // Use a quadratic curve interpolation.
   progress = progress * progress;

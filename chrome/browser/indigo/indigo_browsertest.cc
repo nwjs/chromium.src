@@ -4,14 +4,20 @@
 
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/metrics/metrics_hashes.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
-#include "build/build_config.h"
+#include "chrome/browser/contextual_cueing/contextual_cueing_service.h"
+#include "chrome/browser/contextual_cueing/contextual_cueing_service_factory.h"
+#include "chrome/browser/contextual_cueing/cue_target.h"
 #include "chrome/browser/contextual_cueing/features.h"
 #include "chrome/browser/indigo/fake_api.h"
+#include "ui/actions/actions.h"
 #include "chrome/browser/indigo/indigo_image_replacement_manager.h"
+#include "chrome/browser/indigo/indigo_metrics.h"
 #include "chrome/browser/indigo/indigo_page_action_controller.h"
 #include "chrome/browser/indigo/indigo_prefs.h"
 #include "chrome/browser/indigo/indigo_service.h"
@@ -22,9 +28,11 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
@@ -39,6 +47,7 @@
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
+#include "components/sync/test/test_sync_service.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -414,7 +423,7 @@ IN_PROC_BROWSER_TEST_F(IndigoBrowserTest, CloseResetsReplacements) {
           kWebContentsId,
           base::BindLambdaForTesting([&](ui::TrackedElement* el) {
             content::WebContents* web_contents =
-                browser()->tab_strip_model()->GetActiveWebContents();
+                browser()->GetTabStripModel()->GetActiveWebContents();
             auto* manager = IndigoImageReplacementManager::GetOrCreateForPage(
                 web_contents->GetPrimaryPage());
             manager->RegisterImageReplacement(
@@ -586,7 +595,7 @@ IN_PROC_BROWSER_TEST_F(IndigoBrowserTest, ShowToolbarWhileInactiveDeferred) {
       // Trigger toolbar showing on the background tab (Tab 1)
       Do(base::BindLambdaForTesting([&]() {
         content::WebContents* tab1_contents =
-            browser()->tab_strip_model()->GetWebContentsAt(0);
+            browser()->GetTabStripModel()->GetWebContentsAt(0);
         auto* tab1 = tabs::TabInterface::GetFromContents(tab1_contents);
         auto* controller = IndigoPageActionController::From(tab1);
         ASSERT_TRUE(controller);
@@ -936,23 +945,106 @@ IN_PROC_BROWSER_TEST_F(IndigoBrowserTest, TabDiscarding) {
   // Navigate first tab to a URL to initialize an IndigoPageActionController.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
   ASSERT_TRUE(IndigoPageActionController::From(
-      browser()->tab_strip_model()->GetActiveTab()));
+      browser()->GetTabStripModel()->GetActiveTab()));
 
   // Open a new tab to background the first one.
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
-  browser()->tab_strip_model()->ActivateTabAt(1);
+  browser()->GetTabStripModel()->ActivateTabAt(1);
 
   // Discard the first tab.
   std::unique_ptr<content::WebContents> new_contents =
       content::WebContents::Create(
           content::WebContents::CreateParams(browser()->GetProfile()));
-  browser()->tab_strip_model()->DiscardWebContents(
-      browser()->tab_strip_model()->GetWebContentsAt(0),
+  browser()->GetTabStripModel()->DiscardWebContents(
+      browser()->GetTabStripModel()->GetWebContentsAt(0),
       std::move(new_contents));
 
   // Switch back to the discarded tab and navigate it again.
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+}
+
+class IndigoContextualCueingV2BrowserTest : public IndigoBrowserTest {
+ public:
+  IndigoContextualCueingV2BrowserTest() = default;
+
+  void SetUp() override {
+    ASSERT_TRUE(fake_api_.InitializeAndListen());
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        {{features::kIndigo,
+          {{features::kIndigoGenerateUrl.name,
+            fake_api_.GetGenerateUrl().spec()},
+           {features::kIndigoSkipEnterpriseCheck.name, "true"}}},
+         {blink::features::kImageReplacement, {}},
+         {contextual_cueing::kContextualCueingV2,
+          {{contextual_cueing::kDisableCueBackoff.name, "true"}}},
+         {contextual_cueing::kContextualCueingV2MultiSource, {}},
+         {features::kIndigoContextualCueingV2, {}}},
+        /*disabled_features=*/{
+            contextual_cueing::kContextualCueingV2EnforceAgeRestriction});
+    InteractiveBrowserTest::SetUp();
+  }
+
+  void SetUpBrowserContextKeyedServices(
+      content::BrowserContext* context) override {
+    IndigoBrowserTest::SetUpBrowserContextKeyedServices(context);
+    SyncServiceFactory::GetInstance()->SetTestingFactory(
+        context, base::BindRepeating([](content::BrowserContext* context)
+                                         -> std::unique_ptr<KeyedService> {
+          return std::make_unique<syncer::TestSyncService>();
+        }));
+  }
+
+  void SetUpOnMainThread() override {
+    IndigoBrowserTest::SetUpOnMainThread();
+    auto* sync_service = static_cast<syncer::TestSyncService*>(
+        SyncServiceFactory::GetForProfile(browser()->GetProfile()));
+    sync_service->SetSignedIn(signin::ConsentLevel::kSignin);
+    sync_service->GetUserSettings()->SetSelectedType(
+        syncer::UserSelectableType::kHistory, true);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(IndigoContextualCueingV2BrowserTest,
+                       ArbitrationAndInvocationFlow) {
+  base::UserActionTester user_action_tester;
+  base::HistogramTester histogram_tester;
+  const GURL main_tab_url = embedded_test_server()->GetURL("/image.html");
+  RunTestSequence(
+      InstrumentTab(kWebContentsId),
+      NavigateWebContents(kWebContentsId, main_tab_url),
+      WaitForWebContentsReady(kWebContentsId, main_tab_url),
+      WaitForShow(
+          page_actions::AnchoredMessageBubbleView::kAnchoredMessageChipId),
+      PressButton(
+          page_actions::AnchoredMessageBubbleView::kAnchoredMessageChipId),
+      WaitForShow(IndigoToolbar::kToolbarElementId));
+
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   kProactiveAnchoredMessageShowAction));
+  histogram_tester.ExpectUniqueSample(
+      kShownEntryPointHistogram,
+      IndigoPageActionEntryPoint::kProactiveAnchoredMessage, 1);
+  EXPECT_EQ(1, user_action_tester.GetActionCount(kAnchoredMessageClickAction));
+  histogram_tester.ExpectUniqueSample(
+      kClickedEntryPointHistogram,
+      IndigoPageActionEntryPoint::kProactiveAnchoredMessage, 1);
+
+  histogram_tester.ExpectUniqueSample(
+      "ContextualCueing.ShownCueCUJ",
+      base::HashMetricName(contextual_cueing::GetName(
+          contextual_cueing::CueTargetType::kIndigo)),
+      1);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualCueing.V2.CueShown",
+      base::HashMetricName(contextual_cueing::GetName(
+          contextual_cueing::CueTargetType::kIndigo)),
+      1);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualCueing.V2.CueInteraction.Clicked",
+      base::HashMetricName(contextual_cueing::GetName(
+          contextual_cueing::CueTargetType::kIndigo)),
+      1);
 }
 
 }  // namespace

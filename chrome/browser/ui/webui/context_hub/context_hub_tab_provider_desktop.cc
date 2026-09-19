@@ -11,19 +11,23 @@
 #include "base/check.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/context_hub/context_hub_service.h"
 #include "chrome/browser/context_hub/context_hub_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/saved_tab_groups/public/types.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/tabs/public/tab_handle_factory.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/base_window.h"
 
@@ -33,9 +37,8 @@ namespace {
 using WindowTabIndicesMap =
     base::flat_map<BrowserWindowInterface*, std::vector<int>>;
 
-// Finds ungrouped tab indices in a TabStripModel matching a set of session tab
-// IDs.
-std::vector<int> GetMatchingUngroupedIndices(
+// Finds tab indices in a TabStripModel matching a set of session tab IDs.
+std::vector<int> GetMatchingTabIndices(
     TabStripModel* model,
     const base::flat_set<int64_t>& tab_ids) {
   std::vector<int> indices;
@@ -43,7 +46,7 @@ std::vector<int> GetMatchingUngroupedIndices(
     return indices;
   }
   for (int i = 0; i < model->count(); ++i) {
-    if (model->IsTabPinned(i) || model->GetTabGroupForTab(i).has_value()) {
+    if (model->IsTabPinned(i)) {
       continue;
     }
     if (content::WebContents* wc = model->GetWebContentsAt(i)) {
@@ -56,9 +59,8 @@ std::vector<int> GetMatchingUngroupedIndices(
   return indices;
 }
 
-// Maps browser windows to their ungrouped tab indices matching the group's tab
-// IDs.
-WindowTabIndicesMap FindUngroupedTabsForGroup(
+// Maps browser windows to their tab indices matching the group's tab IDs.
+WindowTabIndicesMap FindTabsForGroup(
     Profile* profile,
     const base::flat_set<int64_t>& group_tab_ids) {
   WindowTabIndicesMap window_indices;
@@ -70,7 +72,7 @@ WindowTabIndicesMap FindUngroupedTabsForGroup(
   collection->ForEach(
       [&group_tab_ids, &window_indices](BrowserWindowInterface* b) {
         std::vector<int> indices =
-            GetMatchingUngroupedIndices(b->GetTabStripModel(), group_tab_ids);
+            GetMatchingTabIndices(b->GetTabStripModel(), group_tab_ids);
         if (!indices.empty()) {
           window_indices[b] = std::move(indices);
         }
@@ -89,8 +91,7 @@ BrowserWindowInterface* GetMajorityBrowser(
   return it != window_indices.end() ? it->first : nullptr;
 }
 
-// Moves ungrouped tabs from other browser windows into the target browser
-// window.
+// Moves tabs from other browser windows into the target browser window.
 void MoveTabsToBrowser(BrowserWindowInterface* target_browser,
                        const WindowTabIndicesMap& window_indices) {
   for (const auto& [source_browser, indices] : window_indices) {
@@ -100,16 +101,48 @@ void MoveTabsToBrowser(BrowserWindowInterface* target_browser,
   }
 }
 
+// Returns true if any of the target tabs currently belong to a tab group
+// that is pinned to the bookmarks bar.
+bool WereAnyTabsInPinnedGroup(
+    Profile* profile,
+    const WindowTabIndicesMap& window_indices) {
+  tab_groups::TabGroupSyncService* sync_service =
+      tab_groups::TabGroupSyncServiceFactory::GetForProfile(profile);
+  if (!sync_service) {
+    return false;
+  }
+
+  for (const auto& [browser, indices] : window_indices) {
+    TabStripModel* tab_strip = browser->GetTabStripModel();
+    if (!tab_strip || !tab_strip->SupportsTabGroups()) {
+      continue;
+    }
+    for (int index : indices) {
+      if (std::optional<tab_groups::TabGroupId> group_id =
+              tab_strip->GetTabGroupForTab(index)) {
+        if (std::optional<tab_groups::SavedTabGroup> saved_group =
+                sync_service->GetGroup(*group_id)) {
+          if (saved_group->is_pinned()) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
 // Creates a new tab group in the browser window and applies the group visual
-// metadata.
+// metadata and pinned state.
 bool GroupTabsInWindow(BrowserWindowInterface* browser,
                        const base::flat_set<int64_t>& group_tab_ids,
-                       std::string_view label) {
+                       std::string_view label,
+                       bool should_be_pinned) {
   TabStripModel* tab_strip = browser->GetTabStripModel();
   // Tabs moved from other windows have new positions
   // Rescan the target window to find all matching indices.
   std::vector<int> final_indices =
-      GetMatchingUngroupedIndices(tab_strip, group_tab_ids);
+      GetMatchingTabIndices(tab_strip, group_tab_ids);
   if (final_indices.empty()) {
     return false;
   }
@@ -119,6 +152,21 @@ bool GroupTabsInWindow(BrowserWindowInterface* browser,
                                              tab_groups::TabGroupColorId::kBlue,
                                              /*is_collapsed=*/false);
   tab_strip->ChangeTabGroupVisuals(group_id, visual_data);
+
+  // Tab groups created by Context Hub should only be pinned if they reuse /
+  // extend an existing group that was already pinned by the user.
+  if (tab_groups::TabGroupSyncService* sync_service =
+          tab_groups::TabGroupSyncServiceFactory::GetForProfile(
+              browser->GetProfile())) {
+    if (std::optional<tab_groups::SavedTabGroup> saved_group =
+            sync_service->GetGroup(group_id)) {
+      if (saved_group->is_pinned() != should_be_pinned) {
+        sync_service->UpdateGroupPosition(saved_group->saved_guid(),
+                                          should_be_pinned,
+                                          /*new_index=*/std::nullopt);
+      }
+    }
+  }
   return true;
 }
 
@@ -128,12 +176,22 @@ bool ConfirmSingleTabGroup(Profile* profile, const TabGroupEntry& group) {
     return false;
   }
 
-  base::flat_set<int64_t> tab_ids(group.tab_ids);
+  std::vector<int64_t> resolved_ids;
+  resolved_ids.reserve(group.tab_ids.size());
+  for (int64_t id : group.tab_ids) {
+    int64_t session_id =
+        ContextHubTabProviderDesktop::GetSessionIdForTabHandle(id);
+    resolved_ids.push_back(
+        session_id != SessionID::InvalidValue().id() ? session_id : id);
+  }
+  base::flat_set<int64_t> tab_ids(std::move(resolved_ids));
   WindowTabIndicesMap window_indices =
-      FindUngroupedTabsForGroup(profile, tab_ids);
+      FindTabsForGroup(profile, tab_ids);
   if (window_indices.empty()) {
     return false;
   }
+
+  bool should_be_pinned = WereAnyTabsInPinnedGroup(profile, window_indices);
 
   BrowserWindowInterface* target_browser = GetMajorityBrowser(window_indices);
   if (!target_browser) {
@@ -141,7 +199,8 @@ bool ConfirmSingleTabGroup(Profile* profile, const TabGroupEntry& group) {
   }
 
   MoveTabsToBrowser(target_browser, window_indices);
-  return GroupTabsInWindow(target_browser, tab_ids, group.label);
+  return GroupTabsInWindow(target_browser, tab_ids, group.label,
+                           should_be_pinned);
 }
 
 }  // namespace
@@ -151,6 +210,20 @@ ContextHubTabProviderDesktop::ContextHubTabProviderDesktop(Profile* profile)
   CHECK(profile_);
 }
 ContextHubTabProviderDesktop::~ContextHubTabProviderDesktop() = default;
+
+// static
+int64_t ContextHubTabProviderDesktop::GetSessionIdForTabHandle(
+    int64_t handle_value) {
+  // TODO(crbug.com/551974122): Convert to int32 to avoid int64 conversions.
+  // Tab handles originate as int32, so overflow should not happen in practice.
+  if (!base::IsValueInRangeForNumericType<int32_t>(handle_value)) {
+    return SessionID::InvalidValue().id();
+  }
+  std::optional<int32_t> session_id =
+      tabs::SessionMappedTabHandleFactory::GetInstance().GetSessionIdForHandle(
+          static_cast<int32_t>(handle_value));
+  return session_id.value_or(SessionID::InvalidValue().id());
+}
 
 // Returns all open tabs across all browser windows for the profile.
 std::vector<content::WebContents*> ContextHubTabProviderDesktop::GetTabs() {
@@ -205,14 +278,17 @@ ContextHubTabProviderDesktop::GetUngroupedTabs() {
   return tabs;
 }
 
-// Activates the tab matching the given session tab ID and brings its window to
-// focus.
+// Activates the tab matching the given tab ID and brings its window to focus.
 void ContextHubTabProviderDesktop::SwitchToTab(int64_t tab_id) {
   ProfileBrowserCollection* collection =
       ProfileBrowserCollection::GetForProfile(profile_);
   if (!collection) {
     return;
   }
+  int64_t session_id_val = GetSessionIdForTabHandle(tab_id);
+  int64_t target_id = session_id_val != SessionID::InvalidValue().id()
+                          ? session_id_val
+                          : tab_id;
   collection->ForEach([&](BrowserWindowInterface* browser) {
     TabStripModel* tab_strip_model = browser->GetTabStripModel();
     if (!tab_strip_model) {
@@ -223,7 +299,7 @@ void ContextHubTabProviderDesktop::SwitchToTab(int64_t tab_id) {
       if (tab_contents) {
         SessionID session_id =
             sessions::SessionTabHelper::IdForTab(tab_contents);
-        if (session_id.is_valid() && session_id.id() == tab_id) {
+        if (session_id.is_valid() && session_id.id() == target_id) {
           tab_strip_model->ActivateTabAt(i);
           browser->GetWindow()->Show();
           return false;
@@ -234,13 +310,17 @@ void ContextHubTabProviderDesktop::SwitchToTab(int64_t tab_id) {
   });
 }
 
-// Closes the tab matching the given session tab ID.
+// Closes the tab matching the given tab ID.
 void ContextHubTabProviderDesktop::CloseTab(int64_t tab_id) {
   ProfileBrowserCollection* collection =
       ProfileBrowserCollection::GetForProfile(profile_);
   if (!collection) {
     return;
   }
+  int64_t session_id_val = GetSessionIdForTabHandle(tab_id);
+  int64_t target_id = session_id_val != SessionID::InvalidValue().id()
+                          ? session_id_val
+                          : tab_id;
   collection->ForEach([&](BrowserWindowInterface* browser) {
     TabStripModel* tab_strip_model = browser->GetTabStripModel();
     if (!tab_strip_model) {
@@ -251,7 +331,7 @@ void ContextHubTabProviderDesktop::CloseTab(int64_t tab_id) {
       if (tab_contents) {
         SessionID session_id =
             sessions::SessionTabHelper::IdForTab(tab_contents);
-        if (session_id.is_valid() && session_id.id() == tab_id) {
+        if (session_id.is_valid() && session_id.id() == target_id) {
           tab_strip_model->CloseWebContentsAt(
               i, TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB |
                      TabCloseTypes::CLOSE_USER_GESTURE);
@@ -290,9 +370,9 @@ void ContextHubTabProviderDesktop::RemoveGroupFromTabstripIfOpen(
   if (!local_id.has_value()) {
     return;
   }
-
-  Browser* browser = tab_groups::SavedTabGroupUtils::GetBrowserWithTabGroupId(
-      local_id.value());
+  BrowserWindowInterface* browser =
+      tab_groups::SavedTabGroupUtils::GetBrowserWithTabGroupId(
+          local_id.value());
   if (browser) {
     tab_groups::SavedTabGroupUtils::RemoveGroupFromTabstrip(browser,
                                                             local_id.value());

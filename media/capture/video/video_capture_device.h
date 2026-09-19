@@ -294,16 +294,6 @@ class CAPTURE_EXPORT VideoCaptureDevice
     // ReserveOutputBuffer().
     // See OnIncomingCapturedData for details of |reference_time| and
     // |timestamp|.
-    virtual void OnIncomingCapturedBuffer(
-        Buffer buffer,
-        const VideoCaptureFormat& format,
-        base::TimeTicks reference_time,
-        base::TimeDelta timestamp,
-        std::optional<base::TimeTicks> capture_begin_timestamp,
-        const std::optional<VideoFrameMetadata>& metadata) = 0;
-
-    // Extended version of OnIncomingCapturedBuffer() allowing clients to
-    // pass a custom |visible_rect| and |additional_metadata|.
     virtual void OnIncomingCapturedBufferExt(
         Buffer buffer,
         const VideoCaptureFormat& format,
@@ -331,6 +321,9 @@ class CAPTURE_EXPORT VideoCaptureDevice
 
     // VideoCaptureDevice reports it's successfully started.
     virtual void OnStarted() = 0;
+
+    // Invalidates all used buffers.
+    virtual void InvalidateBuffers() = 0;
   };
 
   ~VideoCaptureDevice() override;
@@ -439,6 +432,9 @@ class CAPTURE_EXPORT VideoCaptureDevice
   using TakePhotoCallback = base::OnceCallback<void(mojom::BlobPtr blob)>;
   virtual void TakePhoto(TakePhotoCallback callback);
 
+  // Invalidates all used buffers. Ensures that no more frames will be
+  // put in the previously used shared buffers.
+  virtual void InvalidateBuffers() = 0;
   // Gets the power line frequency, either from the params if specified by the
   // user or from the current system time zone.
   static PowerLineFrequency GetPowerLineFrequency(

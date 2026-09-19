@@ -10,6 +10,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/trace_event/trace_event.h"
 #include "chrome/browser/file_select_helper.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
@@ -169,6 +170,33 @@ void OmniboxPopupWebUIBaseContent::ShowUI() {
   }
   SetWebContents(contents_wrapper_->web_contents());
 
+  // Pre-initialize the presenter's content height and preferred size from
+  // RenderWidgetHostView when Full WebUI is enabled.
+  //
+  // When switching between WebUI popups (e.g. `kFull` <-> `kAim`), the incoming
+  // WebContents was already loaded and rendered, with no subsequent DOM
+  // changes. Because Blink's auto-resize mechanism suppresses emitting a new
+  // `ResizeDueToAutoResize` IPC when the content dimensions have not changed,
+  // the presenter's `content_height_` and `views::WebView` preferred size
+  // would otherwise remain uninitialized (0). This would leave the popup
+  // widget collapsed or cause it to close until a new DOM change occurs.
+  //
+  // Pre-populating the height directly from `GetViewBounds()` immediately
+  // restores the cached height to `views::WebView` and the presenter on show.
+  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+    if (auto* web_contents = GetWrappedWebContents()) {
+      if (auto* rwhv = web_contents->GetRenderWidgetHostView()) {
+        gfx::Size view_size = rwhv->GetViewBounds().size();
+        if (view_size.height() > 1) {
+          SetPreferredSize(view_size);
+          if (popup_presenter_) {
+            popup_presenter_->OnContentHeightChanged(view_size.height());
+          }
+        }
+      }
+    }
+  }
+
 #if BUILDFLAG(IS_MAC)
   UpdateAutoFill();
 #endif
@@ -207,11 +235,11 @@ void OmniboxPopupWebUIBaseContent::ResizeDueToAutoResize(
   is_window_resizing_ = false;
 
   if (popup_presenter_->ShouldDeferUntilVisualStateReady().has_value() ||
-      is_resizing) {
+      is_resizing || !popup_presenter_->ShouldDebounceResize()) {
     debounce_resize_timer_.Stop();
     popup_presenter_->OnContentHeightChanged(new_size.height());
   } else {
-    // Debounce the resize event by 2 frame's time (assuming 60 Hz) to avoid
+        // Debounce the resize event by 2 frame's time (assuming 60 Hz) to avoid
     // flickering issues when the renderer sends a transient initial size.
     // The issue is manifested as the popup being clipped at the top.
     // This happens when:
@@ -267,12 +295,23 @@ void OmniboxPopupWebUIBaseContent::SetContentURL(std::string_view url) {
 }
 
 void OmniboxPopupWebUIBaseContent::LoadContent() {
+  TRACE_EVENT1("omnibox",
+               perfetto::DynamicString(base::StrCat(
+                   {"OmniboxPopupWebUIBaseContent::LoadContent:",
+                    GetMetricPrefix()})),
+               "url", content_url_.spec());
   DCHECK(!content_url_.is_empty());
   contents_wrapper_ = std::make_unique<WebUIContentsWrapperT<OmniboxPopupUI>>(
       content_url_, location_bar_->GetProfile(), IDS_TASK_MANAGER_OMNIBOX,
       EscClosesUI());
   contents_wrapper_->SetHost(weak_factory_.GetWeakPtr());
   SetWebContents(contents_wrapper_->web_contents());
+  if (popup_presenter_->ShouldEvictOnHide()) {
+    if (auto* rwhv =
+            contents_wrapper_->web_contents()->GetRenderWidgetHostView()) {
+      rwhv->SetEvictOnHide(true);
+    }
+  }
   // LocationBarView can be instantiated in windows that do not have a
   // Browser object (i.e Captive Portal). In that case, features depending on
   // the browser are not supported and should be skipped.
@@ -281,7 +320,7 @@ void OmniboxPopupWebUIBaseContent::LoadContent() {
                                      browser);
     tab_selection_listener_ =
         std::make_unique<OmniboxPopupTabSelectionListener>(
-            weak_factory_.GetWeakPtr(), browser->tab_strip_model());
+            weak_factory_.GetWeakPtr(), browser->GetTabStripModel());
   }
   // Make the OmniboxController available to the OmniboxPopupUI.
   OmniboxPopupWebContentsHelper::CreateForWebContents(GetWebContents());
@@ -453,6 +492,15 @@ void OmniboxPopupWebUIBaseContent::OnFileChooserClosed() {
   }
   // Release the deactivation blocker since the file chooser has been closed.
   file_chooser_deactivation_blocker_.reset();
+}
+
+bool OmniboxPopupWebUIBaseContent::ShouldApplyHeightWorkarounds() const {
+  return !popup_presenter_ || popup_presenter_->ShouldApplyHeightWorkarounds();
+}
+
+bool OmniboxPopupWebUIBaseContent::ShouldSizeWebViewToPreferredHeight() const {
+  return popup_presenter_ &&
+         popup_presenter_->ShouldSizeWebViewToPreferredHeight();
 }
 
 BEGIN_METADATA(OmniboxPopupWebUIBaseContent)

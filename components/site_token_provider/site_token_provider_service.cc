@@ -4,6 +4,10 @@
 
 #include "components/site_token_provider/site_token_provider_service.h"
 
+#include <utility>
+
+#include "base/check.h"
+#include "base/functional/bind.h"
 #include "base/logging.h"
 #include "components/signin/public/identity_manager/primary_account_change_event.h"
 #include "components/site_token_provider/site_token_provider.h"
@@ -14,13 +18,17 @@ SiteTokenProviderService::SiteTokenProviderService(
     signin::IdentityManager* identity_manager,
     std::unique_ptr<SiteTokenProvider> provider)
     : provider_(std::move(provider)), identity_manager_(identity_manager) {
-  if (identity_manager_) {
-    identity_manager_->AddObserver(this);
-  }
+  CHECK(identity_manager_);
+  CHECK(provider_);
+
+  identity_manager_->AddObserver(this);
+
+  provider_->SetTokenUpdateCallback(
+      base::BindRepeating(&SiteTokenProviderService::OnTokensUpdated,
+                          weak_ptr_factory_.GetWeakPtr()));
 
   // Trigger update on startup if already signed in.
-  if (identity_manager_ &&
-      identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
+  if (identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
     UpdateState();
   }
 }
@@ -28,16 +36,28 @@ SiteTokenProviderService::SiteTokenProviderService(
 SiteTokenProviderService::~SiteTokenProviderService() = default;
 
 void SiteTokenProviderService::Shutdown() {
-  if (identity_manager_) {
-    identity_manager_->RemoveObserver(this);
-    identity_manager_ = nullptr;
-  }
+  identity_manager_->RemoveObserver(this);
+  identity_manager_ = nullptr;
 }
 
 void SiteTokenProviderService::UpdateState() {
-  if (provider_) {
-    provider_->UpdateState();
-  }
+  provider_->UpdateState();
+}
+
+std::string SiteTokenProviderService::GetTokenForDomain(
+    std::string_view domain) const {
+  auto it = token_cache_.find(NormalizeDomain(domain));
+  return it != token_cache_.end() ? it->second : "";
+}
+
+void SiteTokenProviderService::SetTokenForTesting(  // IN-TEST
+    std::string_view domain,
+    std::string token) {
+  token_cache_[NormalizeDomain(domain)] = std::move(token);
+}
+
+base::WeakPtr<SiteTokenProviderService> SiteTokenProviderService::GetWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
 }
 
 void SiteTokenProviderService::OnPrimaryAccountChanged(
@@ -47,10 +67,18 @@ void SiteTokenProviderService::OnPrimaryAccountChanged(
       UpdateState();
       break;
     case signin::PrimaryAccountChangeEvent::Type::kCleared:
-      // TODO(crbug.com/494305108): Handle sign-out state.
+      token_cache_.clear();
       break;
     case signin::PrimaryAccountChangeEvent::Type::kNone:
       break;
+  }
+}
+
+void SiteTokenProviderService::OnTokensUpdated(
+    std::map<std::string, std::string> tokens) {
+  token_cache_.clear();
+  for (auto const& [domain, token] : tokens) {
+    token_cache_[NormalizeDomain(domain)] = token;
   }
 }
 

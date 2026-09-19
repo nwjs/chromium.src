@@ -4,8 +4,7 @@
 
 #include "ui/display/mac/ca_display_link_mac.h"
 
-#import <AppKit/AppKit.h>
-#import <QuartzCore/CADisplayLink.h>
+#import <QuartzCore/QuartzCore.h>
 
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
@@ -17,6 +16,20 @@
 #include "base/trace_event/trace_event.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "ui/display/mac/screen_utils_mac.h"
+
+extern "C" {
+// SLSGetDisplayLink() is an undocumented private function (SPI) in the
+// SkyLight framework that creates a CADisplayLink directly from a
+// CGDirectDisplayID without requiring NSApplication or AppKit objects
+// (e.g., NSScreen, NSWindow, or NSView).
+//
+// `framework_dirs = [ "$mac_sdk_path/System/Library/PrivateFrameworks" ]` is
+// added to //ui/display/BUILD.gn to link SkyLight.framework. Remove this
+// private framework dependency after Apple provides a public API for this.
+CADisplayLink* SLSGetDisplayLink(CGDirectDisplayID display_id,
+                                 id target,
+                                 SEL action) API_AVAILABLE(macos(14.0));
+}
 
 API_AVAILABLE(macos(14.0))
 @interface CADisplayLinkTarget : NSObject {
@@ -131,20 +144,12 @@ void CADisplayLinkMac::TryRecordDisplayLinkCreation(
     bool in_gpu_process) {
   auto& globals = CADisplayLinkGlobals::Get();
   base::AutoLock lock(globals.lock);
+
   auto [it, inserted] = globals.recorded_displays.insert(display_id);
   if (inserted) {
-    if (in_gpu_process) {
-      // Recorded from the GpuMain (CompositorGpuThread) or VizCompositor
-      // threads in the GPU process.
-      UMA_HISTOGRAM_BOOLEAN("Viz.DisplayLink.Create.GPU.CADisplayLink",
-                            success);
-
-    } else {
-      // Created only from the VSyncThread of the Browser process.
-      // Viz.ExternalBeginFrameSourceMac.DisplayLink.Create2 is used to compare
-      // CADisplayLink in Browser with CVDisplayLink.
-      RecordDisplayLinkCreation(success);
-    }
+    UMA_HISTOGRAM_BOOLEAN("Viz.DisplayLink.Create.GPU.CADisplayLinkV2",
+                          success);
+    RecordDisplayLinkCreation(success);
   }
 }
 
@@ -167,8 +172,8 @@ scoped_refptr<DisplayLinkMac> CADisplayLinkMac::GetForDisplay(
     }
 
     objc_state->target = [[CADisplayLinkTarget alloc] init];
-    objc_state->display_link = [screen displayLinkWithTarget:objc_state->target
-                                                    selector:@selector(step:)];
+    objc_state->display_link =
+        SLSGetDisplayLink(display_id, objc_state->target, @selector(step:));
 
     if (!objc_state->display_link) {
       TryRecordDisplayLinkCreation(display_id, /*success=*/false,

@@ -5,21 +5,23 @@
 #include "chrome/browser/ui/webui/iwa_dev/iwa_dev_ui.h"
 
 #include "base/check_is_test.h"
+#include "chrome/browser/policy/developer_tools_policy_handler.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/iwa_dev/iwa_dev_page_handler.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_features.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/grit/iwa_dev_resources.h"
 #include "chrome/grit/iwa_dev_resources_map.h"
+#include "chrome/grit/theme_resources.h"
+#include "components/policy/core/browser/developer_tools_availability.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/isolated_web_apps_policy.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "ui/webui/webui_util.h"
 
 bool IwaDevUIConfig::IsWebUIEnabled(content::BrowserContext* browser_context) {
-  return content::AreIsolatedWebAppsEnabled(browser_context) &&
-         base::FeatureList::IsEnabled(features::kIsolatedWebAppDevUi);
+  return content::AreIsolatedWebAppsEnabled(browser_context);
 }
 
 IwaDevUI::IwaDevUI(content::WebUI* web_ui) : ui::MojoWebUIController(web_ui) {
@@ -31,6 +33,11 @@ IwaDevUI::IwaDevUI(content::WebUI* web_ui) : ui::MojoWebUIController(web_ui) {
                               IDR_IWA_DEV_IWA_DEV_HTML);
   source->AddBoolean("isIwaDevModeEnabled",
                      web_app::IsIwaDevModeEnabled(profile));
+
+  bool dev_tools_restricted =
+      policy::DeveloperToolsPolicyHandler::GetEffectiveAvailability(profile) ==
+      policy::DeveloperToolsAvailability::kDisallowed;
+  source->AddBoolean("isDevToolsRestrictedByAdmin", dev_tools_restricted);
 }
 
 IwaDevUI::~IwaDevUI() = default;
@@ -57,3 +64,10 @@ IwaDevPageHandler* IwaDevUI::GetHandlerForTesting() {
 }
 
 WEB_UI_CONTROLLER_TYPE_IMPL(IwaDevUI)
+
+// static
+scoped_refptr<base::RefCountedMemory> IwaDevUI::GetFaviconResourceBytes(
+    ui::ResourceScaleFactor scale_factor) {
+  return ui::ResourceBundle::GetSharedInstance().LoadDataResourceBytesForScale(
+      IDR_IWA_DEV_ICON, scale_factor);
+}

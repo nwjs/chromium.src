@@ -67,6 +67,7 @@ suite('PaymentsPageCreditCardEditDialogTest', function() {
         credit_card_enabled: {value: true},
         payment_methods_mandatory_reauth: {value: true},
         payment_cvc_storage: {value: true},
+        types_blocked: {value: []},
       },
     };
     document.body.appendChild(page);
@@ -266,9 +267,6 @@ suite('PaymentsPageCreditCardEditDialogTest', function() {
     // enabled.
     assertTrue(numberInput.matches(':focus-within'));
 
-    await verifyBooleanHistogramRecorded(
-        testMetricsBrowserProxy,
-        'Autofill.PaymentMethodsSettingsPage.AddCardClicked2', true);
     await verifyBooleanHistogramRecorded(
         testMetricsBrowserProxy,
         'Autofill.PaymentMethodsSettingsPage.AddCardClickedWithoutExistingCards2',

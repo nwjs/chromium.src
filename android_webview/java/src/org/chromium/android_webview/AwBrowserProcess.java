@@ -10,7 +10,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -30,6 +29,7 @@ import org.jni_zero.JNINamespace;
 import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
+import org.chromium.android_webview.accessibility.AwAccessibilityStateVisibilityManager;
 import org.chromium.android_webview.common.AwFeatureMap;
 import org.chromium.android_webview.common.AwFeatures;
 import org.chromium.android_webview.common.AwSwitches;
@@ -79,6 +79,7 @@ import org.chromium.content_public.browser.BrowserStartupController.StartupCallb
 import org.chromium.content_public.browser.ChildProcessCreationParams;
 import org.chromium.content_public.browser.ChildProcessLauncherHelper;
 import org.chromium.net.NetworkChangeNotifier;
+import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.display.DisplayAndroidManager;
 
 import java.io.File;
@@ -105,24 +106,6 @@ public final class AwBrowserProcess {
     // the same sequence to be run serially.
     private static final TaskRunner sSequencedTaskRunner =
             PostTask.createSequencedTaskRunner(TaskTraits.BEST_EFFORT_MAY_BLOCK);
-
-    /** Delegate interface for callbacks needed during WebView global startup. */
-    public interface StartupDelegate {
-        /** Wait until it's possible to access Android resources defined in the Chromium APK. */
-        void waitForJavaResourcesSetup();
-
-        /** Returns whether to use native sandboxed services. */
-        boolean shouldForceNativeSandboxedServices();
-
-        // TODO(abhijithnair): Rethink whether `getDrawFnFunctionTable` and `getDrawSWFunctionTable`
-        // are the right interface. See
-        // https://chromium-review.git.corp.google.com/c/chromium/src/+/8257352/comment/d9c4282e_3fa74a88/
-        /** Returns the function table pointer for hardware-accelerated drawing. */
-        long getDrawFnFunctionTable();
-
-        /** Returns the function table pointer for software drawing. */
-        long getDrawSWFunctionTable();
-    }
 
     private static String sWebViewPackageName;
     private static @ApkType int sApkType;
@@ -387,6 +370,7 @@ public final class AwBrowserProcess {
     public static void startForTesting() {
         runPreBrowserProcessStart();
         finishBrowserProcessStart();
+        startObservingOsAccessibilitySettingChanges();
         onStartupComplete();
     }
 
@@ -800,16 +784,23 @@ public final class AwBrowserProcess {
                     == PackageManager.PERMISSION_GRANTED) {
                 NetworkChangeNotifier.init();
                 NetworkChangeNotifier.setAutoDetectConnectivityState(
-                        new AwNetworkChangeNotifierRegistrationPolicy(),
-                        /* forceUpdateNetworkState= */ false);
+                        new AwNetworkChangeNotifierRegistrationPolicy());
             }
+        }
+    }
+
+    /** Starts observing Android OS accessibility setting changes. */
+    public static void startObservingOsAccessibilitySettingChanges() {
+        if (AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_OBSERVE_ACCESSIBILITY_STATE)) {
+            AccessibilityState.registerObservers();
+            AccessibilityState.initializeOnStartup(new AwAccessibilityStateVisibilityManager());
         }
     }
 
     /**
      * Post tasks that need to run in the background thread after the browser process has started.
      */
-    public static void postBackgroundTasks(boolean isSafeModeEnabled, SharedPreferences prefs) {
+    public static void postBackgroundTasks() {
         if (CommandLine.getInstance().hasSwitch(AwSwitches.WEBVIEW_VERBOSE_LOGGING)) {
             // Log extra information, for debugging purposes.
             PostTask.postTask(
@@ -822,18 +813,13 @@ public final class AwBrowserProcess {
                         // Field trials can be activated at any time. We'll continue logging them as
                         // they're activated.
                         FieldTrialList.logActiveTrials();
-                        // SafeMode was already determined earlier during the startup sequence, this
-                        // just fetches the cached boolean state. If SafeMode was enabled, we
-                        // already
-                        // logged detailed information about the SafeMode config.
-                        Log.i(TAG, "SafeMode enabled: " + isSafeModeEnabled);
                     });
         }
 
         PostTask.postTask(
                 TaskTraits.BEST_EFFORT,
                 () -> {
-                    WebViewCachedFlags.get().onStartupCompleted(prefs);
+                    WebViewCachedFlags.get().onStartupCompleted();
                 });
 
         if (AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_PREFETCH_NATIVE_LIBRARY)

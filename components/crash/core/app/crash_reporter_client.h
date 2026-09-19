@@ -8,7 +8,12 @@
 #include <stdint.h>
 
 #include <string>
+#include <string_view>
+#include <type_traits>
+#include <vector>
 
+#include "base/memory/read_only_shared_memory_region.h"
+#include "base/strings/string_util.h"
 #include "build/build_config.h"
 
 #if !BUILDFLAG(IS_WIN)
@@ -19,14 +24,30 @@ class FilePath;
 
 namespace crash_reporter {
 
+// Structure used to pass product info across module boundaries without
+// allocating std::string across different module allocators.
 struct ProductInfo {
-  ProductInfo();
-  ~ProductInfo();
+ public:
+  ProductInfo() = default;
+  ProductInfo(std::string_view product_name,
+              std::string_view version,
+              std::string_view channel) {
+    base::strlcpy(product_name_, product_name);
+    base::strlcpy(version_, version);
+    base::strlcpy(channel_, channel);
+  }
 
-  std::string product_name;
-  std::string version;
-  std::string channel;
+  std::string_view product_name() const { return product_name_; }
+  std::string_view version() const { return version_; }
+  std::string_view channel() const { return channel_; }
+
+ private:
+  char product_name_[128] = {};
+  char version_[128] = {};
+  char channel_[128] = {};
 };
+static_assert(std::is_trivially_copyable_v<ProductInfo>);
+static_assert(std::is_trivially_destructible_v<ProductInfo>);
 
 class CrashReporterClient;
 
@@ -191,6 +212,19 @@ class CrashReporterClient {
 
   // Returns true if breakpad should run in the given process type.
   virtual bool EnableBreakpadForProcess(const std::string& process_type);
+
+  // Returns a list of read-only shared memory regions containing user streams.
+  // These streams are extracted upon crash and attached to the minidump.
+  //
+  // This method is only ever called for the initial client during Crashpad
+  // handler startup to pass and inherit the shared memory handles/descriptors
+  // to the spawned handler process. It is not called for child processes.
+  //
+  // Each region must conform to the double-buffered binary layout defined in
+  // `components/crash/core/common/shared_memory_user_stream.h` (typically
+  // managed and written via `SharedMemoryUserStreamWriter`).
+  virtual std::vector<base::ReadOnlySharedMemoryRegion>
+  GetUserStreamSharedMemoryRegions();
 
   bool enable_upload_;
   std::string product_name_;

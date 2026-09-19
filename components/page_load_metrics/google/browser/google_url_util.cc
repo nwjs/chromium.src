@@ -5,17 +5,19 @@
 #include "components/page_load_metrics/google/browser/google_url_util.h"
 
 #include <algorithm>
+#include <optional>
 #include <string_view>
 
 #include "base/strings/string_util.h"
+#include "components/google/core/common/google_util.h"
 #include "components/page_load_metrics/browser/page_load_metrics_util.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 
 namespace page_load_metrics {
 
 std::optional<std::string> GetGoogleHostnamePrefix(const GURL& url) {
-  const size_t registry_length =
-      net::registry_controlled_domains::GetRegistryLength(
+  const std::optional<size_t> registry_length =
+      net::registry_controlled_domains::GetRegistry(
           url,
 
           // Do not include unknown registries (registries that don't have any
@@ -24,17 +26,18 @@ std::optional<std::string> GetGoogleHostnamePrefix(const GURL& url) {
 
           // Do not include private registries, such as appspot.com. We don't
           // want to match URLs like www.google.appspot.com.
-          net::registry_controlled_domains::EXCLUDE_PRIVATE_REGISTRIES);
+          net::registry_controlled_domains::EXCLUDE_PRIVATE_REGISTRIES)
+          .transform(&std::string_view::size);
 
   const std::string_view hostname = url.host();
-  if (registry_length == 0 || registry_length == std::string::npos ||
-      registry_length >= hostname.length()) {
+  if (!registry_length.has_value() || *registry_length == 0 ||
+      *registry_length >= hostname.length()) {
     return std::nullopt;
   }
 
   // Removes the tld and the preceding dot.
   const std::string_view hostname_minus_registry =
-      hostname.substr(0, hostname.length() - (registry_length + 1));
+      hostname.substr(0, hostname.length() - (*registry_length + 1));
 
   if (hostname_minus_registry == "google") {
     return std::string("");
@@ -128,13 +131,11 @@ bool IsGoogleSearchRedirectorUrl(const GURL& url) {
   return url.path() == "/searchurl/r.html" && url.has_ref();
 }
 
+// TODO(crbug.com/375343470): This is a trampoline to
+// google_util::IsGoogleSearchPrewarmUrl. Remove this once callers are migrated
+// to use google_util directly.
 bool IsGoogleSearchPrewarmUrl(const GURL& url) {
-  if (!IsGoogleSearchHostname(url)) {
-    return false;
-  }
-
-  return base::EndsWith(url.path(), "/prewarm.html",
-                        base::CompareCase::INSENSITIVE_ASCII);
+  return google_util::IsGoogleSearchPrewarmUrl(url);
 }
 
 }  // namespace page_load_metrics

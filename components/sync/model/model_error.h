@@ -129,16 +129,16 @@ class ModelError {
     kNigoriMissingKeystoreKeysDuringInitialSync = 106,
     kNigoriMissingLastTrustedVaultKeyInKeybag = 107,
     kNigoriMissingNewDefaultKeyInKeybag = 108,
-    kPlusAddressAddOrUpdateProfileFailed = 121,
-    kPlusAddressClearProfilesFailed = 122,
-    kPlusAddressDatabaseInitFailed = 123,
-    kPlusAddressMetadataReadFailed = 124,
-    kPlusAddressRemoveProfileFailed = 125,
-    kPlusAddressSettingFailedToParseSpecifics = 126,
-    kPlusAddressTransactionBeginFailedOnDisableSync = 127,
-    kPlusAddressTransactionBeginFailedOnIncrementalSync = 128,
-    kPlusAddressTransactionCommitFailedOnDisableSync = 129,
-    kPlusAddressTransactionCommitFailedOnIncrementalSync = 130,
+    // kPlusAddressAddOrUpdateProfileFailed = 121, // Deprecated.
+    // kPlusAddressClearProfilesFailed = 122, // Deprecated.
+    // kPlusAddressDatabaseInitFailed = 123, // Deprecated.
+    // kPlusAddressMetadataReadFailed = 124, // Deprecated.
+    // kPlusAddressRemoveProfileFailed = 125, // Deprecated.
+    // kPlusAddressSettingFailedToParseSpecifics = 126, // Deprecated.
+    // kPlusAddressTransactionBeginFailedOnDisableSync = 127, // Deprecated.
+    // kPlusAddressTransactionBeginFailedOnIncrementalSync = 128, // Deprecated.
+    // kPlusAddressTransactionCommitFailedOnDisableSync = 129, // Deprecated.
+    // kPlusAddressTransactionCommitFailedOnIncrementalSync = 130, // Deprecated.
     // kPowerBookmarkDatabaseCommitFailed = 131,  // Deprecated.
     // kPowerBookmarkDatabaseInitFailed = 132,  // Deprecated.
     // kPowerBookmarkFailedToBeginTransaction = 133,  // Deprecated.
@@ -201,7 +201,9 @@ class ModelError {
     kDataTypeControllerInFailedState = 191,
     kBookmarksLocalCountExceededLimitAfterInitialMerge = 192,
     kTabContextContainerFailedToDeserializeSpecifics = 193,
-    kMaxValue = kTabContextContainerFailedToDeserializeSpecifics,
+    kJourneysFailedToLoadMetadata = 194,
+    kJourneysDatabaseError = 195,
+    kMaxValue = kJourneysDatabaseError,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/sync/enums.xml:SyncModelError)
 

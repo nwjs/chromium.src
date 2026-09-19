@@ -86,7 +86,6 @@
 #include "components/omnibox/browser/page_classification_functions.h"
 #include "components/omnibox/browser/search_provider.h"
 #include "components/omnibox/browser/searchbox_utils.h"
-#include "components/omnibox/browser/suggestion_answer.h"
 #include "components/omnibox/browser/vector_icons.h"  // nogncheck
 #include "components/omnibox/browser/verbatim_match.h"
 #include "components/omnibox/common/omnibox_feature_configs.h"
@@ -124,8 +123,8 @@
 #include "url/url_util.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/contextual_search/desktop_query_contextualizer_delegate.h"  // nogncheck
 #include "chrome/browser/ui/contextual_search/searchbox_context_data.h"
 #include "chrome/browser/ui/hats/hats_service.h"
@@ -686,10 +685,8 @@ void OmniboxEditModel::Revert() {
 void OmniboxEditModel::StartAutocomplete(bool prevent_inline_autocomplete) {
   const std::u16string input_text = MaybePrependKeyword(user_text_);
 
-  // This method currently only works when there's a view, but ideally the
-  // model should be primary for determining such state.
-  CHECK(view_);
-  size_t cursor_position = view_->GetSelectionBounds().end();
+  size_t cursor_position =
+      view_ ? view_->GetSelectionBounds().end() : user_text_.length();
 
   // For keyword searches, the text that AutocompleteInput expects is
   // of the form "<keyword> <query>", where our query is |user_text_|.
@@ -804,10 +801,11 @@ void OmniboxEditModel::PopulateActiveTabContext() {
     return;
   }
 
-  Browser* browser = static_cast<ChromeOmniboxClient*>(client)->browser();
+  BrowserWindowInterface* browser =
+      static_cast<ChromeOmniboxClient*>(client)->browser();
   SearchboxContextData* searchbox_context_data =
-      browser ? browser->GetFeatures().searchbox_context_data() : nullptr;
-  TabStripModel* tab_strip = browser ? browser->tab_strip_model() : nullptr;
+      browser ? SearchboxContextData::From(browser) : nullptr;
+  TabStripModel* tab_strip = browser ? browser->GetTabStripModel() : nullptr;
   tabs::TabInterface* tab = tab_strip ? tab_strip->GetActiveTab() : nullptr;
   content::WebContents* web_contents = tab ? tab->GetContents() : nullptr;
 
@@ -1409,7 +1407,17 @@ void OmniboxEditModel::OnUpOrDownPressed(bool down, bool page) {
                          : OmniboxPopupSelection::Step::kWholeLine;
 
   if (popup_view_ && popup_view_->IsSelectionPopupControlled()) {
-    popup_view_->StepSelection(direction, step);
+    const OmniboxPopupSelection old_selection = GetPopupSelection();
+    OmniboxPopupSelection new_selection = old_selection.GetNextSelection(
+        autocomplete_controller()->input(), autocomplete_controller()->result(),
+        controller_->client()->GetTemplateURLService(),
+        view_->AimButtonVisible(), direction, step);
+    // Pass through to native step if this is a keyword mode transition because
+    // the popup does not yet support keyword mode.
+    if (new_selection.state != OmniboxPopupSelection::LineState::KEYWORD_MODE) {
+      popup_view_->StepSelection(direction, step);
+      return;
+    }
   }
 
   StepPopupSelection(direction, step);
@@ -1423,7 +1431,17 @@ void OmniboxEditModel::OnTabPressed(bool shift) {
       OmniboxPopupSelection::Step::kStateOrLine;
 
   if (popup_view_ && popup_view_->IsSelectionPopupControlled()) {
-    popup_view_->StepSelection(direction, step);
+    const OmniboxPopupSelection old_selection = GetPopupSelection();
+    OmniboxPopupSelection new_selection = old_selection.GetNextSelection(
+        autocomplete_controller()->input(), autocomplete_controller()->result(),
+        controller_->client()->GetTemplateURLService(),
+        view_->AimButtonVisible(), direction, step);
+    // Pass through to native step if this is a keyword mode transition because
+    // the popup does not yet support keyword mode.
+    if (new_selection.state != OmniboxPopupSelection::LineState::KEYWORD_MODE) {
+      popup_view_->StepSelection(direction, step);
+      return;
+    }
   }
 
   StepPopupSelection(direction, step);
@@ -1680,13 +1698,15 @@ bool OmniboxEditModel::OnAfterPossibleChange(
     view_->UpdatePopup();
   }
   if (allow_exact_keyword_match_) {
-    SetKeywordInfo(keyword_state_, keyword_, keyword_placeholder_,
-                   OmniboxEventProto::SPACE_IN_MIDDLE);
-    const TemplateURL* turl = controller_->client()
-                                  ->GetTemplateURLService()
-                                  ->GetTemplateURLForKeyword(keyword_);
-    EmitEnteredKeywordModeHistogram(OmniboxEventProto::SPACE_IN_MIDDLE, turl,
-                                    !user_text_.empty());
+    if (is_keyword_selected()) {
+      SetKeywordInfo(keyword_state_, keyword_, keyword_placeholder_,
+                     OmniboxEventProto::SPACE_IN_MIDDLE);
+      const TemplateURL* turl = controller_->client()
+                                    ->GetTemplateURLService()
+                                    ->GetTemplateURLForKeyword(keyword_);
+      EmitEnteredKeywordModeHistogram(OmniboxEventProto::SPACE_IN_MIDDLE, turl,
+                                      !user_text_.empty());
+    }
     allow_exact_keyword_match_ = false;
   }
 
@@ -1988,9 +2008,6 @@ gfx::Image OmniboxEditModel::GetMatchIconIfExtension(
 void OmniboxEditModel::ResetPopupToInitialState() {
   if (!popup_view_) {
     return;
-  }
-  if (popup_view_->IsSelectionPopupControlled()) {
-    popup_view_->ResetPopupToInitialState();
   }
   size_t new_line = autocomplete_controller()->result().default_match()
                         ? 0
@@ -2501,8 +2518,8 @@ void OmniboxEditModel::StepPopupSelection(
   } else if (new_selection.state ==
              OmniboxPopupSelection::LineState::KEYWORD_MODE) {
     // Prepare for keyword mode before accepting it.
-    SetPopupSelection(new_selection, /*reset_to_default=*/false,
-                      /*force_update_ui=*/false, /*native_update=*/false);
+    SetPopupSelection(OmniboxPopupSelection(
+        new_selection.line, OmniboxPopupSelection::LineState::NORMAL));
     // Note: Popup behavior currently depends on the entry method being tab.
     // This is not ideal for nuanced metrics, but it is how it has worked
     // for a long time. Consider refactoring to fix this if needed.
@@ -3088,8 +3105,10 @@ bool OmniboxEditModel::ShouldAcceptKeywordAfterInsertingSpaceInMiddle(
   std::u16string keyword;
   base::TrimWhitespace(new_text.substr(0, space_position), base::TRIM_LEADING,
                        &keyword);
-  if (!autocomplete_controller()->keyword_provider()->GetTemplateUrlForText(
-          keyword, controller_->client()->GetTemplateURLService())) {
+  const TemplateURL* turl =
+      autocomplete_controller()->keyword_provider()->GetTemplateUrlForText(
+          keyword, controller_->client()->GetTemplateURLService());
+  if (!turl || turl->keyword() != keyword) {
     return false;
   }
 
@@ -3364,11 +3383,17 @@ void OmniboxEditModel::NavigateToAiModeWithContextualizer(
   params.query_text = base::UTF16ToUTF8(query_text);
   params.on_ineligible_callback = base::DoNothing();
   params.on_processed_callback = base::DoNothing();
-  params.complete_callback = base::BindOnce(
+  auto on_contextualized_callback = base::BindOnce(
       &OmniboxEditModel::
           NavigateToAiModeWithContextualizerOnContextualizationComplete,
       weak_factory_.GetWeakPtr(), query_text,
       WindowOpenDisposition::CURRENT_TAB);
+  if (contextual_tasks::GetIsContextualTasksNonBlockingUrlNavigationEnabled()) {
+    params.on_uploads_started_callback = std::move(on_contextualized_callback);
+    params.complete_callback = base::DoNothing();
+  } else {
+    params.complete_callback = std::move(on_contextualized_callback);
+  }
   params.enable_smart_tab_selection = sts_active;
   query_contextualizer_->Contextualize(std::move(params));
 }

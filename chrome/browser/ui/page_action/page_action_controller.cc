@@ -20,7 +20,10 @@
 #include "chrome/browser/ui/page_action/page_action_model.h"
 #include "chrome/browser/ui/page_action/page_action_properties_provider.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
+#include "chrome/browser/user_education/user_education_service.h"
+#include "chrome/browser/user_education/user_education_service_factory.h"
 #include "components/tabs/public/tab_interface.h"
+#include "components/user_education/product_messaging/product_messaging_controller.h"
 #include "ui/actions/action_id.h"
 #include "ui/actions/actions.h"
 #include "ui/menus/simple_menu_model.h"
@@ -97,6 +100,15 @@ PageActionControllerImpl::PageActionControllerImpl(
   tab_deactivated_callback_subscription_ = tab_interface.RegisterWillDeactivate(
       base::BindRepeating(&PageActionControllerImpl::OnTabWillDeactivate,
                           base::Unretained(this)));
+  user_education::ProductMessagingController* product_messaging_controller =
+      nullptr;
+  if (auto* profile = tab_interface.GetProfile()) {
+    if (auto* user_education_service =
+            UserEducationServiceFactory::GetForBrowserContext(profile)) {
+      product_messaging_controller =
+          &user_education_service->product_messaging_controller();
+    }
+  }
   chip_selector_ = CreateChipSelector(
       base::BindRepeating(&PageActionControllerImpl::DoShowSuggestionChip,
                           base::Unretained(this)),
@@ -105,7 +117,9 @@ PageActionControllerImpl::PageActionControllerImpl(
       base::BindRepeating(&PageActionControllerImpl::DoShowAnchoredMessage,
                           base::Unretained(this)),
       base::BindRepeating(&PageActionControllerImpl::DoHideAnchoredMessage,
-                          base::Unretained(this)));
+                          base::Unretained(this)),
+      product_messaging_controller);
+  chip_selector_->OnTabActiveChanged(tab_interface.IsActivated());
 
   metrics_recorder_ = CreateMetricsRecorder(
       tab_interface,
@@ -312,12 +326,14 @@ void PageActionControllerImpl::ActionItemChanged(
 
 void PageActionControllerImpl::OnTabActivated(tabs::TabInterface* tab) {
   SetModelsTabActive(/*is_active=*/true);
+  chip_selector_->OnTabActiveChanged(/*is_tab_active=*/true);
   if (anchored_message_timeout_.IsRunning()) {
     anchored_message_timeout_.Reset();
   }
 }
 
 void PageActionControllerImpl::OnTabWillDeactivate(tabs::TabInterface* tab) {
+  chip_selector_->OnTabActiveChanged(/*is_tab_active=*/false);
   SetModelsTabActive(/*is_active=*/false);
 }
 

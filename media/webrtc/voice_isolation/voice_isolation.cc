@@ -8,6 +8,7 @@
 
 #include "base/check_op.h"
 #include "base/memory/ptr_util.h"
+#include "base/trace_event/trace_event.h"
 #include "media/base/audio_bus.h"
 #include "media/base/audio_parameters.h"
 #include "media/base/converting_audio_fifo.h"
@@ -46,22 +47,29 @@ std::unique_ptr<VoiceIsolationComponent> CreateVoiceIsolation(
   CHECK_EQ(stft->FramesPerSecond(), kVoiceIsolationFramesPerSecond);
   return stft;
 }
-}  // namespace
 
-std::unique_ptr<VoiceIsolation> VoiceIsolation::Create(
-    const tflite::FlatBufferModel* model,
-    const media::AudioParameters& audio_params) {
-  std::unique_ptr<VoiceIsolationComponent> component =
-      CreateVoiceIsolation(model);
+class VoiceIsolationImpl : public VoiceIsolation {
+ public:
+  VoiceIsolationImpl(
+      std::unique_ptr<VoiceIsolationComponent> internal_voice_isolation,
+      const media::AudioParameters& audio_params);
+  ~VoiceIsolationImpl() override;
 
-  return base::WrapUnique(
-      new VoiceIsolation(std::move(component), audio_params));
-}
+  VoiceIsolationImpl(const VoiceIsolationImpl&) = delete;
+  VoiceIsolationImpl& operator=(const VoiceIsolationImpl&) = delete;
 
-VoiceIsolation::VoiceIsolation(
+  void ProcessAudio(const AudioBus& input_bus, AudioBus& output_bus) override;
+
+ private:
+  std::unique_ptr<VoiceIsolationComponent> voice_isolation_component_;
+  std::unique_ptr<ConvertingAudioFifo> forward_fifo_;
+  std::unique_ptr<ConvertingAudioFifo> backward_fifo_;
+};
+
+VoiceIsolationImpl::VoiceIsolationImpl(
     std::unique_ptr<VoiceIsolationComponent> internal_voice_isolation,
     const media::AudioParameters& audio_params)
-    : internal_voice_isolation_(std::move(internal_voice_isolation)) {
+    : voice_isolation_component_(std::move(internal_voice_isolation)) {
   CHECK(audio_params.IsValid());
 
   media::AudioParameters mono_internal(
@@ -78,10 +86,11 @@ VoiceIsolation::VoiceIsolation(
                                             /*use_input_bus_pool=*/true);
 }
 
-VoiceIsolation::~VoiceIsolation() = default;
+VoiceIsolationImpl::~VoiceIsolationImpl() = default;
 
-void VoiceIsolation::ProcessAudio(const AudioBus& input_bus,
-                                  AudioBus& output_bus) {
+void VoiceIsolationImpl::ProcessAudio(const AudioBus& input_bus,
+                                      AudioBus& output_bus) {
+  TRACE_EVENT("audio", "VoiceIsolationImpl::ProcessAudio");
   CHECK_EQ(input_bus.frames(), output_bus.frames());
   CHECK_EQ(input_bus.channels(), output_bus.channels());
 
@@ -97,11 +106,12 @@ void VoiceIsolation::ProcessAudio(const AudioBus& input_bus,
   forward_fifo_->Push(std::move(input_copy));
 
   while (forward_fifo_->HasOutput()) {
+    TRACE_EVENT("audio", "VoiceIsolationImpl::ProcessInternalFrame");
     const media::AudioBus* internal_in = forward_fifo_->PeekOutput();
     std::unique_ptr<media::AudioBus> internal_out =
         backward_fifo_->GetInputAudioBus();
 
-    internal_voice_isolation_->ProcessAudio(internal_in->channel(0),
+    voice_isolation_component_->ProcessAudio(internal_in->channel(0),
                                             internal_out->channel(0));
 
     forward_fifo_->PopOutput();
@@ -113,8 +123,20 @@ void VoiceIsolation::ProcessAudio(const AudioBus& input_bus,
     out->CopyTo(&output_bus);
     backward_fifo_->PopOutput();
   } else {
+    TRACE_EVENT_INSTANT("audio", "VoiceIsolationImpl::OutputZeroed");
     output_bus.Zero();
   }
+}
+}  // namespace
+
+std::unique_ptr<VoiceIsolation> VoiceIsolation::Create(
+    const tflite::FlatBufferModel* model,
+    const media::AudioParameters& audio_params) {
+  std::unique_ptr<VoiceIsolationComponent> component =
+      CreateVoiceIsolation(model);
+
+  return std::make_unique<VoiceIsolationImpl>(std::move(component),
+                                              audio_params);
 }
 
 }  // namespace media

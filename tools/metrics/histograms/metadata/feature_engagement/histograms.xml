@@ -135,6 +135,9 @@ chromium-metrics-reviews@google.com.
       summary="message shown along with the virtual card suggestion option in
                the Autofill dropdown to educate users virtual cards come with
                better security"/>
+  <variant name="IPH_AutofillWalletDirectOffers"
+      summary="message shown when direct offers from Google Wallet are
+               available for a merchant promo code field"/>
   <variant name="IPH_BackNavigationMenu"
       summary="educating users about the back navigation menu to navigate
                back more than one page at a time."/>
@@ -192,6 +195,14 @@ chromium-metrics-reviews@google.com.
                order to get better translations"/>
   <variant name="IPH_ContextualSearchWebSearch"
       summary="contextual search for users who use web search"/>
+  <variant name="IPH_ContextualTasksEphemeralToolbarButton"
+      summary="contextual tasks ephemeral toolbar button"/>
+  <variant name="IPH_CriticalActionAppMenu"
+      summary="educating users on the Chrome app menu where to view Gemini
+               key browsing actions in history."/>
+  <variant name="IPH_CriticalActionFilterChip"
+      summary="educating users on chrome://history about the Gemini filter
+               chip for viewing key browsing actions."/>
   <variant name="IPH_DataSaverDetail" summary="data saver detail"/>
   <variant name="IPH_DataSaverMilestonePromo"
       summary="data saver milestone promo"/>
@@ -303,6 +314,7 @@ chromium-metrics-reviews@google.com.
       summary="Cast start stop in the Zenith dialog"/>
   <variant name="IPH_GMCLocalMediaCasting"
       summary="Local media cast start in GMC"/>
+  <variant name="IPH_GMCSaveVideoFrame" summary="Save video frame in GMC"/>
   <variant name="IPH_GoogleOneOfferNotification"
       summary="show google one offer notification with a visit to Google
                Drive or Google Photo"/>
@@ -432,6 +444,12 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_iOSPromoNonModalUrlPasteDefaultBrowser"
       summary="showing the non-modal Default Browser Promo from omnibox paste
                on iOS"/>
+  <variant name="IPH_iOSPromoOverflowMenuDestinationDefaultBrowser"
+      summary="showing the Overflow Menu Destination Default Browser Promo on
+               iOS"/>
+  <variant name="IPH_iOSPromoOverflowMenuShortcutsDefaultBrowser"
+      summary="showing the Overflow Menu Shortcuts Default Browser Promo on
+               iOS"/>
   <variant name="IPH_iOSPromoPasswordManagerWidget"
       summary="showing the Password Manager widget promo on iOS"/>
   <variant name="IPH_iOSPromoPostRestore"
@@ -515,6 +533,8 @@ chromium-metrics-reviews@google.com.
       summary="informing user of customizing new tab page theme via NTP
                customization option in the App menu"/>
   <variant name="IPH_NewTabTip" summary="new tab tip"/>
+  <variant name="IPH_OmniboxEverywhereLensPromo"
+      summary="the Lens search feature in Omnibox Everywhere"/>
   <variant name="IPH_PageInfo" summary="opening PageInfo"/>
   <variant name="IPH_PageInfoStoreInfo" summary="PageInfoStoreInfo feature"/>
   <variant name="IPH_PageSummaryPdfMenu" summary="the analyze pdf menu item"/>
@@ -657,6 +677,8 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_SendTabToSelfOmnibox"
       summary="IPH for Send Tab to Self entry point in the omnibox long-press
                menu"/>
+  <variant name="IPH_SendTabToSelfTutorial"
+      summary="the Send Tab to Self tutorial IPH promo"/>
   <variant name="IPH_SharedHighlightingBuilder"
       summary="the in product help message to notify the user that the share
                action can preemptively share a link-to-text"/>
@@ -735,6 +757,8 @@ chromium-metrics-reviews@google.com.
       summary="tab switcher cards with multiple tab thumbnails"/>
   <variant name="IPH_TabOrganizationSuccess"
       summary="(obsolete) tab organization success"/>
+  <variant name="IPH_TabScrollButtonFeature"
+      summary="IPH for tab horizontal scroll buttons"/>
   <variant name="IPH_TabSearch" summary="tab search discovery"/>
   <variant name="IPH_TabSearchComboButton"
       summary="IPH for the first time a user opens Chrome with tab search

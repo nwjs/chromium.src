@@ -2014,6 +2014,13 @@ void AXObjectCacheImpl::Remove(Node* node, bool notify_parent) {
 
   AXID axid = node->GetDomNodeId();
 
+  // HTML ids belong to connected DOM elements, not their AXObjects. Elements
+  // may be registered before an AXObject exists, and connected AXObjects can be
+  // removed and recreated without removing their DOM elements.
+  if (!node->isConnected() && relation_cache_) {
+    relation_cache_->RemoveRegisteredIdAttribute(axid);
+  }
+
   if (node == active_aria_modal_dialog_ &&
       lifecycle_.StateAllowsAXObjectsToBeDirtied()) {
     UpdateActiveAriaModalDialog(FocusedNode());
@@ -2028,6 +2035,11 @@ void AXObjectCacheImpl::RemovePopup(Document* popup_document) {
   // the popup document. This method is only be called for the popup document,
   // because if the main document is shutting down, the cache is disposed.
   DCHECK(popup_document);
+
+  // Closing a popup document does not disconnect its DOM elements, so their
+  // registered HTML ids remain in the owner document's accessibility cache.
+  // Popup documents typically contain few ids, so this small leak does not
+  // justify traversing the entire popup DOM to clean them up.
 
   // This can be called even when GetPopupDocumentIfShowing() when the popup
   // is from a <select size=1>, and in order to avoid duplicate objects, which
@@ -5046,7 +5058,9 @@ void AXObjectCacheImpl::HandleAttributeChanged(const QualifiedName& attr_name,
   }
 
   if (attr_name == html_names::kRoleAttr ||
-      attr_name == html_names::kTypeAttr) {
+      attr_name == html_names::kTypeAttr ||
+      (RuntimeEnabledFeatures::HTMLSwitchAttributeEnabled() &&
+       attr_name == html_names::kSwitchAttr)) {
     DeferTreeUpdate(TreeUpdateReason::kRoleChangeFromRoleOrType, element);
   } else if (attr_name == html_names::kSizeAttr ||
              attr_name == html_names::kMultipleAttr) {
@@ -6857,6 +6871,23 @@ void AXObjectCacheImpl::HandleScrollPositionChanged(
   Node* node = GetClosestNodeForLayoutObject(layout_object);
   if (node) {
     InvalidateBoundingBox(node->GetDomNodeId());
+  }
+}
+
+void AXObjectCacheImpl::HandleScrollDimensionsChanged(
+    LayoutObject* layout_object) {
+  if (!layout_object || layout_object->GetDocument() != document_) {
+    return;
+  }
+
+  SCOPED_DISALLOW_LIFECYCLE_TRANSITION();
+
+  if (AXObject* obj = Get(layout_object)) {
+    if (lifecycle_.StateAllowsImmediateTreeUpdates()) {
+      MarkAXObjectDirtyWithCleanLayout(obj);
+    } else {
+      MarkAXObjectDirty(obj);
+    }
   }
 }
 

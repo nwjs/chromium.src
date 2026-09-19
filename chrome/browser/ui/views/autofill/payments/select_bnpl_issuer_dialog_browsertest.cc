@@ -5,15 +5,15 @@
 #include "chrome/browser/ui/views/autofill/payments/select_bnpl_issuer_dialog.h"
 
 #include "chrome/browser/ui/autofill/payments/payments_view_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/autofill/content/browser/test_autofill_client_injector.h"
 #include "components/autofill/content/browser/test_content_autofill_client.h"
 #include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
 #include "components/autofill/core/browser/payments/bnpl_util.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/browser/ui/payments/select_bnpl_issuer_dialog_controller_impl.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "content/public/test/browser_test.h"
@@ -33,7 +33,7 @@ class SelectBnplIssuerDialogBrowserTest
   // DialogBrowserTest:
   void ShowUi(const std::string& name) override {
     content::WebContents* web_contents =
-        browser()->tab_strip_model()->GetActiveWebContents();
+        browser()->GetTabStripModel()->GetActiveWebContents();
     select_bnpl_issuer_dialog_controller_ =
         std::make_unique<SelectBnplIssuerDialogControllerImpl>(
             autofill_client_injector_[web_contents]

@@ -23,7 +23,11 @@ class TestOmniboxPopupPresenter : public OmniboxPopupPresenterBase {
       const override {
     return std::nullopt;
   }
+  bool ShouldDebounceResize() const override { return true; }
+  bool ShouldApplyHeightWorkarounds() const override { return true; }
   bool ShouldDetachWebContentsOnHide() const override { return true; }
+  bool ShouldEvictOnHide() const override { return false; }
+  bool ShouldSizeWebViewToPreferredHeight() const override { return true; }
 
   std::string_view GetPopupMetricPrefix() const override {
     return "TestPrefix";
@@ -38,7 +42,11 @@ class TestDeferredOmniboxPopupPresenter : public OmniboxPopupPresenterBase {
       const override {
     return base::Milliseconds(100);
   }
+  bool ShouldDebounceResize() const override { return true; }
+  bool ShouldApplyHeightWorkarounds() const override { return true; }
   bool ShouldDetachWebContentsOnHide() const override { return true; }
+  bool ShouldEvictOnHide() const override { return false; }
+  bool ShouldSizeWebViewToPreferredHeight() const override { return true; }
 
   std::string_view GetPopupMetricPrefix() const override {
     return "TestPrefix";

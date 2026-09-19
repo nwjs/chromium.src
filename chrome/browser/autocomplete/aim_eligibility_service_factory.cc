@@ -19,7 +19,12 @@
 #include "components/embedder_support/user_agent_utils.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/storage_partition.h"
+#include "extensions/buildflags/buildflags.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "extensions/common/extension_features.h"
+#endif
 
 namespace {
 
@@ -27,15 +32,28 @@ AimEligibilityService::Configuration CreateConfiguration(
     bool is_off_the_record) {
   AimEligibilityService::Configuration config;
   config.is_off_the_record = is_off_the_record;
+  config.full_version_list =
+      embedder_support::GetUserAgentMetadata().SerializeBrandFullVersionList();
   if (!contextual_tasks::IsContextualTasksUIEnabled()) {
     return config;
   }
 
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  if (contextual_tasks::IsContextualTasksRearchitectureEnabled() &&
+      base::FeatureList::IsEnabled(
+          extensions_features::kApiContextualTasksPrivate)) {
+    config.search_capabilities_version =
+        contextual_tasks::GetContextualTasksSearchCapabilitiesVersion();
+  } else {
+    config.user_agent_with_cobrowse_suffix =
+        base::StrCat({embedder_support::GetUserAgent(), " ",
+                      contextual_tasks::GetContextualTasksUserAgentSuffix()});
+  }
+#else
   config.user_agent_with_cobrowse_suffix =
       base::StrCat({embedder_support::GetUserAgent(), " ",
                     contextual_tasks::GetContextualTasksUserAgentSuffix()});
-  config.full_version_list =
-      embedder_support::GetUserAgentMetadata().SerializeBrandFullVersionList();
+#endif
   return config;
 }
 

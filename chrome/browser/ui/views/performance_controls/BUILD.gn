@@ -8,7 +8,7 @@ import("//build/config/ui.gni")
 assert(toolkit_views)
 
 source_set("performance_controls") {
-  sources = [
+  public = [
     "battery_saver_bubble_view.h",
     "battery_saver_button.h",
     "memory_saver_bubble_view.h",
@@ -27,9 +27,7 @@ source_set("performance_controls") {
     "//ui/gfx/geometry",
     "//ui/views",
   ]
-}
 
-source_set("impl") {
   sources = [
     "battery_saver_bubble_view.cc",
     "battery_saver_button.cc",
@@ -42,10 +40,10 @@ source_set("impl") {
   ]
 
   deps = [
-    ":performance_controls",
     "//base",
     "//chrome/app:generated_resources",
     "//chrome/browser/ui:browser_element_identifiers",
+    "//chrome/browser/ui:tab_ui_helper",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/performance_controls",
     "//chrome/browser/ui/user_education",
@@ -66,9 +64,9 @@ source_set("unit_tests") {
     ":performance_controls",
     "//base/test:test_support",
     "//chrome/browser/ui:browser_element_identifiers",
+    "//chrome/browser/ui:tab_ui_helper",
     "//chrome/browser/ui:test_support",
     "//chrome/browser/ui/performance_controls",
-    "//chrome/browser/ui/views/frame:test_with_browser_view",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/test:test_support",
     "//chrome/test/user_education:impl",
@@ -147,6 +145,7 @@ source_set("interactive_ui_tests") {
     "//chrome/browser/ui/navigator",
     "//chrome/browser/ui/performance_controls/test_support",
     "//chrome/browser/ui/toolbar",
+    "//chrome/browser/ui/views/tabs:tab_strip",
     "//chrome/browser/ui/views/tabs/tab",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",

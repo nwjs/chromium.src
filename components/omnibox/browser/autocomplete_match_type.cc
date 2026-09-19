@@ -16,7 +16,6 @@
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/omnibox_popup_selection.h"
-#include "components/omnibox/browser/suggestion_answer.h"
 #include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -158,11 +157,11 @@ std::u16string GetAccessibilityBaseLabel(const AutocompleteMatch& match,
       0,                                     // STARTER_PACK
       0,                                     // TILE_MOST_VISITED_SITE
       0,                                     // TILE_REPEATABLE_QUERY
-      IDS_ACC_AUTOCOMPLETE_HISTORY,          // HISTORY_EMBEDDINGS
-      0,                                     // FEATURED_ENTERPRISE_SEARCH
-      0,                                     // HISTORY_EMBEDDINGS_ANSWER
-      0,                                     // TAB_GROUP
-      0,                                     // CROSS_DEVICE_TAB
+      IDS_ACC_AUTOCOMPLETE_HISTORY_EMBEDDINGS,  // HISTORY_EMBEDDINGS
+      0,                                        // FEATURED_ENTERPRISE_SEARCH
+      0,                                        // HISTORY_EMBEDDINGS_ANSWER
+      0,                                        // TAB_GROUP
+      0,                                        // CROSS_DEVICE_TAB
   });
   static_assert(std::size(message_ids) == AutocompleteMatchType::NUM_TYPES,
                 "message_ids must have NUM_TYPES elements");
@@ -195,15 +194,6 @@ std::u16string GetAccessibilityBaseLabel(const AutocompleteMatch& match,
     case IDS_ACC_AUTOCOMPLETE_SEARCH:
     case IDS_ACC_AUTOCOMPLETE_SUGGESTED_SEARCH:
       // Search match.
-      // If additional descriptive text exists with a search, treat as search
-      // with immediate answer, such as Weather in Boston: 53 degrees.
-      if (match.answer_template.has_value()) {
-        omnibox::FormattedString subhead =
-            match.answer_template->answers(0).subhead();
-        description = base::UTF8ToUTF16(
-            subhead.has_a11y_text() ? subhead.a11y_text() : subhead.text());
-        message = IDS_ACC_AUTOCOMPLETE_QUICK_ANSWER;
-      }
       break;
     case IDS_ACC_AUTOCOMPLETE_SUGGESTED_SEARCH_ENTITY:
       if (match.description.empty()) {

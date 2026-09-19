@@ -6,8 +6,8 @@
 #include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/test_support/glic_api_test.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
-#include "chrome/browser/glic/test_support/new_glic_api_test.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
@@ -22,13 +22,8 @@ namespace {
 class GlicAndroidMojoBrowserTest : public GlicApiBrowserTest {
  public:
   GlicAndroidMojoBrowserTest()
-      : GlicApiBrowserTest("./glic_android_browsertest.js") {}
+      : GlicApiBrowserTest(GlicTestJsPath("./glic_android_browsertest.js")) {}
 };
-
-IN_PROC_BROWSER_TEST_F(GlicAndroidMojoBrowserTest, testAllTestsAreRegistered) {
-  ASSERT_OK(OpenGlicForActiveTab());
-  AssertAllTestsRegistered({"GlicAndroidMojoBrowserTest"});
-}
 
 // Tests that page context fetching can query the URL of the focused browser
 // tab.

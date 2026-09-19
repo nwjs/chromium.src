@@ -14,6 +14,10 @@ class TimeDelta;
 class TimeTicks;
 }  // namespace base
 
+namespace contextual_cueing {
+enum class ContextualCueingDecision;
+}  // namespace contextual_cueing
+
 namespace optimization_guide {
 enum class OptimizationGuideDecision;
 }  // namespace optimization_guide
@@ -313,6 +317,12 @@ extern const char kPromptLongPressImageIncludedHistogram[];
 // UMA histogram key for IOS.Gemini.Prompt.ContextAttachment.
 extern const char kPromptContextAttachmentHistogram[];
 
+// UMA histogram key for IOS.Gemini.Prompt.Chat.ContextAttachment.
+extern const char kPromptChatContextAttachmentHistogram[];
+
+// UMA histogram key for IOS.Gemini.Prompt.Live.ContextAttachment.
+extern const char kPromptLiveContextAttachmentHistogram[];
+
 // UMA histogram key for IOS.Gemini.Prompt.TabsAttachedCount.
 extern const char kPromptTabsAttachedCountHistogram[];
 
@@ -354,6 +364,9 @@ extern const char kEditMenuSelectedTextLengthHistogram[];
 
 // UMA histogram key for IOS.Gemini.GlicContextualCue.Decision.
 extern const char kGlicContextualCueDecisionHistogram[];
+
+// UMA histogram key for IOS.ContextualCueing.Decision.
+extern const char kContextualCueingDecisionHistogram[];
 
 // Represents the completed Gemini session types.
 enum class IOSGeminiSessionType {
@@ -719,6 +732,10 @@ void RecordGeminiEditMenuSelectedTextLength(int length);
 void RecordGeminiGlicContextualCueDecision(
     optimization_guide::OptimizationGuideDecision decision);
 
+// Records the contextual cueing decision.
+void RecordContextualCueingDecision(
+    contextual_cueing::ContextualCueingDecision decision);
+
 // Records the dormant reason when Gemini Live transitions to dormant mode.
 void RecordGeminiLiveDormantReason(ios::provider::GeminiDormantReason reason);
 
@@ -737,6 +754,9 @@ void RecordGeminiLiveTurnCount(int turn_count);
 // Records the accumulated duration of Gemini Live mode segments within
 // a single Gemini interaction.
 void RecordGeminiLiveAccumulatedDuration(base::TimeDelta duration);
+
+// Records that the user sent a prompt in a Gemini Live session.
+void RecordGeminiLivePromptSent(bool has_page_context);
 
 // Records whether query submission is blocked while page context is loading.
 void RecordBlockQuerySubmissionWhileLoading(bool block_submission);

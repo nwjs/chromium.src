@@ -347,7 +347,8 @@ class HttpStreamFactoryJobControllerTestBase : public TestWithTaskEnvironment {
     } else {
       disabled_features.emplace_back(features::kHappyEyeballsV3);
     }
-    feature_list_.InitWithFeatures(enabled_features, disabled_features);
+    AddScopedFeatureList().InitWithFeatures(enabled_features,
+                                            disabled_features);
     FLAGS_quic_enable_http3_grease_randomness = false;
     CreateSessionDeps();
   }
@@ -520,8 +521,8 @@ class HttpStreamFactoryJobControllerTestBase : public TestWithTaskEnvironment {
     } else {
       disabled_features.emplace_back(features::kAsyncQuicSession);
     }
-    feature_list_.Reset();
-    feature_list_.InitWithFeatures(enabled_features, disabled_features);
+    AddScopedFeatureList().InitWithFeatures(enabled_features,
+                                            disabled_features);
   }
 
   void TestAltJobSucceedsAfterMainJobFailed(
@@ -609,8 +610,6 @@ class HttpStreamFactoryJobControllerTestBase : public TestWithTaskEnvironment {
  private:
   const bool happy_eyeballs_v3_enabled_;
   bool create_job_controller_ = true;
-
-  base::test::ScopedFeatureList feature_list_;
 };
 
 class HttpStreamFactoryJobControllerTest
@@ -1264,7 +1263,7 @@ class JobControllerReconsiderProxyAfterErrorTest
         /*allow_server_preferred_address=*/true,
         MultiplexedSessionCreationInitiator::kUnknown,
         NetLogWithSource::Make(NetLogSourceType::NONE),
-        QuicSessionEstablishmentReason::kUnknown);
+        QuicConnectionReuseDetails());
     mock_proxy_sessions_.emplace_back(new_session.get());
 
     quic::test::NoopQpackStreamSenderDelegate
@@ -4378,8 +4377,8 @@ TEST_F(HttpStreamFactoryJobControllerTest, InvalidPortForQuic) {
 TEST_F(HttpStreamFactoryJobControllerTest, HostResolutionHang) {
   // Explicitly disable the kAdditionalDelayMainJob feature, since this would
   // add a delay to the main job and cause the test to fail.
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(net::features::kAdditionalDelayMainJob);
+  AddScopedFeatureList().InitAndDisableFeature(
+      net::features::kAdditionalDelayMainJob);
 
   auto hanging_resolver = std::make_unique<MockHostResolver>();
   hanging_resolver->set_ondemand_mode(true);
@@ -4536,6 +4535,149 @@ TEST_F(HttpStreamFactoryJobControllerTest, ResumeMainJobLaterCanceled) {
 
   EXPECT_TRUE(job_controller_->main_job());
   request_.reset();
+}
+
+TEST_F(HttpStreamFactoryJobControllerTest,
+       OnConnectionInitializedResumesMainJobImmediatelyWithFastFail) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{features::kAsyncDnsQuicJob, {{"AsyncDnsQuicJobFastFail", "true"}}}},
+      {});
+
+  session_deps_.alternate_host_resolver =
+      std::make_unique<HangingHostResolver>();
+
+  HttpRequestInfo request_info;
+  request_info.method = "GET";
+  request_info.url = GURL("https://www.google.com");
+
+  Initialize(request_info);
+
+  // Enable delayed TCP and set time delay for waiting job.
+  QuicSessionPool* quic_session_pool = session_->quic_session_pool();
+  quic_session_pool->set_has_quic_ever_worked_on_current_network(true);
+  ServerNetworkStats stats;
+  stats.srtt = base::Milliseconds(100);
+  session_->http_server_properties()->SetServerNetworkStats(
+      url::SchemeHostPort(GURL("https://www.google.com")),
+      NetworkAnonymizationKey(), stats);
+
+  url::SchemeHostPort server(request_info.url);
+  AlternativeService alternative_service(NextProto::kProtoQUIC, server.host(),
+                                         443);
+  SetAlternativeService(request_info, alternative_service);
+
+  request_ = job_controller_->Start(
+      request_delegate_.get(), nullptr, net_log_with_source_,
+      HttpStreamRequest::HTTP_STREAM, DEFAULT_PRIORITY);
+  EXPECT_TRUE(job_controller_->main_job());
+  EXPECT_TRUE(job_controller_->alternative_job());
+  EXPECT_TRUE(job_controller_->main_job()->is_waiting());
+
+  base::RunLoop run_loop;
+  // With fast fail enabled, the main job should be resumed with 0 delay.
+  EXPECT_CALL(*job_factory_.main_job(), Resume())
+      .Times(1)
+      .WillOnce([&run_loop]() { run_loop.Quit(); });
+  job_controller_->OnConnectionInitialized(job_factory_.alternative_job(),
+                                           ERR_QUIC_PROTOCOL_ERROR);
+  FastForwardBy(base::TimeDelta());
+  run_loop.Run();
+  EXPECT_TRUE(job_controller_->main_job());
+}
+
+TEST_F(
+    HttpStreamFactoryJobControllerTest,
+    OnConnectionInitializedDnsAlpnH3JobResumesMainJobImmediatelyWithFastFail) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{features::kAsyncDnsQuicJob, {{"AsyncDnsQuicJobFastFail", "true"}}}},
+      {});
+
+  session_deps_.alternate_host_resolver =
+      std::make_unique<HangingHostResolver>();
+
+  HttpRequestInfo request_info;
+  request_info.method = "GET";
+  request_info.url = GURL("https://www.google.com");
+
+  Initialize(request_info);
+
+  // Enable delayed TCP and set time delay for waiting job.
+  QuicSessionPool* quic_session_pool = session_->quic_session_pool();
+  quic_session_pool->set_has_quic_ever_worked_on_current_network(true);
+  ServerNetworkStats stats;
+  stats.srtt = base::Milliseconds(100);
+  session_->http_server_properties()->SetServerNetworkStats(
+      url::SchemeHostPort(GURL("https://www.google.com")),
+      NetworkAnonymizationKey(), stats);
+
+  request_ = job_controller_->Start(
+      request_delegate_.get(), nullptr, net_log_with_source_,
+      HttpStreamRequest::HTTP_STREAM, DEFAULT_PRIORITY);
+  EXPECT_TRUE(job_controller_->main_job());
+  EXPECT_FALSE(job_controller_->alternative_job());
+  EXPECT_TRUE(job_controller_->dns_alpn_h3_job());
+  EXPECT_TRUE(job_controller_->main_job()->is_waiting());
+
+  base::RunLoop run_loop;
+  // With fast fail enabled, the main job should be resumed with 0 delay.
+  EXPECT_CALL(*job_factory_.main_job(), Resume())
+      .Times(1)
+      .WillOnce([&run_loop]() { run_loop.Quit(); });
+  job_controller_->OnConnectionInitialized(job_factory_.dns_alpn_h3_job(),
+                                           ERR_QUIC_PROTOCOL_ERROR);
+  FastForwardBy(base::TimeDelta());
+  run_loop.Run();
+  EXPECT_TRUE(job_controller_->main_job());
+}
+
+TEST_F(HttpStreamFactoryJobControllerTest,
+       OnConnectionInitializedResumesMainJobWithDelayByDefault) {
+  session_deps_.alternate_host_resolver =
+      std::make_unique<HangingHostResolver>();
+
+  HttpRequestInfo request_info;
+  request_info.method = "GET";
+  request_info.url = GURL("https://www.google.com");
+
+  Initialize(request_info);
+
+  // Enable delayed TCP and set time delay for waiting job.
+  QuicSessionPool* quic_session_pool = session_->quic_session_pool();
+  quic_session_pool->set_has_quic_ever_worked_on_current_network(true);
+  ServerNetworkStats stats;
+  stats.srtt = base::Milliseconds(100);
+  session_->http_server_properties()->SetServerNetworkStats(
+      url::SchemeHostPort(GURL("https://www.google.com")),
+      NetworkAnonymizationKey(), stats);
+
+  url::SchemeHostPort server(request_info.url);
+  AlternativeService alternative_service(NextProto::kProtoQUIC, server.host(),
+                                         443);
+  SetAlternativeService(request_info, alternative_service);
+
+  request_ = job_controller_->Start(
+      request_delegate_.get(), nullptr, net_log_with_source_,
+      HttpStreamRequest::HTTP_STREAM, DEFAULT_PRIORITY);
+  EXPECT_TRUE(job_controller_->main_job());
+  EXPECT_TRUE(job_controller_->alternative_job());
+  EXPECT_TRUE(job_controller_->main_job()->is_waiting());
+
+  // By default, Resume() should not be called at 0 delay.
+  EXPECT_CALL(*job_factory_.main_job(), Resume()).Times(0);
+  job_controller_->OnConnectionInitialized(job_factory_.alternative_job(),
+                                           ERR_QUIC_PROTOCOL_ERROR);
+  FastForwardBy(base::TimeDelta());
+
+  // Resume() should be called after main_job_wait_time_ (srtt * 1.5 = 150ms).
+  base::RunLoop run_loop;
+  EXPECT_CALL(*job_factory_.main_job(), Resume())
+      .Times(1)
+      .WillOnce([&run_loop]() { run_loop.Quit(); });
+  FastForwardBy(base::Milliseconds(150));
+  run_loop.Run();
+  EXPECT_TRUE(job_controller_->main_job());
 }
 
 // Test that main job is blocked for kMaxDelayTimeForMainJob(3s) if
@@ -4712,12 +4854,11 @@ TEST_F(HttpStreamFactoryJobControllerTest,
 // support respects NetworkIsolationKeys.
 TEST_F(HttpStreamFactoryJobControllerTest,
        PreconnectMultipleStreamsToH2ServerWithNetworkIsolationKey) {
-  base::test::ScopedFeatureList feature_list;
   // It's not strictly necessary to enable
   // `kPartitionConnectionsByNetworkIsolationKey`, but the second phase of the
   // test would only make 4 connections, reusing the first connection, without
   // it.
-  feature_list.InitAndEnableFeature(
+  AddScopedFeatureList().InitAndEnableFeature(
       features::kPartitionConnectionsByNetworkIsolationKey);
   // Need to re-create HttpServerProperties after enabling the field trial,
   // since it caches the field trial value on construction.
@@ -5178,8 +5319,7 @@ TEST_F(JobControllerLimitMultipleH2Requests, MultipleRequests) {
 // NetworkIsolationKeys.
 TEST_F(JobControllerLimitMultipleH2Requests,
        MultipleRequestsNetworkIsolationKey) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
+  AddScopedFeatureList().InitAndEnableFeature(
       features::kPartitionConnectionsByNetworkIsolationKey);
   // Need to re-create HttpServerProperties after enabling the field trial,
   // since it caches the field trial value on construction.
@@ -5648,8 +5788,8 @@ class HttpStreamFactoryJobControllerPreconnectTest
 
   void SetUp() override {
     if (!GetParam()) {
-      scoped_feature_list_.InitFromCommandLine(std::string(),
-                                               "LimitEarlyPreconnects");
+      AddScopedFeatureList().InitFromCommandLine(std::string(),
+                                                 "LimitEarlyPreconnects");
     }
   }
 
@@ -5683,7 +5823,6 @@ class HttpStreamFactoryJobControllerPreconnectTest
   }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_;
   HttpRequestInfo request_info_;
 };
 
@@ -7737,11 +7876,13 @@ class HttpStreamFactoryJobControllerWsOverH3Test
   }
 
   void EnableWebsocketsOverHttp3() {
-    feature_list_.InitAndEnableFeature(features::kEnableWebsocketsOverHttp3);
+    AddScopedFeatureList().InitAndEnableFeature(
+        features::kEnableWebsocketsOverHttp3);
   }
 
   void DisableWebsocketsOverHttp3() {
-    feature_list_.InitAndDisableFeature(features::kEnableWebsocketsOverHttp3);
+    AddScopedFeatureList().InitAndDisableFeature(
+        features::kEnableWebsocketsOverHttp3);
   }
 
   void CreateWebSocketJobController(const HttpRequestInfo& request_info) {
@@ -7852,7 +7993,7 @@ class HttpStreamFactoryJobControllerWsOverH3Test
         /*allow_server_preferred_address=*/true,
         MultiplexedSessionCreationInitiator::kUnknown,
         NetLogWithSource::Make(NetLogSourceType::NONE),
-        QuicSessionEstablishmentReason::kUnknown);
+        QuicConnectionReuseDetails());
 
     QuicChromiumClientSession* raw_session = new_session.get();
 
@@ -7871,7 +8012,6 @@ class HttpStreamFactoryJobControllerWsOverH3Test
     mock_quic_session_ = raw_session;
   }
 
-  base::test::ScopedFeatureList feature_list_;
   quic::test::MockRandom random_{0};
   quic::MockClock clock_;
   QuicChromiumConnectionHelper helper_{&clock_, &random_};

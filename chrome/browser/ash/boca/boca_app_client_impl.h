@@ -10,14 +10,6 @@
 #include "base/memory/scoped_refptr.h"
 #include "chromeos/ash/components/boca/boca_app_client.h"
 
-namespace network {
-class SharedURLLoaderFactory;
-}
-
-namespace signin {
-class IdentityManager;
-}
-
 namespace ash::boca {
 
 class SharedCrdSessionWrapper;
@@ -30,8 +22,6 @@ class BocaAppClientImpl : public BocaAppClient {
   ~BocaAppClientImpl() override;
 
   // ash::BocaAppClient
-  signin::IdentityManager* GetIdentityManager() override;
-  scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory() override;
   std::string GetDeviceId() override;
   void LaunchApp() override;
   int GetAppInstanceCount() override;

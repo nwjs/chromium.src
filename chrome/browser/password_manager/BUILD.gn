@@ -16,11 +16,13 @@ source_set("password_manager") {
     "password_change_delegate.h",
     "password_change_service_factory.h",
     "password_field_classification_model_handler_factory.h",
+    "password_manager_critical_action_logger.h",
   ]
 
   public_deps = [
     "//chrome/browser/actor",
     "//chrome/browser/password_manager/factories",
+    "//chrome/browser/password_manager/ode",
 
     # deps for public headers
     "//base",
@@ -140,6 +142,7 @@ source_set("impl") {
     "chrome_webauthn_credentials_delegate_factory.cc",
     "password_change_service_factory.cc",
     "password_field_classification_model_handler_factory.cc",
+    "password_manager_critical_action_logger.cc",
   ]
 
   public_deps = [
@@ -363,6 +366,7 @@ if (!is_android) {
       "//chrome/browser/profiles:profile",
       "//chrome/browser/sync:factories",
       "//chrome/browser/ui",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/passwords",
       "//chrome/browser/ui/tabs:tab_enums",
       "//chrome/test:test_support_ui",
@@ -494,13 +498,17 @@ source_set("unit_tests") {
   } else {
     sources += [
       "generated_password_leak_detection_pref_unittest.cc",
+      "password_change/glic_password_change_actuator_unittest.cc",
       "password_change/password_change_from_checkup_delegate_unittest.cc",
       "password_change/script_password_change_actuator_unittest.cc",
       "password_change_delegate_impl_unittest.cc",
+      "password_manager_critical_action_logger_unittest.cc",
       "remote_actor/remote_actor_credential_sharing_impl_unittest.cc",
     ]
     deps += [
+      "//chrome/browser/actor:test_support",
       "//chrome/browser/extensions:test_support",
+      "//chrome/browser/glic/test_support",
       "//chrome/browser/password_manager/password_change",
       "//chrome/browser/password_manager/remote_actor",
       "//chrome/browser/signin",
@@ -511,6 +519,7 @@ source_set("unit_tests") {
       "//chrome/browser/ui/passwords:test_support_ui",
       "//components/optimization_guide/core",
       "//components/optimization_guide/core:model_execution_test_support",
+      "//components/password_manager/core/browser/actor_login:actor_login_service_impl",
       "//components/safe_browsing/core/common:safe_browsing_prefs",
       "//components/signin/public/identity_manager:test_support",
       "//components/tabs:test_support",

@@ -6,28 +6,96 @@
 
 #include <utility>
 
+#include "base/check.h"
+#include "base/check_deref.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_helpers.h"
 #include "base/notreached.h"
+#include "components/history/core/browser/journeys/history_backend_for_journeys_sync.h"
+#include "components/history/core/browser/journeys/journeys_sync_metadata_database.h"
 #include "components/sync/base/data_type.h"
+#include "components/sync/model/client_tag_based_data_type_processor.h"
 #include "components/sync/model/mutable_data_batch.h"
+#include "components/sync/model/sync_metadata_store_change_list.h"
 #include "components/sync/protocol/entity_data.h"
 #include "components/sync/protocol/journey_specifics.pb.h"
 
 namespace history::journeys {
 
-JourneysSyncBridge::JourneysSyncBridge(
-    std::unique_ptr<syncer::DataTypeLocalChangeProcessor> change_processor,
-    syncer::OnceDataTypeStoreFactory store_factory)
-    : syncer::DataTypeSyncBridge(std::move(change_processor)) {
-  std::move(store_factory)
-      .Run(syncer::JOURNEY, base::BindOnce(&JourneysSyncBridge::OnStoreCreated,
-                                           weak_ptr_factory_.GetWeakPtr()));
+namespace {
+
+// LINT.IfChange(JourneySpecificsConversions)
+JourneyRow JourneyRowFromSpecifics(const sync_pb::JourneySpecifics& specifics) {
+  JourneyRow row;
+  row.journey_id = specifics.journey_id();
+  row.title = specifics.title();
+  if (specifics.has_emoji()) {
+    row.emoji = specifics.emoji();
+  }
+  if (specifics.has_overview()) {
+    row.overview = specifics.overview();
+  }
+  if (specifics.has_short_overview()) {
+    row.short_overview = specifics.short_overview();
+  }
+  row.creation_time = base::Time::FromDeltaSinceWindowsEpoch(
+      base::Microseconds(specifics.creation_time_windows_epoch_micros()));
+
+  for (const auto& entry : specifics.history_entries()) {
+    row.history_entries.emplace_back(base::Time::FromDeltaSinceWindowsEpoch(
+        base::Microseconds(entry.visit_timestamp_windows_epoch_micros())));
+  }
+
+  for (const auto& query : specifics.continuation_queries()) {
+    row.continuation_queries.emplace_back(query.title(), query.prompt());
+  }
+
+  return row;
 }
 
-JourneysSyncBridge::~JourneysSyncBridge() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+sync_pb::JourneySpecifics SpecificsFromJourneyRow(const JourneyRow& row) {
+  sync_pb::JourneySpecifics specifics;
+  specifics.set_journey_id(row.journey_id);
+  specifics.set_title(row.title);
+  if (row.emoji.has_value()) {
+    specifics.set_emoji(*row.emoji);
+  }
+  if (row.overview.has_value()) {
+    specifics.set_overview(*row.overview);
+  }
+  if (row.short_overview.has_value()) {
+    specifics.set_short_overview(*row.short_overview);
+  }
+  specifics.set_creation_time_windows_epoch_micros(
+      row.creation_time.ToDeltaSinceWindowsEpoch().InMicroseconds());
+
+  for (const auto& entry : row.history_entries) {
+    specifics.add_history_entries()->set_visit_timestamp_windows_epoch_micros(
+        entry.visit_time.ToDeltaSinceWindowsEpoch().InMicroseconds());
+  }
+
+  for (const auto& query : row.continuation_queries) {
+    auto* q = specifics.add_continuation_queries();
+    q->set_title(query.title);
+    q->set_prompt(query.prompt);
+  }
+
+  return specifics;
 }
+// LINT.ThenChange(//components/sync/protocol/journey_specifics.proto:JourneySpecifics)
+
+}  // namespace
+
+JourneysSyncBridge::JourneysSyncBridge(
+    HistoryBackendForJourneysSync* backend,
+    JourneysSyncMetadataDatabase* sync_metadata_database,
+    std::unique_ptr<syncer::DataTypeLocalChangeProcessor> change_processor)
+    : syncer::DataTypeSyncBridge(std::move(change_processor)),
+      backend_(CHECK_DEREF(backend)),
+      sync_metadata_database_(sync_metadata_database) {
+  LoadMetadata();
+}
+
+JourneysSyncBridge::~JourneysSyncBridge() = default;
 
 std::optional<syncer::ModelError> JourneysSyncBridge::MergeFullSyncData(
     std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
@@ -35,17 +103,57 @@ std::optional<syncer::ModelError> JourneysSyncBridge::MergeFullSyncData(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // This is a read-only data type, meaning that no data originates locally,
   // hence there is nothing to merge.
+  // TODO(crbug.com/526686844): Consider whether an explicit startup cleanup
+  // mechanism is needed if data clearing on signout is ever interrupted.
   return ApplyIncrementalSyncChanges(std::move(metadata_change_list),
                                      std::move(entity_changes));
 }
 
+// Note: `metadata_change_list` does not need to be committed here because
+// JourneysSyncMetadataDatabase writes updates directly to SQLite via
+// SyncMetadataStoreChangeList while the processor processes updates.
 std::optional<syncer::ModelError>
 JourneysSyncBridge::ApplyIncrementalSyncChanges(
     std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
     syncer::EntityChangeList entity_changes) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // TODO(crbug.com/526686844): Implement me.
-  return std::nullopt;
+
+  std::vector<JourneyRow> journeys_to_add_or_update;
+  std::vector<std::string> journey_ids_to_delete;
+
+  for (const std::unique_ptr<syncer::EntityChange>& change : entity_changes) {
+    switch (change->type()) {
+      case syncer::EntityChange::ACTION_ADD:
+      case syncer::EntityChange::ACTION_UPDATE: {
+        DCHECK(change->data().specifics.has_journey());
+        journeys_to_add_or_update.push_back(
+            JourneyRowFromSpecifics(change->data().specifics.journey()));
+        break;
+      }
+      case syncer::EntityChange::ACTION_DELETE: {
+        journey_ids_to_delete.push_back(change->storage_key());
+        break;
+      }
+    }
+  }
+
+  // The processor squashes multiple changes to the same entity within a batch,
+  // so deletions and additions/updates will not conflict.
+  if (!journey_ids_to_delete.empty()) {
+    if (!backend_->DeleteJourneys(journey_ids_to_delete)) {
+      return syncer::ModelError(
+          FROM_HERE, syncer::ModelError::Type::kJourneysDatabaseError);
+    }
+  }
+
+  if (!journeys_to_add_or_update.empty()) {
+    if (!backend_->AddOrUpdateJourneys(journeys_to_add_or_update)) {
+      return syncer::ModelError(
+          FROM_HERE, syncer::ModelError::Type::kJourneysDatabaseError);
+    }
+  }
+
+  return change_processor()->GetError();
 }
 
 std::unique_ptr<syncer::DataBatch> JourneysSyncBridge::GetDataForCommit(
@@ -59,8 +167,15 @@ std::unique_ptr<syncer::DataBatch> JourneysSyncBridge::GetDataForCommit(
 std::unique_ptr<syncer::DataBatch>
 JourneysSyncBridge::GetAllDataForDebugging() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // TODO(crbug.com/526686844): Implement me.
-  return std::make_unique<syncer::MutableDataBatch>();
+  auto batch = std::make_unique<syncer::MutableDataBatch>();
+  for (const auto& journey_row : backend_->GetAllJourneys()) {
+    auto entity_data = std::make_unique<syncer::EntityData>();
+    entity_data->name = journey_row.journey_id;
+    *entity_data->specifics.mutable_journey() =
+        SpecificsFromJourneyRow(journey_row);
+    batch->Put(journey_row.journey_id, std::move(entity_data));
+  }
+  return batch;
 }
 
 // The global immutable sync identity, used to identify entities across devices.
@@ -74,9 +189,9 @@ std::string JourneysSyncBridge::GetClientTag(
 }
 
 // The local database primary key, representing the key under which this entity
-// is stored in the local LevelDB database. When the sync processor receives
+// is stored in the local database. When the sync processor receives
 // incoming updates from the server, it uses this function to route the entity
-// to the corresponding record in the DataTypestore and in-memory caches.
+// to the corresponding record in the local database.
 std::string JourneysSyncBridge::GetStorageKey(
     const syncer::EntityData& entity_data) const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -117,63 +232,65 @@ JourneysSyncBridge::TrimAllSupportedFieldsFromRemoteSpecifics(
   return trimmed_entity_specifics;
 }
 
+// Called when all sync metadata must be wiped from local storage, i.e. when
+// the user signs out of their Google Account, toggles off the specific
+// data type in sync settings, or sync encounters an unrecoverable state.
 void JourneysSyncBridge::ApplyDisableSyncChanges(
     std::unique_ptr<syncer::MetadataChangeList> delete_metadata_change_list) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (store_) {
-    store_->DeleteAllDataAndMetadata(std::move(delete_metadata_change_list),
-                                     base::DoNothing());
+  if (sync_metadata_database_) {
+    sync_metadata_database_->ClearAllEntityMetadata();
+    sync_metadata_database_->ClearDataTypeState(syncer::JOURNEY);
+  }
+  backend_->DeleteAllJourneys();
+}
+
+void JourneysSyncBridge::UntrackAndClearMetadataForAllEntities() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (sync_metadata_database_) {
+    sync_metadata_database_->ClearAllEntityMetadata();
+  }
+  for (const std::string& storage_key :
+       change_processor()->GetAllTrackedStorageKeys()) {
+    change_processor()->UntrackEntityForStorageKey(storage_key);
   }
 }
 
-void JourneysSyncBridge::OnStoreCreated(
-    const std::optional<syncer::ModelError>& error,
-    std::unique_ptr<syncer::DataTypeStore> store) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (error) {
-    change_processor()->ReportError(*error);
+void JourneysSyncBridge::LoadMetadata() {
+  if (!sync_metadata_database_) {
     return;
   }
-
-  store_ = std::move(store);
-  store_->ReadAllData(base::BindOnce(&JourneysSyncBridge::OnReadAllData,
-                                     weak_ptr_factory_.GetWeakPtr()));
+  auto batch = std::make_unique<syncer::MetadataBatch>();
+  if (!sync_metadata_database_->GetAllSyncMetadata(batch.get())) {
+    change_processor()->ReportError(
+        {FROM_HERE, syncer::ModelError::Type::kJourneysFailedToLoadMetadata});
+    return;
+  }
+  change_processor()->ModelReadyToSync(std::move(batch));
 }
 
-// Receives all previously persisted journeys from disk.
-// Here we parse the protobufs to populate our local in-memory dataset/model so
-// that existing journeys are immediately available when Chrome starts. Then it
-// initiates reading the sync metadata.
-void JourneysSyncBridge::OnReadAllData(
-    const std::optional<syncer::ModelError>& error,
-    std::unique_ptr<syncer::DataTypeStore::RecordList> records) {
+// Creates a SyncMetadataStoreChangeList connected to
+// JourneysSyncMetadataDatabase.
+//
+// This is called by the DataTypeLocalChangeProcessor when receiving remote
+// server updates (MergeFullSyncData, ApplyIncrementalSyncChanges) or tearing
+// down sync (ApplyDisableSyncChanges). It provides the change list used to
+// write DataTypeState and EntityMetadata directly into the History SQLite
+// database.
+std::unique_ptr<syncer::MetadataChangeList>
+JourneysSyncBridge::CreateMetadataChangeList() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (error) {
-    change_processor()->ReportError(*error);
-    return;
-  }
-
-  // TODO(crbug.com/526686844): Implement me. Currently skips parsing records
-  // and directly reads metadata.
-  store_->ReadAllMetadata(base::BindOnce(&JourneysSyncBridge::OnReadAllMetadata,
-                                         weak_ptr_factory_.GetWeakPtr()));
+  return std::make_unique<syncer::SyncMetadataStoreChangeList>(
+      sync_metadata_database_, syncer::JOURNEY,
+      base::BindRepeating(&syncer::DataTypeLocalChangeProcessor::ReportError,
+                          change_processor()->GetWeakPtr()));
 }
 
-// Receives the sync metadata batch, consisting of the per sync-type
-// DataTypeState and the per journey entry EntityMetadata. Tells Chrome Sync
-// that the local model is loaded and ready. Until this is called, Sync will not
-// attempt GetUpdates or connect the bridge to the sync thread. If any disk I/O
-// step fails, we disable the sync data type safely.
-void JourneysSyncBridge::OnReadAllMetadata(
-    const std::optional<syncer::ModelError>& error,
-    std::unique_ptr<syncer::MetadataBatch> metadata_batch) {
+void JourneysSyncBridge::OnDatabaseError() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (error) {
-    change_processor()->ReportError(*error);
-    return;
-  }
-
-  change_processor()->ModelReadyToSync(std::move(metadata_batch));
+  sync_metadata_database_ = nullptr;
+  change_processor()->ReportError(
+      {FROM_HERE, syncer::ModelError::Type::kJourneysDatabaseError});
 }
 
 }  // namespace history::journeys

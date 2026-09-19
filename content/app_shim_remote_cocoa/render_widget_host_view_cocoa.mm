@@ -2340,6 +2340,10 @@ static NSWindow* __weak _deferredResignKeyWindow;
   return self.accessibilityChildren;
 }
 
+- (BOOL)isAccessibilityElement {
+  return _hostHelper->GetRootBrowserAccessibilityElement() != nil;
+}
+
 - (id)accessibilityParent {
   if (_accessibilityParent)
     return NSAccessibilityUnignoredAncestor(_accessibilityParent);

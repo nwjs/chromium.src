@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/chrome_test_utils.h"
@@ -26,7 +25,7 @@ class PasswordManagerInternalsBrowserTest : public WebUIMochaBrowserTest {
     OpenInternalsPageWithBrowser(browser(), disposition);
   }
 
-  void OpenInternalsPageWithBrowser(Browser* browser,
+  void OpenInternalsPageWithBrowser(BrowserWindowInterface* browser,
                                     WindowOpenDisposition disposition) {
     std::string url_string("chrome://");
     url_string += chrome::kChromeUIPasswordManagerInternalsHost;

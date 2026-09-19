@@ -16,7 +16,10 @@
 #include "base/numerics/angle_conversions.h"
 #include "cc/trees/layer_tree_host.h"
 #include "ui/color/color_provider_utils.h"
-#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_nine_patch.h"
+#include "ui/compositor/layer_solid_color.h"
+#include "ui/compositor/layer_test_api.h"
+#include "ui/compositor/layer_textured.h"
 #include "ui/compositor/layer_type.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/point_conversions.h"
@@ -70,6 +73,9 @@ void PrintLayerHierarchyImp(const Layer* layer,
     case ui::LAYER_SURFACE:
       *out << " surface";
       break;
+    case ui::LAYER_WITH_EXTERNAL_TEXTURE:
+      *out << " with_external_texture";
+      break;
   }
 
   if (layer->fills_bounds_opaquely()) {
@@ -90,7 +96,8 @@ void PrintLayerHierarchyImp(const Layer* layer,
   if (!layer->GetSubpixelOffset().IsZero())
     *out << " " << layer->GetSubpixelOffset().ToString();
 
-  const cc::Layer* cc_layer = layer->cc_layer_for_testing();
+  const cc::Layer* cc_layer =
+      ui::LayerTestApi(const_cast<Layer*>(layer)).cc_layer();
   if (cc_layer) {
     // Property trees must be updated in order to get valid render surface
     // reasons.
@@ -129,7 +136,7 @@ void PrintLayerHierarchyImp(const Layer* layer,
          << " occlusion: " << nine_patch_layer->occlusion().ToString();
   }
 
-  const ui::Layer* mask = const_cast<ui::Layer*>(layer)->layer_mask_layer();
+  const ui::Layer* mask = layer->layer_mask_layer();
 
   if (mask) {
     *out << '\n' << property_indent_str;

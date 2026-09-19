@@ -4,6 +4,7 @@
 
 import {ComposeboxElement, NtpComposeboxElement, SubmitButtonIconType} from 'chrome://new-tab-page/lazy_load.js';
 import {$$, InputSource, QueryActionOverride} from 'chrome://new-tab-page/new_tab_page.js';
+import {GlifAnimationState} from 'chrome://resources/cr_components/composebox/common.js';
 import {InputType, ModelMode, ToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import type {ComposeboxToolChipElement} from 'chrome://resources/cr_components/composebox/composebox_tool_chip.js';
 import type {ContextualEntrypointAndMenuElement} from 'chrome://resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
@@ -12,7 +13,7 @@ import type {SearchAnimatedGlowElement} from 'chrome://resources/cr_components/s
 import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import type {CrIconElement} from 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import {SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
 import type {SelectedFileInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {MockTimer} from 'chrome://webui-test/mock_timer.js';
@@ -719,7 +720,7 @@ suite(`NewTabPageComposeboxTest`, () => {
       removeImgButton!.click();
       await microtasksFinished();
       await testProxy.element.updateComplete;
-      assertEquals(0, testProxy.element.files.size);
+      assertEquals(0, testProxy.element.attachedContext.size);
 
       // Remove toolchip:
       testProxy.element.inToolMode = false;
@@ -772,13 +773,13 @@ suite(`NewTabPageComposeboxTest`, () => {
       removeImgButton!.click();
       await microtasksFinished();
       await testProxy.element.updateComplete;
-      assertEquals(0, testProxy.element.files.size);
+      assertEquals(0, testProxy.element.attachedContext.size);
 
       // Submit:
       await submitVoiceSearch();
 
       assertTrue(testProxy.element.inToolMode);
-      assertEquals(0, testProxy.element.files.size);
+      assertEquals(0, testProxy.element.attachedContext.size);
     });
 
     test('remove toolchip but submit image in voice search mode', async () => {
@@ -830,7 +831,7 @@ suite(`NewTabPageComposeboxTest`, () => {
       await submitVoiceSearch();
 
       assertFalse(testProxy.element.inToolMode);
-      assertEquals(1, testProxy.element.files.size);
+      assertEquals(1, testProxy.element.attachedContext.size);
     });
 
     test(
@@ -885,7 +886,7 @@ suite(`NewTabPageComposeboxTest`, () => {
           removeImgButton!.click();
           await microtasksFinished();
           await testProxy.element.updateComplete;
-          assertEquals(0, testProxy.element.files.size);
+          assertEquals(0, testProxy.element.attachedContext.size);
 
           // Remove tool chip from voice tool chips container:
           const toolChip =
@@ -917,7 +918,7 @@ suite(`NewTabPageComposeboxTest`, () => {
           await testProxy.element.updateComplete;
 
           assertFalse(testProxy.element.inToolMode);
-          assertEquals(0, testProxy.element.files.size);
+          assertEquals(0, testProxy.element.attachedContext.size);
         });
 
     test(
@@ -979,6 +980,7 @@ suite(`NewTabPageComposeboxTest`, () => {
 
   test('handleFuseboxAction applies and resets action state', async () => {
     const composebox = new NtpComposeboxElement();
+    assertTrue(composebox.shouldHandleSuggestionFuseboxActions());
     const inputStateRequested =
         testProxy.searchboxHandler.whenCalled('getInputState');
     document.body.appendChild(composebox);
@@ -1106,6 +1108,20 @@ suite(`NewTabPageComposeboxTest`, () => {
       });
 
   test(
+      'getFileInputsElement returns element or null when disabled',
+      async () => {
+        const composebox = new NtpComposeboxElement();
+        composebox.contextMenuEnabled = true;
+        document.body.appendChild(composebox);
+        await microtasksFinished();
+
+        assertEquals(
+            composebox.$.fileInputs, composebox.getFileInputsElement());
+        composebox.contextMenuEnabled = false;
+        assertEquals(null, composebox.getFileInputsElement());
+      });
+
+  test(
       'handleFuseboxAction opens tab picker for kInputSourceTabPicker',
       async () => {
         const composebox = new NtpComposeboxElement();
@@ -1195,6 +1211,47 @@ suite(`NewTabPageComposeboxTest`, () => {
         await composebox.getInputElement().updateComplete;
         assertEquals('chip hint', input.getAttribute('placeholder'));
       });
+
+  // TODO(crbug.com/548681676): Verify that actions trigger the contextual
+  // entrypoint energy effect animation only when animation and test mode are
+  // enabled. Update to test TutorialId once the server proto rolls.
+  [false, true].forEach(scaledActionChipsInTestMode => {
+    [false, true].forEach(energyEffectAnimationEnabled => {
+      test(
+          `handleFuseboxAction animation with testMode=${
+              scaledActionChipsInTestMode}, energyEnabled=${
+              energyEffectAnimationEnabled}`,
+          async () => {
+            loadTimeData.overrideValues({scaledActionChipsInTestMode});
+            const composebox = new NtpComposeboxElement();
+            composebox.energyEffectAnimationEnabled =
+                energyEffectAnimationEnabled;
+            document.body.appendChild(composebox);
+            await microtasksFinished();
+
+            const action = {
+              preselectedTool: ToolMode.kUnspecified,
+              preferredInventory: null,
+              preselectedModel: null,
+              queryActionOverride: null,
+              preselectedInputSource: null,
+              searchboxOverride: null,
+            };
+
+            const expectedState =
+                scaledActionChipsInTestMode && energyEffectAnimationEnabled ?
+                GlifAnimationState.STARTED :
+                GlifAnimationState.INELIGIBLE;
+            await composebox.handleFuseboxAction({
+              suggestion: '',
+              files: [],
+              fuseboxAction: action,
+            });
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            assertEquals(expectedState, composebox.glifAnimationState);
+          });
+    });
+  });
 });
 
 // ==========================================================
@@ -1346,4 +1403,24 @@ suite('NewTabPageComposeboxResizeObserverTest', () => {
         0, getActiveObserversForTarget(testProxy.element.$.matches).length);
     assertTrue(composeboxObservers.every(observer => observer.disconnected));
   });
+
+  test(
+      'smartTabSharingActive causes hasTabs true and input has has-tabs class',
+      async () => {
+        testProxy.searchboxHandler.setPromiseResolveFor(
+            'getSmartTabSharingActive', {active: true});
+        createComposeboxElement(testProxy, {
+          searchboxNextEnabled: true,
+          smartTabSharingActive: true,
+          smartTabSharingVisible: true,
+        });
+        await microtasksFinished();
+        await testProxy.element.updateComplete;
+
+        assertTrue(testProxy.element.hasTabs());
+        assertFalse(testProxy.element.hasAttribute('should-remain-folded_'));
+
+        const inputElement = testProxy.element.getInputElement();
+        assertTrue(inputElement.classList.contains('has-tabs'));
+      });
 });

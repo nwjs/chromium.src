@@ -13,7 +13,6 @@ import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
-import android.view.ViewTreeObserver.OnGlobalFocusChangeListener;
 
 import androidx.annotation.VisibleForTesting;
 
@@ -104,7 +103,7 @@ import java.util.function.Supplier;
  *
  * <p>There is a native class corresponding to this class that communicates with the server through
  * a delegate. The server interaction is vectored through an interface to allow a stub for testing
- * in {@Link ContextualSearchNetworkCommunicator}.
+ * in {@link ContextualSearchNetworkCommunicator}.
  *
  * <p>The lifetime of this class corresponds to the Activity, and this class creates and owns a
  * {@link ContextualSearchPanel} with the same lifetime.
@@ -295,12 +294,9 @@ public class ContextualSearchManager
 
         final View controlContainer = mActivity.findViewById(R.id.control_container);
         mOnFocusChangeListener =
-                new OnGlobalFocusChangeListener() {
-                    @Override
-                    public void onGlobalFocusChanged(View oldFocus, View newFocus) {
-                        if (controlContainer != null && controlContainer.hasFocus()) {
-                            hideContextualSearch(StateChangeReason.UNKNOWN);
-                        }
+                (View oldFocus, View newFocus) -> {
+                    if (controlContainer != null && controlContainer.hasFocus()) {
+                        hideContextualSearch(StateChangeReason.UNKNOWN);
                     }
                 };
 
@@ -1772,15 +1768,11 @@ public class ContextualSearchManager
                         InternalState.WAITING_FOR_POSSIBLE_TAP_NEAR_PREVIOUS);
                 new Handler()
                         .postDelayed(
-                                new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        // We may have been destroyed.
-                                        if (mSearchPanel != null) mSearchPanel.hideCaption();
-                                        mInternalStateController.notifyFinishedWorkOn(
-                                                InternalState
-                                                        .WAITING_FOR_POSSIBLE_TAP_NEAR_PREVIOUS);
-                                    }
+                                () -> {
+                                    // We may have been destroyed.
+                                    if (mSearchPanel != null) mSearchPanel.hideCaption();
+                                    mInternalStateController.notifyFinishedWorkOn(
+                                            InternalState.WAITING_FOR_POSSIBLE_TAP_NEAR_PREVIOUS);
                                 },
                                 TAP_NEAR_PREVIOUS_DETECTION_DELAY_MS);
             }
@@ -1798,14 +1790,10 @@ public class ContextualSearchManager
                         InternalState.WAITING_FOR_POSSIBLE_TAP_ON_TAP_SELECTION);
                 new Handler()
                         .postDelayed(
-                                new Runnable() {
-                                    @Override
-                                    public void run() {
+                                () ->
                                         mInternalStateController.notifyFinishedWorkOn(
                                                 InternalState
-                                                        .WAITING_FOR_POSSIBLE_TAP_ON_TAP_SELECTION);
-                                    }
-                                },
+                                                        .WAITING_FOR_POSSIBLE_TAP_ON_TAP_SELECTION),
                                 TAP_ON_TAP_SELECTION_DELAY_MS);
             }
 
@@ -1815,10 +1803,11 @@ public class ContextualSearchManager
                 mInternalStateController.notifyStartingWorkOn(InternalState.RESOLVING);
 
                 String selection = mSelectionController.getSelectedText();
-                assert !TextUtils.isEmpty(selection);
-
                 WebContents baseWebContents = getBaseWebContents();
-                if (baseWebContents != null && mContext != null && mContext.canResolve()) {
+                if (!TextUtils.isEmpty(selection)
+                        && baseWebContents != null
+                        && mContext != null
+                        && mContext.canResolve()) {
                     issueResolveRequest();
                 } else {
                     // Something went wrong and we couldn't resolve.
@@ -1826,7 +1815,7 @@ public class ContextualSearchManager
                     return;
                 }
 
-                // If the we were unable to start the resolve, we've hidden the UI and set the
+                // If we were unable to start the resolve, we've hidden the UI and set the
                 // context to null.
                 if (mContext == null || mSearchPanel == null) return;
 

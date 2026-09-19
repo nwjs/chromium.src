@@ -7,7 +7,6 @@ package org.chromium.chrome.browser.app.appmenu;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.content.Context;
-import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -76,6 +75,7 @@ import org.chromium.chrome.browser.ui.appmenu.AppMenuPropertiesDelegate;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuRecentEntryItemProperties;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuTabGroupItemProperties;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuTabItemProperties;
+import org.chromium.chrome.browser.ui.extensions.ExtensionUi;
 import org.chromium.chrome.browser.util.BrowserUiUtils;
 import org.chromium.chrome.browser.util.BrowserUiUtils.ModuleTypeOnStartAndNtp;
 import org.chromium.chrome.browser.webapps.WebappRegistry;
@@ -94,8 +94,6 @@ import org.chromium.components.commerce.core.ShoppingService;
 import org.chromium.components.commerce.core.SubscriptionType;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
 import org.chromium.components.embedder_support.util.UrlUtilities;
-import org.chromium.components.webapk.lib.client.WebApkValidator;
-import org.chromium.components.webapps.AppBannerManager;
 import org.chromium.components.webapps.WebappsUtils;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.WindowAndroid;
@@ -110,7 +108,9 @@ import org.chromium.url.GURL;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.function.BiFunction;
 
 /**
@@ -513,11 +513,15 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
 
     /** Build the PropertyModel for the download this page action. */
     protected PropertyModel buildDownloadActionModel(@Nullable Tab currentTab) {
+        int titleId =
+                ChromeFeatureList.isEnabled(ChromeFeatureList.ENABLE_DOWNLOAD_SAVE_AS_CONTEXT_MENU)
+                        ? R.string.menu_save_page_as
+                        : R.string.download_page;
         PropertyModel downloadButton =
                 AppMenuItemUtils.buildModelForIcon(
                         mContext,
                         R.id.offline_page_id,
-                        R.string.download_page,
+                        titleId,
                         R.string.menu_download,
                         R.drawable.ic_file_download_white_24dp);
         downloadButton.set(AppMenuItemProperties.ENABLED, shouldEnableDownloadPage(currentTab));
@@ -563,6 +567,75 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
         return pageInfoButton;
     }
 
+    protected ListItem buildExtensionsParentItem() {
+        assert shouldShowExtensionsItem();
+
+        List<ListItem> submenuItems = new ArrayList<>();
+        submenuItems.add(buildExtensionsMenuItem(/* showIcon= */ false));
+        submenuItems.add(buildManageExtensionsItem());
+        submenuItems.add(buildChromeWebstoreItem());
+
+        return new ListItem(
+                shouldShowIconBeforeItem()
+                        ? AppMenuHandler.AppMenuItemType.MENU_ITEM_WITH_SUBMENU
+                        : AppMenuHandler.AppMenuItemType.MENU_ITEM_WITH_SUBMENU_NO_ICON,
+                AppMenuItemUtils.buildModelForMenuItemWithSubmenu(
+                        mContext,
+                        getAppMenuItemTheme(),
+                        R.id.extensions_parent_menu_id,
+                        R.string.menu_extensions,
+                        shouldShowIconBeforeItem()
+                                ? R.drawable.ic_extension_24dp
+                                : Resources.ID_NULL,
+                        () -> submenuItems,
+                        isMenuIconAtStart()));
+    }
+
+    protected ListItem buildExtensionsMenuItem(boolean showIcon) {
+        assert shouldShowExtensionsItem();
+
+        return AppMenuItemUtils.createStandardListItem(
+                AppMenuItemUtils.buildModelForStandardMenuItem(
+                        mContext,
+                        getAppMenuItemTheme(),
+                        R.id.extensions_menu_menu_id,
+                        R.string.menu_extensions_menu,
+                        showIcon ? R.drawable.ic_extension_24dp : Resources.ID_NULL,
+                        isMenuIconAtStart()),
+                showIcon);
+    }
+
+    private ListItem buildManageExtensionsItem() {
+        assert shouldShowExtensionsItem();
+
+        // The id {@code R.id.extensions_menu_id} is used for both when this flag is enabled and
+        // disabled but in different context.
+        assert isSubmenusEnabled(mContext);
+
+        return AppMenuItemUtils.createStandardListItem(
+                AppMenuItemUtils.buildModelForStandardMenuItem(
+                        mContext,
+                        getAppMenuItemTheme(),
+                        R.id.manage_extensions_menu_id,
+                        R.string.menu_manage_extensions,
+                        Resources.ID_NULL,
+                        isMenuIconAtStart()),
+                /* showIcon= */ false);
+    }
+
+    private ListItem buildChromeWebstoreItem() {
+        assert shouldShowExtensionsItem();
+        return AppMenuItemUtils.createStandardListItem(
+                AppMenuItemUtils.buildModelForStandardMenuItem(
+                        mContext,
+                        getAppMenuItemTheme(),
+                        R.id.extensions_webstore_menu_id,
+                        R.string.menu_chrome_webstore,
+                        Resources.ID_NULL,
+                        isMenuIconAtStart()),
+                /* showIcon= */ false);
+    }
+
     /** Build the PropertyModel for the reload/stop action. */
     protected PropertyModel buildReloadModel(@Nullable Tab currentTab) {
         PropertyModel reloadButton =
@@ -589,128 +662,37 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
      * @return The add to homescreen list item.
      */
     protected ListItem buildAddToHomescreenListItem(Tab currentTab, boolean showIcon) {
-        ResolveInfo resolveInfo = queryWebApkResolveInfo(mContext, currentTab);
-
         String manifestId = WebappRegistry.getManifestIdOrUrl(currentTab);
 
-        String webApkPackageName =
-                WebappRegistry.getInstance().findWebApkWithManifestId(manifestId);
-        boolean isWebApkInstalled = false;
+        PropertyModel model =
+                AppMenuItemUtils.buildModelForStandardMenuItem(
+                        mContext,
+                        mAppMenuItemTheme,
+                        R.id.universal_install,
+                        R.string.menu_install_create_shortcut,
+                        showIcon ? R.drawable.ic_add_to_home_screen : 0,
+                        isMenuIconAtStart());
 
-        if (webApkPackageName != null) {
-            if (org.chromium.base.PackageUtils.isPackageInstalled(webApkPackageName)) {
-                isWebApkInstalled = true;
-            } else {
-                String webappId =
-                        org.chromium.chrome.browser.browserservices.intents.WebappIntentUtils
-                                .getIdForWebApkPackage(webApkPackageName);
-                org.chromium.chrome.browser.webapps.WebappDataStorage storage =
-                        WebappRegistry.getInstance().getWebappDataStorage(webappId);
-                if (storage != null) {
-                    long registrationTime = storage.getLocalRegistrationTimestamp();
-                    long latencyWindow = 5000; // 5 seconds
-                    if (org.chromium.base.TimeUtils.currentTimeMillis() - registrationTime
-                            < latencyWindow) {
-                        isWebApkInstalled = true;
-                    }
-                }
-            }
+        boolean isPending = WebappRegistry.getInstance().isWebApkPending(manifestId);
+        if (isPending) {
+            model.set(AppMenuItemProperties.ICON_COLOR_RES, R.color.default_icon_color_disabled);
+
+            String titleText = mContext.getString(R.string.menu_install_create_shortcut);
+            SpannableString spannableTitle = new SpannableString(titleText);
+            spannableTitle.setSpan(
+                    new ForegroundColorSpan(
+                            mContext.getColor(R.color.default_text_color_disabled_list)),
+                    0,
+                    titleText.length(),
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            model.set(AppMenuItemProperties.TITLE, spannableTitle);
         }
 
-        // When Universal Install is active, we only show this menu item if we are browsing
-        // the root page of an already installed app.
-        boolean openWebApkItemVisible =
-                (resolveInfo != null || isWebApkInstalled)
-                        && "/".equals(currentTab.getUrl().getPath());
-
-        if (openWebApkItemVisible) {
-            String appName = null;
-            if (resolveInfo != null) {
-                appName = resolveInfo.loadLabel(mContext.getPackageManager()).toString();
-            } else if (webApkPackageName != null) {
-                try {
-                    android.content.pm.PackageManager pm = mContext.getPackageManager();
-                    appName =
-                            pm.getApplicationLabel(pm.getApplicationInfo(webApkPackageName, 0))
-                                    .toString();
-                } catch (android.content.pm.PackageManager.NameNotFoundException e) {
-                }
-            }
-            if (appName == null) {
-                appName = currentTab.getTitle();
-            }
-            return new ListItem(
-                    showIcon
-                            ? AppMenuHandler.AppMenuItemType.STANDARD
-                            : AppMenuHandler.AppMenuItemType.STANDARD_NO_ICON,
-                    AppMenuItemUtils.buildBaseModelForTextItem(
-                                    mAppMenuItemTheme, R.id.open_webapk_id, isMenuIconAtStart())
-                            .with(
-                                    AppMenuItemProperties.TITLE,
-                                    mContext.getString(R.string.menu_open_webapk, appName))
-                            .with(
-                                    AppMenuItemProperties.ICON,
-                                    showIcon
-                                            ? AppCompatResources.getDrawable(
-                                                    mContext, R.drawable.ic_open_webapk)
-                                            : null)
-                            .build());
-        } else {
-            PropertyModel model =
-                    AppMenuItemUtils.buildModelForStandardMenuItem(
-                            mContext,
-                            mAppMenuItemTheme,
-                            R.id.universal_install,
-                            R.string.menu_install_create_shortcut,
-                            showIcon ? R.drawable.ic_add_to_home_screen : 0,
-                            isMenuIconAtStart());
-
-            boolean isPending = WebappRegistry.getInstance().isWebApkPending(manifestId);
-            if (isPending) {
-                model.set(
-                        AppMenuItemProperties.ICON_COLOR_RES, R.color.default_icon_color_disabled);
-
-                String titleText = mContext.getString(R.string.menu_install_create_shortcut);
-                SpannableString spannableTitle = new SpannableString(titleText);
-                spannableTitle.setSpan(
-                        new ForegroundColorSpan(
-                                mContext.getColor(R.color.default_text_color_disabled_list)),
-                        0,
-                        titleText.length(),
-                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                model.set(AppMenuItemProperties.TITLE, spannableTitle);
-            }
-
-            return new ListItem(
-                    showIcon
-                            ? AppMenuHandler.AppMenuItemType.STANDARD
-                            : AppMenuHandler.AppMenuItemType.STANDARD_NO_ICON,
-                    model);
-        }
-    }
-
-    public static @Nullable ResolveInfo queryWebApkResolveInfo(Context context, Tab currentTab) {
-        String manifestId =
-                AppBannerManager.maybeGetManifestId(assumeNonNull(currentTab.getWebContents()));
-        String expectedPackage = WebappRegistry.getInstance().findWebApkWithManifestId(manifestId);
-        ResolveInfo resolveInfo =
-                WebApkValidator.queryFirstWebApkResolveInfo(
-                        context, currentTab.getUrl().getSpec(), expectedPackage);
-
-        if (resolveInfo != null
-                && expectedPackage != null
-                && !expectedPackage.equals(resolveInfo.activityInfo.packageName)) {
-            resolveInfo = null;
-        }
-
-        if (resolveInfo == null) {
-            // If a WebAPK with matching manifestId can't be found, fallback to query without it.
-            resolveInfo =
-                    WebApkValidator.queryFirstWebApkResolveInfo(
-                            context, currentTab.getUrl().getSpec());
-        }
-
-        return resolveInfo;
+        return new ListItem(
+                showIcon
+                        ? AppMenuHandler.AppMenuItemType.STANDARD
+                        : AppMenuHandler.AppMenuItemType.STANDARD_NO_ICON,
+                model);
     }
 
     @Override
@@ -1215,9 +1197,7 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
 
     public @StringRes int getAddToGroupMenuItemString(@Nullable Token currentTabGroupId) {
         TabModel tabModel = mTabModelSelector.getCurrentModel();
-        boolean checkAllWindows = ChromeFeatureList.sCrossWindowTabGroupOperations.isEnabled();
-        return TabGroupUiUtils.getAddToGroupMenuItemString(
-                tabModel, currentTabGroupId, checkAllWindows);
+        return TabGroupUiUtils.getAddToGroupMenuItemString(tabModel, currentTabGroupId);
     }
 
     /** Returns whether to show the open in app menu item. */
@@ -1332,5 +1312,27 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
                         R.string.page_zoom_menu_title,
                         shouldShowIconBeforeItem() ? R.drawable.ic_zoom : 0,
                         isMenuIconAtStart()));
+    }
+
+    protected @Nullable Profile getProfileFromTabModel() {
+        TabModel model = mTabModelSelector.getModel(false);
+        return model != null ? model.getProfile() : null;
+    }
+
+    protected boolean shouldShowExtensionsItem() {
+        Profile profile = getProfileFromTabModel();
+        return profile != null && ExtensionUi.isEnabled(profile);
+    }
+
+    public static boolean isSubmenusEnabled(Context context) {
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.SUBMENUS_IN_APP_MENU)) {
+            return true;
+        }
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.SUBMENUS_IN_APP_MENU_LFF)
+                && DeviceFormFactor.isNonMultiDisplayContextOnTablet(context)
+                && !DeviceInfo.isFoldable()) {
+            return true;
+        }
+        return false;
     }
 }

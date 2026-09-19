@@ -6,10 +6,13 @@ package org.chromium.chrome.browser.settings;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 
@@ -66,6 +69,9 @@ public class SettingsMenuHelper {
      * @param activity The Activity hosting the menu.
      */
     public static void onCreateOptionsMenu(Menu menu, Activity activity) {
+        // SettingsInTab does not have a help icon / options menu.
+        if (SettingsInTab.isEnabled()) return;
+
         // By default, every screen in Settings shows a "Help & feedback" menu item.
         MenuItem help =
                 menu.add(
@@ -84,12 +90,37 @@ public class SettingsMenuHelper {
      * @param menu The Menu to prepare.
      */
     public static void onPrepareOptionsMenu(Menu menu) {
-        if (menu.size() == 1) {
-            MenuItem item = menu.getItem(0);
+        for (int i = 0; i < menu.size(); i++) {
+            MenuItem item = menu.getItem(i);
             if (item.getIcon() != null) {
                 item.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
             }
         }
+    }
+
+    /**
+     * Helper to update the options menu on a toolbar for the current main fragment.
+     *
+     * @param toolbar The Toolbar containing the menu to update.
+     * @param activity The Activity hosting the menu.
+     * @param delegate The Delegate to provide the main fragment.
+     */
+    public static void updateOptionsMenu(Toolbar toolbar, Activity activity, Delegate delegate) {
+        Menu menu = toolbar.getMenu();
+        menu.clear();
+
+        // SettingsInTab does not have a help icon / options menu.
+        if (SettingsInTab.isEnabled()) return;
+
+        onCreateOptionsMenu(menu, activity);
+
+        Fragment mainFragment = delegate.getMainFragment();
+        if (mainFragment != null && mainFragment.isAdded() && mainFragment.hasOptionsMenu()) {
+            mainFragment.onCreateOptionsMenu(menu, activity.getMenuInflater());
+            mainFragment.onPrepareOptionsMenu(menu);
+        }
+
+        onPrepareOptionsMenu(menu);
     }
 
     /**
@@ -195,7 +226,11 @@ public class SettingsMenuHelper {
                 // Ensure TalkBack announces this as a button. Must occur after icon is set.
                 View navigationButton = getNavigationButtonView(toolbar);
                 navigationButton.setClickable(true);
+                navigationButton.setFocusable(true);
                 ViewCompat.setAccessibilityDelegate(navigationButton, null);
+                if (SettingsInTab.isEnabled()) {
+                    requestAccessibilityFocus(navigationButton);
+                }
             }
         } else {
             // Clear any custom accessibility delegate. Must occur before clearing the icon.
@@ -206,6 +241,35 @@ public class SettingsMenuHelper {
             // Hide the icon.
             toolbar.setNavigationIcon(null);
         }
+    }
+
+    /**
+     * Requests view focus and notifies the accessibility framework to move screen reader (TalkBack)
+     * accessibility focus to the view.
+     */
+    public static void requestAccessibilityFocus(View view) {
+        if (view.isAttachedToWindow()) {
+            focusAndSendAccessibilityEvent(view);
+            return;
+        }
+        view.addOnAttachStateChangeListener(
+                new View.OnAttachStateChangeListener() {
+                    @Override
+                    public void onViewAttachedToWindow(View v) {
+                        v.removeOnAttachStateChangeListener(this);
+                        focusAndSendAccessibilityEvent(v);
+                    }
+
+                    @Override
+                    public void onViewDetachedFromWindow(View v) {}
+                });
+    }
+
+    @SuppressLint("AccessibilityFocus")
+    private static void focusAndSendAccessibilityEvent(View view) {
+        view.requestFocus();
+        view.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
+        view.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED);
     }
 
     private static View getNavigationButtonView(Toolbar toolbar) {

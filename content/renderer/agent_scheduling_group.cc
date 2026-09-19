@@ -346,8 +346,9 @@ blink::WebView* AgentSchedulingGroup::CreateWebView(
           std::move(local_params->widget_params),
           /*frame_owner_properties=*/nullptr,
           local_params->is_on_initial_empty_document,
-          local_params->document_token,
-          std::move(local_params->policy_container), is_for_nested_main_frame, false);
+          local_params->document_token, local_params->initiator_state_token,
+          std::move(local_params->policy_container),
+          is_for_nested_main_frame, false);
       break;
     }
   }
@@ -377,7 +378,8 @@ void AgentSchedulingGroup::CreateFrame(mojom::CreateFrameParamsPtr params) {
       std::move(params->replication_state), std::move(params->widget_params),
       std::move(params->frame_owner_properties),
       params->is_on_initial_empty_document, params->document_token,
-      std::move(params->policy_container), params->is_for_nested_main_frame, params->block_parser);
+      params->initiator_state_token, std::move(params->policy_container),
+      params->is_for_nested_main_frame, params->block_parser);
 }
 
 void AgentSchedulingGroup::BindAssociatedInterfaces(

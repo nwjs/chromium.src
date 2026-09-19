@@ -29,6 +29,7 @@ import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import {deselectItems, selectAll, selectFolder} from './actions.js';
 import {highlightUpdatedItems, trackUpdatedItems} from './api_listener.js';
 import {BookmarkManagerApiProxyImpl} from './bookmark_manager_api_proxy.js';
+import {BookmarksApiProxyImpl} from './bookmarks_api_proxy.js';
 import type {BrowserProxy} from './browser_proxy.js';
 import {BrowserProxyImpl} from './browser_proxy.js';
 import {getHtml} from './command_manager.html.js';
@@ -38,7 +39,7 @@ import type {BookmarksEditDialogElement} from './edit_dialog.js';
 import {getCss as getSharedStyleCss} from './shared_style_lit.css.js';
 import {StoreClientMixinLit} from './store_client_mixin_lit.js';
 import type {BookmarkNode, BookmarksPageState, OpenCommandMenuDetail} from './types.js';
-import {canEditNode, canReorderChildren, getDisplayedList, isRootNode, isRootOrChildOfRoot} from './util.js';
+import {canEditNode, canReorderChildren, getDisplayedList, getLegacyId, isRootNode, isRootOrChildOfRoot} from './util.js';
 
 const BookmarksCommandManagerElementBase = StoreClientMixinLit(CrLitElement);
 
@@ -261,6 +262,9 @@ export class BookmarksCommandManagerElement extends
       case Command.OPEN_NEW_WINDOW:
       case Command.OPEN_SPLIT_VIEW:
         return itemIds.size > 0;
+      case Command.OPEN_ISOLATED:
+        return itemIds.size > 0 &&
+            loadTimeData.getBoolean('isIsolatedModeEnabled');
       case Command.ADD_BOOKMARK:
       case Command.ADD_FOLDER:
       case Command.SORT:
@@ -301,7 +305,13 @@ export class BookmarksCommandManagerElement extends
       case Command.OPEN_INCOGNITO:
         return this.expandIds_(itemIds).length > 0 &&
             state.prefs.incognitoAvailability !==
-            IncognitoAvailability.DISABLED;
+            IncognitoAvailability.DISABLED &&
+            !loadTimeData.getBoolean('isIsolatedModeEnabled');
+      case Command.OPEN_ISOLATED:
+        return this.expandIds_(itemIds).length > 0 &&
+            state.prefs.incognitoAvailability !==
+            IncognitoAvailability.DISABLED &&
+            loadTimeData.getBoolean('isIsolatedModeEnabled');
       case Command.OPEN_SPLIT_VIEW:
         return this.expandIds_(itemIds).length === 1 &&
             !this.isActiveTabInSplit_;
@@ -363,7 +373,9 @@ export class BookmarksCommandManagerElement extends
         break;
       }
       case Command.COPY: {
-        const idList = Array.from(itemIds);
+        const firstId = Array.from(itemIds)[0]!;
+        const idList =
+            Array.from(itemIds).map(id => getLegacyId(state.nodes[id]));
         BookmarkManagerApiProxyImpl.getInstance().copy(idList).then(() => {
           let labelPromise: Promise<string>;
           if (idList.length === 1) {
@@ -375,7 +387,7 @@ export class BookmarksCommandManagerElement extends
           }
 
           this.showTitleToast_(
-              labelPromise, state.nodes[idList[0]!]!.title, false);
+              labelPromise, state.nodes[firstId]!.title, false);
         });
         break;
       }
@@ -401,10 +413,9 @@ export class BookmarksCommandManagerElement extends
               'toastItemsDeleted', idList.length);
         }
 
-        BookmarkManagerApiProxyImpl.getInstance().removeTrees(idList).then(
-            () => {
-              this.showTitleToast_(labelPromise, title, true);
-            });
+        BookmarksApiProxyImpl.getInstance().delete(idList).then(() => {
+          this.showTitleToast_(labelPromise, title, true);
+        });
         break;
       }
       case Command.UNDO:
@@ -415,6 +426,7 @@ export class BookmarksCommandManagerElement extends
         chrome.bookmarkManagerPrivate.redo();
         break;
       case Command.OPEN_INCOGNITO:
+      case Command.OPEN_ISOLATED:
       case Command.OPEN_NEW_TAB:
       case Command.OPEN_NEW_WINDOW:
       case Command.OPEN_SPLIT_VIEW:
@@ -443,18 +455,23 @@ export class BookmarksCommandManagerElement extends
             loadTimeData.getString('itemsUnselected'));
         break;
       case Command.CUT:
-        BookmarkManagerApiProxyImpl.getInstance().cut(Array.from(itemIds));
+        BookmarkManagerApiProxyImpl.getInstance().cut(
+            Array.from(itemIds).map(id => getLegacyId(state.nodes[id])));
         break;
       case Command.PASTE:
         const selectedFolder = state.selectedFolder;
         const selectedItems = state.selection.items;
         trackUpdatedItems();
         BookmarkManagerApiProxyImpl.getInstance()
-            .paste(selectedFolder, Array.from(selectedItems))
+            .paste(
+                getLegacyId(state.nodes[selectedFolder]),
+                Array.from(selectedItems)
+                    .map(id => getLegacyId(state.nodes[id])))
             .then(highlightUpdatedItems);
         break;
       case Command.SORT:
-        chrome.bookmarkManagerPrivate.sortChildren(state.selectedFolder);
+        chrome.bookmarkManagerPrivate.sortChildren(
+            getLegacyId(state.nodes[state.selectedFolder]));
         getToastManager().show(loadTimeData.getString('toastFolderSorted'));
         break;
       case Command.ADD_BOOKMARK:
@@ -547,6 +564,7 @@ export class BookmarksCommandManagerElement extends
         command === Command.OPEN || command === Command.OPEN_NEW_TAB ||
         command === Command.OPEN_NEW_WINDOW ||
         command === Command.OPEN_INCOGNITO ||
+        command === Command.OPEN_ISOLATED ||
         command === Command.OPEN_SPLIT_VIEW ||
         command === Command.OPEN_NEW_GROUP);
 
@@ -558,22 +576,25 @@ export class BookmarksCommandManagerElement extends
       assert(ids.length === 1);
     }
 
-    const openBookmarkIdsCallback = function() {
-      const incognito = command === Command.OPEN_INCOGNITO;
+    const openBookmarkIdsCallback = () => {
+      const state = this.getState();
+      const legacyIds = ids.map(id => getLegacyId(state.nodes[id]));
+      const incognito = command === Command.OPEN_INCOGNITO ||
+          command === Command.OPEN_ISOLATED;
       if (command === Command.OPEN_NEW_WINDOW || incognito) {
         BookmarkManagerApiProxyImpl.getInstance().openInNewWindow(
-            ids, incognito);
+            legacyIds, incognito);
       } else if (command === Command.OPEN_SPLIT_VIEW) {
         BookmarkManagerApiProxyImpl.getInstance().openInNewTab(
-            ids.shift()!, {active: false, split: true});
+            legacyIds.shift()!, {active: false, split: true});
       } else if (command === Command.OPEN_NEW_GROUP) {
-        BookmarkManagerApiProxyImpl.getInstance().openInNewTabGroup(ids);
+        BookmarkManagerApiProxyImpl.getInstance().openInNewTabGroup(legacyIds);
       } else {
         if (command === Command.OPEN) {
           BookmarkManagerApiProxyImpl.getInstance().openInNewTab(
-              ids.shift()!, {active: true, split: false});
+              legacyIds.shift()!, {active: true, split: false});
         }
-        ids.forEach(function(id) {
+        legacyIds.forEach(function(id) {
           BookmarkManagerApiProxyImpl.getInstance().openInNewTab(
               id, {active: false, split: false});
         });
@@ -711,6 +732,10 @@ export class BookmarksCommandManagerElement extends
         return this.getPluralizedOpenAllString_(
             'menuOpenAllIncognito', 'menuOpenIncognito',
             'menuOpenAllIncognitoWithCount');
+      case Command.OPEN_ISOLATED:
+        return this.getPluralizedOpenAllString_(
+            'menuOpenAllIsolated', 'menuOpenIsolated',
+            'menuOpenAllIsolatedWithCount');
       case Command.OPEN_NEW_GROUP:
         return this.getPluralizedOpenAllString_(
             'menuOpenAllNewTabGroup', 'menuOpenNewTabGroup',
@@ -751,6 +776,7 @@ export class BookmarksCommandManagerElement extends
           Command.COPY,
           Command.PASTE,
           Command.OPEN_INCOGNITO,
+          Command.OPEN_ISOLATED,
           Command.OPEN_NEW_GROUP,
           Command.OPEN_NEW_TAB,
           Command.OPEN_NEW_WINDOW,
@@ -770,6 +796,7 @@ export class BookmarksCommandManagerElement extends
             Command.OPEN_SPLIT_VIEW,
             Command.OPEN_NEW_GROUP,
             Command.OPEN_INCOGNITO,
+            Command.OPEN_ISOLATED,
           ];
         }
         return defaultItemTreeCommands;
@@ -870,7 +897,7 @@ export class BookmarksCommandManagerElement extends
         await BookmarkManagerApiProxyImpl.getInstance().isActiveTabInSplit();
     if (e.detail.targetId) {
       this.canPaste_ = await BookmarkManagerApiProxyImpl.getInstance().canPaste(
-          e.detail.targetId);
+          getLegacyId(this.getState().nodes[e.detail.targetId]));
     }
     if (e.detail.targetElement) {
       this.openCommandMenuAtElement(e.detail.targetElement, e.detail.source);

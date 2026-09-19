@@ -4,8 +4,11 @@
 
 #include "third_party/blink/renderer/core/paint/timing/text_element_timing.h"
 
+#include "base/check_deref.h"
+#include "base/notreached.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
+#include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/paint/timing/element_timing_utils.h"
@@ -14,12 +17,23 @@
 #include "third_party/blink/renderer/core/timing/dom_window_performance.h"
 #include "third_party/blink/renderer/platform/graphics/paint/float_clip_rect.h"
 #include "third_party/blink/renderer/platform/graphics/paint/geometry_mapper.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "ui/gfx/geometry/rect.h"
 
 namespace blink {
 
 TextElementTiming::TextElementTiming(LocalDOMWindow& window)
     : performance_(DOMWindowPerformance::performance(window)) {}
+
+// static
+bool TextElementTiming::NeededForTiming(Node& node) {
+  auto* element = DynamicTo<Element>(node);
+  if (node.IsInShadowTree() || !element) {
+    return false;
+  }
+  return element->FastHasAttribute(html_names::kElementtimingAttr) ||
+         ContainerTiming::ContributesToContainerTiming(element);
+}
 
 // static
 gfx::RectF TextElementTiming::ComputeIntersectionRect(
@@ -43,8 +57,8 @@ bool TextElementTiming::CanReportToContainerTiming() {
   if (!performance_->IsContainerTimingEnabled()) {
     return false;
   }
-  EnsureContainerTiming();
-  return container_timing_->CanReportToContainerTiming();
+  return EnsureContainerTiming() &&
+         container_timing_->CanReportToContainerTiming();
 }
 
 bool TextElementTiming::CanReportElements() {
@@ -52,11 +66,14 @@ bool TextElementTiming::CanReportElements() {
 }
 
 void TextElementTiming::OnFramePresented(
-    const HeapVector<Member<TextRecord>>& records) {
+    const HeapVector<Member<ImageRecord>>& image_records,
+    const HeapVector<Member<TextRecord>>& text_records,
+    const GCedHeapVector<Member<ElementTimingInfo>>*,
+    const DOMPaintTimingInfo&) {
   if (!CanReportElements()) {
     return;
   }
-  for (auto& record : records) {
+  for (auto& record : text_records) {
     if (record->IsNeededForElementTiming()) {
       OnTextNodePresented(*record.Get());
     }
@@ -103,18 +120,36 @@ void TextElementTiming::OnTextNodePresented(const TextRecord& record) {
   }
 }
 
+void TextElementTiming::OnElementLastContentfulPaint(
+    TextRecord* record,
+    bool was_previously_reported) {
+  CHECK(!record->IsNeededForElementTiming());
+  if (was_previously_reported ||
+      !NeededForTiming(CHECK_DEREF(record->GetNode()))) {
+    return;
+  }
+  record->SetIsNeededForElementTiming(true);
+}
+
 void TextElementTiming::Trace(Visitor* visitor) const {
   visitor->Trace(performance_);
   visitor->Trace(container_timing_);
 }
 
-void TextElementTiming::EnsureContainerTiming() {
+bool TextElementTiming::EnsureContainerTiming() {
   if (container_timing_) {
-    return;
+    return true;
   }
   auto* window = To<LocalDOMWindow>(performance_->GetExecutionContext());
   DCHECK(window);
+  // WindowPerformance memoizes its answer, so it can outlive the live feature
+  // state, while ContainerTiming::From() CHECKs the live one. Check it here so
+  // a stale cache cannot become a crash.
+  if (!RuntimeEnabledFeatures::ContainerTimingEnabled(window)) {
+    return false;
+  }
   container_timing_ = ContainerTiming::From(*window);
+  return true;
 }
 
 }  // namespace blink

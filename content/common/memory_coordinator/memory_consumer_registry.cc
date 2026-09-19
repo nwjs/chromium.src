@@ -31,8 +31,9 @@ void MemoryConsumerRegistry::ConsumerGroup::ReleaseMemory() {
   }
 }
 
-void MemoryConsumerRegistry::ConsumerGroup::UpdateMemoryLimit(int percentage) {
-  memory_limit_ = percentage;
+void MemoryConsumerRegistry::ConsumerGroup::UpdateMemoryLimit(
+    base::MemoryLimit memory_limit) {
+  memory_limit_ = memory_limit;
   for (base::MemoryConsumer& consumer : memory_consumers_) {
     base::MemoryConsumerRegistry::NotifyUpdateMemoryLimit(&consumer,
                                                           memory_limit_);
@@ -46,7 +47,7 @@ void MemoryConsumerRegistry::ConsumerGroup::AddMemoryConsumer(
 
   // Ensure the added consumer is up to date with the current memory limit
   // applied to this consumer group.
-  if (memory_limit_ != base::MemoryConsumer::kDefaultMemoryLimit) {
+  if (memory_limit_ != base::MemoryLimit::Default()) {
     base::MemoryConsumerRegistry::NotifyUpdateMemoryLimitNoNotification(
         consumer, memory_limit_);
   }
@@ -85,8 +86,8 @@ void MemoryConsumerRegistry::UpdateConsumers(
   for (const auto& update : updates) {
     auto it = consumer_groups_.find(update.consumer_id);
     CHECK(it != consumer_groups_.end());
-    if (update.percentage) {
-      it->second->UpdateMemoryLimit(*update.percentage);
+    if (update.memory_limit) {
+      it->second->UpdateMemoryLimit(*update.memory_limit);
     }
     if (update.release_memory) {
       it->second->ReleaseMemory();
@@ -101,6 +102,20 @@ void MemoryConsumerRegistry::UpdateConsumers(
     }
   }
   pending_removal_groups_.clear();
+}
+
+void MemoryConsumerRegistry::SetOverrideLimit(uint32_t consumer_id,
+                                              int percentage) {
+  if (consumer_groups_.contains(consumer_id)) {
+    UpdateConsumers({{consumer_id, percentage, false}});
+  }
+}
+
+void MemoryConsumerRegistry::ClearOverrideLimit(uint32_t consumer_id,
+                                                int policy_limit) {
+  if (consumer_groups_.contains(consumer_id)) {
+    UpdateConsumers({{consumer_id, policy_limit, false}});
+  }
 }
 
 void MemoryConsumerRegistry::OnMemoryConsumerAdded(

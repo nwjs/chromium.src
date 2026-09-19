@@ -14,11 +14,11 @@
 #include "build/build_config.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
-#include "components/autofill/core/browser/test_utils/entity_data_test_utils.h"
+#include "components/autofill/core/browser/test_utils/entity_data_test_util.h"
 #include "components/autofill/core/browser/webdata/autofill_ai/entity_sync_util.h"
 #include "components/autofill/core/browser/webdata/autofill_ai/entity_table.h"
 #include "components/autofill/core/browser/webdata/mock_autofill_webdata_backend.h"
-#include "components/autofill/core/browser/webdata/valuables/valuables_sync_test_utils.h"
+#include "components/autofill/core/browser/webdata/valuables/valuables_sync_test_util.h"
 #include "components/autofill/core/browser/webdata/valuables/valuables_sync_util.h"
 #include "components/autofill/core/browser/webdata/valuables/valuables_table.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -757,6 +757,23 @@ TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_PrivatePasses) {
       EntityInstanceChange::UPDATE, passport.guid(), passport));
   bridge().EntityInstanceChanged(EntityInstanceChange(
       EntityInstanceChange::REMOVE, passport.guid(), passport));
+}
+
+// Tests that `EntityInstanceChanged()` doesn't commit changes for shopping
+// types.
+// Since shopping types are read-only this should never happen in practice - not
+// even for metadata changes, since those are not propagated through
+// `EntityInstanceChanged()`.
+TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_Shopping) {
+  const EntityInstance order = test::GetOrderEntityInstance(
+      {.record_type = EntityInstance::RecordType::kServerWallet});
+  const EntityInstance shipment = test::GetShipmentEntityInstance(
+      {.record_type = EntityInstance::RecordType::kServerWallet});
+  EXPECT_CALL(mock_processor(), Put).Times(0);
+  bridge().EntityInstanceChanged(
+      EntityInstanceChange(EntityInstanceChange::ADD, order.guid(), order));
+  bridge().EntityInstanceChanged(EntityInstanceChange(
+      EntityInstanceChange::UPDATE, shipment.guid(), shipment));
 }
 
 // Tests that `EntityInstanceChanged()` includes unknown fields from the server.

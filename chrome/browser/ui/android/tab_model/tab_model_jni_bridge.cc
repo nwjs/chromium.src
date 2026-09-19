@@ -17,6 +17,8 @@
 #include "base/android/token_android.h"
 #include "base/check.h"
 #include "base/check_op.h"
+#include "base/feature.h"
+#include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notimplemented.h"
@@ -28,8 +30,10 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
+#include "chrome/browser/performance_manager/public/background_tab_loading_policy.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/tab_util.h"
+#include "chrome/browser/tab_list/constants.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_observer_jni_bridge.h"
@@ -46,6 +50,7 @@
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "components/tabs/public/android/jni_conversion.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
@@ -471,8 +476,49 @@ void TabModelJniBridge::RemoveObserver(TabModelObserver* observer) {
 }
 
 void TabModelJniBridge::BroadcastSessionRestoreComplete(JNIEnv* env) {
-  if (GetTabModelType() != TabModelType::kArchived) {
-    TabModel::BroadcastSessionRestoreComplete();
+  if (GetTabModelType() == TabModelType::kArchived) {
+    return;
+  }
+
+  TabModel::BroadcastSessionRestoreComplete();
+
+  // On Desktop platforms, SessionRestoreDelegate explicitly schedules
+  // restored WebContents with PerformanceManager's
+  // BackgroundTabLoadingPolicy. On Android, session restore is driven by
+  // TabPersistentStore in Java. Once all tabs have been restored from
+  // storage, schedule background tabs to be loaded according to
+  // BackgroundTabLoadingPolicy (scoring, concurrency throttling, and memory
+  // pressure limits).
+  if (GetTabModelType() == TabModelType::kStandard &&
+      base::FeatureList::IsEnabled(
+          chrome::android::kDesktopAndroidBackgroundTabLoading) &&
+      base::FeatureList::IsEnabled(chrome::android::kLoadAllTabsAtStartup) &&
+      performance_manager::policies::CanScheduleLoadForRestoredTabs()) {
+    std::vector<content::WebContents*> background_tabs;
+    int active_index = GetActiveIndex();
+    int tab_count = GetTabCount();
+
+    for (int i = 0; i < tab_count; ++i) {
+      // The active foreground tab is loaded directly by the tab model/UI;
+      // only schedule background tabs.
+      if (i == active_index) {
+        continue;
+      }
+      if (content::WebContents* contents = GetWebContentsAt(i)) {
+        // Filter out tabs with empty/uncommitted URLs (e.g. initial NTP) to
+        // avoid DCHECK failures in BackgroundTabLoadingPolicy, and only queue
+        // tabs that actually need reload.
+        if (!contents->GetLastCommittedURL().is_empty() &&
+            contents->GetController().NeedsReload()) {
+          background_tabs.push_back(contents);
+        }
+      }
+    }
+
+    if (!background_tabs.empty()) {
+      performance_manager::policies::ScheduleLoadForRestoredTabs(
+          std::move(background_tabs));
+    }
   }
 }
 
@@ -506,7 +552,7 @@ tabs::TabStripCollection* TabModelJniBridge::GetTabStripCollection(
 void TabModelJniBridge::ActivateTab(tabs::TabHandle tab) {
   int index = GetIndexOfTab(tab);
   HighlightTabs(tab, {tab});
-  CHECK_NE(-1, index);
+  CHECK_NE(tab_list::kNoTabIndex, index);
   SetActiveIndex(index);
 }
 
@@ -611,7 +657,7 @@ tabs::TabInterface* TabModelJniBridge::GetTab(int index) {
 int TabModelJniBridge::GetIndexOfTab(tabs::TabHandle tab) {
   tabs::TabInterface* tab_interface = tab.Get();
   if (!tab_interface) {
-    return -1;
+    return tab_list::kNoTabIndex;
   }
   int count = GetTabCount();
   for (int i = 0; i < count; ++i) {
@@ -620,7 +666,7 @@ int TabModelJniBridge::GetIndexOfTab(tabs::TabHandle tab) {
     }
   }
 
-  return -1;
+  return tab_list::kNoTabIndex;
 }
 
 void TabModelJniBridge::HighlightTabs(tabs::TabHandle tab_to_activate,

@@ -1101,7 +1101,7 @@ historical analysis. -->
   <int value="1" label="kPreconnect"/>
 </enum>
 
-<!-- LINT.ThenChange(//net/spdy/multiplexed_session_creation_initiator.h:MultiplexedSessionCreationInitiator) -->
+<!-- LINT.ThenChange(//services/network/public/mojom/load_timing_internal_info.mojom:MultiplexedSessionCreationInitiator) -->
 
 <enum name="MultiPortStatusOnMigration">
   <int value="0" label="Not validated"/>
@@ -3188,9 +3188,11 @@ Called by update_net_trust_anchors.py.-->
       label="Existed in all_sessions_ (draining/going away) preconnect"/>
   <int value="4"
       label="Existed in all_sessions_ (both preconnect and non-preconnect)"/>
+  <int value="5" label="In-flight session existed, but was not preconnect"/>
+  <int value="6" label="In-flight session existed, and was preconnect"/>
 </enum>
 
-<!-- LINT.ThenChange(//net/base/load_timing_internal_info.h:QuicSessionEstablishmentReason) -->
+<!-- LINT.ThenChange(//services/network/public/mojom/load_timing_internal_info.mojom:QuicSessionEstablishmentReason) -->
 
 <!-- LINT.IfChange(QuicSessionKeyMismatchedField) -->
 
@@ -3231,6 +3233,25 @@ Called by update_net_trust_anchors.py.-->
 </enum>
 
 <!-- LINT.ThenChange(//net/quic/quic_session_pool.cc:QuicSessionKeyPartialMatchResult) -->
+
+<!-- LINT.IfChange(QuicSessionNonReuseReason) -->
+
+<enum name="QuicSessionNonReuseReason">
+  <int value="0" label="No session existed: True cold start"/>
+  <int value="1" label="No session existed: Key mismatch on SocketTag"/>
+  <int value="2"
+      label="No session existed: Key mismatch on NetworkAnonymizationKey"/>
+  <int value="3" label="No session existed: Key mismatch on PrivacyMode"/>
+  <int value="4" label="No session existed: Key mismatch on SecureDnsPolicy"/>
+  <int value="5" label="No session existed: Key mismatch on other field"/>
+  <int value="6" label="Session existed: Server sent GOAWAY"/>
+  <int value="7" label="Session existed: Disconnected/closed"/>
+  <int value="8" label="Session existed: Other going away reason"/>
+  <int value="9" label="No session existed: Key mismatch on multiple fields"/>
+  <int value="10" label="Session existed: Multiple non-reuse reasons"/>
+</enum>
+
+<!-- LINT.ThenChange(//services/network/public/mojom/load_timing_internal_info.mojom:QuicSessionNonReuseReason) -->
 
 <!-- LINT.IfChange(QuicSessionPoolAsyncDnsJobSuccessSource) -->
 

@@ -31,6 +31,7 @@
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_manager_util.h"
 #include "components/password_manager/core/browser/password_store/password_form_converters.h"
+#include "components/password_manager/core/browser/password_string.h"
 #include "components/password_manager/core/browser/votes_uploader.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/signin/public/base/gaia_id_hash.h"
@@ -47,11 +48,11 @@ namespace {
 AlternativeElement PasswordToSave(const PasswordForm& form) {
   if (form.new_password_value.empty()) {
     DCHECK(!form.password_value.empty() || form.IsFederatedCredential());
-    return {AlternativeElement::Value(form.password_value),
+    return {AlternativeElement::Value(form.password_value.value()),
             form.password_element_renderer_id,
             AlternativeElement::Name(form.password_element)};
   }
-  return {AlternativeElement::Value(form.new_password_value),
+  return {AlternativeElement::Value(form.new_password_value.value()),
           form.new_password_element_renderer_id,
           AlternativeElement::Name(form.new_password_element)};
 }
@@ -169,21 +170,19 @@ PendingCredentialsState ComputePendingCredentialsState(
     return PendingCredentialsState::NEW_LOGIN;
   }
 
-  if (generation_manager && generation_manager->HasGeneratedPassword() &&
-      generation_manager->generated_password() == password_to_save.value &&
-      parsed_submitted_form.username_value == u"" &&
-      similar_saved_form->username_value == u"") {
-    // This is the special corner case when a generated password is being saved
-    // with an empty username, while another generated password with an empty
-    // username is already being stored. In this case, just silently update the
-    // password (the allowance to update is asked before filling the form in
-    // this case).
-    return PendingCredentialsState::EQUAL_TO_SAVED_MATCH;
-  }
-
   // A similar credential exists in the store already.
   if (similar_saved_form->password_value != password_to_save.value) {
     return PendingCredentialsState::UPDATE;
+  }
+
+  // When a password is generated for a form, it is presaved into the store
+  // before submission. If that presaved credential is the match (having the
+  // exact same generated password), this submission is a new login with the
+  // submitted form data, not a routine login with an already saved credential.
+  // For more details, see crbug.com/552837140.
+  if (generation_manager && generation_manager->HasGeneratedPassword() &&
+      generation_manager->generated_password() == password_to_save.value) {
+    return PendingCredentialsState::NEW_LOGIN;
   }
 
   // If the autofilled credentials were a weak match, store a copy with the
@@ -367,7 +366,7 @@ const PasswordForm& PasswordSaveManagerImpl::GetPendingCredentials() const {
   return pending_credentials_;
 }
 
-const std::u16string& PasswordSaveManagerImpl::GetGeneratedPassword() const {
+const PasswordString& PasswordSaveManagerImpl::GetGeneratedPassword() const {
   DCHECK(generation_manager_);
   return generation_manager_->generated_password();
 }
@@ -413,7 +412,7 @@ void PasswordSaveManagerImpl::SetVotesAndRecordMetricsForPendingCredentials(
           votes_uploader_->FindCorrectedUsernameElement(
               form_fetcher_->GetAllRelevantMatches(),
               parsed_submitted_form.username_value,
-              parsed_submitted_form.password_value);
+              parsed_submitted_form.password_value.value());
       if (username_correction_found) {
         metrics_recorder_->RecordDetailedUserAction(
             password_manager::PasswordFormMetricsRecorder::DetailedUserAction::
@@ -648,7 +647,7 @@ void PasswordSaveManagerImpl::BlockMovingToAccountStoreFor(
   // (e.g. updating the password for other credentials with the same
   // old password).
   profile_store_form_saver_->Update(form_to_block, /*matches=*/{},
-                                    form_to_block.password_value);
+                                    form_to_block.password_value.value());
 }
 
 void PasswordSaveManagerImpl::UpdateSubmissionIndicatorEvent(
@@ -736,8 +735,9 @@ PasswordForm PasswordSaveManagerImpl::BuildPendingCredentials(
   }
 
   pending_credentials.password_value =
-      HasGeneratedPassword() ? generation_manager_->generated_password()
-                             : password_to_save.value;
+      HasGeneratedPassword()
+          ? generation_manager_->generated_password()
+          : PasswordString(std::move(password_to_save.value));
   pending_credentials.actor_login_approved |=
       should_store_actor_login_permission_;
   pending_credentials.date_last_used = base::Time::Now();

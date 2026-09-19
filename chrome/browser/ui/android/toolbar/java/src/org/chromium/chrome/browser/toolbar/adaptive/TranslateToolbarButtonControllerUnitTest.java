@@ -21,8 +21,8 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.preferences.Pref;
@@ -41,7 +41,6 @@ import org.chromium.url.JUnitTestGURLs;
 
 /** Unit tests for {@link TranslateToolbarButtonController} */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class TranslateToolbarButtonControllerUnitTest {
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -66,6 +65,7 @@ public class TranslateToolbarButtonControllerUnitTest {
         when(mTab.getProfile()).thenReturn(mProfile);
         when(mTab.getWebContents()).thenReturn(mWebContents);
         when(mTab.getUrl()).thenReturn(JUnitTestGURLs.EXAMPLE_URL);
+        when(mTab.getContext()).thenReturn(ContextUtils.getApplicationContext());
     }
 
     @After

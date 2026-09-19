@@ -39,10 +39,6 @@ BASE_FEATURE(kActorLoginPermissionsUi, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kActorLoginQualityLogs, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_IOS)
 
-#if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kAndroidSmsOtpFilling, base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
-
 BASE_FEATURE(kApplyClientsideModelPredictionsForPasswordTypes,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -101,6 +97,7 @@ BASE_FEATURE(kDisablePasswordChangeFromNewPasswordFields,
 BASE_FEATURE(kEnablePasswordManagerMojoApi, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kEnablePasswordManagerMojoApiPhase2,
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kPasskeyUnlockPromo, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 BASE_FEATURE(kFallbackNoPreviewForCrossDomainCredentials,
@@ -146,11 +143,16 @@ BASE_FEATURE(kPasswordBlockOpaqueOrigins, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kPassDeletionOriginToAndroidBackend,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<int> kPassDeletionOriginMinGmsVersion = {
     &kPassDeletionOriginToAndroidBackend, "min_gms_version", 261630000};
 #endif  // BUILDFLAG(IS_ANDROID)
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+BASE_FEATURE(kPasswordCompromiseWarningInDetailsCard,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 // Temporarily disabled as mitigation for crbug.com/485895402.
 BASE_FEATURE(kPasswordDateLastFilled, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -167,6 +169,11 @@ BASE_FEATURE(kPasswordFormGroupedAffiliations,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPasswordManagerLogToTerminal, base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+BASE_FEATURE(kPasswordManagerOnDeviceEncryptionMetricsReporter,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 BASE_FEATURE(kPasswordManualFallbackSecurityChecks,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -211,6 +218,8 @@ BASE_FEATURE(kSkipUndecryptablePasswords,
 
 BASE_FEATURE(kTriggerPasswordResyncWhenUndecryptablePasswordsDetected,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kUnifiedPasswordLeakDialog, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseDetachedWidget, base::FEATURE_ENABLED_BY_DEFAULT);
 

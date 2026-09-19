@@ -46,8 +46,8 @@ if (is_android) {
     deps = [
       "//components/vrp_flags:buildflags",
       "//third_party/rust/font_types/v0_12:lib",
-      "//third_party/rust/read_fonts/v0_41:lib",
-      "//third_party/rust/skrifa/v0_44:lib",
+      "//third_party/rust/read_fonts/v0_43:lib",
+      "//third_party/rust/skrifa/v0_46:lib",
     ]
   }
 }
@@ -157,7 +157,6 @@ source_set("browser") {
     "//components/embedder_support:user_agent",
     "//components/file_access",
     "//components/filename_generation",
-    "//components/history/core/browser:features",
     "//components/input",
     "//components/language/core/common",
     "//components/language_detection/content/common",
@@ -1074,6 +1073,8 @@ source_set("browser") {
     "generic_sensor/web_contents_sensor_provider_proxy.h",
     "geolocation/geolocation_service_impl.cc",
     "geolocation/geolocation_service_impl.h",
+    "global_privacy_control_util.cc",
+    "global_privacy_control_util.h",
     "gpu/browser_gpu_channel_host_factory.cc",
     "gpu/browser_gpu_channel_host_factory.h",
     "gpu/browser_gpu_client_delegate.cc",
@@ -1106,6 +1107,8 @@ source_set("browser") {
     "handwriting/handwriting_recognition_service_impl.h",
     "handwriting/handwriting_recognizer_impl.cc",
     "handwriting/handwriting_recognizer_impl.h",
+    "haptics/haptics_service_impl.cc",
+    "haptics/haptics_service_impl.h",
     "hid/hid_service.cc",
     "hid/hid_service.h",
     "host_zoom_level_context.cc",
@@ -1211,6 +1214,8 @@ source_set("browser") {
     "media/capture/desktop_streams_registry_impl.cc",
     "media/capture/desktop_streams_registry_impl.h",
     "permissions/permission_descriptor_util.cc",
+    "renderer_preferences_util.cc",
+    "renderer_preferences_util.h",
     "web_contents_based_canceller.cc",
     "web_contents_based_canceller.h",
 
@@ -1899,6 +1904,7 @@ source_set("browser") {
     "renderer_host/transient_allow_popup.h",
     "renderer_host/transient_focus_source_user_activation.cc",
     "renderer_host/transient_focus_source_user_activation.h",
+    "renderer_host/unbounded_surface_window.cc",
     "renderer_host/unbounded_surface_window.h",
     "renderer_host/view_transition_commit_deferring_condition.cc",
     "renderer_host/view_transition_commit_deferring_condition.h",
@@ -2296,8 +2302,15 @@ source_set("browser") {
     "webid/webid_utils.h",
     "webnn/webnn_introspection_manager_impl.cc",
     "webnn/webnn_introspection_manager_impl.h",
+    "webrtc/mock_camera_device.cc",
+    "webrtc/mock_camera_device.h",
+    "webrtc/mock_capture_device_controller.cc",
+    "webrtc/mock_capture_device_controller.h",
     "webrtc/webrtc_connections_observer.cc",
     "webrtc/webrtc_connections_observer.h",
+    "webrtc/webrtc_diagnostics.cc",
+    "webrtc/webrtc_diagnostics_impl.cc",
+    "webrtc/webrtc_diagnostics_impl.h",
     "webrtc/webrtc_internals.cc",
     "webrtc/webrtc_internals.h",
     "webrtc/webrtc_internals_connections_observer.h",
@@ -3120,6 +3133,8 @@ source_set("browser") {
       "android/additional_navigation_params.h",
       "android/android_overlay_provider_impl.cc",
       "android/android_overlay_provider_impl.h",
+      "android/android_surface_control_compositor.cc",
+      "android/android_surface_control_compositor.h",
       "android/app_web_message_port.cc",
       "android/app_web_message_port.h",
       "android/background_sync_network_observer_android.cc",
@@ -3461,7 +3476,10 @@ source_set("browser") {
   }
 
   if (is_win) {
-    deps += [ "//ui/base/ime/win" ]
+    deps += [
+      "//components/tracing:tracing_etw",
+      "//ui/base/ime/win",
+    ]
   }
 
   if (use_aura) {

@@ -591,6 +591,156 @@ def _CheckNoNewBrowserWindowMemberCall(input_api, output_api):
 
 
 ###############################################################################
+# Discourage including chrome/browser/ui/browser.h and using the
+# Browser class in favor of BrowserWindowInterface.
+###############################################################################
+
+# Fixture classes banned in desktop unit tests (Project Bedrock).
+# Discourages inheriting from monolithic test fixtures, such as:
+#   class FooTest : public BrowserWithTestWindowTest { ... };
+#   class BarTest : public TestWithBrowserView { ... };
+_BEDROCK_BANNED_FIXTURE_CLASSES = (
+    'BrowserWithTestWindowTest',
+    'TestWithBrowserView',
+)
+
+# Header includes banned in desktop unit tests (Project Bedrock).
+# Discourages including monolithic browser headers in unit tests, such
+# as:
+#   #include "chrome/test/base/browser_with_test_window_test.h"
+#   #include "chrome/browser/ui/views/frame/test_with_browser_view.h"
+#   #include "chrome/test/base/test_browser_window.h"
+_BEDROCK_BANNED_UNIT_TEST_INCLUDES = (
+    'chrome/test/base/browser_with_test_window_test.h',
+    'chrome/browser/ui/views/frame/test_with_browser_view.h',
+    'chrome/test/base/test_browser_window.h',
+)
+
+# Files that legitimately declare, implement, or construct Browser.
+_BROWSER_USAGE_EXCLUDED_PATHS = (
+    'chrome/browser/ui/browser.h',
+    'chrome/browser/ui/browser.cc',
+    'chrome/browser/ui/browser_window/public/browser_window_interface.h',
+    'chrome/browser/ui/browser_window/public/create_browser_window.h',
+    ('chrome/browser/ui/browser_window/internal/'
+     'create_browser_window_non_android.cc'),
+    'chrome/browser/ui/views/frame/browser_window_factory.cc',
+)
+
+
+def _CheckNoNewBrowserUsage(input_api, output_api):
+    """Warns against direct Browser class usage, browser.h includes, and
+    monolithic browser test fixtures/headers in desktop unit tests under
+    chrome/browser/ as part of Project Bedrock.
+
+    All window functionality is available via BrowserWindowInterface
+    (chrome/browser/ui/browser_window/public/
+    browser_window_interface.h).
+    """
+    bad_include_pattern = input_api.re.compile(
+        r'#include\s*["<]chrome/browser/ui/browser\.h[">]')
+    browser_class_pattern = input_api.re.compile(r'\bBrowser\b')
+    banned_unit_test_include_pattern = input_api.re.compile(
+        r'#include\s*["<](' +
+        '|'.join(input_api.re.escape(h)
+                 for h in _BEDROCK_BANNED_UNIT_TEST_INCLUDES) + r')[">]')
+    banned_fixture_pattern = input_api.re.compile(
+        r'\bpublic\s+(?:::)?(' +
+        '|'.join(input_api.re.escape(c)
+                 for c in _BEDROCK_BANNED_FIXTURE_CLASSES) + r')\b')
+    comment_pattern = input_api.re.compile(r'^\s*(//|/\*|\*)')
+    string_literal_pattern = input_api.re.compile(r'"(\\.|[^"\\])*"')
+
+    def is_excluded(local_path):
+        unix_path = local_path.replace('\\', '/')
+        return unix_path in _BROWSER_USAGE_EXCLUDED_PATHS
+
+    problems = []
+    for f in input_api.AffectedFiles(include_deletes=False):
+        local_path = f.LocalPath().replace('\\', '/')
+
+        # Only evaluate C++ source and header files.
+        if not local_path.endswith(('.cc', '.h', '.mm')):
+            continue
+
+        # Skip files that legitimately declare, implement, or construct
+        # Browser.
+        if is_excluded(local_path):
+            continue
+
+        # Determine if the file is a desktop unit test (excluding Ash
+        # and ChromeOS; Android does not compile Browser /
+        # BrowserWithTestWindowTest).
+        is_desktop_unit_test = (
+            (local_path.endswith('_unittest.cc') or
+             local_path.endswith('_unittest.h')) and
+            '/ash/' not in local_path and
+            '/chromeos/' not in local_path)
+
+        for line_num, line in f.ChangedContents():
+            # Skip whole-line comments (//, /*, *).
+            if comment_pattern.match(line):
+                continue
+
+            # Skip lines explicitly annotated with the '// nocheck'
+            # escape hatch.
+            if input_api.re.search(r'//\s*nocheck', line):
+                continue
+
+            # Check for direct include of chrome/browser/ui/browser.h.
+            if bad_include_pattern.search(line):
+                problems.append('    %s:%d' % (local_path, line_num))
+                continue
+
+            # For desktop unit tests, check for banned monolithic test
+            # headers and fixtures.
+            if is_desktop_unit_test:
+                # Strip inline comments before inspecting code content.
+                code_line = line.split('//')[0]
+                if (banned_unit_test_include_pattern.search(code_line) or
+                        banned_fixture_pattern.search(code_line)):
+                    problems.append('    %s:%d' % (local_path, line_num))
+                    continue
+
+            # Strip inline comments and string literals to avoid false
+            # positives.
+            code_line = line.split('//')[0]
+            code_without_strings = string_literal_pattern.sub('""', code_line)
+
+            # Check for usage of the Browser class.
+            if browser_class_pattern.search(code_without_strings):
+                problems.append('    %s:%d' % (local_path, line_num))
+
+    # Return empty list if no violations were found.
+    if not problems:
+        return []
+
+    # Return a unified PresubmitPromptWarning with Bedrock best-practice
+    # guidance.
+    return [
+        output_api.PresubmitPromptWarning(
+            'Direct usage of the Browser class, including browser.h, and '
+            'monolithic\nbrowser test fixtures/headers '
+            '(BrowserWithTestWindowTest,\nTestWithBrowserView, '
+            'test_browser_window.h) is discouraged as part\nof Project '
+            'Bedrock.\n\n'
+            'Please use modern interfaces and focused test doubles '
+            'instead:\n'
+            '  - BrowserWindowInterface / MockBrowserWindowInterface for '
+            'window\n    interactions\n'
+            '  - TabInterface for tab-level interactions\n'
+            '  - ChromeRenderViewHostTestHarness or testing::Test for unit '
+            'test\n    fixtures\n'
+            '  - InProcessBrowserTest for integration / browser tests\n'
+            '    (in *_browsertest.cc)\n\n'
+            'If an exception is required, append "// nocheck" to the line '
+            'or add the\nfile to _BROWSER_USAGE_EXCLUDED_PATHS in '
+            'chrome/browser/PRESUBMIT.py.\n' +
+            '\n'.join(problems))
+    ]
+
+
+###############################################################################
 # Check if all flag_descriptions are used from about_flags (cleanup)
 ###############################################################################
 
@@ -751,6 +901,7 @@ def _CheckNoNewProfileIDPrefixes(input_api, output_api):
         'for Profile differentiated by such prefixes.')
     return [output_api.PresubmitPromptWarning(WARNING_MSG, items=problems)]
 
+
 ###############################################################################
 # Presubmit aggregator
 ###############################################################################
@@ -776,6 +927,7 @@ def _CommonChecks(input_api, output_api):
     results.extend(_CheckAshSourcesForBadIncludes(input_api, output_api))
     results.extend(_CheckNoNewBrowserWindowGetter(input_api, output_api))
     results.extend(_CheckNoNewBrowserWindowMemberCall(input_api, output_api))
+    results.extend(_CheckNoNewBrowserUsage(input_api, output_api))
 
     if _FlagFilesHaveChanged(input_api):
         results.extend(

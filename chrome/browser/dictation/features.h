@@ -7,6 +7,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 
 namespace dictation {
 
@@ -35,6 +36,14 @@ extern const base::FeatureParam<bool> kShowPartials;
 
 // If true, uses the Web Speech API backend instead of the cloud backend.
 extern const base::FeatureParam<bool> kWebSpeechApiBackend;
+
+// If true, the session will end when a dictation stream ends, rather than
+// allowing multiple streams in a single session.
+extern const base::FeatureParam<bool> kSessionEndsOnStreamEnd;
+
+// The delay before ending a session after a stream ends when
+// `kSessionEndsOnStreamEnd` is enabled.
+extern const base::FeatureParam<base::TimeDelta> kAutoSessionEndDelay;
 
 }  // namespace dictation
 

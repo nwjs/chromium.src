@@ -76,6 +76,7 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
+#include "chrome/test/base/testing_profile_manager.h"
 #include "chromeos/ash/components/login/session/session_termination_manager.h"
 #include "chromeos/ash/experiences/arc/app/arc_app_constants.h"
 #include "chromeos/ash/experiences/arc/arc_features.h"
@@ -2253,14 +2254,18 @@ TEST_P(ArcAppModelBuilderTest, AppLifeCycleEventsOnPackageListRefresh) {
   prefs->RemoveObserver(&observer);
 }
 
-TEST_P(ArcAppModelBuilderTest, ArcPacakgesIsUpToDate) {
+TEST_P(ArcAppModelBuilderTest, ArcPackagesIsUpToDate) {
   const std::string package_name = "com.fakepackage.name";
   const arc::mojom::ArcPackageInfoPtr package = CreatePackage(package_name);
 
   ArcAppListPrefs* prefs = ArcAppListPrefs::Get(profile());
   ASSERT_NE(nullptr, prefs);
 
-  // kArcPackagesIsUpToDate is set to true when the package list is refreshed.
+  // kArcPackagesIsUpToDate is true by default.
+  EXPECT_TRUE(
+      profile()->GetPrefs()->GetBoolean(arc::prefs::kArcPackagesIsUpToDate));
+
+  // kArcPackagesIsUpToDate is still true when the package list is refreshed.
   std::vector<arc::mojom::ArcPackageInfoPtr> packages;
   packages.push_back(package->Clone());
   app_instance()->SendRefreshPackageList(std::move(packages));

@@ -91,6 +91,13 @@ class COMPONENT_EXPORT(AX_PLATFORM) BrowserAccessibilityManagerWin
                                     BrowserAccessibility* node);
   void FireUiaChangesEvent(BrowserAccessibility* node, int annotation_type_id);
 
+  // For testing only, register a function to be called when location change
+  // events are sent by SendLocationChangeEvents.
+  using LocationChangeEventCallbackForTesting =
+      base::RepeatingCallback<void(BrowserAccessibility* node)>;
+  void SetLocationChangeEventCallbackForTesting(
+      const LocationChangeEventCallbackForTesting& callback);
+
   gfx::Rect GetViewBoundsInScreenCoordinates() const override;
 
   // Do event pre-processing
@@ -100,6 +107,9 @@ class COMPONENT_EXPORT(AX_PLATFORM) BrowserAccessibilityManagerWin
   void FinalizeAccessibilityEvents() override;
 
  protected:
+  void SendLocationChangeEvents(
+      const std::vector<AXLocationChange>& changes) override;
+
   // AXTreeObserver methods.
   void OnSubtreeWillBeDeleted(AXTree* tree, AXNode* node) override;
   void OnAtomicUpdateFinished(
@@ -115,7 +125,7 @@ class COMPONENT_EXPORT(AX_PLATFORM) BrowserAccessibilityManagerWin
     ~SelectionEvents();
   };
 
-  using SelectionEventsMap = std::map<BrowserAccessibility*, SelectionEvents>;
+  using SelectionEventsMap = std::map<AXNodeID, SelectionEvents>;
   using IsSelectedPredicate =
       base::RepeatingCallback<bool(BrowserAccessibility*)>;
   using FirePlatformSelectionEventsCallback =
@@ -137,7 +147,7 @@ class COMPONENT_EXPORT(AX_PLATFORM) BrowserAccessibilityManagerWin
       BrowserAccessibility* node,
       bool is_selected);
 
-  static void FinalizeSelectionEvents(
+  void FinalizeSelectionEvents(
       SelectionEventsMap& selection_events_map,
       IsSelectedPredicate is_selected_predicate,
       FirePlatformSelectionEventsCallback fire_platform_events_callback);
@@ -194,6 +204,9 @@ class COMPONENT_EXPORT(AX_PLATFORM) BrowserAccessibilityManagerWin
   // handling in FireSourceEvent for details. Uses AXNodeID so GetFromID()
   // returns null if the node is removed.
   AXNodeID last_selected_tab_id_ = kInvalidAXNodeID;
+
+  LocationChangeEventCallbackForTesting
+      location_change_event_callback_for_testing_;
 };
 
 }  // namespace ui

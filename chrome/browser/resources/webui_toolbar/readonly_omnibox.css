@@ -16,6 +16,8 @@
   border: none;
   color: var(--color-omnibox-text);
   display: flex;
+  /* Absorbs available free space. This mathematically isolates layout changes
+   * on the left/right sides. */
   flex: 1;
   font-family: var(--omnibox-primary-font-family);
   font-size: var(--omnibox-primary-font-size);
@@ -75,21 +77,21 @@
   direction: ltr;
 }
 
-#textInput::selection {
+#textInput::part(searchbox-input)::selection {
   background-color: var(--color-omnibox-selection-background);
   color: var(--color-omnibox-selection-foreground);
 }
 
 /* We don't want URLs spellchecked */
-#textInput::spelling-error {
+#textInput::part(searchbox-input)::spelling-error {
   text-decoration: none;
 }
 
-#textInput::grammar-error {
+#textInput::part(searchbox-input)::grammar-error {
   text-decoration: none;
 }
 
-#textInput::placeholder {
+#textInput::part(searchbox-input)::placeholder {
   color: var(--color-omnibox-text);
 }
 
@@ -98,7 +100,7 @@
 }
 
 #textContainer .color-foreground-disabled,
-#textInput.color-foreground-disabled::placeholder  {
+#textInput.color-foreground-disabled::part(searchbox-input)::placeholder  {
   color: var(--color-omnibox-foreground-disabled);
 }
 
@@ -111,6 +113,12 @@
 }
 
 #textInput {
+  opacity: 0;
+}
+
+#textInput,
+#textInput::part(searchbox-input) {
+  --cr-searchbox-input-height: var(--omnibox-height);
   appearance: none;
   background-color: transparent;
   border: none;
@@ -119,12 +127,15 @@
   font-size: inherit;
   font-weight: inherit;
   height: var(--omnibox-height);
-  opacity: 0;
   outline: none;
   padding: 0;
   position: absolute;
   top: 0;
   width: 100%;
+}
+
+#textInput::part(icon) {
+  display: none;
 }
 
 :host(.dragging-over) #textContainer span {
@@ -157,7 +168,7 @@
   white-space: pre;
 
   /* Since the <input> is full-width, we want to be on top */
-  z-index: 2;
+  z-index: 102;
 }
 
 #dragTemplate {

@@ -35,7 +35,9 @@
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/vector2d_conversions.h"
 #include "ui/gfx/geometry/vector2d_f.h"
+#include "ui/ozone/common/features.h"
 #include "ui/ozone/platform/wayland/host/dump_util.h"
 #include "ui/ozone/platform/wayland/host/wayland_connection.h"
 #include "ui/ozone/platform/wayland/host/wayland_cursor_position.h"
@@ -625,10 +627,6 @@ void WaylandEventSource::OnTabletToolProximityIn(WaylandWindow* window,
                    tablet_tool_location_, time, keyboard_modifiers_, 0,
                    details);
   SetTargetAndDispatchEvent(&event, window);
-  if (tablet_tool_buttons_ && !connection_->IsDragInProgress()) {
-    // Release any buttons that were pressed during a DnD session.
-    OnTabletToolButton(tablet_tool_buttons_, /*pressed=*/false, details, time);
-  }
 }
 
 void WaylandEventSource::OnTabletToolProximityOut(const PointerDetails& details,
@@ -846,12 +844,23 @@ void WaylandEventSource::OnTouchCancelEvent() {
 
   gfx::PointF location;
   base::TimeTicks timestamp = base::TimeTicks::Now();
-  for (auto& touch_point : touch_points_) {
-    PointerId id = touch_point.first;
+  std::vector<PointerId> ids;
+  ids.reserve(touch_points_.size());
+  for (const auto& touch_point : touch_points_) {
+    ids.push_back(touch_point.first);
+  }
+  for (PointerId id : ids) {
+    auto it = touch_points_.find(id);
+    if (it == touch_points_.end()) {
+      continue;
+    }
+    base::WeakPtr<WaylandWindow> window = it->second->window->AsWeakPtr();
     TouchEvent event(EventType::kTouchCancelled, location, location, timestamp,
                      PointerDetails(EventPointerType::kTouch, id));
     SetTouchTargetAndDispatchTouchEvent(&event);
-    HandleTouchFocusChange(touch_point.second->window, false);
+    if (window) {
+      HandleTouchFocusChange(window.get(), false);
+    }
   }
   touch_points_.clear();
 }
@@ -987,6 +996,26 @@ bool WaylandEventSource::IsPointerButtonPressed(EventFlags button) const {
 void WaylandEventSource::ReleasePressedPointerButtons(
     WaylandWindow* window,
     base::TimeTicks timestamp) {
+  // Dispatching the event may delete the window.
+  base::WeakPtr<WaylandWindow> window_weak =
+      window ? window->AsWeakPtr() : nullptr;
+
+  if (tablet_tool_buttons_ && connection_->IsDragInProgress()) {
+    // Release any tablet buttons that were pressed when the DnD session
+    // started.
+    auto* target =
+        window_weak ? window_weak.get() : tablet_tool_focused_window_.get();
+    if (target) {
+      EventType type = EventType::kMouseReleased;
+      int flags =
+          keyboard_modifiers_ | tablet_tool_buttons_ | EF_IS_SYNTHESIZED;
+      MouseEvent event(type, tablet_tool_location_, tablet_tool_location_,
+                       timestamp, flags, tablet_tool_buttons_);
+      SetTargetAndDispatchEvent(&event, target);
+    }
+    tablet_tool_buttons_ = 0;
+  }
+
   // This may be called through the pointer delegate to cleanup pointer state.
   // Clients may call this proactively regardless of whether the any pointer
   // buttons are registered as pressed.
@@ -994,9 +1023,6 @@ void WaylandEventSource::ReleasePressedPointerButtons(
     return;
   }
 
-  // Dispatching the event may delete the window.
-  base::WeakPtr<WaylandWindow> window_weak =
-      window ? window->AsWeakPtr() : nullptr;
   for (const auto& [button, name] : kMouseButtonToStringMap) {
     if (button & pointer_flags_) {
       VLOG(1) << "Synthesizing pointer release for: " << name;
@@ -1179,8 +1205,22 @@ void WaylandEventSource::ProcessPointerScrollData() {
     if (*pointer_scroll_data_->axis_source == WL_POINTER_AXIS_SOURCE_WHEEL ||
         *pointer_scroll_data_->axis_source ==
             WL_POINTER_AXIS_SOURCE_WHEEL_TILT) {
+      float dx = pointer_scroll_data_->dx;
+      float dy = pointer_scroll_data_->dy;
+      if (IsWaylandUnscaledTouchpadScrollingEnabled() &&
+          !pointer_scroll_data_->is_high_resolution) {
+        // Wayland compositors send axis events with values in the surface
+        // coordinate
+        // space. They send a value of 10 per mouse wheel click by convention,
+        // so clients (e.g. GTK+) typically scale down by this amount to convert
+        // to discrete step coordinates. wl_pointer version 5 improves the
+        // situation by adding axis sources and discrete axis events.
+        constexpr double kAxisValueScale = 10.0;
+        dx = dx / kAxisValueScale * MouseWheelEvent::kWheelDelta;
+        dy = dy / kAxisValueScale * MouseWheelEvent::kWheelDelta;
+      }
       MouseWheelEvent event(
-          gfx::Vector2d(pointer_scroll_data_->dx, pointer_scroll_data_->dy),
+          gfx::ToRoundedVector2d(gfx::Vector2dF(dx, dy)),
           pointer_location_, pointer_location_, timestamp, flags, 0);
       pointer_frames_.push_back(
           std::make_unique<FrameData>(event, base::NullCallback()));

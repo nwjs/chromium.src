@@ -34,6 +34,7 @@
 
 #include "base/callback_list.h"
 #include "base/gtest_prod_util.h"
+#include "base/memory/raw_ptr.h"
 #include "base/time/default_tick_clock.h"
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
@@ -245,6 +246,7 @@ class CORE_EXPORT LocalFrame final
   void Init(
       Frame* opener,
       const DocumentToken& document_token,
+      const base::UnguessableToken& initiator_state_token,
       std::unique_ptr<PolicyContainer> policy_container,
       const StorageKey& storage_key,
       ukm::SourceId document_ukm_source_id,
@@ -548,12 +550,20 @@ class CORE_EXPORT LocalFrame final
   }
   IdlenessDetector* GetIdlenessDetector() { return idleness_detector_.Get(); }
   AdTracker* GetAdTracker() { return ad_tracker_.Get(); }
-  ExtensionScriptTracker* GetExtensionScriptTracker() {
-    return extension_script_tracker_.Get();
-  }
+  ExtensionScriptTracker* GetExtensionScriptTracker();
   ScriptInitiationMonitor* GetScriptInitiationMonitor() const;
   ScriptInitiationMonitor* GetOrCreateScriptInitiationMonitor();
   void SetAdTrackerForTesting(AdTracker* ad_tracker);
+
+  // Configures extension script tracking for this frame if it is a local root,
+  // based on the document's ScriptInjectionPolicy and whether the feature is
+  // enabled.
+  void UpdateExtensionScriptTracking();
+
+  // Sets or overrides the ExtensionScriptTracker for testing.
+  void SetExtensionScriptTrackerForTesting(
+      ExtensionScriptTracker* extension_script_tracker);
+
   LCPScriptObserver* GetScriptObserver() { return script_observer_.Get(); }
 
   enum class LazyLoadImageSetting { kDisabled, kEnabledExplicit };
@@ -661,9 +671,7 @@ class CORE_EXPORT LocalFrame final
     return ad_evidence_;
   }
 
-  bool IsFrameCreatedByAdScript() const {
-    return is_frame_created_by_ad_script_;
-  }
+  bool IsFrameCreatedByAdScript() const;
 
   // Returns the identifier of the ad script that created this frame, if
   // applicable.
@@ -1088,6 +1096,8 @@ class CORE_EXPORT LocalFrame final
                                mojom::blink::StorageTypeAccessed storage_type,
                                bool isAllowed);
 
+  void NotifyFrameAttachedToParent();
+
   std::unique_ptr<FrameScheduler> frame_scheduler_;
 
   // Holds all PauseSubresourceLoadingHandles allowing either |this| to delete
@@ -1161,7 +1171,8 @@ class CORE_EXPORT LocalFrame final
 
   HistoryUserActivationState history_user_activation_state_;
 
-  InterfaceRegistry* const interface_registry_;
+  const raw_ptr<InterfaceRegistry, UnprotectedInRelease | DanglingUntriaged>
+      interface_registry_;
 
   mojom::blink::ViewportIntersectionState intersection_state_;
 
@@ -1239,24 +1250,6 @@ class CORE_EXPORT LocalFrame final
   std::optional<blink::FrameAdEvidence> ad_evidence_;
 
   Member<LCPCriticalPathPredictor> lcpp_;
-
-  // True if this frame is a frame that had a script tagged as an ad on the v8
-  // stack at the time of creation. This is updated in `SetAdEvidence()`,
-  // allowing the bit to be propagated when a frame navigates cross-origin.
-  // Fenced frames do not set this bit for the initial empty document, see
-  // SubresourceFilterAgent::Initialize.
-  bool is_frame_created_by_ad_script_ = false;
-
-  // The ancestry chain of ad script identifiers leading to this frame's
-  // creation, along with the root script's filterlist rule. The ancestry chain
-  // is ordered from the most immediate script (in the frame creation stack) to
-  // more distant ancestors (that created the immediately preceding
-  // script). Kept to defer instrumentation probe call until the frame is
-  // committed.
-  //
-  // This is currently *not* populated when a frame navigates cross-origin
-  // (crbug.com/421202278).
-  AdTracker::AdScriptAncestry ad_script_ancestry_;
 
   bool evict_cached_session_storage_on_freeze_or_unload_ = false;
 

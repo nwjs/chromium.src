@@ -261,6 +261,7 @@ chromium_luci.configure_targets(
             "ios_runtime_cache_18_5": True,
             "use-ios-simulator-cache": True,
             "linux_gpu_high_tier_ai_wpt_dimensions": True,
+            "linux_gpu_high_tier_gemma4_ai_wpt_dimensions": targets.IGNORE_UNUSED,
             "long_skylab_timeout": True,
             "mac_14_x64": True,
             "mac_default_arm64": True,
@@ -284,7 +285,8 @@ chromium_luci.configure_targets(
             "win-arm64": True,
             "win10": True,
             "win10-any": True,
-            "xcode_26_main": True,
+            "win_gpu_gemma4_ai_wpt_dimensions": targets.IGNORE_UNUSED,
+            "xcode_27_main": True,
             "xctest": True,
 
             # The following mixins need to always be generated in mixins.pyl

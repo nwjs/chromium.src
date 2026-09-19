@@ -16,6 +16,7 @@ if (!is_android) {
       "gws_hp_page_load_metrics_observer_browsertest.cc",
       "gws_page_load_metrics_observer_browsertest.cc",
       "navigation_initiator_page_load_metrics_observer_browsertest.cc",
+      "preload_serving_metrics_page_load_metrics_observer_browsertest.cc",
       "prerender_page_load_metrics_observer_browsertest.cc",
       "use_counter_page_load_metrics_observer_browsertest.cc",
     ]
@@ -28,6 +29,7 @@ if (!is_android) {
       "//chrome/browser/preloading/prerender",
       "//chrome/browser/search_engines",
       "//chrome/browser/ui",
+      "//chrome/browser/ui/browser_window",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
       "//components/page_load_metrics/browser",

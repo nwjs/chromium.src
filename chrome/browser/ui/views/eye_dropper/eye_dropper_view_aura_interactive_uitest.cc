@@ -2,12 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/eye_dropper/eye_dropper.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/eye_dropper/eye_dropper_view.h"
 #include "content/public/browser/eye_dropper.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "ui/events/event.h"
 #include "ui/views/widget/widget.h"
@@ -46,7 +48,7 @@ IN_PROC_BROWSER_TEST_F(EyeDropperViewAuraInteractiveTest, ActiveChangeCancel) {
   MaybeSkipForWayland();
   EyeDropperListener listener;
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   web_contents->Focus();
   ASSERT_TRUE(web_contents->GetPrimaryMainFrame()->GetView()->HasFocus());
   std::unique_ptr<content::EyeDropper> eye_dropper =
@@ -61,7 +63,7 @@ IN_PROC_BROWSER_TEST_F(EyeDropperViewAuraInteractiveTest, InactiveWindow) {
   MaybeSkipForWayland();
   EyeDropperListener listener;
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   web_contents->WasHidden();
   ASSERT_FALSE(web_contents->GetPrimaryMainFrame()->GetView()->HasFocus());
   std::unique_ptr<content::EyeDropper> eye_dropper =
@@ -73,7 +75,7 @@ IN_PROC_BROWSER_TEST_F(EyeDropperViewAuraInteractiveTest, MoveMouseAndTouch) {
   MaybeSkipForWayland();
   EyeDropperListener listener;
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   // EyeDropper should open at cursor.
   web_contents->Focus();

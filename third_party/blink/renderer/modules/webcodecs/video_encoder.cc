@@ -94,6 +94,7 @@
 #include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_copier_std.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 
 #if BUILDFLAG(ENABLE_LIBAOM)
@@ -194,20 +195,24 @@ media::EncoderStatus IsAcceleratedConfigurationSupported(
   // High bit depths are supported by HEVC Main10 and AV1 Main only; AV1
   // profile 1 is deliberately left out because the 4:4:4 hardware input format
   // is 8 bit AYUV, and 10b lacks hardware support for now.
-  media::VideoChromaSampling required_sampling =
-      (profile == media::AV1PROFILE_PROFILE_HIGH)
-          ? media::VideoChromaSampling::k444
-          : media::VideoChromaSampling::k420;
+  // TODO(crbug.com/537818862): Advertise chroma_sampling and bit_depth on every
+  // SupportedProfile and drop this hardcoded allowlist.
+  if (profile != media::HEVCPROFILE_REXT) {
+    media::VideoChromaSampling required_sampling =
+        (profile == media::AV1PROFILE_PROFILE_HIGH)
+            ? media::VideoChromaSampling::k444
+            : media::VideoChromaSampling::k420;
 
-  const int bit_depth = options.bit_depth.value_or(8);
-  const bool bit_depth_supported =
-      bit_depth == 8 ||
-      (bit_depth == 10 && (profile == media::HEVCPROFILE_MAIN10 ||
-                           profile == media::AV1PROFILE_PROFILE_MAIN));
-  if ((options.subsampling.has_value() &&
-       options.subsampling.value() != required_sampling) ||
-      !bit_depth_supported) {
-    return media::EncoderStatus::Codes::kEncoderUnsupportedConfig;
+    const int bit_depth = options.bit_depth.value_or(8);
+    const bool bit_depth_supported =
+        bit_depth == 8 ||
+        (bit_depth == 10 && (profile == media::HEVCPROFILE_MAIN10 ||
+                             profile == media::AV1PROFILE_PROFILE_MAIN));
+    if ((options.subsampling.has_value() &&
+         options.subsampling.value() != required_sampling) ||
+        !bit_depth_supported) {
+      return media::EncoderStatus::Codes::kEncoderUnsupportedConfig;
+    }
   }
 
   auto supported_profiles =
@@ -263,6 +268,16 @@ media::EncoderStatus IsAcceleratedConfigurationSupported(
       if (!(mode & supported_profile.rate_control_modes)) {
         continue;
       }
+    }
+
+    if (supported_profile.chroma_sampling.has_value() &&
+        supported_profile.chroma_sampling.value() !=
+            options.subsampling.value_or(media::VideoChromaSampling::k420)) {
+      continue;
+    }
+    if (supported_profile.bit_depth.has_value() &&
+        supported_profile.bit_depth.value() != options.bit_depth.value_or(8)) {
+      continue;
     }
 
     found_supported_profile = true;
@@ -350,8 +365,9 @@ VideoEncoderTraits::ParsedConfig* ParseConfigStatic(
     if (std::isnan(config->framerate()) ||
         config->framerate() < kMinFramerate ||
         config->framerate() > kMaxFramerate) {
-      result->not_supported_error_message = String::Format(
-          "Unsupported framerate; expected range from %f to %f, received %f.",
+      result->not_supported_error_message = Format(
+          "Unsupported framerate; expected range from {:f} to {:f}, received "
+          "{:f}.",
           kMinFramerate, kMaxFramerate, config->framerate());
       return result;
     }
@@ -451,23 +467,21 @@ bool VerifyCodecSupportStatic(VideoEncoderTraits::ParsedConfig* config,
 
   const auto& frame_size = config->options.frame_size;
   if (frame_size.height() > media::limits::kMaxDimension) {
-    *js_error_message = String::Format(
-        "Invalid height; expected range from %d to %d, received %d.", 1,
-        media::limits::kMaxDimension, frame_size.height());
+    *js_error_message =
+        Format("Invalid height; expected range from {} to {}, received {}.", 1,
+               media::limits::kMaxDimension, frame_size.height());
     return false;
   }
   if (frame_size.width() > media::limits::kMaxDimension) {
-    *js_error_message = String::Format(
-        "Invalid width; expected range from %d to %d, received %d.", 1,
-        media::limits::kMaxDimension, frame_size.width());
+    *js_error_message =
+        Format("Invalid width; expected range from {} to {}, received {}.", 1,
+               media::limits::kMaxDimension, frame_size.width());
     return false;
   }
   if (frame_size.Area64() > media::limits::kMaxCanvas) {
-    *js_error_message = String::Format(
-        "Invalid resolution; expected range from %d to %d, "
-        "received %" PRIu64
-        " (%d * "
-        "%d).",
+    *js_error_message = Format(
+        "Invalid resolution; expected range from {} to {}, received {} ({} * "
+        "{}).",
         1, media::limits::kMaxCanvas, frame_size.Area64(), frame_size.width(),
         frame_size.height());
     return false;
@@ -481,7 +495,8 @@ bool VerifyCodecSupportStatic(VideoEncoderTraits::ParsedConfig* config,
 #if BUILDFLAG(ENABLE_PLATFORM_HEVC)
     case media::VideoCodec::kHEVC:
       if (config->profile != media::VideoCodecProfile::HEVCPROFILE_MAIN &&
-          config->profile != media::VideoCodecProfile::HEVCPROFILE_MAIN10) {
+          config->profile != media::VideoCodecProfile::HEVCPROFILE_MAIN10 &&
+          config->profile != media::VideoCodecProfile::HEVCPROFILE_REXT) {
         *js_error_message = "Unsupported hevc profile.";
         return false;
       }
@@ -505,13 +520,12 @@ bool VerifyCodecSupportStatic(VideoEncoderTraits::ParsedConfig* config,
       uint64_t max_coded_area =
           media::H264LevelToMaxFS(config->level) * 16ull * 16ull;
       if (coded_area > max_coded_area) {
-        *js_error_message = String::Format(
-            "The provided resolution (%s) has a coded area "
-            "(%d*%d=%" PRIu64 ") which exceeds the maximum coded area (%" PRIu64
-            ") supported by the AVC level (%1.1f) indicated "
-            "by the codec string (0x%02X). You must either "
-            "specify a lower resolution or higher AVC level.",
-            config->options.frame_size.ToString().c_str(), coded_size.width(),
+        *js_error_message = Format(
+            "The provided resolution ({}) has a coded area ({}*{}={}) which "
+            "exceeds the maximum coded area ({}) supported by the AVC level "
+            "({:1.1f}) indicated by the codec string (0x{:02X}). You must "
+            "either specify a lower resolution or higher AVC level.",
+            config->options.frame_size.ToString(), coded_size.width(),
             coded_size.height(), coded_area, max_coded_area,
             config->level / 10.0f, config->level);
         return false;
@@ -655,14 +669,12 @@ const char* VideoEncoderTraits::GetName() {
 }
 
 String VideoEncoderTraits::ParsedConfig::ToString() {
-  return UNSAFE_TODO(
-      String::Format("{codec: %s, profile: %s, level: %d, hw_pref: %s, "
-                     "options: {%s}, codec_string: %s, display_size: %s}",
-                     media::GetCodecName(codec).c_str(),
-                     media::GetProfileName(profile).c_str(), level,
-                     HardwarePreferenceToIdlEnum(hw_pref).AsCStr(),
-                     options.ToString().c_str(), codec_string.Utf8().c_str(),
-                     display_size ? display_size->ToString().c_str() : ""));
+  return Format(
+      "{{codec: {}, profile: {}, level: {}, hw_pref: {}, options: {{{}}}, "
+      "codec_string: {}, display_size: {}}}",
+      media::GetCodecName(codec), media::GetProfileName(profile), level,
+      HardwarePreferenceToIdlEnum(hw_pref).AsCStr(), options.ToString(),
+      codec_string, display_size ? display_size->ToString() : "");
 }
 
 // static

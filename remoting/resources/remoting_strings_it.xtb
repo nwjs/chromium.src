@@ -48,6 +48,7 @@ Se la casella "<ph name="SERVICE_SCRIPT_NAME" />" è già selezionata, deselezio
 <translation id="3197730452537982411">Remote Desktop</translation>
 <translation id="3236334139428307578">Copyright 2026 The Chromium Authors. Tutti i diritti riservati.</translation>
 <translation id="324272851072175193">Invia queste istruzioni tramite email</translation>
+<translation id="3254626532848657899">Sposta in fondo</translation>
 <translation id="3305934114213025800"><ph name="PRODUCT_NAME" /> vorrebbe apportare delle modifiche.</translation>
 <translation id="3339299787263251426">Accedi al computer in modo sicuro tramite Internet</translation>
 <translation id="3385242214819933234">Proprietario host non valido.</translation>
@@ -166,6 +167,7 @@ Se la casella "<ph name="SERVICE_SCRIPT_NAME" />" è già selezionata, deselezio
 <translation id="8073845705237259513">Per poter utilizzare Chrome Remote Desktop devi aggiungere un Account Google sul dispositivo.</translation>
 <translation id="809687642899217504">I miei computer</translation>
 <translation id="8116630183974937060">Si è verificato un errore di rete. Controlla che il dispositivo sia online e riprova.</translation>
+<translation id="8249310407154411074">Sposta in alto</translation>
 <translation id="8295077433896346116">Per poter usare <ph name="PRODUCT_NAME" />, devi concedere l'autorizzazione "Accessibilità" in modo da poter inserire su questo Mac quanto inserito sul computer remoto.
 
 Per concedere questa autorizzazione, fai clic su "<ph name="BUTTON_NAME" />" sotto. Nel riquadro delle preferenze "Accessibilità" visualizzato, seleziona la casella "<ph name="SERVICE_SCRIPT_NAME" />".

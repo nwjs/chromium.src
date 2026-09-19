@@ -49,16 +49,19 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
-import org.chromium.chrome.browser.settings.SettingsActivity;
-import org.chromium.chrome.browser.settings.SettingsActivityTestRule;
+import org.chromium.chrome.browser.settings.SettingsActivityInterface;
+import org.chromium.chrome.browser.settings.SettingsTestRule;
 import org.chromium.chrome.browser.sync.FakeSyncServiceImpl;
 import org.chromium.chrome.browser.sync.SyncTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
+import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.test.util.FakeAccountManagerFacade;
 import org.chromium.components.sync.DataType;
@@ -66,6 +69,7 @@ import org.chromium.components.sync.UserActionableError;
 import org.chromium.components.trusted_vault.TrustedVaultClient;
 import org.chromium.google_apis.gaia.GoogleServiceAuthError;
 import org.chromium.google_apis.gaia.GoogleServiceAuthErrorState;
+import org.chromium.ui.base.DeviceFormFactor;
 
 import java.util.Set;
 
@@ -89,10 +93,10 @@ public class ManageSyncSettingsWithFakeSyncServiceImplTest {
     // otherwise trying to finish ChromeTabbedActivity won't work (SyncTestRule extends
     // ChromeTabbedActivityTestRule).
     @Rule(order = 1)
-    public final SettingsActivityTestRule<ManageSyncSettings> mSettingsActivityTestRule =
-            new SettingsActivityTestRule<>(ManageSyncSettings.class);
+    public final SettingsTestRule<ManageSyncSettings> mSettingsTestRule =
+            new SettingsTestRule<>(ManageSyncSettings.class);
 
-    private SettingsActivity mSettingsActivity;
+    private SettingsActivityInterface mSettingsActivityInterface;
 
     @Test
     @SmallTest
@@ -344,6 +348,10 @@ public class ManageSyncSettingsWithFakeSyncServiceImplTest {
     @Test
     @LargeTest
     @Feature({"Sync"})
+    @DisableFeatures({
+        SigninFeatures.SIGN_OUT_OF_CHROME,
+        SigninFeatures.SIGN_OUT_DELETES_BROWSING_DATA
+    })
     public void testSignOutUnsavedDataDialogShown() {
         final FakeSyncServiceImpl fakeSyncService =
                 (FakeSyncServiceImpl) mSyncTestRule.getSyncService();
@@ -361,9 +369,34 @@ public class ManageSyncSettingsWithFakeSyncServiceImplTest {
                 .check(matches(isDisplayed()));
     }
 
+    @Test
+    @LargeTest
+    @Feature({"Sync"})
+    @EnableFeatures({
+        SigninFeatures.SIGN_OUT_OF_CHROME,
+        SigninFeatures.SIGN_OUT_DELETES_BROWSING_DATA
+    })
+    @Restriction(DeviceFormFactor.DESKTOP)
+    public void testSignOutUnsavedDataDialogShown_desktopSignOut() {
+        final FakeSyncServiceImpl fakeSyncService =
+                (FakeSyncServiceImpl) mSyncTestRule.getSyncService();
+        fakeSyncService.setTypesWithUnsyncedData(Set.of(DataType.BOOKMARKS));
+        // Sign in and open settings.
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        ManageSyncSettings fragment = startManageSyncPreferences();
+        onViewWaiting(allOf(is(fragment.getView()), isDisplayed()));
+
+        onView(withId(R.id.recycler_view)).perform(RecyclerViewActions.scrollToLastPosition());
+        onView(withText(R.string.manage_sync_settings_sign_out_of_chrome)).perform(click());
+
+        onView(withText(R.string.sign_out_unsaved_data_title))
+                .inRoot(isDialog())
+                .check(matches(isDisplayed()));
+    }
+
     private ManageSyncSettings startManageSyncPreferences() {
-        mSettingsActivity = mSettingsActivityTestRule.startSettingsActivity();
-        return mSettingsActivityTestRule.getFragment();
+        mSettingsActivityInterface = mSettingsTestRule.startSettingsActivity();
+        return mSettingsTestRule.getFragment();
     }
 
     private void clickPreference(final Preference pref) {

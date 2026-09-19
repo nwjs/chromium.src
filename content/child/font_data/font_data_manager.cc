@@ -15,9 +15,11 @@
 #include "base/feature_list.h"
 #include "base/files/memory_mapped_file.h"
 #include "base/functional/bind.h"
+#include "base/i18n/case_conversion.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
 #include "content/common/features.h"
@@ -27,16 +29,26 @@
 #include "third_party/blink/public/web/win/web_font_rendering.h"
 #include "third_party/skia/src/ports/SkTypeface_win_dw.h"  // nogncheck
 #endif
+#if !BUILDFLAG(IS_WIN)
 #if BUILDFLAG(ENABLE_FREETYPE)
 #include "third_party/skia/include/ports/SkFontMgr_empty.h"
 #endif
 #include "third_party/skia/include/ports/SkTypeface_fontations.h"
+#endif
 
 namespace font_data_service {
 
 namespace {
 
 const int kTypefaceCacheSize = 128;
+
+std::optional<std::string> CanonicalizeFontFamilyNameForCache(
+    std::optional<std::string> name) {
+  if (name) {
+    return base::UTF16ToUTF8(base::i18n::FoldCase(base::UTF8ToUTF16(*name)));
+  }
+  return std::nullopt;
+}
 
 // Binds a pending receiver. Must be invoked from the main thread.
 void BindHostReceiverOnMainThread(
@@ -76,7 +88,7 @@ UNSAFE_BUFFER_USAGE std::vector<std::string> bcp47ArrayToVector(
 
 FontDataManager::FontDataManager()
     : typeface_cache_(kTypefaceCacheSize),
-#if BUILDFLAG(ENABLE_FREETYPE)
+#if !BUILDFLAG(IS_WIN) && BUILDFLAG(ENABLE_FREETYPE)
       custom_fnt_mgr_(SkFontMgr_New_Custom_Empty()),
 #endif
       main_task_runner_(base::SingleThreadTaskRunner::GetCurrentDefault()) {
@@ -265,17 +277,11 @@ sk_sp<SkTypeface> FontDataManager::onMakeFromStreamArgs(
     const SkFontArguments& args) const {
   TRACE_EVENT1("fonts", "FontDataManager::onMakeFromStreamArgs", "size",
                stream->getLength());
+#if BUILDFLAG(IS_WIN)
+  return DWriteFontTypeface::MakeFromStream(std::move(stream), args);
+#else
   // Experiment will test the performance of different SkTypefaces.
   // 'custom_fnt_mgr_' is a wrapper to create an SkFreeType typeface.
-
-  // DWRITE is only an option on Windows. Other platforms must use Freetype or
-  // Fontations.
-#if BUILDFLAG(IS_WIN)
-  if (features::kFontDataServiceTypefaceType.Get() ==
-      features::FontDataServiceTypefaceType::kDwrite) {
-    return DWriteFontTypeface::MakeFromStream(std::move(stream), args);
-  }
-#endif
   // Chromium currently always sets ENABLE_FREETYPE, but nonetheless allow
   // falling back to fontations if the param is set to freetype but freetype
   // isn't enabled.
@@ -287,6 +293,7 @@ sk_sp<SkTypeface> FontDataManager::onMakeFromStreamArgs(
 #endif
 
   return SkTypeface_Make_Fontations(std::move(stream), args);
+#endif
 }
 
 sk_sp<SkTypeface> FontDataManager::onMakeFromFile(const char path[],
@@ -579,7 +586,10 @@ FontDataManager::MatchFamilyRequest::MatchFamilyRequest(
     int weight,
     int width,
     SkFontStyle::Slant slant)
-    : name(name), weight(weight), width(width), slant(slant) {}
+    : name(CanonicalizeFontFamilyNameForCache(std::move(name))),
+      weight(weight),
+      width(width),
+      slant(slant) {}
 FontDataManager::MatchFamilyRequest::MatchFamilyRequest(
     const MatchFamilyRequest&) = default;
 FontDataManager::MatchFamilyRequest::MatchFamilyRequest(

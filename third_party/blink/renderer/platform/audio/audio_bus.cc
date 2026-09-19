@@ -36,13 +36,14 @@
 #include <memory>
 
 #include "base/compiler_specific.h"
+#include "base/functional/bind.h"
 #include "base/numerics/safe_conversions.h"
 #include "media/base/audio_bus.h"
+#include "media/base/sinc_resampler.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_audio_bus.h"
 #include "third_party/blink/renderer/platform/audio/audio_utilities.h"
 #include "third_party/blink/renderer/platform/audio/denormal_disabler.h"
-#include "third_party/blink/renderer/platform/audio/sinc_resampler.h"
 #include "third_party/blink/renderer/platform/audio/vector_math.h"
 #include "third_party/blink/renderer/platform/wtf/shared_buffer.h"
 
@@ -96,8 +97,6 @@ AudioBus::AudioBus(unsigned number_of_channels, uint32_t length, bool allocate)
       channels_.emplace_back();
     }
   }
-
-  layout_ = kLayoutCanonical;  // for now this is the only layout we define
 }
 
 void AudioBus::SetChannelMemory(unsigned channel_index,
@@ -126,11 +125,6 @@ void AudioBus::Zero() {
 }
 
 const AudioChannel* AudioBus::ChannelByType(unsigned channel_type) const {
-  // For now we only support canonical channel layouts...
-  if (layout_ != kLayoutCanonical) {
-    return nullptr;
-  }
-
   switch (NumberOfChannels()) {
     case 1:  // mono
       if (channel_type == kChannelMono || channel_type == kChannelLeft) {
@@ -706,9 +700,20 @@ scoped_refptr<AudioBus> AudioBus::TryCreateBySampleRateConverting(
 
   // Sample-rate convert each channel.
   for (unsigned i = 0; i < number_of_destination_channels; ++i) {
-    SincResampler resampler(sample_rate_ratio);
-    resampler.Process(resampler_source_bus->Channel(i)->Span(),
-                      destination_bus->Channel(i)->MutableSpan());
+    base::span<const float> source = resampler_source_bus->Channel(i)->Span();
+    // Use a request size of 96 to select a 32-tap kernel for backwards
+    // compatibility.
+    media::SincResampler resampler(
+        sample_rate_ratio, /*request_frames=*/96,
+        base::BindRepeating(
+            [](base::span<const float>& src, base::span<float> dest) {
+              size_t frames_to_copy = std::min(src.size(), dest.size());
+              auto [dest_fill, dest_zero] = dest.split_at(frames_to_copy);
+              dest_fill.copy_from(src.take_first(frames_to_copy));
+              std::ranges::fill(dest_zero, 0.0f);
+            },
+            std::ref(source)));
+    resampler.Resample(destination_bus->Channel(i)->MutableSpan());
   }
 
   destination_bus->ClearSilentFlag();

@@ -48,9 +48,13 @@ bool AiOverlayDialogUntrustedUIConfig::IsWebUIEnabled(
 }
 
 AiOverlayDialogUntrustedUI::AiOverlayDialogUntrustedUI(content::WebUI* web_ui)
-    : UntrustedTopChromeWebUIController(web_ui,
-                                        /*enable_chrome_send=*/false,
-                                        /*enable_chrome_histograms=*/false) {
+    : AiOverlayDialogUntrustedUIBase(web_ui
+#if !BUILDFLAG(IS_ANDROID)
+                                     ,
+                                     /*enable_chrome_send=*/false,
+                                     /*enable_chrome_histograms=*/false
+#endif
+      ) {
   content::WebUIDataSource* html_source =
       content::WebUIDataSource::CreateAndAdd(
           web_ui->GetWebContents()->GetBrowserContext(),
@@ -59,7 +63,13 @@ AiOverlayDialogUntrustedUI::AiOverlayDialogUntrustedUI(content::WebUI* web_ui)
   // TODO(crbug.com/543871096): Localize remaining Notes subpage strings.
   static constexpr webui::LocalizedString kLocalizedStrings[] = {
       {"add", IDS_ADD},
+#if !BUILDFLAG(IS_ANDROID)
       {"delete", IDS_DELETE},
+#else
+      // TODO(crbug.com/543871096): Localize IDS_DELETE for Android, as
+      // IDS_REMOVE is a generic placeholder.
+      {"delete", IDS_REMOVE},
+#endif  // !BUILDFLAG(IS_ANDROID)
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
@@ -68,6 +78,8 @@ AiOverlayDialogUntrustedUI::AiOverlayDialogUntrustedUI(content::WebUI* web_ui)
       IDR_AI_OVERLAY_DIALOG_UNTRUSTED_AI_OVERLAY_DIALOG_HTML);
   html_source->AddResourcePath(
       "notes", IDR_AI_OVERLAY_DIALOG_UNTRUSTED_NOTES_NOTES_HTML);
+
+  html_source->AddBoolean("isAndroidBackend", BUILDFLAG(IS_ANDROID));
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   html_source->OverrideContentSecurityPolicy(
@@ -110,6 +122,9 @@ AiOverlayDialogUntrustedUI::AiOverlayDialogUntrustedUI(content::WebUI* web_ui)
   html_source->AddBoolean("enableDebugLogs", enable_debug_logs);
 
   html_source->AddString("apiKey", features::kAiOverlayDialogApiKey.Get());
+  html_source->AddBoolean("aiOverlayDisableNavigationContext",
+                          base::FeatureList::IsEnabled(
+                              features::kAiOverlayDisableNavigationContext));
 }
 
 AiOverlayDialogUntrustedUI::~AiOverlayDialogUntrustedUI() = default;
@@ -139,7 +154,7 @@ void AiOverlayDialogUntrustedUI::CreatePageHandler(
   CHECK(bwi);
 
   page_handler_ = std::make_unique<AiOverlayDialogPageHandler>(
-      std::move(receiver), std::move(remote), bwi);
+      std::move(receiver), std::move(remote), bwi, this);
 
   page_context_monitor_ =
       std::make_unique<PageContextMonitor>(*bwi, *page_handler_);

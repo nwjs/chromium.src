@@ -8,7 +8,9 @@
 #include "build/build_config.h"
 #include "chrome/browser/sync/test/integration/apps_helper.h"
 #include "chrome/browser/sync/test/integration/sync_service_impl_harness.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/chrome_features.h"
@@ -58,16 +60,18 @@ SyncTest::SetupSyncMode TwoClientWebAppsIntegrationTestBase::GetSetupSyncMode()
 }
 
 // WebAppIntegrationTestDriver::TestDelegate
-Browser* TwoClientWebAppsIntegrationTestBase::CreateBrowser(Profile* profile) {
+BrowserWindowInterface* TwoClientWebAppsIntegrationTestBase::CreateBrowser(
+    Profile* profile) {
   return InProcessBrowserTest::CreateBrowser(profile);
 }
 
 void TwoClientWebAppsIntegrationTestBase::CloseBrowserSynchronously(
-    Browser* browser) {
+    BrowserWindowInterface* browser) {
   InProcessBrowserTest::CloseBrowserSynchronously(browser);
 }
 
-void TwoClientWebAppsIntegrationTestBase::AddBlankTabAndShow(Browser* browser) {
+void TwoClientWebAppsIntegrationTestBase::AddBlankTabAndShow(
+    BrowserWindowInterface* browser) {
   InProcessBrowserTest::AddBlankTabAndShow(browser);
 }
 
@@ -221,6 +225,7 @@ bool TwoClientWebAppsIntegrationTestBase::SetupClients() {
   if (!WebAppsSyncTestBase::SetupClients()) {
     return false;
   }
+  AddBrowser(1);
   for (Profile* profile : GetAllProfiles()) {
     if (!web_app::AreWebAppsEnabled(profile) ||
         !web_app::WebAppProvider::GetForWebApps(profile)) {
@@ -231,9 +236,10 @@ bool TwoClientWebAppsIntegrationTestBase::SetupClients() {
     web_app_provider->on_registry_ready().Post(FROM_HERE, loop.QuitClosure());
     loop.Run();
 
-    // The base SyncTest class creates a Browser window for each profile, but
-    // does not create any tabs in that window. Our tests require all Browser
-    // windows to always have at least one tab, so create these tabs as needed.
+    // The base SyncTest class creates a Browser window for profile 0, and
+    // AddBrowser(1) creates a Browser window for profile 1. Our tests require
+    // all Browser windows to always have at least one tab, so create these tabs
+    // as needed.
     BrowserWindowInterface* browser =
         ProfileBrowserCollection::GetForProfile(profile)->FindTabbedBrowser();
     CHECK(browser);

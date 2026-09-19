@@ -8,8 +8,8 @@
 #include "chrome/browser/media/router/discovery/access_code/access_code_cast_feature.h"
 #include "chrome/browser/media/router/mojo/media_router_desktop.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/media_router/media_router_ui_service.h"
@@ -70,7 +70,7 @@ class CastBrowserControllerTest : public InProcessBrowserTest {
                       ->toolbar_button_provider()
                       ->GetPinnedToolbarActions())
                   ->GetButtonFor(kActionRouteMedia);
-    controller_ = browser()->GetFeatures().cast_browser_controller();
+    controller_ = CastBrowserController::From(browser());
     media_router_ =
         MediaRouterFactory::GetApiForBrowserContext(browser()->GetProfile());
 

@@ -216,6 +216,11 @@ class FrameDeliverer {
   }
   virtual void PaintAndDeliverNextFrame(base::TimeDelta timestamp_to_paint) = 0;
 
+  void InvalidateBuffers() {
+    CHECK(client_);
+    client_->InvalidateBuffers();
+  }
+
  protected:
   base::TimeDelta CalculateTimeSinceFirstInvocation(base::TimeTicks now) {
     if (first_ref_time_.is_null())
@@ -251,7 +256,7 @@ class OwnBufferFrameDeliverer : public FrameDeliverer {
 };
 
 // Delivers frames using buffers provided by the client via
-// OnIncomingCapturedBuffer().
+// OnIncomingCapturedBufferExt().
 class ClientBufferFrameDeliverer : public FrameDeliverer {
  public:
   ClientBufferFrameDeliverer(std::unique_ptr<PacmanFramePainter> frame_painter);
@@ -275,7 +280,7 @@ class JpegEncodingFrameDeliverer : public FrameDeliverer {
 };
 
 // Delivers frames using GpuMemoryBuffer buffers reserved from the client buffer
-// pool via OnIncomingCapturedBuffer();
+// pool via OnIncomingCapturedBufferExt();
 class GpuMemoryBufferFrameDeliverer : public FrameDeliverer {
  public:
   GpuMemoryBufferFrameDeliverer(
@@ -881,10 +886,13 @@ void ClientBufferFrameDeliverer::PaintAndDeliverNextFrame(
   buffer_access.reset();  // Can't outlive `capture_buffer.handle_provider'.
 
   base::TimeTicks now = base::TimeTicks::Now();
-  client()->OnIncomingCapturedBuffer(
-      std::move(capture_buffer), device_state()->format, now,
+  client()->OnIncomingCapturedBufferExt(
+      std::move(capture_buffer), device_state()->format,
+      GetDefaultColorSpace(device_state()->format.pixel_format), now,
       CalculateTimeSinceFirstInvocation(now),
-      /*capture_begin_timestamp=*/std::nullopt, /*metadata=*/std::nullopt);
+      /*capture_begin_timestamp=*/std::nullopt,
+      gfx::Rect(device_state()->format.frame_size),
+      /*additional_metadata=*/std::nullopt);
 }
 
 JpegEncodingFrameDeliverer::JpegEncodingFrameDeliverer(
@@ -981,10 +989,19 @@ void GpuMemoryBufferFrameDeliverer::PaintAndDeliverNextFrame(
   // When GpuMemoryBuffer is used, the frame data is opaque to the CPU for most
   // of the time.  Currently the only supported underlying format is NV12.
   modified_format.pixel_format = PIXEL_FORMAT_NV12;
-  client()->OnIncomingCapturedBuffer(
-      std::move(capture_buffer), modified_format, now,
+  client()->OnIncomingCapturedBufferExt(
+      std::move(capture_buffer), modified_format,
+      GetDefaultColorSpace(modified_format.pixel_format), now,
       CalculateTimeSinceFirstInvocation(now),
-      /*capture_begin_timestamp=*/std::nullopt, /*metadata=*/std::nullopt);
+      /*capture_begin_timestamp=*/std::nullopt,
+      gfx::Rect(modified_format.frame_size),
+      /*additional_metadata=*/std::nullopt);
+}
+
+void FakeVideoCaptureDevice::InvalidateBuffers() {
+  if (frame_deliverer_) {
+    frame_deliverer_->InvalidateBuffers();
+  }
 }
 
 void FakeVideoCaptureDevice::BeepAndScheduleNextCapture(

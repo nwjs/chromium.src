@@ -7,28 +7,14 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_urlpatterninit_usvstring.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_url_pattern_init.h"
 #include "third_party/blink/renderer/core/css/css_markup.h"
+#include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/html/html_anchor_element.h"
 #include "third_party/blink/renderer/core/route_matching/navigation_state.h"
-#include "third_party/blink/renderer/core/route_matching/route_map.h"
 #include "third_party/blink/renderer/core/url_pattern/url_pattern.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 
 namespace blink {
-
-namespace {
-
-bool MatchesCurrentNavigation(const Document& document,
-                              NavigationPreposition preposition,
-                              const URLPattern& pattern) {
-  // TODO(crbug.com/436805487): RouteMap doesn't seem like an obvious home for
-  // this utility function.
-  const auto* route_map = RouteMap::Get(&document);
-  DCHECK(route_map);
-  return route_map->MatchesCurrentNavigation(preposition, pattern);
-}
-
-}  // anonymous namespace
 
 const URLPattern* NavigationLocation::FindOrCreateURLPattern(
     Document& document) const {
@@ -43,10 +29,7 @@ const URLPattern* NavigationLocation::FindOrCreateURLPattern(
   }
   // The value is an @location dashed-ident.
   DCHECK_EQ(type_, kLocationName);
-  if (const auto* route_map = RouteMap::Get(&document)) {
-    return route_map->FindURLPatternByLocation(value_);
-  }
-  return nullptr;
+  return document.GetStyleEngine().FindURLPatternByLocation(value_);
 }
 
 bool NavigationLocation::CheckSelectorMatch(
@@ -62,8 +45,16 @@ bool NavigationLocation::CheckSelectorMatch(
   if (!url_pattern || !url_pattern->Match(anchor->Href())) {
     return false;
   }
-  return !preposition ||
-         MatchesCurrentNavigation(document, *preposition, *url_pattern);
+  if (!preposition) {
+    return true;
+  }
+
+  const auto* navigation_state = NavigationState::Get(&document);
+  if (!navigation_state) {
+    return false;
+  }
+  return navigation_state &&
+         navigation_state->Matches(*preposition, *url_pattern);
 }
 
 void NavigationLocation::SerializeTo(StringBuilder& builder) const {
@@ -91,10 +82,13 @@ void NavigationLocationTestExpression::Trace(Visitor* visitor) const {
 }
 
 bool NavigationLocationTestExpression::Matches(Document& document) const {
+  const auto* navigation_state = NavigationState::Get(&document);
+  if (!navigation_state) {
+    return false;
+  }
   const URLPattern* url_pattern =
       navigation_location_->FindOrCreateURLPattern(document);
-  return url_pattern &&
-         MatchesCurrentNavigation(document, preposition_, *url_pattern);
+  return url_pattern && navigation_state->Matches(preposition_, *url_pattern);
 }
 
 void NavigationLocationTestExpression::SerializeTo(
@@ -128,6 +122,10 @@ void NavigationLocationBetweenTestExpression::Trace(Visitor* visitor) const {
 
 bool NavigationLocationBetweenTestExpression::Matches(
     Document& document) const {
+  const auto* navigation_state = NavigationState::Get(&document);
+  if (!navigation_state) {
+    return false;
+  }
   const URLPattern* pattern1 =
       navigation_location1_->FindOrCreateURLPattern(document);
   const URLPattern* pattern2 =
@@ -136,12 +134,12 @@ bool NavigationLocationBetweenTestExpression::Matches(
     return false;
   }
 
-  constexpr auto from = NavigationPreposition::kFrom;
-  constexpr auto to = NavigationPreposition::kTo;
-  return (MatchesCurrentNavigation(document, from, *pattern1) &&
-          MatchesCurrentNavigation(document, to, *pattern2)) ||
-         (MatchesCurrentNavigation(document, to, *pattern1) &&
-          MatchesCurrentNavigation(document, from, *pattern2));
+  using NavigationPreposition::kFrom;
+  using NavigationPreposition::kTo;
+  return (navigation_state->Matches(kFrom, *pattern1) &&
+          navigation_state->Matches(kTo, *pattern2)) ||
+         (navigation_state->Matches(kTo, *pattern1) &&
+          navigation_state->Matches(kFrom, *pattern2));
 }
 
 void NavigationLocationBetweenTestExpression::SerializeTo(
@@ -236,7 +234,7 @@ void NavigationQuery::Trace(Visitor* v) const {
 }
 
 bool NavigationQuery::Evaluate(Document* document) const {
-  RouteMap::Ensure(*document).SetNeedsStyleUpdateOnNavigation();
+  document->GetStyleEngine().SetNeedsStyleUpdateOnNavigation();
 
   class Handler : public ConditionalExpNodeVisitor {
     STACK_ALLOCATED();

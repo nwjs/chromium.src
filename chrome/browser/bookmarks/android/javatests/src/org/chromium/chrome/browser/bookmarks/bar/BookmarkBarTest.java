@@ -60,7 +60,6 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
@@ -92,7 +91,6 @@ import java.util.stream.IntStream;
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Restriction({DeviceFormFactor.TABLET_OR_DESKTOP, DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
 @RunWith(ChromeJUnit4ClassRunner.class)
-@DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288719
 public class BookmarkBarTest {
 
     @Rule
@@ -110,9 +108,9 @@ public class BookmarkBarTest {
     @Before
     public void setUp() {
         mOverrideContextRule.setIsDesktop(true);
+        BookmarkBarUtils.setActivityStateBookmarkBarCompatibleForTesting(true);
 
         mCtaTestRule.startOnBlankPage();
-        BookmarkBarUtils.setActivityStateBookmarkBarCompatibleForTesting(true);
         ThreadUtils.runOnUiThreadBlocking(() -> setBookmarkBarSetting(/* enabled= */ true));
         waitForBookmarkBarVisibility(/* visible= */ true);
         BookmarkTestUtil.waitForBookmarkModelLoaded();
@@ -130,6 +128,7 @@ public class BookmarkBarTest {
             ThreadUtils.runOnUiThreadBlocking(() -> mItemIds.forEach(mModel::deleteBookmark));
             mItemIds = null;
         }
+        ThreadUtils.runOnUiThreadBlocking(() -> setBookmarkBarSetting(/* enabled= */ false));
     }
 
     @Test
@@ -214,6 +213,7 @@ public class BookmarkBarTest {
 
     @Test
     @MediumTest
+    @EnableFeatures(ChromeFeatureList.FLYOUT_IN_BOOKMARKS_BAR)
     public void testOnBookmarkFolderClick() throws ExecutionException {
         final String title = "Folder";
         mItemIds = List.of(addFolder(title));
@@ -223,11 +223,11 @@ public class BookmarkBarTest {
         // clicked.
         onView(withClassName(endsWith("BookmarkToolbar"))).check(doesNotExist());
 
-        // When the folder is empty, the list should not be displayed.
-        onView(withId(R.id.menu_list)).inRoot(isPlatformPopup()).check(matches(not(isDisplayed())));
+        // When the folder is empty, the list should be displayed.
+        onView(withId(R.id.menu_list)).inRoot(isPlatformPopup()).check(matches(isDisplayed()));
 
-        // The empty view should be displayed.
-        onView(withText(R.string.bookmarks_bar_empty_message))
+        // The empty message should be displayed.
+        onView(allOf(withText(R.string.bookmarks_bar_empty_message), isDisplayed()))
                 .inRoot(isPlatformPopup())
                 .check(matches(isDisplayed()));
     }

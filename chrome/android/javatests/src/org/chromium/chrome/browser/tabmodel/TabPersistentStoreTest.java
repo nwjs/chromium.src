@@ -177,7 +177,7 @@ public class TabPersistentStoreTest {
                                     persistencePolicy.setTabContentManager(mMockTabContentManager);
                                     TabPersistentStoreImpl tabPersistentStore =
                                             new TabPersistentStoreImpl(
-                                                    TabPersistentStoreImpl.CLIENT_TAG_REGULAR,
+                                                    TabOrchestratorType.TABBED,
                                                     persistencePolicy,
                                                     TestTabModelSelector.this,
                                                     getTabCreatorManager(),
@@ -440,7 +440,7 @@ public class TabPersistentStoreTest {
         return ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     return new TabPersistentStoreImpl(
-                            TabPersistentStoreImpl.CLIENT_TAG_REGULAR,
+                            TabOrchestratorType.TABBED,
                             persistencePolicy,
                             modelSelector,
                             creatorManager,
@@ -1377,7 +1377,7 @@ public class TabPersistentStoreTest {
      * @param info TabModelMetaDataInfo to check restore tab models against.
      * @param restoreIncognito Whether incognito tabs should be restored. In order for restore to
      *     succeed, there must be a readable tab state file on disk.
-     * @param expectMatchingIds Whether restored tab id's are expected to match those in {@coe
+     * @param expectMatchingIds Whether restored tab id's are expected to match those in {@code
      *     info}. If there is no tab state file for a given entry in the metadata file,
      *     TabPersistentStore currently creates a new tab with the last known URL, in which case the
      *     new tab's id won't match the id in the metadata file.
@@ -1599,7 +1599,7 @@ public class TabPersistentStoreTest {
                             shadowTabCreator,
                             migrationManager,
                             /* windowTag= */ "0",
-                            "Tabbed");
+                            TabOrchestratorType.TABBED);
                 });
 
         verify(shadowStore).addObserver(shadowObserverCaptor.capture());

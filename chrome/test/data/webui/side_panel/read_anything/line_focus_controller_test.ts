@@ -4,15 +4,15 @@
 
 import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 
-import {LineFocusController, LineFocusModel, LineFocusMovement, LineFocusStyle, LineFocusType, ReadAloudNode, setInstance, SpeechBrowserProxyImpl, SpeechController} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import type {LineFocusListener} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import {LineFocusController, LineFocusModel, LineFocusMovement, LineFocusStyle, LineFocusType, ReadAloudNode} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import type {SpeechController} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertEquals, assertFalse, assertLT, assertNotEquals, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 
-import {mockMetrics} from './common.js';
-import {FakeReadingMode} from './fake_reading_mode.js';
+import {setupTestEnvironment} from './common.js';
 import type {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
-import {TestReadAloudModelBrowserProxy} from './test_read_aloud_browser_proxy.js';
-import {TestSpeechBrowserProxy} from './test_speech_browser_proxy.js';
+import type {TestReadAloudModelBrowserProxy} from './test_read_aloud_browser_proxy.js';
+import type {TestVisualBrowserProxy} from './test_visual_browser_proxy.js';
 
 suite('LineFocusController', () => {
   const defaultHeight = 1000;
@@ -22,13 +22,11 @@ suite('LineFocusController', () => {
   let lineFocusContentPositionChanged: boolean;
   let lineFocusVisualPositionChanged: boolean;
   let defaultContainer: HTMLElement;
-  let speech: TestSpeechBrowserProxy;
   let speechController: SpeechController;
   let readAloudModel: TestReadAloudModelBrowserProxy;
   let metrics: TestMetricsBrowserProxy;
-  let keyboardLines: number;
-  let speechLines: number;
   let lineFocusModesChanged: boolean;
+  let visualBrowserProxy: TestVisualBrowserProxy;
 
   function createShortContainer(): HTMLElement {
     const container = document.createElement('p');
@@ -68,19 +66,11 @@ suite('LineFocusController', () => {
   }
 
   setup(() => {
-    // Clearing the DOM should always be done first.
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    const readingMode = new FakeReadingMode();
-    chrome.readingMode = readingMode as unknown as typeof chrome.readingMode;
-    chrome.readingMode.isLineFocusEnabled = true;
-    speech = new TestSpeechBrowserProxy();
-    SpeechBrowserProxyImpl.setInstance(speech);
-    metrics = mockMetrics();
-    readAloudModel = new TestReadAloudModelBrowserProxy();
-    setInstance(readAloudModel);
-    readAloudModel.setInitialized(true);
-    speechController = new SpeechController();
-    SpeechController.setInstance(speechController);
+    const result = setupTestEnvironment();
+    visualBrowserProxy = result.visualBrowserProxy;
+    metrics = result.metrics;
+    readAloudModel = result.readAloudModel;
+    speechController = result.speechController;
     model = new LineFocusModel();
     lineFocusController = new LineFocusController(model);
     lineFocusContentPositionChanged = false;
@@ -102,10 +92,6 @@ suite('LineFocusController', () => {
     };
     lineFocusController.addListener(lineFocusListener);
     defaultContainer = document.createElement('div');
-    keyboardLines = 0;
-    speechLines = 0;
-    chrome.readingMode.incrementLineFocusKeyboardLines = () => keyboardLines++;
-    chrome.readingMode.incrementLineFocusSpeechLines = () => speechLines++;
   });
 
   test('isEnabled is false by default', () => {
@@ -135,7 +121,7 @@ suite('LineFocusController', () => {
   });
 
   test('isEnabled is false with flag disabled', () => {
-    chrome.readingMode.isLineFocusEnabled = false;
+    visualBrowserProxy.lineFocusEnabled = false;
     lineFocusController.toggle(true, defaultContainer, defaultHeight);
     assertFalse(lineFocusController.isEnabled());
   });
@@ -167,50 +153,54 @@ suite('LineFocusController', () => {
     assertFalse(lineFocusController.isEnabled());
   });
 
-  test('onStyleChange propagates line focus mode', () => {
+  test('onStyleChange propagates line focus mode', async () => {
     lineFocusController.onMovementChange(
         LineFocusMovement.CURSOR, defaultContainer, defaultHeight);
 
+    visualBrowserProxy.reset();
     lineFocusController.onStyleChange(
         LineFocusStyle.UNDERLINE, defaultContainer, defaultHeight);
     assertEquals(
-        chrome.readingMode.lineFocusCursorLine,
-        chrome.readingMode.lastNonDisabledLineFocus);
+        visualBrowserProxy.lineFocusCursorLine,
+        (await visualBrowserProxy.whenCalled('onLineFocusChanged'))[1]);
 
+    visualBrowserProxy.reset();
     lineFocusController.onStyleChange(
         LineFocusStyle.LARGE_WINDOW, defaultContainer, defaultHeight);
     assertEquals(
-        chrome.readingMode.lineFocusLargeCursorWindow,
-        chrome.readingMode.lastNonDisabledLineFocus);
+        visualBrowserProxy.lineFocusLargeCursorWindow,
+        (await visualBrowserProxy.whenCalled('onLineFocusChanged'))[1]);
   });
 
   test('style and movement changes do nothing with flag disabled', () => {
-    chrome.readingMode.isLineFocusEnabled = false;
+    visualBrowserProxy.lineFocusEnabled = false;
 
     lineFocusController.onStyleChange(
         LineFocusStyle.SMALL_WINDOW, defaultContainer, defaultHeight);
-    assertEquals(0, chrome.readingMode.lastNonDisabledLineFocus);
+    assertEquals(0, visualBrowserProxy.getCallCount('onLineFocusChanged'));
 
     lineFocusController.onMovementChange(
         LineFocusMovement.CURSOR, defaultContainer, defaultHeight);
-    assertEquals(0, chrome.readingMode.lastNonDisabledLineFocus);
+    assertEquals(0, visualBrowserProxy.getCallCount('onLineFocusChanged'));
   });
 
-  test('onMovementChange propagates line focus mode', () => {
+  test('onMovementChange propagates line focus mode', async () => {
     lineFocusController.onStyleChange(
         LineFocusStyle.SMALL_WINDOW, defaultContainer, defaultHeight);
 
+    visualBrowserProxy.reset();
     lineFocusController.onMovementChange(
         LineFocusMovement.CURSOR, defaultContainer, defaultHeight);
     assertEquals(
-        chrome.readingMode.lineFocusSmallCursorWindow,
-        chrome.readingMode.lastNonDisabledLineFocus);
+        visualBrowserProxy.lineFocusSmallCursorWindow,
+        (await visualBrowserProxy.whenCalled('onLineFocusChanged'))[1]);
 
+    visualBrowserProxy.reset();
     lineFocusController.onMovementChange(
         LineFocusMovement.STATIC, defaultContainer, defaultHeight);
     assertEquals(
-        chrome.readingMode.lineFocusSmallStaticWindow,
-        chrome.readingMode.lastNonDisabledLineFocus);
+        visualBrowserProxy.lineFocusSmallStaticWindow,
+        (await visualBrowserProxy.whenCalled('onLineFocusChanged'))[1]);
   });
 
   test('onMovementChange updates movement only', () => {
@@ -277,7 +267,7 @@ suite('LineFocusController', () => {
 
   test('restoreFromPrefs extracts style and movement', () => {
     lineFocusController.restoreFromPrefs(
-        chrome.readingMode.lineFocusMediumCursorWindow, /*isOn=*/ true,
+        visualBrowserProxy.lineFocusMediumCursorWindow, /*isOn=*/ true,
         defaultContainer, defaultHeight);
     assertEquals(
         LineFocusStyle.MEDIUM_WINDOW,
@@ -287,7 +277,7 @@ suite('LineFocusController', () => {
         lineFocusController.getCurrentLineFocusMovement());
 
     lineFocusController.restoreFromPrefs(
-        chrome.readingMode.lineFocusSmallStaticWindow, /*isOn=*/ true,
+        visualBrowserProxy.lineFocusSmallStaticWindow, /*isOn=*/ true,
         defaultContainer, defaultHeight);
     assertEquals(
         LineFocusStyle.SMALL_WINDOW,
@@ -297,7 +287,7 @@ suite('LineFocusController', () => {
         lineFocusController.getCurrentLineFocusMovement());
 
     lineFocusController.restoreFromPrefs(
-        chrome.readingMode.lineFocusCursorLine, /*isOn=*/ true,
+        visualBrowserProxy.lineFocusCursorLine, /*isOn=*/ true,
         defaultContainer, defaultHeight);
     assertEquals(
         LineFocusStyle.UNDERLINE,
@@ -309,19 +299,19 @@ suite('LineFocusController', () => {
 
   test('restoreFromPrefs sets enabled', () => {
     lineFocusController.restoreFromPrefs(
-        chrome.readingMode.lineFocusCursorLine, /*isOn=*/ true,
+        visualBrowserProxy.lineFocusCursorLine, /*isOn=*/ true,
         defaultContainer, defaultHeight);
     assertTrue(lineFocusController.isEnabled());
 
     lineFocusController.restoreFromPrefs(
-        chrome.readingMode.lineFocusCursorLine, /*isOn=*/ false,
+        visualBrowserProxy.lineFocusCursorLine, /*isOn=*/ false,
         defaultContainer, defaultHeight);
     assertFalse(lineFocusController.isEnabled());
   });
 
   test('restoreFromPrefs sets last used line focus mode', () => {
     lineFocusController.restoreFromPrefs(
-        chrome.readingMode.lineFocusLargeCursorWindow, /*isOn=*/ false,
+        visualBrowserProxy.lineFocusLargeCursorWindow, /*isOn=*/ false,
         defaultContainer, defaultHeight);
     lineFocusController.onKeyDown(toggleKey(), defaultContainer, defaultHeight);
 
@@ -335,7 +325,7 @@ suite('LineFocusController', () => {
 
   test('restoreFromPrefs notifies of mode change', () => {
     lineFocusController.restoreFromPrefs(
-        chrome.readingMode.lineFocusLargeCursorWindow, /*isOn=*/ false,
+        visualBrowserProxy.lineFocusLargeCursorWindow, /*isOn=*/ false,
         defaultContainer, defaultHeight);
 
     assertTrue(lineFocusModesChanged);
@@ -396,7 +386,7 @@ suite('LineFocusController', () => {
         LineFocusMovement.CURSOR, defaultContainer, defaultHeight);
     lineFocusController.onStyleChange(
         LineFocusStyle.UNDERLINE, defaultContainer, defaultHeight);
-    chrome.readingMode.isLineFocusEnabled = false;
+    visualBrowserProxy.lineFocusEnabled = false;
     lineFocusContentPositionChanged = false;
 
     lineFocusController.onMouseMove(101);
@@ -423,7 +413,7 @@ suite('LineFocusController', () => {
   });
 
   test('onMouseMoveInToolbar does nothing if flag disabled', () => {
-    chrome.readingMode.isLineFocusEnabled = false;
+    visualBrowserProxy.lineFocusEnabled = false;
     lineFocusController.onMovementChange(
         LineFocusMovement.CURSOR, defaultContainer, defaultHeight);
     lineFocusController.onStyleChange(
@@ -584,7 +574,7 @@ suite('LineFocusController', () => {
     });
 
     test('does nothing if flag is disabled', () => {
-      chrome.readingMode.isLineFocusEnabled = false;
+      visualBrowserProxy.lineFocusEnabled = false;
 
       lineFocusController.toggle(true, defaultContainer, defaultHeight);
 

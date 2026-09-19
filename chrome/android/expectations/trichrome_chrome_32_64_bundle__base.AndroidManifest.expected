@@ -32,6 +32,7 @@
   <uses-permission android:name="$PACKAGE.permission.READ_WRITE_BOOKMARK_FOLDERS"/>
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+  <uses-permission android:name="android.permission.ACCESS_HID"/>
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
   <uses-permission android:name="android.permission.CAMERA"/>
   <uses-permission android:name="android.permission.CAPTURE_KEYBOARD"/>
@@ -51,6 +52,7 @@
   <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
   <uses-permission android:name="android.permission.NFC"/>
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+  <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS"/>
   <uses-permission android:name="android.permission.QUERY_ADVANCED_PROTECTION_MODE"/>
   <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
@@ -165,6 +167,12 @@
         android:grantUriPermissions="true">
       <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths"/>
     </provider>  # DIFF-ANCHOR: 67014fab
+    <provider  # DIFF-ANCHOR: fd5f50b1
+        android:name="org.chromium.ui.base.ClipboardTextDataProvider"
+        android:authorities="$PACKAGE.ClipboardTextDataProvider"
+        android:exported="false"
+        android:grantUriPermissions="true">
+    </provider>  # DIFF-ANCHOR: fd5f50b1
     <provider  # DIFF-ANCHOR: cb51666f
         android:name="org.chromium.ui.dragdrop.DropDataContentProvider"
         android:authorities="$PACKAGE.DropDataProvider"
@@ -217,12 +225,6 @@
         <action android:name="com.google.firebase.MESSAGING_EVENT"/>
       </intent-filter>  # DIFF-ANCHOR: 69e70070
     </service>  # DIFF-ANCHOR: 2295960c
-    <service  # DIFF-ANCHOR: 85869b23
-        android:name="com.google.mlkit.common.internal.MlKitComponentDiscoveryService"
-        android:directBootAware="true"
-        android:exported="false">
-      <meta-data android:name="com.google.firebase.components:com.google.mlkit.common.internal.CommonComponentRegistrar" android:value="com.google.firebase.components.ComponentRegistrar"/>
-    </service>  # DIFF-ANCHOR: 85869b23
     <service  # DIFF-ANCHOR: a550decc
         android:name="org.chromium.components.background_task_scheduler.internal.BackgroundTaskJobService"
         android:exported="false"

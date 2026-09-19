@@ -13,12 +13,21 @@
 #include "chrome/browser/ui/webui/top_chrome/top_chrome_webui_config.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
+#include "content/public/browser/web_ui_controller.h"
 #include "content/public/common/url_constants.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
+#include "ui/menus/simple_menu_model.h"
+#include "ui/views/controls/menu/menu_model_adapter.h"
+#include "ui/views/controls/menu/menu_runner.h"
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
+#include "ui/webui/resources/cr_components/help_bubble/help_bubble.mojom.h"
 #include "ui/webui/resources/cr_components/most_visited/most_visited.mojom.h"
+
+namespace user_education {
+class HelpBubbleHandler;
+}
 
 namespace omnibox_everywhere_debug {
 class OmniboxEverywhereDebugPageHandler;
@@ -53,7 +62,9 @@ class OmniboxEverywhereUI
       public searchbox::mojom::PageHandlerFactory,
       public omnibox_everywhere_debug::mojom::PageHandlerFactory,
       public most_visited::mojom::MostVisitedPageHandlerFactory,
-      public ContextualSearchboxHandler::ScreenshareDelegate {
+      public help_bubble::mojom::HelpBubbleHandlerFactory,
+      public ContextualSearchboxHandler::ScreenshareDelegate,
+      public ui::SimpleMenuModel::Delegate {
  public:
   explicit OmniboxEverywhereUI(content::WebUI* web_ui);
   OmniboxEverywhereUI(const OmniboxEverywhereUI&) = delete;
@@ -100,20 +111,49 @@ class OmniboxEverywhereUI
       mojo::PendingReceiver<omnibox_everywhere_debug::mojom::PageHandler>
           handler) override;
 
+  // help_bubble::mojom::HelpBubbleHandlerFactory:
+  void BindInterface(
+      mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandlerFactory>
+          receiver);
+  void CreateHelpBubbleHandler(
+      mojo::PendingRemote<help_bubble::mojom::HelpBubbleClient> client,
+      mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandler> handler)
+      override;
+
   ComposeboxEverywhereHandler* composebox_handler() {
     return composebox_handler_.get();
   }
   OmniboxEverywhereHandler* omnibox_handler() { return omnibox_handler_.get(); }
 
+  // TODO(b/555331826): Clean up handler retrieval to avoid inspecting handler
+  // instantiation state.
+  // Returns the active ContextualSearchboxHandler (either composebox_handler_
+  // or omnibox_handler_).
+  ContextualSearchboxHandler* GetContextualSearchboxHandler();
+
   // ContextualSearchboxHandler::ScreenshareDelegate:
+  void ShowScreenshotMenu(
+      const gfx::Rect& anchor_rect,
+      base::WeakPtr<ContextualSearchboxScreenshareController> controller)
+      override;
   void OnScreensharePickerOpened() override;
   void OnScreensharePickerClosed() override;
+  void ShowRegionSelectOverlay(const SkBitmap& screenshot,
+                               const RegionCaptureSource& source,
+                               RegionSelectedCallback callback) override;
+  void OnScreenshotMenuClosed();
 
- private:
+  // ui::SimpleMenuModel::Delegate:
+  void ExecuteCommand(int command_id, int event_flags) override;
+  bool IsCommandIdChecked(int command_id) const override;
+  bool IsCommandIdEnabled(int command_id) const override;
+  bool IsCommandIdVisible(int command_id) const override;
+
   contextual_search::ContextualSearchSessionHandle*
   GetOrCreateContextualSessionHandle();
   void ClearContextualSessionHandle();
 
+ private:
   raw_ptr<Profile> profile_;
 
   std::unique_ptr<ComposeboxEverywhereHandler> composebox_handler_;
@@ -124,8 +164,16 @@ class OmniboxEverywhereUI
   std::unique_ptr<omnibox_everywhere_debug::OmniboxEverywhereDebugPageHandler>
       debug_page_handler_;
 
+  std::unique_ptr<user_education::HelpBubbleHandler> help_bubble_handler_;
+
   std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
       shared_session_handle_;
+
+  std::unique_ptr<ui::SimpleMenuModel> screenshot_menu_model_;
+  std::unique_ptr<views::MenuModelAdapter> menu_model_adapter_;
+  std::unique_ptr<views::MenuRunner> screenshot_menu_runner_;
+  base::WeakPtr<ContextualSearchboxScreenshareController>
+      active_screenshot_controller_;
 
   mojo::Receiver<composebox::mojom::PageHandlerFactory>
       composebox_page_factory_receiver_{this};
@@ -135,6 +183,10 @@ class OmniboxEverywhereUI
       searchbox_page_factory_receiver_{this};
   mojo::Receiver<omnibox_everywhere_debug::mojom::PageHandlerFactory>
       debug_page_factory_receiver_{this};
+  mojo::Receiver<help_bubble::mojom::HelpBubbleHandlerFactory>
+      help_bubble_handler_factory_receiver_{this};
+
+  base::WeakPtrFactory<OmniboxEverywhereUI> weak_factory_{this};
 
   WEB_UI_CONTROLLER_TYPE_DECL();
 };

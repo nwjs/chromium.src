@@ -8,8 +8,9 @@
 #include "base/strings/string_number_conversions.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
-#include "chrome/browser/lens/sapisid/sapisid_module_loader.h"
 #include "chrome/browser/profiles/profile.h"
+#include "components/optimization_guide/core/optimization_guide_library_holder.h"
+#include "components/optimization_guide/optimization_guide_buildflags.h"
 #include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "content/public/browser/storage_partition.h"
@@ -86,9 +87,11 @@ std::optional<std::string> GenerateSapisidHash(
     const std::string& sapisid_cookie,
     const std::string& origin,
     base::Time timestamp) {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  auto* loader = sapisid::SapisidModuleLoader::GetInstance();
-  if (!loader || !loader->library().is_valid()) {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING) && \
+    BUILDFLAG(BUILD_WITH_INTERNAL_OPTIMIZATION_GUIDE)
+  optimization_guide::OptimizationGuideLibraryHolder* loader =
+      optimization_guide::OptimizationGuideLibraryHolder::GetInstance();
+  if (!loader) {
     return std::nullopt;
   }
   typedef int (*GenerateFunc)(const char*, const char*, const char*, int64_t,
@@ -96,9 +99,9 @@ std::optional<std::string> GenerateSapisidHash(
   typedef void (*FreeFunc)(char*);
 
   GenerateFunc generate_func = reinterpret_cast<GenerateFunc>(
-      loader->library().GetFunctionPointer("GenerateSapisidHash"));
-  FreeFunc free_func = reinterpret_cast<FreeFunc>(
-      loader->library().GetFunctionPointer("FreeSapisidHash"));
+      loader->GetFunctionPointer("GenerateSapisidHash"));
+  FreeFunc free_func =
+      reinterpret_cast<FreeFunc>(loader->GetFunctionPointer("FreeSapisidHash"));
 
   if (!generate_func || !free_func) {
     return std::nullopt;
@@ -129,8 +132,20 @@ void FetchIdentityDelegationHeaders(
     const std::string& origin,
     std::optional<size_t> authuser_index,
     base::OnceCallback<void(std::vector<std::string>)> callback) {
+  std::string canonical_origin =
+      origin.empty() ? "" : url::Origin::Create(GURL(origin)).Serialize();
+
+  auto return_signed_out_headers = [&canonical_origin, &callback]() {
+    std::vector<std::string> headers;
+    if (!canonical_origin.empty()) {
+      headers.push_back("Origin");
+      headers.push_back(canonical_origin);
+    }
+    std::move(callback).Run(std::move(headers));
+  };
+
   if (!profile || !identity_manager) {
-    std::move(callback).Run({});
+    return_signed_out_headers();
     return;
   }
 
@@ -142,13 +157,7 @@ void FetchIdentityDelegationHeaders(
       cookie_jar_info.GetValidSignedInAccounts();
 
   if (accounts.empty()) {
-    // Signed-out case: return only Origin if present.
-    std::vector<std::string> headers;
-    if (!origin.empty()) {
-      headers.push_back("Origin");
-      headers.push_back(origin);
-    }
-    std::move(callback).Run(headers);
+    return_signed_out_headers();
     return;
   }
 
@@ -157,33 +166,38 @@ void FetchIdentityDelegationHeaders(
 
   size_t true_authuser_index = 0;
   bool found_account = false;
-  if (authuser_index.has_value() &&
-      authuser_index.value() < all_accounts.size()) {
-    true_authuser_index = authuser_index.value();
-    found_account = true;
+  if (authuser_index.has_value()) {
+    if (authuser_index.value() < all_accounts.size()) {
+      const gaia::ListedAccount& candidate =
+          all_accounts[authuser_index.value()];
+      if (candidate.valid && !candidate.signed_out &&
+          !identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
+              candidate.id)) {
+        true_authuser_index = authuser_index.value();
+        found_account = true;
+      }
+    }
   } else {
     CoreAccountInfo primary_account =
         identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
 
-    if (primary_account.IsEmpty() ||
-        identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
+    if (!primary_account.IsEmpty() &&
+        !identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
             primary_account.account_id)) {
-      std::move(callback).Run({});
-      return;
-    }
-
-    for (size_t i = 0; i < all_accounts.size(); ++i) {
-      if (all_accounts[i].id == primary_account.account_id) {
-        true_authuser_index = i;
-        found_account = true;
-        break;
+      for (size_t i = 0; i < all_accounts.size(); ++i) {
+        if (all_accounts[i].id == primary_account.account_id &&
+            all_accounts[i].valid && !all_accounts[i].signed_out) {
+          true_authuser_index = i;
+          found_account = true;
+          break;
+        }
       }
     }
+  }
 
-    if (!found_account) {
-      std::move(callback).Run({});
-      return;
-    }
+  if (!found_account) {
+    return_signed_out_headers();
+    return;
   }
 
   const gaia::ListedAccount& selected_account =
@@ -194,12 +208,7 @@ void FetchIdentityDelegationHeaders(
       profile->GetDefaultStoragePartition()
           ->GetCookieManagerForBrowserProcess();
   if (!cookie_manager) {
-    std::vector<std::string> headers;
-    if (!origin.empty()) {
-      headers.push_back("Origin");
-      headers.push_back(origin);
-    }
-    std::move(callback).Run(headers);
+    return_signed_out_headers();
     return;
   }
 
@@ -211,8 +220,9 @@ void FetchIdentityDelegationHeaders(
   cookie_manager->GetCookieList(
       google_url, net::CookieOptions::MakeAllInclusive(),
       net::CookiePartitionKeyCollection(),
-      base::BindOnce(&OnCookiesFetched, selected_account.raw_email, origin,
-                     true_authuser_index, std::move(callback)));
+      base::BindOnce(&OnCookiesFetched, selected_account.raw_email,
+                     canonical_origin, true_authuser_index,
+                     std::move(callback)));
 }
 
 }  // namespace lens

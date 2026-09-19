@@ -196,6 +196,8 @@ if (_is_default_toolchain) {
       "//chrome/browser/ntp_customization:java_resources",
       "//chrome/browser/password_manager/android:java_resources",
       "//chrome/browser/quick_delete:java_resources",
+      "//chrome/browser/safety_promo:java_resources",
+      "//chrome/browser/settings:java_resources",
       "//chrome/browser/signin/services/android:java_resources",
       "//chrome/browser/single_tab/android:java_resources",
       "//chrome/browser/tab:java_resources",
@@ -259,10 +261,6 @@ if (_is_default_toolchain) {
       deps += [
         "//components/autofill/android:autofill_unbranded_browser_resources",
       ]
-    }
-
-    if (enable_screen_capture) {
-      deps += [ "//chrome/browser:screen_capture_java_resources" ]
     }
 
     if (enable_extensions_core) {
@@ -371,6 +369,7 @@ if (_is_default_toolchain) {
       "//chrome/browser/android/screenshot_protection:java",
       "//chrome/browser/autofill/android:java",
       "//chrome/browser/auxiliary_search:java",
+      "//chrome/browser/auxiliary_search:module_java",
       "//chrome/browser/auxiliary_search/proto:proto_java",
       "//chrome/browser/back_press/android:java",
       "//chrome/browser/battery/android:java",
@@ -506,6 +505,7 @@ if (_is_default_toolchain) {
       "//chrome/browser/safe_browsing/android:java",
       "//chrome/browser/safety_check/android:java",
       "//chrome/browser/safety_hub/android:java",
+      "//chrome/browser/safety_promo:java",
       "//chrome/browser/search_engines/android:java",
       "//chrome/browser/segmentation_platform:client_util_java",
       "//chrome/browser/segmentation_platform:factory_java",
@@ -931,6 +931,10 @@ if (_is_default_toolchain) {
     # refactor one-by-one.
     sources += unmodularized_bookmarks_java_files
 
+    if (enable_extensions_core) {
+      deps += [ "//chrome/browser/extensions/api/messaging/android:java" ]
+    }
+
     if (enable_printing) {
       sources += [
         "java/src/org/chromium/chrome/browser/printing/ChromeThinWebViewPrintingController.java",
@@ -1288,6 +1292,7 @@ if (_is_default_toolchain) {
       "//chrome/browser/xsurface_provider:junit",
       "//components/browser_ui/accessibility/android:junit",
       "//components/browser_ui/modaldialog/android:junit",
+      "//components/browser_ui/notifications/android:junit",
       "//components/browser_ui/site_settings/android:junit",
       "//components/cached_flags:junit",
       "//components/enterprise/browser/reporting/android:junit",
@@ -2246,13 +2251,6 @@ if (_is_default_toolchain) {
       deps += [ "//chrome/android/modules/dev_ui/provider:java" ]
     }
 
-    if (use_mlkit_for_aicore) {
-      # The lib must be in the base module so that MlKitInitProvider is merged
-      # into the base manifest, where it is removed via tools:node="remove" (see
-      # AndroidManifest.xml) to keep MLKit off the startup critical path.
-      deps += [ "//third_party/android_deps:com_google_mlkit_common_java" ]
-    }
-
     srcjar_deps = [
       ":base_module_jni",
       ":chrome_product_config",
@@ -3029,6 +3027,7 @@ if (_is_default_toolchain) {
       "java/src/org/chromium/chrome/browser/autofill/AutofillSnackbarController.java",
       "java/src/org/chromium/chrome/browser/autofill/CardUnmaskBridge.java",
       "java/src/org/chromium/chrome/browser/autofill/CreditCardScannerBridge.java",
+      "java/src/org/chromium/chrome/browser/autofill/email_verification/EmailVerificationBottomSheetBridge.java",
       "java/src/org/chromium/chrome/browser/autofill/iban/AutofillSaveIbanBottomSheetBridge.java",
       "java/src/org/chromium/chrome/browser/autofill/save_card/AutofillSaveCardBottomSheetBridge.java",
       "java/src/org/chromium/chrome/browser/autofill/settings/AutofillPaymentMethodsDelegate.java",
@@ -3073,6 +3072,7 @@ if (_is_default_toolchain) {
       "java/src/org/chromium/chrome/browser/datareduction/DataSaverOSSetting.java",
       "java/src/org/chromium/chrome/browser/device_dialog/ChromeBluetoothChooserAndroidDelegate.java",
       "java/src/org/chromium/chrome/browser/device_dialog/ChromeBluetoothScanningPromptAndroidDelegate.java",
+      "java/src/org/chromium/chrome/browser/device_dialog/HidChooserDialog.java",
       "java/src/org/chromium/chrome/browser/device_dialog/SerialChooserDialog.java",
       "java/src/org/chromium/chrome/browser/device_dialog/UsbChooserDialog.java",
       "java/src/org/chromium/chrome/browser/devtools/DevToolsActivity.java",
@@ -3116,6 +3116,7 @@ if (_is_default_toolchain) {
       "java/src/org/chromium/chrome/browser/multiwindow/TabbedStartupWindowPolicyDelegate.java",
       "java/src/org/chromium/chrome/browser/navigation_predictor/NavigationPredictorBridge.java",
       "java/src/org/chromium/chrome/browser/notifications/ActionInfo.java",
+      "java/src/org/chromium/chrome/browser/notifications/ExtensionRequestNotificationHelper.java",
       "java/src/org/chromium/chrome/browser/notifications/NotificationPlatformBridge.java",
       "java/src/org/chromium/chrome/browser/notifications/NotificationSuspender.java",
       "java/src/org/chromium/chrome/browser/notifications/NotificationTriggerScheduler.java",

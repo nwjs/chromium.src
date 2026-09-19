@@ -4,6 +4,8 @@
 
 #include "partition_alloc/pointers/realloc_protected_iterator.h"
 
+#include <optional>
+
 #include "partition_alloc/buildflags.h"
 
 #if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
@@ -21,36 +23,33 @@
 
 namespace base::internal {
 
-WrappedBackingSlot WrapBackingSlot([[maybe_unused]] const void* p) {
+std::optional<partition_alloc::SlotAddressAndSize> WrapBackingSlot(
+    [[maybe_unused]] const void* p) {
 #if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
   if (!p) {
-    return {};
+    return std::nullopt;
   }
   const uintptr_t addr = partition_alloc::UntagPtr(p);
   if (!partition_alloc::IsManagedByPartitionAllocBRPPool(addr)) {
-    return {};
+    return std::nullopt;
   }
-  auto [slot_start, slot_size] =
+  const auto slot_and_size =
       partition_alloc::SlotAddressAndSize::FromBRPPool(addr);
-  partition_alloc::PartitionRoot::InSlotMetadataPointerFromSlotStartAndSize(
-      partition_alloc::internal::UntaggedSlotStart(slot_start), slot_size)
+  partition_alloc::internal::InSlotMetadata::From(slot_and_size)
       ->AcquireFromUnprotectedPtr();
-  return {slot_start.value(), slot_size};
+  return slot_and_size;
 #else
-  return {};
+  return std::nullopt;
 #endif
 }
 
-void UnwrapBackingSlot([[maybe_unused]] WrappedBackingSlot slot) {
+void UnwrapBackingSlot(
+    [[maybe_unused]] std::optional<partition_alloc::SlotAddressAndSize> slot) {
 #if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
   if (!slot) {
     return;
   }
-  auto untagged =
-      partition_alloc::internal::UntaggedSlotStart::Unchecked(slot.slot_start);
-  auto* metadata =
-      partition_alloc::PartitionRoot::InSlotMetadataPointerFromSlotStartAndSize(
-          untagged, slot.slot_size);
+  auto* metadata = partition_alloc::internal::InSlotMetadata::From(*slot);
 
   // Security check: if the backing was freed while the wrapper held its ref,
   // the slot's "allocated" bit in InSlotMetadata is clear. That means the
@@ -61,8 +60,7 @@ void UnwrapBackingSlot([[maybe_unused]] WrappedBackingSlot slot) {
   PA_BASE_CHECK(metadata->IsAlive());
 
   if (metadata->ReleaseFromUnprotectedPtr()) {
-    partition_alloc::PartitionRoot::FreeAfterBRPQuarantine(untagged,
-                                                           slot.slot_size);
+    partition_alloc::PartitionRoot::FreeAfterBRPQuarantine(*slot);
   }
 #endif
 }

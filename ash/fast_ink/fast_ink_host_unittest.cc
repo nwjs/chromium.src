@@ -9,17 +9,17 @@
 #include <utility>
 #include <vector>
 
+#include "ash/constants/ash_features.h"
 #include "ash/fast_ink/fast_ink_host_test_api.h"
 #include "ash/frame_sink/frame_sink_holder.h"
 #include "ash/frame_sink/test/frame_sink_host_test_base.h"
 #include "ash/frame_sink/test/test_begin_frame_source.h"
 #include "ash/frame_sink/test/test_layer_tree_frame_sink.h"
-#include "ash/frame_sink/ui_resource.h"
-#include "ash/frame_sink/ui_resource_manager.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/test/ash_test_helper.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
+#include "base/test/scoped_feature_list.h"
 #include "cc/base/math_util.h"
 #include "components/viz/common/quads/compositor_frame.h"
 #include "components/viz/common/quads/compositor_render_pass.h"
@@ -52,8 +52,12 @@ class FastInkHostFrameSubmissionTest
     : public FrameSinkHostTestBase<FastInkHost>,
       public ::testing::WithParamInterface<FastInkHostTestParams> {
  public:
+  FastInkHostFrameSubmissionTest() = default;
+
+  const FastInkHostTestParams& test_params() const { return GetParam(); }
+
   void SetUp() override {
-    SetDisplaySpecs(GetParam().first_display_specs);
+    SetDisplaySpecs(test_params().first_display_specs);
     FrameSinkHostTestBase<FastInkHost>::SetUp();
   }
 };
@@ -63,7 +67,7 @@ TEST_P(FastInkHostFrameSubmissionTest,
   // Request the first frame.
   OnBeginFrame();
 
-  const auto& params = GetParam();
+  const auto& params = test_params();
 
   SCOPED_TRACE(base::StringPrintf(
       "Test params: first_display_specs=%s | auto_update=%s | content_rect=%s "
@@ -114,16 +118,23 @@ TEST_P(FastInkHostFrameSubmissionTest,
   EXPECT_EQ(shared_quad_state->visible_quad_layer_rect,
             params.expected_quad_layer_rect);
 
-  EXPECT_EQ(frame.resource_list.back().GetIsOverlayCandidate(),
-            params.auto_update);
+  auto* texture_quad = viz::TextureDrawQuad::MaterialCast(quad);
+  if (features::IsFastInkHostLowPriorityHintEnabled()) {
+    EXPECT_EQ(texture_quad->overlay_priority_hint,
+              params.auto_update ? viz::OverlayPriority::kRegular
+                                 : viz::OverlayPriority::kNone);
+  } else {
+    EXPECT_EQ(frame.resource_list.back().GetIsOverlayCandidate(),
+              params.auto_update);
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     FastInkHostFrameSubmissionTest,
     testing::Values(
-        // When auto updating surface, we update the full surface, ignoring the
-        // content_rect.
+        // When auto updating surface, we update the full surface, ignoring
+        // the content_rect.
         FastInkHostTestParams{
             .first_display_specs = "1000x500",
             .auto_update = true,

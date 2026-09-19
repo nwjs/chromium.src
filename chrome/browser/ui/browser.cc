@@ -160,7 +160,6 @@
 #include "components/tabs/public/tab_group.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "content/public/browser/color_chooser.h"
-#include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/invalidate_type.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
@@ -331,12 +330,6 @@ Browser::Browser(BrowserWindowCreateParams params)
   }
   tab_strip_model_->AddObserver(this);
 
-  profile_pref_registrar_.Init(profile_->GetPrefs());
-  profile_pref_registrar_.Add(
-      prefs::kDevToolsAvailability,
-      base::BindRepeating(&Browser::OnDevToolsAvailabilityChanged,
-                          base::Unretained(this)));
-
   ProfileMetrics::LogProfileLaunch(profile_);
 
   // BrowserWindowFeatures need to be initialized before browser window
@@ -432,8 +425,6 @@ Browser::~Browser() {
   if (service) {
     service->WindowClosed(session_id_);
   }
-
-  profile_pref_registrar_.Reset();
 }
 
 bool Browser::NWCanClose(bool user_force) {
@@ -984,15 +975,6 @@ void Browser::OnTabReplacedAt(WebContents* old_contents,
     int entry_count = new_contents->GetController().GetEntryCount();
     new_contents->GetController().NotifyEntryChanged(
         new_contents->GetController().GetEntryAtIndex(entry_count - 1));
-  }
-}
-
-void Browser::OnDevToolsAvailabilityChanged() {
-  for (auto& agent_host : content::DevToolsAgentHost::GetAll()) {
-    if (!DevToolsWindow::AllowDevToolsFor(profile_,
-                                          agent_host->GetWebContents())) {
-      agent_host->ForceDetachAllSessions();
-    }
   }
 }
 

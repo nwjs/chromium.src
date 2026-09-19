@@ -6,6 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_EXECUTION_CONTEXT_AGENT_H_
 
 #include "base/dcheck_is_on.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/unguessable_token.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -47,12 +48,7 @@ class CORE_EXPORT Agent : public GarbageCollected<Agent>,
   Agent(v8::Isolate* isolate,
         const base::UnguessableToken& cluster_id,
         AgentType agent_type,
-#ifdef V8_CPPGC_MICROTASK_QUEUE
-        v8::MicrotaskQueue* microtask_queue = nullptr
-#else
-        std::unique_ptr<v8::MicrotaskQueue> microtask_queue = nullptr
-#endif
-  );
+        v8::MicrotaskQueue* microtask_queue = nullptr);
   virtual ~Agent();
 
   const scoped_refptr<scheduler::EventLoop>& event_loop() const {
@@ -103,11 +99,7 @@ class CORE_EXPORT Agent : public GarbageCollected<Agent>,
  protected:
   Agent(v8::Isolate* isolate,
         const base::UnguessableToken& cluster_id,
-#ifdef V8_CPPGC_MICROTASK_QUEUE
         v8::MicrotaskQueue* microtask_queue,
-#else
-        std::unique_ptr<v8::MicrotaskQueue> microtask_queue,
-#endif
         const AgentClusterKey& agent_cluster_key,
         AgentType agent_type);
 
@@ -115,9 +107,9 @@ class CORE_EXPORT Agent : public GarbageCollected<Agent>,
   // scheduler::EventLoopDelegate overrides:
   void NotifyRejectedPromises() override;
 
-  v8::Isolate* isolate_;
+  raw_ptr<v8::Isolate, UnprotectedInRelease | DanglingUntriaged> isolate_;
   scoped_refptr<RejectedPromises> rejected_promises_;
-  scoped_refptr<scheduler::EventLoop> event_loop_;
+  const scoped_refptr<scheduler::EventLoop> event_loop_;
   const base::UnguessableToken cluster_id_;
   const AgentClusterKey agent_cluster_key_;
   const AgentType agent_type_;

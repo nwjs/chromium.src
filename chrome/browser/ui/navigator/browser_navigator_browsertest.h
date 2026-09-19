@@ -10,7 +10,7 @@
 #include <string>
 
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 
@@ -32,8 +32,10 @@ class BrowserNavigatorTest : public InteractiveBrowserTest {
   NavigateParams MakeNavigateParams() const;
   NavigateParams MakeNavigateParams(BrowserWindowInterface* browser) const;
 
-  Browser* CreateEmptyBrowserForType(Browser::Type type, Profile* profile);
-  Browser* CreateEmptyBrowserForApp(Profile* profile);
+  BrowserWindowInterface* CreateEmptyBrowserForType(
+      BrowserWindowInterface::Type type,
+      Profile* profile);
+  BrowserWindowInterface* CreateEmptyBrowserForApp(Profile* profile);
 
   std::unique_ptr<content::WebContents> CreateWebContents(
       bool initialize_renderer);
@@ -57,9 +59,9 @@ class BrowserNavigatorTest : public InteractiveBrowserTest {
   // indicates that a new WebContents will be created and navigated.  However,
   // for `CURRENT_TAB`, we'll assume that the active WebContents is the right
   // one as a convenience, since it's always the intended case anyway.
-  Browser* NavigateHelper(
+  BrowserWindowInterface* NavigateHelper(
       const GURL& url,
-      Browser* browser,
+      BrowserWindowInterface* browser,
       WindowOpenDisposition disposition,
       bool wait_for_navigation,
       content::WebContents* expected_web_contents = nullptr);

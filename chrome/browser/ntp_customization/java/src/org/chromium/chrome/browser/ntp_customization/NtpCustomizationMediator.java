@@ -47,7 +47,6 @@ import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
-import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.search_engines.TemplateUrlService.TemplateUrlServiceObserver;
@@ -136,7 +135,7 @@ public class NtpCustomizationMediator implements TemplateUrlServiceObserver {
         mThemeBackNavigationMap.put(CHROME_COLORS, THEME);
 
         mBottomSheetObserver =
-                new EmptyBottomSheetObserver() {
+                new BottomSheetObserver() {
                     @Override
                     public void onSheetOpened(@BottomSheetController.StateChangeReason int reason) {
                         mBottomSheetContent.onSheetOpened();
@@ -156,12 +155,6 @@ public class NtpCustomizationMediator implements TemplateUrlServiceObserver {
                                     mNewThemeCollectionImage, themeCollectionData);
                         }
                         mBottomSheetContent.onSheetClosed();
-                        // Clears any pending synced background data received while the bottom sheet
-                        // was open, ensuring it does not override the user's manual local selection
-                        // upon closing.
-                        // TODO(https://crbug.com/488439751): Clean up any unused synced background
-                        // image files from disk.
-                        configManager.clearSyncedNtpBackgroundData();
                         mBottomSheetController.removeObserver(mBottomSheetObserver);
                         // Notify to recreate activities if a new customized theme color is selected
                         // or removed.

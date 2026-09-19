@@ -30,6 +30,7 @@
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_page_context.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_session_handler.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_test_utils.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/persist_tab_context/model/persist_tab_context_browser_agent.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_extractor_java_script_feature.h"
@@ -53,6 +54,8 @@
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
+#import "ios/chrome/browser/signin/model/identity_manager_factory.h"
+#import "ios/chrome/browser/signin/model/identity_test_environment_browser_state_adaptor.h"
 #import "ios/chrome/browser/snapshots/model/fake_snapshot_generator_delegate.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_source_tab_helper.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
@@ -102,8 +105,14 @@ class GeminiBrowserAgentTest : public PlatformTest {
     profile_builder.AddTestingFactory(
         feature_engagement::TrackerFactory::GetInstance(),
         base::BindRepeating(&BuildFeatureEngagementMockTracker));
+    profile_builder.AddTestingFactory(
+        IdentityManagerFactory::GetInstance(),
+        base::BindRepeating(IdentityTestEnvironmentBrowserStateAdaptor::
+                                BuildIdentityManagerForTests));
     profile_ =
         profile_manager_.AddProfileWithBuilder(std::move(profile_builder));
+
+    gemini::test::SetUpEligibleAccount(profile_);
     mock_tracker_ = static_cast<feature_engagement::test::MockTracker*>(
         feature_engagement::TrackerFactory::GetForProfile(profile_));
     web::test::OverrideJavaScriptFeatures(
@@ -307,6 +316,11 @@ class GeminiBrowserAgentTest : public PlatformTest {
       NSString* tab_id,
       ios::provider::GeminiPageContextAttachmentState new_state) {
     gemini_browser_agent_->UpdateLocalTabAttachmentState(tab_id, new_state);
+  }
+
+  // Wrapper for `HasGivenAllLivePermissions`.
+  bool HasGivenAllLivePermissions() {
+    return gemini_browser_agent_->HasGivenAllLivePermissions();
   }
 
   base::test::ScopedFeatureList feature_list_;
@@ -1167,6 +1181,87 @@ TEST_F(GeminiBrowserAgentTest, TestOnGeminiLiveUserDidBargeIn) {
             ios::provider::GeminiClientMode::kTranscribing);
 }
 
+// Tests that OnProcessingStatusChanged records prompt context attachment
+// Tests that OnProcessingStatusChanged records prompt context attachment
+// metrics when transitioning to kThinking in Live mode.
+TEST_F(GeminiBrowserAgentTest,
+       TestOnProcessingStatusChangedThinkingLivePromptMetric) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures({kGeminiLive}, {});
+  base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
+
+  SetIsFloatyInvoked(true);
+
+  // Switch to Live mode.
+  ios::provider::SwitchToMode(ios::provider::GeminiViewMode::kLive,
+                              /*animated=*/false);
+  ASSERT_TRUE(gemini_browser_agent_->IsInGeminiLiveMode());
+
+  // By default, page context is attached.
+  ios::provider::UpdatePageAttachmentState(
+      ios::provider::GeminiPageContextAttachmentState::kAttached);
+
+  // Transitioning to kTranscribing should not record prompt sent metrics yet.
+  gemini_browser_agent_->OnProcessingStatusChanged(
+      ios::provider::GeminiClientMode::kTranscribing,
+      ios::provider::GeminiDormantReason::kUnknown);
+
+  histogram_tester.ExpectTotalCount(kPromptContextAttachmentHistogram, 0);
+  histogram_tester.ExpectTotalCount(kPromptLiveContextAttachmentHistogram, 0);
+  EXPECT_EQ(0, user_action_tester.GetActionCount("MobileGeminiPromptSent"));
+  EXPECT_EQ(0, user_action_tester.GetActionCount("MobileGeminiLivePromptSent"));
+  EXPECT_EQ(0, user_action_tester.GetActionCount("MobileGeminiChatPromptSent"));
+
+  // Transitioning to kThinking records the Live prompt sent metric.
+  gemini_browser_agent_->OnProcessingStatusChanged(
+      ios::provider::GeminiClientMode::kThinking,
+      ios::provider::GeminiDormantReason::kUnknown);
+
+  histogram_tester.ExpectUniqueSample(kPromptContextAttachmentHistogram, true,
+                                      1);
+  histogram_tester.ExpectUniqueSample(kPromptLiveContextAttachmentHistogram,
+                                      true, 1);
+  histogram_tester.ExpectTotalCount(kPromptChatContextAttachmentHistogram, 0);
+  EXPECT_EQ(1, user_action_tester.GetActionCount("MobileGeminiPromptSent"));
+  EXPECT_EQ(1, user_action_tester.GetActionCount("MobileGeminiLivePromptSent"));
+  EXPECT_EQ(0, user_action_tester.GetActionCount("MobileGeminiChatPromptSent"));
+
+  // Consecutive kThinking call should not record duplicate metrics.
+  gemini_browser_agent_->OnProcessingStatusChanged(
+      ios::provider::GeminiClientMode::kThinking,
+      ios::provider::GeminiDormantReason::kUnknown);
+
+  histogram_tester.ExpectTotalCount(kPromptContextAttachmentHistogram, 1);
+  histogram_tester.ExpectTotalCount(kPromptLiveContextAttachmentHistogram, 1);
+  EXPECT_EQ(1, user_action_tester.GetActionCount("MobileGeminiPromptSent"));
+  EXPECT_EQ(1, user_action_tester.GetActionCount("MobileGeminiLivePromptSent"));
+  EXPECT_EQ(0, user_action_tester.GetActionCount("MobileGeminiChatPromptSent"));
+
+  // Transition to responding, then detach context and transition to
+  // thinking again.
+  gemini_browser_agent_->OnProcessingStatusChanged(
+      ios::provider::GeminiClientMode::kResponding,
+      ios::provider::GeminiDormantReason::kUnknown);
+  ios::provider::UpdatePageAttachmentState(
+      ios::provider::GeminiPageContextAttachmentState::kDetached);
+
+  gemini_browser_agent_->OnProcessingStatusChanged(
+      ios::provider::GeminiClientMode::kThinking,
+      ios::provider::GeminiDormantReason::kUnknown);
+
+  histogram_tester.ExpectBucketCount(kPromptContextAttachmentHistogram, false,
+                                     1);
+  histogram_tester.ExpectBucketCount(kPromptLiveContextAttachmentHistogram,
+                                     false, 1);
+  histogram_tester.ExpectTotalCount(kPromptContextAttachmentHistogram, 2);
+  histogram_tester.ExpectTotalCount(kPromptLiveContextAttachmentHistogram, 2);
+  histogram_tester.ExpectTotalCount(kPromptChatContextAttachmentHistogram, 0);
+  EXPECT_EQ(2, user_action_tester.GetActionCount("MobileGeminiPromptSent"));
+  EXPECT_EQ(2, user_action_tester.GetActionCount("MobileGeminiLivePromptSent"));
+  EXPECT_EQ(0, user_action_tester.GetActionCount("MobileGeminiChatPromptSent"));
+}
+
 // Tests that fullscreen is disabled when floaty is invoked, and re-enabled
 // once the UI appears.
 TEST_F(GeminiBrowserAgentTest, TestFloatyReenablesFullscreenWhenUIAppears) {
@@ -1841,5 +1936,40 @@ TEST_F(GeminiBrowserAgentTest,
 
   EXPECT_TRUE(completion_called);
   EXPECT_TRUE(completion_granted);
+  [mock_device stopMocking];
+}
+
+// Tests that switching to Live mode only records session started metrics if all
+// Live permissions and preferences have been granted.
+TEST_F(GeminiBrowserAgentTest,
+       TestOnModeChangedLiveSessionMetricsGatedOnPermissions) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures({kGeminiLive}, {});
+  base::UserActionTester user_action_tester;
+
+  // Initially, permissions are not granted.
+  EXPECT_FALSE(HasGivenAllLivePermissions());
+
+  gemini_browser_agent_->OnModeChanged(ios::provider::GeminiViewMode::kLive);
+  EXPECT_EQ(
+      0, user_action_tester.GetActionCount("MobileGeminiLiveSessionStarted"));
+
+  // Grant user consent, intro played, and Chrome microphone preference.
+  profile_->GetPrefs()->SetBoolean(prefs::kIOSGeminiLiveConsent, true);
+  profile_->GetPrefs()->SetBoolean(prefs::kIOSGeminiLiveIntroPlayed, true);
+  profile_->GetPrefs()->SetBoolean(prefs::kIOSGeminiLiveMicrophoneSetting,
+                                   true);
+
+  // Stub OS-level microphone authorization.
+  id mock_device = OCMClassMock([AVCaptureDevice class]);
+  OCMStub([mock_device authorizationStatusForMediaType:AVMediaTypeAudio])
+      .andReturn(AVAuthorizationStatusAuthorized);
+
+  EXPECT_TRUE(HasGivenAllLivePermissions());
+
+  gemini_browser_agent_->OnModeChanged(ios::provider::GeminiViewMode::kLive);
+  EXPECT_EQ(
+      1, user_action_tester.GetActionCount("MobileGeminiLiveSessionStarted"));
+
   [mock_device stopMocking];
 }

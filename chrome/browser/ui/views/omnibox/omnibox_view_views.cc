@@ -42,9 +42,9 @@
 #include "chrome/browser/send_tab_to_self/send_tab_to_self_util.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/omnibox/clipboard_utils.h"
@@ -369,24 +369,64 @@ void OmniboxViewViews::ResetTabState(content::WebContents* web_contents) {
 
 // static
 void OmniboxViewViews::SetUserTextForTab(content::WebContents* web_contents,
-                                         const std::u16string& text) {
+                                         const std::u16string& text,
+                                         size_t cursor_position) {
+  DCHECK(web_contents);
   auto* existing_state = static_cast<OmniboxState*>(
       web_contents->GetUserData(OmniboxTabHelper::kOmniboxStateKey));
-  if (existing_state) {
-    OmniboxEditModel::State model_state(
-        /*user_input_in_progress=*/true,
-        /*user_text=*/text, existing_state->model_state.keyword,
-        existing_state->model_state.keyword_placeholder,
-        existing_state->model_state.keyword_state,
-        existing_state->model_state.keyword_mode_entry_method,
-        existing_state->model_state.focus_state,
-        existing_state->model_state.autocomplete_input);
-    web_contents->SetUserData(
-        OmniboxTabHelper::kOmniboxStateKey,
-        std::make_unique<OmniboxState>(
-            model_state, existing_state->selection,
-            existing_state->saved_selection_for_focus_change));
+  // Default to the end of the text if no position is specified.
+  size_t cursor = (cursor_position != std::u16string::npos)
+                      ? std::min(cursor_position, text.length())
+                      : text.length();
+  const bool text_unchanged =
+      existing_state && existing_state->model_state.user_text == text;
+  // Preserve existing selection if text is unchanged and
+  // no custom cursor position was explicitly provided. Otherwise, set the
+  // cursor to the specified position.
+  gfx::Range selection =
+      (text_unchanged && cursor_position == std::u16string::npos &&
+       existing_state->selection.IsValid())
+          ? existing_state->selection
+          : gfx::Range(cursor, cursor);
+  // If text is unchanged, preserve the existing parsed `AutocompleteInput`.
+  // Otherwise, start with a clean `AutocompleteInput` so it does not retain
+  // stale parsed URL components or types that mismatch the new draft text.
+  AutocompleteInput autocomplete_input =
+      text_unchanged ? existing_state->model_state.autocomplete_input
+                     : AutocompleteInput();
+  if (!text_unchanged) {
+    autocomplete_input.UpdateText(text, cursor, /*parts=*/url::Parsed());
   }
+
+  // Restore any existing state from the tab, setting defaults if none exists.
+  std::u16string keyword =
+      existing_state ? existing_state->model_state.keyword : std::u16string();
+  std::u16string keyword_placeholder =
+      existing_state ? existing_state->model_state.keyword_placeholder
+                     : std::u16string();
+  KeywordState keyword_state = existing_state
+                                   ? existing_state->model_state.keyword_state
+                                   : KeywordState::kNone;
+  metrics::OmniboxEventProto::KeywordModeEntryMethod keyword_mode_entry_method =
+      existing_state
+          ? existing_state->model_state.keyword_mode_entry_method
+          : metrics::OmniboxEventProto_KeywordModeEntryMethod_INVALID;
+  OmniboxFocusState focus_state = existing_state
+                                      ? existing_state->model_state.focus_state
+                                      : OmniboxFocusState::OMNIBOX_FOCUS_NONE;
+
+  OmniboxEditModel::State model_state(
+      /*user_input_in_progress=*/true,
+      /*user_text=*/text, keyword, keyword_placeholder, keyword_state,
+      keyword_mode_entry_method, focus_state, autocomplete_input);
+
+  web_contents->SetUserData(
+      OmniboxTabHelper::kOmniboxStateKey,
+      std::make_unique<OmniboxState>(
+          model_state, selection,
+          existing_state ? existing_state->saved_selection_for_focus_change
+                         : gfx::Range::InvalidRange(),
+          existing_state ? existing_state->show_full_url : false));
 }
 
 void OmniboxViewViews::InstallPlaceholderText() {
@@ -395,9 +435,22 @@ void OmniboxViewViews::InstallPlaceholderText() {
   omnibox::ComputePlaceholderText(location_bar_view_, placeholder_text,
                                   maybe_a11y_placeholder_text);
   SetPlaceholderText(placeholder_text);
-  if (maybe_a11y_placeholder_text.has_value()) {
-    GetViewAccessibility().SetPlaceholder(
-        base::UTF16ToUTF8(*maybe_a11y_placeholder_text));
+  const std::u16string a11y_text =
+      maybe_a11y_placeholder_text.value_or(placeholder_text);
+  const bool is_focused =
+      controller()->edit_model()->has_focus() || HasFocus();
+
+  if (is_focused) {
+    if (!a11y_text.empty()) {
+      GetViewAccessibility().SetPlaceholder(l10n_util::GetStringFUTF8(
+          IDS_CONCAT_TWO_STRINGS_WITH_PERIODS, a11y_text,
+          l10n_util::GetStringUTF16(IDS_ACC_OMNIBOX_AUTOCOMPLETE_PLACEHOLDER)));
+    } else {
+      GetViewAccessibility().SetPlaceholder(
+          l10n_util::GetStringUTF8(IDS_ACC_OMNIBOX_AUTOCOMPLETE_PLACEHOLDER));
+    }
+  } else {
+    GetViewAccessibility().SetPlaceholder(base::UTF16ToUTF8(a11y_text));
   }
 
   UpdatePlaceholderTextColor();
@@ -524,13 +577,18 @@ void OmniboxViewViews::SetFocus(bool is_user_initiated) {
             ->GetRevealedLock(ImmersiveModeController::ANIMATE_REVEAL_YES);
   }
 
-  const bool omnibox_already_focused = HasFocus();
+  const bool is_full_webui =
+      base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup);
+  const bool omnibox_already_focused =
+      HasFocus() || (is_full_webui && controller()->edit_model()->has_focus());
 
   if (is_user_initiated) {
     controller()->edit_model()->Unelide();
   }
 
-  RequestFocus();
+  if (!is_full_webui) {
+    RequestFocus();
+  }
 
   if (omnibox_already_focused) {
     controller()->edit_model()->ClearKeyword();
@@ -557,8 +615,11 @@ void OmniboxViewViews::SetFocus(bool is_user_initiated) {
   // |is_user_initiated| is true for focus events from keyboard accelerators.
   if (is_user_initiated) {
     controller()->edit_model()->StartZeroSuggestRequest();
+  }
+
+  if (is_user_initiated) {
     if (location_bar_view_) {
-      location_bar_view_->OpenOmniboxPopup(/*query_zps=*/is_user_initiated);
+      location_bar_view_->OpenOmniboxPopup(/*query_zps=*/true);
     }
   }
 
@@ -1595,8 +1656,19 @@ void OmniboxViewViews::OnFocus() {
   // Don't call WebLocationBar::OnSetFocus(), this view has already acquired
   // focus.
 
-  // Restore the selection we saved in OnBlur() if it's still valid.
-  if (saved_selection_for_focus_change_.IsValid()) {
+  const bool is_focus_traversal =
+      GetFocusManager() &&
+      GetFocusManager()->focus_change_reason() ==
+          views::FocusManager::FocusChangeReason::kFocusTraversal;
+
+  // Restore the selection we saved in OnBlur() if it's still valid. If focus
+  // was acquired via tab traversal under full WebUI popup, select all instead
+  // of restoring stale selection.
+  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup) &&
+      is_focus_traversal) {
+    saved_selection_for_focus_change_ = gfx::Range::InvalidRange();
+    SelectAll(true);
+  } else if (saved_selection_for_focus_change_.IsValid()) {
     SetSelectedRange(saved_selection_for_focus_change_);
     saved_selection_for_focus_change_ = gfx::Range::InvalidRange();
     UpdateAccessibleTextSelection();
@@ -1614,19 +1686,52 @@ void OmniboxViewViews::OnFocus() {
   if (location_bar_view_) {
     location_bar_view_->OnOmniboxFocused();
   }
+
+  // When navigated to via Tab or Shift+Tab, open and focus the full WebUI
+  // popup instead of retaining focus in the native view.
+  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup) &&
+      is_focus_traversal) {
+    if (location_bar_view_) {
+      location_bar_view_->OpenOmniboxPopup(/*query_zps=*/false);
+    }
+  }
 }
 
 void OmniboxViewViews::OnBlur() {
   views::Textfield::OnBlur();
 
+  views::FocusManager* focus_manager = GetFocusManager();
+  const bool focus_moved_to_another_view =
+      focus_manager && focus_manager->GetFocusedView() &&
+      focus_manager->GetFocusedView() != this;
+
   // If focus is transferring to a WebUI popup widget (e.g., Full Popup or AIM
   // Popup), treat this as a logical focus transfer rather than a true blur.
   // Keep the edit model's focus state active, and skip all reversion/blurring.
-  if (controller()->popup_state_manager()->popup_state() ==
-          OmniboxPopupState::kFull ||
-      controller()->popup_state_manager()->popup_state() ==
-          OmniboxPopupState::kAim) {
+  if (!focus_moved_to_another_view &&
+      (controller()->popup_state_manager()->popup_state() ==
+           OmniboxPopupState::kFull ||
+       controller()->popup_state_manager()->popup_state() ==
+           OmniboxPopupState::kAim)) {
     return;
+  }
+
+  // If the full WebUI popup was open and focus is truly leaving the Omnibox,
+  // notify the popup view and dismiss the popup unless there is an active
+  // draft.
+  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup) &&
+      controller()->popup_state_manager()->popup_state() ==
+          OmniboxPopupState::kFull) {
+    if (location_bar_view_ && location_bar_view_->GetOmniboxPopupView()) {
+      location_bar_view_->GetOmniboxPopupView()->OnBlur();
+    }
+    const bool user_input_in_progress =
+        controller()->edit_model()->user_input_in_progress();
+    const std::u16string& user_text = controller()->edit_model()->user_text();
+    if (!user_input_in_progress || user_text.empty()) {
+      controller()->popup_state_manager()->SetPopupState(
+          OmniboxPopupState::kNone);
+    }
   }
 
   // Save the user's existing selection to restore it later.
@@ -1712,6 +1817,7 @@ void OmniboxViewViews::OnBlur() {
   }
 
   ClearAccessibilityLabel();
+  InstallPlaceholderText();
 }
 
 bool OmniboxViewViews::SupportsEmoji() const {

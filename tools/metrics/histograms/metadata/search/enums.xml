@@ -325,6 +325,71 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/browser/search_engines/android/java/src/org/chromium/chrome/browser/search_engines/choice_screen/ChoiceDialogCoordinator.java:DialogSuppressionStatus) -->
 
+<!-- LINT.IfChange(OseSplitEngineState) -->
+
+<enum name="OseSplitEngineState">
+  <summary>
+    Detailed configuration state of an individual search engine definition
+    undergoing an ID split / migration.
+  </summary>
+  <int value="0" label="Unknown"/>
+  <int value="1" label="LegacyDse">
+    Legacy (pre-migration), Default Search Engine, Default Config
+  </int>
+  <int value="2" label="LegacyDseCustomized">
+    Legacy (pre-migration), Default Search Engine, User Customized
+  </int>
+  <int value="3" label="LegacyNotDse">
+    Legacy (pre-migration), Not Default, Default Config
+  </int>
+  <int value="4" label="LegacyNotDseCustomized">
+    Legacy (pre-migration), Not Default, User Customized
+  </int>
+  <int value="5" label="NewDse">
+    New (post-migration), Default Search Engine, Default Config
+  </int>
+  <int value="6" label="NewDseCustomized">
+    New (post-migration), Default Search Engine, User Customized
+  </int>
+  <int value="7" label="NewNotDse">
+    New (post-migration), Not Default, Default Config
+  </int>
+  <int value="8" label="NewNotDseCustomized">
+    New (post-migration), Not Default, User Customized
+  </int>
+  <int value="9" label="LegacyDseDeviceChoice">
+    Legacy (pre-migration), Default Search Engine, Device Choice
+  </int>
+  <int value="10" label="LegacyNotDseDeviceChoice">
+    Legacy (pre-migration), Not Default, Device Choice
+  </int>
+  <int value="11" label="NewDseDeviceChoice">
+    New (post-migration), Default Search Engine, Device Choice
+  </int>
+  <int value="12" label="NewNotDseDeviceChoice">
+    New (post-migration), Not Default, Device Choice
+  </int>
+  <int value="13" label="CustomDse">Custom, Default Search Engine</int>
+  <int value="14" label="CustomNotDse">Custom, Not Default</int>
+</enum>
+
+<!-- LINT.ThenChange(//components/search_engines/search_engine_split_metrics.h:OseSplitEngineState) -->
+
+<!-- LINT.IfChange(OseSplitType) -->
+
+<enum name="OseSplitType">
+  <summary>
+    Classification of search engine definitions undergoing an ID split /
+    migration (e.g. Yahoo! JAPAN in JP).
+  </summary>
+  <int value="0" label="Unknown">Unknown / Unexpected ID</int>
+  <int value="1" label="Legacy">Legacy (pre-migration)</int>
+  <int value="2" label="New">New (post-migration)</int>
+  <int value="3" label="Custom">Custom</int>
+</enum>
+
+<!-- LINT.ThenChange(//components/search_engines/search_engine_split_metrics.h:OseSplitType) -->
+
 <!-- LINT.IfChange(PendingChoiceScreenDisplayStateStatus) -->
 
 <enum name="PendingChoiceScreenDisplayStateStatus">
@@ -626,12 +691,12 @@ chromium-metrics-reviews@google.com.
   <int value="100" label="Invalid Extension ID"/>
   <int value="101" label="Invalid Post-Install URL"/>
   <int value="102" label="Registry Write Failed"/>
-  <int value="103" label="URL Launch Failed (Arm A)"/>
-  <int value="104" label="URL Launch Success (Arm A)"/>
-  <int value="105" label="Timeout (Arm B)"/>
-  <int value="106" label="Success Background (Arm B)"/>
-  <int value="107" label="Success With Foreground Fallback (Arm B)"/>
-  <int value="108" label="Foreground Fallback Launch Failed (Arm B)"/>
+  <int value="103" label="URL Launch Failed (Open)"/>
+  <int value="104" label="URL Launch Success (Open)"/>
+  <int value="105" label="Timeout (Install)"/>
+  <int value="106" label="Success Background (Install)"/>
+  <int value="107" label="Success With Foreground Fallback (Install)"/>
+  <int value="108" label="Foreground Fallback Launch Failed (Install)"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/search_promotion/register_search_promotion_task.h:SearchPromotionExitCode) -->

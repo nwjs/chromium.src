@@ -26,6 +26,7 @@ import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 import androidx.recyclerview.widget.RecyclerView.LayoutManager;
 
+import org.chromium.base.CallbackController;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
@@ -116,6 +117,7 @@ public class MainSettings extends ChromeBaseSettingsFragment
                 SyncService.SyncStateChangedListener,
                 SigninManager.SignInStateObserver,
                 SettingsCustomTabLauncher.SettingsCustomTabLauncherClient {
+    private final CallbackController mCallbackController = new CallbackController();
     public static final String PREF_SETTINGS_PROMO_CARD = "settings_promo_card";
     public static final String PREF_ACCOUNT_AND_GOOGLE_SERVICES_SECTION =
             "account_and_google_services_section";
@@ -267,6 +269,7 @@ public class MainSettings extends ChromeBaseSettingsFragment
     public void onDestroy() {
         super.onDestroy();
         setMultiColumnSettings(null, null);
+        mCallbackController.destroy();
         SigninManager signinManager = IdentityServicesProvider.get().getSigninManager(getProfile());
         assumeNonNull(signinManager);
         if (signinManager.isSigninSupported(/* requireUpdatedPlayServices= */ false)) {
@@ -381,27 +384,32 @@ public class MainSettings extends ChromeBaseSettingsFragment
             // TODO(crbug.com/495349057): update this to use the new sign-in coordinator API with
             // suppliers.
             SupplierUtils.waitForAll(
-                    () -> {
-                        OneshotSupplierImpl<Profile> profileSupplier = new OneshotSupplierImpl<>();
-                        profileSupplier.set(getProfile());
-                        var l = SigninAndHistorySyncActivityLauncherImpl.get();
-                        mSigninCoordinator =
-                                l.createBottomSheetSigninCoordinatorAndObserveAddAccountResult(
-                                        SupplierUtils.asNonNull(mWindowAndroidSupplier).get(),
-                                        getActivity(),
-                                        mActivityResultTracker,
-                                        signInPreference,
-                                        DeviceLockActivityLauncherImpl.get(),
-                                        profileSupplier,
-                                        SupplierUtils.asNonNull(mBottomSheetControllerSupplier),
-                                        mModalDialogManagerSupplier.asNonNull().get(),
-                                        SupplierUtils.asNonNull(mSnackbarManagerSupplier).get(),
-                                        SigninAccessPoint.SETTINGS);
-                        signinCoordinatorSupplier.set(mSigninCoordinator);
-                    },
-                    mWindowAndroidSupplier,
-                    mModalDialogManagerSupplier,
-                    mSnackbarManagerSupplier);
+                    mCallbackController.makeCancelable(
+                            () -> {
+                                OneshotSupplierImpl<Profile> profileSupplier =
+                                        new OneshotSupplierImpl<>();
+                                profileSupplier.set(getProfile());
+                                var l = SigninAndHistorySyncActivityLauncherImpl.get();
+                                mSigninCoordinator =
+                                        l
+                                                .createBottomSheetSigninCoordinatorAndObserveAddAccountResult(
+                                                        SupplierUtils.asNonNull(
+                                                                        mWindowAndroidSupplier)
+                                                                .get(),
+                                                        getActivity(),
+                                                        mActivityResultTracker,
+                                                        signInPreference,
+                                                        DeviceLockActivityLauncherImpl.get(),
+                                                        profileSupplier,
+                                                        SupplierUtils.asNonNull(
+                                                                mBottomSheetControllerSupplier),
+                                                        SupplierUtils.asNonNull(
+                                                                mModalDialogManagerSupplier),
+                                                        mSnackbarManagerSupplier,
+                                                        SigninAccessPoint.SETTINGS);
+                                signinCoordinatorSupplier.set(mSigninCoordinator);
+                            }),
+                    mWindowAndroidSupplier);
         }
         signInPreference.initialize(
                 getProfile(), profileDataCache, accountManagerFacade, signinCoordinatorSupplier);
@@ -774,9 +782,6 @@ public class MainSettings extends ChromeBaseSettingsFragment
             assumeNonNull(activity);
             showDefaultBrowserSettings(activity);
             return false;
-        } else if (key.equals(PREF_AUTOFILL_OPTIONS)) {
-            openAutofillOptions(context);
-            return false;
         }
         // TODO(crbug.com/469676538): Handle the rest of preferences.
         return false;
@@ -1023,8 +1028,11 @@ public class MainSettings extends ChromeBaseSettingsFragment
                     if (!shouldShowSignInPref(profile) || !SignInPreference.isSignedIn(profile)) {
                         indexData.removeEntry(getUniqueId(PREF_SIGN_IN));
                     } else {
-                        indexData.addChildParentLink(
-                                ManageSyncSettings.class.getName(), getUniqueId(PREF_SIGN_IN));
+                        indexData.updateEntryForKey(
+                                getPrefFragmentName(),
+                                PREF_SIGN_IN,
+                                R.string.prefs_section_account_and_google_services,
+                                ManageSyncSettings.class.getName());
                     }
                     if (!shouldShowDeveloperSettings()) {
                         indexData.removeEntry(getUniqueId(PREF_DEVELOPER));
@@ -1049,8 +1057,6 @@ public class MainSettings extends ChromeBaseSettingsFragment
                     } else {
                         indexData.removeEntry(getUniqueId(PREF_AUTOFILL_AND_PASSWORDS));
 
-                        // TODO(crbug.com/440022435): Remove the PREF_AUTOFILL_OPTIONS index update
-                        // once Autofill AI is launched.
                         String autofillOptionsEntryId = getUniqueId(PREF_AUTOFILL_OPTIONS);
                         SettingsIndexData.Entry autofillOptionsEntry =
                                 indexData.getEntry(autofillOptionsEntryId);
@@ -1058,9 +1064,17 @@ public class MainSettings extends ChromeBaseSettingsFragment
                             indexData.updateEntry(
                                     autofillOptionsEntryId,
                                     new SettingsIndexData.Entry.Builder(autofillOptionsEntry)
+                                            // TODO(crbug.com/440022435): Remove the
+                                            // PREF_AUTOFILL_OPTIONS title index update
+                                            // once Autofill AI is launched.
                                             .setTitle(
                                                     AutofillOptionsMediator.getFragmentTitle(
                                                             context))
+                                            .setFragment(AutofillOptionsFragment.class.getName())
+                                            .setArguments(
+                                                    AutofillOptionsFragment.createRequiredArgs(
+                                                            AutofillOptionsReferrer
+                                                                    .SETTINGS_SEARCH))
                                             .build());
                         }
                     }

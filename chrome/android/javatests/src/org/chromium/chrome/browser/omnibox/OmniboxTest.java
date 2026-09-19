@@ -16,6 +16,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.annotation.SuppressLint;
+import android.os.SystemClock;
 import android.view.KeyEvent;
 import android.widget.ImageView;
 
@@ -47,10 +48,8 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
-import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteController.OnSuggestionsReceivedListener;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
-import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
@@ -80,13 +79,12 @@ import java.util.List;
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @SuppressLint("SetTextI18n")
 @Batch(Batch.PER_CLASS)
+// TODO(b/555414915): Update Android tests with WebUI NTP enabled on AL.
+@DisableFeatures(ChromeFeatureList.USE_WEB_UI_NTP_ANDROID)
 public class OmniboxTest {
     @Rule
     public FreshCtaTransitTestRule mActivityTestRule =
             ChromeTransitTestRules.freshChromeTabbedActivityRule();
-
-    private static final OnSuggestionsReceivedListener sEmptySuggestionListener =
-            (result, isFinal) -> {};
 
     @Test
     @EnormousTest
@@ -244,7 +242,7 @@ public class OmniboxTest {
                         ApplicationProvider.getApplicationContext(), ServerCertificate.CERT_OK);
         CallbackHelper onSSLStateUpdatedCallbackHelper = new CallbackHelper();
         TabObserver observer =
-                new EmptyTabObserver() {
+                new TabObserver() {
                     @Override
                     public void onSSLStateUpdated(Tab tab) {
                         onSSLStateUpdatedCallbackHelper.notifyCalled();
@@ -285,7 +283,7 @@ public class OmniboxTest {
                         ApplicationProvider.getApplicationContext(), ServerCertificate.CERT_OK);
         CallbackHelper onSSLStateUpdatedCallbackHelper = new CallbackHelper();
         TabObserver observer =
-                new EmptyTabObserver() {
+                new TabObserver() {
                     @Override
                     public void onSSLStateUpdated(Tab tab) {
                         onSSLStateUpdatedCallbackHelper.notifyCalled();
@@ -296,9 +294,6 @@ public class OmniboxTest {
 
         final String testHttpsUrl =
                 httpsTestServer.getURL("/chrome/test/data/android/omnibox/one.html");
-        ImageView securityView =
-                (ImageView)
-                        mActivityTestRule.getActivity().findViewById(R.id.location_bar_status_icon);
         mActivityTestRule.loadUrl(testHttpsUrl);
         onSSLStateUpdatedCallbackHelper.waitForCallback(0);
         final LocationBarLayout locationBar =
@@ -337,7 +332,7 @@ public class OmniboxTest {
                         ApplicationProvider.getApplicationContext(), ServerCertificate.CERT_OK);
         CallbackHelper onSSLStateUpdatedCallbackHelper = new CallbackHelper();
         TabObserver observer =
-                new EmptyTabObserver() {
+                new TabObserver() {
                     @Override
                     public void onSSLStateUpdated(Tab tab) {
                         onSSLStateUpdatedCallbackHelper.notifyCalled();
@@ -468,6 +463,9 @@ public class OmniboxTest {
 
         final String testHttpsUrl =
                 testServer.getURL("/chrome/test/data/android/theme_color_test.html");
+        ImageView securityView =
+                (ImageView)
+                        mActivityTestRule.getActivity().findViewById(R.id.location_bar_status_icon);
         mActivityTestRule.loadUrl(testHttpsUrl);
         // Tablets don't have website theme colors.
         if (!mActivityTestRule.getActivity().isTablet()) {
@@ -476,9 +474,6 @@ public class OmniboxTest {
         onSSLStateUpdatedCallbackHelper.waitForCallback(0);
         LocationBarLayout locationBarLayout =
                 (LocationBarLayout) mActivityTestRule.getActivity().findViewById(R.id.location_bar);
-        ImageView securityView =
-                (ImageView)
-                        mActivityTestRule.getActivity().findViewById(R.id.location_bar_status_icon);
         boolean securityIcon =
                 locationBarLayout.getStatusCoordinatorForTesting().isSecurityViewShown();
         assertTrue("Omnibox should have a Security icon", securityIcon);
@@ -581,5 +576,78 @@ public class OmniboxTest {
 
         onView(withId(R.id.location_bar_status_icon)).perform(click());
         onView(withId(R.id.page_info_url_wrapper)).check(matches(isDisplayed()));
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"Omnibox"})
+    public void testPersistedEditingState() {
+        mActivityTestRule.startOnBlankPage();
+        OmniboxTestUtils omnibox = new OmniboxTestUtils(mActivityTestRule.getActivity());
+
+        // 1. In Tab 1, focus omnibox and type first text without committing.
+        omnibox.requestFocus();
+        omnibox.typeText("first query", false);
+        omnibox.checkText("first query");
+
+        // 2. Open another tab using Ctrl+T keyboard shortcut.
+        int initialTabCount = ChromeTabUtils.getNumOpenTabs(mActivityTestRule.getActivity());
+        omnibox.sendShortcut(KeyEvent.KEYCODE_T, KeyEvent.META_CTRL_ON);
+        CriteriaHelper.pollUiThread(
+                () ->
+                        ChromeTabUtils.getNumOpenTabs(mActivityTestRule.getActivity())
+                                == initialTabCount + 1);
+
+        // 3. In Tab 2, focus omnibox and type second text without committing.
+        omnibox.requestFocus();
+        omnibox.typeText("second query", false);
+        omnibox.checkText("second query");
+
+        // 4. Send Ctrl+PageUp to switch back to Tab 1.
+        omnibox.sendShortcut(KeyEvent.KEYCODE_PAGE_UP, KeyEvent.META_CTRL_ON);
+        omnibox.checkText("first query");
+
+        // 5. Send Ctrl+PageDown to switch back to Tab 2.
+        omnibox.sendShortcut(KeyEvent.KEYCODE_PAGE_DOWN, KeyEvent.META_CTRL_ON);
+        omnibox.checkText("second query");
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"Omnibox"})
+    public void testFastTypingWithLatency() {
+        mActivityTestRule.startOnBlankPage();
+        OmniboxTestUtils omnibox = new OmniboxTestUtils(mActivityTestRule.getActivity());
+        final String textToType = "fasttyping";
+
+        for (int rep = 0; rep < 10; rep++) {
+            // Open a new tab using Ctrl+T keyboard shortcut.
+            int currentTabCount = ChromeTabUtils.getNumOpenTabs(mActivityTestRule.getActivity());
+            omnibox.sendShortcut(KeyEvent.KEYCODE_T, KeyEvent.META_CTRL_ON);
+            CriteriaHelper.pollUiThread(
+                    () ->
+                            ChromeTabUtils.getNumOpenTabs(mActivityTestRule.getActivity())
+                                    == currentTabCount + 1);
+
+            // Focus the omnibox in the new tab to prepare for typing.
+            omnibox.requestFocus();
+
+            // Simulate realistic human reaction time and physical key transition latency (~350ms)
+            // between opening a tab and beginning to type.
+            SystemClock.sleep(350);
+
+            // Type text with ~25ms latency between key events.
+            omnibox.typeTextWithLatency(textToType, 25);
+
+            // Confirm that the Omnibox holds the exact text typed without dropped characters.
+            omnibox.checkText(textToType);
+
+            // Close the tab using Ctrl+W shortcut to clean up before the next repetition.
+            omnibox.sendShortcut(KeyEvent.KEYCODE_W, KeyEvent.META_CTRL_ON);
+            CriteriaHelper.pollUiThread(
+                    () ->
+                            ChromeTabUtils.getNumOpenTabs(mActivityTestRule.getActivity())
+                                    == currentTabCount);
+        }
     }
 }

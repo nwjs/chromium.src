@@ -40,6 +40,9 @@ public class UiAndroidFeatureList {
     public static final MutableFlagWithSafeDefault sBottomSheetRemeasureFix =
             newMutableFlagWithSafeDefault(UiAndroidFeatures.BOTTOM_SHEET_REMEASURE_FIX, true);
 
+    public static final MutableFlagWithSafeDefault sPointerLockMouseScaling =
+            newMutableFlagWithSafeDefault(UiAndroidFeatures.POINTER_LOCK_MOUSE_SCALING, true);
+
     public static final CachedFlag sAndroidUseDisplayTopology =
             newCachedFlag(
                     UiAndroidFeatures.ANDROID_USE_DISPLAY_TOPOLOGY,
@@ -123,6 +126,11 @@ public class UiAndroidFeatureList {
     public static final MutableFlagWithSafeDefault sSupportKeyboard =
             newMutableFlagWithSafeDefault(
                     UiAndroidFeatures.SUPPORT_KEYBOARD, /* defaultValue= */ true);
+
+    public static final MutableFlagWithSafeDefault sAndroidResourceMemoryOptimization =
+            newMutableFlagWithSafeDefault(
+                    UiAndroidFeatures.ANDROID_RESOURCE_MEMORY_OPTIMIZATION,
+                    /* defaultValue= */ false);
 
     public static final List<CachedFlag> sFlagsCachedUiAndroid =
             List.of(

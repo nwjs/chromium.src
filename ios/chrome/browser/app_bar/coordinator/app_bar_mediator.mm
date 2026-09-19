@@ -24,7 +24,6 @@
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
-#import "components/signin/public/identity_manager/tribool.h"
 #import "components/variations/service/variations_service.h"
 #import "ios/chrome/browser/aim/model/aim_util.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_constants.h"
@@ -937,55 +936,51 @@ inline LayoutStateAssistantPassKey PassKey() {
     return NO;
   }
 
-  bool geminiAllowed = _geminiService->IsProfileEligibleForGemini();
-  if (!geminiAllowed && _authenticationService &&
-      gemini::GeminiAllowedByPolicy(_prefService)) {
-    BOOL isSignedOut = !_authenticationService->HasPrimaryIdentity();
-    BOOL isUnverified = [self isPrimaryIdentityUnverified];
-    if (isSignedOut || isUnverified) {
-      // If the profile is ineligible, it might be because the user is
-      // signed out or in an unverified sign-in state. We still want to show
-      // the Gemini button for these users to encourage sign-in/verification,
-      // unless a local enterprise policy explicitly disables it or sign-in is
-      // disabled.
-      geminiAllowed = _authenticationService->SigninEnabled();
-    } else if (_identityManager) {
-      // Optimistically allow signed-in users while eligibility checks
-      // (account capabilities or workspace policy) are pending, or when
-      // offline, unless cached capabilities explicitly mark them as
-      // ineligible (e.g. child account) or the workspace policy check has
-      // already completed and disabled Gemini.
-      AccountInfo accountInfo = _identityManager->FindExtendedAccountInfo(
-          _identityManager->GetPrimaryAccountInfo(
-              signin::ConsentLevel::kSignin));
-      AccountCapabilities capabilities = accountInfo.GetAccountCapabilities();
-      bool explicitlyIneligible =
-          (capabilities.can_use_gemini_in_chrome() ==
-           signin::Tribool::kFalse) ||
-          (capabilities.can_use_model_execution_features() ==
-           signin::Tribool::kFalse);
+  if (!gemini::GeminiAllowedByPolicy(_prefService)) {
+    return NO;
+  }
 
-      bool isOffline = net::NetworkChangeNotifier::IsOffline();
-      bool isWorkspaceCheckPending =
-          _geminiService->IsWorkspacePolicyCheckPending();
-      std::optional<gemini::IneligibilityReasons> ineligibilityReasons =
-          _geminiService->GeminiIneligibilityForProfile();
-      bool disabledByWorkspacePolicy = !isOffline && !isWorkspaceCheckPending &&
-                                       ineligibilityReasons &&
-                                       ineligibilityReasons->workspace;
+  BOOL isSignedOut = !_authenticationService->HasPrimaryIdentity();
+  BOOL isUnverified = [self isPrimaryIdentityUnverified];
+  if (isSignedOut || isUnverified) {
+    // For signed-out or unverified users, optimistically show the button to
+    // encourage sign-in or verification if sign-in is allowed.
+    return _authenticationService->SigninEnabled();
+  }
 
-      if (!explicitlyIneligible && !disabledByWorkspacePolicy) {
-        geminiAllowed = YES;
-      }
+  if (!net::NetworkChangeNotifier::IsOffline() &&
+      !_geminiService->IsWorkspacePolicyCheckPending()) {
+    std::optional<gemini::IneligibilityReasons> ineligibilityReasons =
+        _geminiService->GeminiIneligibilityForProfile();
+    if (ineligibilityReasons && ineligibilityReasons->workspace) {
+      return NO;
     }
   }
 
-  return geminiAllowed;
+  return YES;
 }
 
 // Returns YES if AIM is eligible to be shown in the App Bar.
 - (BOOL)isAimEligible {
   return _AIMEligibilityService && _AIMEligibilityService->IsAimEligible();
+}
+
+// Returns YES if the AIM eligibility check is pending.
+- (BOOL)isAimCheckPending {
+  if (!_AIMEligibilityService) {
+    return NO;
+  }
+  if (!_AIMEligibilityService->IsAimLocallyEligible()) {
+    return NO;
+  }
+  if (!_AIMEligibilityService->IsServerEligibilityEnabled()) {
+    return NO;
+  }
+  if (net::NetworkChangeNotifier::IsOffline()) {
+    return NO;
+  }
+  return _AIMEligibilityService->GetMostRecentResponseSource() ==
+         AimEligibilityService::EligibilityResponseSource::kDefault;
 }
 
 // Returns YES if Lens is eligible to be shown in the App Bar.
@@ -1042,11 +1037,8 @@ inline LayoutStateAssistantPassKey PassKey() {
   UIImage* avatar = nil;
   switch (state) {
     case AppBarAssistantButtonState::kAsk:
-      enabled = (_geminiBrowserAgent &&
-                 _geminiBrowserAgent->IsGeminiAvailableForActiveWebState()) ||
-                [self isPrimaryIdentityUnverified];
-      highlighted = enabled && _geminiBrowserAgent &&
-                    _geminiBrowserAgent->is_floaty_invoked();
+      highlighted =
+          _geminiBrowserAgent && _geminiBrowserAgent->is_floaty_invoked();
       break;
     case AppBarAssistantButtonState::kAccount:
       if (_authenticationService && !_authenticationService->SigninEnabled()) {
@@ -1107,10 +1099,18 @@ inline LayoutStateAssistantPassKey PassKey() {
                             _authenticationService &&
                             _authenticationService->HasPrimaryIdentity() &&
                             _geminiService->IsWorkspacePolicyCheckPending();
-  if (!geminiCheckPending) {
-    _initialAssistantButtonStateRecorded = YES;
-    UmaHistogramEnumeration(kAppBarAssistantButtonStateOnLoadHistogram, state);
+  if (geminiCheckPending) {
+    return;
   }
+
+  // If Gemini is chosen, AIM eligibility cannot change the result since Gemini
+  // takes precedence. Otherwise, wait if AIM eligibility is still pending.
+  if (state != AppBarAssistantButtonState::kAsk && [self isAimCheckPending]) {
+    return;
+  }
+
+  _initialAssistantButtonStateRecorded = YES;
+  UmaHistogramEnumeration(kAppBarAssistantButtonStateOnLoadHistogram, state);
 }
 
 // Updates for `incognito` being visible.

@@ -36,6 +36,7 @@ import org.chromium.chrome.browser.tab.TabStateBrowserControlsVisibilityDelegate
 import org.chromium.chrome.browser.tab.TabWebContentsDelegateAndroid;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tabmodel.TabModelType;
 import org.chromium.chrome.browser.tasks.HomeSurfaceTracker;
 import org.chromium.chrome.browser.toolbar.top.Toolbar;
 import org.chromium.chrome.browser.ui.ExclusiveAccessManager;
@@ -93,7 +94,6 @@ public class TabbedModeTabDelegateFactory implements TabDelegateFactory {
     private @Nullable NativePageFactory mNativePageFactory;
     private final BackPressManager mBackPressManager;
     private final RecentlyClosedEntriesManager mRecentlyClosedEntriesManager;
-    private final Supplier<Integer> mLeftSideUiWidthSupplier;
 
     public TabbedModeTabDelegateFactory(
             Activity activity,
@@ -125,8 +125,7 @@ public class TabbedModeTabDelegateFactory implements TabDelegateFactory {
             StartupMetricsTracker startupMetricsTracker,
             @Nullable ExclusiveAccessManager exclusiveAccessManager,
             BackPressManager backPressManager,
-            RecentlyClosedEntriesManager recentlyClosedEntriesManager,
-            Supplier<Integer> leftSideUiWidthSupplier) {
+            RecentlyClosedEntriesManager recentlyClosedEntriesManager) {
         mActivity = activity;
         mAppBrowserControlsVisibilityDelegate = appBrowserControlsVisibilityDelegate;
         mShareDelegateSupplier = shareDelegateSupplier;
@@ -157,7 +156,6 @@ public class TabbedModeTabDelegateFactory implements TabDelegateFactory {
         mExclusiveAccessManager = exclusiveAccessManager;
         mBackPressManager = backPressManager;
         mRecentlyClosedEntriesManager = recentlyClosedEntriesManager;
-        mLeftSideUiWidthSupplier = leftSideUiWidthSupplier;
     }
 
     @Override
@@ -196,8 +194,7 @@ public class TabbedModeTabDelegateFactory implements TabDelegateFactory {
                         () -> mBottomSheetController),
                 mShareDelegateSupplier,
                 ChromeContextMenuPopulator.ContextMenuMode.NORMAL,
-                /* customContentActions= */ List.of(),
-                mLeftSideUiWidthSupplier);
+                /* customContentActions= */ List.of());
     }
 
     @Override
@@ -244,6 +241,11 @@ public class TabbedModeTabDelegateFactory implements TabDelegateFactory {
     }
 
     @Override
+    public @TabModelType int getTabModelType() {
+        return TabModelType.STANDARD;
+    }
+
+    @Override
     public boolean isCustomTab() {
         return false;
     }
@@ -256,5 +258,10 @@ public class TabbedModeTabDelegateFactory implements TabDelegateFactory {
     @Override
     public boolean isTabInBrowser() {
         return true;
+    }
+
+    @Override
+    public boolean isTabInPopup() {
+        return false;
     }
 }

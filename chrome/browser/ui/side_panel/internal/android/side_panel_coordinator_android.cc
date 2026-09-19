@@ -17,6 +17,7 @@
 #include "base/strings/strcat.h"
 #include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -99,9 +100,9 @@ void SidePanelCoordinatorAndroid::Destroy() {
   delete this;
 }
 
-void SidePanelCoordinatorAndroid::ClosePanel() {
+void SidePanelCoordinatorAndroid::ClosePanel(bool suppress_animations) {
   SPLOG("ClosePanel");
-  SidePanelUI::Close();
+  Close(SidePanelEntryHideReason::kSidePanelClosed, suppress_animations);
 }
 
 bool SidePanelCoordinatorAndroid::HasContentToShow() {
@@ -168,6 +169,27 @@ void SidePanelCoordinatorAndroid::OnPanelContentReplaced() {
   pending_replaced_entry_->OnEntryHiddenWithReason(*pending_hide_reason_);
   pending_replaced_entry_ = nullptr;
   pending_hide_reason_ = std::nullopt;
+}
+
+void SidePanelCoordinatorAndroid::OnActiveChanged(bool active) {
+  SPLOG("OnActiveChanged - active: " << active);
+  if (!active) {
+    deferred_entry_tracker_.AddActiveEntries();
+    Close(SidePanelEntryHideReason::kBackgrounded,
+          /*suppress_animations=*/true);
+    return;
+  }
+
+  if (tabs::TabInterface* active_tab =
+          TabListInterface::From(browser())->GetActiveTab()) {
+    std::optional<UniqueKey> key_to_show =
+        deferred_entry_tracker_.GetTabOrWindowScopedEntry(
+            active_tab->GetHandle());
+    if (key_to_show) {
+      Show(*key_to_show, SidePanelOpenTrigger::kTabChanged,
+           /*suppress_animations=*/true);
+    }
+  }
 }
 
 void SidePanelCoordinatorAndroid::ShowFrom(
@@ -437,26 +459,27 @@ SidePanelState SidePanelCoordinatorAndroid::GetStateForTesting() {  // IN-TEST
 
 int SidePanelCoordinatorAndroid::GetContainerWidthForTesting() {  // IN-TEST
   return Java_SidePanelCoordinatorAndroidBridge_getContainerWidthForTesting(  // IN-TEST
-      AttachCurrentThread(), java_coordinator());
+      AttachCurrentThread(), java_coordinator(), browser()->GetProfile());
 }
 
 void SidePanelCoordinatorAndroid::
     ConfigDeferredViewReplacementForTesting(  // IN-TEST
         bool enable) {
   Java_SidePanelCoordinatorAndroidBridge_configDeferredViewReplacementForTesting(  // IN-TEST
-      AttachCurrentThread(), java_coordinator(), enable);
+      AttachCurrentThread(), java_coordinator(), browser()->GetProfile(),
+      enable);
 }
 
 void SidePanelCoordinatorAndroid::
     SimulateAutoCloseConditionForTesting() {  // IN-TEST
   Java_SidePanelCoordinatorAndroidBridge_simulateAutoCloseConditionForTesting(  // IN-TEST
-      AttachCurrentThread(), java_coordinator());
+      AttachCurrentThread(), java_coordinator(), browser()->GetProfile());
 }
 
 void SidePanelCoordinatorAndroid::
     SimulateAutoRestoreConditionForTesting() {  // IN-TEST
   Java_SidePanelCoordinatorAndroidBridge_simulateAutoRestoreConditionForTesting(  // IN-TEST
-      AttachCurrentThread(), java_coordinator());
+      AttachCurrentThread(), java_coordinator(), browser()->GetProfile());
 }
 
 bool SidePanelCoordinatorAndroid::
@@ -476,6 +499,13 @@ void SidePanelCoordinatorAndroid::Show(
                        << ", suppress_animations: " << suppress_animations
                        << ", state: " << ToString(state_));
 
+  SidePanelEntry* entry = GetEntryForUniqueKey(key);
+  if (!entry) {
+    return;
+  }
+  CHECK(entry->type() == SidePanelType::kToolbar)
+      << "Android Side Panel only supports kToolbar entries.";
+
   // Defer the show request if there is insufficient space to show the side
   // panel.
   //
@@ -489,20 +519,14 @@ void SidePanelCoordinatorAndroid::Show(
   //
   // So we call into Java to update `has_insufficient_space_`.
   has_insufficient_space_ = !Java_SidePanelCoordinatorAndroidBridge_canShow(
-      AttachCurrentThread(), java_coordinator());
+      AttachCurrentThread(), java_coordinator(), browser()->GetProfile());
   if (has_insufficient_space_) {
-    SPLOG("Show - insufficient space, skipping.");
+    SPLOG("Show - insufficient space; defer showing the entry.");
     deferred_entry_tracker_.AddEntry(key);
+    entry->OnEntryShowDeferred();
     return;
   }
   deferred_entry_tracker_.ClearEntry(key);
-
-  SidePanelEntry* entry = GetEntryForUniqueKey(key);
-  if (!entry) {
-    return;
-  }
-  CHECK(entry->type() == SidePanelType::kToolbar)
-      << "Android Side Panel only supports kToolbar entries.";
 
   // Check #IsSidePanelShowing() specifically to stay aligned with other
   // platforms.
@@ -612,8 +636,8 @@ void SidePanelCoordinatorAndroid::StartOpeningPanel(
 
   JNIEnv* env = AttachCurrentThread();
   Java_SidePanelCoordinatorAndroidBridge_startOpeningPanel(
-      env, java_coordinator(), native_view->view(), title,
-      entry->should_show_header(), start_bounds.x(), start_bounds.y(),
+      env, java_coordinator(), browser()->GetProfile(), native_view->view(),
+      title, entry->should_show_header(), start_bounds.x(), start_bounds.y(),
       start_bounds.width(), start_bounds.height(), suppress_animations);
   entry->CacheView(std::move(native_view));
 }
@@ -665,7 +689,8 @@ void SidePanelCoordinatorAndroid::StartClosingPanel(
   ClearCachedEntryViews();
 
   Java_SidePanelCoordinatorAndroidBridge_startClosingPanel(
-      AttachCurrentThread(), java_coordinator(), suppress_animations);
+      AttachCurrentThread(), java_coordinator(), browser()->GetProfile(),
+      suppress_animations);
 }
 
 void SidePanelCoordinatorAndroid::FinishClosingPanel() {
@@ -705,7 +730,7 @@ void SidePanelCoordinatorAndroid::StartReplacingPanelContent(
   // permanently breaking state!
   if (pending_replaced_entry_) {
     Java_SidePanelCoordinatorAndroidBridge_completePendingContentReplacement(
-        AttachCurrentThread(), java_coordinator());
+        AttachCurrentThread(), java_coordinator(), browser()->GetProfile());
   }
 
   // Always clear the current tab's active entry before replacing the current
@@ -772,14 +797,14 @@ void SidePanelCoordinatorAndroid::StartReplacingPanelContent(
 
   JNIEnv* env = AttachCurrentThread();
   Java_SidePanelCoordinatorAndroidBridge_startReplacingPanelContent(
-      env, java_coordinator(), native_view->view(), title,
-      new_entry->should_show_header());
+      env, java_coordinator(), browser()->GetProfile(), native_view->view(),
+      title, new_entry->should_show_header());
   new_entry->CacheView(std::move(native_view));
 }
 
 void SidePanelCoordinatorAndroid::EndAnimations() {
-  Java_SidePanelCoordinatorAndroidBridge_endAnimations(AttachCurrentThread(),
-                                                       java_coordinator());
+  Java_SidePanelCoordinatorAndroidBridge_endAnimations(
+      AttachCurrentThread(), java_coordinator(), browser()->GetProfile());
   CHECK(state_ == SidePanelState::kClosed || state_ == SidePanelState::kShown)
       << "Side panel should be in a stable state after ending all animations.";
 }
@@ -790,7 +815,7 @@ void SidePanelCoordinatorAndroid::CompletePendingContentReplacementForTab(
     if (pending_replaced_entry_ &&
         registry->GetActiveEntry() == pending_replaced_entry_) {
       Java_SidePanelCoordinatorAndroidBridge_completePendingContentReplacement(
-          AttachCurrentThread(), java_coordinator());
+          AttachCurrentThread(), java_coordinator(), browser()->GetProfile());
     }
   }
 }

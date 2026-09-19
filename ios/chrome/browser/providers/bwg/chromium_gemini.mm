@@ -31,13 +31,12 @@ void UpdatePageAttachmentState(
     GeminiPageContextAttachmentState gemini_attachment_state) {}
 
 void UpdatePromptAction(gemini::EntryPoint entry_point,
-                        NSString* prepopulated_prompt) {}
+                        NSString* prepopulated_prompt,
+                        bool should_auto_submit) {}
 
 bool IsProtectedUrl(std::string url) {
   return false;
 }
-
-void UpdatePageContext(GeminiPageContext* gemini_page_context) {}
 
 void UpdateActivePageContext(GeminiPageContext* gemini_page_context,
                              NSArray<GeminiPageContext*>* shared_tabs) {}

@@ -483,7 +483,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   const blink::LocalFrameToken& GetFrameToken() const override;
   const perfetto::Track& GetTracingTrack() const override;
   const base::UnguessableToken& GetReportingSource() override;
-
   ui::AXTreeID GetAXTreeID() override;
   NavigationController& GetController() override;
   bool nodejs() override;
@@ -698,6 +697,12 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void ReinitializeDocumentAssociatedDataForReuseAfterCrash(
       base::PassKey<RenderFrameHostManager>);
 
+  // Immediately reinitializes `current_initiator_state_token_` when the
+  // RenderFrameHost needs to be immediately reused after a crash. Only usable
+  // for a main frame where `is_render_frame_deleted()` is true.
+  void ReinitializeInitiatorStateTokenAfterCrash(
+      base::PassKey<RenderFrameHostManager>);
+
   // Immediately reinitializes DocumentUserData for testing a corner case crash
   // scenario. See usage in
   // ManifestBrowserTest.GetManifestInterruptedByDestruction.
@@ -906,6 +911,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const blink::LocalFrameToken& frame_token,
       const base::UnguessableToken& devtools_frame_token,
       const blink::DocumentToken& document_token,
+      const base::UnguessableToken& initiator_state_token,
       const blink::FramePolicy& frame_policy,
       const blink::mojom::FrameOwnerProperties& frame_owner_properties,
       blink::FrameOwnerElementType owner_type,
@@ -943,6 +949,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const blink::LocalFrameToken& frame_token,
       const blink::DocumentToken& document_token,
       base::UnguessableToken devtools_frame_token,
+      const base::UnguessableToken& initiator_state_token,
       const blink::FramePolicy& frame_policy,
       std::string frame_name,
       std::string frame_unique_name,
@@ -1097,7 +1104,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Mojo.bindInterface. This method should be called in
   // ReadyToCommitNavigation.
   void EnableMojoJsBindingsWithBroker(
-      mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker> broker);
+      mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker> broker)
+      override;
 
   // Frame trees may be nested so it can be the case that is_main_frame() is
   // true, but is not the outermost RenderFrameHost (it only checks for nullity
@@ -3345,6 +3353,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void DisableUnloadTimerForTesting();
 
   bool IsFullCookieAccessAllowed() override;
+  bool IsStorageAccessRestricted() override;
 
   void SimulateDiscardShutdownKeepAliveTimeoutForTesting();
 
@@ -3406,6 +3415,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const blink::LocalFrameToken& frame_token,
       const blink::DocumentToken& document_token,
       base::UnguessableToken devtools_frame_token,
+      const base::UnguessableToken& initiator_state_token,
       bool renderer_initiated_creation_of_main_frame,
       LifecycleStateImpl lifecycle_state,
       scoped_refptr<BrowsingContextState> browsing_context_state,
@@ -3692,6 +3702,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       override;
   void CreateChildFrame(
       const blink::LocalFrameToken& frame_token,
+      const base::UnguessableToken& initiator_state_token,
       mojo::PendingAssociatedRemote<mojom::Frame> frame_remote,
       mojo::PendingReceiver<blink::mojom::BrowserInterfaceBroker>
           browser_interface_broker_receiver,
@@ -3876,9 +3887,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // ExecuteJavaScriptForTests.  See also AssertFrameWasCommitted method.
   bool CanExecuteJavaScript();
 
-  // Returns the AXTreeID of the parent when the current frame is a child frame
-  // (i.e. not a main frame) or when it's an embedded browser plugin guest, or
-  // ui::AXTreeIDUnknown() otherwise.
+  // Returns the AXTreeID of the parent frame, outer document, or platform
+  // accessibility tree, or ui::AXTreeIDUnknown() if none exists.
   ui::AXTreeID GetParentAXTreeID();
 
   // Returns the AXTreeID of the currently focused frame in the frame tree if

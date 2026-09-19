@@ -12,8 +12,8 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -21,8 +21,6 @@ import static org.mockito.Mockito.when;
 
 import android.view.View;
 import android.widget.FrameLayout;
-
-import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
 import org.junit.After;
 import org.junit.Before;
@@ -35,6 +33,8 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.ParameterizedRobolectricTestRunner;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameter;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
+import org.robolectric.Robolectric;
+import org.robolectric.android.controller.ActivityController;
 
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.supplier.LazyOneshotSupplier;
@@ -78,11 +78,6 @@ public class HubCoordinatorUnitTest {
     public boolean mIsXrDevice;
 
     private static final int TAB_ID = 7;
-    private static final int INCOGNITO_TAB_ID = 9;
-
-    @Rule
-    public ActivityScenarioRule<TestActivity> mActivityScenarioRule =
-            new ActivityScenarioRule<>(TestActivity.class);
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -121,6 +116,7 @@ public class HubCoordinatorUnitTest {
     private final SettableNullableObservableSupplier<ColorBlendProgress>
             mSwipeAnimationProgressSupplier = ObservableSuppliers.createNullable();
     private PaneManager mPaneManager;
+    private ActivityController<TestActivity> mActivityController;
     private FrameLayout mRootView;
     private HubCoordinator mHubCoordinator;
 
@@ -180,7 +176,8 @@ public class HubCoordinatorUnitTest {
 
         assertTrue(mPaneManager.focusPane(PaneId.TAB_SWITCHER));
         assertEquals(mTabSwitcherPane, mPaneManager.getFocusedPaneSupplier().get());
-        mActivityScenarioRule.getScenario().onActivity(this::onActivity);
+        mActivityController = Robolectric.buildActivity(TestActivity.class).setup();
+        onActivity(mActivityController.get());
     }
 
     private void onActivity(TestActivity activity) {
@@ -215,6 +212,7 @@ public class HubCoordinatorUnitTest {
         assertFalse(mPreviousLayoutTypeSupplier.hasObservers());
         assertFalse(mIncognitoTabSwitcherBackPressSupplier.hasObservers());
         assertFalse(mTabSupplier.hasObservers());
+        mActivityController.close();
     }
 
     @Test
@@ -387,7 +385,7 @@ public class HubCoordinatorUnitTest {
 
     @Test
     public void testFocusPane() {
-        reset(mPaneManager);
+        clearInvocations(mPaneManager);
         mHubCoordinator.focusPane(PaneId.TAB_SWITCHER);
         verify(mPaneManager).focusPane(PaneId.TAB_SWITCHER);
     }
@@ -411,36 +409,35 @@ public class HubCoordinatorUnitTest {
         EmptyHubBottomToolbarDelegate emptyDelegate = new EmptyHubBottomToolbarDelegate();
         HubBottomToolbarDelegateFactory.setDelegateForTesting(emptyDelegate);
 
-        mActivityScenarioRule
-                .getScenario()
-                .onActivity(
-                        activity -> {
-                            mRootView = new FrameLayout(activity);
-                            activity.setContentView(mRootView);
+        ActivityController<TestActivity> activityController =
+                Robolectric.buildActivity(TestActivity.class).setup();
+        TestActivity activity = activityController.get();
+        mRootView = new FrameLayout(activity);
+        activity.setContentView(mRootView);
 
-                            // Create coordinator with empty delegate
-                            HubCoordinator coordinator =
-                                    new HubCoordinator(
-                                            activity,
-                                            mProfileProviderSupplier,
-                                            mRootView,
-                                            mPaneManager,
-                                            mHubLayoutController,
-                                            mTabSupplier,
-                                            mMenuButtonCoordinator,
-                                            mSearchActivityClient,
-                                            mEdgeToEdgeSupplier,
-                                            mHubColorMixer,
-                                            mSwipeAnimationProgressSupplier,
-                                            null,
-                                            /* defaultPaneId= */ PaneId.TAB_SWITCHER);
+        // Create coordinator with empty delegate
+        HubCoordinator coordinator =
+                new HubCoordinator(
+                        activity,
+                        mProfileProviderSupplier,
+                        mRootView,
+                        mPaneManager,
+                        mHubLayoutController,
+                        mTabSupplier,
+                        mMenuButtonCoordinator,
+                        mSearchActivityClient,
+                        mEdgeToEdgeSupplier,
+                        mHubColorMixer,
+                        mSwipeAnimationProgressSupplier,
+                        null,
+                        /* defaultPaneId= */ PaneId.TAB_SWITCHER);
 
-                            // EmptyDelegate.isBottomToolbarEnabled() returns false,
-                            // so no bottom toolbar coordinator should be created
-                            assertNull(coordinator.getHubBottomToolbarCoordinatorForTesting());
+        // EmptyDelegate.isBottomToolbarEnabled() returns false,
+        // so no bottom toolbar coordinator should be created
+        assertNull(coordinator.getHubBottomToolbarCoordinatorForTesting());
 
-                            coordinator.destroy();
-                        });
+        coordinator.destroy();
+        activityController.close();
     }
 
     @Test
@@ -455,34 +452,33 @@ public class HubCoordinatorUnitTest {
                 };
         HubBottomToolbarDelegateFactory.setDelegateForTesting(enabledDelegate);
 
-        mActivityScenarioRule
-                .getScenario()
-                .onActivity(
-                        activity -> {
-                            mRootView = new FrameLayout(activity);
-                            activity.setContentView(mRootView);
+        ActivityController<TestActivity> activityController =
+                Robolectric.buildActivity(TestActivity.class).setup();
+        TestActivity activity = activityController.get();
+        mRootView = new FrameLayout(activity);
+        activity.setContentView(mRootView);
 
-                            // Create coordinator with enabled delegate
-                            HubCoordinator coordinator =
-                                    new HubCoordinator(
-                                            activity,
-                                            mProfileProviderSupplier,
-                                            mRootView,
-                                            mPaneManager,
-                                            mHubLayoutController,
-                                            mTabSupplier,
-                                            mMenuButtonCoordinator,
-                                            mSearchActivityClient,
-                                            mEdgeToEdgeSupplier,
-                                            mHubColorMixer,
-                                            mSwipeAnimationProgressSupplier,
-                                            null,
-                                            /* defaultPaneId= */ PaneId.TAB_SWITCHER);
+        // Create coordinator with enabled delegate
+        HubCoordinator coordinator =
+                new HubCoordinator(
+                        activity,
+                        mProfileProviderSupplier,
+                        mRootView,
+                        mPaneManager,
+                        mHubLayoutController,
+                        mTabSupplier,
+                        mMenuButtonCoordinator,
+                        mSearchActivityClient,
+                        mEdgeToEdgeSupplier,
+                        mHubColorMixer,
+                        mSwipeAnimationProgressSupplier,
+                        null,
+                        /* defaultPaneId= */ PaneId.TAB_SWITCHER);
 
-                            assertNotNull(coordinator.getHubBottomToolbarCoordinatorForTesting());
+        assertNotNull(coordinator.getHubBottomToolbarCoordinatorForTesting());
 
-                            coordinator.destroy();
-                        });
+        coordinator.destroy();
+        activityController.close();
     }
 
     @Test
@@ -506,23 +502,73 @@ public class HubCoordinatorUnitTest {
     }
 
     @Test
-    public void onSwipeSwitchComplete_cyclesToNextPane() {
+    public void onSwipeSwitchComplete_switchesToNextPane() {
         mHubCoordinator.onSwipeSwitchComplete(true);
         verify(mPaneManager).focusPane(PaneId.INCOGNITO_TAB_SWITCHER);
     }
 
     @Test
-    public void onSwipeSwitchComplete_cyclesToPreviousPane() {
-        mHubCoordinator.onSwipeSwitchComplete(false);
-        verify(mPaneManager).focusPane(PaneId.INCOGNITO_TAB_SWITCHER);
-    }
-
-    @Test
-    public void onSwipeSwitchComplete_wrapsAroundFromLastPane() {
-        reset(mPaneManager);
+    public void onSwipeSwitchComplete_switchesToPreviousPane() {
         assertTrue(mPaneManager.focusPane(PaneId.INCOGNITO_TAB_SWITCHER));
-        mHubCoordinator.onSwipeSwitchComplete(true);
+        clearInvocations(mPaneManager);
+        mHubCoordinator.onSwipeSwitchComplete(false);
         verify(mPaneManager).focusPane(PaneId.TAB_SWITCHER);
+    }
+
+    @Test
+    public void onSwipeSwitchComplete_doesNotWrapAround() {
+        // At first pane, swiping right (to previous) should not switch or emit histograms.
+        var rightSwipeWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Android.Hub.PaneSwiped.Right")
+                        .expectNoRecords("Android.Hub.PaneSwiped.Left")
+                        .build();
+        clearInvocations(mPaneManager);
+        mHubCoordinator.onSwipeSwitchComplete(false);
+        verify(mPaneManager, never()).focusPane(anyInt());
+        rightSwipeWatcher.assertExpected();
+
+        // At last pane, swiping left (to next) should not switch or emit histograms.
+        assertTrue(mPaneManager.focusPane(PaneId.INCOGNITO_TAB_SWITCHER));
+        clearInvocations(mPaneManager);
+        var leftSwipeWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Android.Hub.PaneSwiped.Right")
+                        .expectNoRecords("Android.Hub.PaneSwiped.Left")
+                        .build();
+        mHubCoordinator.onSwipeSwitchComplete(true);
+        verify(mPaneManager, never()).focusPane(anyInt());
+        leftSwipeWatcher.assertExpected();
+    }
+
+    @Test
+    public void prepareAndGetAdjacentPaneView_edgePanesReturnNull() {
+        FrameLayout tabSwitcherView = new FrameLayout(mActivityController.get());
+        FrameLayout incognitoTabSwitcherView = new FrameLayout(mActivityController.get());
+        when(mTabSwitcherPane.getRootView()).thenReturn(tabSwitcherView);
+        when(mIncognitoTabSwitcherPane.getRootView()).thenReturn(incognitoTabSwitcherView);
+
+        // At first pane (TAB_SWITCHER), swiping right has no previous pane so returns null.
+        assertNull(mHubCoordinator.prepareAndGetAdjacentPaneView(/* isSwipeLeft= */ false));
+
+        // Swiping left has next pane (INCOGNITO_TAB_SWITCHER).
+        assertEquals(
+                incognitoTabSwitcherView,
+                mHubCoordinator.prepareAndGetAdjacentPaneView(/* isSwipeLeft= */ true));
+        verify(mIncognitoTabSwitcherPane).notifyLoadHint(LoadHint.WARM);
+
+        // Move to last pane (INCOGNITO_TAB_SWITCHER).
+        assertTrue(mPaneManager.focusPane(PaneId.INCOGNITO_TAB_SWITCHER));
+
+        // Swiping left has no next pane so returns null.
+        assertNull(mHubCoordinator.prepareAndGetAdjacentPaneView(/* isSwipeLeft= */ true));
+
+        // Swiping right has previous pane (TAB_SWITCHER).
+        clearInvocations(mTabSwitcherPane);
+        assertEquals(
+                tabSwitcherView,
+                mHubCoordinator.prepareAndGetAdjacentPaneView(/* isSwipeLeft= */ false));
+        verify(mTabSwitcherPane).notifyLoadHint(LoadHint.WARM);
     }
 
     @Test
@@ -530,8 +576,10 @@ public class HubCoordinatorUnitTest {
         mHubCoordinator.onSwipeSwitchCancel(true);
         verify(mIncognitoTabSwitcherPane).notifyLoadHint(LoadHint.WARM);
 
+        assertTrue(mPaneManager.focusPane(PaneId.INCOGNITO_TAB_SWITCHER));
+        clearInvocations(mTabSwitcherPane);
         mHubCoordinator.onSwipeSwitchCancel(false);
-        verify(mIncognitoTabSwitcherPane, times(2)).notifyLoadHint(LoadHint.WARM);
+        verify(mTabSwitcherPane).notifyLoadHint(LoadHint.WARM);
     }
 
     @Test

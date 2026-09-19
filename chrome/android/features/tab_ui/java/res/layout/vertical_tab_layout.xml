@@ -19,7 +19,7 @@ found in the LICENSE file.
     <View
         android:id="@+id/desktop_window_spacer"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/toolbar_height_no_shadow"
+        android:layout_height="@dimen/vertical_tabs_desktop_window_spacer_height"
         app:layout_constraintTop_toTopOf="parent"
         android:visibility="gone" />
 
@@ -32,6 +32,7 @@ found in the LICENSE file.
         android:layout_gravity="start"
         android:layout_marginVertical="@dimen/vertical_tabs_header_margin_vertical"
         app:layout_constraintTop_toBottomOf="@id/desktop_window_spacer"
+        app:layout_goneMarginTop="@dimen/vertical_tabs_header_margin_top"
         android:paddingTop="@dimen/vertical_tabs_header_padding_vertical">
         <ImageButton
             android:id="@+id/collapse_button"
@@ -70,8 +71,12 @@ found in the LICENSE file.
         android:paddingTop="@dimen/vertical_tab_pinned_tabs_padding_top"
         android:paddingBottom="@dimen/vertical_tab_pinned_tabs_padding_bottom"
         android:clipToPadding="false"
+        app:layout_constrainedHeight="true"
         app:layout_constraintTop_toBottomOf="@id/vertical_tab_header_container"
-        android:overScrollMode="never" />
+        android:scrollbars="vertical"
+        android:scrollbarStyle="outsideOverlay"
+        android:scrollbarThumbVertical="@drawable/vertical_tabs_scrollbar_thumb"
+        android:scrollbarSize="@dimen/vertical_tabs_scrollbar_width" />
 
     <!-- Tab List Recycler View -->
     <org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.VerticalTabListRecyclerView
@@ -125,7 +130,7 @@ found in the LICENSE file.
             android:src="@drawable/ic_incognito_24dp"
             android:background="@drawable/vertical_tabs_button_background"
             android:focusable="true"
-            android:contentDescription="@string/accessibility_toolbar_btn_new_incognito_tab"
+            android:contentDescription="@string/accessibility_tabstrip_btn_incognito_toggle_standard"
             android:visibility="gone" />
     </LinearLayout>
 

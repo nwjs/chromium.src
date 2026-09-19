@@ -8,17 +8,25 @@ source_set("test_support") {
   testonly = true
   configs += [ "//components/enterprise:extra_warnings" ]
 
-  public = [ "test_utils.h" ]
+  public = [
+    "realtime_event_uploader_test_base.h",
+    "test_utils.h",
+  ]
 
-  sources = [ "test_utils.cc" ]
+  sources = [
+    "realtime_event_uploader_test_base.cc",
+    "test_utils.cc",
+  ]
 
   deps = [
     "//base",
     "//chrome/browser",
     "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser/profiles:profile",
     "//chrome/common",
     "//chrome/test:test_support",
+    "//components/account_id",
     "//components/device_signals/core/browser",
     "//components/device_signals/core/common",
     "//components/enterprise",
@@ -26,21 +34,23 @@ source_set("test_support") {
     "//components/policy/core/common",
     "//components/prefs",
     "//components/sync_preferences",
+    "//services/network:test_support",
+    "//services/network/public/cpp",
     "//testing/gmock",
     "//testing/gtest",
   ]
 
-  if (is_mac || is_linux || is_win) {
-    public += [ "realtime_event_uploader_test_base.h" ]
-    sources += [
-      "realtime_event_uploader_test_base.cc",
-      "test_utils_desktop.cc",
-    ]
-  } else if (is_android) {
+  if (is_chromeos) {
+    deps += [ "//chrome/browser/ash/policy/core" ]
+  }
+
+  if (is_android) {
     sources += [ "test_utils_android.cc" ]
     deps += [
       "//components/safe_browsing/android:safe_browsing_api_handler",
       "//components/safe_browsing/android:safe_browsing_api_handler_util",
     ]
+  } else {
+    sources += [ "test_utils_desktop.cc" ]
   }
 }

@@ -79,9 +79,7 @@ FormFieldDataAndroidBridgeImpl::GetOrCreateJavaPeer(
       ConvertUTF16ToJavaString(env, field.id_attribute()),
       /*optionValues=*/ProjectOptions(field.options(), &SelectOption::value),
       /*optionContents=*/
-      ProjectOptions(field.options(), &SelectOption::text),
-      IsCheckable(field.check_status()), IsChecked(field.check_status()),
-      field.max_length(),
+      ProjectOptions(field.options(), &SelectOption::text), field.max_length(),
       /*heuristicType=*/field_types.heuristic_type == UNKNOWN_TYPE
           ? nullptr
           : ConvertUTF8ToJavaString(
@@ -116,10 +114,6 @@ void FormFieldDataAndroidBridgeImpl::UpdateFieldFromJava(FormFieldData& field) {
   // to fill them and update the background accordingly.
   field.set_is_autofilled_according_to_renderer(
       Java_FormFieldData_isAutofilled(env, obj));
-  if (IsCheckable(field.check_status())) {
-    SetCheckStatus(&field, true, Java_FormFieldData_isChecked(env, obj));
-    return;
-  }
   if (ScopedJavaLocalRef<jstring> jvalue =
           Java_FormFieldData_getValue(env, obj);
       !jvalue.is_null()) {

@@ -10,11 +10,11 @@
 #include "base/functional/bind.h"
 #include "base/strings/stringprintf.h"
 #include "build/build_config.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/url_constants.h"
-#include "chrome/test/base/chrome_test_utils.h"
+#include "chrome/test/base/chrome_test_path_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/navigation_controller.h"
@@ -42,14 +42,12 @@ using content::WebContents;
 
 namespace {
 
-void SimulateRendererCrash(Browser* browser) {
+void SimulateRendererCrash(BrowserWindowInterface* browser) {
   content::RenderProcessHostWatcher crash_observer(
-      browser->tab_strip_model()->GetActiveWebContents(),
+      browser->GetTabStripModel()->GetActiveWebContents(),
       content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
-  browser->OpenURL(OpenURLParams(GURL(blink::kChromeUICrashURL), Referrer(),
-                                 WindowOpenDisposition::CURRENT_TAB,
-                                 ui::PAGE_TRANSITION_TYPED, false),
-                   /*navigation_handle_callback=*/{});
+  browser->OpenGURL(GURL(blink::kChromeUICrashURL),
+                    WindowOpenDisposition::CURRENT_TAB);
   crash_observer.Wait();
 }
 

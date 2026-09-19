@@ -48,6 +48,7 @@
 #include "components/webapps/browser/installable/ml_install_operation_tracker.h"
 #include "components/webapps/browser/installable/ml_installability_promoter.h"
 #include "components/webapps/browser/web_app_url_config.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -395,27 +396,6 @@ bool CreateWebAppFromManifest(content::WebContents* web_contents,
       base::BindOnce(OnWebAppInstalled, std::move(installed_callback)),
       fallback_behavior);
   return true;
-}
-
-void CreateWebAppForBackgroundInstall(
-    content::WebContents* initiating_web_contents,
-    std::unique_ptr<webapps::MlInstallOperationTracker> tracker,
-    const GURL& install_url,
-    const std::optional<GURL>& manifest_id,
-    const GURL& last_committed_url,
-    WebAppInstalledCallback installed_callback) {
-  auto* provider = WebAppProvider::GetForWebContents(initiating_web_contents);
-  CHECK(provider);
-
-  provider->scheduler().InstallAppFromUrl(
-      install_url, manifest_id, initiating_web_contents->GetWeakPtr(),
-      last_committed_url,
-      base::BindOnce(&OnWebAppInstallShowInstallDialog,
-                     WebAppInstallFlow::kInstallSite,
-                     webapps::WebappInstallSource::WEB_INSTALL,
-                     PwaInProductHelpState::kNotShown, std::move(tracker),
-                     /*show_initiating_origin=*/true),
-      std::move(installed_callback));
 }
 
 void CreateWebAppForManifestInstall(

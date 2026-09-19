@@ -437,6 +437,12 @@ class TabsUngroupFunction : public ExtensionFunction {
   bool UngroupTab(int tab_id, std::string* error);
   DECLARE_EXTENSION_FUNCTION("tabs.ungroup", TABS_UNGROUP)
 };
+class TabsCreateSplitFunction : public ExtensionFunction {
+ private:
+  ~TabsCreateSplitFunction() override;
+  ResponseAction Run() override;
+  DECLARE_EXTENSION_FUNCTION("tabs.createSplit", TABS_CREATESPLIT)
+};
 class TabsDetectLanguageFunction
     : public ExtensionFunction,
       public content::WebContentsObserver,

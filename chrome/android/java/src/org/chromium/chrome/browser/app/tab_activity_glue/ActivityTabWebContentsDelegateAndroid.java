@@ -48,7 +48,6 @@ import org.chromium.chrome.browser.media.immersive_playback.ImmersivePlaybackMes
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.policy.PolicyAuditor;
 import org.chromium.chrome.browser.policy.PolicyAuditor.AuditEvent;
-import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.InterceptNavigationDelegateTabHelper;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
@@ -146,7 +145,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
                                 fullscreenManager)
                         : null;
         mTabObserver =
-                new EmptyTabObserver() {
+                new TabObserver() {
                     @Override
                     public void onActivityAttachmentChanged(
                             Tab tab, @Nullable WindowAndroid window) {
@@ -174,7 +173,10 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
     }
 
     @Override
-    public int getDisplayMode() {
+    public @DisplayMode.EnumType int getDisplayMode() {
+        if (isFullscreen()) {
+            return DisplayMode.FULLSCREEN;
+        }
         return DisplayMode.BROWSER;
     }
 
@@ -204,6 +206,14 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
                     ? mFullscreenManager.getPersistentFullscreenMode()
                     : false;
         }
+    }
+
+    /**
+     * Returns whether the application is confirmed to be in persistent/immersive fullscreen mode
+     * (excluding pending transitions).
+     */
+    protected boolean isFullscreen() {
+        return mFullscreenManager != null && mFullscreenManager.getPersistentFullscreenMode();
     }
 
     @Override
@@ -256,7 +266,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
 
     @Override
     protected boolean addNewContents(
-            WebContents sourceWebContents,
+            @Nullable WebContents sourceWebContents,
             WebContents webContents,
             GURL targetUrl,
             int disposition,
@@ -281,13 +291,29 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
                             mActivity, webContents, pictureInPictureWindowOptions);
         }
 
+        boolean isGrouped = mTab.getTabGroupId() != null;
+        @TabLaunchType int tabLaunchType;
+        if (disposition == WindowOpenDisposition.NEW_BACKGROUND_TAB) {
+            tabLaunchType =
+                    isGrouped
+                            ? TabLaunchType.FROM_LONGPRESS_BACKGROUND_IN_GROUP
+                            : TabLaunchType.FROM_LONGPRESS_BACKGROUND;
+        } else if (disposition == WindowOpenDisposition.NEW_FOREGROUND_TAB) {
+            tabLaunchType =
+                    isGrouped
+                            ? TabLaunchType.FROM_LONGPRESS_FOREGROUND_IN_GROUP
+                            : TabLaunchType.FROM_LONGPRESS_FOREGROUND;
+        } else {
+            tabLaunchType = TabLaunchType.FROM_LONGPRESS_FOREGROUND;
+        }
+
         final CompletableFuture<Boolean> addTabToModel = new CompletableFuture<Boolean>();
         final Tab tab =
                 tabCreator.createTabWithWebContents(
                         mTab,
                         /* shouldPin= */ false,
                         webContents,
-                        TabLaunchType.FROM_LONGPRESS_FOREGROUND,
+                        tabLaunchType,
                         targetUrl,
                         addTabToModel);
         if (tab == null) return false;
@@ -319,6 +345,10 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
             }
         }
 
+        if (sourceWebContents == null) {
+            return true;
+        }
+
         Tab sourceTab = fromWebContents(sourceWebContents);
         if (sourceTab == null) {
             return true;
@@ -341,6 +371,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
             // Set notify to false so snackbar to undo the grouping will not be shown.
             if (tabModel != null
                     && tabModel.isTabInTabGroup(sourceTab)
+                    && !Objects.equals(newTab.getTabGroupId(), sourceTab.getTabGroupId())
                     && tabModel.isTabModelRestored()) {
                 tabModel.mergeListOfTabsToGroup(
                         Arrays.asList(newTab),
@@ -844,7 +875,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
         return TabModelUtils.getTabModelByTab(tab);
     }
 
-    protected Tab fromWebContents(WebContents webContents) {
+    protected @Nullable Tab fromWebContents(WebContents webContents) {
         return TabUtils.fromWebContents(webContents);
     }
 

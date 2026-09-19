@@ -34,7 +34,7 @@
 
 using net::registry_controlled_domains::EXCLUDE_PRIVATE_REGISTRIES;
 using net::registry_controlled_domains::EXCLUDE_UNKNOWN_REGISTRIES;
-using net::registry_controlled_domains::GetCanonicalHostRegistryLength;
+using net::registry_controlled_domains::GetCanonicalHostRegistry;
 
 namespace supervised_user {
 
@@ -309,23 +309,6 @@ void FamilyLinkUrlFilter::OnFamilyLinkSettingsChanged(
   NotifyUrlFilteringDelegateChanged();
 }
 
-FamilyLinkUrlFilter::ManagedSiteList
-FamilyLinkUrlFilter::Statistics::GetManagedSiteList() const {
-  if (allowed_hosts_count + blocked_hosts_count + allowed_urls_count +
-          blocked_urls_count ==
-      0) {
-    return ManagedSiteList::kEmpty;
-  }
-  if (allowed_hosts_count + allowed_urls_count > 0 &&
-      blocked_hosts_count + blocked_urls_count > 0) {
-    return ManagedSiteList::kBoth;
-  }
-  if (allowed_hosts_count + allowed_urls_count > 0) {
-    return ManagedSiteList::kApprovedListOnly;
-  }
-  return ManagedSiteList::kBlockedListOnly;
-}
-
 // static
 // Note: The transformations applied to pattern (e.g. protocol/subdomain
 // stripping) should be kept in sync with those in the method
@@ -351,15 +334,17 @@ bool FamilyLinkUrlFilter::HostMatchesPattern(const std::string& canonical_host,
   }
 
   if (base::EndsWith(pattern, ".*", base::CompareCase::SENSITIVE)) {
-    size_t registry_length = GetCanonicalHostRegistryLength(
-        trimmed_host, EXCLUDE_UNKNOWN_REGISTRIES, EXCLUDE_PRIVATE_REGISTRIES);
+    std::optional<size_t> registry_length =
+        GetCanonicalHostRegistry(trimmed_host, EXCLUDE_UNKNOWN_REGISTRIES,
+                                 EXCLUDE_PRIVATE_REGISTRIES)
+            .transform(&std::string_view::size);
     // A host without a known registry part does not match.
-    if (registry_length == 0) {
+    if (!registry_length || registry_length == 0) {
       return false;
     }
 
     trimmed_pattern.erase(trimmed_pattern.length() - 2);
-    trimmed_host.erase(trimmed_host.length() - (registry_length + 1));
+    trimmed_host.erase(trimmed_host.length() - (*registry_length + 1));
   }
 
   if (base::StartsWith(trimmed_pattern, "*.", base::CompareCase::SENSITIVE)) {
@@ -594,7 +579,7 @@ void FamilyLinkUrlFilter::UpdateManualUrls() {
   }
 }
 
-FamilyLinkUrlFilter::Statistics FamilyLinkUrlFilter::GetFilteringStatistics()
+UrlFilteringDelegate::Statistics FamilyLinkUrlFilter::GetFilteringStatistics()
     const {
   return statistics_;
 }

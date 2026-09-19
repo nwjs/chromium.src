@@ -56,6 +56,7 @@ import org.chromium.base.LocaleUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
+import org.chromium.base.supplier.SupplierUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -80,8 +81,6 @@ import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninManager;
-import org.chromium.chrome.browser.tabmodel.EmptyTabModel;
-import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.xsurface.HybridListRenderer;
@@ -105,13 +104,11 @@ import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
-import java.util.ArrayList;
 import java.util.Locale;
 import java.util.function.Supplier;
 
 /** Tests for {@link FeedSurfaceCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 @DisableFeatures({ChromeFeatureList.FEED_CONTAINMENT})
 @EnableFeatures({SigninFeatures.ENABLE_SEAMLESS_SIGNIN})
 public class FeedSurfaceCoordinatorTest {
@@ -152,18 +149,6 @@ public class FeedSurfaceCoordinatorTest {
             return false;
         }
     }
-
-    private static class TestTabModel extends EmptyTabModel {
-        public final ArrayList<TabModelObserver> mObservers = new ArrayList<>();
-
-        @Override
-        public void addObserver(TabModelObserver observer) {
-            mObservers.add(observer);
-        }
-    }
-
-    private final TestTabModel mTabModel = new TestTabModel();
-    private final TestTabModel mTabModelIncognito = new TestTabModel();
 
     private FeedSurfaceCoordinator mCoordinator;
 
@@ -600,7 +585,7 @@ public class FeedSurfaceCoordinatorTest {
                         mShareDelegateSupplier,
                         mScrollableContainerDelegate,
                         mPrivacyPreferencesManager,
-                        () -> null,
+                        SupplierUtils.ofNull(),
                         SURFACE_CREATION_TIME_NS,
                         swipeRefreshLayout,
                         /* overScrollDisabled= */ false,

@@ -31,7 +31,9 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_key.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -353,7 +355,7 @@ class PredictionServiceBrowserTestBase : public InProcessBrowserTest {
   void reset_bubble_factory() { mock_permission_prompt_factory_.reset(); }
 
   content::WebContents* web_contents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   content::RenderFrameHost* primary_main_frame() {
@@ -362,7 +364,7 @@ class PredictionServiceBrowserTestBase : public InProcessBrowserTest {
 
   PermissionRequestManager* permission_request_manager() {
     return PermissionRequestManager::FromWebContents(
-        browser()->tab_strip_model()->GetActiveWebContents());
+        browser()->GetTabStripModel()->GetActiveWebContents());
   }
 
   MockPermissionPromptFactory* bubble_factory() {

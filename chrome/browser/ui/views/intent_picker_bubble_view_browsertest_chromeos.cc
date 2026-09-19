@@ -24,7 +24,6 @@
 #include "chrome/browser/ash/arc/arc_util.h"
 #include "chrome/browser/ash/arc/session/arc_session_manager.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
@@ -58,6 +57,7 @@
 #include "components/services/app_service/public/cpp/intent_filter_util.h"
 #include "components/services/app_service/public/cpp/intent_test_util.h"
 #include "components/services/app_service/public/cpp/intent_util.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
@@ -80,7 +80,6 @@
 namespace {
 
 const char kTestAppActivity[] = "abcdefg";
-
 
 class FakeIconLoader : public apps::IconLoader {
  public:
@@ -343,13 +342,14 @@ class IntentPickerBubbleViewBrowserTestChromeOSBase
   }
 
   content::WebContents* GetWebContents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   template <typename Action>
   void DoAndWaitForIntentPickerIconUpdate(Action action) {
     base::RunLoop run_loop;
-    auto* tab_helper = IntentPickerTabHelper::FromWebContents(GetWebContents());
+    auto* tab_helper = IntentPickerTabHelper::From(
+        tabs::TabInterface::GetFromContents(GetWebContents()));
     tab_helper->SetIconUpdateCallbackForTesting(run_loop.QuitClosure());
     action();
     run_loop.Run();

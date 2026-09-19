@@ -167,7 +167,6 @@ export class SettingsAppearancePageElement extends
       showManagedThemeDialog_: {type: Boolean},
       glassEffectOptions_: {type: Array},
       tabStripOptions_: {type: Array},
-      showVerticalTabsEnabled_: {type: Boolean},
       showGlassEffectEnabled_: {type: Boolean},
       ntpSimplificationBookmarksBarEnabled_: {type: Boolean},
       bookmarksBarOptions_: {type: Array},
@@ -176,6 +175,7 @@ export class SettingsAppearancePageElement extends
       showEverythingMenuEnabled_: {type: Boolean},
       showResetPinnedActionsButton_: {type: Boolean},
       showCtrlTabMru_: {type: Boolean},
+      tabStripUnificationEnabled_: {type: Boolean},
       sidePanelAlignmentOptions_: {type: Array},
       configurableSidePanels_: {type: Array},
     };
@@ -294,8 +294,6 @@ export class SettingsAppearancePageElement extends
   protected accessor showHoverCardImagesOption_: boolean =
       loadTimeData.getBoolean('showHoverCardImagesOption');
   protected accessor showManagedThemeDialog_: boolean = false;
-  protected accessor showVerticalTabsEnabled_: boolean =
-      loadTimeData.getBoolean('showVerticalTabsEnabled');
   protected accessor showGlassEffectEnabled_: boolean =
       loadTimeData.getBoolean('showGlassEffectEnabled');
   protected accessor ntpSimplificationBookmarksBarEnabled_: boolean =
@@ -309,6 +307,8 @@ export class SettingsAppearancePageElement extends
   protected accessor showResetPinnedActionsButton_: boolean = false;
   protected accessor showCtrlTabMru_: boolean =
       loadTimeData.getBoolean('showCtrlTabMru');
+  protected accessor tabStripUnificationEnabled_: boolean =
+      loadTimeData.getBoolean('tabStripUnificationEnabled');
 
   protected accessor configurableSidePanels_:
       Array<{id: string, label: string}> =
@@ -622,6 +622,12 @@ export class SettingsAppearancePageElement extends
 
   protected showEverythingMenuToggle_(): boolean {
     return !this.showOrganizerPanelEnabled_ && this.showEverythingMenuEnabled_;
+  }
+
+  protected onTabScrollAutoShowOnOverflowChange_(event: CustomEvent<boolean>) {
+    this.metricsBrowserProxy_.recordAction(
+        event.detail ? 'Settings_Appearance_TabScrollButtons_Pinned' :
+                       'Settings_Appearance_TabScrollButtons_Unpinned');
   }
 
   protected onShowTabSearchButtonChange_(event: CustomEvent<boolean>) {

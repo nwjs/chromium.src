@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/views/location_bar/webui_location_bar.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_placeholder_util.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_closer.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/views/page_action/webui_page_action_control.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
 #include "chrome/browser/ui/webui/webui_toolbar/browser_controls_service.h"
@@ -40,29 +41,6 @@
 #include "ui/events/keycodes/dom/keycode_converter.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/touch_selection/touch_editing_controller.h"
-
-namespace {
-
-struct OmniboxState : public base::SupportsUserData::Data {
-  explicit OmniboxState(const OmniboxEditModel::State& model_state,
-                        const gfx::Range& selection);
-
-  ~OmniboxState() override;
-
-  const OmniboxEditModel::State model_state;
-  // Views omnibox also keeps track of saved selection when focused out;
-  // it's likely not needed here since the selection state in
-  // WebUIReadOnlyOmnibox is disconnected from that in the actual HTML UI.
-  const gfx::Range selection;
-};
-
-OmniboxState::OmniboxState(const OmniboxEditModel::State& model_state,
-                           const gfx::Range& selection)
-    : model_state(model_state), selection(selection) {}
-
-OmniboxState::~OmniboxState() = default;
-
-}  // namespace
 
 WebUIReadOnlyOmnibox::UpdatePropagator::~UpdatePropagator() = default;
 
@@ -96,8 +74,15 @@ WebUIReadOnlyOmnibox::~WebUIReadOnlyOmnibox() = default;
 void WebUIReadOnlyOmnibox::SaveStateToTab(content::WebContents* tab) {
   const OmniboxEditModel::State state =
       controller()->edit_model()->GetStateForTabSwitch();
-  tab->SetUserData(OmniboxTabHelper::kOmniboxStateKey,
-                   std::make_unique<OmniboxState>(state, selection_));
+  // We don't need the `saved_selection_for_focus_change` mechanism because
+  // <input> won't actually lose it on blur; though it turns out we have
+  // unrelated trouble with the issue that requires us to lose it sometimes
+  // anyway.
+  tab->SetUserData(
+      OmniboxTabHelper::kOmniboxStateKey,
+      std::make_unique<OmniboxState>(
+          state, selection_,
+          /*saved_selection_for_focus_change=*/gfx::Range::InvalidRange()));
 }
 
 void WebUIReadOnlyOmnibox::OnTabChanged(content::WebContents* web_contents) {
@@ -110,7 +95,15 @@ void WebUIReadOnlyOmnibox::OnTabChanged(content::WebContents* web_contents) {
   controller()->edit_model()->RestoreState(state ? &state->model_state
                                                  : nullptr);
   if (state) {
-    selection_ = state->selection;
+    if (state->model_state.user_input_in_progress &&
+        state->model_state.user_text.empty() &&
+        state->model_state.keyword.empty()) {
+      // See comment in OmniboxEditModel::GetStateForTabSwitch() for details on
+      // this.
+      SelectAll(true);
+    } else {
+      selection_ = state->selection;
+    }
   }
 
   RequestUpdateWebUI();
@@ -134,8 +127,7 @@ WebUIReadOnlyOmnibox::OnOmniboxAction(
       return OnKey(*action->get_key());
 
     case toolbar_ui_api::mojom::OmniboxAction::Tag::kPointer:
-      return OnPointer(action->get_pointer()->is_pointer_down,
-                       action->get_pointer()->start_zero_suggest);
+      return OnPointer(*action->get_pointer());
 
     case toolbar_ui_api::mojom::OmniboxAction::Tag::kDropText:
       return OnDropText(*action->get_drop_text());
@@ -365,8 +357,8 @@ void WebUIReadOnlyOmnibox::OnBeforePossibleChange() {
   // User is editing or traversing the text, as opposed to moving
   // through suggestions. Clear the accessibility label
   // so that the screen reader reports the raw text in the field.
+  // This will be sent during OnAfterPossibleChange.
   ClearAccessibilityLabel();
-  RequestUpdateWebUI();
 }
 
 bool WebUIReadOnlyOmnibox::OnAfterPossibleChange(bool allow_keyword_ui_change) {
@@ -537,7 +529,8 @@ WebUIReadOnlyOmnibox::ComputeMojoState() {
   if (!placeholder_text.empty() &&
       omnibox::ShouldShowPlaceholderText(
           location_bar_,
-          /*in_popup_state_transition=*/false,
+          /*in_popup_state_transition=*/
+          location_bar_->in_popup_state_transition(),
           /*aim_button_visible=*/AimButtonVisible(),
           /*aim_hint_currently_shown=*/aim_hint_currently_shown_)) {
     state->placeholder = toolbar_ui_api::mojom::OmniboxTextPortion::New(
@@ -580,6 +573,21 @@ void WebUIReadOnlyOmnibox::ResetBrowserVersion() {
   ui_version_ = 0;
 }
 
+void WebUIReadOnlyOmnibox::OnBlur() {
+  if (!has_focus_) {
+    return;
+  }
+  has_focus_ = false;
+  aim_hint_currently_shown_ = false;
+  controller()->edit_model()->OnWillKillFocus();
+  if (auto* popup_closer = controller()->client()->GetOmniboxPopupCloser()) {
+    popup_closer->CloseWithReason(omnibox::PopupCloseReason::kBlur);
+  }
+  controller()->edit_model()->OnKillFocus();
+  ClearAccessibilityLabel();
+  RequestUpdateWebUI();
+}
+
 base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
 WebUIReadOnlyOmnibox::OnFocusChange(
     const toolbar_ui_api::mojom::OmniboxActionFocusChange& focus_change) {
@@ -600,15 +608,7 @@ WebUIReadOnlyOmnibox::OnFocusChange(
     }
     RequestUpdateWebUI();
   } else {
-    has_focus_ = false;
-    aim_hint_currently_shown_ = false;
-    controller()->edit_model()->OnWillKillFocus();
-    if (auto* popup_closer = controller()->client()->GetOmniboxPopupCloser()) {
-      popup_closer->CloseWithReason(omnibox::PopupCloseReason::kBlur);
-    }
-    controller()->edit_model()->OnKillFocus();
-    ClearAccessibilityLabel();
-    RequestUpdateWebUI();
+    OnBlur();
   }
   return base::ok(std::monostate());
 }
@@ -616,9 +616,26 @@ WebUIReadOnlyOmnibox::OnFocusChange(
 base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
 WebUIReadOnlyOmnibox::OnTextInput(
     const toolbar_ui_api::mojom::OmniboxActionTextInput& text_input) {
-  if (text_input.browser_version == browser_version_) {
+  if (text_input.browser_version != browser_version_) {
+    return base::ok(std::monostate());
+  }
+
+  ui_version_ = text_input.ui_version;
+  if (text_input.unelision) {
+    // Let the edit model unelide as well to match what we did on the
+    // WebUI side.
+    bool unelide_ok = controller()->edit_model()->Unelide();
+    DCHECK(unelide_ok);
+    // It should produce the same text (the 'formatted full URL').
+    DCHECK_EQ(text_, text_input.text);
+
+    // We want the WebUI-side selection, however, not Unelide()'s
+    // SelectAll();
+    selection_ = text_input.selection;
+    TextChanged();
+    RequestUpdateWebUI();
+  } else {
     OnBeforePossibleChange();
-    ui_version_ = text_input.ui_version;
     bool keep_additional_text =
         text_ + inline_autocompletion_ ==
         text_input.text + text_input.inline_autocompletion;
@@ -784,9 +801,12 @@ WebUIReadOnlyOmnibox::OnKey(
 }
 
 base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
-WebUIReadOnlyOmnibox::OnPointer(bool is_down, bool start_zero_suggest) {
+WebUIReadOnlyOmnibox::OnPointer(
+    const toolbar_ui_api::mojom::OmniboxActionPointer& pointer) {
   // Either pointer up or pointer down permit launches.
   ExternalProtocolHandler::PermitLaunchUrl();
+  bool is_down = pointer.is_pointer_down;
+  bool start_zero_suggest = pointer.start_zero_suggest;
 
   if (is_down) {
     // Pointer down clears the pseudo-focus the popup has.
@@ -799,9 +819,17 @@ WebUIReadOnlyOmnibox::OnPointer(bool is_down, bool start_zero_suggest) {
       }
     }
   } else {
+    selection_ = pointer.selection;
     // Pointer up may start zero-suggest.
     if (start_zero_suggest) {
       controller()->edit_model()->StartZeroSuggestRequest();
+    }
+    update_propagator_->OpenOmniboxIfFullPopup(start_zero_suggest);
+    if (base::FeatureList::IsEnabled(
+            omnibox::kWebUIOmniboxFullPopupDoubleClick) &&
+        location_bar_) {
+      location_bar_->GetOmniboxPopupView()->SyncNativeStateToWebUI(
+          start_zero_suggest);
     }
   }
   return base::ok(std::monostate());
@@ -823,7 +851,7 @@ base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
 WebUIReadOnlyOmnibox::OnDropFile(
     const toolbar_ui_api::mojom::OmniboxActionDropFile& drop_file) {
   if (std::optional<GURL> url =
-          update_propagator_->ConsumeDroppedUrl(drop_file.drop_position)) {
+          toolbar_delegate_->ConsumeDroppedUrl(drop_file.drop_position)) {
     std::u16string text = base::UTF8ToUTF16(url->spec());
     if (!text.empty()) {
       SetUserText(text, /*update_popup=*/false);
@@ -837,6 +865,7 @@ void WebUIReadOnlyOmnibox::OnContextMenuReady(
     views::Widget* widget,
     const gfx::Point& point,
     ui::mojom::MenuSourceType source_type) {
+  menu_runner_.reset();
   menu_model_ = std::make_unique<ui::SimpleMenuModel>(this);
   AddTextfieldItems(toolbar_delegate_->GetWebContents()->GetWeakPtr(),
                     menu_params_, menu_model_.get());

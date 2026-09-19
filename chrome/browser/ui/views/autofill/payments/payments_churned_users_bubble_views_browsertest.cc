@@ -14,8 +14,8 @@
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/autofill/chrome_autofill_client.h"
 #include "chrome/browser/ui/autofill/payments/payments_churned_users_bubble_controller.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -24,7 +24,8 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
-#include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
+#include "chrome/browser/ui/views/page_action/page_action_view_interface.h"
+#include "chrome/browser/ui/views/page_action/test_support/page_action_test_accessor.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
@@ -72,7 +73,7 @@ class PaymentsChurnedUsersBubbleViewsBrowserTest
     }
     autofill::ChromeAutofillClient* autofill_client =
         autofill::ChromeAutofillClient::FromWebContentsForTesting(
-            browser()->tab_strip_model()->GetActiveWebContents());
+            browser()->GetTabStripModel()->GetActiveWebContents());
     ASSERT_TRUE(autofill_client);
     autofill_client->GetPaymentsAutofillClient()->ShowPaymentsChurnedUsersUI(
         std::move(accept_callback), std::move(cancel_callback),
@@ -80,20 +81,15 @@ class PaymentsChurnedUsersBubbleViewsBrowserTest
   }
 
   bool IsIconVisible() {
-    BrowserView* browser_view =
-        BrowserView::GetBrowserViewForBrowser(browser());
-    auto* provider = browser_view->toolbar_button_provider();
-    IconLabelBubbleView* icon = page_actions::GetIconLabelBubbleViewForTesting(
-        provider->GetPageActionViewInterface(
-            kActionShowPaymentsChurnedUsersBubble),
-        kActionShowPaymentsChurnedUsersBubble);
-    return icon && icon->GetVisible();
+    return page_actions::PageActionTestAccessor(
+               browser(), kActionShowPaymentsChurnedUsersBubble)
+        .GetVisible();
   }
 
   bool IsBubbleShowing() {
     PaymentsChurnedUsersBubbleController* controller =
         PaymentsChurnedUsersBubbleController::From(
-            *browser()->tab_strip_model()->GetActiveTab());
+            *browser()->GetTabStripModel()->GetActiveTab());
     return controller && controller->IsShowingBubble();
   }
 
@@ -110,7 +106,7 @@ class PaymentsChurnedUsersBubbleViewsBrowserTest
   PaymentsChurnedUsersBubbleView* GetBubbleView() {
     PaymentsChurnedUsersBubbleController* controller =
         PaymentsChurnedUsersBubbleController::From(
-            *browser()->tab_strip_model()->GetActiveTab());
+            *browser()->GetTabStripModel()->GetActiveTab());
     if (!controller) {
       return nullptr;
     }
@@ -122,7 +118,7 @@ class PaymentsChurnedUsersBubbleViewsBrowserTest
   AutofillBubbleBase* GetAutofillBubbleView() {
     PaymentsChurnedUsersBubbleController* controller =
         PaymentsChurnedUsersBubbleController::From(
-            *browser()->tab_strip_model()->GetActiveTab());
+            *browser()->GetTabStripModel()->GetActiveTab());
     if (!controller) {
       return nullptr;
     }
@@ -412,7 +408,7 @@ IN_PROC_BROWSER_TEST_P(PaymentsChurnedUsersBubbleViewsBrowserTest,
 
   PaymentsChurnedUsersBubbleController* controller =
       PaymentsChurnedUsersBubbleController::From(
-          *browser()->tab_strip_model()->GetActiveTab());
+          *browser()->GetTabStripModel()->GetActiveTab());
   if (controller) {
     controller->HideBubble(false);
     ASSERT_TRUE(base::test::RunUntil([&]() { return !IsBubbleShowing(); }));

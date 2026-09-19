@@ -23,6 +23,7 @@ import android.view.MenuItem;
 
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -35,8 +36,11 @@ import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 
 import org.chromium.base.Callback;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.bookmarks.BookmarkListEntry.ViewType;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowDisplayPref;
@@ -61,7 +65,10 @@ import java.util.Arrays;
 
 /** Unit tests for {@link BookmarkFolderPickerMediator}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@DisableFeatures(ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT)
+@DisableFeatures({
+    ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT,
+    ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_DIALOG
+})
 public class BookmarkFolderPickerMediatorUnitTest {
     @Rule
     public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.LENIENT);
@@ -320,6 +327,11 @@ public class BookmarkFolderPickerMediatorUnitTest {
         mFinishModelLoadCallback.run();
     }
 
+    @After
+    public void tearDown() {
+        DeviceInfo.resetIsDesktopForTesting();
+    }
+
     private void remakeMediator(BookmarkModel bookmarkModel, BookmarkId... bookmarkIds) {
         if (mMediator != null) {
             mMediator.destroy();
@@ -342,7 +354,8 @@ public class BookmarkFolderPickerMediatorUnitTest {
                         mModelList,
                         mAddNewFolderCoordinator,
                         rowCoordinator,
-                        mShoppingService);
+                        mShoppingService,
+                        /* isFromBookmarkDialog= */ false);
     }
 
     @Test
@@ -415,16 +428,126 @@ public class BookmarkFolderPickerMediatorUnitTest {
 
     @Test
     public void testOptionsItemSelected_BackPressed() {
-        mMediator.optionsItemSelected(android.R.id.home);
+        assertTrue(mMediator.optionsItemSelected(android.R.id.home));
         assertEquals("Move to…", mModel.get(BookmarkFolderPickerProperties.TOOLBAR_TITLE));
-        mMediator.optionsItemSelected(android.R.id.home);
-        verify(mFinishRunnable).run();
+        assertFalse(mMediator.optionsItemSelected(android.R.id.home));
     }
 
     @Test
     public void testOptionsItemSelected_AddNewFolder() {
+        var userActionTester = new UserActionTester();
         mMediator.optionsItemSelected(R.id.create_new_folder_menu_id);
         verify(mAddNewFolderCoordinator).show(any());
+        assertTrue(
+                userActionTester
+                        .getActions()
+                        .contains("BookmarkFolderPicker.CreateNewFolderOpened"));
+        userActionTester.tearDown();
+    }
+
+    @Test
+    public void testOptionsItemSelected_Close() {
+        mMediator.optionsItemSelected(R.id.close_menu_id);
+        verify(mFinishRunnable).run();
+    }
+
+    @Test
+    public void testNewFolderButtonClicked() {
+        var userActionTester = new UserActionTester();
+        mModel.get(BookmarkFolderPickerProperties.NEW_FOLDER_CLICK_LISTENER).run();
+        verify(mAddNewFolderCoordinator).show(mMobileFolderId);
+        assertTrue(
+                userActionTester
+                        .getActions()
+                        .contains("BookmarkFolderPicker.CreateNewFolderOpened"));
+        userActionTester.tearDown();
+    }
+
+    @Test
+    public void testBackPressStateSupplier() {
+        // Initially populated at mMobileFolderId (not root), so back press is handled.
+        assertTrue(mMediator.getHandleBackPressChangedSupplier().get());
+
+        // When navigating to root folder, back press is no longer handled by mediator.
+        mMediator.populateFoldersForParentId(mRootFolderId);
+        assertFalse(mMediator.getHandleBackPressChangedSupplier().get());
+
+        // Navigating back into a subfolder re-enables back press handling.
+        mMediator.populateFoldersForParentId(mMobileFolderId);
+        assertTrue(mMediator.getHandleBackPressChangedSupplier().get());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT)
+    public void testDesktopBookmarksLayout_UsesCompactRows() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.populateFoldersForParentId(mMobileFolderId);
+        assertEquals(2, mModelList.size());
+        assertEquals(ViewType.IMPROVED_BOOKMARK_COMPACT, mModelList.get(0).type);
+        assertEquals(ViewType.IMPROVED_BOOKMARK_COMPACT, mModelList.get(1).type);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_DIALOG)
+    public void testDesktopBookmarksDialog_NavigationIconVisibility_NotFromBookmarkDialog() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        remakeMediator(mBookmarkModel, mUserBookmarkId);
+
+        // At root folder when not from a parent dialog, navigation icon should not be visible.
+        mMediator.populateFoldersForParentId(mRootFolderId);
+        assertFalse(mModel.get(BookmarkFolderPickerProperties.NAVIGATION_ICON_VISIBLE));
+
+        // In a top-level folder (like Mobile or Bookmark Bar), navigation icon should be visible.
+        mMediator.populateFoldersForParentId(mMobileFolderId);
+        assertTrue(mModel.get(BookmarkFolderPickerProperties.NAVIGATION_ICON_VISIBLE));
+
+        // In the original parent folder of the bookmark, navigation icon should also be visible.
+        mMediator.populateFoldersForParentId(mUserFolderId);
+        assertTrue(mModel.get(BookmarkFolderPickerProperties.NAVIGATION_ICON_VISIBLE));
+
+        // Pressing back from the original parent folder navigates up to its parent.
+        mMediator.onBackPressed();
+        assertTrue(mModel.get(BookmarkFolderPickerProperties.NAVIGATION_ICON_VISIBLE));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_DIALOG)
+    public void testDesktopBookmarksDialog_NavigationIconVisibility_FromBookmarkDialog() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        if (mMediator != null) {
+            mMediator.destroy();
+        }
+        ImprovedBookmarkRowCoordinator rowCoordinator =
+                new ImprovedBookmarkRowCoordinator(
+                        mActivity,
+                        mBookmarkImageFetcher,
+                        mBookmarkModel,
+                        mBookmarkUiPrefs,
+                        mShoppingService);
+        mMediator =
+                new BookmarkFolderPickerMediator(
+                        mActivity,
+                        mBookmarkModel,
+                        Arrays.asList(mUserBookmarkId),
+                        mFinishRunnable,
+                        mBookmarkUiPrefs,
+                        mModel,
+                        mModelList,
+                        mAddNewFolderCoordinator,
+                        rowCoordinator,
+                        mShoppingService,
+                        /* isFromBookmarkDialog= */ true);
+
+        // At root folder when from another dialog, navigation icon should be visible to allow
+        // returning, but back press is not handled by mediator so it falls back to the activity.
+        mMediator.populateFoldersForParentId(mRootFolderId);
+        assertTrue(mModel.get(BookmarkFolderPickerProperties.NAVIGATION_ICON_VISIBLE));
+        assertFalse(mMediator.getHandleBackPressChangedSupplier().get());
+
+        // In a subfolder, navigation icon should also be visible and back press handled.
+        mMediator.populateFoldersForParentId(mMobileFolderId);
+        assertTrue(mModel.get(BookmarkFolderPickerProperties.NAVIGATION_ICON_VISIBLE));
+        assertTrue(mMediator.getHandleBackPressChangedSupplier().get());
     }
 
     @Test

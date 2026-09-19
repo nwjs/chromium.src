@@ -425,6 +425,7 @@ LocalFrame* LocalFrame::FromFrameToken(const LocalFrameToken& frame_token) {
 void LocalFrame::Init(
     Frame* opener,
     const DocumentToken& document_token,
+    const base::UnguessableToken& initiator_state_token,
     std::unique_ptr<PolicyContainer> policy_container,
     const StorageKey& storage_key,
     ukm::SourceId document_ukm_source_id,
@@ -442,9 +443,23 @@ void LocalFrame::Init(
   mojo_handler_ = MakeGarbageCollected<LocalFrameMojoHandler>(*this);
 
   SetOpenerDoNotNotify(opener);
-  loader_.Init(document_token, std::move(policy_container), storage_key,
-               document_ukm_source_id, creator_base_url,
-               std::move(sandbox_origin_token));
+  loader_.Init(document_token, initiator_state_token,
+               std::move(policy_container), storage_key, document_ukm_source_id,
+               creator_base_url, std::move(sandbox_origin_token));
+
+  // If this frame is created inside a same-process parent that is already
+  // hidden for media playback (e.g. a subframe inserted into a display:none
+  // iframe), inherit that hidden state directly. The parent's viewport-
+  // intersection pass that propagated the hidden bit down its subtree ran
+  // before this frame existed, and it will not re-run while the parent stays
+  // hidden (a hidden frame is render-throttled, so scheduling another pass will
+  // not reach this frame). Without this seed, media in the newly created frame
+  // would never learn that it is hidden.
+  if (LocalFrame* parent_local_frame = DynamicTo<LocalFrame>(Tree().Parent())) {
+    if (parent_local_frame->IsHiddenForMediaPlayback().value_or(false)) {
+      is_hidden_for_media_playback_ = true;
+    }
+  }
 }
 
 void LocalFrame::SetView(LocalFrameView* view) {
@@ -847,7 +862,14 @@ bool LocalFrame::DetachImpl(FrameDetachType type) {
 
   not_restored_reasons_.reset();
   prescient_networking_.reset();
-  microtasks_pauser_.reset();
+
+  if (microtasks_pauser_) {
+    // TODO(caseq): consider clearing all tasks from the microtask queue
+    // associated with the Agent upon all frames of the Agent being detached.
+    static_cast<LocalWindowProxyManager*>(GetWindowProxyManager())
+        ->SetAbortScriptExecution(nullptr);
+    microtasks_pauser_.reset();
+  }
 
   DCHECK(!view_->IsAttached());
   Client()->WillBeDetached();
@@ -2086,10 +2108,6 @@ LocalFrame::LocalFrame(
       ad_tracker_ = MakeGarbageCollected<AdTracker>(
           this, GetOrCreateScriptInitiationMonitor());
     }
-    if (RuntimeEnabledFeatures::ExtensionScriptTaggingEnabled()) {
-      extension_script_tracker_ = MakeGarbageCollected<ExtensionScriptTracker>(
-          this, GetOrCreateScriptInitiationMonitor());
-    }
     if (blink::LcppScriptObserverEnabled()) {
       script_observer_ = MakeGarbageCollected<LCPScriptObserver>(this);
     }
@@ -2100,7 +2118,6 @@ LocalFrame::LocalFrame(
     UpdateInertIfPossible();
     UpdateInheritedEffectiveTouchActionIfPossible();
     ad_tracker_ = LocalFrameRoot().ad_tracker_;
-    extension_script_tracker_ = LocalFrameRoot().extension_script_tracker_;
     performance_monitor_ = LocalFrameRoot().performance_monitor_;
     script_observer_ = LocalFrameRoot().script_observer_;
   }
@@ -2112,26 +2129,27 @@ LocalFrame::LocalFrame(
         mojom::blink::FrameOcclusionState::kGuaranteedNotOccluded;
   }
 
-  DCHECK(ad_tracker_ ? RuntimeEnabledFeatures::AdTaggingEnabled()
-                     : !RuntimeEnabledFeatures::AdTaggingEnabled());
-
-  // See SubresourceFilterAgent::Initialize for why we don't set this here for
-  // fenced frames.
-  is_frame_created_by_ad_script_ =
-      !IsMainFrame() && ad_tracker_ &&
-      ad_tracker_->IsAdScriptInStack(
-          AdTracker::StackType::kTopOnly,
-          /*ignore_monkey_patch=*/
-          AdTracker::MonkeyPatchableApi::kNodeAppendChild,
-          &ad_script_ancestry_);
-
   Initialize();
   // Now that we know whether the frame is provisional, inherit the probe
   // sink from parent if appropriate. See comment above for more details.
   if (!IsLocalRoot() && !IsProvisional()) {
     probe_sink_ = LocalFrameRoot().probe_sink_;
-    probe::FrameAttachedToParent(this, ad_script_ancestry_);
+    NotifyFrameAttachedToParent();
   }
+}
+
+void LocalFrame::NotifyFrameAttachedToParent() {
+  if (auto* monitor = GetScriptInitiationMonitor()) {
+    monitor->DidCreateLocalFrame(this);
+  }
+  AdTracker::AdScriptAncestry ad_script_ancestry;
+  if (ad_tracker_) {
+    V8ScriptId initiating_script_id = ad_tracker_->GetInitiatingScriptId(this);
+    if (initiating_script_id.value() > 0) {
+      ad_script_ancestry = ad_tracker_->GetAncestry(initiating_script_id);
+    }
+  }
+  probe::FrameAttachedToParent(this, ad_script_ancestry);
 }
 
 FrameScheduler* LocalFrame::GetFrameScheduler() {
@@ -2498,6 +2516,41 @@ void LocalFrame::SetAdTrackerForTesting(AdTracker* ad_tracker) {
   ad_tracker_ = ad_tracker;
 }
 
+ExtensionScriptTracker* LocalFrame::GetExtensionScriptTracker() {
+  return LocalFrameRoot().extension_script_tracker_.Get();
+}
+
+void LocalFrame::UpdateExtensionScriptTracking() {
+  if (!IsLocalRoot()) {
+    return;
+  }
+  bool should_track =
+      Loader().GetDocumentLoader() &&
+      Loader().GetDocumentLoader()->GetScriptInjectionPolicy() !=
+          mojom::blink::ScriptInjectionPolicy::kNone &&
+      RuntimeEnabledFeatures::ExtensionScriptTaggingEnabled();
+  if (should_track) {
+    if (!extension_script_tracker_) {
+      extension_script_tracker_ = MakeGarbageCollected<ExtensionScriptTracker>(
+          this, GetOrCreateScriptInitiationMonitor());
+    }
+  } else {
+    if (extension_script_tracker_) {
+      extension_script_tracker_->Shutdown();
+      extension_script_tracker_ = nullptr;
+    }
+  }
+}
+
+void LocalFrame::SetExtensionScriptTrackerForTesting(
+    ExtensionScriptTracker* extension_script_tracker) {
+  LocalFrame& root = LocalFrameRoot();
+  if (root.extension_script_tracker_) {
+    root.extension_script_tracker_->Shutdown();
+  }
+  root.extension_script_tracker_ = extension_script_tracker;
+}
+
 DEFINE_WEAK_IDENTIFIER_MAP(LocalFrame)
 
 FrameNavigationDisabler::FrameNavigationDisabler(LocalFrame& frame)
@@ -2815,14 +2868,6 @@ void LocalFrame::SetAdEvidence(const FrameAdEvidence& ad_evidence) {
   DCHECK(!IsMainFrame() || IsInFencedFrameTree());
   DCHECK(ad_evidence.is_complete());
 
-  // Once set, `is_frame_created_by_ad_script_` should not be unset.
-  DCHECK(!is_frame_created_by_ad_script_ ||
-         ad_evidence.created_by_ad_script() ==
-             blink::mojom::FrameCreationStackEvidence::kCreatedByAdScript);
-  is_frame_created_by_ad_script_ =
-      ad_evidence.created_by_ad_script() ==
-      blink::mojom::FrameCreationStackEvidence::kCreatedByAdScript;
-
   if (ad_evidence_.has_value()) {
     // Check that replacing with the new ad evidence doesn't violate invariants.
     // The parent frame's ad status should not change as it can only change due
@@ -2885,12 +2930,23 @@ bool LocalFrame::IsAdScriptInStack() const {
          ad_tracker_->IsAdScriptInStack(AdTracker::StackType::kTopOnly);
 }
 
-std::optional<AdScriptIdentifier> LocalFrame::CreationAdScript() const {
-  if (ad_script_ancestry_.ancestry_chain.empty()) {
-    return std::nullopt;
+bool LocalFrame::IsFrameCreatedByAdScript() const {
+  if (ad_evidence_ &&
+      ad_evidence_->created_by_ad_script() ==
+          mojom::FrameCreationStackEvidence::kCreatedByAdScript) {
+    return true;
   }
+  if (ad_tracker_) {
+    return ad_tracker_->ScriptAncestryTracker::IsMarkedFrame(this);
+  }
+  return false;
+}
 
-  return ad_script_ancestry_.ancestry_chain[0];
+std::optional<AdScriptIdentifier> LocalFrame::CreationAdScript() const {
+  if (ad_tracker_) {
+    return ad_tracker_->GetCreationAdScript(this);
+  }
+  return std::nullopt;
 }
 
 void LocalFrame::UpdateAdHighlight() {
@@ -3291,14 +3347,17 @@ bool LocalFrame::SwapIn() {
       bool swap_result =
           client->SwapIn(WebFrame::FromCoreFrame(provisional_owner_frame));
       std::swap(probe_sink_, local_provisional_owner->probe_sink_);
+      if (auto* monitor = GetScriptInitiationMonitor()) {
+        monitor->DidSwapLocalFrame(local_provisional_owner, this);
+      }
       return swap_result;
     }
 
     // This is a remote -> local swap, so just use the local root's probe sink.
     probe_sink_ = LocalFrameRoot().probe_sink_;
-    // For remote -> local swap, Send a frameAttached event to keep the legacy
+    // For remote -> local swap, send a frameAttached event to keep the legacy
     // behavior where we fire the frameAttached event on cross-site navigations.
-    probe::FrameAttachedToParent(this, ad_script_ancestry_);
+    NotifyFrameAttachedToParent();
   }
 
   return client->SwapIn(WebFrame::FromCoreFrame(provisional_owner_frame));

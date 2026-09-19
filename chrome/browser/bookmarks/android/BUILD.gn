@@ -42,10 +42,13 @@ source_set("impl") {
 
 android_resources("java_resources") {
   sources = [
+    "java/res/drawable/bookmark_promo_desktop_background.xml",
     "java/res/layout/bookmark_popup.xml",
     "java/res/values/dimens.xml",
     "java/res/values/ids.xml",
+    "java/res/values/styles.xml",
   ]
+  deps = [ "//components/browser_ui/widget/android:java_resources" ]
 }
 
 android_library("java") {
@@ -56,6 +59,9 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/bookmarks/BookmarkDesktopNavigationCoordinator.java",
     "java/src/org/chromium/chrome/browser/bookmarks/BookmarkDesktopNavigationMediator.java",
     "java/src/org/chromium/chrome/browser/bookmarks/BookmarkDesktopNavigationProperties.java",
+    "java/src/org/chromium/chrome/browser/bookmarks/BookmarkDesktopPopupMetrics.java",
+    "java/src/org/chromium/chrome/browser/bookmarks/BookmarkEditMetrics.java",
+    "java/src/org/chromium/chrome/browser/bookmarks/BookmarkFolderPickerMetrics.java",
     "java/src/org/chromium/chrome/browser/bookmarks/BookmarkFolderPickerProperties.java",
     "java/src/org/chromium/chrome/browser/bookmarks/BookmarkFolderPickerViewBinder.java",
     "java/src/org/chromium/chrome/browser/bookmarks/BookmarkImageFetcher.java",
@@ -215,7 +221,10 @@ robolectric_library("junit") {
     "junit/src/org/chromium/chrome/browser/bookmarks/BasicBookmarkQueryHandlerUnitTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkAddNewFolderCoordinatorTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkDesktopNavigationMediatorUnitTest.java",
+    "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkDesktopPopupMetricsUnitTest.java",
+    "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkEditMetricsUnitTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkFolderPickerMediatorUnitTest.java",
+    "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkFolderPickerMetricsUnitTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkImageFetcherTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkListEntryTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkManagerCoordinatorTest.java",

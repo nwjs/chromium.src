@@ -138,15 +138,34 @@ bool GetDlgItemText(HWND dlg, int item_id, std::wstring* text) {
 }
 
 bool IsHighContrastOn() {
-  HIGHCONTRAST hc = {0};
-  hc.cbSize = sizeof(HIGHCONTRAST);
-  if (!::SystemParametersInfo(SPI_GETHIGHCONTRAST, 0, &hc, 0)) {
+  HIGHCONTRAST hc = {.cbSize = sizeof(HIGHCONTRAST)};
+  if (!::SystemParametersInfo(SPI_GETHIGHCONTRAST, sizeof(HIGHCONTRAST), &hc,
+                              0)) {
     return false;
   }
   return hc.dwFlags & HCF_HIGHCONTRASTON;
 }
 
+bool IsColorDark(COLORREF color) {
+  // Coefficients for standard perceived luminance (Luma) calculation:
+  // Y = 0.299R + 0.587G + 0.114B.
+  // Weights and threshold are scaled by 1000 to keep operations in fast integer
+  // math without floating-point conversions.
+  constexpr int kRedLuminanceWeight = 299;
+  constexpr int kGreenLuminanceWeight = 587;
+  constexpr int kBlueLuminanceWeight = 114;
+  // Midpoint luminance threshold (128 out of 255 scaled by 1000).
+  constexpr int kDarkLuminanceThreshold = 128000;
+  return (kRedLuminanceWeight * GetRValue(color) +
+          kGreenLuminanceWeight * GetGValue(color) +
+          kBlueLuminanceWeight * GetBValue(color)) < kDarkLuminanceThreshold;
+}
+
 bool IsDarkModeOn() {
+  if (IsHighContrastOn()) {
+    return IsColorDark(::GetSysColor(COLOR_WINDOW));
+  }
+
   base::win::RegKey key(
       HKEY_CURRENT_USER,
       L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
@@ -155,6 +174,41 @@ bool IsDarkModeOn() {
   return key.ReadValueDW(L"AppsUseLightTheme", &is_light_theme) ==
              ERROR_SUCCESS &&
          !is_light_theme;
+}
+
+bool MaybeSetArrowCursor(HWND hwnd, WPARAM wparam, LPARAM lparam) {
+  if (LOWORD(lparam) != HTCLIENT) {
+    return false;
+  }
+
+  const HWND message_wnd = reinterpret_cast<HWND>(wparam);
+  if (!message_wnd || !::IsWindow(message_wnd)) {
+    return false;
+  }
+
+  if (message_wnd != hwnd && !::IsChild(hwnd, message_wnd)) {
+    return false;
+  }
+
+  const HCURSOR arrow_cursor = ::LoadCursor(nullptr, IDC_ARROW);
+  if (!arrow_cursor) {
+    return false;
+  }
+
+  const HCURSOR class_cursor =
+      reinterpret_cast<HCURSOR>(::GetClassLongPtr(message_wnd, GCLP_HCURSOR));
+
+  // If the window class defines a custom cursor that is not the standard arrow
+  // (e.g. an EDIT control with IDC_IBEAM or a window with a custom tool
+  // cursor), do not override it. Windows with no class cursor (nullptr) or
+  // with the standard arrow class cursor (such as #32770 dialogs) are
+  // explicitly set to IDC_ARROW to dismiss the IDC_APPSTARTING feedback cursor.
+  if (class_cursor != nullptr && class_cursor != arrow_cursor) {
+    return false;
+  }
+
+  ::SetCursor(arrow_cursor);
+  return true;
 }
 
 }  // namespace updater::ui

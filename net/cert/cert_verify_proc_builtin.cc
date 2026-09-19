@@ -130,9 +130,16 @@ base::DictValue NetLogAdditionalCert(const CRYPTO_BUFFER* cert_handle,
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
 base::DictValue NetLogChromeRootStoreVersion(
     int64_t chrome_root_store_version,
+    std::optional<base::Time> signer_set_timestamp,
     std::optional<base::Time> mtc_metadata_update_time) {
   base::DictValue results;
   results.Set("version_major", NetLogNumberValue(chrome_root_store_version));
+  if (signer_set_timestamp.has_value()) {
+    results.Set(
+        "signer_set_timestamp",
+        NetLogNumberValue(signer_set_timestamp->InMillisecondsSinceUnixEpoch() /
+                          1000));
+  }
   if (mtc_metadata_update_time.has_value()) {
     results.Set(
         "mtc_metadata_update_time",
@@ -374,8 +381,8 @@ class CertVerifyProcTrustStore {
   }
 
   const TrustStoreChrome::MtcAnchorExtraData* GetMTCAnchorData(
-      base::span<const uint8_t> log_id) const {
-    return system_trust_store_->GetMTCAnchorData(log_id);
+      base::span<const uint8_t> ca_id) const {
+    return system_trust_store_->GetMTCAnchorData(ca_id);
   }
 
   std::optional<bssl::VerifyCertificateChainDelegate::MTCCosigner>
@@ -387,9 +394,11 @@ class CertVerifyProcTrustStore {
       const bssl::ParsedCertificate& target_cert,
       base::Time current_time,
       const bssl::MTCAnchor* mtc_anchor,
-      base::span<const std::vector<uint8_t>> valid_additional_cosigners) const {
+      base::span<const std::vector<uint8_t>> valid_additional_cosigners,
+      const NetLogWithSource& net_log) const {
     return system_trust_store_->IsMtcCosignerPolicySatisfied(
-        target_cert, current_time, mtc_anchor, valid_additional_cosigners);
+        target_cert, current_time, mtc_anchor, valid_additional_cosigners,
+        net_log);
   }
 
   bool IsNonChromeRootStoreTrustAnchor(
@@ -517,17 +526,23 @@ class PathBuilderDelegateImpl : public bssl::SimplePathBuilderDelegate {
       const bssl::MTCAnchor* mtc_anchor,
       std::vector<std::vector<uint8_t>> valid_additional_cosigners) override {
     CHECK(mtc_anchor);
-    // TODO(crbug.com/452983502): Add netlogs for cosignature verification and
-    // policy evaluation results?
     if (!trust_store_->IsKnownMtcAnchor(mtc_anchor)) {
       // Cosigner policy only applies to publicly trusted MTCs, only a valid CA
       // signature is required for private PKIs.
+      net_log_->AddEvent(net::NetLogEventType::CERT_MTC_COSIGNER_POLICY_CHECKED,
+                         [&] {
+                           base::DictValue dict;
+                           dict.Set("is_valid", true);
+                           dict.Set("reason", "locally trusted anchor");
+                           return dict;
+                         });
       return true;
     }
 
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
     return trust_store_->IsMtcCosignerPolicySatisfied(
-        *target_, current_time_, mtc_anchor, valid_additional_cosigners);
+        *target_, current_time_, mtc_anchor, valid_additional_cosigners,
+        *net_log_);
 #else
     return false;
 #endif
@@ -1688,12 +1703,16 @@ void CertVerifyProcBuiltin::LogChromeRootStoreVersion(
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
   int64_t chrome_root_store_version =
       system_trust_store_->chrome_root_store_version();
+  std::optional<base::Time> signer_set_timestamp =
+      system_trust_store_->signer_set_timestamp();
   std::optional<base::Time> mtc_metadata_update_time =
       system_trust_store_->mtc_metadata_update_time();
-  if (chrome_root_store_version != 0 || mtc_metadata_update_time.has_value()) {
+  if (chrome_root_store_version != 0 || signer_set_timestamp.has_value() ||
+      mtc_metadata_update_time.has_value()) {
     net_log.AddEvent(
         NetLogEventType::CERT_VERIFY_PROC_CHROME_ROOT_STORE_VERSION, [&] {
           return NetLogChromeRootStoreVersion(chrome_root_store_version,
+                                              signer_set_timestamp,
                                               mtc_metadata_update_time);
         });
   }

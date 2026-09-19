@@ -253,8 +253,9 @@ class OriginAgentClusterAdBrowserTest : public OriginAgentClusterBrowserTest {
 
   void SetUpOnMainThread() override {
     // For subdocument resources, allowlist rules are always checked.
-    SetRulesetWithRules(
-        {subresource_filter::testing::CreateSubstringRule("ad.bar.com")});
+    auto rule = subresource_filter::testing::CreateSubstringRule("ad.bar.com");
+    rule.set_anchor_left(url_pattern_index::proto::ANCHOR_TYPE_SUBDOMAIN);
+    SetRulesetWithRules({rule});
 
     OriginAgentClusterBrowserTest::SetUpOnMainThread();
   }
@@ -673,7 +674,10 @@ IN_PROC_BROWSER_TEST_F(OriginKeyedProcessByDefaultBrowserTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), main_frame_url));
 
   // Navigate the outer iframe to an ad frame.
-  EXPECT_TRUE(content::NavigateIframeToURL(web_contents, "test", ad_url));
+  content::TestNavigationManager ad_nav_manager(web_contents, ad_url);
+  EXPECT_TRUE(content::BeginNavigateIframeToURL(web_contents, "test", ad_url));
+  ASSERT_TRUE(ad_nav_manager.WaitForNavigationFinished());
+  EXPECT_TRUE(content::WaitForLoadStop(web_contents));
 
   content::RenderFrameHost* child =
       ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0);
@@ -690,6 +694,89 @@ IN_PROC_BROWSER_TEST_F(OriginKeyedProcessByDefaultBrowserTest,
 
   // The cross-origin same-site subframe should end up site-keyed as well.
   EXPECT_FALSE(content::HasOriginKeyedProcess(grandchild));
+}
+
+// A nested child frame inside an ad frame that starts navigation to a
+// cross-site URL but redirects to a same-site URL should end up site-keyed.
+IN_PROC_BROWSER_TEST_F(
+    OriginKeyedProcessByDefaultBrowserTest,
+    NestedSubframeRedirectsToSameSiteSubframeInsideAdFrameIsSiteKeyed) {
+  GURL main_frame_url(https_server()->GetURL("foo.com", "/iframe_blank.html"));
+  GURL ad_url(https_server()->GetURL("ad.bar.com", "/iframe_blank.html"));
+  GURL final_same_site_url(
+      https_server()->GetURL("other.bar.com", "/title1.html"));
+  GURL initial_cross_site_url(https_server()->GetURL(
+      "c.com", "/server-redirect?" + final_same_site_url.spec()));
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), main_frame_url));
+
+  // Navigate the outer iframe to an ad frame.
+  content::TestNavigationManager ad_nav_manager(web_contents, ad_url);
+  EXPECT_TRUE(content::BeginNavigateIframeToURL(web_contents, "test", ad_url));
+  ASSERT_TRUE(ad_nav_manager.WaitForNavigationFinished());
+  EXPECT_TRUE(content::WaitForLoadStop(web_contents));
+
+  content::RenderFrameHost* child =
+      ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0);
+  EXPECT_FALSE(content::HasOriginKeyedProcess(child));
+
+  // Navigate the nested iframe inside the ad frame to a cross-site URL that
+  // redirects to a same-site URL.
+  content::TestNavigationManager nav_manager(web_contents,
+                                             initial_cross_site_url);
+  EXPECT_TRUE(content::ExecJs(
+      child, content::JsReplace("document.getElementById('test').src = $1;",
+                                initial_cross_site_url)));
+  ASSERT_TRUE(nav_manager.WaitForNavigationFinished());
+
+  content::RenderFrameHost* grandchild = ChildFrameAt(child, 0);
+
+  // The redirected same-site subframe should end up site-keyed.
+  EXPECT_FALSE(content::HasOriginKeyedProcess(grandchild));
+}
+
+// A nested child frame inside an ad frame that starts navigation to a same-site
+// URL but redirects to a cross-site URL should end up origin-keyed.
+IN_PROC_BROWSER_TEST_F(
+    OriginKeyedProcessByDefaultBrowserTest,
+    NestedSubframeRedirectsToCrossSiteSubframeInsideAdFrameIsOriginKeyed) {
+  GURL main_frame_url(https_server()->GetURL("foo.com", "/iframe_blank.html"));
+  GURL ad_url(https_server()->GetURL("ad.bar.com", "/iframe_blank.html"));
+  GURL final_cross_site_url(https_server()->GetURL("c.com", "/title1.html"));
+  GURL initial_same_site_url(https_server()->GetURL(
+      "other.bar.com", "/server-redirect?" + final_cross_site_url.spec()));
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), main_frame_url));
+
+  // Navigate the outer iframe to an ad frame.
+  content::TestNavigationManager ad_nav_manager(web_contents, ad_url);
+  EXPECT_TRUE(content::BeginNavigateIframeToURL(web_contents, "test", ad_url));
+  ASSERT_TRUE(ad_nav_manager.WaitForNavigationFinished());
+  EXPECT_TRUE(content::WaitForLoadStop(web_contents));
+
+  content::RenderFrameHost* child =
+      ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0);
+  EXPECT_FALSE(content::HasOriginKeyedProcess(child));
+
+  // Navigate the nested iframe inside the ad frame to a same-site URL that
+  // redirects to a cross-site URL.
+  content::TestNavigationManager nav_manager(web_contents,
+                                             initial_same_site_url);
+  EXPECT_TRUE(content::ExecJs(
+      child, content::JsReplace("document.getElementById('test').src = $1;",
+                                initial_same_site_url)));
+  ASSERT_TRUE(nav_manager.WaitForNavigationFinished());
+
+  content::RenderFrameHost* grandchild = ChildFrameAt(child, 0);
+
+  // The redirected cross-site subframe should be origin-keyed.
+  EXPECT_TRUE(content::HasOriginKeyedProcess(grandchild));
 }
 
 class OriginAgentClusterOacOnlyBrowserTest

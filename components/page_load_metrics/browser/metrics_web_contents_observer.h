@@ -16,8 +16,8 @@
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/time/time.h"
-#include "components/page_load_metrics/browser/page_load_metrics_observer_interface.h"
-#include "components/page_load_metrics/common/page_load_metrics.mojom-forward.h"
+#include "components/page_load_metrics/common/page_end_reason.h"
+#include "components/page_load_metrics/common/page_load_metrics.mojom.h"
 #include "components/page_load_metrics/common/page_load_timing.h"
 #include "content/public/browser/auction_result.h"
 #include "content/public/browser/render_frame_host_receiver_set.h"
@@ -43,7 +43,10 @@ class MetricsLifecycleObserver;
 class PageLoadMetricsEmbedderInterface;
 class PageLoadMetricsMemoryTracker;
 class PageLoadMetricsObserverDelegate;
+class PageLoadMetricsObserverInterface;
 class PageLoadTracker;
+enum class StorageType;
+struct UserInitiatedInfo;
 
 // MetricsWebContentsObserver tracks page loads and loading metrics
 // related data based on IPC messages received from a
@@ -120,6 +123,11 @@ class MetricsWebContentsObserver
       const content::GlobalRequestID& request_id,
       const GURL& original_url,
       const blink::mojom::ResourceLoadInfo& resource_load_info) override;
+  void DidLoadResourceFromMemoryCache(
+      content::RenderFrameHost* render_frame_host,
+      const GURL& url,
+      const std::string& mime_type,
+      network::mojom::RequestDestination request_destination) override;
   void FrameReceivedUserActivation(
       content::RenderFrameHost* render_frame_host) override;
   void FrameDisplayStateChanged(content::RenderFrameHost* render_frame_host,
@@ -192,11 +200,6 @@ class MetricsWebContentsObserver
 
   void OnCustomUserTimingUpdated(content::RenderFrameHost* rfh,
                                  mojom::CustomUserTimingMarkPtr custom_timing);
-
-  // Informs the observers of the currently committed primary page load that
-  // it's likely that prefetch will occur in this WebContents. This should
-  // not be called within WebContentsObserver::DidFinishNavigation methods.
-  void OnPrefetchLikely();
 
   // Called when a `SharedStorageWorkletHost` is created for `rfh`.
   void OnSharedStorageWorkletHostCreated(content::RenderFrameHost* rfh);

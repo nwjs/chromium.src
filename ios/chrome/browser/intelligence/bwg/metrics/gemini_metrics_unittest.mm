@@ -6,6 +6,7 @@
 
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/metrics/user_action_tester.h"
+#import "components/contextual_cueing/contextual_cueing_enums.h"
 #import "components/optimization_guide/core/hints/optimization_guide_decision.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "testing/platform_test.h"
@@ -439,4 +440,97 @@ TEST_F(GeminiMetricsTest, RecordGeminiGlicContextualCueDecision) {
   histogram_tester_.ExpectBucketCount(
       kGlicContextualCueDecisionHistogram,
       optimization_guide::OptimizationGuideDecision::kFalse, 1);
+}
+
+TEST_F(GeminiMetricsTest, RecordContextualCueingDecision) {
+  RecordContextualCueingDecision(
+      contextual_cueing::ContextualCueingDecision::kSuccess);
+  histogram_tester_.ExpectBucketCount(
+      kContextualCueingDecisionHistogram,
+      contextual_cueing::ContextualCueingDecision::kSuccess, 1);
+
+  RecordContextualCueingDecision(
+      contextual_cueing::ContextualCueingDecision::kHistorySyncOff);
+  histogram_tester_.ExpectBucketCount(
+      kContextualCueingDecisionHistogram,
+      contextual_cueing::ContextualCueingDecision::kHistorySyncOff, 1);
+}
+
+// Tests that Chat prompt metrics (including context attachment) are recorded
+// correctly.
+TEST_F(GeminiMetricsTest, TestRecordGeminiPromptSent) {
+  RecordGeminiPromptSent(/*is_nano_banana_enabled=*/true,
+                         /*images_attached_count=*/2,
+                         /*long_press_image_included=*/true,
+                         /*has_page_context=*/true,
+                         /*tabs_attached_count=*/1,
+                         /*was_multi_tab_used=*/false);
+
+  histogram_tester_.ExpectUniqueSample(kPromptImageRemixEnabledHistogram, true,
+                                       1);
+  histogram_tester_.ExpectUniqueSample(kPromptImagesAttachedCountHistogram, 2,
+                                       1);
+  histogram_tester_.ExpectUniqueSample(kPromptLongPressImageIncludedHistogram,
+                                       true, 1);
+  histogram_tester_.ExpectUniqueSample(kPromptContextAttachmentHistogram, true,
+                                       1);
+  histogram_tester_.ExpectUniqueSample(kPromptChatContextAttachmentHistogram,
+                                       true, 1);
+  histogram_tester_.ExpectTotalCount(kPromptLiveContextAttachmentHistogram, 0);
+  histogram_tester_.ExpectUniqueSample(kPromptTabsAttachedCountHistogram, 1, 1);
+  histogram_tester_.ExpectUniqueSample(kPromptMultiTabUsedHistogram, false, 1);
+  EXPECT_EQ(1, user_action_tester_.GetActionCount("MobileGeminiPromptSent"));
+  EXPECT_EQ(1,
+            user_action_tester_.GetActionCount("MobileGeminiChatPromptSent"));
+  EXPECT_EQ(0,
+            user_action_tester_.GetActionCount("MobileGeminiLivePromptSent"));
+
+  RecordGeminiPromptSent(/*is_nano_banana_enabled=*/false,
+                         /*images_attached_count=*/0,
+                         /*long_press_image_included=*/false,
+                         /*has_page_context=*/false,
+                         /*tabs_attached_count=*/0,
+                         /*was_multi_tab_used=*/false);
+
+  histogram_tester_.ExpectBucketCount(kPromptContextAttachmentHistogram, false,
+                                      1);
+  histogram_tester_.ExpectBucketCount(kPromptChatContextAttachmentHistogram,
+                                      false, 1);
+  histogram_tester_.ExpectTotalCount(kPromptContextAttachmentHistogram, 2);
+  histogram_tester_.ExpectTotalCount(kPromptChatContextAttachmentHistogram, 2);
+  histogram_tester_.ExpectTotalCount(kPromptLiveContextAttachmentHistogram, 0);
+  EXPECT_EQ(2, user_action_tester_.GetActionCount("MobileGeminiPromptSent"));
+  EXPECT_EQ(2,
+            user_action_tester_.GetActionCount("MobileGeminiChatPromptSent"));
+  EXPECT_EQ(0,
+            user_action_tester_.GetActionCount("MobileGeminiLivePromptSent"));
+}
+
+// Tests that Live prompt context attachment metrics are recorded correctly.
+TEST_F(GeminiMetricsTest, TestRecordGeminiLivePromptSent) {
+  RecordGeminiLivePromptSent(/*has_page_context=*/true);
+
+  histogram_tester_.ExpectUniqueSample(kPromptContextAttachmentHistogram, true,
+                                       1);
+  histogram_tester_.ExpectUniqueSample(kPromptLiveContextAttachmentHistogram,
+                                       true, 1);
+  histogram_tester_.ExpectTotalCount(kPromptChatContextAttachmentHistogram, 0);
+  EXPECT_EQ(1, user_action_tester_.GetActionCount("MobileGeminiPromptSent"));
+  EXPECT_EQ(0,
+            user_action_tester_.GetActionCount("MobileGeminiChatPromptSent"));
+  EXPECT_EQ(1,
+            user_action_tester_.GetActionCount("MobileGeminiLivePromptSent"));
+
+  RecordGeminiLivePromptSent(/*has_page_context=*/false);
+
+  histogram_tester_.ExpectBucketCount(kPromptContextAttachmentHistogram, false,
+                                      1);
+  histogram_tester_.ExpectBucketCount(kPromptLiveContextAttachmentHistogram,
+                                      false, 1);
+  histogram_tester_.ExpectTotalCount(kPromptChatContextAttachmentHistogram, 0);
+  EXPECT_EQ(2, user_action_tester_.GetActionCount("MobileGeminiPromptSent"));
+  EXPECT_EQ(0,
+            user_action_tester_.GetActionCount("MobileGeminiChatPromptSent"));
+  EXPECT_EQ(2,
+            user_action_tester_.GetActionCount("MobileGeminiLivePromptSent"));
 }

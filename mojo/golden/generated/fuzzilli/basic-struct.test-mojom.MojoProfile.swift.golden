@@ -41,14 +41,14 @@ extension ObjectGroup {
         methods: [
             "useStruct": [
                 .plain(.jsGoldenLargeStruct),
-                .plain(.integer),
+                .plain(.bigint),
             ] => .undefined,
             "getStruct": [
                 .plain(.string),
-            ] => .jsPromise(resolvingTo: .jsGoldenPrimary_GetStructResponse),
+            ] => .jsPromise(resolvingTo: .jsGoldenPrimary_GetStruct_ResponseParams),
             "syncGetStruct": [
                 .plain(.string),
-            ] => .jsGoldenPrimary_SyncGetStructResponse,
+            ] => .jsGoldenPrimary_SyncGetStruct_ResponseParams,
         ]
     )
 
@@ -81,13 +81,15 @@ extension ILType {
             "id",
             "value",
             "residence",
+            "optionalField",
             "valid",
             "data",
         ])
     fileprivate static let jsGoldenLargeStructConstructor: ILType = .constructor([
-        .plain(.integer),
+        .plain(.bigint),
         .plain(.string),
         .plain(.jsGoldenSimpleStruct),
+        .either(.string, .undefined),
         .plain(.boolean),
         .plain(.jsGoldenSimpleUnion),
     ] => .jsGoldenLargeStruct)
@@ -99,13 +101,13 @@ extension ILType {
     fileprivate static let jsGoldenSimpleStructConstructor: ILType = .constructor([
         .plain(.string),
     ] => .jsGoldenSimpleStruct)
-    fileprivate static let jsGoldenPrimary_GetStructResponse: ILType = .object(
-        ofGroup: "golden.Primary_GetStructResponse",
+    fileprivate static let jsGoldenPrimary_GetStruct_ResponseParams: ILType = .object(
+        ofGroup: "golden.Primary_GetStruct_ResponseParams",
         withProperties: [
             "result",
         ])
-    fileprivate static let jsGoldenPrimary_SyncGetStructResponse: ILType = .object(
-        ofGroup: "golden.Primary_SyncGetStructResponse",
+    fileprivate static let jsGoldenPrimary_SyncGetStruct_ResponseParams: ILType = .object(
+        ofGroup: "golden.Primary_SyncGetStruct_ResponseParams",
         withProperties: [
             "result",
         ])
@@ -116,9 +118,10 @@ extension ObjectGroup {
         name: "golden.LargeStruct",
         instanceType: .jsGoldenLargeStruct,
         properties: [
-            "id": .integer,
+            "id": .bigint,
             "value": .string,
             "residence": .jsGoldenSimpleStruct,
+            "optionalField": .string,
             "valid": .boolean,
             "data": .jsGoldenSimpleUnion,
         ],
@@ -132,17 +135,17 @@ extension ObjectGroup {
         ],
         methods: [:]
     )
-    fileprivate static let goldenPrimaryGetStructResponse = ObjectGroup(
-        name: "golden.Primary_GetStructResponse",
-        instanceType: .jsGoldenPrimary_GetStructResponse,
+    fileprivate static let goldenPrimaryGetStructResponseParams = ObjectGroup(
+        name: "golden.Primary_GetStruct_ResponseParams",
+        instanceType: .jsGoldenPrimary_GetStruct_ResponseParams,
         properties: [
             "result": .jsGoldenSimpleStruct,
         ],
         methods: [:]
     )
-    fileprivate static let goldenPrimarySyncGetStructResponse = ObjectGroup(
-        name: "golden.Primary_SyncGetStructResponse",
-        instanceType: .jsGoldenPrimary_SyncGetStructResponse,
+    fileprivate static let goldenPrimarySyncGetStructResponseParams = ObjectGroup(
+        name: "golden.Primary_SyncGetStruct_ResponseParams",
+        instanceType: .jsGoldenPrimary_SyncGetStruct_ResponseParams,
         properties: [
             "result": .jsGoldenSimpleStruct,
         ],
@@ -154,22 +157,32 @@ extension ObjectGroup {
 /// Arrays
 ///
 extension ILType {
-    fileprivate static let jsIntegerArray: ILType =
-        .createJsArrayType(ofElementType: .jsIntegerElement)
+    fileprivate static let jsInt64Array: ILType =
+        .createJsArrayType(ofElementType: .jsInt64Element)
 }
 
-/// Generate an array with only one element. As Fuzzilli runs, the
-/// OperationMutator and VariadicInputReducer will modify the
-/// `CreateArray` operation to increase  or decrease the element count.
-private let MojoIntegerArrayGenerator = CodeGenerator(
-    "MojoIntegerArrayGenerator",
-    inputs: .required(.integer),
-    produces: [.jsIntegerArray]
-) { b, elem in
+/// As Fuzzilli runs, the OperationMutator and VariadicInputReducer will modify
+/// the `CreateArray` operation to increase or decrease the element count. This
+/// allows arrays to be arbitrarily long.
+///
+/// `findOrGenerateType` is preferred over specifying `inputs` because
+/// Fuzzilli only uses CodeGenerators to produce types in `inputs`, while
+/// `findOrGenerateType` uses a variety of sources (e.g. `builtins`, other
+/// method properties and methods). An input is specified (i.e. `.one`)
+/// to prevent the CodeGenerator from being scheduled first when there are
+/// no visible variables, as `findOrGenerateType` causes a crash if there
+/// are no visibile variables.
+private let MojoInt64ArrayGenerator = CodeGenerator(
+    "MojoInt64ArrayGenerator",
+    inputs: .one,
+    produces: [.jsInt64Array]
+) { b, _ in
+    let elem = b.findOrGenerateType(.bigint)
+    var elements: [Variable] = [elem]
     b.createArray(
-        with: [elem],
+        with: elements,
         elementGroupName:
-            ObjectGroup.integerElement.name)
+            ObjectGroup.int64Element.name)
 }
 
 ///
@@ -184,7 +197,7 @@ extension OptionsBag {
     fileprivate static let goldenSimpleUnion = OptionsBag(
         name: "golden.SimpleUnion",
         properties: [
-            "arr": .jsIntegerArray,
+            "arr": .jsInt64Array,
             "val": .integer,
             "flag": .boolean,
         ],
@@ -296,7 +309,7 @@ let mojoPrimaryProfile = Profile(
     additionalCodeGenerators: [
         (MojoMethodCallGenerator, 10000),
         (MojoPropertyRetrievalGenerator, 10000),
-        (MojoIntegerArrayGenerator, 1),
+        (MojoInt64ArrayGenerator, 1),
     ] + commonMojoCodeGenerators,
     additionalProgramTemplates: WeightedList([]),
     disabledCodeGenerators: mojoDisabledGenerators,
@@ -310,11 +323,13 @@ let mojoPrimaryProfile = Profile(
         .goldenPrimaryPendingReceiver,
         .goldenLargeStruct,
         .goldenSimpleStruct,
-        .goldenPrimaryGetStructResponse,
-        .goldenPrimarySyncGetStructResponse,
+        .goldenPrimaryGetStructResponseParams,
+        .goldenPrimarySyncGetStructResponseParams,
     ] + commonMojoObjectGroups,
     additionalEnumerations: [
     ] + commonMojoEnumerations,
-    additionalOptionsBags: [] + commonMojoOptionsBags,
+    additionalOptionsBags: [
+        .goldenSimpleUnion,
+    ] + commonMojoOptionsBags,
     optionalPostProcessor: nil
 )

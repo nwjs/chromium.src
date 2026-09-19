@@ -20,7 +20,7 @@
 #include "components/autofill/core/browser/suggestions/suggestion_test_helpers.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/common/autofill_features.h"
-#include "components/autofill/core/common/autofill_test_utils.h"
+#include "components/autofill/core/common/autofill_test_util.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/strings/grit/components_strings.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -214,7 +214,8 @@ TEST_F(ValuableSuggestionGeneratorTest, WithMatchingDomain) {
 TEST_F(ValuableSuggestionGeneratorTest, WithMatchingDomainAndFieldAutofilled) {
   set_last_committed_primary_main_frame_url(
       GURL("https://domain2.example/test"));
-  field_data().set_is_autofilled_according_to_renderer(true);
+  field().AddFieldModifier(FieldModifier::kAutofill);
+  field().set_filling_product(FillingProduct::kLoyaltyCard);
   std::vector<Suggestion> suggestions_with_matching_domain =
       GetSuggestionsForLoyaltyCards(form().ToFormData(), &form(), field(),
                                     &field(), PasswordFormClassification(),

@@ -237,7 +237,7 @@ class CONTENT_EXPORT StoragePartitionImpl
       base::OnceClosure callback) override;
   void Flush() override;
   void ResetURLLoaderFactories() override;
-  void ClearBluetoothAllowedDevicesMapForTesting() override;
+  void ClearBluetoothAllowedDevicesMap() override;
   void AddObserver(DataRemovalObserver* observer) override;
   void RemoveObserver(DataRemovalObserver* observer) override;
   void FlushNetworkInterfaceForTesting() override;
@@ -427,6 +427,7 @@ class CONTENT_EXPORT StoragePartitionImpl
       bool is_service_worker,
       int process_id,
       int routing_id,
+      bool prefer_bound_cookie_context,
       net::CookieSettingOverrides cookie_setting_overrides,
       net::CookieSettingOverrides devtools_cookie_setting_overrides,
       mojo::PendingReceiver<network::mojom::RestrictedCookieManager> receiver,

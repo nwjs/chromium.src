@@ -34,6 +34,7 @@
 #include <memory>
 
 #include "base/files/file_path.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/single_thread_task_runner.h"
@@ -154,7 +155,8 @@ class CORE_EXPORT WebSharedWorkerImpl final : public WebSharedWorker {
   mojo::Remote<mojom::blink::SharedWorkerHost> host_;
 
   // |client_| owns |this|.
-  WebSharedWorkerClient* client_;
+  raw_ptr<WebSharedWorkerClient, UnprotectedInRelease | DanglingUntriaged>
+      client_;
 
   using PendingChannel =
       std::pair<int /* connection_request_id */, blink::MessagePortChannel>;

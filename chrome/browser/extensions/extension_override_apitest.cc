@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/check.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -16,6 +17,7 @@
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
+#include "chrome/browser/ui/extensions/settings_api_bubble_helpers.h"
 #include "chrome/common/url_constants.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
@@ -33,6 +35,9 @@
 #include "extensions/test/result_catcher.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/flags/android/chrome_feature_list.h"
+#endif
 
 static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
@@ -41,7 +46,18 @@ using content::WebContents;
 namespace extensions {
 
 class ExtensionOverrideTest : public ExtensionApiTest {
+ public:
+  ExtensionOverrideTest() {
+#if BUILDFLAG(IS_ANDROID)
+    // TODO(b/555414915): Update Android tests with WebUI NTP enabled on AL.
+    scoped_feature_list_.InitAndDisableFeature(
+        chrome::android::kUseWebUiNtpAndroid);
+#endif
+  }
+
  protected:
+  base::test::ScopedFeatureList scoped_feature_list_;
+
   void SetUpOnMainThread() override {
     ExtensionApiTest::SetUpOnMainThread();
     host_resolver()->AddRule("*", "127.0.0.1");
@@ -425,6 +441,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionOverrideTest,
 IN_PROC_BROWSER_TEST_F(
     ExtensionOverrideTest,
     MAYBE_SubframeNavigationInOverridenNTPDoesNotAffectFocus) {
+  // Disable the "NTP overridden" dialog so it does not interfere with page
+  // focus.
+  extensions::SetNtpPostInstallUiEnabledForTesting(false);
+
   // Load an extension that overrides the new tab page.
   const Extension* extension = LoadExtension(data_dir().AppendASCII("newtab"));
 

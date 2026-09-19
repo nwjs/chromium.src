@@ -173,6 +173,14 @@ class BrowserWindowInterface : public content::PageNavigator {
     return kEmptyString;
   }
 
+  // NW.js: Returns the Browser instance implementing this interface, or
+  // nullptr if there is none. NW.js code uses this to reach NW.js-specific
+  // state kept on Browser (e.g. frameless windows). This was part of the
+  // upstream migration shim removed in crbug.com/542648384; NW.js still
+  // needs it.
+  virtual Browser* GetBrowserForMigrationOnly() { return nullptr; }
+  virtual const Browser* GetBrowserForMigrationOnly() const { return nullptr; }
+
   // Represents the result of a check for whether a new browser window can be
   // created. See also CreateBrowserWindow().
   // TODO(devlin): The naming here implies that this is the *result* of a
@@ -330,12 +338,6 @@ class BrowserWindowInterface : public content::PageNavigator {
   // This is used by features that need to operate on most or all tabs in the
   // browser window. Do not use this method to find a specific tab.
   virtual std::vector<tabs::TabInterface*> GetAllTabInterfaces() = 0;
-
-  // Downcasts to a Browser*. The only valid use for this method is when
-  // migrating a large chunk of code to BrowserWindowInterface, to allow
-  // incremental migration.
-  virtual Browser* GetBrowserForMigrationOnly() = 0;
-  virtual const Browser* GetBrowserForMigrationOnly() const = 0;
 
   // Checks if the browser popup is tab modal dialog.
   virtual bool IsTabModalPopup() const = 0;

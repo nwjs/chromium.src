@@ -162,8 +162,13 @@ class AssertPageLoadMetricsObserver final
   void OnRestoreFromBackForwardCache(
       const page_load_metrics::mojom::PageLoadTiming& timing,
       content::NavigationHandle* navigation_handle) override {}
-  void OnSoftNavigation() override {}
-  void OnSoftNavigationLargestContentfulPaint(uint64_t num_soft_lcps) override {}
+  void OnSoftNavigationFirstContentfulPaint(
+      const page_load_metrics::mojom::SoftNavigationMetrics&
+          soft_navigation_metrics) override {}
+  void OnSoftNavigationCompleted(const page_load_metrics::SoftNavigationData&
+                                     soft_navigation_data) override {}
+  void OnSoftNavigationLargestContentfulPaint(uint64_t num_soft_lcps) override {
+  }
   void OnCpuTimingUpdate(
       content::RenderFrameHost* subframe_rfh,
       const page_load_metrics::mojom::CpuTiming& timing) override {}
@@ -189,6 +194,9 @@ class AssertPageLoadMetricsObserver final
       const base::flat_map<int, gfx::Rect>& main_frame_ad_rects) override {}
   void OnLoadedResource(const page_load_metrics::ExtraRequestCompleteInfo&
                             extra_request_complete_info) override {}
+  void DidLoadResourceFromMemoryCache(
+      const page_load_metrics::MemoryResourceLoadInfo&
+          memory_resource_load_info) override {}
   void FrameReceivedUserActivation(
       content::RenderFrameHost* render_frame_host) override {}
   void FrameDisplayStateChanged(content::RenderFrameHost* render_frame_host,
@@ -214,7 +222,6 @@ class AssertPageLoadMetricsObserver final
                          const GURL& first_party_url,
                          bool blocked_by_policy,
                          page_load_metrics::StorageType access_type) override {}
-  void OnPrefetchLikely() override {}
   void OnSharedStorageWorkletHostCreated() override {}
   void OnSharedStorageSelectURLCalled() override {}
   void OnCustomUserTimingMarkObserved(

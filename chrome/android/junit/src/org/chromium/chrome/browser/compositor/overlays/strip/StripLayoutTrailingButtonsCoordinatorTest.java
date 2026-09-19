@@ -15,6 +15,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.getDimensionDp;
+
 import android.animation.Animator;
 import android.app.Activity;
 import android.content.res.Resources;
@@ -39,6 +41,7 @@ import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackUtils;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.MathUtils;
 import org.chromium.base.UnownedUserDataHost;
 import org.chromium.base.supplier.OneshotSupplierImpl;
@@ -65,6 +68,7 @@ import org.chromium.chrome.browser.glic.GlicPrefNames;
 import org.chromium.chrome.browser.glic.GlicSplitButtonDelegate;
 import org.chromium.chrome.browser.glic.GlicSplitButtonDelegateBridge;
 import org.chromium.chrome.browser.glic.GlicSplitButtonDelegateBridgeJni;
+import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.layouts.animation.CompositorAnimationHandler;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tabmodel.TabModel;
@@ -82,7 +86,6 @@ import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.user_prefs.UserPrefsJni;
 import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.base.LocalizationUtils;
-import org.chromium.ui.base.TestActivity;
 
 import java.lang.ref.WeakReference;
 import java.util.Collections;
@@ -150,7 +153,7 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
         when(mActorKeyedService.getActiveTasks()).thenReturn(Collections.emptyList());
         GlicKeyedServiceFactory.setForTesting(mGlicKeyedService);
 
-        mActivity = Robolectric.buildActivity(TestActivity.class).setup().get();
+        mActivity = Robolectric.buildActivity(Activity.class).setup().get();
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
         when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
         when(mWindowAndroid.getUnownedUserDataHost()).thenReturn(new UnownedUserDataHost());
@@ -163,28 +166,7 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
         when(mSideUiStateProvider.canShowSideUi(SideUiId.SIDE_PANEL)).thenReturn(true);
         mSideUiStateProviderSupplier.set(mSideUiStateProvider);
 
-        mCoordinator =
-                new StripLayoutTrailingButtonsCoordinator(
-                        mActivity,
-                        mUpdateHost,
-                        mRenderHost,
-                        mWindowAndroid,
-                        /* density= */ 1.0f,
-                        mToolbarContainerView,
-                        /* isAppInDesktopWindow= */ false,
-                        /* isTopResumedActivity= */ false,
-                        mTaskTracker,
-                        mIsIncognito,
-                        () -> mTabModelSelector,
-                        mSideUiStateProviderSupplier,
-                        () -> 100f,
-                        () -> {},
-                        (isFocused, view) -> {},
-                        mGlicClickHandler,
-                        (isFocused, view) -> {},
-                        () -> mGlicIphShowing,
-                        mGlicPanelStateObserver,
-                        mObserver);
+        mCoordinator = createCoordinator();
         ShadowLooper.idleMainLooper();
         mCoordinator.onProfileAvailable(mProfile);
         mCoordinator.getGlicSplitButtonDelegateForTesting().setGlicShowState(true);
@@ -196,17 +178,76 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
         mModelSelectorButton = mCoordinator.getModelSelectorButton();
     }
 
+    private StripLayoutTrailingButtonsCoordinator createCoordinator() {
+        return new StripLayoutTrailingButtonsCoordinator(
+                mActivity,
+                mUpdateHost,
+                mRenderHost,
+                mWindowAndroid,
+                /* density= */ 1.0f,
+                mToolbarContainerView,
+                /* isAppInDesktopWindow= */ false,
+                /* isTopResumedActivity= */ false,
+                mTaskTracker,
+                mIsIncognito,
+                () -> mTabModelSelector,
+                mSideUiStateProviderSupplier,
+                () -> 100f,
+                () -> {},
+                (isFocused, view) -> {},
+                mGlicClickHandler,
+                (isFocused, view) -> {},
+                () -> mGlicIphShowing,
+                mGlicPanelStateObserver,
+                mObserver);
+    }
+
     @After
     public void tearDown() {
+        DeviceInfo.resetIsDesktopForTesting();
         CompositorAnimationHandler.setTestingMode(false);
         if (mCoordinator != null) {
             mCoordinator.destroy();
         }
+        DeviceInfo.resetIsDesktopForTesting();
     }
 
     // =========================================================================================
     // Model Selector Button (MSB) Unit Tests
     // =========================================================================================
+
+    @Test
+    public void testModelSelectorButton_VisibilityWhenIncognitoTabsExist() {
+        when(mIncognitoTabModel.getCount()).thenReturn(1);
+        assertTrue(
+                "MSB should be visible when incognito tabs exist",
+                mCoordinator.shouldModelSelectorButtonBeVisible());
+        mCoordinator.updateTrailingButtons();
+        assertTrue("MSB view should be visible", mModelSelectorButton.isVisible());
+    }
+
+    @Test
+    public void testModelSelectorButton_VisibilityWhenNoIncognitoTabs() {
+        when(mIncognitoTabModel.getCount()).thenReturn(0);
+        assertFalse(
+                "MSB should not be visible when no incognito tabs exist",
+                mCoordinator.shouldModelSelectorButtonBeVisible());
+        mCoordinator.updateTrailingButtons();
+        assertFalse("MSB view should be hidden", mModelSelectorButton.isVisible());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
+    public void testModelSelectorButton_NotCreatedWhenIncognitoAsWindowEnabled() {
+        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
+        StripLayoutTrailingButtonsCoordinator coordinator = createCoordinator();
+        assertNull(
+                "Model selector button should not be created when Incognito as window is enabled",
+                coordinator.getModelSelectorButton());
+        assertFalse(
+                "MSB should not be visible when Incognito as window is enabled",
+                coordinator.shouldModelSelectorButtonBeVisible());
+    }
 
     @Test
     public void testModelSelectorButtonDrawX() {
@@ -592,6 +633,42 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
         assertTrue("Glic context menu should be showing.", mCoordinator.isMenuShowing());
     }
 
+    @Test
+    public void testGlicButtonWidth_NoText_DesktopDensity() {
+        doTestButtonWidthNoText(/* isActor= */ false, /* isDesktopDensity= */ true);
+    }
+
+    @Test
+    public void testGlicButtonWidth_NoText_NonDesktopDensity() {
+        doTestButtonWidthNoText(/* isActor= */ false, /* isDesktopDensity= */ false);
+    }
+
+    @Test
+    public void testGlicButton_PrefChangeUpdatesVisibility_Incognito() {
+        mCoordinator.onTabModelSwitched(true);
+        assertTrue(
+                "Glic button should initially be visible when pinned.",
+                mCoordinator.shouldGlicBeVisible());
+
+        // Simulate unpinning in preferences.
+        when(mPrefService.getBoolean(GlicPrefNames.GLIC_PINNED_TO_TABSTRIP)).thenReturn(false);
+        mCoordinator.onGlicPrefChanged();
+
+        assertFalse(
+                "Glic button should be hidden after unpinning.",
+                mCoordinator.shouldGlicBeVisible());
+        assertFalse("Glic button visible property should be false.", mGlicButton.isVisible());
+
+        // Simulate re-pinning in preferences.
+        when(mPrefService.getBoolean(GlicPrefNames.GLIC_PINNED_TO_TABSTRIP)).thenReturn(true);
+        mCoordinator.onGlicPrefChanged();
+
+        assertTrue(
+                "Glic button should be visible again after pinning.",
+                mCoordinator.shouldGlicBeVisible());
+        assertTrue("Glic button visible property should be true.", mGlicButton.isVisible());
+    }
+
     // =========================================================================================
     // Glic Actor Button Unit Tests
     // =========================================================================================
@@ -848,6 +925,16 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
     }
 
     @Test
+    public void testGlicActorButtonWidth_NoText_DesktopDensity() {
+        doTestButtonWidthNoText(/* isActor= */ true, /* isDesktopDensity= */ true);
+    }
+
+    @Test
+    public void testGlicActorButtonWidth_NoText_NonDesktopDensity() {
+        doTestButtonWidthNoText(/* isActor= */ true, /* isDesktopDensity= */ false);
+    }
+
+    @Test
     public void testGlicButtons_VisibleInIncognito() {
         // Setup an active actor task so shouldGlicActorBeVisible() would normally return true.
         when(mActorKeyedService.getActiveTasks()).thenReturn(List.of(mActorTask));
@@ -1099,14 +1186,73 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
                 mCoordinator.shouldShowDivider());
     }
 
+    @Test
+    public void testGetTrailingButtonsWidthWithPadding() {
+        // 1. No buttons visible.
+        mCoordinator.setGlicButtonVisible(false);
+        assertEquals(
+                "Width should be 0 when no buttons visible.",
+                0.0f,
+                mCoordinator.getTrailingButtonsWidthWithPadding(),
+                0.0);
+
+        // 2. MSB only (Tablet desired touch target = 48).
+        showModelSelectorButton();
+        assertEquals(
+                "Width should match MSB touch target size on tablet.",
+                48.0f,
+                mCoordinator.getTrailingButtonsWidthWithPadding(),
+                0.0);
+
+        // 3. MSB (48) + Glic (width(42) + startSlop(4) + endOffset(6)) = 100.
+        showGlicButton();
+        assertEquals(
+                "Width should match MSB + Glic.",
+                100.0f,
+                mCoordinator.getTrailingButtonsWidthWithPadding(),
+                0.0);
+
+        // 4. MSB (48) + Glic (52) + gap(2) + Actor(42) = 144.
+        showGlicActorButton();
+        assertEquals(
+                "Width should match MSB + Glic + Actor with gap.",
+                144.0f,
+                mCoordinator.getTrailingButtonsWidthWithPadding(),
+                0.0);
+
+        // 5. Desktop density (MSB touch target shrinks to 32).
+        DeviceInfo.setIsDesktopForTesting(true);
+        mCoordinator.setGlicButtonVisible(false);
+        mCoordinator.setGlicActorButtonVisible(false, /* animate= */ false);
+        assertEquals(
+                "Width should match MSB touch target size on desktop.",
+                32.0f,
+                mCoordinator.getTrailingButtonsWidthWithPadding(),
+                0.0);
+    }
+
+    @Test
+    public void testSetGlicPanelIsOpen_notifiesObserver() {
+        GlicSplitButtonDelegate splitButtonDelegate =
+                mCoordinator.getGlicSplitButtonDelegateForTesting();
+        assertNotNull("Split button delegate should be created.", splitButtonDelegate);
+
+        // Open the panel.
+        splitButtonDelegate.setGlicPanelIsOpen(true);
+        verify(mGlicPanelStateObserver).onResult(true);
+
+        // Close the panel.
+        splitButtonDelegate.setGlicPanelIsOpen(false);
+        verify(mGlicPanelStateObserver).onResult(false);
+    }
+
     // =========================================================================================
     // Private Helper Methods
     // =========================================================================================
 
     private void showGlicButton() {
         mCoordinator.setGlicButtonVisible(true);
-        mGlicButton.setWidth(
-                mActivity.getResources().getDimension(R.dimen.tab_strip_glic_button_bg_width));
+        mGlicButton.setWidth(getDimensionDp(mActivity, R.dimen.tab_strip_glic_button_bg_width));
         mGlicButton.setOpacity(1.0f);
         mCoordinator.updateButtonPositions();
     }
@@ -1114,7 +1260,7 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
     private void showGlicActorButton() {
         mCoordinator.setGlicActorButtonVisible(true, /* animate= */ false);
         mGlicActorButton.setWidth(
-                mActivity.getResources().getDimension(R.dimen.tab_strip_glic_button_bg_width));
+                getDimensionDp(mActivity, R.dimen.tab_strip_glic_button_bg_width));
         mGlicActorButton.setOpacity(1.0f);
         mCoordinator.updateButtonPositions();
     }
@@ -1163,44 +1309,27 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
                 MathUtils.EPSILON);
     }
 
-    @Test
-    public void testGlicButton_PrefChangeUpdatesVisibility_Incognito() {
-        mCoordinator.onTabModelSwitched(true);
-        assertTrue(
-                "Glic button should initially be visible when pinned.",
-                mCoordinator.shouldGlicBeVisible());
+    private void doTestButtonWidthNoText(boolean isActor, boolean isDesktopDensity) {
+        DeviceInfo.setIsDesktopForTesting(isDesktopDensity);
+        mCoordinator = createCoordinator();
+        TintedCompositorTextButton button =
+                isActor ? mCoordinator.getGlicActorButton() : mCoordinator.getGlicButton();
+        assertNotNull("Button should be created.", button);
 
-        // Simulate unpinning in preferences.
-        when(mPrefService.getBoolean(GlicPrefNames.GLIC_PINNED_TO_TABSTRIP)).thenReturn(false);
-        mCoordinator.onGlicPrefChanged();
+        button.setText(null);
+        mCoordinator.updateButtonTextProperties(button);
 
-        assertFalse(
-                "Glic button should be hidden after unpinning.",
-                mCoordinator.shouldGlicBeVisible());
-        assertFalse("Glic button visible property should be false.", mGlicButton.isVisible());
-
-        // Simulate re-pinning in preferences.
-        when(mPrefService.getBoolean(GlicPrefNames.GLIC_PINNED_TO_TABSTRIP)).thenReturn(true);
-        mCoordinator.onGlicPrefChanged();
-
-        assertTrue(
-                "Glic button should be visible again after pinning.",
-                mCoordinator.shouldGlicBeVisible());
-        assertTrue("Glic button visible property should be true.", mGlicButton.isVisible());
-    }
-
-    @Test
-    public void testSetGlicPanelIsOpen_notifiesObserver() {
-        GlicSplitButtonDelegate splitButtonDelegate =
-                mCoordinator.getGlicSplitButtonDelegateForTesting();
-        assertNotNull("Split button delegate should be created.", splitButtonDelegate);
-
-        // Open the panel.
-        splitButtonDelegate.setGlicPanelIsOpen(true);
-        verify(mGlicPanelStateObserver).onResult(true);
-
-        // Close the panel.
-        splitButtonDelegate.setGlicPanelIsOpen(false);
-        verify(mGlicPanelStateObserver).onResult(false);
+        float expectedWidth =
+                isDesktopDensity
+                        ? getDimensionDp(mActivity, R.dimen.tab_strip_button_bg_size)
+                        : getDimensionDp(mActivity, R.dimen.tab_strip_glic_button_bg_width);
+        String densityDesc = isDesktopDensity ? "desktop" : "non-desktop";
+        assertEquals(
+                "Button width without text should match expected width on "
+                        + densityDesc
+                        + " density.",
+                expectedWidth,
+                button.getWidth(),
+                MathUtils.EPSILON);
     }
 }

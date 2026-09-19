@@ -148,24 +148,24 @@
 #include "components/variations/pref_names.h"
 #include "components/variations/service/variations_service.h"
 #include "components/version_info/channel.h"
+#include "content/public/common/buildflags.h"
 #include "content/public/common/content_switches.h"
 #include "extensions/buildflags/buildflags.h"
 #include "media/media_buildflags.h"
 #include "pdf/buildflags.h"
 #include "printing/buildflags/buildflags.h"
+#include "ui/accessibility/accessibility_prefs.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/first_run/android/first_run_prefs.h"
 #include "chrome/browser/lens/android/lens_prefs.h"
 #include "chrome/browser/search/contextual_search_policy_handler_android.h"
-#include "ui/accessibility/accessibility_prefs.h"
 #else  // BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/download/default_download_dir_policy_handler.h"
 #include "chrome/browser/download/download_auto_open_policy_handler.h"
 #include "chrome/browser/download/download_dir_policy_handler.h"
 #include "chrome/browser/media/router/discovery/access_code/access_code_cast_feature.h"
 #include "chrome/browser/policy/battery_saver_policy_handler.h"
-#include "chrome/browser/policy/developer_tools_availability_list_policy_handler.h"
 #include "chrome/browser/policy/local_sync_policy_handler.h"
 #include "chrome/browser/policy/managed_account_policy_handler.h"
 #include "chrome/browser/web_applications/policy/web_app_settings_policy_handler.h"
@@ -178,6 +178,10 @@
 #include "components/search_engines/enterprise/search_aggregator_policy_handler.h"
 #include "components/search_engines/enterprise/site_search_policy_handler.h"
 #endif  // BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(ENABLE_DEVTOOLS_FRONTEND)
+#include "chrome/browser/policy/developer_tools_availability_list_policy_handler.h"
+#endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "chrome/browser/enterprise/reporting/extension_request/extension_request_policy_handler.h"
@@ -948,6 +952,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     password_manager::prefs::kCredentialsEnablePasskeys,
     base::Value::Type::BOOLEAN },
 #endif // !BUILDFLAG(IS_ANDROID)
+  { key::kRendererAccessibilityEnabled,
+    prefs::kRendererAccessibilityEnabled,
+    base::Value::Type::BOOLEAN },
   { key::kWebAuthenticationRemoteDesktopAllowedOrigins,
     webauthn::pref_names::kRemoteDesktopAllowedOrigins,
     base::Value::Type::LIST },
@@ -2463,21 +2470,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     prefs::kManagedLocalNetworkAccessRestrictionsTemporaryOptOut,
     base::Value::Type::BOOLEAN },
 
-  // For Local Network Access policies, device policies are added before user
-  // policies so that user policies override device policies.
-#if BUILDFLAG(IS_CHROMEOS)
-  { key::kDeviceLocalNetworkAccessAllowedForUrls,
-    prefs::kManagedLocalNetworkAccessAllowedForUrls,
-    base::Value::Type::LIST },
-#endif  // BUILDFLAG(IS_CHROMEOS)
   { key::kLocalNetworkAccessAllowedForUrls,
     prefs::kManagedLocalNetworkAccessAllowedForUrls,
     base::Value::Type::LIST },
-#if BUILDFLAG(IS_CHROMEOS)
-  { key::kDeviceLocalNetworkAccessBlockedForUrls,
-    prefs::kManagedLocalNetworkAccessBlockedForUrls,
-    base::Value::Type::LIST },
-#endif  // BUILDFLAG(IS_CHROMEOS)
   { key::kLocalNetworkAccessBlockedForUrls,
     prefs::kManagedLocalNetworkAccessBlockedForUrls,
     base::Value::Type::LIST },
@@ -2493,7 +2488,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kLoopbackNetworkBlockedForUrls,
     prefs::kManagedLoopbackNetworkBlockedForUrls,
     base::Value::Type::LIST },
-
 #if !BUILDFLAG(IS_CHROMEOS)
   { key::kCAPlatformIntegrationEnabled,
     prefs::kCAPlatformIntegrationEnabled,
@@ -2653,18 +2647,9 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
   }
 
   // Policies for all platforms - Start
-
-  // For Local Network Access policies, device policies are added before user
-  // policies so that user policies override device policies.
-#if BUILDFLAG(IS_CHROMEOS)
   handlers->AddHandler(
-      std::make_unique<LocalNetworkAccessIpAddressSpaceOverridesPolicyHandler>(
-          key::kDeviceLocalNetworkAccessIpAddressSpaceOverrides));
-#endif  // BUILDFLAG(IS_CHROMEOS)
-  handlers->AddHandler(
-      std::make_unique<LocalNetworkAccessIpAddressSpaceOverridesPolicyHandler>(
-          key::kLocalNetworkAccessIpAddressSpaceOverrides));
-
+      std::make_unique<
+          LocalNetworkAccessIpAddressSpaceOverridesPolicyHandler>());
   handlers->AddHandler(std::make_unique<DefaultSensorsSettingPolicyHandler>());
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   handlers->AddHandler(
@@ -2738,7 +2723,7 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
 
   handlers->AddHandler(std::make_unique<IsolateOriginsPolicyHandler>());
 
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(ENABLE_DEVTOOLS_FRONTEND)
   handlers->AddHandler(
       std::make_unique<DeveloperToolsAvailabilityListPolicyHandler>(
           key::kDeveloperToolsAvailabilityAllowlist,
@@ -2748,7 +2733,7 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       std::make_unique<DeveloperToolsAvailabilityListPolicyHandler>(
           key::kDeveloperToolsAvailabilityBlocklist,
           prefs::kDeveloperToolsAvailabilityBlocklist));
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(ENABLE_DEVTOOLS_FRONTEND)
 
   handlers->AddHandler(std::make_unique<IntRangePolicyHandler>(
       key::kGenAILocalFoundationalModelSettings,
@@ -2837,12 +2822,7 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       enterprise::content::kCopyPreventionSettings, chrome_schema));
   handlers->AddHandler(std::make_unique<DefaultDownloadDirPolicyHandler>());
   handlers->AddHandler(std::make_unique<DownloadDirPolicyHandler>());
-  handlers->AddHandler(
-      std::make_unique<
-          enterprise_connectors::EnterpriseConnectorsPolicyHandler>(
-          key::kUserContextAwareAccessSignalsAllowlist,
-          enterprise_connectors::kUserContextAwareAccessSignalsAllowlistPref,
-          chrome_schema));
+
   handlers->AddHandler(std::make_unique<SimpleDeprecatingPolicyHandler>(
       std::make_unique<SimplePolicyHandler>(key::kPromotionalTabsEnabled,
                                             prefs::kPromotionsEnabled,
@@ -3050,16 +3030,24 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       key::kBrowsingDataLifetime, browsing_data::prefs::kBrowsingDataLifetime,
       chrome_schema));
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-  handlers->AddHandler(std::make_unique<GuestModePolicyHandler>());
-  handlers->AddHandler(std::make_unique<LocalSyncPolicyHandler>());
-  handlers->AddHandler(std::make_unique<ThemeColorPolicyHandler>());
+#if !BUILDFLAG(IS_CHROMEOS)
   handlers->AddHandler(
       std::make_unique<
           enterprise_connectors::EnterpriseConnectorsPolicyHandler>(
           key::kBrowserContextAwareAccessSignalsAllowlist,
           enterprise_connectors::kBrowserContextAwareAccessSignalsAllowlistPref,
           chrome_schema));
+#endif  // !BUILDFLAG(IS_CHROMEOS)
+  handlers->AddHandler(
+      std::make_unique<
+          enterprise_connectors::EnterpriseConnectorsPolicyHandler>(
+          key::kUserContextAwareAccessSignalsAllowlist,
+          enterprise_connectors::kUserContextAwareAccessSignalsAllowlistPref,
+          chrome_schema));
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+  handlers->AddHandler(std::make_unique<GuestModePolicyHandler>());
+  handlers->AddHandler(std::make_unique<LocalSyncPolicyHandler>());
+  handlers->AddHandler(std::make_unique<ThemeColorPolicyHandler>());
   handlers->AddHandler(
       std::make_unique<SingleDeprecatedPolicyToMultipleNewPolicyHandler>(
           std::make_unique<ManagedAccountRestrictionsPolicyHandler>(
@@ -3114,13 +3102,14 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       std::make_unique<ManagedAccountRestrictionsPolicyHandler>(chrome_schema));
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || \
-    BUILDFLAG(IS_WIN)
+    BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
   handlers->AddHandler(std::make_unique<CloudUserOnlyPolicyChecker>(
       std::make_unique<URLSchemeListPolicyHandler>(
           key::kSaasUsageReportingDomainUrlsForProfiles,
           enterprise_reporting::kSaasUsageDomainUrlsForProfile)));
 #endif
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
+    BUILDFLAG(IS_ANDROID)
   handlers->AddHandler(std::make_unique<URLSchemeListPolicyHandler>(
       key::kSaasUsageReportingDomainUrlsForBrowsers,
       enterprise_reporting::kSaasUsageDomainUrlsForBrowser));
@@ -3702,23 +3691,19 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       key::kFindAndFillWithGeminiSettings,
       optimization_guide::prefs::kFindAndFillWithGeminiSettings);
   handlers->AddHandler(std::make_unique<GenAiDefaultSettingsPolicyHandler>(
-      std::vector<GenAiDefaultSettingsPolicyHandler::GenAiPolicyDetails>(
-          gen_ai_default_policies)));
+      gen_ai_default_policies));
 #if !BUILDFLAG(IS_ANDROID)
   handlers->AddHandler(std::make_unique<GeminiSparkSettingsPolicyHandler>(
       std::make_unique<GenAiDefaultSettingsPolicyHandler>(
-          std::vector<GenAiDefaultSettingsPolicyHandler::GenAiPolicyDetails>(
-              gen_ai_default_policies))));
+          gen_ai_default_policies)));
   handlers->AddHandler(std::make_unique<SmartTabSharingSettingsPolicyHandler>(
       std::make_unique<GenAiDefaultSettingsPolicyHandler>(
-          std::vector<GenAiDefaultSettingsPolicyHandler::GenAiPolicyDetails>(
-              gen_ai_default_policies))));
+          gen_ai_default_policies)));
 #endif
-  handlers->AddHandler(std::make_unique<
-                       FindAndFillWithGeminiSettingsPolicyHandler>(
-      std::make_unique<GenAiDefaultSettingsPolicyHandler>(
-          std::vector<GenAiDefaultSettingsPolicyHandler::GenAiPolicyDetails>(
-              gen_ai_default_policies))));
+  handlers->AddHandler(
+      std::make_unique<FindAndFillWithGeminiSettingsPolicyHandler>(
+          std::make_unique<GenAiDefaultSettingsPolicyHandler>(
+              gen_ai_default_policies)));
   handlers->AddHandler(std::make_unique<GeminiActOnWebSettingsPolicyHandler>(
       std::make_unique<GenAiDefaultSettingsPolicyHandler>(
           std::move(gen_ai_default_policies))));

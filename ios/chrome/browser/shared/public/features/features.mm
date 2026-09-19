@@ -47,7 +47,6 @@ BASE_FEATURE(kSharedHighlightingIOS, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIOSBrowserEditMenuMetrics, base::FEATURE_DISABLED_BY_DEFAULT);
 
-
 const char kIOSDockingPromoV2VariationParam[] =
     "IOSDockingPromoV2VariationParam";
 const char kIOSDockingPromoV2VariationHeader1[] =
@@ -357,7 +356,6 @@ bool IsPinnedTabsEnabled() {
   return ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET;
 }
 
-
 BASE_FEATURE(kEnableAppBackgroundRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsAppBackgroundRefreshEnabled() {
@@ -381,7 +379,7 @@ BASE_FEATURE(kSeparateProfilesForManagedAccountsForceMigration,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSeparateProfilesForManagedAccountsImmediateForceMigration,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kOmahaResyncTimerOnForeground, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -421,7 +419,6 @@ bool IsIOSExpandedTipsEnabled() {
   return base::FeatureList::IsEnabled(kIOSExpandedTips);
 }
 
-
 BASE_FEATURE(kIOSOneTimeDefaultBrowserNotification,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -438,7 +435,6 @@ BASE_FEATURE(kFRESignInHeaderTextUpdate, base::FEATURE_ENABLED_BY_DEFAULT);
 bool FRESignInHeaderTextUpdate() {
   return base::FeatureList::IsEnabled(kFRESignInHeaderTextUpdate);
 }
-
 
 BASE_FEATURE(kIOSPushNotificationMultiProfile,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -570,8 +566,6 @@ constexpr base::FeatureParam<double>
         /*name=*/kIOSOneTapMiniMapRestrictionMinAlphanumProportionParamName,
         /*default_value=*/0.8};
 
-BASE_FEATURE(kIOSMiniMapUniversalLink, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kIOSMiniMapUniversalLinkCounterfactual,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -600,10 +594,7 @@ bool IsInExcludedCountry() {
 }  // namespace
 
 bool IsMiniMapUniversalLinkEnabled() {
-  if (IsInExcludedCountry()) {
-    return false;
-  }
-  return base::FeatureList::IsEnabled(kIOSMiniMapUniversalLink);
+  return !IsInExcludedCountry();
 }
 
 BASE_FEATURE(kIOSMiniMapLinkifiedAddress, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1033,6 +1024,8 @@ bool IsAimCobrowseEnabled() {
   return base::FeatureList::IsEnabled(kAimCobrowse);
 }
 
+BASE_FEATURE(kPreventCobrowseOnAimSrpTap, base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kFeedbackEntryPointsRequireCanSubmitFeedbackCapability,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -1162,6 +1155,12 @@ bool IsIOSBackendPromoServiceIntegrationEnabled() {
   return base::FeatureList::IsEnabled(kIOSBackendPromoServiceIntegration);
 }
 
+BASE_FEATURE(kIOSBackendPromoCustomUI, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsIOSBackendPromoCustomUIEnabled() {
+  return base::FeatureList::IsEnabled(kIOSBackendPromoCustomUI);
+}
+
 BASE_FEATURE(kUseUIGraphicsImageRendererForFallbackIcons,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1260,8 +1259,10 @@ bool IsNextOldDesignEnabled() {
   return base::FeatureList::IsEnabled(kNextOldDesign);
 }
 
-BASE_FEATURE(kVoiceSearchMicPermissions, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kRecoverTabsOfLastClosedWindow, base::FEATURE_DISABLED_BY_DEFAULT);
 
-bool IsVoiceSearchMicPermissionsEnabled() {
-  return base::FeatureList::IsEnabled(kVoiceSearchMicPermissions);
+BASE_FEATURE(kDomainLevelSitePermissions, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsDomainLevelSitePermissionsEnabled() {
+  return base::FeatureList::IsEnabled(kDomainLevelSitePermissions);
 }

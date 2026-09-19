@@ -18,7 +18,9 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.test.transit.TransitAsserts;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -32,11 +34,14 @@ import org.chromium.chrome.test.transit.omnibox.OmniboxFacility;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.base.DeviceInput;
 
 /** Public Transit tests for Omnibox. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Batch(Batch.PER_CLASS)
+// TODO(b/555414915): Update Android tests with WebUI NTP enabled on AL.
+@DisableFeatures(ChromeFeatureList.USE_WEB_UI_NTP_ANDROID)
 public class OmniboxPTTest {
     @Rule
     public AutoResetCtaTransitTestRule mCtaTestRule =
@@ -58,6 +63,7 @@ public class OmniboxPTTest {
     @Before
     public void setUp() {
         OmniboxCapabilities.setHasDesktopExperienceForTesting(false);
+        DeviceInput.setSupportsAlphabeticKeyboardForTesting(false);
         mBlankPage = mCtaTestRule.startOnBlankPage();
     }
 
@@ -77,6 +83,7 @@ public class OmniboxPTTest {
     @Restriction(DeviceFormFactor.DESKTOP)
     public void testOpenTypeDelete_fromWebPage_desktop() {
         OmniboxCapabilities.setHasDesktopExperienceForTesting(true);
+        DeviceInput.setSupportsAlphabeticKeyboardForTesting(true);
         OmniboxFacility omniboxAndKeyboard = mBlankPage.openOmnibox(sFakeSuggestions);
 
         doOpenTypeDelete(omniboxAndKeyboard);
@@ -101,6 +108,7 @@ public class OmniboxPTTest {
     @Restriction(DeviceFormFactor.DESKTOP)
     public void testOpenTypeDelete_fromNtp_desktop() {
         OmniboxCapabilities.setHasDesktopExperienceForTesting(true);
+        DeviceInput.setSupportsAlphabeticKeyboardForTesting(true);
         RegularNewTabPageStation ntp = mBlankPage.openNewTabFast();
         OmniboxFacility omnibox = ntp.openOmnibox(sFakeSuggestions);
 

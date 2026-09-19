@@ -179,6 +179,7 @@
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
 #include "third_party/blink/renderer/platform/graphics/paint/cull_rect.h"
 #include "third_party/blink/renderer/platform/graphics/paint/drawing_recorder.h"
+#include "third_party/blink/renderer/platform/graphics/paint/ignore_paint_timing_scope.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_controller.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_record_builder.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
@@ -600,7 +601,16 @@ void LocalFrameView::SetLifecycleUpdatesThrottledForTesting(bool throttled) {
 }
 
 void LocalFrameView::FrameRectsChanged(const gfx::Rect& old_rect) {
-  PropagateFrameRects();
+  if (RuntimeEnabledFeatures::AvoidEmbeddedContentViewLocationEnabled() &&
+      LayoutSizeFixedToFrameSize() && Size() != old_rect.size()) {
+    SetLayoutSizeInternal(
+        Size(), {.should_suppress_events =
+                     is_being_auto_sized_ &&
+                     RuntimeEnabledFeatures::
+                         AutoSizeUsesScrollWidthForOverflowEnabled()});
+  }
+
+  FrameView::FrameRectsChanged(old_rect);
 
   if (DeprecatedFrameRect() != old_rect) {
     if (auto* layout_view = GetLayoutView())
@@ -1398,7 +1408,16 @@ void LocalFrameView::ViewportSizeChanged() {
     // specially notified.
     if (GetFrame().IsOutermostMainFrame()) {
       if (auto* scrollable_area = layout_view->GetScrollableArea()) {
-        scrollable_area->ClampScrollOffsetAfterOverflowChange();
+        using ClampScope =
+            PaintLayerScrollableArea::DelayScrollOffsetClampScope;
+        if (auto_size_info_ &&
+            RuntimeEnabledFeatures::
+                AutoSizeUsesScrollWidthForOverflowEnabled() &&
+            ClampScope::ClampingIsDelayed()) {
+          ClampScope::SetNeedsClamp(scrollable_area);
+        } else {
+          scrollable_area->ClampScrollOffsetAfterOverflowChange();
+        }
         scrollable_area->EnqueueForSnapUpdateIfNeeded();
       }
     }
@@ -2649,6 +2668,9 @@ void LocalFrameView::UpdateLifecyclePhasesInternal(
   // on cc::Layer bounds.
   ForAllRemoteFrameViews(
       [](RemoteFrameView& frame_view) { frame_view.UpdateCompositingRect(); });
+  if (RuntimeEnabledFeatures::AvoidEmbeddedContentViewLocationEnabled()) {
+    PropagateFrameRectsRecursively();
+  }
 
   uint64_t dom_version = frame_->GetDocument()->DomTreeVersion();
   if (last_dom_stats_version_ != dom_version) {
@@ -2817,7 +2839,8 @@ bool LocalFrameView::RunStyleAndLayoutLifecyclePhases(
 
   frame_->GetPage()->GetValidationMessageClient().LayoutOverlay();
 
-  if (target_state == DocumentLifecycle::kPaintClean) {
+  if (!RuntimeEnabledFeatures::AvoidEmbeddedContentViewLocationEnabled() &&
+      target_state == DocumentLifecycle::kPaintClean) {
     ForAllNonThrottledLocalFrameViews([](LocalFrameView& frame_view) {
       frame_view.NotifyFrameRectsChangedIfNeeded();
     });
@@ -3318,7 +3341,7 @@ void LocalFrameView::PushPaintArtifactToCompositor(bool repainted) {
     }
   }
 
-  StackScrollTranslationVector scroll_translation_nodes;
+  StackTransformPaintPropertyNodeVector scroll_translation_nodes;
   ForAllNonThrottledLocalFrameViews([&scroll_translation_nodes](
                                         LocalFrameView& frame_view) {
     // Skip scroll nodes from detached frames, or any subframe of a detached
@@ -3454,6 +3477,13 @@ void LocalFrameView::UpdateStyleAndLayout() {
     return;
   }
 
+  std::optional<PaintLayerScrollableArea::DelayScrollOffsetClampScope>
+      delay_scroll_offset_clamp_scope;
+  if (auto_size_info_ &&
+      RuntimeEnabledFeatures::AutoSizeUsesScrollWidthForOverflowEnabled()) {
+    delay_scroll_offset_clamp_scope.emplace();
+  }
+
   gfx::Size visual_viewport_size =
       GetScrollableArea()->VisibleContentRect(kExcludeScrollbars).size();
 
@@ -3469,13 +3499,23 @@ void LocalFrameView::UpdateStyleAndLayout() {
   // generated ::scroll-markers.
   frame_->GetDocument()->GetStyleEngine().UpdateCounters();
 
-  // Second pass: run autosize until it stabilizes
+  // Second pass: run autosize until it stabilizes.
   if (auto_size_info_) {
-    bool should_reset_for_layout = did_layout;
-    while (auto_size_info_->AutoSizeIfNeeded(should_reset_for_layout)) {
-      should_reset_for_layout = false;
+    bool should_reset_for_content = did_layout || needs_autosize_for_overflow_;
+    bool did_run_autosize_layout = false;
+    {
       base::AutoReset<bool> reset(&is_being_auto_sized_, true);
-      did_layout |= UpdateStyleAndLayoutInternal();
+      while (auto_size_info_->AutoSizeIfNeeded(should_reset_for_content)) {
+        should_reset_for_content = false;
+        did_layout |= UpdateStyleAndLayoutInternal();
+        did_run_autosize_layout = true;
+      }
+    }
+    // Suppress notifications during scroll-width autosizing, then report any
+    // stable size change.
+    if (did_run_autosize_layout && frame_->IsMainFrame() &&
+        RuntimeEnabledFeatures::AutoSizeUsesScrollWidthForOverflowEnabled()) {
+      frame_->GetChromeClient().ResizeAfterLayout();
     }
     // We may have a mismatch as we impose an additional min-content constraint
     // while auto-sizing, set the view as needing layout which will then fall
@@ -3495,6 +3535,11 @@ void LocalFrameView::UpdateStyleAndLayout() {
     base::AutoReset<bool> suppress(&suppress_adjust_view_size_, true);
     did_layout |= UpdateStyleAndLayoutInternal();
   }
+  delay_scroll_offset_clamp_scope.reset();
+
+  // Clear the overflow invalidation flag so changes caused by this sizing
+  // sequence do not trigger another measurement sequence.
+  needs_autosize_for_overflow_ = false;
 
 #if DCHECK_IS_ON()
   if (!Lifecycle().LifecyclePostponed() && !ShouldThrottleRendering()) {
@@ -3772,6 +3817,16 @@ gfx::Rect LocalFrameView::ConvertToContainingEmbeddedContentView(
 gfx::Rect LocalFrameView::ConvertFromContainingEmbeddedContentView(
     const gfx::Rect& parent_rect) const {
   if (ParentFrameView()) {
+    if (RuntimeEnabledFeatures::AvoidEmbeddedContentViewLocationEnabled()) {
+      auto* layout_object = GetLayoutEmbeddedContent();
+      if (!layout_object) {
+        return parent_rect;
+      }
+
+      return layout_object->EmbeddedContentFromBorderBox(ToEnclosingRect(
+          layout_object->AbsoluteToLocalRect(PhysicalRect(parent_rect))));
+    }
+
     gfx::Rect local_rect = parent_rect;
     local_rect.Offset(-DeprecatedLocation().OffsetFromOrigin());
     return local_rect;
@@ -4035,17 +4090,25 @@ void LocalFrameView::SetCursor(const ui::Cursor& cursor) {
   page->GetChromeClient().SetCursor(cursor, frame_);
 }
 
-void LocalFrameView::PropagateFrameRects() {
+void LocalFrameView::PropagateFrameRectsInternal() {
   TRACE_EVENT0("blink", "LocalFrameView::PropagateFrameRects");
-  if (LayoutSizeFixedToFrameSize())
-    SetLayoutSizeInternal(Size());
 
-  ForAllChildViewsAndPlugins([](EmbeddedContentView& view) {
-    auto* local_frame_view = DynamicTo<LocalFrameView>(view);
-    if (!local_frame_view || !local_frame_view->ShouldThrottleRendering()) {
-      view.PropagateFrameRects();
+  if (!RuntimeEnabledFeatures::AvoidEmbeddedContentViewLocationEnabled()) {
+    if (LayoutSizeFixedToFrameSize()) {
+      SetLayoutSizeInternal(
+          Size(), {.should_suppress_events =
+                       is_being_auto_sized_ &&
+                       RuntimeEnabledFeatures::
+                           AutoSizeUsesScrollWidthForOverflowEnabled()});
     }
-  });
+
+    ForAllChildViewsAndPlugins([](EmbeddedContentView& view) {
+      auto* local_frame_view = DynamicTo<LocalFrameView>(view);
+      if (!local_frame_view || !local_frame_view->ShouldThrottleRendering()) {
+        view.PropagateFrameRects();
+      }
+    });
+  }
 
   // To limit the number of Mojo communications, only notify the browser when
   // the rect's size changes, not when the position changes. The size needs to
@@ -4055,6 +4118,24 @@ void LocalFrameView::PropagateFrameRects() {
     frame_size_ = frame_size;
     GetFrame().GetLocalFrameHostRemote().FrameSizeChanged(frame_size);
   }
+}
+
+void LocalFrameView::PropagateFrameRectsRecursively(bool force) {
+  CHECK(RuntimeEnabledFeatures::AvoidEmbeddedContentViewLocationEnabled());
+  bool propagate = force || NeedsFrameRectPropagation();
+  if (propagate) {
+    PropagateFrameRects();
+  }
+  ForAllChildViewsAndPlugins([propagate](EmbeddedContentView& view) {
+    auto* local_frame_view = DynamicTo<LocalFrameView>(view);
+    if (local_frame_view && !local_frame_view->ShouldThrottleRendering()) {
+      // If the current frame view propagates, it will force descendant frame
+      // views to propagate as well.
+      local_frame_view->PropagateFrameRectsRecursively(propagate);
+    } else if (propagate) {
+      view.PropagateFrameRects();
+    }
+  });
 }
 
 void LocalFrameView::ZoomFactorChanged(float zoom_factor) {
@@ -4118,6 +4199,7 @@ void LocalFrameView::ScrollRectToVisibleInRemoteParent(
 }
 
 void LocalFrameView::NotifyFrameRectsChangedIfNeeded() {
+  CHECK(!RuntimeEnabledFeatures::AvoidEmbeddedContentViewLocationEnabled());
   if (root_layer_did_scroll_) {
     root_layer_did_scroll_ = false;
     PropagateFrameRects();
@@ -4320,6 +4402,16 @@ void LocalFrameView::PaintOutsideOfLifecycle(GraphicsContext& context,
   UpdateAllLifecyclePhasesExceptPaint(DocumentUpdateReason::kPrinting);
 
   SCOPED_UMA_AND_UKM_TIMER(GetUkmAggregator(), LocalFrameUkmAggregator::kPaint);
+
+  // Ignore paint timing while painting outside of the normal lifecycle (e.g.
+  // paint preview, printing, etc.), as it can change LCP and cause spurious
+  // element timings to be reported (see crbug.com/40838402 and
+  // crbug.com/547997751).
+  IgnorePaintTimingScope ignore_paint_timing;
+  if (base::FeatureList::IsEnabled(
+          features::kPaintTimingIngnoreOutOfLifecyclePaints)) {
+    IgnorePaintTimingScope::IncrementIgnoreDepth();
+  }
 
   ForAllNonThrottledLocalFrameViews([](LocalFrameView& frame_view) {
     frame_view.Lifecycle().AdvanceTo(DocumentLifecycle::kInPaint);

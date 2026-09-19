@@ -8,10 +8,12 @@
 #include <optional>
 
 #include "base/functional/bind.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "components/one_time_tokens/core/browser/fetch_user_data_processing_consent_response.pb.h"
 #include "components/one_time_tokens/core/browser/user_data_processing_consent_states.h"
+#include "components/one_time_tokens/core/common/one_time_token_features.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "net/base/net_errors.h"
 #include "net/http/http_status_code.h"
@@ -92,6 +94,49 @@ TEST_F(UserDataProcessingConsentFetcherTest, FetchAccessTokenError) {
   EXPECT_FALSE(result.has_value());
 }
 
+TEST_F(UserDataProcessingConsentFetcherTest,
+       FetchUndefinedAndUnknownConsentStates) {
+  base::test::TestFuture<std::optional<UserDataProcessingConsentStates>> future;
+  fetcher_.Start(future.GetCallback());
+
+  identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
+      "access_token", base::Time::Now() + base::Hours(1));
+
+  ::google::internal::chrome::passwords::onetimetoken::v1::
+      FetchUserDataProcessingConsentResponse response;
+  response.set_comms_apps(::google::internal::chrome::passwords::onetimetoken::
+                              v1::USER_DATA_PROCESSING_CONSENT_STATE_UNDEFINED);
+  response.set_google_apps(::google::internal::chrome::passwords::onetimetoken::
+                               v1::USER_DATA_PROCESSING_CONSENT_STATE_UNKNOWN);
+
+  test_url_loader_factory_.AddResponse(
+      "https://onetimetoken.pa.googleapis.com/v1/"
+      "onetimetokens:fetchUserDataProcessingConsent?alt=proto",
+      response.SerializeAsString());
+
+  std::optional<UserDataProcessingConsentStates> result = future.Get();
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result->comms_apps, ConsentState::kUndefined);
+  EXPECT_EQ(result->google_apps, ConsentState::kUnknown);
+}
+
+TEST_F(UserDataProcessingConsentFetcherTest, FetchInvalidResponseBody) {
+  base::test::TestFuture<std::optional<UserDataProcessingConsentStates>> future;
+  fetcher_.Start(future.GetCallback());
+
+  identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
+      "access_token", base::Time::Now() + base::Hours(1));
+
+  // Respond with invalid (non-protobuf) body.
+  test_url_loader_factory_.AddResponse(
+      "https://onetimetoken.pa.googleapis.com/v1/"
+      "onetimetokens:fetchUserDataProcessingConsent?alt=proto",
+      "not a valid proto");
+
+  std::optional<UserDataProcessingConsentStates> result = future.Get();
+  EXPECT_FALSE(result.has_value());
+}
+
 TEST_F(UserDataProcessingConsentFetcherTest, FetchTimeout) {
   base::test::TestFuture<std::optional<UserDataProcessingConsentStates>> future;
   fetcher_.Start(future.GetCallback());
@@ -100,7 +145,29 @@ TEST_F(UserDataProcessingConsentFetcherTest, FetchTimeout) {
       "access_token", base::Time::Now() + base::Hours(1));
 
   task_environment_.FastForwardBy(base::Seconds(3));
+  EXPECT_TRUE(future.IsReady());
 
+  std::optional<UserDataProcessingConsentStates> result = future.Get();
+  EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(UserDataProcessingConsentFetcherTest, FetchTimeout_CustomFeatureParam) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kGmailOtpRetrievalService,
+      {{"user_data_processing_consent_fetch_timeout", "1s"}});
+
+  base::test::TestFuture<std::optional<UserDataProcessingConsentStates>> future;
+  fetcher_.Start(future.GetCallback());
+
+  identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
+      "access_token", base::Time::Now() + base::Hours(1));
+
+  task_environment_.FastForwardBy(base::Milliseconds(900));
+  EXPECT_FALSE(future.IsReady());
+
+  task_environment_.FastForwardBy(base::Milliseconds(100));
+  EXPECT_TRUE(future.IsReady());
   std::optional<UserDataProcessingConsentStates> result = future.Get();
   EXPECT_FALSE(result.has_value());
 }

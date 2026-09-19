@@ -9,7 +9,6 @@ import android.content.res.Resources;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.view.ViewGroup.MarginLayoutParams;
 import android.widget.LinearLayout;
 
 import org.chromium.build.annotations.NullMarked;
@@ -52,48 +51,19 @@ public class BookmarkSearchBoxRow extends LinearLayout {
      * @param isDesktop Whether the search box should use desktop styling.
      */
     public void updateDesktopMode(boolean isDesktop) {
+        mSearchBoxView.setDesktopMode(isDesktop);
+
         Resources res = getContext().getResources();
-        int heightPx =
-                res.getDimensionPixelSize(
-                        isDesktop
-                                ? R.dimen.bookmark_search_box_height_desktop
-                                : R.dimen.bookmark_search_box_height_default);
         int marginBottomPx =
                 res.getDimensionPixelSize(
                         isDesktop
                                 ? R.dimen.bookmark_search_box_bottom_margin_desktop
                                 : R.dimen.bookmark_search_box_bottom_margin_default);
-        int paddingEndPx =
-                res.getDimensionPixelSize(
-                        isDesktop
-                                ? R.dimen.bookmark_search_box_padding_horizontal_desktop
-                                : R.dimen.bookmark_search_box_padding_end_default);
-        int paddingStartPx = res.getDimensionPixelSize(R.dimen.bookmark_search_box_padding_start);
-        int rowMarginBottomPx =
-                res.getDimensionPixelSize(
-                        isDesktop
-                                ? R.dimen.bookmark_search_box_row_margin_bottom_desktop
-                                : R.dimen.bookmark_search_box_row_margin_bottom_default);
-        int backgroundRes =
-                isDesktop ? R.drawable.search_box_background : R.drawable.search_row_modern_bg;
-
-        MarginLayoutParams rowParams = (MarginLayoutParams) getLayoutParams();
-        if (rowParams != null) {
-            rowParams.bottomMargin = rowMarginBottomPx;
-            setLayoutParams(rowParams);
-        }
 
         LinearLayout.LayoutParams params =
                 (LinearLayout.LayoutParams) mSearchBoxView.getLayoutParams();
-        params.height = heightPx;
         params.bottomMargin = marginBottomPx;
         mSearchBoxView.setLayoutParams(params);
-        mSearchBoxView.setPaddingRelative(
-                paddingStartPx,
-                mSearchBoxView.getPaddingTop(),
-                paddingEndPx,
-                mSearchBoxView.getPaddingBottom());
-        mSearchBoxView.setBackgroundResource(backgroundRes);
     }
 
     /** Returns the inner SearchBoxView widget. */

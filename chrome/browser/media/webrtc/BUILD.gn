@@ -10,6 +10,16 @@ import("//chrome/common/features.gni")
 import("//content/public/common/features.gni")
 import("//third_party/webrtc/webrtc.gni")
 
+source_set("media_stream_ui") {
+  public = [ "media_stream_ui.h" ]
+  public_deps = [
+    "//base",
+    "//content/public/browser",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+  ]
+}
+
 source_set("webrtc") {
   sources = [
     "audio_debug_recordings_handler.cc",
@@ -94,6 +104,7 @@ source_set("webrtc") {
   ]
 
   public_deps = [
+    ":media_stream_ui",
     "//base",
     "//build:android_buildflags",
     "//build:buildflag_header_h",
@@ -144,10 +155,12 @@ source_set("webrtc") {
     "//chrome/browser/profiles:profile_util",
     "//chrome/browser/safe_browsing",
     "//chrome/browser/status_icons",
+    "//chrome/browser/ui:screen_capture_notification_ui",
     "//chrome/browser/ui:simple_message_box_headers",
     "//chrome/browser/ui:tab_modal_confirm_dialog",
     "//chrome/browser/ui:tab_modal_confirm_dialog_delegate",
     "//chrome/browser/ui:ui_features",
+    "//chrome/browser/ui/browser_window",
     "//chrome/common",
     "//chrome/common:channel_info",
     "//chrome/common:chrome_features",
@@ -305,6 +318,7 @@ source_set("webrtc") {
       "//chrome/browser/chromeos/policy/dlp",
       "//chrome/browser/ui/ash/keyboard",
       "//chrome/browser/ui/ash/media_client",
+      "//chrome/browser/ui/views/web_apps/isolated_web_apps:multi_capture_notification_details_view",
       "//chrome/browser/web_applications",
       "//chromeos/ash/components/browser_context_helper",
       "//chromeos/ash/components/system",
@@ -390,6 +404,7 @@ if (!is_android) {
       "same_origin_observer_browsertest.cc",
       "sub_capture_browsertest.cc",
       "tab_desktop_media_list_browsertest.cc",
+      "webrtc_apprtc_browsertest.cc",
       "webrtc_browsertest_perf_unittest.cc",
       "webrtc_desktop_capture_browsertest.cc",
       "webrtc_disable_encryption_flag_browsertest.cc",
@@ -411,6 +426,7 @@ if (!is_android) {
       "//chrome/browser/apps/platform_apps:browser_test_support",
       "//chrome/browser/extensions:test_support",
       "//chrome/browser/extensions/api/desktop_capture",
+      "//chrome/browser/infobars:test_support",
       "//chrome/browser/permissions",
       "//chrome/browser/sessions:test_support",
       "//chrome/browser/ui",

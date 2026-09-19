@@ -22,13 +22,13 @@
 #include "android_webview/browser/aw_contents_origin_matcher.h"
 #include "android_webview/browser/aw_download_manager_delegate.h"
 #include "android_webview/browser/aw_http_cache_manager.h"
-#include "android_webview/browser/aw_origin_matched_header.h"
 #include "android_webview/browser/aw_permission_manager.h"
 #include "android_webview/browser/aw_quota_manager_bridge.h"
 #include "android_webview/browser/aw_web_ui_controller_factory.h"
 #include "android_webview/browser/content_restriction/aw_content_restriction_blocked_navigation_tracker.h"
 #include "android_webview/browser/content_restriction/aw_content_restriction_manager_client.h"
 #include "android_webview/browser/cookie_manager.h"
+#include "android_webview/browser/http_headers/aw_origin_matched_header.h"
 #include "android_webview/browser/metrics/aw_metrics_service_client.h"
 #include "android_webview/browser/prefetch/aw_prefetch_prefs.h"
 #include "android_webview/browser/prefetch/aw_preloading_utils.h"
@@ -178,7 +178,11 @@ AwBrowserContext::AwBrowserContext(std::string name,
   }
 
   EnsureResourceContextInitialized();
-  prefetch_manager_ = std::make_unique<AwPrefetchManager>(this);
+  {
+    SCOPED_UMA_HISTOGRAM_TIMER(
+        "Android.WebView.AwBrowserContext.CreateAwPrefetchManager.Duration");
+    prefetch_manager_ = std::make_unique<AwPrefetchManager>(this);
+  }
   preconnector_ = std::make_unique<AwPreconnector>(this);
 
   // This should be initialized as soon as possible when creating the profile,
@@ -196,7 +200,7 @@ AwBrowserContext::AwBrowserContext(std::string name,
   }
 
   content_restriction_manager_client_ =
-      std::make_unique<AwContentRestrictionManagerClient>();
+      AwContentRestrictionManagerClient::Create();
   content_restriction_blocked_navigation_tracker_ =
       std::make_unique<AwContentRestrictionBlockedNavigationTracker>();
   cross_origin_allow_list_matcher_ =

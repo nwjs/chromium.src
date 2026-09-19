@@ -13,8 +13,10 @@ import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.hamcrest.Matchers;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -64,7 +66,12 @@ import java.util.concurrent.TimeoutException;
  * ruleset publishing), prefer to limit the number of test cases where possible.
  */
 @RunWith(ChromeJUnit4ClassRunner.class)
-@CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+// TODO(crbug.com/539786691): Re-enable kPrewarm once the feature is
+// compatible with the test.
+@CommandLineFlags.Add({
+    ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE,
+    "disable-features=Prewarm",
+})
 @Batch(Batch.PER_CLASS)
 public final class SubresourceFilterTest {
     @Rule
@@ -77,12 +84,20 @@ public final class SubresourceFilterTest {
             "/chrome/test/data/android/subresource_filter/page-with-img.html";
     private static final String LEARN_MORE_PAGE =
             "https://support.google.com/chrome/?p=blocked_ads";
-    private static final String METADATA_FOR_ENFORCEMENT =
-            "{\"matches\":[{\"threat_type\":\"13\",\"sf_bas\":\"\"}]}";
-    private static final String METADATA_FOR_WARNING =
-            "{\"matches\":[{\"threat_type\":\"13\",\"sf_bas\":\"warn\"}]}";
     private static boolean sRulesetPublished;
     private WebPageStation mPage;
+
+    // TODO(crbug.com/553264228): Rename to setSafeBrowsingApiHandlerForTesting and use
+    // ResettersForTesting to automatically clean up after tests.
+    @BeforeClass
+    public static void setUpBeforeClass() {
+        SafeBrowsingApiBridge.setSafeBrowsingApiHandler(new MockSafeBrowsingApiHandler());
+    }
+
+    @AfterClass
+    public static void tearDownAfterClass() {
+        SafeBrowsingApiBridge.clearHandlerForTesting();
+    }
 
     private void createAndPublishRulesetDisallowingSuffix(String suffix) {
         TestRulesetPublisher publisher = new TestRulesetPublisher();
@@ -99,7 +114,6 @@ public final class SubresourceFilterTest {
     @Before
     public void setUp() throws Exception {
         mTestServer = mActivityTestRule.getTestServer();
-        SafeBrowsingApiBridge.setSafeBrowsingApiHandler(new MockSafeBrowsingApiHandler());
         mPage = mActivityTestRule.startOnBlankPage();
 
         if (!sRulesetPublished) {
@@ -112,7 +126,6 @@ public final class SubresourceFilterTest {
     @After
     public void tearDown() {
         MockSafeBrowsingApiHandler.clearMockResponses();
-        SafeBrowsingApiBridge.clearHandlerForTesting();
     }
 
     @Test

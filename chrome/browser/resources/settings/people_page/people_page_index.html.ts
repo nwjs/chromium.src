@@ -1,0 +1,46 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {html} from '//resources/lit/v3_0/lit.rollup.js';
+
+import type {SettingsPeoplePageIndexElement} from './people_page_index.js';
+
+export function getHtml(this: SettingsPeoplePageIndexElement) {
+  return html`<!--_html_template_start_-->
+<cr-view-manager id="viewManager" class="cr-centered-card-container"
+    ?show-all="${this.shouldShowAll}">
+  <settings-people-page slot="view" id="parent"
+      route-path="${this.routes_.PEOPLE.path}">
+  </settings-people-page>
+
+  <settings-sync-page slot="view" id="sync"
+      data-parent-view-id="parent"
+      route-path="${this.routes_.SYNC.path}">
+  </settings-sync-page>
+
+  <settings-sync-controls-page slot="view" id="syncControls"
+      data-parent-view-id="parent"
+      route-path="${this.routes_.SYNC_ADVANCED.path}">
+  </settings-sync-controls-page>
+
+<if expr="not is_chromeos">
+   <settings-manage-profile slot="view" id="manageProfile"
+       data-parent-view-id="parent"
+       route-path="${this.routes_.MANAGE_PROFILE.path}">
+   </settings-manage-profile>
+</if>
+
+  ${this.replaceSyncPromosWithSignInPromos_ ? html`
+    <settings-account-page slot="view" id="account"
+        data-parent-view-id="parent"
+        route-path="${this.routes_.ACCOUNT.path}">
+    </settings-account-page>
+    <settings-google-services-page slot="view" id="googleServices"
+        data-parent-view-id="parent"
+        route-path="${this.routes_.GOOGLE_SERVICES.path}">
+    </settings-google-services-page>
+  ` : ''}
+</cr-view-manager>
+<!--_html_template_end_-->`;
+}

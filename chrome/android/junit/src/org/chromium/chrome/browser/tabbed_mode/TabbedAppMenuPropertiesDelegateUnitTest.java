@@ -58,6 +58,7 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.Token;
+import org.chromium.base.TriState;
 import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
@@ -69,6 +70,7 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.RecentlyClosedEntriesManager;
+import org.chromium.chrome.browser.app.appmenu.AppMenuItemTheme;
 import org.chromium.chrome.browser.app.appmenu.AppMenuPropertiesDelegateImpl.MenuGroup;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.bookmarks.BookmarkImageFetcher;
@@ -191,6 +193,7 @@ import java.util.Set;
 
 @RunWith(BaseRobolectricTestRunner.class)
 @DisableFeatures({
+    ChromeFeatureList.ENABLE_DOWNLOAD_SAVE_AS_CONTEXT_MENU,
     ChromeFeatureList.FEED_AUDIO_OVERVIEWS,
     ChromeFeatureList.LENS_OVERLAY_ANDROID,
     ChromeFeatureList.TASK_MANAGER_CLANK,
@@ -361,7 +364,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         IdentityServicesProvider.setInstanceForTests(mIdentityService);
         when(mIdentityService.getIdentityManager(any(Profile.class))).thenReturn(mIdentityManager);
         when(mIdentityManager.hasPrimaryAccount()).thenReturn(true);
-        PageZoomUtils.setShouldShowMenuItemForTesting(false);
+        PageZoomUtils.setShouldShowMenuItemForTesting(TriState.FALSE);
         FeedFeatures.setFakePrefsForTest(mPrefService);
         FeedServiceBridgeJni.setInstanceForTesting(mFeedServiceBridgeJniMock);
         when(mSyncService.getAuthError())
@@ -2986,7 +2989,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @Test
     public void pageZoomMenuOption_NotVisibleInReadingMode() {
         setUpMocksForPageMenu();
-        PageZoomUtils.setShouldShowMenuItemForTesting(true);
+        PageZoomUtils.setShouldShowMenuItemForTesting(TriState.TRUE);
         when(mTab.getUrl()).thenReturn(JUnitTestGURLs.CHROME_DISTILLER_EXAMPLE_URL);
         when(mDomDistillerUrlUtilsJni.isDistilledPage(any())).thenReturn(true);
 
@@ -4329,6 +4332,68 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                         R.id.bookmark_folder_menu_id,
                         item(R.id.bookmark_menu_id),
                         item(R.id.bookmark_menu_id)));
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ENABLE_DOWNLOAD_SAVE_AS_CONTEXT_MENU)
+    public void testDownloadActionModel_SaveAsDisabled() {
+        setUpMocksForPageMenu();
+        ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+        ListItem iconRow = findItemById(modelList, R.id.icon_row_menu_id);
+        ListItem item =
+                findItemById(
+                        iconRow.model.get(AppMenuItemProperties.ADDITIONAL_ICONS),
+                        R.id.offline_page_id);
+        assertEquals(
+                ContextUtils.getApplicationContext().getString(R.string.download_page),
+                item.model.get(AppMenuItemProperties.TITLE));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ENABLE_DOWNLOAD_SAVE_AS_CONTEXT_MENU)
+    public void testDownloadActionModel_SaveAsEnabled() {
+        setUpMocksForPageMenu();
+        ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+        ListItem iconRow = findItemById(modelList, R.id.icon_row_menu_id);
+        ListItem item =
+                findItemById(
+                        iconRow.model.get(AppMenuItemProperties.ADDITIONAL_ICONS),
+                        R.id.offline_page_id);
+        assertEquals(
+                ContextUtils.getApplicationContext().getString(R.string.menu_save_page_as),
+                item.model.get(AppMenuItemProperties.TITLE));
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ENABLE_DOWNLOAD_SAVE_AS_CONTEXT_MENU)
+    public void testDownloadPageItemTitle_SaveAsDisabled() {
+        SaveAndShareItemBuilder builder =
+                new SaveAndShareItemBuilder(
+                        ContextUtils.getApplicationContext(),
+                        new AppMenuItemTheme(
+                                ContextUtils.getApplicationContext(), mTabModelSelector),
+                        /* isMenuIconAtStart= */ false,
+                        mTabModelSelector);
+        ListItem item = builder.buildDownloadPageItem(/* showIcon= */ true);
+        assertEquals(
+                ContextUtils.getApplicationContext().getString(R.string.menu_download_page),
+                item.model.get(AppMenuItemProperties.TITLE));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ENABLE_DOWNLOAD_SAVE_AS_CONTEXT_MENU)
+    public void testDownloadPageItemTitle_SaveAsEnabled() {
+        SaveAndShareItemBuilder builder =
+                new SaveAndShareItemBuilder(
+                        ContextUtils.getApplicationContext(),
+                        new AppMenuItemTheme(
+                                ContextUtils.getApplicationContext(), mTabModelSelector),
+                        /* isMenuIconAtStart= */ false,
+                        mTabModelSelector);
+        ListItem item = builder.buildDownloadPageItem(/* showIcon= */ true);
+        assertEquals(
+                ContextUtils.getApplicationContext().getString(R.string.menu_save_page_as),
+                item.model.get(AppMenuItemProperties.TITLE));
     }
 
     private MenuItem getExpectedBookmarksParentMenuTitle() {

@@ -15,6 +15,7 @@
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/signin_browser_test_base.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/browser/ui/hats/mock_hats_service.h"
 #include "chrome/browser/ui/hats/survey_config.h"
@@ -158,8 +159,45 @@ IN_PROC_BROWSER_TEST_F(SigninHatsUtilBrowserTest,
   signin::LaunchHatsSurveyForProfile(trigger(), profile,
                                      /*defer_if_no_browser=*/true);
 
-  Browser* new_browser = CreateBrowser(profile);
+  BrowserWindowInterface* new_browser = CreateBrowser(profile);
   EXPECT_NE(new_browser, nullptr);
+}
+
+IN_PROC_BROWSER_TEST_F(SigninHatsUtilBrowserTest,
+                       DoNotLaunchHatsSurveyForOffTheRecordProfile) {
+  Profile* profile = CHECK_DEREF(browser()).GetProfile();
+  ASSERT_NE(profile, nullptr);
+  Profile* otr_profile =
+      profile->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+
+  auto* otr_mock_hats_service = static_cast<MockHatsService*>(
+      HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+          otr_profile, base::BindRepeating(&BuildMockHatsService)));
+  ASSERT_NE(otr_mock_hats_service, nullptr);
+
+  EXPECT_CALL(*otr_mock_hats_service, LaunchDelayedSurvey).Times(0);
+  EXPECT_CALL(mock_hats_service(), LaunchDelayedSurvey).Times(0);
+
+  signin::LaunchHatsSurveyForProfile(trigger(), otr_profile);
+}
+
+IN_PROC_BROWSER_TEST_F(SigninHatsUtilBrowserTest,
+                       DoNotLaunchHatsSurveyWhenDeferredBrowserIsOffTheRecord) {
+  Profile* profile = CHECK_DEREF(browser()).GetProfile();
+  ASSERT_NE(profile, nullptr);
+  ScopedKeepAlive keep_alive(KeepAliveOrigin::BROWSER,
+                             KeepAliveRestartOption::DISABLED);
+  ScopedProfileKeepAlive profile_keep_alive(
+      profile, ProfileKeepAliveOrigin::kProfilePickerView);
+  CloseAllBrowsers();
+
+  EXPECT_CALL(mock_hats_service(), LaunchDelayedSurvey).Times(0);
+
+  signin::LaunchHatsSurveyForProfile(trigger(), profile,
+                                     /*defer_if_no_browser=*/true);
+
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowser(profile);
+  EXPECT_NE(incognito_browser, nullptr);
 }
 
 IN_PROC_BROWSER_TEST_F(SigninHatsUtilBrowserTest,

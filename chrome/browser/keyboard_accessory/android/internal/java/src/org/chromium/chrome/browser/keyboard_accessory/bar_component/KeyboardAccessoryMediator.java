@@ -24,8 +24,10 @@ import android.content.Context;
 
 import androidx.annotation.StringRes;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.ObserverList;
 import org.chromium.base.TraceEvent;
+import org.chromium.base.TriState;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -98,12 +100,12 @@ class KeyboardAccessoryMediator
     private final AccessorySheetCoordinator.SheetVisibilityDelegate mSheetVisibilityDelegate;
     private final TabSwitchingDelegate mTabSwitcher;
     private final Supplier<Integer> mBackgroundColorSupplier;
-    private final Supplier<Boolean> mIsLargeFormFactorSupplier;
     private final Profile mProfile;
     private final @Nullable ActionConfirmationDialog mDialog;
-    private @Nullable Boolean mHasFilteredTouchEvent;
     private final ObserverList<KeyboardAccessoryVisualStateProvider.Observer> mVisualObservers =
             new ObserverList<>();
+
+    private @TriState int mHasFilteredTouchEvent;
 
     KeyboardAccessoryMediator(
             Context context,
@@ -115,7 +117,6 @@ class KeyboardAccessoryMediator
             TabSwitchingDelegate tabSwitcher,
             KeyboardAccessoryButtonGroupCoordinator.SheetOpenerCallbacks sheetOpenerCallbacks,
             Supplier<Integer> backgroundColorSupplier,
-            Supplier<Boolean> isLargeFormFactorSupplier,
             Runnable dismissRunnable) {
         mContext = context;
         mModel = model;
@@ -124,7 +125,6 @@ class KeyboardAccessoryMediator
         mSheetVisibilityDelegate = sheetVisibilityDelegate;
         mTabSwitcher = tabSwitcher;
         mBackgroundColorSupplier = backgroundColorSupplier;
-        mIsLargeFormFactorSupplier = isLargeFormFactorSupplier;
         mDialog =
                 modalDialogManager != null
                         ? new ActionConfirmationDialog(context, modalDialogManager)
@@ -252,14 +252,10 @@ class KeyboardAccessoryMediator
         return scrollableItems;
     }
 
-    private List<BarItem> ungroupBarItems(Iterable<BarItem> scrollableItems) {
-        List<BarItem> barItems = new ArrayList<>();
+    private List<ActionBarItem> ungroupBarItems(Iterable<BarItem> scrollableItems) {
+        List<ActionBarItem> barItems = new ArrayList<>();
         for (BarItem barItem : scrollableItems) {
-            if (barItem instanceof GroupBarItem) {
-                barItems.addAll(barItem.getActionBarItems());
-            } else {
-                barItems.add(barItem);
-            }
+            barItems.addAll(barItem.getActionBarItems());
         }
         return barItems;
     }
@@ -338,7 +334,11 @@ class KeyboardAccessoryMediator
                         return;
                     }
                     delegate.deleteSuggestion(pos);
-                });
+                },
+                ChromeFeatureList.isEnabled(
+                                ChromeFeatureList.AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_HOVER_PREVIEW)
+                        ? selected -> delegate.suggestionSelectionStateChanged(pos, selected)
+                        : null);
     }
 
     private boolean maybeShowDialogOnLongPress(
@@ -423,18 +423,27 @@ class KeyboardAccessoryMediator
         return DialogDismissType.DISMISS_IMMEDIATELY;
     }
 
-    private void updateListState(
-            ListModel<BarItem> list, @Nullable AutofillSuggestion acceptedSuggestion) {
-        for (int i = 0; i < list.size(); i++) {
-            BarItem barItem = list.get(i);
-            barItem.updateStateOnItemAcceptance(acceptedSuggestion);
-            list.update(i, barItem);
+    private void updateActionBarItemsState(
+            ListModel<BarItem> barItems, AutofillSuggestion acceptedSuggestion) {
+        // Ungroup the elements, make all elements disabled and show loading UI for the accepted
+        // item.
+        List<ActionBarItem> listOfBarItems = ungroupBarItems(barItems);
+        for (ActionBarItem actionBarItem : listOfBarItems) {
+            actionBarItem.setEnabled(false);
+            if (actionBarItem instanceof AutofillBarItem autofillBarItem) {
+                autofillBarItem.setLoading(
+                        autofillBarItem.getSuggestion().equals(acceptedSuggestion));
+            }
+        }
+        // Update the UI once the data model is updated.
+        for (int i = 0; i < barItems.size(); i++) {
+            barItems.update(i, barItems.get(i));
         }
     }
 
     private void showLoadingUIOnSuggestion(AutofillSuggestion acceptedSuggestion) {
-        updateListState(mModel.get(BAR_ITEMS), acceptedSuggestion);
-        updateListState(mModel.get(BAR_ITEMS_FIXED), null);
+        updateActionBarItemsState(mModel.get(BAR_ITEMS), acceptedSuggestion);
+        updateActionBarItemsState(mModel.get(BAR_ITEMS_FIXED), acceptedSuggestion);
     }
 
     private @BarItem.Type int toBarItemType(@AccessoryAction int accessoryAction) {
@@ -467,17 +476,17 @@ class KeyboardAccessoryMediator
         mTabSwitcher.closeActiveTab();
         mModel.set(VISIBLE, false);
         if (mModel.get(SHEET_OPENER_ITEM) != null) {
-            mModel.get(SHEET_OPENER_ITEM).setViewState(ActionBarItem.ViewState.ENABLED);
+            mModel.get(SHEET_OPENER_ITEM).setEnabled(true);
         }
         if (mModel.get(DISMISS_ITEM) != null) {
-            mModel.get(DISMISS_ITEM).setViewState(ActionBarItem.ViewState.ENABLED);
+            mModel.get(DISMISS_ITEM).setEnabled(true);
         }
-        if (!(mHasFilteredTouchEvent == null || mHasFilteredTouchEvent)) {
+        if (mHasFilteredTouchEvent == TriState.FALSE) {
             // Log the metric if the accessory received touch events, but none of them were
             // filtered.
             ManualFillingMetricsRecorder.recordHasFilteredTouchEvents(false);
         }
-        mHasFilteredTouchEvent = null;
+        mHasFilteredTouchEvent = TriState.NOT_SET;
     }
 
     @Override
@@ -530,16 +539,16 @@ class KeyboardAccessoryMediator
 
     private void onTouchEvent(boolean eventFiltered) {
         if (!eventFiltered) {
-            if (mHasFilteredTouchEvent == null) {
-                mHasFilteredTouchEvent = false;
+            if (mHasFilteredTouchEvent == TriState.NOT_SET) {
+                mHasFilteredTouchEvent = TriState.FALSE;
             }
             return;
         }
-        if (mHasFilteredTouchEvent == null || !mHasFilteredTouchEvent) {
+        if (mHasFilteredTouchEvent != TriState.TRUE) {
             // Log the metric if none of the previous touch events were filtered.
             ManualFillingMetricsRecorder.recordHasFilteredTouchEvents(true);
         }
-        mHasFilteredTouchEvent = true;
+        mHasFilteredTouchEvent = TriState.TRUE;
     }
 
     /**
@@ -561,7 +570,7 @@ class KeyboardAccessoryMediator
         if (style.isDocked()) {
             mModel.get(BAR_ITEMS).set(createGroupBarItem(mModel.get(BAR_ITEMS)));
         } else {
-            mModel.get(BAR_ITEMS).set(ungroupBarItems(mModel.get(BAR_ITEMS)));
+            mModel.get(BAR_ITEMS).set(new ArrayList<>(ungroupBarItems(mModel.get(BAR_ITEMS))));
         }
     }
 
@@ -667,7 +676,7 @@ class KeyboardAccessoryMediator
     }
 
     private boolean showFloatingKeyboardAccessory() {
-        return mIsLargeFormFactorSupplier.get()
+        return DeviceInfo.isDesktop()
                 && ChromeFeatureList.isEnabled(
                         ChromeFeatureList.AUTOFILL_ANDROID_DESKTOP_KEYBOARD_ACCESSORY_REVAMP);
     }

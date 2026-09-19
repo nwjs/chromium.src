@@ -48,6 +48,7 @@ Hvis det allerede er merket av for «<ph name="SERVICE_SCRIPT_NAME" />», fjerne
 <translation id="3197730452537982411">Eksternt skrivebord</translation>
 <translation id="3236334139428307578">Copyright 2026 The Chromium Authors. Med enerett.</translation>
 <translation id="324272851072175193">Send disse instruksjonene på e-post</translation>
+<translation id="3254626532848657899">Flytt nederst</translation>
 <translation id="3305934114213025800"><ph name="PRODUCT_NAME" /> vil gjøre endringer.</translation>
 <translation id="3339299787263251426">Få sikker tilgang til datamaskinen din via Internett</translation>
 <translation id="3385242214819933234">Ugyldig vertseier.</translation>
@@ -166,6 +167,7 @@ Hvis det allerede er merket av for «<ph name="SERVICE_SCRIPT_NAME" />», fjerne
 <translation id="8073845705237259513">Hvis du vil bruke Chrome Eksternt skrivebord, må du legge til en Google-konto på enheten din.</translation>
 <translation id="809687642899217504">Mine datamaskiner</translation>
 <translation id="8116630183974937060">Det oppsto en nettverksfeil. Kontroller at enheten er tilkoblet nettet, og prøv på nytt.</translation>
+<translation id="8249310407154411074">Flytt til toppen</translation>
 <translation id="8295077433896346116">For å bruke <ph name="PRODUCT_NAME" /> må du innvilge «Tilgjengelighet»-tillatelsen, slik at inndata fra den eksterne maskinen kan sendes til denne Macen.
 
 For å innvilge denne tillatelsen, klikk på «<ph name="BUTTON_NAME" />» under. I innstillingsfeltet for «Tilgjengelighet» som åpnes, merker du av i boksen ved siden av «<ph name="SERVICE_SCRIPT_NAME" />».

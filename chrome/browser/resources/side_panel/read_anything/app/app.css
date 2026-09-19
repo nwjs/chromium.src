@@ -20,12 +20,6 @@
   --immersive-menu-font-weight: 400;
 }
 
-:host #appFlexParent {
-  flex: 1;
-  height: auto;
-  min-height: 0;
-}
-
 #lineFocus {
   position: absolute;
   top: var(--line-focus-y);
@@ -62,7 +56,6 @@
   height: 100%;
   margin: 0 8px;
   margin-bottom: var(--sp-card-block-padding);
-  min-width: var(--container-min-width);
   overflow: auto;
   padding: 20px;
 }
@@ -88,9 +81,11 @@
 
 #appFlexParent {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  height: 100%;
-  overflow-x: var(--app-overflow-x);
+  height: auto;
+  min-height: 0;
+  overflow-x: hidden;
   width: 100%;
 }
 
@@ -105,7 +100,6 @@
   height: 100%;
   margin-bottom: var(--sp-card-block-padding);
   min-height: 0;
-  min-width: var(--container-min-width);
   padding-top: 2px;
   padding-left: var(--sp-card-block-padding);
   padding-right: var(--sp-card-block-padding);

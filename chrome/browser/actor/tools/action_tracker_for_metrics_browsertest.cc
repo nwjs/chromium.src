@@ -16,7 +16,6 @@
 #include "chrome/browser/actor/tools/tools_test_util.h"
 #include "chrome/browser/actor/tools/wait_tool_request.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/common/actor.mojom.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/tabs/public/tab_interface.h"
@@ -41,7 +40,7 @@ class ActionTrackerForMetricsTest : public ActorToolsTest {
 
   void SetUpOnMainThread() override {
     ActorToolsTest::SetUpOnMainThread();
-    ASSERT_TRUE(embedded_test_server()->Start());
+    ASSERT_TRUE(embedded_https_test_server().Start());
   }
 
   ActorKeyedService* actor_keyed_service() {
@@ -58,9 +57,10 @@ class ActionTrackerForMetricsTest : public ActorToolsTest {
 IN_PROC_BROWSER_TEST_F(ActionTrackerForMetricsTest, WaitAfterClick_Recorded) {
   base::HistogramTester histogram_tester;
 
-  const GURL url1 = embedded_test_server()->GetURL("/actor/blank.html");
-  const GURL url2 =
-      embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
+  const GURL url1 =
+      embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
+  const GURL url2 = embedded_https_test_server().GetURL(
+      "example.com", "/actor/page_with_clickable_element.html");
 
   ASSERT_TRUE(NavigateToURL(web_contents(), url1));
 
@@ -100,9 +100,10 @@ IN_PROC_BROWSER_TEST_F(ActionTrackerForMetricsTest, WaitAfterClick_Recorded) {
 IN_PROC_BROWSER_TEST_F(ActionTrackerForMetricsTest, TwoWaits_Recorded) {
   base::HistogramTester histogram_tester;
 
-  const GURL url1 = embedded_test_server()->GetURL("/actor/blank.html");
-  const GURL url2 =
-      embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
+  const GURL url1 =
+      embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
+  const GURL url2 = embedded_https_test_server().GetURL(
+      "example.com", "/actor/page_with_clickable_element.html");
 
   ASSERT_TRUE(NavigateToURL(web_contents(), url1));
 
@@ -147,9 +148,10 @@ IN_PROC_BROWSER_TEST_F(ActionTrackerForMetricsTest,
                        WaitAfterMultipleActions_Recorded) {
   base::HistogramTester histogram_tester;
 
-  const GURL url1 =
-      embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
-  const GURL url2 = embedded_test_server()->GetURL("/actor/blank.html");
+  const GURL url1 = embedded_https_test_server().GetURL(
+      "example.com", "/actor/page_with_clickable_element.html");
+  const GURL url2 =
+      embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
 
   ASSERT_TRUE(NavigateToURL(web_contents(), url1));
 
@@ -187,7 +189,8 @@ IN_PROC_BROWSER_TEST_F(ActionTrackerForMetricsTest,
                        WaitAfterCreated_NotRecorded) {
   base::HistogramTester histogram_tester;
 
-  const GURL url = embedded_test_server()->GetURL("/actor/blank.html");
+  const GURL url =
+      embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
   ASSERT_TRUE(NavigateToURL(web_contents(), url));
 
   ActResultFuture result;
@@ -205,9 +208,10 @@ IN_PROC_BROWSER_TEST_F(ActionTrackerForMetricsTest,
                        WaitAfterPaused_NotRecorded) {
   base::HistogramTester histogram_tester;
 
-  const GURL url1 = embedded_test_server()->GetURL("/actor/blank.html");
-  const GURL url2 =
-      embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
+  const GURL url1 =
+      embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
+  const GURL url2 = embedded_https_test_server().GetURL(
+      "example.com", "/actor/page_with_clickable_element.html");
 
   ASSERT_TRUE(NavigateToURL(web_contents(), url1));
 
@@ -234,8 +238,8 @@ IN_PROC_BROWSER_TEST_F(ActionTrackerForMetricsTest,
 IN_PROC_BROWSER_TEST_F(ActionTrackerForMetricsTest, ZeroDurationWait_Recorded) {
   base::HistogramTester histogram_tester;
 
-  const GURL url =
-      embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
+  const GURL url = embedded_https_test_server().GetURL(
+      "example.com", "/actor/page_with_clickable_element.html");
 
   ASSERT_TRUE(NavigateToURL(web_contents(), url));
 
@@ -267,8 +271,8 @@ IN_PROC_BROWSER_TEST_F(ActionTrackerForMetricsTest,
                        WaitInMultipleActions_NotRecorded) {
   base::HistogramTester histogram_tester;
 
-  const GURL url =
-      embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
+  const GURL url = embedded_https_test_server().GetURL(
+      "example.com", "/actor/page_with_clickable_element.html");
 
   ASSERT_TRUE(NavigateToURL(web_contents(), url));
 
@@ -295,8 +299,8 @@ IN_PROC_BROWSER_TEST_F(ActionTrackerForMetricsTest,
                        WaitAfterFailure_NotRecorded) {
   base::HistogramTester histogram_tester;
 
-  const GURL url =
-      embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
+  const GURL url = embedded_https_test_server().GetURL(
+      "example.com", "/actor/page_with_clickable_element.html");
 
   ASSERT_TRUE(NavigateToURL(web_contents(), url));
 
@@ -325,8 +329,8 @@ IN_PROC_BROWSER_TEST_F(ActionTrackerForMetricsTest,
                        TwoWaitsAfterClick_Recorded) {
   base::HistogramTester histogram_tester;
 
-  const GURL url =
-      embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
+  const GURL url = embedded_https_test_server().GetURL(
+      "example.com", "/actor/page_with_clickable_element.html");
 
   ASSERT_TRUE(NavigateToURL(web_contents(), url));
 

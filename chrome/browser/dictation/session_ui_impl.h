@@ -32,11 +32,12 @@ class SessionUiImpl : public SessionUi {
   friend class DictationSessionUiImplBrowserTest;
 
   // SessionUi:
-  void OnError(StreamType stream_type) override;
+  void OnError(StreamType stream_type, StreamErrorReason reason) override;
   void OnStopped() override;
   void UpdateAudioLevel(float audio_level) override;
   void OnStartedStream(content::GlobalDOMNodeId target_id) override;
 
+  void CreateBubbleUi();
   void OnDictationBubbleCloseClicked();
   void OnToggleActiveStreamClicked();
   void OnSessionStateChanged(SessionState state);

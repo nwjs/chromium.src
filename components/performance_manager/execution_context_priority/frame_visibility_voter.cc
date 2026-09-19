@@ -6,7 +6,7 @@
 
 #include <utility>
 
-#include "components/performance_manager/public/execution_context/execution_context_registry.h"
+#include "components/performance_manager/public/execution_context/execution_context.h"
 #include "components/performance_manager/public/features.h"
 #include "components/performance_manager/public/graph/graph.h"
 #include "url/gurl.h"
@@ -15,13 +15,6 @@ namespace performance_manager {
 namespace execution_context_priority {
 
 namespace {
-
-const execution_context::ExecutionContext* GetExecutionContext(
-    const FrameNode* frame_node) {
-  return execution_context::ExecutionContextRegistry::GetFromGraph(
-             frame_node->GetGraph())
-      ->GetExecutionContextForFrameNode(frame_node);
-}
 
 // Returns a vote with the appropriate priority depending on the frame's
 // |visibility|.
@@ -77,13 +70,7 @@ void FrameVisibilityVoter::OnBeforeFrameNodeAdded(
     const PageNode* pending_page_node,
     const ProcessNode* pending_process_node,
     const FrameNode* pending_parent_or_outer_document_or_embedder) {
-  if (!ShouldVoteForFrame(frame_node)) {
-    return;
-  }
-
-  const Vote vote =
-      GetVote(frame_node->GetVisibility(), frame_node->IsImportant());
-  voting_channel_.SubmitVote(GetExecutionContext(frame_node), vote);
+  SetVoteForFrame(frame_node);
 }
 
 void FrameVisibilityVoter::OnBeforeFrameNodeRemoved(
@@ -92,44 +79,27 @@ void FrameVisibilityVoter::OnBeforeFrameNodeRemoved(
     return;
   }
 
-  voting_channel_.InvalidateVote(GetExecutionContext(frame_node));
+  voting_channel_.SetVote(frame_node, std::nullopt);
 }
 
 void FrameVisibilityVoter::OnFrameVisibilityChanged(
     const FrameNode* frame_node,
     FrameNode::Visibility previous_value) {
-  if (!ShouldVoteForFrame(frame_node)) {
-    return;
-  }
-
-  const Vote old_vote = GetVote(previous_value, frame_node->IsImportant());
-  const Vote new_vote =
-      GetVote(frame_node->GetVisibility(), frame_node->IsImportant());
-
-  // Nothing to change if the new priority is the same as the old one.
-  if (new_vote == old_vote) {
-    return;
-  }
-
-  voting_channel_.ChangeVote(GetExecutionContext(frame_node), new_vote);
+  SetVoteForFrame(frame_node);
 }
 
 void FrameVisibilityVoter::OnIsImportantChanged(const FrameNode* frame_node) {
+  SetVoteForFrame(frame_node);
+}
+
+void FrameVisibilityVoter::SetVoteForFrame(const FrameNode* frame_node) {
   if (!ShouldVoteForFrame(frame_node)) {
     return;
   }
 
-  const Vote old_vote =
-      GetVote(frame_node->GetVisibility(), !frame_node->IsImportant());
-  const Vote new_vote =
+  const Vote vote =
       GetVote(frame_node->GetVisibility(), frame_node->IsImportant());
-
-  // Nothing to change if the new priority is the same as the old one.
-  if (new_vote == old_vote) {
-    return;
-  }
-
-  voting_channel_.ChangeVote(GetExecutionContext(frame_node), new_vote);
+  voting_channel_.SetVote(frame_node, vote);
 }
 
 }  // namespace execution_context_priority

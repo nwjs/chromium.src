@@ -27,9 +27,9 @@
 #include "chrome/browser/profiles/profile_test_util.h"
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/shell_integration_win.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
@@ -194,7 +194,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTestWithProfileShortcutManager,
       base::UTF8ToUTF16(browser()->GetProfile()->GetProfileUserName()));
 
   // The second profile's name should be part of the relaunch name.
-  Browser* profile2_browser =
+  BrowserWindowInterface* profile2_browser =
       CreateBrowser(profile_manager->GetProfileByPath(path_profile2));
   ProfileAttributesEntry* entry =
       profile_manager->GetProfileAttributesStorage()

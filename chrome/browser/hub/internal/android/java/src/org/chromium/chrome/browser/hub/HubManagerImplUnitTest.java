@@ -10,7 +10,10 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -22,9 +25,9 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.FrameLayout.LayoutParams;
 
-import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.filters.SmallTest;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -34,6 +37,8 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
+import org.robolectric.android.controller.ActivityController;
 
 import org.chromium.base.supplier.LazyOneshotSupplier;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
@@ -73,10 +78,6 @@ public class HubManagerImplUnitTest {
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    @Rule
-    public ActivityScenarioRule<TestActivity> mActivityScenarioRule =
-            new ActivityScenarioRule<>(TestActivity.class);
-
     @Mock private BackPressManager mBackPressManager;
     @Mock private Tab mTab;
     @Mock private Pane mTabSwitcherPane;
@@ -112,6 +113,7 @@ public class HubManagerImplUnitTest {
     private final MonotonicObservableSupplier<EdgeToEdgeController> mEdgeToEdgeSupplier =
             ObservableSuppliers.alwaysNull();
 
+    private ActivityController<TestActivity> mActivityController;
     private Activity mActivity;
     private FrameLayout mRootView;
 
@@ -154,14 +156,15 @@ public class HubManagerImplUnitTest {
         when(mTab.getId()).thenReturn(TAB_ID);
         when(mProfileProvider.getOriginalProfile()).thenReturn(mProfile);
 
-        mActivityScenarioRule
-                .getScenario()
-                .onActivity(
-                        (activity) -> {
-                            mActivity = activity;
-                            mRootView = new FrameLayout(mActivity);
-                            mActivity.setContentView(mRootView);
-                        });
+        mActivityController = Robolectric.buildActivity(TestActivity.class).setup();
+        mActivity = mActivityController.get();
+        mRootView = new FrameLayout(mActivity);
+        mActivity.setContentView(mRootView);
+    }
+
+    @After
+    public void tearDown() {
+        mActivityController.close();
     }
 
     @Test
@@ -249,8 +252,7 @@ public class HubManagerImplUnitTest {
         hubController.onHubLayoutShow();
 
         verify(mSnackbarManager)
-                .pushParentViewOverride(
-                        eq(ParentOverrideSlot.HUB), any(), org.mockito.ArgumentMatchers.isNull());
+                .pushParentViewOverride(eq(ParentOverrideSlot.HUB), any(), isNull());
     }
 
     @Test
@@ -588,5 +590,38 @@ public class HubManagerImplUnitTest {
 
         mRootView.removeView(containerView);
         assertEquals(appHeaderHeight, ((LayoutParams) containerView.getLayoutParams()).topMargin);
+    }
+
+    @Test
+    @SmallTest
+    public void testSelectTabAndHideHub() {
+        PaneListBuilder builder = new PaneListBuilder(new DefaultPaneOrderController());
+        HubManagerImpl hubManager =
+                new HubManagerImpl(
+                        mActivity,
+                        mProfileProviderSupplier,
+                        builder,
+                        mBackPressManager,
+                        mMenuOrKeyboardActionController,
+                        mSnackbarManager,
+                        mBottomSheetController,
+                        mBottomBarHostManager,
+                        mTabSupplier,
+                        mMenuButtonCoordinator,
+                        mHubShowPaneHelper,
+                        mEdgeToEdgeSupplier,
+                        mSearchActivityClient,
+                        /* xrSpaceModeObservableSupplier= */ null,
+                        /* defaultPaneId= */ PaneId.TAB_SWITCHER);
+
+        // Safe before layout controller is attached.
+        hubManager.selectTabAndHideHub(TAB_ID);
+        verify(mHubLayoutController, never()).selectTabAndHideHubLayout(anyInt());
+
+        HubController hubController = hubManager.getHubController();
+        hubController.setHubLayoutController(mHubLayoutController);
+
+        hubManager.selectTabAndHideHub(TAB_ID);
+        verify(mHubLayoutController).selectTabAndHideHubLayout(TAB_ID);
     }
 }

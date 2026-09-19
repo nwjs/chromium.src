@@ -24,7 +24,7 @@ try_.defaults.set(
     execution_timeout = try_constants.DEFAULT_EXECUTION_TIMEOUT,
     experiments = {
         "chromium_tests.resultdb_module": 100,
-        "luci.buildbucket.run_in_turboci": 25,
+        "luci.buildbucket.run_in_turboci": 100,
     },
     orchestrator_cores = 2,
     orchestrator_siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
@@ -55,15 +55,16 @@ try_.builder(
             "release_try_builder",
         ],
     ),
-    cq_settings = try_.cq_settings(
-        location_filters = [
-            # This is the only bot that builds //chromecast code for Fuchsia on
-            # ARM64, so trigger it when changes are made.
-            "chromecast/.+",
-            # Always trigger this builder when drilling the fuchsia-sdk.
-            "build/fuchsia/sdk_override.txt",
-        ],
-    ),
+    # TODO(crbug.com/549757519): Restore to the CQ when test pool is recovered.
+    # cq_settings = try_.cq_settings(
+    #     location_filters = [
+    #         # This is the only bot that builds //chromecast code for Fuchsia on
+    #         # ARM64, so trigger it when changes are made.
+    #         "chromecast/.+",
+    #         # Always trigger this builder when drilling the fuchsia-sdk.
+    #         "build/fuchsia/sdk_override.txt",
+    #     ],
+    # ),
     experiments = {
         "luci.buildbucket.run_in_turboci": 100,
     },

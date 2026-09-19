@@ -123,13 +123,6 @@ class CAPTURE_EXPORT VideoCaptureDeviceClient
                                     Buffer* buffer,
                                     int* require_new_buffer_id,
                                     int* retire_old_buffer_id) override;
-  void OnIncomingCapturedBuffer(
-      Buffer buffer,
-      const VideoCaptureFormat& format,
-      base::TimeTicks reference_time,
-      base::TimeDelta timestamp,
-      std::optional<base::TimeTicks> capture_begin_timestamp,
-      const std::optional<VideoFrameMetadata>& metadata) override;
   void OnIncomingCapturedBufferExt(
       Buffer buffer,
       const VideoCaptureFormat& format,
@@ -146,6 +139,7 @@ class CAPTURE_EXPORT VideoCaptureDeviceClient
   void OnLog(const std::string& message) override;
   double GetBufferPoolUtilization() const override;
   void OnStarted() override;
+  void InvalidateBuffers() override;
 
  private:
   VideoCaptureDevice::Client::ReserveResult CreateReadyFrameFromExternalBuffer(
@@ -162,6 +156,7 @@ class CAPTURE_EXPORT VideoCaptureDeviceClient
   void OnIncomingCapturedY16Data(
       base::span<const uint8_t> data,
       const VideoCaptureFormat& frame_format,
+      const gfx::ColorSpace& color_space,
       base::TimeTicks reference_time,
       base::TimeDelta timestamp,
       std::optional<base::TimeTicks> capture_begin_timestamp,

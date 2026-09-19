@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.settings.search;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -15,11 +16,13 @@ import static org.mockito.Mockito.when;
 
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import androidx.appcompat.widget.ActionMenuView;
 import androidx.appcompat.widget.Toolbar;
+import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
 import androidx.slidingpanelayout.widget.SlidingPaneLayout;
@@ -35,14 +38,19 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
+import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.settings.MultiColumnSettings;
+import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
@@ -114,8 +122,31 @@ public class SettingsSearchCoordinatorUnitTest {
 
     @After
     public void tearDown() {
+        SettingsIndexData.reset();
         // Avoid runnable pollution between tests.
         ShadowLooper.idleMainLooper();
+    }
+
+    /**
+     * Sets up the mock {@link MultiColumnSettings} with a valid child {@link FragmentManager} and
+     * {@link SlidingPaneLayout}, and measures/lays out the root view so search UI initialization
+     * and width calculations can execute properly.
+     */
+    private void setUpMultiColumnSettings() {
+        FragmentManager childFragmentManager = mActivity.getSupportFragmentManager();
+        when(mMultiColumnSettings.getChildFragmentManagerOrNull()).thenReturn(childFragmentManager);
+
+        SlidingPaneLayout slidingPaneLayout = new SlidingPaneLayout(mActivity);
+        when(mMultiColumnSettings.getView()).thenReturn(slidingPaneLayout);
+        when(mMultiColumnSettings.requireView()).thenReturn(slidingPaneLayout);
+        when(mMultiColumnSettings.getSlidingPaneLayout()).thenReturn(slidingPaneLayout);
+        when(mMultiColumnSettings.isLayoutOpen()).thenReturn(false);
+
+        View rootView = mActivity.findViewById(R.id.settings_activity);
+        int widthSpec = View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY);
+        int heightSpec = View.MeasureSpec.makeMeasureSpec(600, View.MeasureSpec.EXACTLY);
+        rootView.measure(widthSpec, heightSpec);
+        rootView.layout(0, 0, 1000, 600);
     }
 
     @Test
@@ -137,7 +168,16 @@ public class SettingsSearchCoordinatorUnitTest {
 
         var state =
                 new AccessibilityState.State(
-                        false, false, false, false, false, false, false, false, false);
+                        /* isComplexUserInteractionServiceEnabled= */ false,
+                        /* isTouchExplorationEnabled= */ false,
+                        /* isPerformGesturesEnabled= */ false,
+                        /* isAnyAccessibilityServiceEnabled= */ false,
+                        /* isAccessibilityToolPresent= */ false,
+                        /* isTextShowPasswordEnabled= */ false,
+                        /* isOnlyAutofillRunning= */ false,
+                        /* isOnlyPasswordManagersEnabled= */ false,
+                        /* isKnownScreenReaderEnabled= */ false,
+                        /* isSamsungTalkBackEnabled= */ false);
 
         // This call should not crash.
         mCoordinator.onAccessibilityStateChanged(state, state);
@@ -324,5 +364,179 @@ public class SettingsSearchCoordinatorUnitTest {
         // In results state (FS_RESULTS), navigation icon should be shown (as a back button).
         mCoordinator.setFragmentState(SettingsSearchCoordinator.FS_RESULTS);
         assertTrue(mCoordinator.shouldShowNavigationIcon());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB)
+    @Config(qualifiers = "sw600dp")
+    public void testInitializeSearchUi_withSettingsInTab_setsSearchBoxFocusable() {
+        setUpMultiColumnSettings();
+        mCoordinator.initializeSearchUi(null);
+
+        View searchBox = mActivity.findViewById(R.id.search_box);
+        assertNotNull(searchBox);
+        assertTrue(searchBox.isFocusable());
+        assertTrue(searchBox.isFocusableInTouchMode());
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.SETTINGS_IN_TAB)
+    public void testInitializeSearchUi_withoutSettingsInTab_doesNotSetSearchBoxFocusable() {
+        setUpMultiColumnSettings();
+        mCoordinator.initializeSearchUi(null);
+
+        View searchBox = mActivity.findViewById(R.id.search_box);
+        assertNotNull(searchBox);
+        assertFalse(searchBox.isFocusableInTouchMode());
+    }
+
+    @Test
+    public void testOnSlideStateUpdated_singleColumn_updatesSearchBoxVisibility() {
+        setUpMultiColumnSettings();
+        mUseMultiColumn = false;
+        when(mMultiColumnSettings.isLayoutOpen()).thenReturn(false);
+        mCoordinator.initializeSearchUi(null);
+        ShadowLooper.idleMainLooper();
+
+        View searchBox = mActivity.findViewById(R.id.search_box);
+        assertNotNull(searchBox);
+        assertEquals(View.VISIBLE, searchBox.getVisibility());
+
+        // Detail pane opens.
+        when(mMultiColumnSettings.isLayoutOpen()).thenReturn(true);
+        mCoordinator.onSlideStateUpdated(MultiColumnSettings.SlideState.OPENED);
+        assertEquals(View.GONE, searchBox.getVisibility());
+
+        // Detail pane closes.
+        when(mMultiColumnSettings.isLayoutOpen()).thenReturn(false);
+        mCoordinator.onSlideStateUpdated(MultiColumnSettings.SlideState.CLOSED);
+        assertEquals(View.VISIBLE, searchBox.getVisibility());
+    }
+
+    @Test
+    public void testOnHeaderLayoutUpdated_singleColumn_updatesSearchBoxVisibility() {
+        setUpMultiColumnSettings();
+        mUseMultiColumn = false;
+        when(mMultiColumnSettings.isLayoutOpen()).thenReturn(true);
+        mCoordinator.initializeSearchUi(null);
+        ShadowLooper.idleMainLooper();
+
+        View searchBox = mActivity.findViewById(R.id.search_box);
+        assertNotNull(searchBox);
+        assertEquals(View.GONE, searchBox.getVisibility());
+
+        // Header layout updated when showing main settings.
+        when(mMultiColumnSettings.isLayoutOpen()).thenReturn(false);
+        mCoordinator.onHeaderLayoutUpdated();
+        assertEquals(View.VISIBLE, searchBox.getVisibility());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB)
+    @Config(qualifiers = "sw600dp")
+    public void testExitSearchState_withSettingsInTab_multiColumn_focusesSearchBox() {
+        setUpMultiColumnSettings();
+        mUseMultiColumn = true;
+        mCoordinator.initializeSearchUi(null);
+        ShadowLooper.idleMainLooper();
+
+        View searchBox = mActivity.findViewById(R.id.search_box);
+        assertNotNull(searchBox);
+
+        mCoordinator.setFragmentState(SettingsSearchCoordinator.FS_SEARCH);
+        searchBox.setVisibility(View.GONE);
+
+        mCoordinator.exitSearchState();
+        assertEquals(View.VISIBLE, searchBox.getVisibility());
+        assertTrue(searchBox.isFocused());
+    }
+
+    /**
+     * Subclass of Fragment to represent the initial detail pane fragment (e.g. Google services).
+     */
+    public static class TestDetailFragment extends Fragment {
+        public TestDetailFragment() {}
+    }
+
+    @Test
+    public void testSearchInMultiColumnThenExitSearchRestoresDetailFragment() {
+        // Initialize an empty SettingsIndexData and mark it as indexed to prevent
+        // enterSearchState() from attempting to build the real search index across all
+        // registered settings fragments in SearchIndexProviderRegistry (which requires
+        // native/feature flag configuration in unit tests).
+        SettingsIndexData.createInstance().resetNeedsIndexing();
+
+        setUpMultiColumnSettings();
+        mUseMultiColumn = true;
+
+        // Add initial detail fragment representing Google services in the detail pane.
+        FragmentManager fragmentManager = mActivity.getSupportFragmentManager();
+        TestDetailFragment initialDetailFragment = new TestDetailFragment();
+        fragmentManager
+                .beginTransaction()
+                .add(R.id.preferences_detail, initialDetailFragment)
+                .commitNow();
+
+        mCoordinator.initializeSearchUi(null);
+        ShadowLooper.idleMainLooper();
+
+        // Verify initial UI state in multi-column mode.
+        View searchBox = mActivity.findViewById(R.id.search_box);
+        View queryContainer = mActivity.findViewById(R.id.search_query_container);
+        assertNotNull(searchBox);
+        assertNotNull(queryContainer);
+        assertEquals(View.VISIBLE, searchBox.getVisibility());
+        assertEquals(View.GONE, queryContainer.getVisibility());
+        assertNotNull(SettingsIndexData.getInstance());
+        assertFalse(SettingsIndexData.getInstance().needsIndexing());
+
+        // 1. Click search box to enter search state in multi-column mode.
+        searchBox.performClick();
+        fragmentManager.executePendingTransactions();
+        ShadowLooper.idleMainLooper();
+
+        assertEquals(View.GONE, searchBox.getVisibility());
+        assertEquals(View.VISIBLE, queryContainer.getVisibility());
+
+        // 2. Enter search query and simulate search results appearing.
+        EditText queryEdit = mActivity.findViewById(R.id.search_query);
+        assertNotNull(queryEdit);
+        queryEdit.setText("Theme");
+
+        var entry =
+                new SettingsIndexData.Entry.Builder(
+                                "theme_id", "theme_key", "Theme", "MainSettings")
+                        .build();
+        var results = new SettingsIndexData.SearchResults();
+        results.addItem(entry, 100);
+        mCoordinator.displayResultsFragment(results);
+        fragmentManager.executePendingTransactions();
+        ShadowLooper.idleMainLooper();
+
+        // Verify search results fragment is displayed in the detail container.
+        Fragment resultFragment =
+                fragmentManager.findFragmentByTag(SettingsSearchCoordinator.RESULT_FRAGMENT);
+        assertNotNull(resultFragment);
+        assertTrue(resultFragment instanceof SearchResultsPreferenceFragment);
+        assertEquals(resultFragment, fragmentManager.findFragmentById(R.id.preferences_detail));
+
+        // 3. Click back arrow icon to exit search.
+        View backArrow = mActivity.findViewById(R.id.back_arrow_icon);
+        assertNotNull(backArrow);
+        backArrow.performClick();
+        fragmentManager.executePendingTransactions();
+        ShadowLooper.idleMainLooper();
+
+        // 4. Verify search box is restored and search query container is hidden.
+        assertEquals(View.VISIBLE, searchBox.getVisibility());
+        assertEquals(View.GONE, queryContainer.getVisibility());
+
+        // 5. Verify search results fragment is removed.
+        assertNull(fragmentManager.findFragmentByTag(SettingsSearchCoordinator.RESULT_FRAGMENT));
+
+        // 6. Verify initial detail fragment is restored in the detail pane.
+        Fragment currentDetail = fragmentManager.findFragmentById(R.id.preferences_detail);
+        assertNotNull(currentDetail);
+        assertEquals(initialDetailFragment, currentDetail);
     }
 }

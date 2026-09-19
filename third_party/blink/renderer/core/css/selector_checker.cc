@@ -827,7 +827,7 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoTextField:
     case CSSSelector::kPseudoToolFormActive:
     case CSSSelector::kPseudoToolSubmitActive:
-    case CSSSelector::kPseudoNavSource:
+    case CSSSelector::kPseudoNavigationSource:
     case CSSSelector::kPseudoUnbounded:
     case CSSSelector::kPseudoViewTransition:
     case CSSSelector::kPseudoViewTransitionGroup:
@@ -2918,8 +2918,8 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
     case CSSSelector::kPseudoLinkTo:
       DCHECK(RuntimeEnabledFeatures::RouteMatchingEnabled());
       return CheckPseudoLinkTo(context, result);
-    case CSSSelector::kPseudoNavSource:
-      DCHECK(RuntimeEnabledFeatures::NavigationStateEnabled());
+    case CSSSelector::kPseudoNavigationSource:
+      DCHECK(RuntimeEnabledFeatures::NavigationSourcePseudoClassEnabled());
       if (const auto* state = NavigationState::Get(&element.GetDocument())) {
         if (&element == state->GetSourceElement()) {
           return true;

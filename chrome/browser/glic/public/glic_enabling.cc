@@ -63,6 +63,8 @@
 #include "components/subscription_eligibility/subscription_eligibility_service.h"
 #include "components/variations/service/variations_service.h"
 #include "components/variations/service/variations_service_utils.h"
+#include "content/public/common/content_switches.h"
+#include "ui/base/device_form_factor.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"  // nogncheck
@@ -74,6 +76,7 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/android_info.h"
+#include "base/android/device_info.h"
 #endif
 
 namespace glic {
@@ -391,8 +394,10 @@ GlicEnabling::ProfileEnablement ComputeProfileEnablement(
 
   result.feature_flag_enabled = base::FeatureList::IsEnabled(features::kGlic);
   if (country_override.has_value()) {
-    result.allowed_by_country_filter = EvaluateCountryEnablement(
-        country_override->first, country_override->second);
+    result.allowed_by_country_filter =
+        GlicEnabling::IsRetailDemoModeDesktop() ||
+        EvaluateCountryEnablement(country_override->first,
+                                  country_override->second);
   } else {
     result.allowed_by_country_filter = global_enabling.IsCountryEnabled();
   }
@@ -542,13 +547,18 @@ GlicEnabling::ScopedBypassEnablementChecksForTesting::
     ~ScopedBypassEnablementChecksForTesting() = default;
 
 // static
-void GlicEnabling::SetBypassEnablementChecksForTesting(bool bypass) {
-  g_bypass_enablement_checks_for_testing = bypass;
+void GlicEnabling::SetSystemRequirementMetForTesting(std::optional<bool> met) {
+  g_system_requirement_met_for_testing = met;
 }
 
 // static
-void GlicEnabling::SetSystemRequirementMetForTesting(std::optional<bool> met) {
-  g_system_requirement_met_for_testing = met;
+bool GlicEnabling::IsRetailDemoModeDesktop() {
+#if BUILDFLAG(IS_ANDROID)
+  return ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_DESKTOP &&
+         base::android::device_info::is_retail_demo_mode();
+#else
+  return false;
+#endif
 }
 
 // static
@@ -736,13 +746,33 @@ bool GlicGlobalEnabling::IsSystemRequirementMet() const {
     return *g_system_requirement_met_for_testing;
   }
   static const bool supported_system_requirements = [] {
-    if (base::SysInfo::AmountOfTotalPhysicalMemory() <
-        base::MiBU(base::saturated_cast<uint64_t>(
-            features::kGlicMinRequiredRamMb.Get()))) {
-      return false;
+    if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
+            switches::kTestType)) {
+      if (base::SysInfo::AmountOfTotalPhysicalMemory() <
+          base::MiB(base::saturated_cast<uint64_t>(
+              features::kGlicMinRequiredRamMb.Get()))) {
+        return false;
+      }
     }
+
+#if BUILDFLAG(IS_ANDROID)
+    if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
+            switches::kTestType)) {
+      ui::DeviceFormFactor form_factor = ui::GetDeviceFormFactor();
+
+      bool form_factor_allowed =
+          form_factor == ui::DEVICE_FORM_FACTOR_PHONE ||
+          form_factor == ui::DEVICE_FORM_FACTOR_FOLDABLE ||
+          form_factor == ui::DEVICE_FORM_FACTOR_DESKTOP ||
+          (form_factor == ui::DEVICE_FORM_FACTOR_TABLET &&
+           base::FeatureList::IsEnabled(features::kGlicAndroidTablet));
+      if (!form_factor_allowed) {
+        return false;
+      }
+    }
+#endif
 #if BUILDFLAG(IS_CHROMEOS)
-    constexpr base::ByteSize kMinimumMemoryThreshold = base::GiBU(7);
+    constexpr base::ByteSize kMinimumMemoryThreshold = base::GiB(7);
     const bool bypass_cbx_requirement =
         GlicEnabling::IsLikelyDogfoodClient() &&
         base::SysInfo::AmountOfTotalPhysicalMemory() >= kMinimumMemoryThreshold;
@@ -787,6 +817,10 @@ bool GlicEnabling::IsOsVersionSupported() {
 
 bool GlicGlobalEnabling::IsCountryEnabled() {
   if (is_country_enabled_) {
+    return true;
+  }
+  if (GlicEnabling::IsRetailDemoModeDesktop()) {
+    is_country_enabled_ = true;
     return true;
   }
   LastCheckedCountries current_countries{delegate_->GetPermanentCountryCode(),
@@ -921,6 +955,11 @@ bool GlicEnabling::IsEnabledForFirstRunProfile(
     std::string_view permanent_country,
     std::string_view session_country,
     const AccountInfo& account_info) {
+  // Chrome First Run dedicated checks should go first before 'general' GiC
+  // eligibility checks.
+  if (!CanUseAdultFeatures(account_info.GetAccountCapabilities())) {
+    return false;
+  }
   return ComputeProfileEnablement(
              profile, std::make_pair(permanent_country, session_country),
              &account_info)
@@ -1331,7 +1370,8 @@ bool GlicEnabling::HasConsented() const {
 // static
 prefs::FreStatus GlicEnabling::GetCompletedFre(Profile* profile) {
   if (base::FeatureList::IsEnabled(
-          features::kGlicExperimentalTriggeringOptInBypass)) {
+          features::kGlicExperimentalTriggeringOptInBypass) ||
+      IsRetailDemoModeDesktop()) {
     return prefs::FreStatus::kCompleted;
   }
   return static_cast<prefs::FreStatus>(

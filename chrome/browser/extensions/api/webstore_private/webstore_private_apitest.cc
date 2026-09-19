@@ -11,6 +11,7 @@
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/run_loop.h"
+#include "base/strings/escape.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -27,7 +28,6 @@
 #include "chrome/browser/ui/extensions/extension_install_ui.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_features.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_test_util.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/chrome_test_utils.h"
@@ -63,9 +63,13 @@
 #include "gpu/config/gpu_feature_type.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "services/network/public/cpp/ip_address_space_overrides_test_utils.h"
+#include "services/network/public/cpp/network_switches.h"
+#include "services/network/public/mojom/ip_address_space.mojom.h"
 #include "ui/gl/gl_switches.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
+#include "ash/constants/ash_switches.h"
 #include "chrome/browser/ash/login/test/device_state_mixin.h"
 #include "chrome/browser/supervised_user/chromeos/parent_access_extension_approvals_manager.h"
 #include "chrome/browser/ui/webui/ash/parent_access/fake_parent_access_dialog.h"
@@ -80,7 +84,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/supervised_user/supervised_user_extensions_delegate_impl.h"
 #include "chrome/browser/supervised_user/supervised_user_test_util.h"  // nogncheck
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/supervised_user/parent_permission_dialog_view.h"
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
 #include "chrome/test/supervised_user/supervision_mixin.h"
@@ -334,6 +338,58 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebstorePrivateApiTest, IconUrl) {
   ASSERT_TRUE(RunInstallTest("icon_url.html", "extension.crx"));
 }
 
+// Verifies the install-confirmation icon fetch is subject to Local Network
+// Access (LNA) checks. Browser tests mark all loopback test servers as public
+// by default (BrowserTestBase::SetUp), so the icon is served from a second
+// server that this fixture instead marks as a local address, exercising a
+// public -> local fetch.
+class ExtensionWebstorePrivateIconUrlLnaApiTest
+    : public ExtensionWebstorePrivateApiTest {
+ public:
+  ExtensionWebstorePrivateIconUrlLnaApiTest() = default;
+  ~ExtensionWebstorePrivateIconUrlLnaApiTest() override = default;
+
+ protected:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    ExtensionWebstorePrivateApiTest::SetUpCommandLine(command_line);
+    // Assign the port so it can be named in the override below.
+    ASSERT_TRUE(local_network_server_.InitializeAndListen());
+    local_network_server_.ServeFilesFromSourceDirectory(
+        "chrome/test/data/extensions/api_test/webstore_private");
+    // Mark the icon server as a local address (replacing the blanket
+    // loopback-is-public default) so the public -> local fetch is blocked.
+    command_line->RemoveSwitch(network::switches::kIpAddressSpaceOverrides);
+    network::AddIpAddressSpaceOverridesToCommandLine(
+        {network::GenerateIpAddressSpaceOverride(
+            local_network_server_, network::mojom::IPAddressSpace::kLocal)},
+        *command_line);
+  }
+
+  void SetUpOnMainThread() override {
+    ExtensionWebstorePrivateApiTest::SetUpOnMainThread();
+    local_network_server_.StartAcceptingConnections();
+  }
+
+  GURL local_network_icon_url() {
+    return local_network_server_.GetURL("/extension/icon.png");
+  }
+
+ private:
+  net::EmbeddedTestServer local_network_server_;
+};
+
+// Regression test: a renderer-supplied `iconUrl` that resolves to a local
+// network address must be blocked when fetched from the browser process, so the
+// install fails with an icon error instead of probing internal hosts.
+IN_PROC_BROWSER_TEST_F(ExtensionWebstorePrivateIconUrlLnaApiTest,
+                       IconUrlToLocalNetworkAddressIsBlocked) {
+  const std::string page = base::StringPrintf(
+      "local_network_icon.html?icon_url=%s",
+      base::EscapeQueryParamValue(local_network_icon_url().spec(), true)
+          .c_str());
+  ASSERT_TRUE(RunInstallTest(page, "extension.crx"));
+}
+
 // Tests that the Approvals are properly created in beginInstall.
 IN_PROC_BROWSER_TEST_F(ExtensionWebstorePrivateApiTest, BeginInstall) {
   std::string appId = "iladmdjkfniedhfhcfoefgojhgaiaccc";
@@ -409,7 +465,7 @@ class SupervisedUserExtensionWebstorePrivateApiTest
     // TODO (crbug.com/41477104): figure out why this switch speeds up the test,
     // and fix the test setup so this is not required.
 #if BUILDFLAG(IS_CHROMEOS)
-    command_line->AppendSwitch(::switches::kShortMergeSessionTimeoutForTest);
+    command_line->AppendSwitch(ash::switches::kShortMergeSessionTimeoutForTest);
 #endif
   }
 

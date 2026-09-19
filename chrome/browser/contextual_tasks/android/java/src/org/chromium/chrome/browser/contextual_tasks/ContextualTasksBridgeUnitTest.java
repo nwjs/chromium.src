@@ -24,7 +24,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
 import org.chromium.base.UnownedUserDataHost;
@@ -44,7 +43,6 @@ import org.chromium.ui.base.ActivityWindowAndroid;
 import java.lang.ref.WeakReference;
 
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class ContextualTasksBridgeUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -61,7 +59,6 @@ public class ContextualTasksBridgeUnitTest {
     private final UnownedUserDataHost mUserDataHost = new UnownedUserDataHost();
 
     private static final String TEST_URL = "https://example.com";
-    private static final String TEST_TASK_ID = "test-task-id";
     private static final long TEST_NATIVE_BROWSER_WINDOW_INTERFACE_PTR = 5678L;
     private static final long TEST_NATIVE_BRIDGE_PTR = 1234L;
 

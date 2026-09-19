@@ -536,6 +536,26 @@ enum ActionResultCode {
   // The trigger field for OTP filling was not found.
   kOtpFieldNotFound = 1416,
 
+  ///////////////////////////////////////////////////////////////////////
+  // Codes 1500-1599: Errors for translate page.
+
+  // Translation is not available or supported for the tab.
+  kTranslateServiceUnavailable = 1500,
+
+  // The requested target language is not supported.
+  kTranslateUnsupportedLanguage = 1501,
+
+  ///////////////////////////////////////////////////////////////////////
+  // Codes 1600-1699: Errors for bookmark management.
+
+  // The BookmarkModel was not loaded or not available.
+  kBookmarkModelNotLoaded = 1600,
+
+  // Codes 1700-1799: Errors for find and highlight tool.
+
+  // The requested text could not be found or highlighted on the page.
+  kFindAndHighlightTextNotFound = 1700,
+
   // Please see the comment above about adding new values.
 };
 

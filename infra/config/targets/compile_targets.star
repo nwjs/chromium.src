@@ -353,7 +353,7 @@ targets.compile_target(
 
 targets.compile_target(
     name = "pdfium_test",
-    label = "//third_party/pdfium/testing:pdfium_test",
+    label = "//third_party/pdfium/testing/pdfium_test",
 )
 
 targets.compile_target(
@@ -374,13 +374,6 @@ targets.compile_target(
 targets.compile_target(
     name = "remoting/host:host",
     label = "//remoting/host:host",
-)
-
-targets.compile_target(
-    name = "rust_build_tests",
-    label = "//build/rust/tests",
-    # All references have been moved to starlark
-    skip_usage_check = True,
 )
 
 targets.compile_target(

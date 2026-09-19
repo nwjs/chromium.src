@@ -386,16 +386,16 @@ chromium_strings.grd. -->
       <message name="IDS_TASK_MANAGER_TASK_KILL_FAIL_ACCESSIBILITY_MESSAGE" desc="The text announced when all tasks in the process could not be killed.">
         Failed to end task(s).
       </message>
-      <message name="IDS_TASK_MANAGER_CATEGORY_TABS_AND_EXTENSIONS_NAME" desc="The title of the 'Tabs and extensions' filter category.">
+      <message name="IDS_TASK_MANAGER_CATEGORY_TABS_AND_EXTENSIONS_NAME" desc="The title of the 'Tabs and extensions' filter category." formatter_data="android_java">
         Tabs &amp; extensions
       </message>
       <message name="IDS_TASK_MANAGER_CATEGORY_SYSTEM_NAME" desc="The title of the 'System' filter category on ChromeOS.">
         System
       </message>
-      <message name="IDS_TASK_MANAGER_CATEGORY_BROWSER_NAME" desc="The title of the 'System' filter category on Windows/Mac/Linux.">
+      <message name="IDS_TASK_MANAGER_CATEGORY_BROWSER_NAME" desc="The title of the 'System' filter category on Windows/Mac/Linux/Android desktop." formatter_data="android_java">
         Browser
       </message>
-      <message name="IDS_TASK_MANAGER_CATEGORY_ALL_NAME" desc="The title of the 'All tasks' filter category on Windows/Mac/Linux/ChromeOS.">
+      <message name="IDS_TASK_MANAGER_CATEGORY_ALL_NAME" desc="The title of the 'All tasks' filter category on Windows/Mac/Linux/ChromeOS/Android desktop." formatter_data="android_java">
         All tasks
       </message>
       <message name="IDS_SESSION_CRASHED_VIEW_UMA_OPTIN" desc="Text besides the checkbox to let users optin to UMA in the restore from previous crash bubble.">
@@ -1167,30 +1167,15 @@ Google Chrome is unable to recover your settings.
 
       <!-- Page menu. Android has separate strings for its menu -->
       <if expr="not is_android">
-        <if expr="use_titlecase">
-          <then>
-            <message name="IDS_CUSTOMIZE_CHROME" desc="In Title Case: The text label of the Customize Chrome menu item">
-              C&amp;ustomize Your Chrome
-            </message>
-            <message name="IDS_OTHER_CHROME_PROFILES_TITLE" desc="In Title Case: The title of the Other Chrome profiles section">
-              Other Chrome Profiles
-            </message>
-            <message name="IDS_MANAGE_CHROME_PROFILES" desc="In Title Case: The text label of the manage chrome profile item">
-              &amp;Manage Chrome Profiles
-            </message>
-          </then>
-          <else>
-            <message name="IDS_CUSTOMIZE_CHROME" desc="The text label of the Customize Chrome menu item">
-              C&amp;ustomize your Chrome
-            </message>
-            <message name="IDS_OTHER_CHROME_PROFILES_TITLE" desc="The title of the Other Chrome profiles section">
-              Other Chrome profiles
-            </message>
-            <message name="IDS_MANAGE_CHROME_PROFILES" desc="The text label of the manage chrome profile item">
-              &amp;Manage Chrome profiles
-            </message>
-          </else>
-        </if>
+        <message name="IDS_CUSTOMIZE_CHROME" desc="The text label of the Customize Chrome menu item">
+          C&amp;ustomize your Chrome
+        </message>
+        <message name="IDS_OTHER_CHROME_PROFILES_TITLE" desc="The title of the Other Chrome profiles section">
+          Other Chrome profiles
+        </message>
+        <message name="IDS_MANAGE_CHROME_PROFILES" desc="The text label of the manage chrome profile item">
+          &amp;Manage Chrome profiles
+        </message>
       </if>
 
       <message name="IDS_VIEW_PASSWORDS" desc="Item in the app menu which shows Password Manager page">
@@ -1946,6 +1931,9 @@ Google Chrome is unable to recover your settings.
       </message>
 
       <!-- Desktop Capture -->
+      <message name="IDS_SEARCHBOX_PICKER_HEADLINE" desc="Title of the searchbox screen or window picker dialog.">
+        Choose what to share with Chrome
+      </message>
       <message name="IDS_DESKTOP_MEDIA_PICKER_SOURCE_TYPE_TAB" desc="Text for the button on the window picker dialog, clicking which takes one to tab sharing">
         Chrome Tab
       </message>
@@ -2056,6 +2044,14 @@ Google Chrome is unable to recover your settings.
 
         <message name="IDS_SIDE_PANEL_CONTEXTUAL_TASKS_PINNABLE_IPH" desc="The body text of the IPH describing that the Contextual Tasks side panel is pinnable.">
           You can pin Google Search AI Mode to ask questions as you browse
+        </message>
+        <message name="IDS_CONTEXTUAL_TASKS_EPHEMERAL_TOOLBAR_BUTTON_IPH" desc="The body text of the IPH describing that the Contextual Tasks ephemeral toolbar button can be used to reopen Google Search AI Mode.">
+          You can reopen Google Search AI Mode to ask questions while you browse
+        </message>
+        <message name="IDS_CONTEXTUAL_TASKS_EPHEMERAL_TOOLBAR_BUTTON_IPH_SCREENREADER"
+          desc="The screen reader text of the IPH describing that the Contextual Tasks ephemeral toolbar button can be used to reopen Google Search AI Mode."
+          is_accessibility_with_no_ui="true">
+          From the "Google Search AI Mode" button on the toolbar, you can reopen Google Search AI Mode to ask questions while you browse
         </message>
         <message name="IDS_TUTORIAL_CONTEXTUAL_TASKS_STEP1" desc="The body text of the first step of the Contextual Tasks tutorial. THREE_DOTS_ICON is the vertical three-dot overflow menu icon that we are instructing users to click on.">
           Open the more <ph name="THREE_DOTS_ICON">⋮</ph> menu
@@ -2300,21 +2296,45 @@ Google Chrome is unable to recover your settings.
           Search with Google Lens
         </message>
 
-        <message name="IDS_LENS_OVERLAY_IMAGE_ENTRYPOINT_LABEL_ALT3"
-          desc="Label for the Lens overlay command, through which the image will be searched using Google Lens.">
-          Search this image with Google Lens
-        </message>
+        <if expr="use_titlecase">
+          <message name="IDS_LENS_OVERLAY_IMAGE_ENTRYPOINT_LABEL_ALT3"
+            desc="In Title Case: Label for the Lens overlay command, through which the image will be searched using Google Lens.">
+            Search This Image with Google Lens
+          </message>
+          <message name="IDS_LENS_OVERLAY_TAB_ENTRYPOINT_LABEL_CONTEXT_MENU"
+            desc="In Title Case: Label for the Lens overlay command in the context menu, through which the current tab will be searched using Google Lens.">
+            Search This Tab with Google Lens
+          </message>
+          <message name="IDS_LENS_OVERLAY_VIDEO_ENTRYPOINT_LABEL_ALT3"
+            desc="In Title Case: Label for the Lens overlay command, through which the video will be searched using Google Lens.">
+            Search This Video with Google Lens
+          </message>
+          <message name="IDS_LENS_OVERLAY_TAB_ENTRYPOINT_LABEL_V2"
+            desc="In Title Case: Label for the Lens overlay command, through which the current tab will be searched using Google Lens.">
+            Search with Google Lens
+          </message>
+        </if>
+        <if expr="not use_titlecase">
+          <message name="IDS_LENS_OVERLAY_IMAGE_ENTRYPOINT_LABEL_ALT3"
+            desc="Label for the Lens overlay command, through which the image will be searched using Google Lens.">
+            Search this image with Google Lens
+          </message>
+          <message name="IDS_LENS_OVERLAY_TAB_ENTRYPOINT_LABEL_CONTEXT_MENU"
+            desc="Label for the Lens overlay command in the context menu, through which the current tab will be searched using Google Lens.">
+            Search this tab with Google Lens
+          </message>
+          <message name="IDS_LENS_OVERLAY_VIDEO_ENTRYPOINT_LABEL_ALT3"
+            desc="Label for the Lens overlay command, through which the video will be searched using Google Lens.">
+            Search this video with Google Lens
+          </message>
+          <message name="IDS_LENS_OVERLAY_TAB_ENTRYPOINT_LABEL_V2"
+            desc="Label for the Lens overlay command, through which the current tab will be searched using Google Lens.">
+            Search with Google Lens
+          </message>
+        </if>
         <message name="IDS_LENS_OVERLAY_TAB_ENTRYPOINT_LABEL"
           desc="Label for the Lens overlay command, through which the current tab will be searched using Google Lens.">
           Search this tab with Google Lens
-        </message>
-        <message name="IDS_LENS_OVERLAY_TAB_ENTRYPOINT_LABEL_V2"
-          desc="Label for the Lens overlay command, through which the current tab will be searched using Google Lens.">
-          Search with Google Lens
-        </message>
-        <message name="IDS_LENS_OVERLAY_VIDEO_ENTRYPOINT_LABEL_ALT3"
-          desc="Label for the Lens overlay command, through which the video will be searched using Google Lens.">
-          Search this video with Google Lens
         </message>
       </if>
 
@@ -2659,6 +2679,27 @@ Google Chrome is unable to recover your settings.
         <!-- First Run Experience -->
         <message name="IDS_FRE_WELCOME_START_BUTTON_LABEL" desc="This string is found on a primary button that takes the user into the main browser experience. It is a verb-based call to action. (CHAR LIMIT = 20)">
           Start Chrome
+        </message>
+        <message name="IDS_FRE_WELCOME_METRICS_LABEL" desc="This string is a confirmation message regarding data sharing settings. It informs users that their data helps improve the product. 'Manage' is a link that navigates to detailed settings. The tone should be informative and transparent.">
+          You’re helping make Chrome better by sending usage statistics and crash reports to Google. <ph name="BEGIN_LINK">&lt;a href="#"&gt;</ph>Manage<ph name="END_LINK">&lt;/a&gt;</ph>
+        </message>
+        <message name="IDS_FRE_WELCOME_METRICS_OFF_LABEL" desc="This string is a status message shown when data sharing is disabled. It identifies the current state of privacy settings. The tone should be neutral and cautionary.">
+          You’re not sending usage statistics and crash reports to Google. <ph name="BEGIN_LINK">&lt;a href="#"&gt;</ph>Manage<ph name="END_LINK">&lt;/a&gt;</ph>
+        </message>
+        <message name="IDS_FRE_WELCOME_METRICS_POPUP_DESCRIPTION" desc="This is the body text of a card explaining the intent of data sharing. It provides context on user control ('change... anytime'). The tone should be informative.">
+          Automatically sending this data to Google helps make Chrome better. You can change this setting anytime.
+        </message>
+        <message name="IDS_FRE_WELCOME_METRICS_POPUP_TITLE" desc="This is the title of a setting in a dialog regarding technical data sharing. It refers to data about app performance and stability. (CHAR LIMIT = 35)">
+          Usage statistics and crash reports
+        </message>
+        <message name="IDS_FRE_WELCOME_METRICS_POPUP_TURN_OFF_BUTTON_LABEL" desc="This string is found on a button that disables the current setting. It is a direct action verb. (CHAR LIMIT = 15)">
+          Turn off
+        </message>
+        <message name="IDS_FRE_WELCOME_METRICS_POPUP_TURN_ON_BUTTON_LABEL" desc="This string is found on a button that enables the current setting. It is a direct action verb. (CHAR LIMIT = 15)">
+          Turn on
+        </message>
+        <message name="IDS_FRE_WELCOME_METRICS_POPUP_CLOSE_BUTTON_LABEL" desc="Accessibility label for the close button on the first run welcome screen popup.">
+          Close
         </message>
 
         <message name="IDS_FRE_SIGN_IN_TITLE_0" meaning="Title"
@@ -3187,10 +3228,6 @@ Google Chrome is unable to recover your settings.
       <message name="IDS_GLIC_STATUS_ICON_MENU_TOGGLE" desc="This is the menu item for toggling the Gemini UI.">
         Toggle Gemini in Chrome
       </message>
-      <!-- TODO(crbug.com/532187976): Make strings translateable once finalized. -->
-      <message name="IDS_OMNIBOX_EVERYWHERE_STATUS_ICON_MENU_TOGGLE" desc="Label for the toggle item in the Omnibox Everywhere status tray context menu." translateable="false">
-        Toggle Search in Chrome
-      </message>
       <message name ="IDS_GLIC_INELIGIBLE_PROFILE_NOTICE" desc="This is the text of the Gemini ineligible profile notice.">
         To use Gemini in Chrome, sign in with a different Google Account
       </message>
@@ -3224,6 +3261,44 @@ Google Chrome is unable to recover your settings.
           Show Gemini in Chrome in system tray
         </message>
       </if>
+      <if expr="is_macosx">
+        <message name="IDS_OMNIBOX_EVERYWHERE_STATUS_ICON_MENU_TOGGLE" desc="In Title Case: Label for the toggle item in the Search in Chrome status tray context menu.">
+          Open Search with Chrome
+        </message>
+      </if>
+      <if expr="not is_macosx">
+        <message name="IDS_OMNIBOX_EVERYWHERE_STATUS_ICON_MENU_TOGGLE" desc="Label for the toggle item in the Search in Chrome status tray context menu.">
+          Open search with Chrome
+        </message>
+      </if>
+      <message name="IDS_OMNIBOX_EVERYWHERE_STATUS_ICON_TOOLTIP" desc="Tooltip text for the Search in Chrome status tray icon.">
+        Search in Chrome
+      </message>
+      <message name="IDS_SETTINGS_OMNIBOX_EVERYWHERE_TITLE" desc="Title of the Omnibox Everywhere section on the search settings page.">
+        Search with Chrome
+      </message>
+      <if expr="is_macosx">
+        <message name="IDS_SETTINGS_OMNIBOX_EVERYWHERE_TOGGLE" desc="Name of the toggle that controls whether Search with Chrome is shown in the Mac menu bar (on Mac only).">
+          Show search with Chrome in Mac menu bar and turn on keyboard shortcut
+        </message>
+      </if>
+      <if expr="is_win or is_linux or is_chromeos">
+        <message name="IDS_SETTINGS_OMNIBOX_EVERYWHERE_TOGGLE" desc="Name of the toggle that controls whether Search with Chrome is shown in the system tray (on ChromeOS, Windows and Linux).">
+          Show search with Chrome in system tray and turn on keyboard shortcut
+        </message>
+      </if>
+      <message name="IDS_SETTINGS_OMNIBOX_EVERYWHERE_TOGGLE_SUBLABEL" desc="Sublabel of the toggle that controls whether Omnibox Everywhere is shown across the device even if Chrome is minimized.">
+        Search and ask questions from anywhere, even if Chrome is minimized
+      </message>
+      <message name="IDS_SETTINGS_OMNIBOX_EVERYWHERE_SHORTCUT_SUBLABEL" desc="Description for the global keyboard shortcut setting to invoke Omnibox Everywhere.">
+        Search with a keyboard shortcut.
+      </message>
+      <message name="IDS_SETTINGS_OMNIBOX_EVERYWHERE_SHOW_SHORTCUTS_TITLE" desc="Label for the toggle to show shortcuts in Omnibox Everywhere.">
+        Show Chrome site shortcuts
+      </message>
+      <message name="IDS_SETTINGS_OMNIBOX_EVERYWHERE_SHOW_SHORTCUTS_SUBLABEL" desc="Description for the toggle to show shortcuts in Omnibox Everywhere.">
+        Easy access to websites below the address bar
+      </message>
       <message name="IDS_SETTINGS_GLIC_OS_WIDGET_TOGGLE_SUBLABEL" desc="Sublabel of the toggle that controls whether the Gemini icon is shown in the menu bar (on Mac) / system tray (on Windows and Linux)." formatter_data="android_java">
         Easy access to use Gemini in Chrome across your device, even if Chrome is minimized.
       </message>
@@ -3231,7 +3306,7 @@ Google Chrome is unable to recover your settings.
         Open Gemini in Chrome with a keyboard shortcut.
       </message>
       <message name="IDS_SETTINGS_GLIC_NAVIGATION_SHORTCUT_SUBLABEL" desc="Sublabel describing the keyboard shortcut navigate between Chrome and Gemini." formatter_data="android_java">
-        To leave or return to Gemini in Chrome, use keyboard shortcut.
+        Use your keyboard to navigate between Gemini in Chrome and your open tab.
       </message>
       <message name="IDS_SETTINGS_GLIC_KEEP_SIDEPANEL_OPEN_ON_NEW_TABS_SUBLABEL" desc="Sublabel describing the setting to keep side panel open when new tabs are opened.">
         If Gemini in Chrome is open, the side panel stays open when creating new tabs
@@ -3308,20 +3383,20 @@ Google Chrome is unable to recover your settings.
       <if expr="not is_android">
         <if expr="use_titlecase">
           <message name="IDS_DICTATION_CONTEXT_MENU_STRING" desc="The string shown in the right-click context menu to start using the dictation feature." translateable="false">
-            Voice Typing
+            Talk to Type
           </message>
         </if>
         <if expr="not use_titlecase">
           <message name="IDS_DICTATION_CONTEXT_MENU_STRING" desc="The string shown in the right-click context menu to start using the dictation feature." translateable="false">
-            Voice typing
+            Talk to type
           </message>
         </if>
 
         <message name="IDS_DICTATION_ONBOARDING_TITLE" desc="The title string in the onboarding dialog for the dictation feature." translateable="false">
-          Allow voice typing to use your microphone and page content to generate polished text?
+          Let Chrome use your microphone and page content to generate polished text?
         </message>
         <message name="IDS_DICTATION_ONBOARDING_BULLET_MICROPHONE" desc="The first paragraph in the onboarding dialog describing how the microphone is used." translateable="false">
-          Your microphone will be used to capture your voice.
+          Your microphone will be used to capture your voice
         </message>
         <message name="IDS_DICTATION_ONBOARDING_BULLET_DISCLAIMER" desc="The disclaimer text in the onboarding dialog describing the use of AI and potential for mistakes and providing a link for more details." translateable="false">
           Gemini models can make mistakes. <ph name="LEARN_MORE_LINK">$1<ex>Learn more</ex></ph>

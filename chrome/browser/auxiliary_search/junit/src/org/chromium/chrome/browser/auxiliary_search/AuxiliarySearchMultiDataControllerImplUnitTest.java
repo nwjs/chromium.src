@@ -31,10 +31,10 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
 import org.chromium.base.FakeTimeTestRule;
+import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.base.TimeUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.HistogramWatcher;
@@ -49,7 +49,6 @@ import java.util.List;
 
 /** Unit tests for {@link AuxiliarySearchMultiDataControllerImpl} */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class AuxiliarySearchMultiDataControllerImplUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     public @Rule FakeTimeTestRule mFakeTime = new FakeTimeTestRule();
@@ -81,7 +80,7 @@ public class AuxiliarySearchMultiDataControllerImplUnitTest {
         when(mContext.getResources()).thenReturn(mResources);
 
         var factory = AuxiliarySearchControllerFactory.getInstance();
-        factory.setHooksForTesting(mHooks);
+        ServiceLoaderUtil.setInstanceForTesting(AuxiliarySearchHooks.class, mHooks);
         factory.setSupportMultiDataSourceForTesting(true);
         createController();
     }

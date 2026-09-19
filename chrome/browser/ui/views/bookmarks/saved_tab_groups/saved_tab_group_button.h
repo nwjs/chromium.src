@@ -17,8 +17,6 @@
 #include "components/saved_tab_groups/public/saved_tab_group.h"
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
-#include "content/public/browser/page.h"
-#include "content/public/browser/page_navigator.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/views/context_menu_controller.h"
@@ -106,6 +104,7 @@ class SavedTabGroupButton : public views::MenuButton,
   void UpdateAccessibleName();
   void SetText(std::u16string_view text) override;
   int GetAndIncrementLatestCommandId();
+  void OnContextMenuClosed();
 
   raw_ptr<BrowserWindowInterface> browser_;
 
@@ -130,6 +129,9 @@ class SavedTabGroupButton : public views::MenuButton,
 
   // Menu model used by the context menu.
   std::unique_ptr<STGTabsMenuModel> menu_model_;
+
+  // Keeps the button highlighted while its context menu is showing.
+  std::optional<views::Button::ScopedAnchorHighlight> context_menu_highlight_;
 
   // Context menu runner used for this View.
   std::unique_ptr<views::MenuRunner> context_menu_runner_;

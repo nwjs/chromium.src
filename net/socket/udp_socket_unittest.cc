@@ -392,7 +392,6 @@ TEST_F(UDPSocketTest, Connect) {
 
 TEST_F(UDPSocketTest, ConnectRestrictedPort) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList feature_list;
   // Setup the server to listen.
   UDPServerSocket server(NetLog::Get(), NetLogSource());
   server.AllowAddressReuse();
@@ -400,7 +399,7 @@ TEST_F(UDPSocketTest, ConnectRestrictedPort) {
   // Get bound port.
   IPEndPoint server_address;
   ASSERT_THAT(server.GetLocalAddress(&server_address), IsOk());
-  feature_list.InitAndEnableFeatureWithParameters(
+  AddScopedFeatureList().InitAndEnableFeatureWithParameters(
       features::kRestrictAbusePortsOnLocalhost,
       {{"localhost_restrict_ports",
         base::NumberToString(server_address.port())}});
@@ -433,13 +432,12 @@ TEST_F(UDPSocketTest, ConnectRestrictedPort) {
 
 TEST_F(UDPSocketTest, ConnectUsingNetworkRestrictedPort) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList feature_list;
   UDPServerSocket server(NetLog::Get(), NetLogSource());
   server.AllowAddressReuse();
   ASSERT_THAT(server.Listen(IPEndPoint(IPAddress::IPv4Localhost(), 0)), IsOk());
   IPEndPoint server_address;
   ASSERT_THAT(server.GetLocalAddress(&server_address), IsOk());
-  feature_list.InitAndEnableFeatureWithParameters(
+  AddScopedFeatureList().InitAndEnableFeatureWithParameters(
       features::kRestrictAbusePortsOnLocalhost,
       {{"localhost_restrict_ports",
         base::NumberToString(server_address.port())}});
@@ -455,13 +453,12 @@ TEST_F(UDPSocketTest, ConnectUsingNetworkRestrictedPort) {
 
 TEST_F(UDPSocketTest, ConnectUsingDefaultNetworkRestrictedPort) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList feature_list;
   UDPServerSocket server(NetLog::Get(), NetLogSource());
   server.AllowAddressReuse();
   ASSERT_THAT(server.Listen(IPEndPoint(IPAddress::IPv4Localhost(), 0)), IsOk());
   IPEndPoint server_address;
   ASSERT_THAT(server.GetLocalAddress(&server_address), IsOk());
-  feature_list.InitAndEnableFeatureWithParameters(
+  AddScopedFeatureList().InitAndEnableFeatureWithParameters(
       features::kRestrictAbusePortsOnLocalhost,
       {{"localhost_restrict_ports",
         base::NumberToString(server_address.port())}});
@@ -2620,6 +2617,10 @@ TEST_F(UDPSocketTest, SSMSourceFilteringMultiNICIPv6) {
 // InternalRecvFrom).
 #if BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
 TEST_F(UDPSocketTest, ReadMultiple) {
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+  base::MetricsSubSampler::ScopedAlwaysSampleForTesting scoped_always_sample;
+  base::HistogramTester histogram_tester;
+#endif
   // Create sender and receiver sockets.
   UDPSocket sender(DatagramSocket::DEFAULT_BIND, nullptr, NetLogSource());
   UDPSocket receiver(DatagramSocket::DEFAULT_BIND, nullptr, NetLogSource());
@@ -2707,6 +2708,10 @@ TEST_F(UDPSocketTest, ReadMultiple) {
     auto packet_span = read_buf->span().subspan(actual.offset, actual.length);
     EXPECT_EQ(base::as_string_view(packet_span), expected.data);
   }
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+  histogram_tester.ExpectUniqueSample("Net.UDPSocketPosix.RecvMmsgPacketsRead",
+                                      packets.size(), 1);
+#endif
 }
 
 // This test is only run on platforms that support the recvmmsg-based
@@ -2720,6 +2725,9 @@ TEST_F(UDPSocketTest, ReadMultiple) {
 // without modifying the general-purpose RecvFrom implementation.
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 TEST_F(UDPSocketTest, ReadMultipleControlTruncated) {
+  base::MetricsSubSampler::ScopedAlwaysSampleForTesting scoped_always_sample;
+  base::HistogramTester histogram_tester;
+
   // Create sender and receiver sockets.
   UDPSocket sender(DatagramSocket::DEFAULT_BIND, nullptr, NetLogSource());
   UDPSocket receiver(DatagramSocket::DEFAULT_BIND, nullptr, NetLogSource());
@@ -2775,11 +2783,17 @@ TEST_F(UDPSocketTest, ReadMultipleControlTruncated) {
   // ERR_CONTROL_MSG_TOO_BIG.
   ASSERT_FALSE(read_result.has_value());
   EXPECT_EQ(read_result.error(), ERR_CONTROL_MSG_TOO_BIG);
+  histogram_tester.ExpectTotalCount("Net.UDPSocketPosix.RecvMmsgPacketsRead",
+                                    0);
 }
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
         // BUILDFLAG(IS_ANDROID)
 
 TEST_F(UDPSocketTest, ReadMultiple_TooBig) {
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+  base::MetricsSubSampler::ScopedAlwaysSampleForTesting scoped_always_sample;
+  base::HistogramTester histogram_tester;
+#endif
   // Create sender and receiver sockets.
   UDPSocket sender(DatagramSocket::DEFAULT_BIND, nullptr, NetLogSource());
   UDPSocket receiver(DatagramSocket::DEFAULT_BIND, nullptr, NetLogSource());
@@ -2820,9 +2834,17 @@ TEST_F(UDPSocketTest, ReadMultiple_TooBig) {
 
   ASSERT_FALSE(read_result.has_value());
   EXPECT_EQ(read_result.error(), ERR_MSG_TOO_BIG);
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+  histogram_tester.ExpectTotalCount("Net.UDPSocketPosix.RecvMmsgPacketsRead",
+                                    0);
+#endif
 }
 
 TEST_F(UDPSocketTest, ReadMultiple_Async) {
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+  base::MetricsSubSampler::ScopedAlwaysSampleForTesting scoped_always_sample;
+  base::HistogramTester histogram_tester;
+#endif
   // Create sender and receiver sockets.
   UDPSocket sender(DatagramSocket::DEFAULT_BIND, nullptr, NetLogSource());
   UDPSocket receiver(DatagramSocket::DEFAULT_BIND, nullptr, NetLogSource());
@@ -2877,6 +2899,10 @@ TEST_F(UDPSocketTest, ReadMultiple_Async) {
   auto packet_span = read_buf->span().subspan(read_result.value()[0].offset,
                                               read_result.value()[0].length);
   EXPECT_EQ(base::as_string_view(packet_span), packet);
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+  histogram_tester.ExpectUniqueSample("Net.UDPSocketPosix.RecvMmsgPacketsRead",
+                                      1, 1);
+#endif
 }
 
 // Verifies that calling ReadMultiple() on a closed socket returns an explicit
@@ -2919,7 +2945,7 @@ class UDPSocketGroTest : public UDPSocketTest {
 
   void SetUp() override {
     UDPSocketTest::SetUp();
-    feature_list_.InitAndEnableFeature(features::kEnableUdpGro);
+    AddScopedFeatureList().InitAndEnableFeature(features::kEnableUdpGro);
   }
 
   // Configures GRO sockets and verifies that the kernel loopback interface
@@ -3016,7 +3042,6 @@ class UDPSocketGroTest : public UDPSocketTest {
   base::HistogramTester histogram_tester_;
 
  private:
-  base::test::ScopedFeatureList feature_list_;
   base::MetricsSubSampler::ScopedAlwaysSampleForTesting scoped_always_sample_;
 };
 
@@ -3042,6 +3067,8 @@ TEST_F(UDPSocketGroTest, ReadMultipleGroSyncSuccess) {
   EXPECT_EQ(read_result.value()[1].offset, 100u);
   histogram_tester_.ExpectUniqueSample("Net.UDPSocketPosix.GroPacketsRead", 2,
                                        1);
+  histogram_tester_.ExpectTotalCount("Net.UDPSocketPosix.RecvMmsgPacketsRead",
+                                     0);
 }
 
 TEST_F(UDPSocketGroTest, ReadMultipleGroSingleUncoalescedPacket) {

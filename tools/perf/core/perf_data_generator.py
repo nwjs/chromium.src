@@ -159,9 +159,11 @@ UPLOAD_SKIA_JSON_BUILDERS = frozenset(
     'android-pixel10-perf',
     'android-pixel10_webview-perf',
     'android-pixel10_webview-perf-pgo',
+    'android-pixel10_webview-perf-pgo-heapdump',
     'android-brya-kano-i5-8gb-perf',
     'android-corsola-steelix-8gb-perf',
     'android-nissa-uldren-8gb-perf',
+    'linux-arm-builder-perf',
     'linux-builder-perf',
     'linux-falcon-rak-5070-perf',
     'linux-perf',
@@ -169,6 +171,7 @@ UPLOAD_SKIA_JSON_BUILDERS = frozenset(
     'linux-perf-rel',
     'linux-r350-processor-perf',
     'linux-r350-perf',
+    'linux-nvidia-dgx-spark-arm-perf',
     'mac-arm-builder-perf',
     'mac-builder-perf',
     'mac-intel-perf',
@@ -209,6 +212,8 @@ PUBLIC_PERF_BUILDERS = [
   'android-pixel10-perf',
   'android-pixel10_webview-perf',
   'android-pixel10_webview-perf-pgo',
+  'android-pixel10_webview-perf-pgo-heapdump',
+  'linux-arm-builder-perf',
   'linux-builder-perf',
   'linux-falcon-rak-5070-perf',
   'linux-perf',
@@ -469,6 +474,28 @@ BUILDERS = {
       'system_webview_google_apk',
     ],
     'pinpoint_additional_compile_targets': [],
+  },
+  'linux-arm-builder-perf': {
+      'additional_compile_targets': [
+          'chromedriver_group',
+          'chrome/installer/linux',
+      ],
+      'pinpoint_additional_compile_targets': [],
+      'tests': [{
+          'name': 'chrome_sizes',
+          'isolate': 'chrome_sizes',
+          'type': TEST_TYPES.GENERIC,
+          'resultdb': {
+              'has_native_resultdb_integration': True,
+          },
+      }],
+      'dimension': {
+          'cpu': 'arm64',
+          'os': 'Ubuntu-22.04',
+          'pool': 'chrome.tests',
+      },
+      'perf_trigger':
+      False,
   },
   'linux-builder-perf': {
     'additional_compile_targets': [
@@ -872,6 +899,21 @@ BUILDERS = {
       'device_os_flavor': 'google',
     },
   },
+  'android-pixel10_webview-perf-pgo-heapdump': {
+    'tests': [
+      {
+        'isolate': 'performance_webview_test_suite',
+      }
+    ],
+    'platform': 'android-webview-standalone-google',
+    'dimension': {
+      'pool': 'chrome.tests.perf-webview-pgo',
+      'os': 'Android',
+      'device_type': 'frankel',
+      'device_os': 'BP4A.260105.004.E1',
+      'device_os_flavor': 'google',
+    },
+  },
   'android-go-processor-perf': {
     'platform': 'linux',
     'perf_processor': True,
@@ -969,6 +1011,22 @@ BUILDERS = {
       'os': 'Ubuntu-22',
       'pool': 'chrome.tests.perf',
       'synthetic_product_name': 'PowerEdge R350 (Dell Inc.)',
+    },
+  },
+  'linux-nvidia-dgx-spark-arm-perf': {
+    'tests': [
+      {
+        'isolate': 'performance_test_suite',
+        'extra_args': [
+          '--assert-gpu-compositing',
+        ],
+      },
+    ],
+    'platform':
+    'linux',
+    'dimension': {
+      'os': 'Ubuntu-24.04.4',
+      'pool': 'chrome.tests.perf',
     },
   },
   'linux-falcon-rak-5070-perf': {

@@ -84,6 +84,8 @@ targets.tests.gpu_telemetry_test(
     mixins = [
         "skia_gold_test",
         "has_native_resultdb_integration",
+        "gpu_integration_test_common_args",
+        "gpu_integration_test_pixel_args",
     ],
     module_scheme = "flat",
 )
@@ -1396,6 +1398,7 @@ targets.tests.gpu_telemetry_test(
     telemetry_test_name = "gpu_process",
     mixins = [
         "has_native_resultdb_integration",
+        "gpu_integration_test_common_args",
     ],
     module_scheme = "flat",
 )
@@ -1427,6 +1430,7 @@ targets.tests.gpu_telemetry_test(
     telemetry_test_name = "hardware_accelerated_feature",
     mixins = [
         "has_native_resultdb_integration",
+        "gpu_integration_test_common_args",
     ],
     module_scheme = "flat",
 )
@@ -1903,6 +1907,14 @@ targets.tests.isolated_script_test(
 )
 
 targets.tests.isolated_script_test(
+    name = "chrome_ai_wpt_tests_manifest_gpu_high_tier_gemma4",
+    args = [
+        "--manifest-test-config=../../components/optimization_guide/internal/testing/configs/manifest_test_config_gpu_high_tier_gemma4.json",
+    ],
+    binary = "chrome_ai_wpt_tests",
+)
+
+targets.tests.isolated_script_test(
     name = "chrome_ai_wpt_tests_manifest_gpu_low_tier",
     args = [
         "--manifest-test-config=../../components/optimization_guide/internal/testing/configs/manifest_test_config_gpu_low_tier.json",
@@ -1911,9 +1923,25 @@ targets.tests.isolated_script_test(
 )
 
 targets.tests.isolated_script_test(
+    name = "chrome_ai_wpt_tests_manifest_gpu_low_tier_gemma4",
+    args = [
+        "--manifest-test-config=../../components/optimization_guide/internal/testing/configs/manifest_test_config_gpu_low_tier_gemma4.json",
+    ],
+    binary = "chrome_ai_wpt_tests",
+)
+
+targets.tests.isolated_script_test(
     name = "chrome_ai_wpt_tests_manifest_cpu",
     args = [
         "--manifest-test-config=../../components/optimization_guide/internal/testing/configs/manifest_test_config_cpu.json",
+    ],
+    binary = "chrome_ai_wpt_tests",
+)
+
+targets.tests.isolated_script_test(
+    name = "chrome_ai_wpt_tests_manifest_cpu_gemma4",
+    args = [
+        "--manifest-test-config=../../components/optimization_guide/internal/testing/configs/manifest_test_config_cpu_gemma4.json",
     ],
     binary = "chrome_ai_wpt_tests",
 )
@@ -2150,10 +2178,6 @@ targets.tests.isolated_script_test(
 
 targets.tests.gtest_test(
     name = "rlz_unittests",
-)
-
-targets.tests.gtest_test(
-    name = "rust_gtest_interop_unittests",
 )
 
 targets.tests.gtest_test(
@@ -2449,10 +2473,6 @@ targets.tests.gtest_test(
     binary = "cc_unittests",
 )
 
-targets.tests.gtest_test(
-    name = "test_cpp_including_rust_unittests",
-)
-
 targets.tests.isolated_script_test(
     name = "test_env_py_unittests",
 )
@@ -2731,6 +2751,18 @@ targets.tests.gpu_telemetry_test(
 )
 
 targets.tests.gpu_telemetry_test(
+    name = "webcodecs_validating_ganesh_tests",
+    telemetry_test_name = "webcodecs",
+    mixins = [
+        "has_native_resultdb_integration",
+        "gpu_force_command_decoder_validating",
+        "gpu_force_skia_ganesh",
+        "gpu_integration_test_common_args",
+    ],
+    module_scheme = "flat",
+)
+
+targets.tests.gpu_telemetry_test(
     name = "webrtc_metal_passthrough_graphite_tests",
     telemetry_test_name = "webrtc",
     mixins = [
@@ -2760,6 +2792,18 @@ targets.tests.gpu_telemetry_test(
     telemetry_test_name = "webrtc",
     mixins = [
         "has_native_resultdb_integration",
+        "gpu_integration_test_common_args",
+    ],
+    module_scheme = "flat",
+)
+
+targets.tests.gpu_telemetry_test(
+    name = "webrtc_validating_ganesh_tests",
+    telemetry_test_name = "webrtc",
+    mixins = [
+        "has_native_resultdb_integration",
+        "gpu_force_command_decoder_validating",
+        "gpu_force_skia_ganesh",
         "gpu_integration_test_common_args",
     ],
     module_scheme = "flat",

@@ -88,9 +88,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
-/** Unit tests for the {@link BookmarkBarMediator}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@DisableFeatures(ChromeFeatureList.BOOKMARKS_BAR_NTP)
+@DisableFeatures({
+    ChromeFeatureList.BOOKMARKS_BAR_NTP,
+    ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT,
+    ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_DIALOG
+})
 public class BookmarkBarMediatorTest {
     @Rule
     public ActivityScenarioRule<TestActivity> mActivityScenarioRule =
@@ -1143,7 +1146,29 @@ public class BookmarkBarMediatorTest {
                         eq(mActivity),
                         eq(mTab),
                         eq(mProfile),
-                        eq(mBookmarkModel.getRootFolderId()));
+                        eq(mBookmarkModel.getDefaultFolderViewLocation()));
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT)
+    public void testOnAllBookmarksButtonClick_desktopLayoutEnabled() {
+        ArgumentCaptor<ClickWithMetaStateCallback> clickCallbackCaptor =
+                ArgumentCaptor.forClass(ClickWithMetaStateCallback.class);
+        verify(mAllBookmarksButtonModel)
+                .set(eq(BookmarkBarButtonProperties.CLICK_CALLBACK), clickCallbackCaptor.capture());
+
+        ClickWithMetaStateCallback clickCallback = clickCallbackCaptor.getValue();
+        assertNotNull(clickCallback);
+
+        clickCallback.onClickWithMeta(0, 0);
+
+        verify(mBookmarkManagerOpener)
+                .showBookmarkManager(
+                        eq(mActivity),
+                        eq(mTab),
+                        eq(mProfile),
+                        eq(mBookmarkModel.getDesktopFolderId()));
     }
 
     @Test
@@ -1212,5 +1237,23 @@ public class BookmarkBarMediatorTest {
         ShadowLooper.idleMainLooper();
 
         assertNull(mBookmarkModel.getBookmarkById(bookmarkId));
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.FLYOUT_IN_BOOKMARKS_BAR)
+    public void testEmptyFolder_ShowsEmptyItem() {
+        BookmarkId emptyFolderId =
+                mBookmarkModel.addFolder(mBookmarkModel.getDesktopFolderId(), 0, "Empty Folder");
+        ModelList menuModelList =
+                mMediator.buildMenuModelListForFolder(mBookmarkModel, emptyFolderId);
+        assertEquals(1, menuModelList.size());
+        assertEquals(
+                mActivity.getString(R.string.bookmarks_bar_empty_message),
+                menuModelList.get(0).model.get(ListMenuItemProperties.TITLE));
+        assertEquals(
+                R.style.TextAppearance_TextMedium_Disabled,
+                menuModelList.get(0).model.get(ListMenuItemProperties.TEXT_APPEARANCE_ID));
+        assertFalse(menuModelList.get(0).model.get(ListMenuItemProperties.ENABLED));
     }
 }

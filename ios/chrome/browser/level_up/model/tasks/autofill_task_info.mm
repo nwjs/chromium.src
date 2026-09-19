@@ -29,6 +29,7 @@ class AutofillTaskInfo : public TaskInfo {
     return "Quickly sign into sites and apps with your saved passwords";
   }
   Symbol GetIconSymbol() const override { return SymbolPasswordManager; }
+  bool IsMulticolorIcon() const override { return true; }
   LevelUpTaskCategory GetCategory() const override {
     return LevelUpTaskCategory::kProductivity;
   }
@@ -37,12 +38,13 @@ class AutofillTaskInfo : public TaskInfo {
     return l10n_util::GetStringUTF8(IDS_IOS_LEVEL_UP_TASK_COMPLETED_AUTOFILL);
   }
   TaskInfo::NavigationAction GetNavigationAction() const override {
-    return base::BindRepeating(^(CommandDispatcher* dispatcher) {
-      id<TipsPasswordsCommands> handler =
-          HandlerForProtocol(dispatcher, TipsPasswordsCommands);
-      [handler showPasswordsTipForIdentifier:segmentation_platform::
-                                                 TipIdentifier::kSavePasswords];
-    });
+    return base::BindRepeating(
+        ^(CommandDispatcher* dispatcher, Browser* browser) {
+          id<TipsPasswordsCommands> handler =
+              HandlerForProtocol(dispatcher, TipsPasswordsCommands);
+          [handler showPasswordsTipForIdentifier:
+                       segmentation_platform::TipIdentifier::kSavePasswords];
+        });
   }
 };
 

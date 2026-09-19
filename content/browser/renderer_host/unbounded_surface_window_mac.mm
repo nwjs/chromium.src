@@ -6,6 +6,7 @@
 
 #import <Cocoa/Cocoa.h>
 
+#include "base/apple/foundation_util.h"
 #include "base/apple/owned_objc.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
@@ -26,8 +27,10 @@
 #include "content/public/browser/context_factory.h"
 #include "content/public/common/content_switches.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/input/web_mouse_wheel_event.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/accelerated_widget_mac/display_ca_layer_tree.h"
+#import "ui/base/cocoa/base_view.h"
 #include "ui/base/cocoa/remote_layer_api.h"
 #include "ui/compositor/recyclable_compositor_mac.h"
 #include "ui/display/display.h"
@@ -38,27 +41,23 @@
 #include "ui/gfx/mac/coordinate_conversion.h"
 #include "ui/latency/latency_info.h"
 
-@interface UnboundedNSWindow : NSWindow {
+// UnboundedNSView inherits from BaseView, which installs a CrTrackingArea in
+// its constructor. On macOS, floating and non-key windows do not receive mouse
+// moved events unless an active tracking area is installed on a view within the
+// window. BaseView funnels mouse and key events to -mouseEvent: and -keyEvent:,
+// which route events to the owner.
+@interface UnboundedNSView : BaseView {
   raw_ptr<content::UnboundedSurfaceWindowMac> _owner;
 }
-- (instancetype)initWithContentRect:(NSRect)contentRect
-                          styleMask:(NSWindowStyleMask)style
-                            backing:(NSBackingStoreType)backingStoreType
-                              defer:(BOOL)flag
-                              owner:(content::UnboundedSurfaceWindowMac*)owner;
+- (instancetype)initWithFrame:(NSRect)frame
+                        owner:(content::UnboundedSurfaceWindowMac*)owner;
 - (void)clearOwner;
 @end
 
-@implementation UnboundedNSWindow
-- (instancetype)initWithContentRect:(NSRect)contentRect
-                          styleMask:(NSWindowStyleMask)style
-                            backing:(NSBackingStoreType)backingStoreType
-                              defer:(BOOL)flag
-                              owner:(content::UnboundedSurfaceWindowMac*)owner {
-  if (self = [super initWithContentRect:contentRect
-                              styleMask:style
-                                backing:backingStoreType
-                                  defer:flag]) {
+@implementation UnboundedNSView
+- (instancetype)initWithFrame:(NSRect)frame
+                        owner:(content::UnboundedSurfaceWindowMac*)owner {
+  if (self = [super initWithFrame:frame tracking:YES]) {
     _owner = owner;
   }
   return self;
@@ -68,28 +67,41 @@
   _owner = nullptr;
 }
 
+- (BOOL)acceptsFirstMouse:(NSEvent*)theEvent {
+  return YES;
+}
+
+- (void)mouseEvent:(NSEvent*)theEvent {
+  if (_owner) {
+    _owner->RouteMouseEvent(theEvent);
+  }
+}
+
+- (void)scrollWheel:(NSEvent*)theEvent {
+  if (_owner) {
+    _owner->RouteWheelEvent(theEvent);
+  }
+}
+
+- (EventHandled)keyEvent:(NSEvent*)theEvent {
+  if (_owner) {
+    _owner->RouteKeyboardEvent(theEvent);
+    return kEventHandled;
+  }
+  return kEventNotHandled;
+}
+@end
+
+@interface UnboundedNSWindow : NSWindow
+@end
+
+@implementation UnboundedNSWindow
 - (BOOL)canBecomeKeyWindow {
   return NO;
 }
 
 - (BOOL)canBecomeMainWindow {
   return NO;
-}
-
-- (void)sendEvent:(NSEvent*)event {
-  if (_owner) {
-    NSEventMask eventMask = NSEventMaskFromType(event.type);
-    if (eventMask & (NSEventMaskLeftMouseDown | NSEventMaskLeftMouseUp |
-                     NSEventMaskRightMouseDown | NSEventMaskRightMouseUp |
-                     NSEventMaskMouseMoved | NSEventMaskLeftMouseDragged |
-                     NSEventMaskRightMouseDragged)) {
-      _owner->RouteMouseEvent(event);
-    } else if (eventMask & (NSEventMaskKeyDown | NSEventMaskKeyUp |
-                            NSEventMaskFlagsChanged)) {
-      _owner->RouteKeyboardEvent(event);
-    }
-  }
-  [super sendEvent:event];
 }
 @end
 
@@ -117,7 +129,7 @@ UnboundedSurfaceWindowMac::UnboundedSurfaceWindowMac(
   InitWindow(bounds_in_screen);
 }
 
-bool UnboundedSurfaceWindowMac::is_valid() const {
+bool UnboundedSurfaceWindowMac::IsValid() const {
   return window_ != nil;
 }
 
@@ -141,7 +153,9 @@ UnboundedSurfaceWindowMac::~UnboundedSurfaceWindowMac() {
   root_layer_.reset();
 
   if (window_) {
-    [(UnboundedNSWindow*)window_ clearOwner];
+    UnboundedNSView* view =
+        base::apple::ObjCCast<UnboundedNSView>([window_ contentView]);
+    [view clearOwner];
     if (NSWindow* parent = [window_ parentWindow]) {
       [parent removeChildWindow:window_];
     }
@@ -182,16 +196,17 @@ void UnboundedSurfaceWindowMac::InitWindow(const gfx::Rect& bounds_in_screen) {
       [[UnboundedNSWindow alloc] initWithContentRect:ns_rect
                                            styleMask:NSWindowStyleMaskBorderless
                                              backing:NSBackingStoreBuffered
-                                               defer:NO
-                                               owner:this];
+                                               defer:NO];
   [window_ setReleasedWhenClosed:NO];
   [window_ setBackgroundColor:[NSColor clearColor]];
   [window_ setOpaque:NO];
   [window_ setLevel:NSFloatingWindowLevel];
+  [window_ setAcceptsMouseMovedEvents:YES];
 
   NSRect client_rect =
       NSMakeRect(0, 0, ns_rect.size.width, ns_rect.size.height);
-  NSView* content_view = [[NSView alloc] initWithFrame:client_rect];
+  UnboundedNSView* content_view =
+      [[UnboundedNSView alloc] initWithFrame:client_rect owner:this];
   [content_view setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
 
   CALayer* background_layer = [CALayer layer];
@@ -221,7 +236,7 @@ void UnboundedSurfaceWindowMac::InitWindow(const gfx::Rect& bounds_in_screen) {
       content::GetContextFactory());
 
   root_layer_ = std::make_unique<ui::LayerSurface>();
-  root_layer_->SetBackgroundColor(SkColors::kTransparent);
+  root_layer_->SetFallbackBackgroundColor(SkColors::kTransparent);
   root_layer_->SetFillsBoundsOpaquely(false);
   root_layer_->SetBounds(gfx::Rect(bounds_in_screen.size()));
 
@@ -368,35 +383,18 @@ void UnboundedSurfaceWindowMac::EnsureSurfaceSynchronizedForWebTest() {
   }
 }
 
+RenderWidgetHostViewBase* UnboundedSurfaceWindowMac::GetParentView() const {
+  return parent_view_;
+}
+
 void UnboundedSurfaceWindowMac::RouteMouseEvent(NSEvent* ns_event) {
   RouteMouseEvent(
       input::WebMouseEventBuilder::Build(ns_event, window_.contentView));
 }
 
-void UnboundedSurfaceWindowMac::RouteMouseEvent(
-    const blink::WebMouseEvent& event) {
-  if (!parent_view_ || !parent_view_->host() ||
-      !parent_view_->host()->delegate() ||
-      !parent_view_->host()->delegate()->GetInputEventRouter()) {
-    return;
-  }
-  RenderWidgetHostViewBase* root_view =
-      static_cast<RenderWidgetHostViewBase*>(parent_view_->GetRootView());
-  if (!root_view) {
-    return;
-  }
-
-  blink::WebMouseEvent web_event = event;
-  gfx::PointF screen_point(web_event.PositionInScreen());
-  gfx::Point root_origin = root_view->GetViewBounds().origin();
-  gfx::PointF root_point =
-      screen_point - gfx::Vector2dF(root_origin.x(), root_origin.y());
-  gfx::PointF parent_local_point =
-      parent_view_->TransformRootPointToViewCoordSpace(root_point);
-  web_event.SetPositionInWidget(parent_local_point.x(), parent_local_point.y());
-
-  parent_view_->host()->delegate()->GetInputEventRouter()->RouteMouseEvent(
-      parent_view_, &web_event, ui::LatencyInfo());
+void UnboundedSurfaceWindowMac::RouteWheelEvent(NSEvent* ns_event) {
+  RouteMouseWheelEvent(
+      input::WebMouseWheelEventBuilder::Build(ns_event, window_.contentView));
 }
 
 void UnboundedSurfaceWindowMac::RouteKeyboardEvent(NSEvent* ns_event) {
@@ -414,7 +412,6 @@ void UnboundedSurfaceWindowMac::RouteKeyboardEvent(NSEvent* ns_event) {
   }
 }
 
-
 void UnboundedSurfaceWindowMac::UpdateBounds(const gfx::Rect& bounds) {
   if (!parent_view_) {
     return;
@@ -426,21 +423,15 @@ void UnboundedSurfaceWindowMac::UpdateBounds(const gfx::Rect& bounds) {
   }
 }
 
-void UnboundedSurfaceWindowMac::Dismiss() {
-  if (client_remote_.is_bound()) {
-    client_remote_->OnDismissed();
-    client_remote_.reset();
-  }
+void UnboundedSurfaceWindowMac::TeardownAndDestroy() {
   if (parent_view_) {
-    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE,
-        base::BindOnce(&RenderWidgetHostViewBase::DestroyUnboundedSurface,
-                       parent_view_->GetWeakPtr(), GetWeakPtr()));
+    parent_view_->DestroyUnboundedSurface(GetWeakPtr());
   }
 }
 
 void UnboundedSurfaceWindowMac::OnConnectionError() {
-  Dismiss();
+  dismiss_pending_ = true;
+  ScheduleDeferredDestroy();
 }
 
 void UnboundedSurfaceWindowMac::AcceleratedWidgetCALayerParamsUpdated(

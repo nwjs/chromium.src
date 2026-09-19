@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import {ActionChipsApiProxyImpl, VoiceSearchAction} from 'chrome://new-tab-page/lazy_load.js';
-import type {ActionChipClickDetail, FuseboxActionRequest, Module} from 'chrome://new-tab-page/lazy_load.js';
+import type {ActionChipClickDetail, ComposeboxFuseboxActionRequest, Module} from 'chrome://new-tab-page/lazy_load.js';
 import {ActionChipsRetrievalState, ComposeboxProxyImpl, counterfactualLoad, ModuleDescriptor, ModuleRegistry, NtpComposeboxElement} from 'chrome://new-tab-page/lazy_load.js';
 import {ActionChipsHandlerRemote, ActionChipsPageCallbackRouter, IconType, InputSource, QueryActionOverride, SearchboxOverride} from 'chrome://new-tab-page/new_tab_page.js';
 import type {ActionChipsPageRemote, CustomizeButtonsDocumentRemote, FuseboxAction, TabInfo} from 'chrome://new-tab-page/new_tab_page.js';
@@ -21,14 +21,15 @@ import {Command, CommandHandlerRemote} from 'chrome://resources/js/browser_comma
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {isMac} from 'chrome://resources/js/platform.js';
 import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
-import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
+import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
 import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
 import type {TestMock} from 'chrome://webui-test/test_mock.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-import {assertNotStyle, assertStyle, createBackgroundImage, createTheme, installMock} from './test_support.js';
+import {assertCenterAligned, assertEffectiveBorderRadiiCloseTo, assertNotStyle, assertStyle, createBackgroundImage, createTheme, getCenter, getEffectiveBorderRadii, getTextCenter, installMock, queryShadowPath} from './test_support.js';
 
 const VOICE_ACTIONS_METRIC = 'NewTabPage.VoiceActions';
 
@@ -135,8 +136,10 @@ suite('NewTabPageAppTest', () => {
     searchboxHandler.setResultFor(
         'getPageClassification',
         Promise.resolve({metricSource: 'NTP_REALBOX'}));
+    // <if expr="not is_android">
     searchboxHandler.setResultFor(
         'getSmartTabSharingActive', Promise.resolve({active: false}));
+    // </if>
     app = document.createElement('ntp-app');
     document.body.appendChild(app);
     await microtasksFinished();
@@ -766,7 +769,6 @@ suite('NewTabPageAppTest', () => {
       ['ntp-logo', NtpElement.LOGO],
       ['ntp-searchbox', NtpElement.REALBOX],
       ['cr-most-visited', NtpElement.MOST_VISITED],
-      ['ntp-middle-slot-promo', NtpElement.MIDDLE_SLOT_PROMO],
       ['#modules', NtpElement.MODULE],
     ] as Array<[string, NtpElement]>)
         .forEach(([selector, element]) => {
@@ -807,24 +809,14 @@ suite('NewTabPageAppTest', () => {
   });
 
   function modulesCommonTests(modulesElementTag: string) {
-    test('promo and modules coordinate', async () => {
+    test('modules loaded', async () => {
       // Arrange.
       loadTimeData.overrideValues({navigationStartTime: 0.0});
       windowProxy.setResultFor('now', 123.0);
-      const middleSlotPromo = $$(app, 'ntp-middle-slot-promo');
-      assertTrue(!!middleSlotPromo);
       const modules = $$(app, modulesElementTag)!;
       assertTrue(!!modules);
 
       // Assert.
-      assertStyle(middleSlotPromo, 'display', 'none');
-      assertStyle(modules, 'display', 'none');
-
-      // Act.
-      middleSlotPromo.dispatchEvent(new Event('ntp-middle-slot-promo-loaded'));
-
-      // Assert.
-      assertStyle(middleSlotPromo, 'display', 'none');
       assertStyle(modules, 'display', 'none');
 
       // Act.
@@ -832,7 +824,6 @@ suite('NewTabPageAppTest', () => {
       await microtasksFinished();
 
       // Assert.
-      assertNotStyle(middleSlotPromo, 'display', 'none');
       assertNotStyle(modules, 'display', 'none');
       assertEquals(1, metrics.count('NewTabPage.Modules.ShownTime'));
       assertEquals(1, metrics.count('NewTabPage.Modules.ShownTime', 123));
@@ -1817,14 +1808,6 @@ suite('NewTabPageAppTest', () => {
     },
   ];
 
-  function getCenter(element: Element): {x: number, y: number} {
-    const rect = element.getBoundingClientRect();
-    return {
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-    };
-  }
-
   [false, true].forEach(energyEffectAnimationEnabled => {
     invariant_test_cases.forEach(({
                                    energyEffectEnabled,
@@ -1895,6 +1878,49 @@ suite('NewTabPageAppTest', () => {
                   'Initial composebox width should match searchbox width to prevent layout jump');
             });
 
+        test(
+            'effective border radii of expanded composebox and searchbox are the same',
+            async () => {
+              await recreateApp();
+              await microtasksFinished();
+
+              const searchboxWrapper =
+                  queryShadowPath(app, '#searchbox', '#inputWrapper');
+              assertTrue(!!searchboxWrapper, 'Searchbox wrapper should exist');
+              const searchboxRadii = getEffectiveBorderRadii(searchboxWrapper);
+
+              // Arrange: dispatch open-composebox event.
+              const searchbox = $$(app, '#searchbox');
+              assertTrue(!!searchbox, 'Searchbox should exist');
+              searchbox.dispatchEvent(new CustomEvent('open-composebox', {
+                detail: {text: '', files: []},
+              }));
+              await microtasksFinished();
+
+              // Expand composebox by setting inToolMode = true.
+              const composebox =
+                  app.shadowRoot.querySelector<NtpComposeboxElement>(
+                      '#composebox')!;
+              assertTrue(!!composebox, 'Composebox should exist');
+              composebox.inToolMode = true;
+              composebox.requestUpdate();
+              await composebox.updateComplete;
+              await microtasksFinished();
+
+              const composeboxContainer =
+                  queryShadowPath(app, '#composebox', '#composebox');
+              assertTrue(
+                  !!composeboxContainer, 'Composebox container should exist');
+              const composeboxRadii =
+                  getEffectiveBorderRadii(composeboxContainer);
+
+              // Assert that all 4 corner radii match within 0.01px tolerance to
+              // prevent visual curvature jump.
+              assertEffectiveBorderRadiiCloseTo(
+                  searchboxRadii, composeboxRadii, 0.01,
+                  'Effective border radii must match between searchbox and expanded composebox');
+            });
+
         test('+ button alignment matches', async () => {
           await recreateApp();
           await microtasksFinished();
@@ -1949,6 +1975,44 @@ suite('NewTabPageAppTest', () => {
                   `Searchbox: (${searchboxCenter.x}, ${searchboxCenter.y}), ` +
                   `Composebox: (${composeboxCenter.x}, ${composeboxCenter.y})`);
         });
+
+        test(
+            'context menu button, text area, voice button, and cancel button are center-aligned',
+            async () => {
+              await recreateApp();
+              await microtasksFinished();
+
+              const searchbox = $$(app, '#searchbox');
+              assertTrue(!!searchbox, 'Searchbox should exist');
+
+              // Arrange: dispatch open-composebox event.
+              searchbox.dispatchEvent(new CustomEvent('open-composebox', {
+                detail: {text: '', files: []},
+              }));
+              await microtasksFinished();
+
+              const composebox =
+                  app.shadowRoot.querySelector<NtpComposeboxElement>(
+                      '#composebox');
+              assertTrue(!!composebox, 'Composebox should exist');
+
+              // Assert that all 4 row elements share identical vertical center
+              // coordinates, evaluating the visual text centerline for the text
+              // area.
+              assertCenterAligned(
+                  composebox, {
+                    'Context Menu Button': [
+                      '#contextEntrypoint',
+                      '#entrypointButton',
+                      '#entrypoint',
+                    ],
+                    'Text Area': getTextCenter(queryShadowPath(
+                        composebox, 'cr-composebox-input', '#input')),
+                    'Voice Button': ['#voiceSearchButton'],
+                    'Cancel Button': ['cr-composebox-input', '#cancelIcon'],
+                  },
+                  'y');
+            });
 
         if (energyEffectEnabled) {
           test(
@@ -2006,7 +2070,7 @@ suite('NewTabPageAppTest', () => {
               const file = ComposeboxFile.createFromFile(
                   'test-uuid', {name: 'test.pdf', type: 'application/pdf'},
                   ContextUploadStatus.kUploadSuccessful);
-              composebox.files = new Map([[file.uuid, file]]);
+              composebox.attachedContext = new Map([[file.uuid, file]]);
               composebox.inToolMode = true;
               composebox.contextMenuEnabled = false;
               composebox.requestUpdate();
@@ -2118,7 +2182,7 @@ suite('NewTabPageAppTest', () => {
                   ContextUploadStatus.kUploadSuccessful);
               const tabFile = ComposeboxFile.createFromTab(
                   'test-tab-uuid', 1, 'Example Tab', 'https://example.com');
-              composebox.files =
+              composebox.attachedContext =
                   new Map([[file.uuid, file], [tabFile.uuid, tabFile]]);
               composebox.contextMenuEnabled = true;
               composebox.smartTabSharingVisible = true;
@@ -2180,7 +2244,7 @@ suite('NewTabPageAppTest', () => {
               assertTrue(!!composebox);
               const tabFile = ComposeboxFile.createFromTab(
                   'test-tab-uuid', 1, 'Example Tab', 'https://example.com');
-              composebox.files = new Map([[tabFile.uuid, tabFile]]);
+              composebox.attachedContext = new Map([[tabFile.uuid, tabFile]]);
               composebox.contextMenuEnabled = true;
               composebox.smartTabSharingVisible = true;
               composebox.smartTabSharingActive = true;
@@ -2230,7 +2294,7 @@ suite('NewTabPageAppTest', () => {
               const file = ComposeboxFile.createFromFile(
                   'test-uuid', {name: 'test.pdf', type: 'application/pdf'},
                   ContextUploadStatus.kUploadSuccessful);
-              composebox.files = new Map([[file.uuid, file]]);
+              composebox.attachedContext = new Map([[file.uuid, file]]);
               composebox.contextMenuEnabled = false;
               await microtasksFinished();
 
@@ -2978,7 +3042,9 @@ suite('NewTabPageAppTest', () => {
 
   suite('ActionChips', () => {
     let actionChipsPageRemote: ActionChipsPageRemote;
-    suiteSetup(() => {
+    let actionChipsCallbackRouter: ActionChipsPageCallbackRouter;
+
+    setup(async () => {
       loadTimeData.overrideValues({
         ntpNextFeaturesEnabled: true,
         ntpRealboxNextEnabled: true,
@@ -2987,7 +3053,11 @@ suite('NewTabPageAppTest', () => {
         ntpNextDisablementEnabled: true,
         searchboxShowComposebox: true,
       });
-      const actionChipsCallbackRouter = new ActionChipsPageCallbackRouter();
+      await recreateApp();
+      await actionChipsPageRemote.$.flushForTesting();
+    });
+    suiteSetup(() => {
+      actionChipsCallbackRouter = new ActionChipsPageCallbackRouter();
       const actionChipshandler = installMock(
           ActionChipsHandlerRemote,
           mock => ActionChipsApiProxyImpl.setInstance({
@@ -3067,11 +3137,12 @@ suite('NewTabPageAppTest', () => {
                     actionChipsEnabled +
                     ' and ntpNextFeaturesEnabled: ' + ntpNextFeaturesEnabled,
                 () => {
-                  suiteSetup(() => {
+                  setup(async () => {
                     loadTimeData.overrideValues({
                       ntpNextFeaturesEnabled,
                       actionChipsEnabled,
                     });
+                    await recreateApp();
                   });
 
                   // Assert.
@@ -3103,11 +3174,11 @@ suite('NewTabPageAppTest', () => {
     test(
         'action chip click opens composebox and passes fuseboxAction',
         async () => {
-          const handledRequests: FuseboxActionRequest[] = [];
+          const handledRequests: ComposeboxFuseboxActionRequest[] = [];
           const originalHandleFuseboxAction =
               NtpComposeboxElement.prototype.handleFuseboxAction;
           NtpComposeboxElement.prototype.handleFuseboxAction = function(
-              request: FuseboxActionRequest) {
+              request: ComposeboxFuseboxActionRequest) {
             handledRequests.push(request);
             return originalHandleFuseboxAction.call(this, request);
           };
@@ -3301,6 +3372,40 @@ suite('NewTabPageAppTest', () => {
           assertEquals('hint suggestion', actionComposebox.inputPlaceholder);
         });
 
+    test('Add tab chip click calls searchbox.handleFuseboxAction', async () => {
+      const actionChips = $$(app, 'ntp-action-chips')!;
+      let handleFuseboxActionCalled = false;
+      let passedAction: FuseboxAction|undefined;
+      const searchbox = $$(app, '#searchbox') as NtpSearchboxElement;
+      assertTrue(!!searchbox);
+      searchbox.handleFuseboxAction = (action?: FuseboxAction) => {
+        handleFuseboxActionCalled = true;
+        passedAction = action;
+        return Promise.resolve();
+      };
+
+      const fuseboxAction: FuseboxAction = {
+        preselectedTool: null,
+        preferredInventory: null,
+        preselectedModel: null,
+        queryActionOverride: null,
+        preselectedInputSource: InputSource.kInputSourceTabPicker,
+        searchboxOverride: SearchboxOverride.kRealbox,
+      };
+
+      actionChips.dispatchEvent(new CustomEvent('action-chip-click', {
+        detail: {
+          suggestion: '',
+          files: [],
+          fuseboxAction: fuseboxAction,
+        },
+      }));
+      await microtasksFinished();
+
+      assertTrue(handleFuseboxActionCalled);
+      assertDeepEquals(fuseboxAction, passedAction);
+    });
+
     test('Show background when non-GM3 theme', async () => {
       // Arrange.
       const theme = createTheme({isGm3: false});
@@ -3404,64 +3509,6 @@ suite('NewTabPageAppTest', () => {
       assertEquals(true, delayUpload);
     });
     test(
-        'Deep dive chip click opens composebox with context and suggestion',
-        async () => {
-          const subtitle = 'Help me with this page subtitle';
-          const suggestion = 'Help me with this page suggestion';
-          actionChipsPageRemote.onActionChipsChanged([{
-            suggestion: suggestion,
-            suggestTemplateInfo: {
-              typeIcon: IconType.kSubArrowRight,
-              primaryText: {text: 'Deep dive', a11yText: null},
-              secondaryText: {text: subtitle, a11yText: null},
-              fuseboxAction: {
-                preselectedTool: ToolMode.kUnspecified,
-                preferredInventory: null,
-                preselectedModel: ModelMode.kUnspecified,
-                queryActionOverride: null,
-                preselectedInputSource: null,
-                searchboxOverride: null,
-              },
-            },
-            tab: {
-              tabId: 1,
-              title: 'Test Title',
-              url: 'https://example.com/test',
-              lastActiveTime: {internalValue: BigInt(0)},
-            },
-          }]);
-          await microtasksFinished();
-          const actionChipsElement =
-              app.shadowRoot.querySelector('ntp-action-chips');
-          assertTrue(!!actionChipsElement);
-
-          // Setup.
-          const deepDiveChip =
-              actionChipsElement.shadowRoot.querySelector<HTMLButtonElement>(
-                  'button:has(.icon-type-sub-arrow-right)');
-          assertTrue(!!deepDiveChip);
-
-          const chipBody = deepDiveChip.querySelector('.chip-body');
-          assertTrue(!!chipBody);
-          assertEquals(subtitle, chipBody.textContent.trim());
-
-          // Act.
-          deepDiveChip.click();
-          await microtasksFinished();
-
-          // Assert.
-          const composebox =
-              app.shadowRoot.querySelector<NtpComposeboxElement>('#composebox');
-          assertTrue(!!composebox);
-          assertEquals(1, searchboxHandler.getCallCount('addTabContext'));
-          const [tabId, delayUpload] =
-              searchboxHandler.getArgs('addTabContext')[0];
-          assertEquals(1, tabId);
-          assertEquals(true, delayUpload);
-          assertTrue(!!composebox.getInputElement().$.input);
-          assertEquals(suggestion, composebox.input);
-        });
-    test(
         'Action chip click sets preselected model in composebox state',
         async () => {
           actionChipsPageRemote.onActionChipsChanged([{
@@ -3504,11 +3551,12 @@ suite('NewTabPageAppTest', () => {
         'Explicit hint and composebox click passes the action and suggestion',
         async () => {
           let handleFuseboxActionCallCount = 0;
-          let handleFuseboxActionRequest: FuseboxActionRequest|null = null;
+          let handleFuseboxActionRequest: ComposeboxFuseboxActionRequest|null =
+              null;
           const originalHandleFuseboxAction =
               NtpComposeboxElement.prototype.handleFuseboxAction;
           NtpComposeboxElement.prototype.handleFuseboxAction = function(
-              request: FuseboxActionRequest) {
+              request: ComposeboxFuseboxActionRequest) {
             handleFuseboxActionCallCount++;
             handleFuseboxActionRequest = request;
             return originalHandleFuseboxAction.call(this, request);
@@ -3604,11 +3652,12 @@ suite('NewTabPageAppTest', () => {
               let setInputTextCallCount = 0;
               searchbox.setInputText = () => setInputTextCallCount++;
               let handleFuseboxActionCallCount = 0;
-              let handleFuseboxActionRequest: FuseboxActionRequest|null = null;
+              let handleFuseboxActionRequest: ComposeboxFuseboxActionRequest|
+                  null = null;
               const originalHandleFuseboxAction =
                   NtpComposeboxElement.prototype.handleFuseboxAction;
               NtpComposeboxElement.prototype.handleFuseboxAction = function(
-                  request: FuseboxActionRequest) {
+                  request: ComposeboxFuseboxActionRequest) {
                 handleFuseboxActionCallCount++;
                 handleFuseboxActionRequest = request;
                 return originalHandleFuseboxAction.call(this, request);
@@ -3652,7 +3701,7 @@ suite('NewTabPageAppTest', () => {
       const originalHandleFuseboxAction =
           NtpComposeboxElement.prototype.handleFuseboxAction;
       NtpComposeboxElement.prototype.handleFuseboxAction = function(
-          request: FuseboxActionRequest) {
+          request: ComposeboxFuseboxActionRequest) {
         handleFuseboxActionCallCount++;
         return originalHandleFuseboxAction.call(this, request);
       };
@@ -3672,21 +3721,6 @@ suite('NewTabPageAppTest', () => {
               queryActionOverride: QueryActionOverride.kPaste,
               preselectedInputSource: null,
               searchboxOverride: SearchboxOverride.kUnspecified,
-            },
-          },
-        }));
-        await microtasksFinished();
-        actionChips.dispatchEvent(new CustomEvent('action-chip-click', {
-          detail: {
-            suggestion: 'hint suggestion',
-            files: [],
-            fuseboxAction: {
-              preselectedTool: null,
-              preferredInventory: null,
-              preselectedModel: null,
-              queryActionOverride: QueryActionOverride.kHint,
-              preselectedInputSource: null,
-              searchboxOverride: SearchboxOverride.kRealbox,
             },
           },
         }));
@@ -3717,7 +3751,7 @@ suite('NewTabPageAppTest', () => {
           const originalHandleFuseboxAction =
               NtpComposeboxElement.prototype.handleFuseboxAction;
           NtpComposeboxElement.prototype.handleFuseboxAction = function(
-              request: FuseboxActionRequest) {
+              request: ComposeboxFuseboxActionRequest) {
             handleFuseboxActionCallCount++;
             return originalHandleFuseboxAction.call(this, request);
           };
@@ -5243,8 +5277,10 @@ suite('NewTabPageAppReducedMotionTest', () => {
     searchboxHandler.setResultFor(
         'getPageClassification',
         Promise.resolve({metricSource: 'NTP_REALBOX'}));
+    // <if expr="not is_android">
     searchboxHandler.setResultFor(
         'getSmartTabSharingActive', Promise.resolve({active: false}));
+    // </if>
     installMock(
         ActionChipsHandlerRemote, mock => ActionChipsApiProxyImpl.setInstance({
           getHandler: () => mock,
@@ -5418,8 +5454,10 @@ suite('NewTabPageAppContextMenuAnimationTest', () => {
     searchboxHandler.setResultFor(
         'getPageClassification',
         Promise.resolve({metricSource: 'NTP_REALBOX'}));
+    // <if expr="not is_android">
     searchboxHandler.setResultFor(
         'getSmartTabSharingActive', Promise.resolve({active: false}));
+    // </if>
     installMock(
         ActionChipsHandlerRemote, mock => ActionChipsApiProxyImpl.setInstance({
           getHandler: () => mock,

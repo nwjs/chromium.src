@@ -148,8 +148,7 @@ public class DownloadUtils {
         Context appContext = ContextUtils.getApplicationContext();
         boolean isTablet;
 
-        if (tab == null && activity instanceof ChromeTabbedActivity) {
-            ChromeTabbedActivity chromeActivity = ((ChromeTabbedActivity) activity);
+        if (tab == null && activity instanceof ChromeTabbedActivity chromeActivity) {
             tab = chromeActivity.getActivityTab();
             isTablet = chromeActivity.isTablet();
         } else {
@@ -271,7 +270,11 @@ public class DownloadUtils {
         Tracker tracker = TrackerFactory.getTrackerForProfile(tab.getProfile());
         NativePage nativePage = tab.getNativePage();
         if (nativePage != null && nativePage.isPdf()) {
-            DownloadController.downloadUrl(tab.getUrl().getSpec(), tab);
+            if (PdfUtils.isInlinePdfV2Enabled()) {
+                nativePage.download();
+            } else {
+                DownloadController.downloadUrl(tab.getUrl().getSpec(), tab);
+            }
             if (fromAppMenu) {
                 tracker.notifyEvent(EventConstants.APP_MENU_PDF_PAGE_DOWNLOADED);
             }
@@ -692,11 +695,11 @@ public class DownloadUtils {
             @JniType("std::string") String filePath,
             @JniType("std::string") @Nullable String mimeType,
             @JniType("std::string") @Nullable String downloadGuid,
-            OtrProfileId otrProfileId,
+            @Nullable OtrProfileId otrProfileId,
             @JniType("std::string") @Nullable String originalUrl,
             @JniType("std::string") @Nullable String referer,
             @DownloadOpenSource int source,
-            @Nullable String fileName) {
+            @JniType("std::string") @Nullable String fileName) {
         // Mapping generic MIME type to android openable type based on URL and file extension.
         String newMimeType = MimeUtils.remapGenericMimeType(mimeType, originalUrl, filePath);
         Activity activity = ApplicationStatus.getLastTrackedFocusedActivity();
@@ -771,8 +774,6 @@ public class DownloadUtils {
                     intent.getType(),
                     assumeNonNull(intent.getData()).getScheme(),
                     ex);
-        } catch (SecurityException ex) {
-            Log.d(TAG, "cannot open intent: %s", intent, ex);
         } catch (Exception ex) {
             Log.d(TAG, "cannot open intent: %s", intent, ex);
         }

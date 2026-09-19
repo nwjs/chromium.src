@@ -11,7 +11,7 @@
 #include "base/scoped_observation.h"
 #include "chromeos/ui/frame/highlight_border_overlay_delegate.h"
 #include "ui/aura/window_observer.h"
-#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_nine_patch.h"
 #include "ui/display/display_observer.h"
 #include "ui/display/tablet_state.h"
 
@@ -28,8 +28,7 @@ class Widget;
 // the border from being covered by the client view, the class creates a nine
 // patch layer painted with a highlight border and overlay on the widget. The
 // inner border covers on the window contents and outer border is outside the
-// window. It uses `kHighlightBorder3` as its border type which has low opacity
-// of outer border.
+// window. It uses `kHighlightBorderOnShadow` as its border type.
 class HighlightBorderOverlay : public aura::WindowObserver,
                                public display::DisplayObserver {
  public:

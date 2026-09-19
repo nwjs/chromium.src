@@ -33,6 +33,7 @@
 
 #include <optional>
 
+#include "base/memory/raw_ptr.h"
 #include "third_party/blink/public/mojom/loader/same_document_navigation_type.mojom-blink.h"
 #include "third_party/blink/renderer/core/ad_tracker/ad_tracker.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -171,13 +172,6 @@ class CORE_EXPORT InspectorPageAgent final
       const String& frame_id,
       std::unique_ptr<protocol::Array<protocol::Page::OriginTrial>>*) override;
 
-  protocol::Response startScreencast(
-      std::optional<String> format,
-      std::optional<int> quality,
-      std::optional<int> max_width,
-      std::optional<int> max_height,
-      std::optional<int> every_nth_frame) override;
-  protocol::Response stopScreencast() override;
   protocol::Response getLayoutMetrics(
       std::unique_ptr<protocol::Page::LayoutViewport>* out_layout_viewport,
       std::unique_ptr<protocol::Page::VisualViewport>* out_visual_viewport,
@@ -265,7 +259,6 @@ class CORE_EXPORT InspectorPageAgent final
 
   // Inspector Controller API
   void Restore() override;
-  bool ScreencastEnabled();
 
   void Trace(Visitor*) const override;
   void Dispose() override;
@@ -334,14 +327,13 @@ class CORE_EXPORT InspectorPageAgent final
   HeapHashMap<WeakMember<LocalFrame>, Vector<IsolatedWorldRequest>>
       pending_isolated_worlds_;
   HashMap<String, AdTracker::AdScriptAncestry> frame_ad_script_ancestry_;
-  Client* client_;
+  raw_ptr<Client, UnprotectedInRelease | DanglingUntriaged> client_;
   Member<InspectorResourceContentLoader> inspector_resource_content_loader_;
   int resource_content_loader_client_id_;
   InspectorAgentState::Boolean suppress_file_chooser_;
   InspectorAgentState::Boolean cancel_file_chooser_;
   InspectorAgentState::Boolean enabled_;
   InspectorAgentState::Boolean enable_file_chooser_opened_event_;
-  InspectorAgentState::Boolean screencast_enabled_;
   InspectorAgentState::Boolean lifecycle_events_enabled_;
   InspectorAgentState::Boolean bypass_csp_enabled_;
   InspectorAgentState::Integer standard_font_size_;

@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.actor;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
@@ -28,13 +29,15 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowNotification;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.actor.ui.R;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.notifications.NotificationIntentInterceptor;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileResolver;
@@ -43,7 +46,7 @@ import org.chromium.components.browser_ui.notifications.NotificationWrapper;
 
 /** Unit tests for {@link ActorNotificationFactory}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
+@EnableFeatures(ChromeFeatureList.ACTOR_LIVE_NOTIFICATION)
 public class ActorNotificationFactoryTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -233,8 +236,8 @@ public class ActorNotificationFactoryTest {
                 "Big text should match content text",
                 mContext.getString(R.string.actor_notification_body_complete, TASK_TITLE),
                 notification.extras.getCharSequence(Notification.EXTRA_BIG_TEXT));
-        assertFalse(
-                "Notification should not be ongoing",
+        assertTrue(
+                "Notification should be ongoing when live",
                 (notification.flags & Notification.FLAG_ONGOING_EVENT) != 0);
         assertTrue(
                 "Notification should have auto-cancel enabled",
@@ -242,6 +245,31 @@ public class ActorNotificationFactoryTest {
 
         assertSmallIcon(notification);
         assertAction(notification);
+
+        // Test non-live completed notification (after demotion).
+        NotificationWrapper nonLiveWrapper =
+                ActorNotificationFactory.buildNotification(
+                        mTask,
+                        ActorTaskState.FINISHED,
+                        /* isSilent= */ true,
+                        /* isWarning= */ false,
+                        /* isLive= */ false);
+        assertNotNull(nonLiveWrapper);
+        Notification nonLiveNotification = nonLiveWrapper.getNotification();
+        assertFalse(
+                "Non-live completed notification should not be ongoing",
+                (nonLiveNotification.flags & Notification.FLAG_ONGOING_EVENT) != 0);
+        assertFalse(
+                "Non-live completed notification should not request promoted ongoing",
+                nonLiveNotification.extras.getBoolean(
+                        ActorNotificationFactory.EXTRA_REQUEST_PROMOTED_ONGOING));
+        assertNull(
+                (Object)
+                        nonLiveNotification.extras.getCharSequence(
+                                ActorNotificationFactory.EXTRA_SHORT_CRITICAL_TEXT));
+        assertTrue(
+                "Non-live completed notification should have auto-cancel enabled",
+                (nonLiveNotification.flags & Notification.FLAG_AUTO_CANCEL) != 0);
     }
 
     @Test
@@ -255,10 +283,24 @@ public class ActorNotificationFactoryTest {
 
         assertNotNull("Notification wrapper should not be null", wrapper);
         Notification notification = wrapper.getNotification();
+        assertNotNull("Notification should not be null", notification);
+        ShadowNotification shadowNotification = shadowOf(notification);
+
         assertEquals(
-                "Content title should match status",
+                "Content title should match reflecting status",
                 mContext.getString(R.string.actor_notification_title_working_on_task),
-                shadowOf(notification).getContentTitle());
+                shadowNotification.getContentTitle());
+        assertEquals(
+                "Content text should match reflecting body template",
+                mContext.getString(R.string.actor_notification_body_working, TASK_TITLE),
+                shadowNotification.getContentText());
+        assertEquals(
+                "Big text should match content text",
+                mContext.getString(R.string.actor_notification_body_working, TASK_TITLE),
+                notification.extras.getCharSequence(Notification.EXTRA_BIG_TEXT));
+        assertTrue(
+                "Notification should be ongoing",
+                (notification.flags & Notification.FLAG_ONGOING_EVENT) != 0);
         assertNotNull("Content intent should be set", notification.contentIntent);
         assertSmallIcon(notification);
         assertAction(notification);
@@ -311,12 +353,46 @@ public class ActorNotificationFactoryTest {
                 "Big text should match content text",
                 mContext.getString(R.string.actor_notification_body_stopped, TASK_TITLE),
                 notification.extras.getCharSequence(Notification.EXTRA_BIG_TEXT));
-        assertFalse(
-                "Notification should not be ongoing",
+        assertTrue(
+                "Stopped notification should be ongoing when live",
                 (notification.flags & Notification.FLAG_ONGOING_EVENT) != 0);
+        assertTrue(
+                "Stopped notification should request promoted ongoing",
+                notification.extras.getBoolean(
+                        ActorNotificationFactory.EXTRA_REQUEST_PROMOTED_ONGOING));
+        assertEquals(
+                "Stopped notification status chip should be Stopped",
+                mContext.getString(R.string.actor_notification_live_status_stopped),
+                notification.extras.getCharSequence(
+                        ActorNotificationFactory.EXTRA_SHORT_CRITICAL_TEXT));
         assertNotNull("Content intent should be set", notification.contentIntent);
         assertSmallIcon(notification);
         assertAction(notification);
+
+        // Test non-live stopped notification (after demotion).
+        NotificationWrapper nonLiveWrapper =
+                ActorNotificationFactory.buildNotification(
+                        mTask,
+                        ActorTaskState.FAILED,
+                        /* isSilent= */ true,
+                        /* isWarning= */ false,
+                        /* isLive= */ false);
+        assertNotNull(nonLiveWrapper);
+        Notification nonLiveNotification = nonLiveWrapper.getNotification();
+        assertFalse(
+                "Non-live stopped notification should not be ongoing",
+                (nonLiveNotification.flags & Notification.FLAG_ONGOING_EVENT) != 0);
+        assertFalse(
+                "Non-live stopped notification should not request promoted ongoing",
+                nonLiveNotification.extras.getBoolean(
+                        ActorNotificationFactory.EXTRA_REQUEST_PROMOTED_ONGOING));
+        assertNull(
+                (Object)
+                        nonLiveNotification.extras.getCharSequence(
+                                ActorNotificationFactory.EXTRA_SHORT_CRITICAL_TEXT));
+        assertTrue(
+                "Non-live stopped notification should have auto-cancel enabled",
+                (nonLiveNotification.flags & Notification.FLAG_AUTO_CANCEL) != 0);
     }
 
     @Test
@@ -350,6 +426,18 @@ public class ActorNotificationFactoryTest {
                 mContext.getString(
                         R.string.actor_notification_body_will_stop_task_long_running, TASK_TITLE),
                 shadowNotification.getContentText());
+        assertTrue(
+                "Warning notification should be ongoing",
+                (notification.flags & Notification.FLAG_ONGOING_EVENT) != 0);
+        assertTrue(
+                "Warning notification should request promoted ongoing",
+                notification.extras.getBoolean(
+                        ActorNotificationFactory.EXTRA_REQUEST_PROMOTED_ONGOING));
+        assertEquals(
+                "Warning notification status chip should be Review",
+                mContext.getString(R.string.actor_notification_live_status_review),
+                notification.extras.getCharSequence(
+                        ActorNotificationFactory.EXTRA_SHORT_CRITICAL_TEXT));
     }
 
     @Test
@@ -371,6 +459,18 @@ public class ActorNotificationFactoryTest {
                 mContext.getString(
                         R.string.actor_notification_body_will_stop_task_no_response, TASK_TITLE),
                 shadowNotification.getContentText());
+        assertTrue(
+                "Warning notification should be ongoing",
+                (notification.flags & Notification.FLAG_ONGOING_EVENT) != 0);
+        assertTrue(
+                "Warning notification should request promoted ongoing",
+                notification.extras.getBoolean(
+                        ActorNotificationFactory.EXTRA_REQUEST_PROMOTED_ONGOING));
+        assertEquals(
+                "Warning notification status chip should be Review",
+                mContext.getString(R.string.actor_notification_live_status_review),
+                notification.extras.getCharSequence(
+                        ActorNotificationFactory.EXTRA_SHORT_CRITICAL_TEXT));
     }
 
     @Test
@@ -380,10 +480,65 @@ public class ActorNotificationFactoryTest {
                 ActorNotificationFactory.shouldUpdateNotification(
                         ActorTaskState.ACTING, ActorTaskState.REFLECTING));
 
-        // State change different category -> True
+        // State change different category
         assertTrue(
                 ActorNotificationFactory.shouldUpdateNotification(
                         ActorTaskState.ACTING, ActorTaskState.PAUSED_BY_USER));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ACTOR_STEP_PROGRESS_NOTIFICATION)
+    public void testBuildNotification_WithStepText_FlagEnabled() {
+        when(mTask.getCurrentActionName()).thenReturn("Navigating to site");
+        NotificationWrapper wrapper =
+                ActorNotificationFactory.buildNotification(
+                        mTask,
+                        ActorTaskState.ACTING,
+                        /* isSilent= */ false,
+                        /* isWarning= */ false);
+
+        assertNotNull("Notification wrapper should not be null", wrapper);
+        Notification notification = wrapper.getNotification();
+        assertNotNull("Notification should not be null", notification);
+        ShadowNotification shadowNotification = shadowOf(notification);
+
+        String expectedBody =
+                mContext.getString(
+                        R.string.actor_notification_body_working_with_step_info,
+                        TASK_TITLE,
+                        "Navigating to site");
+        assertEquals(
+                "Content text should match task title and step text",
+                expectedBody,
+                shadowNotification.getContentText());
+        assertEquals(
+                "Big text should match task title and step text",
+                expectedBody,
+                notification.extras.getCharSequence(Notification.EXTRA_BIG_TEXT));
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ACTOR_STEP_PROGRESS_NOTIFICATION)
+    public void testBuildNotification_WithStepText_FlagDisabled() {
+        when(mTask.getCurrentActionName()).thenReturn("Navigating to site");
+        NotificationWrapper wrapper =
+                ActorNotificationFactory.buildNotification(
+                        mTask,
+                        ActorTaskState.ACTING,
+                        /* isSilent= */ false,
+                        /* isWarning= */ false);
+
+        assertNotNull("Notification wrapper should not be null", wrapper);
+        Notification notification = wrapper.getNotification();
+        assertNotNull("Notification should not be null", notification);
+        ShadowNotification shadowNotification = shadowOf(notification);
+
+        String expectedBody =
+                mContext.getString(R.string.actor_notification_body_working, TASK_TITLE);
+        assertEquals(
+                "Content text should use default working body when flag is disabled",
+                expectedBody,
+                shadowNotification.getContentText());
     }
 
     @Test
@@ -403,11 +558,147 @@ public class ActorNotificationFactoryTest {
                 "Content text should match",
                 mContext.getString(R.string.actor_notification_body_task_starts_soon),
                 shadowNotification.getContentText());
+        assertEquals(
+                "Small icon should be ic_chrome",
+                R.drawable.ic_chrome,
+                notification.getSmallIcon().getResId());
 
         assertEquals(
                 "Notification ID should match",
                 ActorNotificationFactory.TASK_STARTS_SOON_NOTIFICATION_ID,
                 wrapper.getMetadata().id);
+    }
+
+    @Test
+    public void testBuildNotification_LiveNotificationProperties() {
+        // Active acting task: requested promoted ongoing, null shortCriticalText (icon only chip).
+        NotificationWrapper actingWrapper =
+                ActorNotificationFactory.buildNotification(
+                        mTask,
+                        ActorTaskState.ACTING,
+                        /* isSilent= */ false,
+                        /* isWarning= */ false);
+        assertNotNull(actingWrapper);
+        Notification actingNotif = actingWrapper.getNotification();
+        assertTrue(
+                "Acting notification should be ongoing",
+                (actingNotif.flags & Notification.FLAG_ONGOING_EVENT) != 0);
+        assertTrue(
+                "Acting notification should request promoted ongoing",
+                actingNotif.extras.getBoolean(
+                        ActorNotificationFactory.EXTRA_REQUEST_PROMOTED_ONGOING));
+        assertNull(
+                (Object)
+                        actingNotif.extras.getCharSequence(
+                                ActorNotificationFactory.EXTRA_SHORT_CRITICAL_TEXT));
+
+        // Waiting on user task: requested promoted ongoing, shortCriticalText = "Review".
+        NotificationWrapper waitingWrapper =
+                ActorNotificationFactory.buildNotification(
+                        mTask,
+                        ActorTaskState.WAITING_ON_USER,
+                        /* isSilent= */ false,
+                        /* isWarning= */ false);
+        assertNotNull(waitingWrapper);
+        Notification waitingNotif = waitingWrapper.getNotification();
+        assertEquals(
+                "Waiting on user status chip should be Review",
+                mContext.getString(R.string.actor_notification_live_status_review),
+                waitingNotif.extras.getCharSequence(
+                        ActorNotificationFactory.EXTRA_SHORT_CRITICAL_TEXT));
+
+        // Paused task: requested promoted ongoing, shortCriticalText = "Paused".
+        NotificationWrapper pausedWrapper =
+                ActorNotificationFactory.buildNotification(
+                        mTask,
+                        ActorTaskState.PAUSED_BY_USER,
+                        /* isSilent= */ false,
+                        /* isWarning= */ false);
+        assertNotNull(pausedWrapper);
+        Notification pausedNotif = pausedWrapper.getNotification();
+        assertEquals(
+                "Paused task status chip should be Paused",
+                mContext.getString(R.string.actor_notification_live_status_paused),
+                pausedNotif.extras.getCharSequence(
+                        ActorNotificationFactory.EXTRA_SHORT_CRITICAL_TEXT));
+
+        // Warning state (running task in warning): requested promoted ongoing,
+        // shortCriticalText = "Review".
+        NotificationWrapper warningWrapper =
+                ActorNotificationFactory.buildNotification(
+                        mTask, ActorTaskState.ACTING, /* isSilent= */ false, /* isWarning= */ true);
+        assertNotNull(warningWrapper);
+        Notification warningNotif = warningWrapper.getNotification();
+        assertTrue(
+                "Warning notification should request promoted ongoing",
+                warningNotif.extras.getBoolean(
+                        ActorNotificationFactory.EXTRA_REQUEST_PROMOTED_ONGOING));
+        assertEquals(
+                "Warning state status chip should be Review",
+                mContext.getString(R.string.actor_notification_live_status_review),
+                warningNotif.extras.getCharSequence(
+                        ActorNotificationFactory.EXTRA_SHORT_CRITICAL_TEXT));
+
+        // Warning state (waiting on user task in warning): requested promoted ongoing,
+        // shortCriticalText = "Review".
+        NotificationWrapper waitingWarningWrapper =
+                ActorNotificationFactory.buildNotification(
+                        mTask,
+                        ActorTaskState.WAITING_ON_USER,
+                        /* isSilent= */ false,
+                        /* isWarning= */ true);
+        assertNotNull(waitingWarningWrapper);
+        Notification waitingWarningNotif = waitingWarningWrapper.getNotification();
+        assertEquals(
+                "Waiting on user warning status chip should still be Review",
+                mContext.getString(R.string.actor_notification_live_status_review),
+                waitingWarningNotif.extras.getCharSequence(
+                        ActorNotificationFactory.EXTRA_SHORT_CRITICAL_TEXT));
+
+        // Finished task: requested promoted ongoing, shortCriticalText = "Done".
+        NotificationWrapper finishedWrapper =
+                ActorNotificationFactory.buildNotification(
+                        mTask,
+                        ActorTaskState.FINISHED,
+                        /* isSilent= */ false,
+                        /* isWarning= */ false);
+        assertNotNull(finishedWrapper);
+        Notification finishedNotif = finishedWrapper.getNotification();
+        assertTrue(
+                "Finished notification should be ongoing when live",
+                (finishedNotif.flags & Notification.FLAG_ONGOING_EVENT) != 0);
+        assertTrue(
+                "Finished notification should request promoted ongoing",
+                finishedNotif.extras.getBoolean(
+                        ActorNotificationFactory.EXTRA_REQUEST_PROMOTED_ONGOING));
+        assertEquals(
+                "Finished notification status chip should be Done",
+                mContext.getString(R.string.actor_notification_live_status_done),
+                finishedNotif.extras.getCharSequence(
+                        ActorNotificationFactory.EXTRA_SHORT_CRITICAL_TEXT));
+
+        // Stopped / Cancelled terminal task: should request promoted ongoing,
+        // shortCriticalText = "Stopped", ongoing when live.
+        NotificationWrapper stoppedWrapper =
+                ActorNotificationFactory.buildNotification(
+                        mTask,
+                        ActorTaskState.FAILED,
+                        /* isSilent= */ false,
+                        /* isWarning= */ false);
+        assertNotNull(stoppedWrapper);
+        Notification stoppedNotif = stoppedWrapper.getNotification();
+        assertTrue(
+                "Stopped live notification should be ongoing",
+                (stoppedNotif.flags & Notification.FLAG_ONGOING_EVENT) != 0);
+        assertTrue(
+                "Stopped live notification should request promoted ongoing",
+                stoppedNotif.extras.getBoolean(
+                        ActorNotificationFactory.EXTRA_REQUEST_PROMOTED_ONGOING));
+        assertEquals(
+                "Stopped live notification status chip should be Stopped",
+                mContext.getString(R.string.actor_notification_live_status_stopped),
+                stoppedNotif.extras.getCharSequence(
+                        ActorNotificationFactory.EXTRA_SHORT_CRITICAL_TEXT));
     }
 
     private void assertSmallIcon(Notification notification) {

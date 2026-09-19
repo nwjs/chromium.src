@@ -20,8 +20,12 @@ namespace net {
 QuicSessionPool::EndpointConnector::EndpointConnector(
     AsyncDnsJob* job,
     const char* name,
-    bool created_by_slow_timer)
-    : job_(job), name_(name), created_by_slow_timer_(created_by_slow_timer) {}
+    bool created_by_slow_timer,
+    bool is_stale)
+    : job_(job),
+      name_(name),
+      created_by_slow_timer_(created_by_slow_timer),
+      is_stale_(is_stale) {}
 
 QuicSessionPool::EndpointConnector::~EndpointConnector() {
   if (attempt_in_flight_) {
@@ -42,7 +46,7 @@ std::optional<int> QuicSessionPool::EndpointConnector::TryAdvance() {
 
   while (true) {
     std::optional<AsyncDnsJob::Candidate> candidate =
-        job_->TakeNextCandidate(this);
+        job_->TakeNextCandidate(*this);
     if (!candidate.has_value()) {
       return std::nullopt;
     }
@@ -50,7 +54,8 @@ std::optional<int> QuicSessionPool::EndpointConnector::TryAdvance() {
     AsyncDnsJob::AttemptParams params = job_->GetAttemptParams();
     attempt_start_time_ = base::TimeTicks::Now();
     ++attempts_started_;
-    attempt_id_ = job_->OnAttemptStarted(this, *candidate, attempt_start_time_);
+    attempt_id_ =
+        job_->OnAttemptStarted(*this, *candidate, attempt_start_time_);
     // Passing a null `crypto_client_config_handle` is safe because the owning
     // job holds a handle for as long as this attempt can be alive.
     attempt_ = std::make_unique<QuicSessionAttempt>(
@@ -61,9 +66,8 @@ std::optional<int> QuicSessionPool::EndpointConnector::TryAdvance() {
         params.retry_on_alternate_network_before_handshake,
         params.use_dns_aliases, std::move(params.dns_aliases),
         /*crypto_client_config_handle=*/nullptr,
-        params.session_creation_initiator,
-        params.quic_session_establishment_reason,
-        params.connection_management_config);
+        params.session_creation_initiator, params.quic_connection_reuse_details,
+        params.connection_management_config, is_stale_);
 
     int rv = attempt_->Start(base::BindOnce(
         &EndpointConnector::OnAttemptComplete, weak_factory_.GetWeakPtr()));
@@ -115,7 +119,7 @@ void QuicSessionPool::EndpointConnector::OnConnectionFailedOnDefaultNetwork() {
 }
 
 void QuicSessionPool::EndpointConnector::OnQuicSessionCreationComplete(int rv) {
-  job_->OnSessionCreationDecided(rv, this);
+  job_->OnSessionCreationDecided(rv, *this);
 }
 
 void QuicSessionPool::EndpointConnector::RecordAttemptFailure(int rv) {
@@ -130,7 +134,7 @@ void QuicSessionPool::EndpointConnector::RecordAttemptFailure(int rv) {
         return base::DictValue()
             .Set("attempt_id", *attempt_id_)
             .Set("connector", name_)
-            .Set("slot", job_->SlotName(this))
+            .Set("slot", job_->SlotName(*this))
             .Set("ip_endpoint", attempt_->ip_endpoint().ToString())
             .Set("net_error", rv);
       });
@@ -144,15 +148,17 @@ void QuicSessionPool::EndpointConnector::OnAttemptComplete(int rv) {
   attempt_in_flight_ = false;
   if (rv != OK) {
     RecordAttemptFailure(rv);
-    std::optional<int> result = TryAdvance();
-    if (result == ERR_IO_PENDING) {
-      return;
+    if (rv != ERR_ABORTED) {
+      std::optional<int> result = TryAdvance();
+      if (result == ERR_IO_PENDING) {
+        return;
+      }
+      // Nothing else could be attempted. Report the most recent failure so
+      // the job can fail or keep waiting for more DNS results.
+      rv = result.value_or(*last_attempt_error_);
     }
-    // Nothing else could be attempted. Report the most recent failure so
-    // the job can fail or keep waiting for more DNS results.
-    rv = result.value_or(*last_attempt_error_);
   }
-  job_->OnConnectorComplete(rv, this);
+  job_->OnConnectorComplete(rv, *this);
 }
 
 }  // namespace net

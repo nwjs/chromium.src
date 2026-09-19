@@ -21,6 +21,7 @@
 #include "chrome/browser/glic/test_support/glic_browser_test.h"
 #include "chrome/browser/glic/test_support/glic_histogram_tester.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
+#include "chrome/browser/preloading/preloading_features.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
@@ -65,8 +66,12 @@ mojom::AdditionalContextPtr CreateMockAdditionalContext(
 class GlicInvokeBrowserTest : public GlicBrowserTestMixin<PlatformBrowserTest> {
  public:
   GlicInvokeBrowserTest() {
-    feature_list_.InitAndDisableFeature(
-        features::kGlicDefaultToLastActiveConversation);
+    // TODO(crbug.com/539786691): Re-enable kPrewarm once the feature is
+    // compatible with the test.
+    feature_list_.InitWithFeatures(
+        /*enabled_features=*/{},
+        /*disabled_features=*/{features::kGlicDefaultToLastActiveConversation,
+                               features::kPrewarm});
   }
   ~GlicInvokeBrowserTest() override = default;
 
@@ -1143,6 +1148,29 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
     CloseBrowserSynchronously(fallback_browser);
   }
 
+  // 3. TabHandle targeting app_browser's tab is rejected (resolves to nullptr).
+  {
+    tabs::TabInterface* app_tab =
+        TabListInterface::From(app_browser)
+            ->OpenTab(GURL("about:blank"), -1, /*foreground=*/true);
+    ASSERT_TRUE(app_tab);
+    Target target;
+    target.surface = app_tab->GetHandle();
+    auto resolved =
+        GlicInvokeHandler::ResolveTargetSurface(GetProfile(), target);
+    ASSERT_TRUE(
+        std::holds_alternative<GlicInvokeHandler::TabSurface>(resolved));
+    auto tab_surface = std::get<GlicInvokeHandler::TabSurface>(resolved);
+    EXPECT_EQ(tab_surface.tab, nullptr);
+
+    base::test::TestFuture<GlicInvokeError> error_future;
+    GlicInvokeOptions options(mojom::InvocationSource::kOsButton);
+    options.target = std::move(target);
+    options.on_error = error_future.GetCallback();
+    coordinator().Invoke(std::move(options));
+    EXPECT_EQ(error_future.Get(), GlicInvokeError::kInvalidTab);
+  }
+
   CloseBrowserSynchronously(app_browser);
 }
 
@@ -1444,8 +1472,15 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeActuationBrowserTest,
   EXPECT_TRUE(success_future.Wait());
 }
 
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_InvokeDoesNotFailOnTabClosedAfterActuationStarts \
+  DISABLED_InvokeDoesNotFailOnTabClosedAfterActuationStarts
+#else
+#define MAYBE_InvokeDoesNotFailOnTabClosedAfterActuationStarts \
+  InvokeDoesNotFailOnTabClosedAfterActuationStarts
+#endif
 IN_PROC_BROWSER_TEST_F(GlicInvokeActuationBrowserTest,
-                       InvokeDoesNotFailOnTabClosedAfterActuationStarts) {
+                       MAYBE_InvokeDoesNotFailOnTabClosedAfterActuationStarts) {
   // Add a new tab so we don't close the browser when we close the active tab.
   tabs::TabInterface* tab2 = CreateAndActivateTab(GURL("about:blank"));
 
@@ -1566,7 +1601,7 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeDefaultToLastActiveBrowserTest,
 
   // Simulate user input to trigger first action metric.
   instance2->instance_metrics().OnUserInputSubmitted(
-      mojom::WebClientMode::kText);
+      mojom::WebClientMode::kText, mojom::PromptType::kUnspecified);
 
   histogram_tester.ExpectUniqueSample(
       "Glic.Instance.AutoOpenedPanel.FirstAction.LastActiveInstance",
@@ -1703,4 +1738,38 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
   // Glic should be bound to this new tab.
   EXPECT_TRUE(GetInstanceForTab(active_tab));
 }
+
+IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
+                       InvokeTargetLastActiveOrNew_UsesLastActiveSurface) {
+  tabs::TabInterface* tab1 = GetTabListInterface()->GetActiveTab();
+  ASSERT_OK_AND_ASSIGN(auto* instance, OpenGlicForActiveTab());
+
+  auto* tab_list = GetTabListInterface();
+  int initial_tab_count = tab_list->GetTabCount();
+  BrowserWindowInterface* browser = tab1->GetBrowserWindowInterface();
+
+  PreventDeletionOnClose(instance);
+  instance->CloseAllEmbedders();
+  ASSERT_TRUE(WaitForGlicClose(instance));
+
+  base::test::TestFuture<void> success_future;
+  GlicInvokeOptions options(mojom::InvocationSource::kOsButton);
+
+  options.target.conversation = glic::InstanceId(instance->id());
+  options.target.surface =
+      glic::LastActiveOrNew{browser, /*open_in_foreground=*/true};
+  options.on_success = success_future.GetCallback();
+
+  coordinator().Invoke(std::move(options));
+
+  EXPECT_TRUE(success_future.Wait());
+
+  // No new tab should have been created.
+  EXPECT_EQ(tab_list->GetTabCount(), initial_tab_count);
+  EXPECT_EQ(tab_list->GetActiveTab(), tab1);
+
+  // Glic should be bound to tab1 again.
+  EXPECT_EQ(GetInstanceForTab(tab1), instance);
+}
+
 }  // namespace glic

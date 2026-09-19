@@ -3,6 +3,7 @@ include_rules = [
   "+chrome/grit",
   "+chrome/services/speech/buildflags/buildflags.h",
   "+components/actor/public",
+  "+components/actor/renderer",
   "+components/autofill/content/common",
   "+components/autofill/content/renderer",
   "+components/autofill/core/common",
@@ -136,6 +137,7 @@ specific_include_rules = {
     "+content/public/browser/browser_thread.h",
   ],
   "ash_merge_session_loader_throttle\\.cc": [
+    "+ash/constants/ash_switches.h",
     "+components/google/core/common/google_util.h",
   ],
 }

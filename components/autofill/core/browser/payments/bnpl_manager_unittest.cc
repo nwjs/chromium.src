@@ -44,7 +44,7 @@
 #include "components/autofill/core/browser/payments/test_legal_message_line.h"
 #include "components/autofill/core/browser/payments/test_payments_autofill_client.h"
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/browser/ui/payments/autofill_progress_ui_type.h"
 #include "components/autofill/core/browser/ui/payments/bnpl_tos_controller.h"
 #include "components/autofill/core/browser/ui/payments/bnpl_ui_delegate.h"
@@ -2111,7 +2111,7 @@ TEST_F(BnplManagerTest,
   EXPECT_CALL(callback, Run);
   EXPECT_CALL(*credit_card_form_event_logger_,
               OnBnplSuggestionShown(
-                  /*suggestion_contains_pay_later_tab_entry=*/false));
+                  /*pay_later_tab_shown=*/false));
 
   bnpl_manager_->NotifyOfSuggestionGeneration(
       AutofillSuggestionTriggerSource::kUnspecified);
@@ -2140,7 +2140,7 @@ TEST_F(
   EXPECT_CALL(callback, Run).Times(0);
   EXPECT_CALL(*credit_card_form_event_logger_,
               OnBnplSuggestionShown(
-                  /*suggestion_contains_pay_later_tab_entry=*/false))
+                  /*pay_later_tab_shown=*/false))
       .Times(0);
 
   bnpl_manager_->NotifyOfSuggestionGeneration(
@@ -2301,7 +2301,7 @@ TEST_F(BnplManagerTest,
 
   EXPECT_CALL(*credit_card_form_event_logger_,
               OnBnplSuggestionShown(
-                  /*suggestion_contains_pay_later_tab_entry=*/false));
+                  /*pay_later_tab_shown=*/false));
   bnpl_manager_->OnCreditCardSuggestionsShown(suggestions, base::DoNothing());
 }
 
@@ -3556,7 +3556,7 @@ TEST_F(BnplManagerPayLaterTabTest,
   EXPECT_CALL(callback, Run).Times(0);
   EXPECT_CALL(*credit_card_form_event_logger_,
               OnBnplSuggestionShown(
-                  /*suggestion_contains_pay_later_tab_entry=*/false))
+                  /*pay_later_tab_shown=*/false))
       .Times(0);
 
   bnpl_manager_->NotifyOfSuggestionGeneration(

@@ -1,0 +1,21 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+source_set("isolated_mode") {
+  sources = [
+    "isolated_mode_settings_service_factory.cc",
+    "isolated_mode_settings_service_factory.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//chrome/browser/profiles:profile",
+    "//components/keyed_service/core",
+  ]
+
+  deps = [
+    "//chrome/common:channel_info",
+    "//components/enterprise/isolated_mode",
+  ]
+}

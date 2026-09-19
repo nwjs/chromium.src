@@ -116,6 +116,9 @@ mojom("mojom") {
   }
 
   enabled_features = []
+  if (chrome_wide_echo_cancellation_supported) {
+    enabled_features += [ "chrome_wide_echo_cancellation" ]
+  }
   if (allow_oop_video_decoder) {
     enabled_features += [ "allow_oop_video_decoder" ]
   }
@@ -779,6 +782,10 @@ mojom("media_types") {
         {
           mojom = "media.mojom.SVCScalabilityMode"
           cpp = "::media::SVCScalabilityMode"
+        },
+        {
+          mojom = "media.mojom.VideoChromaSampling"
+          cpp = "::media::VideoChromaSampling"
         },
         {
           mojom = "media.mojom.VideoRotation"

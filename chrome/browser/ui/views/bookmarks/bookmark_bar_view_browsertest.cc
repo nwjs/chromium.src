@@ -19,7 +19,6 @@
 #include "chrome/browser/preloading/chrome_preloading.h"
 #include "chrome/browser/preloading/scoped_prewarm_feature_list.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
@@ -137,13 +136,13 @@ class BookmarkBarNavigationTestBase : public BookmarkBarTestBase,
   }
 
   content::WebContents* web_contents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
 
   std::string GetContent() {
     content::WebContents* web_contents =
-        browser()->tab_strip_model()->GetActiveWebContents();
+        browser()->GetTabStripModel()->GetActiveWebContents();
     return content::EvalJs(web_contents, "document.body.textContent")
         .ExtractString();
   }
@@ -441,7 +440,7 @@ class PreloadBookmarkBarNavigationTestBase
             base::Unretained(this))) {}
 
   content::WebContents* GetActiveWebContents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   void SetUpOnMainThread() override {
@@ -490,7 +489,7 @@ class PreloadBookmarkBarNavigationTestBase
 
   BookmarkBarPreloadPipelineManager* GetBookmarkBarPreloadPipelineManager() {
     return browser()
-        ->tab_strip_model()
+        ->GetTabStripModel()
         ->GetActiveTab()
         ->GetTabFeatures()
         ->bookmarkbar_preload_pipeline_manager();
@@ -1087,7 +1086,7 @@ IN_PROC_BROWSER_TEST_F(
                    prefs::kBookmarkBarNavigationCount));
 
   content::TestNavigationObserver observer(
-      browser()->tab_strip_model()->GetActiveWebContents(), 1);
+      browser()->GetTabStripModel()->GetActiveWebContents(), 1);
   ;
   // Trigger navigation recording.
   button->OnMousePressed(ui::MouseEvent(

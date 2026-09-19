@@ -23,7 +23,6 @@
 #include "chrome/browser/first_party_sets/first_party_sets_policy_service.h"
 #include "chrome/browser/first_party_sets/first_party_sets_policy_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/storage_access_api/storage_access_api_utils.h"
 #include "chrome/browser/webid/federated_identity_auto_reauthn_permission_context.h"
 #include "chrome/browser/webid/federated_identity_auto_reauthn_permission_context_factory.h"
 #include "chrome/browser/webid/federated_identity_permission_context.h"
@@ -148,8 +147,6 @@ RequestOutcome RequestOutcomeFromPrompt(PermissionDecision decision,
 
 void RecordOutcomeSample(RequestOutcome outcome,
                          const net::SchemefulSite& requesting_site) {
-  base::UmaHistogramEnumeration("API.StorageAccess.RequestOutcome", outcome);
-
   dwa::builders::StorageAccess_RequestOutcome()
       .SetOutcome(static_cast<int>(outcome))
       .SetContent(requesting_site.GetURL().spec())
@@ -231,7 +228,7 @@ FederatedIdentityPermissionContext* IsAutograntViaFedCmAllowed(
 base::expected<void, content::PermissionStatusSource>
 ValidatePermissionEligibility(content::RenderFrameHost* rfh,
                               const net::SchemefulSite& requesting_site) {
-  if (IsAccessRestrictedInFrame(rfh)) {
+  if (rfh->IsStorageAccessRestricted()) {
     // No need to log anything here, since well-behaved renderers have already
     // done these checks and have logged to the console. This block is to handle
     // compromised renderers.
@@ -565,7 +562,7 @@ StorageAccessGrantPermissionContext::GetContentSettingStatusInternal(
     const GURL& requesting_origin,
     const GURL& embedding_origin) const {
   if (render_frame_host) {
-    if (IsAccessRestrictedInFrame(render_frame_host)) {
+    if (render_frame_host->IsStorageAccessRestricted()) {
       return CONTENT_SETTING_BLOCK;
     }
 

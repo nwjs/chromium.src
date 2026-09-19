@@ -342,6 +342,7 @@ interface AudioTrackList : EventTarget
     setter onremovetrack
 interface AudioWorklet : Worklet
     attribute @@toStringTag
+    getter port
     method constructor
 interface AudioWorkletNode : AudioNode
     attribute @@toStringTag
@@ -1005,6 +1006,9 @@ interface CSSPositionValue : CSSStyleValue
     method constructor
     setter x
     setter y
+interface CSSPrivateRule : CSSRule
+    attribute @@toStringTag
+    method constructor
 interface CSSPropertyRule : CSSRule
     attribute @@toStringTag
     getter inherits
@@ -1512,6 +1516,7 @@ interface ContactsManager
 interface ContainerQueryList : EventTarget
     attribute @@toStringTag
     getter matches
+    getter query
     method constructor
 interface ContentIndex
     attribute @@toStringTag
@@ -2236,7 +2241,6 @@ interface Document : Node
     method releaseEvents
     method replaceChildren
     method requestStorageAccess
-    method requestStorageAccessFor
     method setSequentialFocusStartingPoint
     method startViewTransition
     method webkitCancelFullScreen
@@ -2606,7 +2610,6 @@ interface Element : Node
     method getAttributeNodeNS
     method getBoundingClientRect
     method getBoxQuads
-    method getCanvasTransform
     method getClientRects
     method getElementsByClassName
     method getElementsByTagName
@@ -2648,7 +2651,6 @@ interface Element : Node
     method setAttributeNS
     method setAttributeNode
     method setAttributeNodeNS
-    method setCanvasTransform
     method setHTML
     method setHTMLUnsafe
     method setPointerCapture
@@ -3000,7 +3002,6 @@ interface Fence
 interface FencedFrameConfig
     attribute @@toStringTag
     method constructor
-    method setSharedStorageContext
 interface FetchLaterResult
     attribute @@toStringTag
     getter activated
@@ -3117,6 +3118,7 @@ interface FontFace
     getter variant
     getter variationSettings
     getter weight
+    getter width
     method constructor
     method load
     setter ascentOverride
@@ -3132,6 +3134,7 @@ interface FontFace
     setter variant
     setter variationSettings
     setter weight
+    setter width
 interface FontFaceSet : EventTarget
     attribute @@toStringTag
     getter onloading
@@ -3368,6 +3371,7 @@ interface GPUQueue
     method constructor
     method copyElementImageToTexture
     method copyExternalImageToTexture
+    method drawElementImageToTexture
     method onSubmittedWorkDone
     method submit
     method writeBuffer
@@ -3918,6 +3922,7 @@ interface HTMLCanvasElement : HTMLElement
     getter width
     method captureElementImage
     method captureStream
+    method clearElementGeometry
     method configureHighDynamicRange
     method constructor
     method getContext
@@ -3926,6 +3931,7 @@ interface HTMLCanvasElement : HTMLElement
     method toBlob
     method toDataURL
     method transferControlToOffscreen
+    method updateElementGeometry
     setter height
     setter layoutSubtree
     setter onpaint
@@ -4673,6 +4679,7 @@ interface HTMLInputElement : HTMLElement
     getter size
     getter src
     getter step
+    getter switch
     getter type
     getter useMap
     getter validationMessage
@@ -4733,6 +4740,7 @@ interface HTMLInputElement : HTMLElement
     setter size
     setter src
     setter step
+    setter switch
     setter type
     setter useMap
     setter value
@@ -4743,7 +4751,6 @@ interface HTMLInputElement : HTMLElement
 interface HTMLInstallElement : HTMLElement
     attribute @@toStringTag
     getter initialPermissionStatus
-    getter installURL
     getter invalidReason
     getter isValid
     getter manifest
@@ -4754,7 +4761,6 @@ interface HTMLInstallElement : HTMLElement
     getter onvalidationstatuschange
     getter permissionStatus
     method constructor
-    setter installURL
     setter manifest
     setter manifestId
     setter oninstallresult
@@ -5434,7 +5440,10 @@ interface HTMLTemplateElement : HTMLElement
     attribute @@toStringTag
     getter buffer
     getter content
+    getter crossOrigin
     getter htmlFor
+    getter integrity
+    getter referrerPolicy
     getter sanitize
     getter shadowRootAdoptedStyleSheets
     getter shadowRootClonable
@@ -5444,9 +5453,13 @@ interface HTMLTemplateElement : HTMLElement
     getter shadowRootReferenceTarget
     getter shadowRootSerializable
     getter shadowRootSlotAssignment
+    getter src
     method constructor
     setter buffer
+    setter crossOrigin
     setter htmlFor
+    setter integrity
+    setter referrerPolicy
     setter sanitize
     setter shadowRootAdoptedStyleSheets
     setter shadowRootClonable
@@ -5456,6 +5469,7 @@ interface HTMLTemplateElement : HTMLElement
     setter shadowRootReferenceTarget
     setter shadowRootSerializable
     setter shadowRootSlotAssignment
+    setter src
 interface HTMLTextAreaElement : HTMLElement
     attribute @@toStringTag
     getter autocomplete
@@ -7108,6 +7122,7 @@ interface Navigator
     method getUserMedia
     method install
     method javaEnabled
+    method playHaptics
     method queryHandwritingRecognizer
     method registerProtocolHandler
     method requestMIDIAccess
@@ -7323,11 +7338,13 @@ interface OffscreenCanvas : EventTarget
     getter oncontextlost
     getter oncontextrestored
     getter width
+    method clearElementGeometry
     method constructor
     method convertToBlob
     method getContext
     method getElementTransform
     method transferToImageBitmap
+    method updateElementGeometry
     setter height
     setter oncontextlost
     setter oncontextrestored
@@ -9810,11 +9827,15 @@ interface SVGTextPathElement : SVGTextContentElement
     attribute TEXTPATH_METHODTYPE_ALIGN
     attribute TEXTPATH_METHODTYPE_STRETCH
     attribute TEXTPATH_METHODTYPE_UNKNOWN
+    attribute TEXTPATH_SIDETYPE_LEFT
+    attribute TEXTPATH_SIDETYPE_RIGHT
+    attribute TEXTPATH_SIDETYPE_UNKNOWN
     attribute TEXTPATH_SPACINGTYPE_AUTO
     attribute TEXTPATH_SPACINGTYPE_EXACT
     attribute TEXTPATH_SPACINGTYPE_UNKNOWN
     getter href
     getter method
+    getter side
     getter spacing
     getter startOffset
     method constructor
@@ -11060,7 +11081,9 @@ interface VTTCue : TextTrackCue
     attribute @@toStringTag
     getter align
     getter line
+    getter lineAlign
     getter position
+    getter positionAlign
     getter region
     getter size
     getter snapToLines
@@ -11070,7 +11093,9 @@ interface VTTCue : TextTrackCue
     method getCueAsHTML
     setter align
     setter line
+    setter lineAlign
     setter position
+    setter positionAlign
     setter region
     setter size
     setter snapToLines
@@ -12032,6 +12057,7 @@ interface WebGL2RenderingContext
     method stencilOp
     method stencilOpSeparate
     method texElementImage2D
+    method texElementSubImage2D
     method texImage2D
     method texImage3D
     method texParameterf
@@ -12535,6 +12561,7 @@ interface WebGLRenderingContext
     method stencilOp
     method stencilOpSeparate
     method texElementImage2D
+    method texElementSubImage2D
     method texImage2D
     method texParameterf
     method texParameteri
@@ -12742,12 +12769,20 @@ interface WebTransportDatagramDuplexStream
     getter readable
     getter writable
     method constructor
+    method createWritable
     setter incomingHighWaterMark
     setter incomingMaxAge
     setter incomingMaxBufferedDatagrams
     setter outgoingHighWaterMark
     setter outgoingMaxAge
     setter outgoingMaxBufferedDatagrams
+interface WebTransportDatagramsWritable : WritableStream
+    attribute @@toStringTag
+    getter sendGroup
+    getter sendOrder
+    method constructor
+    setter sendGroup
+    setter sendOrder
 interface WebTransportError : DOMException
     attribute @@toStringTag
     getter source
@@ -13753,6 +13788,7 @@ namespace console
     attribute propertyNamesInGlobal
     attribute testRunner
     attribute textInputController
+    getter alwaysOnTop
     getter caches
     getter clientInformation
     getter closed

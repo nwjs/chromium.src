@@ -13,13 +13,11 @@ import static org.mockito.Mockito.verify;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 
 /** Unit tests for {@link TokenHolder}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class TokenHolderTest {
     private final Runnable mCallback = mock(Runnable.class);
     private final TokenHolder mHolder = new TokenHolder(mCallback);
@@ -51,6 +49,19 @@ public class TokenHolderTest {
         int token1 = mHolder.acquireToken();
         mHolder.releaseToken(token1 + 1);
         assertTrue(mHolder.hasTokens());
+    }
+
+    @Test
+    public void releaseToken_invalidTokenNoOp() {
+        mHolder.releaseToken(TokenHolder.INVALID_TOKEN);
+        assertFalse(mHolder.hasTokens());
+        verify(mCallback, never()).run();
+
+        mHolder.acquireToken();
+        clearInvocations(mCallback);
+        mHolder.releaseToken(TokenHolder.INVALID_TOKEN);
+        assertTrue(mHolder.hasTokens());
+        verify(mCallback, never()).run();
     }
 
     @Test

@@ -22,6 +22,8 @@ import org.chromium.base.task.TaskTraits;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisabledTest;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge.OfflinePageModelObserver;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge.SavePageCallback;
@@ -33,7 +35,6 @@ import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
-import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.components.offlinepages.DeletePageResult;
 import org.chromium.components.offlinepages.SavePageResult;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -67,7 +68,6 @@ public class OfflinePageBridgeTest {
     private OfflinePageBridge mOfflinePageBridge;
     private String mTestUrl;
     private Profile mProfile;
-    private WebPageStation mStartingPage;
 
     private void initializeBridgeForProfile() throws InterruptedException {
         final Semaphore semaphore = new Semaphore(0);
@@ -145,7 +145,7 @@ public class OfflinePageBridgeTest {
         deletePages(ids);
 
         mTestUrl = mActivityTestRule.getTestServer().getURL(TEST_PAGE);
-        mStartingPage = mActivityTestRule.startOnBlankPage();
+        mActivityTestRule.startOnBlankPage();
     }
 
     @Test
@@ -354,6 +354,7 @@ public class OfflinePageBridgeTest {
 
     @Test
     @MediumTest
+    @DisableFeatures(ChromeFeatureList.ENABLE_DOWNLOAD_SAVE_AS_CONTEXT_MENU)
     public void testDownloadPage() throws Exception {
         final OfflinePageOrigin origin =
                 new OfflinePageOrigin("abc.xyz", new String[] {"deadbeef"});

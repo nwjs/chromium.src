@@ -70,6 +70,14 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//net/http/http_connection_info.cc) -->
 
+<variants name="ConnectionReuseStatus">
+  <variant name="" summary="for any case"/>
+  <variant name=".ConnectionReuse"
+      summary="for possible connection reuse cases"/>
+  <variant name=".DNSReuse" summary="for possible dns reuse cases"/>
+  <variant name=".NonConnectionReuse" summary="for non connection reuse cases"/>
+</variants>
+
 <variants name="Gap">
   <variant name="1000ms"/>
 </variants>
@@ -104,6 +112,17 @@ chromium-metrics-reviews@google.com.
   <variant name="FCP"
       summary="up to First Contentful Paint (FCP). Recorded when FCP is
                reached"/>
+</variants>
+
+<variants name="GWSPrewarmSubresourceCacheStatus">
+  <variant name="" summary="all subresources"/>
+  <variant name=".Cached"
+      summary="all cached subresources (HTTP and memory cache)"/>
+  <variant name=".HttpCached"
+      summary="subresources served from the HTTP cache"/>
+  <variant name=".MemoryCached"
+      summary="subresources served from the in-renderer memory cache"/>
+  <variant name=".NotCached" summary="subresources served from network"/>
 </variants>
 
 <variants name="HiddenSuffix">
@@ -1835,7 +1854,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PageLoad.Clients.GoogleSearch.ConnectTiming.FirstRequestDohDetails.ConnectionInfo"
-    enum="HttpConnectionInfoCoarse" expires_after="2026-09-06">
+    enum="HttpConnectionInfoCoarse" expires_after="2027-08-27">
   <owner>bashi@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1848,7 +1867,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PageLoad.Clients.GoogleSearch.ConnectTiming.FirstRequestDohDetails.SessionSource"
-    enum="NetworkSessionSource" expires_after="2026-09-06">
+    enum="NetworkSessionSource" expires_after="2027-08-27">
   <owner>bashi@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1907,7 +1926,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PageLoad.Clients.GoogleSearch.ConnectTiming.FirstRequestResolutionDetails.TaskCompletionDelay.{ResolutionSource}"
-    units="ms" expires_after="2026-09-06">
+    units="ms" expires_after="2027-08-27">
   <owner>bashi@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -2121,7 +2140,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
-    name="PageLoad.Clients.GoogleSearch.HttpStatusCode{NavigationType}{IncognitoSuffix}"
+    name="PageLoad.Clients.GoogleSearch.HttpStatusCode2{NavigationType}{IncognitoSuffix}"
     enum="HttpResponseCode" expires_after="2027-01-03">
   <owner>suzukikeita@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
@@ -2265,14 +2284,7 @@ chromium-metrics-reviews@google.com.
     loads. This is only recorded for Search navigations and is recorded once
     after navigation commit. This metric is recorded {ConnectionReuseStatus}.
   </summary>
-  <token key="ConnectionReuseStatus">
-    <variant name="" summary="for any case"/>
-    <variant name=".ConnectionReuse"
-        summary="for possible connection reuse cases"/>
-    <variant name=".DNSReuse" summary="for possible dns reuse cases"/>
-    <variant name=".NonConnectionReuse"
-        summary="for non connection reuse cases"/>
-  </token>
+  <token key="ConnectionReuseStatus" variants="ConnectionReuseStatus"/>
 </histogram>
 
 <histogram
@@ -2304,7 +2316,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PageLoad.Clients.GoogleSearch.NavigationTiming.CreateStreamDelay2"
-    units="ms" expires_after="2026-12-16">
+    units="ms" expires_after="2027-02-14">
   <owner>hayato@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -2423,7 +2435,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PageLoad.Clients.GoogleSearch.NavigationTiming.MaxStreamLimitPendingDelay{ConnectionProtocolType}"
-    units="ms" expires_after="2026-09-06">
+    units="ms" expires_after="2027-08-27">
   <owner>bashi@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -2856,6 +2868,188 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="InitiatorOfNavigation" variants="InitiatorOfNavigation"/>
   <token key="PrerenderStatus" variants="PrerenderStatus"/>
+</histogram>
+
+<histogram
+    name="PageLoad.Clients.GoogleSearch.Prewarm.LastSubresourceLoadToCancellation"
+    units="ms" expires_after="2027-02-07">
+  <owner>suzukikeita@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Measures the duration (headroom) between the completion of the last
+    subresource load and the cancellation of the Google Search prewarm
+    prerendered page. Recorded when the prerendered prewarm page is cancelled
+    after having loaded at least one subresource.
+  </summary>
+</histogram>
+
+<histogram
+    name="PageLoad.Clients.GoogleSearch.Prewarm.LoadEventOccurredBeforeCancellation"
+    enum="Boolean" expires_after="2027-02-07">
+  <owner>suzukikeita@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Records whether the load event (window.onload) occurred before the Google
+    Search prewarm prerendered page was cancelled/ended. Recorded when the
+    prerendered prewarm page ends/cancels.
+  </summary>
+</histogram>
+
+<histogram name="PageLoad.Clients.GoogleSearch.Prewarm.LoadEventToCancellation"
+    units="ms" expires_after="2027-02-07">
+  <owner>suzukikeita@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Measures the duration (headroom) between the load event (window.onload)
+    completion and the cancellation of the Google Search prewarm prerendered
+    page. Recorded when the prerendered prewarm page is cancelled after having
+    reached the load event.
+  </summary>
+</histogram>
+
+<histogram
+    name="PageLoad.Clients.GoogleSearch.Prewarm.NavigationToCancellation"
+    units="ms" expires_after="2027-02-07">
+  <owner>suzukikeita@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Measures the duration from navigation start to cancellation of the Google
+    Search prewarm prerendered page. Recorded when the prerendered prewarm page
+    is cancelled/destroyed.
+  </summary>
+</histogram>
+
+<histogram
+    name="PageLoad.Clients.GoogleSearch.Prewarm.NavigationToDOMContentLoaded"
+    units="ms" expires_after="2027-02-07">
+  <owner>suzukikeita@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Measures the duration from navigation start to DOMContentLoaded event start
+    for the Google Search prewarm prerendered page. Recorded when
+    DOMContentLoaded event occurs.
+  </summary>
+</histogram>
+
+<histogram
+    name="PageLoad.Clients.GoogleSearch.Prewarm.NavigationToLastSubresourceLoad"
+    units="ms" expires_after="2027-02-07">
+  <owner>suzukikeita@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Measures the duration from navigation start to the completion of the last
+    subresource load on the Google Search prewarm prerendered page. Recorded
+    when the prerendered prewarm page ends/cancels after having loaded at least
+    one subresource.
+  </summary>
+</histogram>
+
+<histogram name="PageLoad.Clients.GoogleSearch.Prewarm.NavigationToLoadEvent"
+    units="ms" expires_after="2027-02-07">
+  <owner>suzukikeita@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Measures the duration from navigation start to the load event
+    (window.onload) start for the Google Search prewarm prerendered page.
+    Recorded when load event occurs.
+  </summary>
+</histogram>
+
+<histogram
+    name="PageLoad.Clients.GoogleSearch.Prewarm.SubresourceCount{SubresourceCacheStatus}"
+    units="count" expires_after="2027-02-07">
+  <owner>suzukikeita@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Records the total count of {SubresourceCacheStatus} loaded successfully on
+    the Google Search prewarm prerendered page. Recorded once at session end
+    when the prerendered prewarm page ends or is cancelled without being
+    activated.
+  </summary>
+  <token key="SubresourceCacheStatus"
+      variants="GWSPrewarmSubresourceCacheStatus"/>
+</histogram>
+
+<histogram
+    name="PageLoad.Clients.GoogleSearch.Prewarm.SubresourceDestination{SubresourceCacheStatus}"
+    enum="RequestDestination" expires_after="2027-02-07">
+  <owner>suzukikeita@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Records the request destination (type of resource, e.g. Script, Style,
+    Image, Font) of {SubresourceCacheStatus} loaded on the Google Search prewarm
+    prerendered page. Recorded in the browser when each completed subresource
+    load notification is received from the network stack or in-renderer memory
+    cache.
+  </summary>
+  <token key="SubresourceCacheStatus"
+      variants="GWSPrewarmSubresourceCacheStatus"/>
+</histogram>
+
+<histogram name="PageLoad.Clients.GoogleSearch.Prewarm.WasActivated"
+    enum="Boolean" expires_after="2027-02-07">
+  <owner>suzukikeita@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Records whether a Google Search prewarm page load was unexpectedly activated
+    into a primary frame tab instead of being cancelled. Recorded once per
+    prewarm page load at session end (as true if activated, or false if
+    cancelled without activation).
+  </summary>
+</histogram>
+
+<histogram name="PageLoad.Clients.GoogleSearch.Prewarm.WasResponseCached"
+    enum="Boolean" expires_after="2027-02-07">
+  <owner>suzukikeita@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Records whether the Google Search prewarm page load was served from the HTTP
+    cache or network. Recorded once upon navigation commit of the prerendered
+    prewarm page.
+  </summary>
+</histogram>
+
+<histogram
+    name="PageLoad.Clients.GoogleSearch.QuicSessionEstablishmentReason{ConnectionReuseStatus}"
+    enum="QuicSessionEstablishmentReason" expires_after="2027-08-30">
+  <owner>suzukikeita@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Measures the reason for QUIC session establishment for Google Search page
+    loads. Recorded when the navigation is completed or the app is backgrounded
+    on Android after reaching LCP. This metric is recorded
+    {ConnectionReuseStatus}.
+  </summary>
+  <token key="ConnectionReuseStatus" variants="ConnectionReuseStatus"/>
+</histogram>
+
+<histogram
+    name="PageLoad.Clients.GoogleSearch.QuicSessionNonReuseReason{ConnectionReuseStatus}"
+    enum="QuicSessionNonReuseReason" expires_after="2027-08-30">
+  <owner>suzukikeita@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Measures the reason why a QUIC session was not reused for Google Search page
+    loads. Recorded when the navigation is completed or the app is backgrounded
+    on Android after reaching LCP. This metric is recorded
+    {ConnectionReuseStatus}.
+  </summary>
+  <token key="ConnectionReuseStatus" variants="ConnectionReuseStatus"/>
+</histogram>
+
+<histogram
+    name="PageLoad.Clients.GoogleSearch.SessionCreationInitiator{ConnectionProtocolType}{ConnectionReuseStatus}"
+    enum="MultiplexedSessionCreationInitiator" expires_after="2027-08-30">
+  <owner>suzukikeita@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Measures the session creation initiator for Google Search page loads with
+    {ConnectionProtocolType}. Recorded when the navigation is completed or the
+    app is backgrounded on Android after reaching LCP. This metric is recorded
+    {ConnectionReuseStatus}.
+  </summary>
+  <token key="ConnectionProtocolType" variants="ConnectionProtocolType"/>
+  <token key="ConnectionReuseStatus" variants="ConnectionReuseStatus"/>
 </histogram>
 
 <histogram
@@ -3672,7 +3866,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PageLoad.Clients.ServiceWorker2.ParseTiming.NavigationToParseStart{SyntheticResponseSuffix}"
-    units="ms" expires_after="2026-12-16">
+    units="ms" expires_after="2027-02-14">
   <owner>sisidovski@chromium.org</owner>
   <owner>chrome-worker@google.com</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -3748,7 +3942,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PageLoad.Clients.WebView.PageAttemptResults"
-    enum="WebViewPageAttemptResult" expires_after="2026-09-30">
+    enum="WebViewPageAttemptResult" expires_after="2027-09-30">
   <owner>narms@google.com</owner>
   <owner>android-sre@google.com</owner>
   <summary>
@@ -3762,7 +3956,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PageLoad.Clients.WebView.PageAttempts" enum="Boolean"
-    expires_after="2026-09-30">
+    expires_after="2027-09-30">
   <owner>narms@google.com</owner>
   <owner>android-sre@google.com</owner>
   <summary>
@@ -3847,7 +4041,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PageLoad.Clients{ObservedNavigation}.Leakage2.AbandonReasonAt.{NavigationMilestone}{BackgroundSuffix}{HiddenSuffix}{IncognitoSuffix}{ResponseFromCache}"
-    enum="NavigationAbandonReasonEnum" expires_after="2026-08-30">
+    enum="NavigationAbandonReasonEnum" expires_after="2027-08-30">
   <owner>sisidovski@chromium.org</owner>
   <owner>rakina@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
@@ -4152,7 +4346,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PageLoad.DocumentTiming.NavigationToLoadEventFired" units="ms"
-    expires_after="2026-12-13">
+    expires_after="2027-02-14">
   <owner>bmcquade@chromium.org</owner>
   <owner>csharrison@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -4628,7 +4822,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PageLoad.InteractiveTiming.TimeToNextPaint" units="ms"
-    expires_after="2027-01-03">
+    expires_after="2027-07-31">
   <owner>iclelland@chromium.org</owner>
   <owner>speed-metrics-dev@chromium.org</owner>
   <summary>
@@ -4643,7 +4837,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PageLoad.InteractiveTiming.{NormalizedResponsivenessMetric}.{UserInteractionLatency}{PageLoadType}"
-    units="ms" expires_after="2027-02-07">
+    units="ms" expires_after="2027-07-31">
   <owner>iclelland@chromium.org</owner>
   <owner>speed-metrics-dev@chromium.org</owner>
   <summary>
@@ -4671,7 +4865,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PageLoad.Internal.ErrorCode" enum="InternalErrorLoadEvent"
-    expires_after="2026-12-20">
+    expires_after="2027-02-21">
   <owner>csharrison@chromium.org</owner>
   <owner>bmcquade@chromium.org</owner>
   <summary>
@@ -4781,7 +4975,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PageLoad.Internal.Prerender2.MainResourceParseStartToActivation{PreloadingTriggerType}"
-    units="ms" expires_after="2026-08-30">
+    units="ms" expires_after="2027-08-30">
   <owner>lingqi@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
   <summary>
@@ -4804,7 +4998,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PageLoad.Internal.SoftNavigation.{Status}.TotalPaintArea"
-    units="pixels" expires_after="2026-12-15">
+    units="pixels" expires_after="2027-02-14">
   <owner>sullivan@chromium.org</owner>
   <owner>speed-metrics-dev@chromium.org</owner>
   <summary>
@@ -4817,7 +5011,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PageLoad.Internal.SoftNavigation.{Status}.TotalPaintAreaPoints"
-    units="Points" expires_after="2026-12-15">
+    units="Points" expires_after="2027-02-14">
   <owner>sullivan@chromium.org</owner>
   <owner>speed-metrics-dev@chromium.org</owner>
   <summary>
@@ -5275,7 +5469,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PageLoad.PaintTiming.NavigationToFirstPaint" units="ms"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>sullivan@chromium.org</owner>
   <owner>speed-metrics-dev@chromium.org</owner>
   <summary>
@@ -5585,7 +5779,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PageLoad.ParseTiming.NavigationToParseStart" units="ms"
-    expires_after="2026-12-13">
+    expires_after="2027-02-14">
   <owner>bmcquade@chromium.org</owner>
   <owner>csharrison@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -5637,7 +5831,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="PageLoad.SoftNavigation.SoftNavigationPageLoadMetricsObserverState"
     enum="SoftNavigationPageLoadMetricsObserverState"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>sullivan@chromium.org</owner>
   <owner>johannes@chromium.org</owner>
   <owner>speed-metrics-dev@chromium.org</owner>

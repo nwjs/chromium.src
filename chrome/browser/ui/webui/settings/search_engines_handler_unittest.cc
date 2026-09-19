@@ -24,6 +24,7 @@
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
+#include "components/search_engines/search_engine_split_metrics.h"
 #include "components/search_engines/search_engine_type.h"
 #include "components/search_engines/search_engines_pref_names.h"
 #include "components/search_engines/search_engines_test_util.h"
@@ -83,12 +84,16 @@ class SearchEnginesHandlerTest : public testing::Test {
     ASSERT_TRUE(profile_manager_.SetUp());
   }
 
-  void ConfigureTestWithRegularProfile() {
-    ConfigureTestWithProfile(
-        profile_manager_.CreateTestingProfile("Profile 1"));
+  void ConfigureTestWithRegularProfile(
+      base::OnceCallback<void(TemplateURLService&)> post_service_init_callback =
+          {}) {
+    ConfigureTestWithProfile(profile_manager_.CreateTestingProfile("Profile 1"),
+                             std::move(post_service_init_callback));
   }
 
-  void ConfigureTestWithProfile(Profile* profile) {
+  void ConfigureTestWithProfile(Profile* profile,
+                                base::OnceCallback<void(TemplateURLService&)>
+                                    post_service_init_callback = {}) {
     // The test should be configured only once.
     ASSERT_FALSE(handler_);
     ASSERT_FALSE(web_ui_);
@@ -109,6 +114,10 @@ class SearchEnginesHandlerTest : public testing::Test {
         /*url=*/std::nullopt);
 
     template_url_service->SetUserSelectedDefaultSearchProvider(default_engine);
+
+    if (post_service_init_callback) {
+      std::move(post_service_init_callback).Run(*template_url_service);
+    }
 
     web_ui_ = std::make_unique<content::TestWebUI>();
     web_ui_->set_web_contents(web_contents_factory_.CreateWebContents(profile));
@@ -422,10 +431,6 @@ TEST_F(SearchEnginesHandlerTest, UpdateSavedGuestSearch_NonEEA) {
 TEST_F(SearchEnginesHandlerTest, TrafficHijackingHeuristic_Unknown) {
   ConfigureTestWithRegularProfile();
 
-  base::ListValue args;
-  args.Append("callback_id_1");
-  web_ui()->HandleReceivedMessage("getSearchEnginesList", args);
-
   histogram_tester().ExpectBucketCount(
       "Settings.SearchEngines.SearchHijackingDetector.HeuristicAvailable",
       false, 1);
@@ -434,24 +439,18 @@ TEST_F(SearchEnginesHandlerTest, TrafficHijackingHeuristic_Unknown) {
       0);
   histogram_tester().ExpectTotalCount(
       "Settings.SearchEngines.SearchHijackingDetector.HeuristicMatch", 0);
-
-  base::ListValue args2;
-  args2.Append("callback_id_2");
-  web_ui()->HandleReceivedMessage("getSearchEnginesList", args2);
-
   histogram_tester().ExpectTotalCount(
       "Settings.SearchEngines.SearchHijackingDetector.HeuristicAvailable", 1);
 }
 
 TEST_F(SearchEnginesHandlerTest, TrafficHijackingHeuristic_NoMatch) {
-  ConfigureTestWithRegularProfile();
-  PrefService* pref_service = profile()->GetPrefs();
+  TestingProfile* test_profile =
+      profile_manager().CreateTestingProfile("Profile 1");
+  test_profile->GetPrefs()->SetTime(
+      prefs::kExtensionTelemetrySearchHijackingLastCheckTime,
+      base::Time::Now());
 
-  pref_service->SetTime(prefs::kExtensionTelemetrySearchHijackingLastCheckTime,
-                        base::Time::Now());
-  base::ListValue args;
-  args.Append("callback_id");
-  web_ui()->HandleReceivedMessage("getSearchEnginesList", args);
+  ConfigureTestWithProfile(test_profile);
 
   histogram_tester().ExpectBucketCount(
       "Settings.SearchEngines.SearchHijackingDetector.HeuristicAvailable", true,
@@ -467,11 +466,13 @@ TEST_F(SearchEnginesHandlerTest, TrafficHijackingHeuristic_NoMatch) {
 }
 
 TEST_F(SearchEnginesHandlerTest, TrafficHijackingHeuristic_Match) {
-  ConfigureTestWithRegularProfile();
-  PrefService* pref_service = profile()->GetPrefs();
+  TestingProfile* test_profile =
+      profile_manager().CreateTestingProfile("Profile 1");
+  PrefService* pref_service = test_profile->GetPrefs();
 
   pref_service->SetTime(prefs::kExtensionTelemetrySearchHijackingLastCheckTime,
                         base::Time::Now());
+
   base::DictValue signal_data;
   signal_data.Set(
       "detection_timestamp",
@@ -479,21 +480,145 @@ TEST_F(SearchEnginesHandlerTest, TrafficHijackingHeuristic_Match) {
   pref_service->SetDict(prefs::kExtensionTelemetrySearchHijackingSignalData,
                         std::move(signal_data));
 
-  base::ListValue args;
-  args.Append("callback_id");
-  web_ui()->HandleReceivedMessage("getSearchEnginesList", args);
+  ConfigureTestWithProfile(test_profile);
 
   histogram_tester().ExpectBucketCount(
       "Settings.SearchEngines.SearchHijackingDetector.HeuristicAvailable", true,
       1);
   histogram_tester().ExpectBucketCount(
-      "Settings.SearchEngines.SearchHijackingDetector.HeuristicAvailable",
-      false, 0);
-  histogram_tester().ExpectBucketCount(
       "Settings.SearchEngines.SearchHijackingDetector.HeuristicMatch", true, 1);
   histogram_tester().ExpectBucketCount(
       "Settings.SearchEngines.SearchHijackingDetector.HeuristicMatch", false,
       0);
+}
+
+TEST_F(SearchEnginesHandlerTest, IsRecommendedFromPolicy) {
+  ConfigureTestWithRegularProfile();
+  TemplateURLService* template_url_service =
+      TemplateURLServiceFactory::GetForProfile(profile());
+
+  TemplateURLData rec_data;
+  rec_data.SetShortName(u"Recommended Search");
+  rec_data.SetKeyword(u"rec_keyword");
+  rec_data.SetURL("https://www.recommended.com/search?q={searchTerms}");
+  rec_data.policy_origin =
+      TemplateURLData::PolicyOrigin::kDefaultSearchProvider;
+  rec_data.enforced_by_policy = false;
+
+  template_url_service->Add(std::make_unique<TemplateURL>(rec_data));
+
+  base::ListValue args;
+  args.Append("callback_id");
+  web_ui()->HandleReceivedMessage("getCategorizedTemplateUrls", args);
+
+  const content::TestWebUI::CallData& call_data = *web_ui()->call_data().back();
+  EXPECT_EQ("cr.webUIResponse", call_data.function_name());
+  EXPECT_EQ("callback_id", call_data.arg1()->GetString());
+  EXPECT_TRUE(call_data.arg2()->GetBool());
+
+  ASSERT_TRUE(call_data.arg3()->is_dict());
+  const base::DictValue& response = call_data.arg3()->GetDict();
+
+  const base::ListValue* active_shortcuts =
+      response.FindList("activeSiteShortcuts");
+  ASSERT_TRUE(active_shortcuts);
+
+  bool found_rec = false;
+  for (const auto& entry : *active_shortcuts) {
+    ASSERT_TRUE(entry.is_dict());
+    const base::DictValue& dict = entry.GetDict();
+    if (dict.FindString("keyword") &&
+        *dict.FindString("keyword") == "rec_keyword") {
+      found_rec = true;
+      EXPECT_TRUE(dict.FindBool("isRecommendedFromPolicy").value_or(false));
+      EXPECT_FALSE(dict.FindBool("isManaged").value_or(true));
+    }
+  }
+  EXPECT_TRUE(found_rec);
+}
+
+TEST_F(SearchEnginesHandlerTest, OseSplitMetrics_NonJapan_NotRecorded) {
+  ConfigureTestWithRegularProfile();
+
+  base::ListValue args;
+  args.Append("callback_id");
+  web_ui()->HandleReceivedMessage("getCategorizedTemplateUrls", args);
+
+  histogram_tester().ExpectTotalCount(
+      "Search.OseSplitYahooJapan.DseTypeOnSettingsPageLoad", 0);
+  histogram_tester().ExpectTotalCount(
+      "Search.OseSplitYahooJapan.CountOnSettingsPageLoad", 0);
+  histogram_tester().ExpectTotalCount(
+      "Search.OseSplitYahooJapan.EngineStateOnSettingsPageLoad", 0);
+}
+
+TEST_F(SearchEnginesHandlerTest, OseSplitMetrics_Japan_Recorded) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
+      switches::kSearchEngineChoiceCountry, "JP");
+  ConfigureTestWithRegularProfile(
+      base::BindOnce([](TemplateURLService& template_url_service) {
+        AddSearchEngine(&template_url_service, "yahoo_jp", u"yj1",
+                        TemplateURLPrepopulateData::yahoo_jp.id,
+                        TemplateURLPrepopulateData::yahoo_jp.search_url);
+        AddSearchEngine(&template_url_service, "yahoo_jp_next", u"yj2",
+                        TemplateURLPrepopulateData::yahoo_jp_next.id,
+                        TemplateURLPrepopulateData::yahoo_jp_next.search_url);
+      }));
+
+  base::ListValue args;
+  args.Append("callback_id");
+  web_ui()->HandleReceivedMessage("getCategorizedTemplateUrls", args);
+
+  histogram_tester().ExpectTotalCount(
+      "Search.OseSplitYahooJapan.DseTypeOnSettingsPageLoad", 0);
+  histogram_tester().ExpectUniqueSample(
+      "Search.OseSplitYahooJapan.CountOnSettingsPageLoad", 2, 1);
+  histogram_tester().ExpectBucketCount(
+      "Search.OseSplitYahooJapan.EngineStateOnSettingsPageLoad",
+      search_engines::OseSplitEngineState::kLegacyNotDseCustomized, 1);
+  histogram_tester().ExpectBucketCount(
+      "Search.OseSplitYahooJapan.EngineStateOnSettingsPageLoad",
+      search_engines::OseSplitEngineState::kNewNotDseCustomized, 1);
+  histogram_tester().ExpectTotalCount(
+      "Search.OseSplitYahooJapan.EngineStateOnSettingsPageLoad", 2);
+
+  // Calling again in the same session should not record duplicate samples.
+  base::ListValue args2;
+  args2.Append("callback_id_2");
+  web_ui()->HandleReceivedMessage("getCategorizedTemplateUrls", args2);
+
+  histogram_tester().ExpectTotalCount(
+      "Search.OseSplitYahooJapan.DseTypeOnSettingsPageLoad", 0);
+  histogram_tester().ExpectTotalCount(
+      "Search.OseSplitYahooJapan.CountOnSettingsPageLoad", 1);
+  histogram_tester().ExpectTotalCount(
+      "Search.OseSplitYahooJapan.EngineStateOnSettingsPageLoad", 2);
+}
+
+TEST_F(SearchEnginesHandlerTest, OseSplitMetrics_Japan_YahooDse_Recorded) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
+      switches::kSearchEngineChoiceCountry, "JP");
+  ConfigureTestWithRegularProfile(
+      base::BindOnce([](TemplateURLService& template_url_service) {
+        TemplateURL* yj =
+            AddSearchEngine(&template_url_service, "yahoo_jp", u"yj1",
+                            TemplateURLPrepopulateData::yahoo_jp.id,
+                            TemplateURLPrepopulateData::yahoo_jp.search_url);
+        template_url_service.SetUserSelectedDefaultSearchProvider(yj);
+      }));
+
+  base::ListValue args;
+  args.Append("callback_id");
+  web_ui()->HandleReceivedMessage("getCategorizedTemplateUrls", args);
+
+  histogram_tester().ExpectUniqueSample(
+      "Search.OseSplitYahooJapan.DseTypeOnSettingsPageLoad",
+      search_engines::OseSplitType::kLegacy, 1);
+  histogram_tester().ExpectUniqueSample(
+      "Search.OseSplitYahooJapan.CountOnSettingsPageLoad", 1, 1);
+  histogram_tester().ExpectUniqueSample(
+      "Search.OseSplitYahooJapan.EngineStateOnSettingsPageLoad",
+      search_engines::OseSplitEngineState::kLegacyDseCustomized, 1);
 }
 
 }  // namespace settings

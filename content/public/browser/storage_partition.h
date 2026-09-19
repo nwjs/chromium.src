@@ -188,6 +188,7 @@ class CONTENT_EXPORT StoragePartition {
     REMOVE_DATA_MASK_COOKIES = 1 << 1,
     REMOVE_DATA_MASK_FILE_SYSTEMS = 1 << 2,
     REMOVE_DATA_MASK_INDEXEDDB = 1 << 3,
+    // Includes both local storage and session storage.
     REMOVE_DATA_MASK_LOCAL_STORAGE = 1 << 4,
     REMOVE_DATA_MASK_SHADER_CACHE = 1 << 5,
     REMOVE_DATA_MASK_WEBSQL_DEPRECATED = 1 << 6,
@@ -199,7 +200,6 @@ class CONTENT_EXPORT StoragePartition {
     // Public explainer here:
     // https://github.com/WICG/turtledove/blob/main/FLEDGE.md
     REMOVE_DATA_MASK_INTEREST_GROUPS = 1 << 12,
-    REMOVE_DATA_MASK_AGGREGATION_SERVICE = 1 << 13,
     // Shared storage data as part of the Shared Storage API.
     // Public explainer: https://github.com/pythagoraskitty/shared-storage
     REMOVE_DATA_MASK_SHARED_STORAGE = 1 << 14,
@@ -209,7 +209,6 @@ class CONTENT_EXPORT StoragePartition {
     // https://github.com/WICG/turtledove/blob/main/FLEDGE.md
     REMOVE_DATA_MASK_INTEREST_GROUP_PERMISSIONS_CACHE = 1 << 15,
 
-    REMOVE_DATA_MASK_PRIVATE_AGGREGATION_INTERNAL = 1 << 17,
     REMOVE_DATA_MASK_INTEREST_GROUPS_INTERNAL = 1 << 18,
     // Device bound sessions. Public explainer:
     // https://github.com/WICG/dbsc/blob/main/README.md
@@ -235,8 +234,6 @@ class CONTENT_EXPORT StoragePartition {
   // inside this StoragePartition for the given |storage_origin|.
   // |callback| is called when data deletion is done or at least the deletion is
   // scheduled.
-  // Note session dom storage is not cleared even if you specify
-  // REMOVE_DATA_MASK_LOCAL_STORAGE.
   // No notification is dispatched upon completion.
   //
   // TODO(ajwong): Right now, the embedder may have some
@@ -340,12 +337,12 @@ class CONTENT_EXPORT StoragePartition {
   // Resets all URLLoaderFactories bound to this partition's network context.
   virtual void ResetURLLoaderFactories() = 0;
 
+  // Clears the bluetooth allowed devices map.
+  virtual void ClearBluetoothAllowedDevicesMap() = 0;
+
   virtual void AddObserver(DataRemovalObserver* observer) = 0;
 
   virtual void RemoveObserver(DataRemovalObserver* observer) = 0;
-
-  // Clear the bluetooth allowed devices map. For test use only.
-  virtual void ClearBluetoothAllowedDevicesMapForTesting() = 0;
 
   // Call |FlushForTesting()| on Network Service related interfaces. For test
   // use only.

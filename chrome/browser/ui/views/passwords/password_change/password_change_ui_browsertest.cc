@@ -2,18 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/affiliations/affiliation_service_factory.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/password_manager/chrome_password_change_service.h"
+#include "chrome/browser/password_manager/password_change/features.h"
 #include "chrome/browser/password_manager/password_change_service_factory.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/affiliations/core/browser/mock_affiliation_service.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
+#include "components/password_manager/core/browser/password_string.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -41,6 +44,12 @@ std::unique_ptr<KeyedService> CreateMockOptimizationService(
 
 class PasswordChangeUiBrowserTest : public DialogBrowserTest {
  public:
+  PasswordChangeUiBrowserTest() {
+    scoped_feature_list_.InitAndDisableFeature(
+        password_change::features::
+            kPasswordChangeWithPrivateInferenceLoginCheck);
+  }
+
   void SetUpInProcessBrowserTestFixture() override {
     create_services_subscription_ =
         BrowserContextDependencyManager::GetInstance()
@@ -83,11 +92,11 @@ class PasswordChangeUiBrowserTest : public DialogBrowserTest {
     form.url = main_url;
     form.signon_realm = main_url.GetWithEmptyPath().spec();
     form.username_value = u"username";
-    form.password_value = u"password";
+    form.password_value = password_manager::PasswordString(u"password");
     form.change_password_url = password_change_url;
     CHECK(form.change_password_url.is_valid());
     ManagePasswordsUIController::FromWebContents(
-        browser()->tab_strip_model()->GetActiveWebContents())
+        browser()->GetTabStripModel()->GetActiveWebContents())
         ->OnCredentialLeak(password_manager::LeakedPasswordDetails(
             password_manager::CreateLeakType(
                 password_manager::IsSaved(true),
@@ -102,6 +111,7 @@ class PasswordChangeUiBrowserTest : public DialogBrowserTest {
     return PasswordChangeServiceFactory::GetForProfile(browser()->GetProfile());
   }
 
+  base::test::ScopedFeatureList scoped_feature_list_;
   base::CallbackListSubscription create_services_subscription_;
 };
 

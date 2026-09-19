@@ -8,9 +8,12 @@
 #include <vector>
 
 #include "build/build_config.h"
+#include "components/autofill/core/browser/autofill_browser_util.h"
 #include "components/autofill/core/browser/autofill_field.h"
+#include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
+#include "components/autofill/core/common/autofill_util.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -59,6 +62,21 @@ bool SuppressSuggestionsForAutocompleteUnrecognizedField(
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 }
 
+FillingProduct GetFillingProductFromSuggestionTypes(
+    base::span<const SuggestionType> types,
+    AutofillSuggestionTriggerSource trigger_source) {
+  if (IsAtMemoryTriggerSource(trigger_source)) {
+    return FillingProduct::kAtMemory;
+  }
+  for (SuggestionType type : types) {
+    if (FillingProduct product = GetFillingProductFromSuggestionType(type);
+        product != FillingProduct::kNone) {
+      return product;
+    }
+  }
+  return FillingProduct::kNone;
+}
+
 std::vector<Suggestion> PrepareLoadingStateSuggestions(
     std::vector<Suggestion> current_suggestions,
     const Suggestion& selected_suggestion) {
@@ -78,6 +96,11 @@ std::vector<Suggestion> PrepareLoadingStateSuggestions(
   return current_suggestions;
 }
 
+bool ShouldOfferUndoOnField(const AutofillField& field) {
+  return field.last_modifier() == FieldModifier::kAutofill &&
+         ShouldRecordFillingHistory(field.filling_product());
+}
+
 Suggestion CreateUndoSuggestion() {
   Suggestion suggestion(l10n_util::GetStringUTF16(IDS_AUTOFILL_UNDO_MENU_ITEM),
                         SuggestionType::kUndo);
@@ -90,6 +113,7 @@ Suggestion CreateUndoSuggestion() {
 
 bool IsManagementFooterOption(const Suggestion& suggestion) {
   switch (suggestion.type) {
+    case SuggestionType::kAtMemoryOpenGemini:
     case SuggestionType::kComposeGoToSettings:
     case SuggestionType::kManageAddress:
     case SuggestionType::kManageAutofillAi:
@@ -100,7 +124,6 @@ bool IsManagementFooterOption(const Suggestion& suggestion) {
     case SuggestionType::kManageIban:
     case SuggestionType::kManageLoyaltyCard:
     case SuggestionType::kManageEnhancedAutofill:
-    case SuggestionType::kOpenGemini:
     case SuggestionType::kWebauthnPasskeyQrCode:
     case SuggestionType::kWebauthnSignInWithAnotherDevice:
       return true;
@@ -123,6 +146,7 @@ bool IsManagementFooterOption(const Suggestion& suggestion) {
     case SuggestionType::kAutofillAiOtherOrders:
     case SuggestionType::kAutofillAiOtherShipments:
     case SuggestionType::kAutofillAiPrivateInferenceNotice:
+    case SuggestionType::kAutofillAiSourceAttribution:
     case SuggestionType::kBackupPasswordEntry:
     case SuggestionType::kBnplEntry:
     case SuggestionType::kBnplFootnote:
@@ -148,7 +172,6 @@ bool IsManagementFooterOption(const Suggestion& suggestion) {
     case SuggestionType::kLoyaltyCardEntry:
     case SuggestionType::kMaximizeCreditCardBenefitsEntry:
     case SuggestionType::kMerchantPromoCodeEntry:
-    case SuggestionType::kMixedFormMessage:
     case SuggestionType::kOneTimePasswordEntry:
     case SuggestionType::kPasswordEntry:
     case SuggestionType::kPasswordFieldByFieldFilling:
@@ -167,6 +190,31 @@ bool IsManagementFooterOption(const Suggestion& suggestion) {
     case SuggestionType::kWebauthnCredential:
       return false;
   }
+}
+
+void InsertBeforeFooter(std::vector<Suggestion>& suggestions,
+                        std::vector<Suggestion> suggestions_to_be_added) {
+  if (suggestions_to_be_added.empty()) {
+    return;
+  }
+  suggestions.reserve(suggestions.size() + suggestions_to_be_added.size() + 1);
+
+  auto find_footer_separator = [](const std::vector<Suggestion>& suggestions) {
+    if (auto it =
+            std::ranges::find(suggestions.rbegin(), suggestions.rend(),
+                              SuggestionType::kSeparator, &Suggestion::type);
+        it != suggestions.rend()) {
+      // Convert to forward iterator.
+      return std::prev(it.base());
+    }
+    return suggestions.end();
+  };
+
+  auto footer_it = find_footer_separator(suggestions);
+  auto it = suggestions.insert(
+      footer_it, std::move_iterator(suggestions_to_be_added.begin()),
+      std::move_iterator(suggestions_to_be_added.end()));
+  suggestions.emplace(it, SuggestionType::kSeparator);
 }
 
 }  // namespace autofill

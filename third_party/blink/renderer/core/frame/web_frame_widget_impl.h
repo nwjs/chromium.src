@@ -34,6 +34,7 @@
 #include <optional>
 
 #include "base/functional/function_ref.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
@@ -554,6 +555,8 @@ class CORE_EXPORT WebFrameWidgetImpl
           host_remote,
       ScriptPromiseResolver<IDLUndefined>* resolver);
   void UpdateUnboundedElementBounds(const gfx::Rect& bounds);
+  enum class UnboundedDismissReason { kTeardown, kProgrammatic, kInteractive };
+  void DismissUnboundedSurfaceState(UnboundedDismissReason reason);
   void IncrementActiveUnboundedElementCount() {
     active_unbounded_element_count_++;
   }
@@ -924,6 +927,7 @@ class CORE_EXPORT WebFrameWidgetImpl
       bool event_processed) override;
   bool SupportsBufferedTouchEvents() override { return true; }
   void DidHandleKeyEvent() override;
+  void DidHandleGestureEvent(const WebGestureEvent& event) override;
   WebTextInputType GetTextInputType() override;
   void SetCursorVisibilityState(bool is_visible) override;
   blink::FrameWidget* FrameWidget() override { return this; }
@@ -1118,9 +1122,6 @@ class CORE_EXPORT WebFrameWidgetImpl
 
   void ApplyViewportIntersection(
       mojom::blink::ViewportIntersectionStatePtr intersection_state);
-
-  // Called when a gesture event has been processed.
-  void DidHandleGestureEvent(const WebGestureEvent& event);
 
   // Called to update if pointerrawupdate events should be sent.
   void SetHasPointerRawUpdateEventHandlers(bool);
@@ -1327,7 +1328,9 @@ class CORE_EXPORT WebFrameWidgetImpl
   bool drag_and_drop_disabled_ = false;
 
   // A callback client for non-composited frame widgets.
-  WebNonCompositedWidgetClient* non_composited_client_ = nullptr;
+  raw_ptr<WebNonCompositedWidgetClient,
+          UnprotectedInRelease | DanglingUntriaged>
+      non_composited_client_ = nullptr;
 
   // This struct contains data that is only valid for child local root widgets.
   // You should use `child_data()` to access it.
@@ -1485,7 +1488,6 @@ class CORE_EXPORT WebFrameWidgetImpl
 
   UnboundedSurfaceState* GetOrCreateUnboundedSurfaceState(
       ExecutionContext* execution_context);
-  void DismissUnboundedSurfaceState(bool is_teardown);
   UnboundedSurfaceState* GetUnboundedSurfaceState() const {
     return unbounded_surface_state_.Get();
   }

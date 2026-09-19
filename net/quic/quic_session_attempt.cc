@@ -67,8 +67,9 @@ QuicSessionAttempt::QuicSessionAttempt(
     std::set<std::string> dns_aliases,
     std::unique_ptr<QuicCryptoClientConfigHandle> crypto_client_config_handle,
     MultiplexedSessionCreationInitiator session_creation_initiator,
-    QuicSessionEstablishmentReason quic_session_establishment_reason,
-    std::optional<ConnectionManagementConfig> connection_management_config)
+    QuicConnectionReuseDetails quic_connection_reuse_details,
+    std::optional<ConnectionManagementConfig> connection_management_config,
+    bool is_stale)
     : delegate_(delegate),
       start_time_(base::TimeTicks::Now()),
       ip_endpoint_(std::move(ip_endpoint)),
@@ -78,6 +79,7 @@ QuicSessionAttempt::QuicSessionAttempt(
       dns_resolution_start_time_(dns_resolution_start_time),
       dns_resolution_end_time_(dns_resolution_end_time),
       resolution_details_(std::move(resolution_details)),
+      is_stale_(is_stale),
       was_alternative_service_recently_broken_(
           pool()->WasQuicRecentlyBroken(key().session_key())),
       retry_on_alternate_network_before_handshake_(
@@ -86,7 +88,7 @@ QuicSessionAttempt::QuicSessionAttempt(
       dns_aliases_(std::move(dns_aliases)),
       crypto_client_config_handle_(std::move(crypto_client_config_handle)),
       session_creation_initiator_(session_creation_initiator),
-      quic_session_establishment_reason_(quic_session_establishment_reason),
+      quic_connection_reuse_details_(quic_connection_reuse_details),
       connection_management_config_(connection_management_config) {
   CHECK(delegate_);
   DCHECK_NE(quic_version_, quic::ParsedQuicVersion::Unsupported());
@@ -101,12 +103,14 @@ QuicSessionAttempt::QuicSessionAttempt(
     std::unique_ptr<QuicChromiumClientStream::Handle> proxy_stream,
     const HttpUserAgentSettings* http_user_agent_settings,
     MultiplexedSessionCreationInitiator session_creation_initiator,
-    QuicSessionEstablishmentReason quic_session_establishment_reason,
-    std::optional<ConnectionManagementConfig> connection_management_config)
+    QuicConnectionReuseDetails quic_connection_reuse_details,
+    std::optional<ConnectionManagementConfig> connection_management_config,
+    bool is_stale)
     : delegate_(delegate),
       ip_endpoint_(std::move(proxy_peer_endpoint)),
       quic_version_(std::move(quic_version)),
       cert_verify_flags_(cert_verify_flags),
+      is_stale_(is_stale),
       was_alternative_service_recently_broken_(
           pool()->WasQuicRecentlyBroken(key().session_key())),
       retry_on_alternate_network_before_handshake_(false),
@@ -115,7 +119,7 @@ QuicSessionAttempt::QuicSessionAttempt(
       http_user_agent_settings_(http_user_agent_settings),
       local_endpoint_(std::move(local_endpoint)),
       session_creation_initiator_(session_creation_initiator),
-      quic_session_establishment_reason_(quic_session_establishment_reason),
+      quic_connection_reuse_details_(quic_connection_reuse_details),
       connection_management_config_(connection_management_config) {
   CHECK(delegate_);
   DCHECK_NE(quic_version_, quic::ParsedQuicVersion::Unsupported());
@@ -220,7 +224,8 @@ int QuicSessionAttempt::DoCreateSession() {
   quic_connection_start_time_ = base::TimeTicks::Now();
   next_state_ = State::kCreateSessionComplete;
 
-  const bool require_confirmation = was_alternative_service_recently_broken_;
+  const bool require_confirmation =
+      was_alternative_service_recently_broken_ || is_stale_;
   net_log().AddEntryWithBoolParams(
       NetLogEventType::QUIC_SESSION_POOL_JOB_CONNECT, NetLogEventPhase::BEGIN,
       "require_confirmation", require_confirmation);
@@ -239,7 +244,7 @@ int QuicSessionAttempt::DoCreateSession() {
         key(), quic_version_, cert_verify_flags_, require_confirmation,
         std::move(local_endpoint_), std::move(ip_endpoint_),
         std::move(proxy_stream_), std::move(user_agent), net_log(), network_,
-        quic_session_establishment_reason_);
+        session_creation_initiator_, quic_connection_reuse_details_);
   } else {
     if (base::FeatureList::IsEnabled(net::features::kAsyncQuicSession)) {
       return pool()->CreateSessionAsync(
@@ -248,15 +253,15 @@ int QuicSessionAttempt::DoCreateSession() {
           key(), quic_version_, cert_verify_flags_, require_confirmation,
           ip_endpoint_, metadata_, dns_resolution_start_time_,
           dns_resolution_end_time_, resolution_details_, net_log(), network_,
-          session_creation_initiator_, quic_session_establishment_reason_,
+          session_creation_initiator_, quic_connection_reuse_details_,
           connection_management_config_);
     }
     rv = pool()->CreateSessionSync(
         key(), quic_version_, cert_verify_flags_, require_confirmation,
         ip_endpoint_, metadata_, dns_resolution_start_time_,
         dns_resolution_end_time_, resolution_details_, net_log(), &session_,
-        &network_, session_creation_initiator_,
-        quic_session_establishment_reason_, connection_management_config_);
+        &network_, session_creation_initiator_, quic_connection_reuse_details_,
+        connection_management_config_);
 
     DVLOG(1) << "Created session on network: " << network_;
   }

@@ -105,10 +105,13 @@ mojom::ActionResultCode BlockReasonToResultCode(MayActOnUrlBlockReason reason,
       return ActionResultCode::kActionsBlockedForScheme;
     case MayActOnUrlBlockReason::kTabIsErrorDocument:
       return ActionResultCode::kActionsBlockedOnErrorPage;
+    case MayActOnUrlBlockReason::kDangerousMimeType:
     case MayActOnUrlBlockReason::kIpAddress:
     case MayActOnUrlBlockReason::kOptimizationGuideBlock:
     case MayActOnUrlBlockReason::kBlockedByContainerConfig:
       return generic_block_code;
+    case MayActOnUrlBlockReason::kTaskCancelled:
+      return ActionResultCode::kTaskWentAway;
   }
 }
 

@@ -5,6 +5,7 @@
 module browser.context_hub.mojom;
 
 import "mojo/public/mojom/base/time.mojom";
+import "mojo/public/mojom/base/uuid.mojom";
 import "url/mojom/url.mojom";
 
 feature kAutoTabGroups {
@@ -28,6 +29,7 @@ enum AutoTodoGroup {
   kNudgeToClose,
   kReadingList,
   kUnfinishedAction,
+  kShoppingCart,
 };
 
 struct GmailReference {
@@ -87,6 +89,9 @@ enum EntryType {
   kTextSelection,
 };
 
+// Represents an entry stored in the memory bank.
+// See chrome/browser/context_hub/memory_bank/memory_bank_entry.h for field
+// descriptions.
 struct MemoryBankEntry {
   int64 id;
   EntryType type;
@@ -95,6 +100,8 @@ struct MemoryBankEntry {
   string tab_title;
   string? selected_text;
   array<string> tags;
+  string? note;
+  string? collection;
 };
 
 struct TabInfo {
@@ -106,6 +113,9 @@ struct TabInfo {
 struct TabGroup {
   string label;
   array<TabInfo> tabs;
+  // Unique identifier for the saved group managed by TabGroupSyncService,
+  // present for confirmed saved groups only.
+  mojo_base.mojom.Uuid? saved_guid;
 };
 
 enum ChatRole {
@@ -116,6 +126,30 @@ enum ChatRole {
 struct ChatMessage {
   ChatRole role;
   string content;
+};
+
+// Context provided to the WebUI dialog for previewing the item to be saved.
+struct SaveToMemoryBankContext {
+  // The URL of the page where the context originated.
+  url.mojom.Url url;
+  // The title of the tab where the context originated.
+  string tab_title;
+  // The text selected from the page by the user.
+  string? selected_text;
+  // Whether the item being saved is a text selection rather than a tab.
+  bool is_text_selection;
+};
+
+// User-specified annotations when saving a context item to the memory bank.
+struct MemoryBankEntryAnnotations {
+  // The collection name the entry should belong to. Null if not assigned to
+  // no collection.
+  string? collection;
+  // User-provided note for the entry. Null if no note is provided.
+  string? note;
+  // Tags associated with the entry for grouping. Null or empty if no tags
+  // are assigned.
+  array<string>? tags;
 };
 
 // Represents feedback on an Auto Todo item.
@@ -161,10 +195,13 @@ interface PageHandler {
   GenerateFirstPartyAutoTodos() => (bool success);
 
   // Returns stored Auto Todos from the cache, differentiated by whether they
-  // are first party or third party.
+  // are first party or third party, along with the timestamps when they were
+  // last generated.
   [RuntimeFeature=kAutoTodos]
   GetAutoTodos() => (array<AutoTodoItem> first_party_todos,
-                     array<AutoTodoItem> third_party_todos);
+                     array<AutoTodoItem> third_party_todos,
+                     mojo_base.mojom.Time last_first_party_generation_time,
+                     mojo_base.mojom.Time last_third_party_generation_time);
 
   // Updates an existing Auto Todo item in the cache, returns true if
   // successful.
@@ -174,6 +211,14 @@ interface PageHandler {
   // Generates Tab-based Todos and stores them in the cache. Gated by kAutoTodos flag.
   [RuntimeFeature=kAutoTodos]
   GenerateTabBasedTodos() => (bool success);
+
+  // Clears all first-party (Workspace) Auto Todos from the cache.
+  [RuntimeFeature=kAutoTodos]
+  ClearFirstPartyAutoTodos() => (bool success);
+
+  // Clears all third-party (Browser) Auto Todos from the cache.
+  [RuntimeFeature=kAutoTodos]
+  ClearThirdPartyAutoTodos() => (bool success);
 
   // Stores or updates feedback on an Auto Todo item in the cache.
   [RuntimeFeature=kAutoTodos]
@@ -191,11 +236,23 @@ interface PageHandler {
   [RuntimeFeature=kAutoTodos]
   GetTodoFeedbacks() => (array<AutoTodoItemFeedback> feedbacks);
 
+  // Returns initial context details for saving to memory bank.
+  GetSaveToMemoryBankContext() => (SaveToMemoryBankContext? context);
+
   // Returns all entries currently stored in the memory bank.
   GetAllMemoryBankEntries() => (array<MemoryBankEntry> entries);
 
   // Deletes entries from the memory bank.
   DeleteMemoryBankEntries(array<int64> ids) => ();
+
+  // Saves the current context entry to the memory bank with user annotations.
+  SaveMemoryBankEntry(MemoryBankEntryAnnotations annotations) => (bool success);
+
+  // Returns all unique tags stored in the memory bank.
+  GetAllMemoryBankTags() => (array<string> tags);
+
+  // Returns all unique collections stored in the memory bank.
+  GetAllMemoryBankCollections() => (array<string> collections);
 
   // Returns the list of open ungrouped tabs in the current window.
   [RuntimeFeature=kAutoTabGroups]
@@ -234,4 +291,28 @@ interface PageHandler {
   AskGeminiWithContext(
       string user_command, array<int64> memory_bank_entry_ids)
       => (ChatMessage response);
+
+  // Confirms all suggested tab groups to the browser window and saves them
+  // to TabGroupSyncService.
+  [RuntimeFeature=kAutoTabGroups]
+  ConfirmAllTabGroups() => (bool success);
+
+  // Returns list of confirmed tab groups currently open or saved.
+  [RuntimeFeature=kAutoTabGroups]
+  GetConfirmedTabGroups() => (array<TabGroup> groups);
+
+  // Removes a confirmed tab group from TabGroupSyncService and ungroups its
+  // open tabs in the browser window without closing them.
+  [RuntimeFeature=kAutoTabGroups]
+  RemoveConfirmedTabGroup(mojo_base.mojom.Uuid saved_guid) => ();
+
+  // Closes an open confirmed tab group from the browser window without removing
+  // its saved state from TabGroupSyncService.
+  [RuntimeFeature=kAutoTabGroups]
+  CloseConfirmedTabGroup(mojo_base.mojom.Uuid saved_guid) => ();
+
+  // Removes all confirmed tab groups from TabGroupSyncService and ungroups
+  // their open tabs in the browser window.
+  [RuntimeFeature=kAutoTabGroups]
+  RemoveAllConfirmedTabGroups() => ();
 };

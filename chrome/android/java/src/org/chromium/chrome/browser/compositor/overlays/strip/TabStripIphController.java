@@ -225,12 +225,12 @@ public class TabStripIphController {
                 assert tab != null;
                 float left =
                         isRtl
-                                ? -tab.getFaviconPadding() - tab.getFaviconSize()
-                                : tab.getFaviconPadding();
+                                ? -tab.getContentPaddingX() - tab.getFaviconSize()
+                                : tab.getContentPaddingX();
                 float right =
                         isRtl
-                                ? -tab.getFaviconPadding()
-                                : tab.getFaviconPadding() + tab.getFaviconSize();
+                                ? -tab.getContentPaddingX()
+                                : tab.getContentPaddingX() + tab.getFaviconSize();
                 xOffset = (isRtl ? tab.getDrawX() + tab.getWidth() : tab.getDrawX()) * dpToPx;
                 anchorRect.left = (int) (left * dpToPx);
                 anchorRect.right = (int) (right * dpToPx);
@@ -270,7 +270,7 @@ public class TabStripIphController {
             case IphType.TAB_TEARING_XR:
                 return R.string.iph_tab_tearing_xr;
             case IphType.GLIC_PROMO:
-                return R.string.iph_glic_promo_text;
+                return R.string.iph_tab_strip_glic_promo_text;
             case IphType.VERTICAL_TABS_PROMO:
                 return DeviceInput.supportsPrecisionPointer()
                         ? R.string.iph_android_vertical_tabs_promo_mouse

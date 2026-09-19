@@ -23,28 +23,31 @@
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/metrics/critical_user_journeys/critical_user_journey_session.h"
 #include "chrome/browser/metrics/critical_user_journeys/features.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/extensions/extension_action_test_helper.h"
+#include "chrome/browser/ui/extensions/extension_side_panel_coordinator.h"
+#include "chrome/browser/ui/extensions/extension_side_panel_manager.h"
 #include "chrome/browser/ui/extensions/extensions_container.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_observer.h"
 #include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
+#include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_button.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_desktop.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/side_panel/extensions/extension_side_panel_coordinator.h"
-#include "chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
@@ -182,23 +185,23 @@ class ExtensionSidePanelBrowserTest : public ExtensionBrowserTest {
  protected:
   int GetCurrentTabId() {
     return ExtensionTabUtil::GetTabId(
-        browser()->tab_strip_model()->GetActiveWebContents());
+        browser()->GetTabStripModel()->GetActiveWebContents());
   }
 
   int GetCurrentWindowId() { return ExtensionTabUtil::GetWindowId(browser()); }
 
   SidePanelRegistry* GetCurrentTabRegistry() {
     return SidePanelRegistry::GetDeprecated(
-        browser()->tab_strip_model()->GetActiveWebContents());
+        browser()->GetTabStripModel()->GetActiveWebContents());
   }
 
   void OpenNewForegroundTab() {
-    int tab_count = browser()->tab_strip_model()->count();
+    int tab_count = browser()->GetTabStripModel()->count();
     ui_test_utils::NavigateToURLWithDisposition(
         browser(), GURL("http://example.com"),
         WindowOpenDisposition::NEW_FOREGROUND_TAB,
         ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
-    ASSERT_EQ(tab_count + 1, browser()->tab_strip_model()->count());
+    ASSERT_EQ(tab_count + 1, browser()->GetTabStripModel()->count());
   }
 
   // Calls chrome.sidePanel.setOptions() for the given `extension`, `path` and
@@ -255,7 +258,7 @@ class ExtensionSidePanelBrowserTest : public ExtensionBrowserTest {
   // active tab.
   void ShowContextualEntryAndWait(const SidePanelEntry::Key& key) {
     ShowEntryAndWait(*SidePanelRegistry::GetDeprecated(
-                         browser()->tab_strip_model()->GetActiveWebContents()),
+                         browser()->GetTabStripModel()->GetActiveWebContents()),
                      key);
   }
 
@@ -461,6 +464,360 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   EXPECT_FALSE(side_panel_ui->IsSidePanelShowing());
 }
 
+IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
+                       UnloadExtensionWithOpenContextualSidePanelClosesPanel) {
+  // Use an extension with a toolbar action so unload updates pinned action
+  // state while removing the side-panel action item.
+  scoped_refptr<const extensions::Extension> extension = LoadExtension(
+      test_data_dir_.AppendASCII("api_test/side_panel/with_action_onclick"));
+  ASSERT_TRUE(extension);
+
+  SidePanelEntry::Key extension_key = GetKey(extension->id());
+  BrowserActions* browser_actions = BrowserActions::From(browser());
+  ASSERT_TRUE(GetActionItemForExtension(extension.get(), browser_actions));
+
+  ToolbarActionsModel* toolbar_model = ToolbarActionsModel::Get(profile());
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return toolbar_model->HasAction(extension->id()); }));
+
+  // Create the tab after the browser-scoped side-panel manager. During unload,
+  // this keeps the contextual manager alive until after ActionItem removal.
+  OpenNewForegroundTab();
+  const int tab_id = GetCurrentTabId();
+  SidePanelRegistry* contextual_registry = GetCurrentTabRegistry();
+  ExtensionSidePanelRegistryWaiter waiter(contextual_registry, extension->id());
+  RunSetOptions(*extension, tab_id, "default_path.html", /*enabled=*/true);
+  waiter.WaitForRegistration();
+
+  SidePanelUI* const side_panel_ui = GetSidePanelUI();
+  ShowContextualEntryAndWait(extension_key);
+  ASSERT_TRUE(
+      side_panel_ui->IsSidePanelEntryShowing(extension_key, /*for_tab=*/true));
+
+  // Extension disable and removal flows share the same unload notification.
+  UnloadExtension(extension->id());
+  WaitForSidePanelClose();
+
+  EXPECT_FALSE(side_panel_ui->IsSidePanelShowing());
+  EXPECT_FALSE(contextual_registry->GetEntryForKey(extension_key));
+  EXPECT_FALSE(
+      SidePanelRegistry::From(browser())->GetEntryForKey(extension_key));
+  EXPECT_FALSE(GetActionItemForExtension(extension.get(), browser_actions));
+}
+
+// Test that the shared action item is created when the first SidePanelEntry
+// referencing it is registered and removed when the last one is deregistered.
+IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
+                       ActionItemTracksReferencingEntries) {
+  // This extension declares no manifest side panel path, so it has no
+  // SidePanelEntry and no action item until setOptions() enables one.
+  scoped_refptr<const extensions::Extension> extension = LoadExtension(
+      test_data_dir_.AppendASCII("api_test/side_panel/setoptions"));
+  ASSERT_TRUE(extension);
+
+  SidePanelEntry::Key extension_key = GetKey(extension->id());
+  actions::ActionItem* root_action_item =
+      BrowserActions::From(browser())->root_action_item();
+  auto action_item_exists = [&]() {
+    std::optional<actions::ActionId> action_id =
+        actions::ActionIdMap::StringToActionId(extension_key.ToString());
+    return action_id.has_value() && actions::ActionManager::Get().FindAction(
+                                        *action_id, root_action_item);
+  };
+
+  EXPECT_FALSE(action_item_exists());
+
+  const int tab_id = GetCurrentTabId();
+  SidePanelRegistry* contextual_registry = GetCurrentTabRegistry();
+  {
+    ExtensionSidePanelRegistryWaiter waiter(contextual_registry,
+                                            extension->id());
+    RunSetOptions(*extension, tab_id, "panel_1.html", /*enabled=*/true);
+    waiter.WaitForRegistration();
+  }
+  EXPECT_TRUE(action_item_exists());
+
+  {
+    ExtensionSidePanelRegistryWaiter waiter(contextual_registry,
+                                            extension->id());
+    RunSetOptions(*extension, tab_id, /*path=*/std::nullopt,
+                  /*enabled=*/false);
+    waiter.WaitForDeregistration();
+  }
+  EXPECT_FALSE(action_item_exists());
+}
+
+// Test that dragging a tab whose contextual side panel is the only entry
+// referencing the action item moves the action item to the destination window.
+IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
+                       ActionItemFollowsTabToNewWindow) {
+  scoped_refptr<const extensions::Extension> extension = LoadExtension(
+      test_data_dir_.AppendASCII("api_test/side_panel/setoptions"));
+  ASSERT_TRUE(extension);
+
+  OpenNewForegroundTab();
+  const tabs::TabInterface* moved_tab =
+      browser()->GetTabStripModel()->GetTabAtIndex(1);
+  const int tab_id = GetCurrentTabId();
+  {
+    ExtensionSidePanelRegistryWaiter waiter(GetCurrentTabRegistry(),
+                                            extension->id());
+    RunSetOptions(*extension, tab_id, "panel_1.html", /*enabled=*/true);
+    waiter.WaitForRegistration();
+  }
+
+  BrowserActions* first_actions = BrowserActions::From(browser());
+  EXPECT_TRUE(GetActionItemForExtension(extension.get(), first_actions));
+
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
+  BrowserActions* second_actions = BrowserActions::From(second_browser);
+  EXPECT_FALSE(GetActionItemForExtension(extension.get(), second_actions));
+
+  std::unique_ptr<tabs::TabModel> detached_tab =
+      browser()->GetTabStripModel()->DetachTabAtForInsertion(/*index=*/1);
+  ASSERT_EQ(moved_tab, detached_tab.get());
+  second_browser->GetTabStripModel()->InsertDetachedTabAt(
+      /*index=*/1, std::move(detached_tab), AddTabTypes::ADD_NONE);
+
+  // The reference moves with the tab: gone from the source window, present in
+  // the destination window.
+  EXPECT_FALSE(GetActionItemForExtension(extension.get(), first_actions));
+  EXPECT_TRUE(GetActionItemForExtension(extension.get(), second_actions));
+}
+
+// Test that closing a window whose tab still has a registered contextual side
+// panel entry releases the entry's action item reference without crashing.
+IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
+                       ClosingWindowWithContextualEntryDoesNotCrash) {
+  scoped_refptr<const extensions::Extension> extension = LoadExtension(
+      test_data_dir_.AppendASCII("api_test/side_panel/setoptions"));
+  ASSERT_TRUE(extension);
+
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
+  content::WebContents* second_contents =
+      second_browser->GetTabStripModel()->GetActiveWebContents();
+  {
+    ExtensionSidePanelRegistryWaiter waiter(
+        SidePanelRegistry::GetDeprecated(second_contents), extension->id());
+    RunSetOptions(*extension, ExtensionTabUtil::GetTabId(second_contents),
+                  "panel_1.html", /*enabled=*/true);
+    waiter.WaitForRegistration();
+  }
+  EXPECT_TRUE(GetActionItemForExtension(extension.get(),
+                                        BrowserActions::From(second_browser)));
+
+  CloseBrowserSynchronously(second_browser);
+}
+
+// Test that releasing one of several references to the shared action item keeps
+// the item alive, and only the final release removes it.
+IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
+                       ActionItemSurvivesNonLastReferenceRelease) {
+  scoped_refptr<const extensions::Extension> extension = LoadExtension(
+      test_data_dir_.AppendASCII("api_test/side_panel/setoptions"));
+  ASSERT_TRUE(extension);
+
+  // Register a contextual entry on two tabs of the same window. Both entries
+  // reference the window's single shared action item.
+  const int first_tab_id = GetCurrentTabId();
+  SidePanelRegistry* first_tab_registry = GetCurrentTabRegistry();
+  {
+    ExtensionSidePanelRegistryWaiter waiter(first_tab_registry,
+                                            extension->id());
+    RunSetOptions(*extension, first_tab_id, "panel_1.html", /*enabled=*/true);
+    waiter.WaitForRegistration();
+  }
+
+  OpenNewForegroundTab();
+  const int second_tab_id = GetCurrentTabId();
+  SidePanelRegistry* second_tab_registry = GetCurrentTabRegistry();
+  {
+    ExtensionSidePanelRegistryWaiter waiter(second_tab_registry,
+                                            extension->id());
+    RunSetOptions(*extension, second_tab_id, "panel_1.html", /*enabled=*/true);
+    waiter.WaitForRegistration();
+  }
+
+  BrowserActions* browser_actions = BrowserActions::From(browser());
+  EXPECT_TRUE(GetActionItemForExtension(extension.get(), browser_actions));
+
+  // Releasing one of the two references leaves the action item in place.
+  {
+    ExtensionSidePanelRegistryWaiter waiter(second_tab_registry,
+                                            extension->id());
+    RunSetOptions(*extension, second_tab_id, /*path=*/std::nullopt,
+                  /*enabled=*/false);
+    waiter.WaitForDeregistration();
+  }
+  EXPECT_TRUE(GetActionItemForExtension(extension.get(), browser_actions));
+
+  // Releasing the last reference removes the action item.
+  {
+    ExtensionSidePanelRegistryWaiter waiter(first_tab_registry,
+                                            extension->id());
+    RunSetOptions(*extension, first_tab_id, /*path=*/std::nullopt,
+                  /*enabled=*/false);
+    waiter.WaitForDeregistration();
+  }
+  EXPECT_FALSE(GetActionItemForExtension(extension.get(), browser_actions));
+}
+
+// Test that closing a tab whose contextual side panel is showing deregisters
+// the entry and releases its action item reference without crashing.
+IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
+                       ClosingTabWithShowingContextualEntryDoesNotCrash) {
+  scoped_refptr<const extensions::Extension> extension = LoadExtension(
+      test_data_dir_.AppendASCII("api_test/side_panel/setoptions"));
+  ASSERT_TRUE(extension);
+
+  SidePanelEntry::Key extension_key = GetKey(extension->id());
+  OpenNewForegroundTab();
+  const int tab_id = GetCurrentTabId();
+  {
+    ExtensionSidePanelRegistryWaiter waiter(GetCurrentTabRegistry(),
+                                            extension->id());
+    RunSetOptions(*extension, tab_id, "panel_1.html", /*enabled=*/true);
+    waiter.WaitForRegistration();
+  }
+  ShowContextualEntryAndWait(extension_key);
+  ASSERT_TRUE(GetSidePanelUI()->IsSidePanelEntryShowing(extension_key,
+                                                        /*for_tab=*/true));
+  ASSERT_TRUE(GetActionItemForExtension(extension.get(),
+                                        BrowserActions::From(browser())));
+
+  // Closing the active tab triggers the kDelete detach path, which deregisters
+  // the showing entry and releases the last reference to the action item.
+  browser()->GetTabStripModel()->CloseWebContentsAt(
+      browser()->GetTabStripModel()->active_index(),
+      TabCloseTypes::CLOSE_USER_GESTURE);
+
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return !GetActionItemForExtension(extension.get(),
+                                      BrowserActions::From(browser()));
+  }));
+}
+
+// Test that dragging a tab whose contextual side panel is actively showing to
+// another window moves the action item without the source window resolving a
+// removed action item.
+IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
+                       MovingTabWithShowingContextualEntryDoesNotCrash) {
+  scoped_refptr<const extensions::Extension> extension = LoadExtension(
+      test_data_dir_.AppendASCII("api_test/side_panel/setoptions"));
+  ASSERT_TRUE(extension);
+
+  SidePanelEntry::Key extension_key = GetKey(extension->id());
+  OpenNewForegroundTab();
+  const tabs::TabInterface* moved_tab =
+      browser()->GetTabStripModel()->GetTabAtIndex(1);
+  const int tab_id = GetCurrentTabId();
+  {
+    ExtensionSidePanelRegistryWaiter waiter(GetCurrentTabRegistry(),
+                                            extension->id());
+    RunSetOptions(*extension, tab_id, "panel_1.html", /*enabled=*/true);
+    waiter.WaitForRegistration();
+  }
+  ShowContextualEntryAndWait(extension_key);
+  ASSERT_TRUE(GetSidePanelUI()->IsSidePanelEntryShowing(extension_key,
+                                                        /*for_tab=*/true));
+
+  BrowserActions* first_actions = BrowserActions::From(browser());
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
+  BrowserActions* second_actions = BrowserActions::From(second_browser);
+
+  // Drag the showing tab out of its window and into the second window.
+  std::unique_ptr<tabs::TabModel> detached_tab =
+      browser()->GetTabStripModel()->DetachTabAtForInsertion(/*index=*/1);
+  ASSERT_EQ(moved_tab, detached_tab.get());
+  second_browser->GetTabStripModel()->InsertDetachedTabAt(
+      /*index=*/1, std::move(detached_tab), AddTabTypes::ADD_ACTIVE);
+
+  // The reference follows the tab: gone from the source window, present in the
+  // destination window.
+  EXPECT_FALSE(GetActionItemForExtension(extension.get(), first_actions));
+  EXPECT_TRUE(GetActionItemForExtension(extension.get(), second_actions));
+}
+
+// Test that disabling a contextual side panel entry while its tab is detached
+// from any window (e.g. mid drag between windows) deregisters the entry without
+// a window to close, and does not crash.
+IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
+                       DisablingContextualEntryWhileTabDetachedDoesNotCrash) {
+  scoped_refptr<const extensions::Extension> extension = LoadExtension(
+      test_data_dir_.AppendASCII("api_test/side_panel/setoptions"));
+  ASSERT_TRUE(extension);
+
+  OpenNewForegroundTab();
+  const tabs::TabInterface* moved_tab =
+      browser()->GetTabStripModel()->GetTabAtIndex(1);
+  const int tab_id = GetCurrentTabId();
+  {
+    ExtensionSidePanelRegistryWaiter waiter(GetCurrentTabRegistry(),
+                                            extension->id());
+    RunSetOptions(*extension, tab_id, "panel_1.html", /*enabled=*/true);
+    waiter.WaitForRegistration();
+  }
+  EXPECT_TRUE(GetActionItemForExtension(extension.get(),
+                                        BrowserActions::From(browser())));
+
+  // Detach the tab so it temporarily belongs to no window.
+  std::unique_ptr<tabs::TabModel> detached_tab =
+      browser()->GetTabStripModel()->DetachTabAtForInsertion(/*index=*/1);
+  ASSERT_EQ(moved_tab, detached_tab.get());
+
+  // Disabling the entry while the tab is detached must not crash.
+  RunSetOptions(*extension, tab_id, /*path=*/std::nullopt, /*enabled=*/false);
+
+  // Reinserting the tab tears down cleanly; the disabled entry is not restored.
+  browser()->GetTabStripModel()->InsertDetachedTabAt(
+      /*index=*/1, std::move(detached_tab), AddTabTypes::ADD_NONE);
+  EXPECT_FALSE(GetActionItemForExtension(extension.get(),
+                                         BrowserActions::From(browser())));
+}
+
+// Test that the extension's pinned-toolbar state survives the action item being
+// destroyed and recreated, since it is keyed by extension id rather than stored
+// on the action item.
+IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
+                       PinnedStateSurvivesActionItemRecreation) {
+  scoped_refptr<const extensions::Extension> extension = LoadExtension(
+      test_data_dir_.AppendASCII("api_test/side_panel/with_action_onclick"));
+  ASSERT_TRUE(extension);
+
+  SidePanelEntry::Key extension_key = GetKey(extension->id());
+  ToolbarActionsModel* toolbar_model = ToolbarActionsModel::Get(profile());
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return toolbar_model->HasAction(extension->id()); }));
+  if (!toolbar_model->IsActionPinned(extension->id())) {
+    toolbar_model->SetActionVisibility(extension->id(), /*visible=*/true);
+  }
+  ASSERT_TRUE(toolbar_model->IsActionPinned(extension->id()));
+
+  BrowserActions* browser_actions = BrowserActions::From(browser());
+  SidePanelRegistry* global_registry = SidePanelRegistry::From(browser());
+  ASSERT_TRUE(GetActionItemForExtension(extension.get(), browser_actions));
+
+  {
+    ExtensionSidePanelRegistryWaiter waiter(global_registry, extension->id());
+    RunSetOptions(*extension, /*tab_id=*/std::nullopt, /*path=*/std::nullopt,
+                  /*enabled=*/false);
+    waiter.WaitForDeregistration();
+  }
+  EXPECT_FALSE(GetActionItemForExtension(extension.get(), browser_actions));
+
+  {
+    ExtensionSidePanelRegistryWaiter waiter(global_registry, extension->id());
+    RunSetOptions(*extension, /*tab_id=*/std::nullopt, "default_path.html",
+                  /*enabled=*/true);
+    waiter.WaitForRegistration();
+  }
+  EXPECT_TRUE(GetActionItemForExtension(extension.get(), browser_actions));
+  EXPECT_TRUE(toolbar_model->IsActionPinned(extension->id()));
+}
+
 // Test that an extension's SidePanelEntry is registered for new browser
 // windows.
 IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest, MultipleBrowsers) {
@@ -481,7 +838,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest, MultipleBrowsers) {
 
   // Open a new browser window. The extension's SidePanelEntry should also be
   // registered for the new window's global SidePanelRegistry.
-  Browser* second_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
   BrowserActions* browser_actions_second_browser =
       BrowserActions::From(second_browser);
 
@@ -793,7 +1151,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   ASSERT_TRUE(extension);
 
   content::WebContents* active_web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   SidePanelEntry::Key extension_key = GetKey(extension->id());
   // Call setOptions({enabled: true}) with a tab ID and new path, and wait for
@@ -928,10 +1286,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
                        ShowTabSpecificPaneOnTabSwitch) {
   // Open a second tab and switch back to the first tab.
   OpenNewForegroundTab();
-  ASSERT_TRUE(browser()->tab_strip_model()->IsTabSelected(1));
+  ASSERT_TRUE(browser()->GetTabStripModel()->IsTabSelected(1));
 
   int second_tab_id = GetCurrentTabId();
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
   SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
   SidePanelRegistry* const global_registry = SidePanelRegistry::From(browser());
 
@@ -945,7 +1303,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   // Call setOptions for the second tab.
   ExtensionSidePanelRegistryWaiter waiter(
       SidePanelRegistry::GetDeprecated(
-          browser()->tab_strip_model()->GetWebContentsAt(1)),
+          browser()->GetTabStripModel()->GetWebContentsAt(1)),
       extension->id());
   RunSetOptions(*extension, second_tab_id, "panel_1.html",
                 /*enabled=*/true);
@@ -957,14 +1315,14 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   // Switch to the second tab: this should cause the extension's entry for that
   // tab to be shown.
   ExtensionTestMessageListener panel_1_listener("panel_1");
-  browser()->tab_strip_model()->ActivateTabAt(1);
+  browser()->GetTabStripModel()->ActivateTabAt(1);
   ASSERT_TRUE(panel_1_listener.WaitUntilSatisfied());
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension_key));
 
   // Switch back to the first tab: the global entry should be shown.
   TestSidePanelEntryWaiter entry_shown_waiter(
       global_registry->GetEntryForKey(extension_key));
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
   entry_shown_waiter.WaitForEntryShown();
 }
 
@@ -974,10 +1332,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
                        TabSpecificPanelsOwnViewState) {
   // Open a second tab and switch back to the first tab.
   OpenNewForegroundTab();
-  ASSERT_TRUE(browser()->tab_strip_model()->IsTabSelected(1));
+  ASSERT_TRUE(browser()->GetTabStripModel()->IsTabSelected(1));
 
   int second_tab_id = GetCurrentTabId();
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
   int first_tab_id = GetCurrentTabId();
 
   scoped_refptr<const extensions::Extension> extension = LoadExtension(
@@ -1003,8 +1361,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   EXPECT_EQ("GLOBAL", GetGlobalVariableInExtensionSidePanel(
                           extension->id(), /*web_contents=*/nullptr));
 
-  auto* first_tab_contents = browser()->tab_strip_model()->GetWebContentsAt(0);
-  auto* second_tab_contents = browser()->tab_strip_model()->GetWebContentsAt(1);
+  auto* first_tab_contents = browser()->GetTabStripModel()->GetWebContentsAt(0);
+  auto* second_tab_contents =
+      browser()->GetTabStripModel()->GetWebContentsAt(1);
 
   {
     // Set a local variable's value to "TAB 1" for the extension's side panel's
@@ -1048,7 +1407,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
 
     TestSidePanelEntryWaiter entry_shown_waiter(
         second_tab_registry->GetEntryForKey(extension_key));
-    browser()->tab_strip_model()->ActivateTabAt(1);
+    browser()->GetTabStripModel()->ActivateTabAt(1);
     entry_shown_waiter.WaitForEntryShown();
 
     EXPECT_EQ("undefined", GetGlobalVariableInExtensionSidePanel(
@@ -1073,9 +1432,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
 IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
                        UnloadExtensionAfterMovingTab) {
   OpenNewForegroundTab();
-  ASSERT_TRUE(browser()->tab_strip_model()->IsTabSelected(1));
+  ASSERT_TRUE(browser()->GetTabStripModel()->IsTabSelected(1));
   const tabs::TabInterface* second_tab =
-      browser()->tab_strip_model()->GetTabAtIndex(1);
+      browser()->GetTabStripModel()->GetTabAtIndex(1);
   ASSERT_TRUE(second_tab);
   int second_tab_id = GetCurrentTabId();
 
@@ -1104,12 +1463,13 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   }
 
   // Open a new browser window.
-  Browser* second_browser = CreateBrowser(browser()->GetProfile());
-  TabStripModel* target_tab_strip = second_browser->tab_strip_model();
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
+  TabStripModel* target_tab_strip = second_browser->GetTabStripModel();
 
   // Detach the second tab from `browser()` and add it to the new browser.
   std::unique_ptr<tabs::TabModel> detached_tab =
-      browser()->tab_strip_model()->DetachTabAtForInsertion(
+      browser()->GetTabStripModel()->DetachTabAtForInsertion(
           /*index=*/1);
   ASSERT_EQ(second_tab, detached_tab.get());
 
@@ -1117,8 +1477,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
       /*index=*/1, std::move(detached_tab), AddTabTypes::ADD_NONE);
 
   // Switch to the newly moved tab.
-  ASSERT_EQ(2, second_browser->tab_strip_model()->count());
-  second_browser->tab_strip_model()->ActivateTabAt(1);
+  ASSERT_EQ(2, second_browser->GetTabStripModel()->count());
+  second_browser->GetTabStripModel()->ActivateTabAt(1);
   EXPECT_TRUE(side_panel_ui->IsSidePanelShowing());
 
   // Unloading the extension at this point should not crash the browser.
@@ -1315,7 +1675,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelPWABrowserTest, OpenInChrome) {
   web_app_info->title = u"A Web App";
   webapps::AppId app_id =
       web_app::test::InstallWebApp(profile(), std::move(web_app_info));
-  Browser* browser = web_app::LaunchWebAppBrowserAndWait(profile(), app_id);
+  BrowserWindowInterface* browser =
+      web_app::LaunchWebAppBrowserAndWait(profile(), app_id);
   SidePanelEntry::Key extension_key = GetKey(extension->id());
 
   // Call setOptions({enabled: true}) with a tab ID and new path, and wait for
@@ -1329,7 +1690,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelPWABrowserTest, OpenInChrome) {
   // over when the WebContents is moved to a normal browser window.
   {
     content::WebContents* web_contents =
-        browser->tab_strip_model()->GetActiveWebContents();
+        browser->GetTabStripModel()->GetActiveWebContents();
     int tab_id = ExtensionTabUtil::GetTabId(web_contents);
     auto* registry = SidePanelRegistry::From(browser->GetActiveTabInterface());
     ExtensionSidePanelRegistryWaiter waiter(registry, extension->id());
@@ -1463,14 +1824,14 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
                 /*enabled=*/true);
 
   // For clarity sake, use a named reference to the non-incognito browser.
-  Browser* non_incognito_browser = browser();
+  BrowserWindowInterface* non_incognito_browser = browser();
 
   // Open a tab in an incognito browser window to use.
-  Browser* incognito_browser =
+  BrowserWindowInterface* incognito_browser =
       OpenURLOffTheRecord(browser()->GetProfile(), GURL("about:blank"));
   ASSERT_TRUE(incognito_browser);
   int incognito_tab_id = ExtensionTabUtil::GetTabId(
-      incognito_browser->tab_strip_model()->GetActiveWebContents());
+      incognito_browser->GetTabStripModel()->GetActiveWebContents());
 
   SidePanelUI* const incognito_panel_ui =
       incognito_browser->GetFeatures().side_panel_ui();
@@ -1600,7 +1961,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
 
   // Switching back to the first tab, the global side panel (reading list)
   // should be active.
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(
       SidePanelEntryKey(SidePanelEntryId::kReadingList)));
 }
@@ -1644,9 +2005,9 @@ IN_PROC_BROWSER_TEST_F(
 
   // However, the global panel of the first extension should be displayed in the
   // other two tabs (both the one explicitly specified and the second tab).
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension1_key));
-  browser()->tab_strip_model()->ActivateTabAt(1);
+  browser()->GetTabStripModel()->ActivateTabAt(1);
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension1_key));
 }
 
@@ -1691,7 +2052,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension1_key));
 
   // ... As well as on the inactive (first) tab.
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension1_key));
 }
 
@@ -1753,7 +2114,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
   EXPECT_FALSE(side_panel_ui->IsSidePanelEntryShowing(extension_key));
 
   // Switch to the first tab; the contextual panel should be shown.
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension_key));
 }
 
@@ -1787,10 +2148,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
                 /*enabled=*/true);
 
   // For clarity sake, use a named reference to the non-incognito browser.
-  Browser* non_incognito_browser = browser();
+  BrowserWindowInterface* non_incognito_browser = browser();
 
   // Open an incognito browser window to use and get the window id.
-  Browser* incognito_browser =
+  BrowserWindowInterface* incognito_browser =
       OpenURLOffTheRecord(browser()->GetProfile(), GURL("about:blank"));
   ASSERT_TRUE(incognito_browser);
   int incognito_window_id = ExtensionTabUtil::GetWindowId(incognito_browser);
@@ -1871,7 +2232,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // However, the global panel of the first extension should be displayed in
   // the other tab.
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension1_key));
 }
 
@@ -1909,7 +2270,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension1_key));
 
   // The first tab should still show the contextual panel.
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension2_key));
 }
 
@@ -1925,7 +2286,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
                 /*enabled=*/true);
 
   // Open a second browser window.
-  Browser* second_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
   ASSERT_TRUE(second_browser);
   ui_test_utils::BrowserDidBecomeActiveWaiter(second_browser).Wait();
 
@@ -2123,7 +2485,7 @@ IN_PROC_BROWSER_TEST_F(
   }
 
   // Activate the first tab which does not have a contextual panel.
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
 
   {
     // Verify the "Open side panel" entry is absent if the extension has the
@@ -2307,7 +2669,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionCloseSidePanelBrowserTest,
   ASSERT_TRUE(extension);
 
   content::WebContents* active_web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   SidePanelEntry::Key extension_key = GetKey(extension->id());
 
   // Enable a contextual panel for the active tab.
@@ -2339,7 +2701,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionCloseSidePanelBrowserTest,
 
   // We start on the first tab.
   content::WebContents* first_tab_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(first_tab_contents);
   RunSetOptions(*extension, GetCurrentTabId(), "panel_2.html",
                 /*enabled=*/true);
@@ -2352,7 +2714,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionCloseSidePanelBrowserTest,
       browser(), GURL("about:blank"), WindowOpenDisposition::NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   content::WebContents* second_tab_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   int second_tab_id = ExtensionTabUtil::GetTabId(second_tab_contents);
 
   // In the second tab, enable and show a contextual panel.
@@ -2365,9 +2727,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionCloseSidePanelBrowserTest,
   EXPECT_TRUE(second_tab_registry->GetActiveEntry().has_value());
 
   // Switch back to the first tab, making the second tab inactive.
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
   EXPECT_EQ(first_tab_contents,
-            browser()->tab_strip_model()->GetActiveWebContents());
+            browser()->GetTabStripModel()->GetActiveWebContents());
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension_key));
 
   // From the first tab, call `sidePanel.close()` targeting the inactive second
@@ -2379,7 +2741,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionCloseSidePanelBrowserTest,
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension_key));
 
   // Switch back to the second tab to confirm the panel does not reopen.
-  browser()->tab_strip_model()->ActivateTabAt(1);
+  browser()->GetTabStripModel()->ActivateTabAt(1);
   EXPECT_FALSE(side_panel_ui->IsSidePanelEntryShowing(extension_key));
 }
 
@@ -2508,7 +2870,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnOpenedEventSidePanelBrowserTest,
   TestEventRouterObserver observer(EventRouter::Get(profile()));
 
   // Switch back to the first tab. The panel should reopen.
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension_key));
 
   // Verify that the onOpened event key is NOT in the dispatched events.
@@ -2647,7 +3009,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnClosedEventSidePanelBrowserTest,
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL("about:blank"), WindowOpenDisposition::NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
-  ASSERT_EQ(2, browser()->tab_strip_model()->count());
+  ASSERT_EQ(2, browser()->GetTabStripModel()->count());
 
   extensions::ResultCatcher result_catcher;
 
@@ -2672,8 +3034,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnClosedEventSidePanelBrowserTest,
 
   // Close the active tab, which has the panel. This action should trigger the
   // onClosed event in the extension.
-  browser()->tab_strip_model()->CloseWebContentsAt(
-      browser()->tab_strip_model()->active_index(),
+  browser()->GetTabStripModel()->CloseWebContentsAt(
+      browser()->GetTabStripModel()->active_index(),
       TabCloseTypes::CLOSE_USER_GESTURE);
 
   ASSERT_TRUE(result_catcher.GetNextResult()) << result_catcher.message();
@@ -2741,7 +3103,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnClosedEventSidePanelBrowserTest,
   // The initial `browser()` will remain open to keep the process alive.
   // We create a new browser window to perform the test actions and then close.
   // Creating a new browser makes it the active one by default.
-  Browser* browser_to_close = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* browser_to_close =
+      CreateBrowser(browser()->GetProfile());
 
   extensions::ResultCatcher result_catcher;
 
@@ -2752,7 +3115,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnClosedEventSidePanelBrowserTest,
 
   // Get the side panel registry and entry for `browser_to_close`.
   content::WebContents* active_contents =
-      browser_to_close->tab_strip_model()->GetActiveWebContents();
+      browser_to_close->GetTabStripModel()->GetActiveWebContents();
   SidePanelRegistry* registry =
       SidePanelRegistry::GetDeprecated(active_contents);
   SidePanelEntry* extension_entry =
@@ -2803,10 +3166,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnClosedEventSidePanelBrowserTest,
   // Add a second tab to ensure the original window doesn't close when we move
   // the first tab.
   ASSERT_TRUE(AddTabAtIndex(1, GURL("about:blank"), ui::PAGE_TRANSITION_LINK));
-  ASSERT_EQ(2, browser()->tab_strip_model()->count());
+  ASSERT_EQ(2, browser()->GetTabStripModel()->count());
 
   // Ensure the tab with the panel is the active one before moving it.
-  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->GetTabStripModel()->ActivateTabAt(0);
 
   // Move the first tab (at index 0) to a new window. This action correctly
   // simulates the user dragging the tab out.
@@ -2814,7 +3177,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnClosedEventSidePanelBrowserTest,
   chrome::MoveTabsToNewWindow(browser(), {0});
 
   // Get the new browser window.
-  Browser* new_browser = observer.Wait();
+  BrowserWindowInterface* new_browser = observer.Wait();
   ASSERT_TRUE(new_browser);
   EXPECT_NE(BrowserWindow::FromBrowser(browser()),
             BrowserWindow::FromBrowser(new_browser));

@@ -66,6 +66,7 @@ source_set("impl") {
     "//chrome/browser:defaults",
     "//chrome/browser:flags",
     "//chrome/browser/accessibility",
+    "//chrome/browser/accessibility/accessibility_prefs",
     "//chrome/browser/autocomplete:aim_eligibility_service",
     "//chrome/browser/background/glic",
     "//chrome/browser/component_updater",
@@ -131,7 +132,6 @@ source_set("impl") {
     "//chrome/browser/ui/webui/policy",
     "//chrome/browser/updates/announcement_notification",
     "//chrome/browser/webauthn",
-    "//components/accessibility_annotator/core:prefs",
     "//components/blocked_content",
     "//components/bookmarks/common",
     "//components/breadcrumbs/core:status",
@@ -360,14 +360,13 @@ source_set("impl") {
       "//chrome/browser/os_crypt",
       "//chrome/browser/webnn",
       "//chrome/browser/win",
-      "//components/os_crypt/async/browser",
-      "//components/os_crypt/async/browser:dpapi_key_provider",
+      "//components/os_crypt/browser",
+      "//components/os_crypt/browser:dpapi_key_provider",
     ]
   }
 
   if (is_android) {
     deps += [
-      "//chrome/browser/accessibility/accessibility_prefs",
       "//chrome/browser/auxiliary_search",
       "//chrome/browser/lens",
       "//chrome/browser/notifications",
@@ -392,8 +391,8 @@ source_set("impl") {
       "//chrome/browser/search_engine_choice",
       "//chrome/browser/search_engines",
       "//chrome/browser/sharing_hub",
+      "//chrome/browser/speech",
       "//chrome/browser/ui/commerce",
-      "//chrome/browser/ui/extensions",
       "//chrome/browser/ui/omnibox/omnibox_everywhere:prefs",
       "//chrome/browser/ui/performance_controls",
       "//chrome/browser/ui/send_tab_to_self",
@@ -427,6 +426,7 @@ source_set("impl") {
   if (enable_extensions_core) {
     deps += [
       "//chrome/browser/extensions",
+      "//chrome/browser/ui/extensions",
       "//extensions/browser",
     ]
   }
@@ -555,7 +555,6 @@ source_set("unit_tests") {
     ":util",
     "//base",
     "//base/test:test_support",
-    "//chrome/browser",
     "//chrome/browser:browser_process",
     "//chrome/browser/profiles:profile_util",
     "//chrome/browser/profiles:profiles_extra_parts",
@@ -626,6 +625,7 @@ if (!is_android) {
       "//chrome/browser/search_engines",
       "//chrome/browser/sync/test/integration:sync_integration_test_support",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_window_state",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/common",
@@ -656,7 +656,7 @@ if (!is_android) {
 
     if (is_win) {
       deps += [
-        "//chrome/browser/win:isolated_browser_support",
+        "//chrome/browser/win/isolated_browser:isolated_browser_support",
         "//chrome/install_static:install_static_util",
       ]
     }

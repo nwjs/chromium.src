@@ -61,7 +61,7 @@
 #include "base/trace_event/trace_event.h"
 #include "chromeos/utils/haptics_util.h"
 #include "ui/aura/client/aura_constants.h"
-#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_solid_color.h"
 #include "ui/display/screen.h"
 #include "ui/display/tablet_state.h"
 #include "ui/events/devices/haptic_touchpad_effects.h"
@@ -182,7 +182,7 @@ OverviewSession::~OverviewSession() {
 void OverviewSession::Init(
     const aura::Window::Windows& windows,
     const aura::Window::Windows& hide_windows,
-    base::WeakPtr<WindowOcclusionCalculator> window_occlusion_calculator) {
+    base::WeakPtr<DesksWindowOcclusionCalculator> window_occlusion_calculator) {
   TRACE_EVENT0("ui", "OverviewSession::Init");
 
   Shell::Get()->AddShellObserver(this);

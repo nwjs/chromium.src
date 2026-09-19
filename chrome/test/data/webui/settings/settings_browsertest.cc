@@ -337,8 +337,8 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, MetricsConsentRestructureDisabled) {
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-IN_PROC_BROWSER_TEST_F(SettingsTest, PasskeysSubpage) {
-  RunTest("settings/passkeys_subpage_test.js", "mocha.run()");
+IN_PROC_BROWSER_TEST_F(SettingsTest, PasskeysPage) {
+  RunTest("settings/passkeys_page_test.js", "mocha.run()");
 }
 #endif
 
@@ -525,6 +525,10 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, GlicSubpageHotkeyLocalScopeDisabled) {
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, GlicLoginPermissionsPage) {
   RunTest("settings/glic_login_permissions_page_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsTest, GmailOtpDisclaimerDialog) {
+  RunTest("settings/gmail_otp_disclaimer_dialog_test.js", "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, WebuiRefresh2026) {
@@ -1067,6 +1071,10 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, KeyboardShortcutPage) {
   RunTest("settings/keyboard_shortcut_page_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(SettingsTest, OmniboxEverywhereSection) {
+  RunTest("settings/omnibox_everywhere_section_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(SettingsTest, ProtocolHandlers) {
   RunTest("settings/protocol_handlers_test.js", "mocha.run()");
 }
@@ -1433,6 +1441,10 @@ IN_PROC_BROWSER_TEST_F(SettingsCookiesPageTest, ExceptionsList) {
   RunTest("settings/cookies_page_test.js", "runMochaSuite('ExceptionsList')");
 }
 
+IN_PROC_BROWSER_TEST_F(SettingsCookiesPageTest, UniversalOptOut) {
+  RunTest("settings/cookies_page_test.js", "runMochaSuite('UniversalOptOut')");
+}
+
 // Test with --enable-pixel-output-in-tests enabled, required by fingerprint
 // element test using HTML canvas.
 class SettingsWithPixelOutputTest : public SettingsBrowserTest {
@@ -1749,17 +1761,25 @@ IN_PROC_BROWSER_TEST_F(SettingsSecurityPageTest, JavascriptOptimizer) {
           "runMochaSuite('JavascriptOptimizer')");
 }
 
-// TODO(crbug/338155508): Enable this flaky test. This is flaky on Linux debug
-// build.
-// TODO(crbug.com/409069315): Re-enable this test on Mac.
-#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG) || BUILDFLAG(IS_MAC)
-#define MAYBE_SafeBrowsing DISABLED_SafeBrowsing
-#else
-#define MAYBE_SafeBrowsing SafeBrowsing
-#endif
-IN_PROC_BROWSER_TEST_F(SettingsSecurityPageTest, MAYBE_SafeBrowsing) {
+IN_PROC_BROWSER_TEST_F(SettingsSecurityPageTest, SafeBrowsingDialog) {
   RunTest("settings/security/security_page_test.js",
-          "runMochaSuite('SafeBrowsing')");
+          "runMochaSuite('SafeBrowsingDialog')");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsSecurityPageTest,
+                       SafeBrowsingLabelsAndToggles) {
+  RunTest("settings/security/security_page_test.js",
+          "runMochaSuite('SafeBrowsingLabelsAndToggles')");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsSecurityPageTest, SafeBrowsingMetrics) {
+  RunTest("settings/security/security_page_test.js",
+          "runMochaSuite('SafeBrowsingMetrics')");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsSecurityPageTest, SafeBrowsingRadio) {
+  RunTest("settings/security/security_page_test.js",
+          "runMochaSuite('SafeBrowsingRadio')");
 }
 
 using SettingsSecurityPageV2Test = SettingsBrowserTest;
@@ -1992,8 +2012,8 @@ IN_PROC_BROWSER_TEST_F(YourSavedInfoTest, ShoppingPageTest) {
   RunTest("settings/shopping_page_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(YourSavedInfoTest, SuggestionsFromGeminiSubpage) {
-  RunTest("settings/suggestions_from_gemini_subpage_test.js", "mocha.run()");
+IN_PROC_BROWSER_TEST_F(YourSavedInfoTest, SuggestionsFromGeminiPage) {
+  RunTest("settings/suggestions_from_gemini_page_test.js", "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(YourSavedInfoTest, TravelPageTest) {

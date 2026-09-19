@@ -26,7 +26,6 @@
 #include "components/optimization_guide/core/model_execution/on_device_model_feature_adapter.h"
 #include "components/optimization_guide/core/model_execution/performance_class.h"
 #include "components/optimization_guide/core/model_execution/test/fake_model_assets.h"
-#include "components/optimization_guide/core/model_execution/test/fake_model_broker.h"
 #include "components/optimization_guide/core/model_execution/test/feature_config_builder.h"
 #include "components/optimization_guide/core/model_execution/test/request_builder.h"
 #include "components/optimization_guide/core/model_execution/test/response_holder.h"
@@ -260,7 +259,7 @@ TEST_F(ManifestBrokerStateTest,
   }));
 
   // Drop free space below 10 GiB required for building caches after install.
-  fake_.component_state().SetFreeDiskSpace(base::GiBU(8));
+  fake_.component_state().SetFreeDiskSpace(base::GiB(8));
   task_environment_.FastForwardBy(base::Seconds(11));
   // Request a different use case to trigger a fresh disk space evaluation.
   fake_.client().RequestAssetsFor("compose");
@@ -289,7 +288,7 @@ TEST_F(ManifestBrokerStateTest,
   }));
 
   // Drop free space below 10 GiB required for building caches.
-  fake_.component_state().SetFreeDiskSpace(base::GiBU(8));
+  fake_.component_state().SetFreeDiskSpace(base::GiB(8));
   task_environment_.FastForwardBy(base::Seconds(11));
   // Request a different use case to trigger a fresh disk space evaluation.
   fake_.client().RequestAssetsFor("compose");

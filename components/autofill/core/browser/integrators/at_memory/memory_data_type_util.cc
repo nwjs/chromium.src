@@ -22,7 +22,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/date_info.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
-#include "components/autofill/core/browser/data_model/data_model_utils.h"
+#include "components/autofill/core/browser/data_model/data_model_util.h"
 #include "components/personal_context/proto/features/at_memory.pb.h"
 #include "components/personal_context/proto/features/common_data.pb.h"
 #include "components/strings/grit/components_strings.h"
@@ -613,9 +613,6 @@ MemoryDataType AttributeTypeToMemoryDataType(AttributeType type) {
     ATTRIBUTE_TO_QUERY_INTENT(kShipmentTrackingNumber);
     ATTRIBUTE_TO_QUERY_INTENT(kShipmentShippedDate);
     ATTRIBUTE_TO_QUERY_INTENT(kShipmentDeliveryZipCode);
-    case AttributeTypeName::kShipmentOrderIds:
-      return MemoryDataType::kShipmentAssociatedOrderId;
-    case AttributeTypeName::kShipmentOrderDates:
     case AttributeTypeName::kShipmentMerchantName:
     case AttributeTypeName::kShipmentProductNames:
       return MemoryDataType::kUnknown;
@@ -724,6 +721,148 @@ std::u16string GetMemoryDataTypeNameForI18n(MemoryDataType type) {
       return attribute_type ? attribute_type->GetNameForI18n() : u"";
     }
   }
+}
+
+std::string_view MemoryDataTypeToStringView(MemoryDataType type) {
+  switch (type) {
+    case MemoryDataType::kUnknown:
+      return "Unknown";
+    case MemoryDataType::kNameFull:
+      return "NameFull";
+    case MemoryDataType::kAddressFull:
+      return "AddressFull";
+    case MemoryDataType::kAddressStreetAddress:
+      return "AddressStreetAddress";
+    case MemoryDataType::kAddressCity:
+      return "AddressCity";
+    case MemoryDataType::kAddressState:
+      return "AddressState";
+    case MemoryDataType::kAddressZip:
+      return "AddressZip";
+    case MemoryDataType::kAddressCountry:
+      return "AddressCountry";
+    case MemoryDataType::kPhone:
+      return "Phone";
+    case MemoryDataType::kEmail:
+      return "Email";
+    case MemoryDataType::kCompanyName:
+      return "CompanyName";
+    case MemoryDataType::kIban:
+      return "Iban";
+    case MemoryDataType::kIbanNickname:
+      return "IbanNickname";
+    case MemoryDataType::kVehicleMake:
+      return "VehicleMake";
+    case MemoryDataType::kVehicleModel:
+      return "VehicleModel";
+    case MemoryDataType::kVehicleYear:
+      return "VehicleYear";
+    case MemoryDataType::kVehicleOwner:
+      return "VehicleOwner";
+    case MemoryDataType::kVehiclePlateNumber:
+      return "VehiclePlateNumber";
+    case MemoryDataType::kVehiclePlateState:
+      return "VehiclePlateState";
+    case MemoryDataType::kVehicleVin:
+      return "VehicleVin";
+    case MemoryDataType::kPassportName:
+      return "PassportName";
+    case MemoryDataType::kPassportCountry:
+      return "PassportCountry";
+    case MemoryDataType::kPassportNumber:
+      return "PassportNumber";
+    case MemoryDataType::kPassportIssueDate:
+      return "PassportIssueDate";
+    case MemoryDataType::kPassportExpirationDate:
+      return "PassportExpirationDate";
+    case MemoryDataType::kFlightReservationFlightNumber:
+      return "FlightReservationFlightNumber";
+    case MemoryDataType::kFlightReservationTicketNumber:
+      return "FlightReservationTicketNumber";
+    case MemoryDataType::kFlightReservationConfirmationCode:
+      return "FlightReservationConfirmationCode";
+    case MemoryDataType::kFlightReservationPassengerName:
+      return "FlightReservationPassengerName";
+    case MemoryDataType::kFlightReservationDepartureAirport:
+      return "FlightReservationDepartureAirport";
+    case MemoryDataType::kFlightReservationArrivalAirport:
+      return "FlightReservationArrivalAirport";
+    case MemoryDataType::kFlightReservationDepartureDate:
+      return "FlightReservationDepartureDate";
+    case MemoryDataType::kFlightReservationArrivalDate:
+      return "FlightReservationArrivalDate";
+    case MemoryDataType::kShipmentTrackingNumber:
+      return "ShipmentTrackingNumber";
+    case MemoryDataType::kShipmentAssociatedOrderId:
+      return "ShipmentAssociatedOrderId";
+    case MemoryDataType::kShipmentDeliveryAddress:
+      return "ShipmentDeliveryAddress";
+    case MemoryDataType::kShipmentDeliveryZipCode:
+      return "ShipmentDeliveryZipCode";
+    case MemoryDataType::kShipmentCarrierName:
+      return "ShipmentCarrierName";
+    case MemoryDataType::kShipmentCarrierDomain:
+      return "ShipmentCarrierDomain";
+    case MemoryDataType::kShipmentEstimatedDeliveryDate:
+      return "ShipmentEstimatedDeliveryDate";
+    case MemoryDataType::kShipmentShippedDate:
+      return "ShipmentShippedDate";
+    case MemoryDataType::kNationalIdCardName:
+      return "NationalIdCardName";
+    case MemoryDataType::kNationalIdCardCountry:
+      return "NationalIdCardCountry";
+    case MemoryDataType::kNationalIdCardNumber:
+      return "NationalIdCardNumber";
+    case MemoryDataType::kNationalIdCardIssueDate:
+      return "NationalIdCardIssueDate";
+    case MemoryDataType::kNationalIdCardExpirationDate:
+      return "NationalIdCardExpirationDate";
+    case MemoryDataType::kRedressNumberName:
+      return "RedressNumberName";
+    case MemoryDataType::kRedressNumberNumber:
+      return "RedressNumberNumber";
+    case MemoryDataType::kKnownTravelerNumberName:
+      return "KnownTravelerNumberName";
+    case MemoryDataType::kKnownTravelerNumberNumber:
+      return "KnownTravelerNumberNumber";
+    case MemoryDataType::kKnownTravelerNumberExpirationDate:
+      return "KnownTravelerNumberExpirationDate";
+    case MemoryDataType::kDriversLicenseName:
+      return "DriversLicenseName";
+    case MemoryDataType::kDriversLicenseState:
+      return "DriversLicenseState";
+    case MemoryDataType::kDriversLicenseNumber:
+      return "DriversLicenseNumber";
+    case MemoryDataType::kDriversLicenseIssueDate:
+      return "DriversLicenseIssueDate";
+    case MemoryDataType::kDriversLicenseExpirationDate:
+      return "DriversLicenseExpirationDate";
+    case MemoryDataType::kOrderId:
+      return "OrderId";
+    case MemoryDataType::kOrderAccount:
+      return "OrderAccount";
+    case MemoryDataType::kOrderDate:
+      return "OrderDate";
+    case MemoryDataType::kOrderMerchantName:
+      return "OrderMerchantName";
+    case MemoryDataType::kOrderMerchantDomain:
+      return "OrderMerchantDomain";
+    case MemoryDataType::kOrderProductNames:
+      return "OrderProductNames";
+    case MemoryDataType::kOrderGrandTotal:
+      return "OrderGrandTotal";
+    case MemoryDataType::kCreditCardNumber:
+      return "CreditCardNumber";
+    case MemoryDataType::kCreditCardExpirationDate:
+      return "CreditCardExpirationDate";
+    case MemoryDataType::kCreditCardSecurityCode:
+      return "CreditCardSecurityCode";
+    case MemoryDataType::kCreditCardNameOnCard:
+      return "CreditCardNameOnCard";
+    case MemoryDataType::kCreditCardNickname:
+      return "CreditCardNickname";
+  }
+  NOTREACHED();
 }
 
 MemoryDataType ToMemoryDataType(
@@ -1320,8 +1459,6 @@ std::optional<AttributeType> ToAttributeType(MemoryDataType type) {
     MAP_ATTR(kShipmentCarrierDomain);
     MAP_ATTR(kShipmentShippedDate);
     MAP_ATTR(kShipmentDeliveryZipCode);
-    case MemoryDataType::kShipmentAssociatedOrderId:
-      return AttributeType(AttributeTypeName::kShipmentOrderIds);
     case MemoryDataType::kUnknown:
     case MemoryDataType::kNameFull:
     case MemoryDataType::kAddressFull:
@@ -1336,6 +1473,7 @@ std::optional<AttributeType> ToAttributeType(MemoryDataType type) {
     case MemoryDataType::kIban:
     case MemoryDataType::kIbanNickname:
     case MemoryDataType::kFlightReservationArrivalDate:
+    case MemoryDataType::kShipmentAssociatedOrderId:
     case MemoryDataType::kShipmentDeliveryAddress:
     case MemoryDataType::kShipmentEstimatedDeliveryDate:
     case MemoryDataType::kOrderGrandTotal:

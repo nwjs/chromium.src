@@ -21,6 +21,7 @@
 #import "ios/chrome/browser/composebox/public/features.h"
 #import "ios/chrome/browser/composebox/ui/composebox_input_item.h"
 #import "ios/chrome/browser/composebox/ui/composebox_input_item_collection.h"
+#import "ios/chrome/browser/composebox/ui/composebox_ui_config.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_input_state.h"
 #import "ios/chrome/browser/shared/model/web_state_list/test/fake_web_state_list_delegate.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
@@ -34,6 +35,7 @@
 #import "testing/gmock/include/gmock/gmock.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/platform_test.h"
+#import "ui/base/device_form_factor.h"
 
 @interface ComposeboxInputStateManager (Testing)
 - (void)didUpdateInputState:(const contextual_search::InputState&)inputState;
@@ -41,6 +43,7 @@
 - (ComposeboxModelOption)defaultModel;
 - (void)onDriveDisclaimerChecked:
     (drive_picker::DriveDisclaimerController::DisclaimerStatus)status;
+- (BOOL)isAttachmentAllowed:(ComposeboxAttachmentOption)attachmentOption;
 @end
 
 @interface FakeComposeboxInputStateManagerDelegate
@@ -374,6 +377,10 @@ TEST_F(ComposeboxInputStateManagerTest, ToolDisabled_ServerSideEnabled) {
 // server-side state is disabled and the user is eligible according to the AIM
 // eligibility service.
 TEST_F(ComposeboxInputStateManagerTest, ImageToolAllowed_ServerSideDisabled) {
+  if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET) {
+    GTEST_SKIP() << "Server-side state is always enabled on phones.";
+  }
+
   // Disable server-side state for this test.
   base::test::ScopedFeatureList local_feature_list;
   local_feature_list.InitAndDisableFeature(kComposeboxServerSideState);
@@ -392,6 +399,10 @@ TEST_F(ComposeboxInputStateManagerTest, ImageToolAllowed_ServerSideDisabled) {
 // Tests that the image tool is disabled in local fallback mode when there are
 // already tab or file attachments.
 TEST_F(ComposeboxInputStateManagerTest, ImageToolDisabled_HasTabOrFile) {
+  if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET) {
+    GTEST_SKIP() << "Server-side state is always enabled on phones.";
+  }
+
   // Disable server-side state for this test.
   base::test::ScopedFeatureList local_feature_list;
   local_feature_list.InitAndDisableFeature(kComposeboxServerSideState);
@@ -840,10 +851,84 @@ TEST_F(ComposeboxInputStateManagerTest,
   EXPECT_TRUE([state isModelAvailable:ComposeboxModelOption::kThinking]);
 }
 
+// Tests that `computeUIInputStateWithFavicon:attachedWebStateIDs:` parses
+// server-configured icons.
+TEST_F(ComposeboxInputStateManagerTest, ComputeUIInputState_ServerIcons) {
+  omnibox::SearchboxConfig config;
+  omnibox::ToolConfig* tool_config = config.add_tool_configs();
+  tool_config->set_tool(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
+  tool_config->mutable_icon()->set_icon_id(omnibox::IconResourceIds::BANANA);
+  omnibox::ToolRule* rule = tool_config->mutable_rule();
+  rule->set_tool(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
+  rule->set_allow_all_input_types(true);
+
+  omnibox::ModelConfig* model_config = config.add_model_configs();
+  model_config->set_model(omnibox::ModelMode::MODEL_MODE_GEMINI_PRO);
+  model_config->mutable_icon()->set_icon_id(omnibox::IconResourceIds::TIMER);
+
+  config.mutable_rule_set()->add_allowed_models(
+      omnibox::ModelMode::MODEL_MODE_GEMINI_PRO);
+
+  EXPECT_CALL(*mock_aim_service_, GetSearchboxConfig())
+      .WillRepeatedly(testing::Return(&config));
+  if (aim_eligibility_callback_) {
+    aim_eligibility_callback_.Run();
+  }
+
+  ComposeboxUIInputState* state = [manager_ computeUIInputStateWithFavicon:nil
+                                                       attachedWebStateIDs:{}];
+  EXPECT_NE(state, nil);
+  EXPECT_NE([state.uiConfig iconForTool:ComposeboxMode::kImageGeneration], nil);
+  EXPECT_NE([state.uiConfig iconForModel:ComposeboxModelOption::kThinking],
+            nil);
+}
+
+// Tests that `computeUIInputStateWithFavicon:attachedWebStateIDs:` falls back
+// to default icons when an unknown icon resource ID is received from the
+// server.
+TEST_F(ComposeboxInputStateManagerTest,
+       ComputeUIInputState_UnknownServerIcons) {
+  omnibox::SearchboxConfig config;
+  omnibox::ToolConfig* tool_config = config.add_tool_configs();
+  tool_config->set_tool(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
+  // Pass an unmapped/future icon ID value.
+  tool_config->mutable_icon()->set_icon_id(
+      static_cast<omnibox::IconResourceIds>(9999));
+  omnibox::ToolRule* rule = tool_config->mutable_rule();
+  rule->set_tool(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
+  rule->set_allow_all_input_types(true);
+
+  omnibox::ModelConfig* model_config = config.add_model_configs();
+  model_config->set_model(omnibox::ModelMode::MODEL_MODE_GEMINI_PRO);
+  model_config->mutable_icon()->set_icon_id(
+      static_cast<omnibox::IconResourceIds>(9999));
+
+  config.mutable_rule_set()->add_allowed_models(
+      omnibox::ModelMode::MODEL_MODE_GEMINI_PRO);
+
+  EXPECT_CALL(*mock_aim_service_, GetSearchboxConfig())
+      .WillRepeatedly(testing::Return(&config));
+  if (aim_eligibility_callback_) {
+    aim_eligibility_callback_.Run();
+  }
+
+  ComposeboxUIInputState* state = [manager_ computeUIInputStateWithFavicon:nil
+                                                       attachedWebStateIDs:{}];
+  EXPECT_NE(state, nil);
+  // Default icons should be returned without crashing.
+  EXPECT_NE([state.uiConfig iconForTool:ComposeboxMode::kImageGeneration], nil);
+  EXPECT_NE([state.uiConfig iconForModel:ComposeboxModelOption::kThinking],
+            nil);
+}
+
 // Tests that `computeUIInputStateWithFavicon:attachedWebStateIDs:` disables
 // model picker when the feature flag is off.
 TEST_F(ComposeboxInputStateManagerTest,
        ComputeUIInputState_ModelPickerDisabled) {
+  if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET) {
+    GTEST_SKIP() << "Model picker is always enabled on phones.";
+  }
+
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndDisableFeature(kComposeboxAdditionalAdvancedTools);
 
@@ -1311,4 +1396,76 @@ TEST_F(ComposeboxInputStateManagerTest, OnDriveDisclaimerChecked) {
   EXPECT_EQ(
       pref_service_.GetInteger(contextual_search::kDriveConsentState),
       static_cast<int>(contextual_search::DriveConsentState::kRestricted));
+}
+
+// Test that changing or clearing the primary account immediately resets the
+// Drive consent state preference to kNotReady.
+TEST_F(ComposeboxInputStateManagerTest,
+       TestPrimaryAccountChangeResetsDriveConsentPref) {
+  pref_service_.SetInteger(
+      contextual_search::kDriveConsentState,
+      static_cast<int>(contextual_search::DriveConsentState::kConsent));
+  EXPECT_EQ(pref_service_.GetInteger(contextual_search::kDriveConsentState),
+            static_cast<int>(contextual_search::DriveConsentState::kConsent));
+
+  identity_test_env_.MakePrimaryAccountAvailable("user@example.com",
+                                                 signin::ConsentLevel::kSignin);
+  EXPECT_EQ(pref_service_.GetInteger(contextual_search::kDriveConsentState),
+            static_cast<int>(contextual_search::DriveConsentState::kNotReady));
+
+  pref_service_.SetInteger(
+      contextual_search::kDriveConsentState,
+      static_cast<int>(contextual_search::DriveConsentState::kConsent));
+  EXPECT_EQ(pref_service_.GetInteger(contextual_search::kDriveConsentState),
+            static_cast<int>(contextual_search::DriveConsentState::kConsent));
+
+  identity_test_env_.ClearPrimaryAccount();
+  EXPECT_EQ(pref_service_.GetInteger(contextual_search::kDriveConsentState),
+            static_cast<int>(contextual_search::DriveConsentState::kNotReady));
+}
+
+// Tests that Drive attachment option is not allowed in Incognito mode.
+TEST_F(ComposeboxInputStateManagerTest, TestDriveNotAllowedInIncognito) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures({omnibox::kComposeboxDriveContextMenuOption},
+                                {});
+
+  ComposeboxInputStateManager* incognitoManager =
+      [[ComposeboxInputStateManager alloc]
+           initWithWebStateList:&web_state_list_
+                     modeHolder:mode_holder_
+                    prefService:&pref_service_
+          aimEligibilityService:mock_aim_service_.get()
+                identityManager:nullptr
+             templateURLService:nullptr
+                  sessionHandle:session_handle_.get()
+                     entrypoint:ComposeboxEntrypoint::kOther
+                    isIncognito:YES
+               urlLoaderFactory:shared_url_loader_factory_];
+
+  EXPECT_FALSE([incognitoManager
+      isAttachmentAllowed:ComposeboxAttachmentOption::kDrive]);
+  [incognitoManager disconnect];
+}
+
+// Tests that Drive attachment is disallowed and excluded from UI state when the
+// account is restricted.
+TEST_F(ComposeboxInputStateManagerTest, TestDriveDisallowedWhenRestricted) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(omnibox::kComposeboxDriveContextMenuOption);
+
+  identity_test_env_.MakePrimaryAccountAvailable("user@example.com",
+                                                 signin::ConsentLevel::kSignin);
+
+  // Set Drive consent state to restricted.
+  [manager_ onDriveDisclaimerChecked:drive_picker::DriveDisclaimerController::
+                                         DisclaimerStatus::kRestricted];
+  EXPECT_EQ(
+      pref_service_.GetInteger(contextual_search::kDriveConsentState),
+      static_cast<int>(contextual_search::DriveConsentState::kRestricted));
+
+  ComposeboxUIInputState* state = [manager_ computeUIInputStateWithFavicon:nil
+                                                       attachedWebStateIDs:{}];
+  EXPECT_FALSE(
+      state.allowedAttachments.contains(ComposeboxAttachmentOption::kDrive));
 }

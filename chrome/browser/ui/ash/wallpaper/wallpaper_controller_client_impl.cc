@@ -31,6 +31,8 @@
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/app_service/launch_utils.h"
+#include "chrome/browser/ash/browser_delegate/browser_controller.h"
+#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
 #include "chrome/browser/ash/customization/customization_wallpaper_util.h"
 #include "chrome/browser/ash/drive/drive_integration_service.h"
 #include "chrome/browser/ash/drive/file_system_util.h"
@@ -43,12 +45,7 @@
 #include "chrome/browser/ash/wallpaper_handlers/wallpaper_fetcher_delegate.h"
 #include "chrome/browser/ash/wallpaper_handlers/wallpaper_handlers.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/contents_web_view.h"
-#include "chrome/browser/ui/webui/ash/settings/pref_names.h"
 #include "chromeos/ash/components/cryptohome/system_salt_getter.h"
 #include "chromeos/ash/components/policy/device_local_account/device_local_account_type.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
@@ -58,8 +55,6 @@
 #include "components/prefs/pref_service.h"
 #include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "components/session_manager/core/session_manager.h"
-#include "components/sync/service/sync_service.h"
-#include "components/sync/service/sync_user_settings.h"
 #include "components/user_manager/known_user.h"
 #include "components/user_manager/user_manager.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -344,23 +339,6 @@ void WallpaperControllerClientImpl::GetFilesId(
                      std::move(files_id_callback)));
 }
 
-bool WallpaperControllerClientImpl::IsWallpaperSyncEnabled(
-    const AccountId& account_id) const {
-  Profile* profile = ProfileHelper::Get()->GetProfileByAccountId(account_id);
-  if (!profile) {
-    return false;
-  }
-
-  syncer::SyncService* sync_service =
-      SyncServiceFactory::GetForProfile(profile);
-  if (!sync_service) {
-    return false;
-  }
-  syncer::SyncUserSettings* user_settings = sync_service->GetUserSettings();
-  return user_settings->IsSyncAllOsTypesEnabled() ||
-         profile->GetPrefs()->GetBoolean(
-             ash::settings::prefs::kSyncOsWallpaper);
-}
 
 void WallpaperControllerClientImpl::CancelPreviewWallpaper(Profile* profile) {
   wallpaper_controller_->CancelPreviewWallpaper();
@@ -394,27 +372,19 @@ void WallpaperControllerClientImpl::MakeTransparent(
       SK_ColorTRANSPARENT);
 
   // Turn off the web contents background.
-  std::vector<ContentsWebView*> contents_views =
-      BrowserView::GetBrowserViewForNativeWindow(
-          web_contents->GetTopLevelNativeWindow())
-          ->GetAllVisibleContentsWebViews();
-  for (ContentsWebView* contents_view : contents_views) {
-    contents_view->SetBackgroundVisible(false);
-  }
+  ash::BrowserController::GetInstance()
+      ->GetBrowserForTab(web_contents)
+      ->SetContentsBackgroundVisible(false);
 }
 
 void WallpaperControllerClientImpl::MakeOpaque(
     content::WebContents* web_contents) {
-  // Reversing `contents_web_view` is sufficient to make the view opaque,
-  // as `window_backdrop`, `top_level_window` and `web_contents` are not
+  // Making the contents background visible is sufficient to make the view
+  // opaque, as `window_backdrop`, `top_level_window` and `web_contents` are not
   // highly impactful to the animated theme change effect.
-  std::vector<ContentsWebView*> contents_views =
-      BrowserView::GetBrowserViewForNativeWindow(
-          web_contents->GetTopLevelNativeWindow())
-          ->GetAllVisibleContentsWebViews();
-  for (ContentsWebView* contents_view : contents_views) {
-    contents_view->SetBackgroundVisible(true);
-  }
+  ash::BrowserController::GetInstance()
+      ->GetBrowserForTab(web_contents)
+      ->SetContentsBackgroundVisible(true);
 }
 
 void WallpaperControllerClientImpl::OnVolumeMounted(

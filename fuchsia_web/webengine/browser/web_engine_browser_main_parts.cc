@@ -24,7 +24,10 @@
 #include "base/fuchsia/process_lifecycle.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/i18n/icubridge/default_icu_locale.h"
+#include "base/i18n/language_tag.h"
 #include "base/i18n/rtl.h"
+#include "base/i18n/tag_converters.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
@@ -314,11 +317,9 @@ void WebEngineBrowserMainParts::WillRunMainMessageLoop(
 }
 
 void WebEngineBrowserMainParts::PostMainMessageLoopRun() {
-  // Main loop should quit only after all Context instances have been destroyed.
-  DCHECK_EQ(context_bindings_.size(), 0u);
-
-  // FrameHost channels may still be active and contain live Frames. Close them
-  // here so that they are torn-down before their dependent resources.
+  // Context and FrameHost channels may still be active. Close them here so
+  // that they are torn-down before their dependent resources.
+  context_bindings_.CloseAll();
   frame_host_bindings_.CloseAll();
 
   // These resources must be freed while a MessageLoop is still available, so
@@ -416,9 +417,13 @@ void WebEngineBrowserMainParts::HandleFrameHostRequest(
 void WebEngineBrowserMainParts::OnIntlProfileChanged(
     const fuchsia::intl::Profile& profile) {
   // Configure the ICU library in this process with the new primary locale.
-  std::string primary_locale =
-      base::FuchsiaIntlProfileWatcher::GetPrimaryLocaleIdFromProfile(profile);
-  base::i18n::SetICUDefaultLocale(primary_locale);
+  base::i18n::LanguageTag primary_locale =
+      base::i18n::GetLanguageTagFromString(
+          base::FuchsiaIntlProfileWatcher::GetPrimaryLocaleIdFromProfile(
+              profile))
+          .value_or(base::i18n::GetKnownLanguageTag("en-US"));
+  base::i18n::SetDefaultIcuLocale(base::i18n::DefaultIcuLocaleSetterKey(),
+                                  primary_locale);
 
   {
     // Reloading locale-specific resources requires synchronous blocking.

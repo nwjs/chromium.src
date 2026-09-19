@@ -23,6 +23,7 @@ ScrollJankV4Frame::BeginFrameArgsForScrollJank::From(
     uint64_t result_id) {
   return {.frame_time = args.frame_time,
           .interval = args.interval,
+          .deadline_derived_interval = args.deadline_derived_interval,
           .result_id = result_id};
 }
 
@@ -33,6 +34,7 @@ ScrollJankV4Frame::BeginFrameArgsForScrollJank::From(
     uint64_t result_id) {
   return {.frame_time = args.frame_time,
           .interval = args.interval,
+          .deadline_derived_interval = args.deadline_derived_interval,
           .result_id = result_id};
 }
 
@@ -48,7 +50,7 @@ ScrollJankV4Frame::~ScrollJankV4Frame() = default;
 ScrollJankV4Frame::Stage::ScrollUpdates::ScrollUpdates(
     std::optional<Real> real,
     std::optional<Synthetic> synthetic,
-    std::optional<base::TimeTicks> scroll_begin_arrival_timestamp)
+    base::TimeTicks scroll_begin_arrival_timestamp)
     : real_(std::move(real)),
       synthetic_(std::move(synthetic)),
       scroll_begin_arrival_timestamp_(scroll_begin_arrival_timestamp) {

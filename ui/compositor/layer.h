@@ -12,46 +12,37 @@
 #include <string>
 #include <vector>
 
+#include "base/containers/flat_set.h"
 #include "base/memory/advanced_memory_safety_checks.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "cc/base/region.h"
-#include "cc/layers/content_layer_client.h"
-#include "cc/layers/surface_layer.h"
-#include "cc/layers/texture_layer_client.h"
+#include "cc/layers/layer.h"
 #include "cc/paint/filter_operation.h"
-#include "components/viz/common/resources/transferable_resource.h"
 #include "components/viz/common/surfaces/subtree_capture_id.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/compositor/compositor_export.h"
 #include "ui/compositor/layer_animation_delegate.h"
 #include "ui/compositor/layer_type.h"
+#include "ui/gfx/geometry/linear_gradient.h"
 #include "ui/gfx/geometry/rect.h"
-#include "ui/gfx/image/image_skia.h"
-
-namespace cc {
-class Layer;
-class MirrorLayer;
-class NinePatchLayer;
-class SolidColorLayer;
-class SurfaceLayer;
-class TextureLayer;
-}  // namespace cc
-
-namespace gfx {
-class RoundedCornersF;
-class Transform;
-class LinearGradient;
-}  // namespace gfx
+#include "ui/gfx/geometry/rounded_corners_f.h"
+#include "ui/gfx/geometry/rrect_f.h"
+#include "ui/gfx/geometry/transform.h"
 
 namespace viz {
 class CopyOutputRequest;
-struct TransferableResource;
 }  // namespace viz
 
 namespace ui {
+namespace internal {
+class LayerMirror;
+}  // namespace internal
 
+class LayerNotDrawn;
+class LayerWithExternalTexture;
 class LayerTextured;
 class LayerSolidColor;
 class LayerNinePatch;
@@ -114,6 +105,10 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate {
   const LayerNinePatch* AsNinePatch() const;
   LayerSurface* AsSurface();
   const LayerSurface* AsSurface() const;
+  LayerWithExternalTexture* AsWithExternalTexture();
+  const LayerWithExternalTexture* AsWithExternalTexture() const;
+  LayerNotDrawn* AsNotDrawn();
+  const LayerNotDrawn* AsNotDrawn() const;
 
   Layer(const Layer&) = delete;
   Layer& operator=(const Layer&) = delete;
@@ -380,13 +375,15 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate {
   float GetTargetOpacity() const;
 
   // Set a layer mask for a layer.
-  // Note the provided layer mask can neither have a layer mask itself nor can
-  // it have any children. The ownership of |layer_mask| will not be
-  // transferred with this call.
-  // Furthermore: A mask layer can only be set to one layer.
-  void SetMaskLayer(Layer* layer_mask);
-  Layer* layer_mask_layer() { return layer_mask_; }
-  const Layer* layer_mask_layer() const { return layer_mask_; }
+  // - Callers are responsible for updating the mask layer's bounds and
+  //   scheduling paint invalidations on the mask layer when needed.
+  // - The provided layer mask can neither have a layer mask itself nor can it
+  //   have any children.
+  // - The ownership of `layer_mask` will not be transferred with this call.
+  // - A mask layer can only be set to one layer.
+  void SetMaskLayer(LayerTextured* layer_mask);
+  LayerTextured* layer_mask_layer() { return layer_mask_; }
+  const LayerTextured* layer_mask_layer() const { return layer_mask_; }
 
   // Sets the visibility of the Layer. A Layer itself may be visible but not
   // fully visible in the layer tree.  This happens if any ancestor of a
@@ -459,16 +456,6 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate {
   const std::string& name() const { return name_; }
   void SetName(const std::string& name);
 
-  // Returns true if the layer has external content, such as a surface layer or
-  // an external texture.
-  virtual bool HasExternalContent() const;
-
-  // Returns true if the layer has a transferable resource. A transferable
-  // resource is an externally provided GPU resource (e.g., a texture or
-  // hardware buffer) that the layer can display without needing to paint
-  // content itself.
-  virtual bool HasTransferableResource() const;
-
   // Returns true if the layer should schedule a paint when requested. By
   // default, this is true for layers with painted content or external
   // transferable resources, but false for layers that do not draw or draw
@@ -490,11 +477,8 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate {
   // SchedulePaint() for that.
   void ScheduleDraw();
 
-  // Uses damaged rectangles recorded in |damaged_region_| to invalidate the
-  // |cc_layer_|.
+  // Commits damaged rectangles to the |cc_layer_| and updates visual state.
   void SendDamagedRects();
-
-  const cc::Region& damaged_region() const { return damaged_region_; }
 
   void CompleteAllAnimations();
 
@@ -535,24 +519,7 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate {
   gfx::PointF CurrentScrollOffset() const;
   void SetScrollOffset(const gfx::PointF& offset);
 
-  cc::Layer* cc_layer_for_testing() { return cc_layer_; }
-  const cc::Layer* cc_layer_for_testing() const { return cc_layer_; }
-
-
   float device_scale_factor() const { return device_scale_factor_; }
-
-  // Triggers a call to `FinishAnimationsBeforeSwitchToLayer` and
-  // `SwitchToLayer`. If this returns false, then `this` Layer was destroyed.
-  // TODO(crbug.com/522627357): Move all the test-only methods to TestApi class.
-  virtual bool SwitchCCLayerForTest();
-
-  const cc::Region& damaged_region_for_testing() const {
-    return damaged_region_;
-  }
-
-  const gfx::Size& frame_size_in_dip_for_testing() const {
-    return frame_size_in_dip_;
-  }
 
   // |quality| is used as a multiplier to scale the temporary surface
   // that might be created by the compositor to apply the backdrop filters.
@@ -569,12 +536,6 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate {
 
   base::WeakPtr<Layer> AsWeakPtr();
 
-  bool ContainsMirrorForTest(Layer* mirror) const;
-
-  void SetCompositorForTesting(Compositor* compositor) {
-    compositor_ = compositor;
-  }
-
  protected:
   explicit Layer(LayerType type);
 
@@ -584,17 +545,15 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate {
   virtual void HandleDeviceScaleFactorChange();
 
   // Called when a paint is scheduled (from Layer::SchedulePaint()).
-  virtual void OnPaintScheduled() {}
+  virtual void OnPaintScheduled() = 0;
 
-  // Returns true if the accumulated damage should be committed to the
-  // cc::Layer.
-  virtual bool ShouldCommitDamage() const;
-
-  // Commits the damage to the cc::Layer.
-  virtual void CommitDamage(const cc::Region& damage);
+  // Commits the damage recorded in `damaged_region_` to the cc::Layer. Damage
+  // is accumulated by calls to SchedulePaint() and is only accumulated for
+  // LayerTextured and LayerWithExternalTexture layers.
+  virtual void CommitDamage();
 
   void Destroy();
-  virtual void Reset() {}
+  virtual void Reset() = 0;
 
  private:
   friend class LayerOwner;
@@ -607,7 +566,8 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate {
   friend class ScopedLayerRequest<LayerRequestType::kPaint>;
   friend class ScopedLayerRequest<LayerRequestType::kTrilinearFiltering>;
   friend class ScopedLayerRequest<LayerRequestType::kCacheRenderSurface>;
-  class LayerMirror;
+  friend class LayerTestApi;
+  friend class internal::LayerMirror;
   class SubpixelPositionOffsetCache;
 
   // Force use of and cache render surface. Note that this also disables
@@ -708,7 +668,7 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate {
   // true.
   [[nodiscard]] bool FinishAnimationsBeforeSwitchToLayer();
 
-  void OnMirrorDestroyed(LayerMirror* mirror);
+  void OnMirrorDestroyed(internal::LayerMirror* mirror);
 
   // Changes the size of |this| to match that of |layer|.
   void MatchLayerSize(const Layer* layer);
@@ -734,14 +694,14 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate {
 
   const LayerType type_;
 
-  raw_ptr<Compositor> compositor_;
+  raw_ptr<Compositor> compositor_ = nullptr;
 
-  raw_ptr<Layer> parent_;
+  raw_ptr<Layer> parent_ = nullptr;
 
   // This layer's children, in bottom-to-top stacking order.
   std::vector<raw_ptr<Layer, VectorExperimental>> children_;
 
-  std::vector<std::unique_ptr<LayerMirror>> mirrors_;
+  std::vector<std::unique_ptr<internal::LayerMirror>> mirrors_;
 
   // List of layers reflecting this layer and its subtree, if any.
   base::flat_set<raw_ptr<Layer, CtnExperimental>> subtree_reflecting_layers_;
@@ -755,7 +715,7 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate {
   std::unique_ptr<SubpixelPositionOffsetCache> subpixel_position_offset_;
 
   // Visibility of this layer. See SetVisible/IsVisible for more details.
-  bool visible_;
+  bool visible_ = true;
 
   // Whether or not the layer wants to receive hit testing events. When set to
   // false, the layer will be ignored in hit testing even if it is visible. It
@@ -763,42 +723,43 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate {
   bool accept_events_ = true;
 
   // See SetFillsBoundsOpaquely().
-  bool fills_bounds_opaquely_;
+  bool fills_bounds_opaquely_ = true;
 
   // Union of damaged rects, in layer space, that SetNeedsDisplayRect should
-  // be called on.
+  // be called on. Damage is accumulated by calls to SchedulePaint() and is only
+  // accumulated for LayerTextured and LayerWithExternalTexture layers.
   cc::Region damaged_region_;
 
-  float background_blur_sigma_;
+  float background_blur_sigma_ = 0.0f;
 
   bool background_inverted_ = false;
 
   // Several variables which will change the visible representation of
   // the layer.
-  float layer_saturation_;
-  float layer_brightness_;
-  float layer_grayscale_;
-  bool layer_inverted_;
-  float layer_blur_sigma_;
-  float layer_sepia_;
-  float layer_hue_rotation_;
+  float layer_saturation_ = 0.0f;
+  float layer_brightness_ = 0.0f;
+  float layer_grayscale_ = 0.0f;
+  bool layer_inverted_ = false;
+  float layer_blur_sigma_ = 0.0f;
+  float layer_sepia_ = 0.0f;
+  float layer_hue_rotation_ = 0.0f;
   std::unique_ptr<cc::FilterOperation::Matrix> layer_custom_color_matrix_;
   // Offset to apply when drawing pixels for the layer.
   gfx::Point layer_offset_;
 
   // The associated mask layer with this layer.
-  raw_ptr<Layer> layer_mask_;
+  raw_ptr<LayerTextured> layer_mask_ = nullptr;
   // The back link from the mask layer to it's associated masked layer.
   // We keep this reference for the case that if the mask layer gets deleted
   // while attached to the main layer before the main layer is deleted.
-  raw_ptr<Layer> layer_mask_back_link_;
+  raw_ptr<Layer> layer_mask_back_link_ = nullptr;
 
   // The zoom factor to scale the layer by.  Zooming is disabled when this is
   // set to 1.
-  float zoom_;
+  float zoom_ = 1.0f;
 
   // Width of the border in pixels, where the scaling is blended.
-  int zoom_inset_;
+  int zoom_inset_ = 0;
 
   // Shape of the window.
   std::unique_ptr<ShapeRects> alpha_shape_;
@@ -810,27 +771,23 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate {
   base::ObserverList<LayerObserver>::UncheckedAndDanglingUntriaged
       observer_list_;
 
-  raw_ptr<LayerOwner> owner_;
+  raw_ptr<LayerOwner> owner_ = nullptr;
 
   scoped_refptr<LayerAnimator> animator_;
 
   // TODO(crbug.com/522627357): Move it subclasses and expose via a virtual
   // getter.
-  raw_ptr<cc::Layer> cc_layer_;
+  raw_ptr<cc::Layer> cc_layer_ = nullptr;
 
   // A cached copy of |Compositor::device_scale_factor()|.
-  float device_scale_factor_;
-
-  // The size of the frame or texture in DIP, set when SetShowDelegatedContent
-  // or SetTransferableResource() was called.
-  gfx::Size frame_size_in_dip_;
+  float device_scale_factor_ = 1.0f;
 
   // The counter to maintain how many cache render surface requests we have. If
   // the value > 0, means we need to cache the render surface. If the value
   // == 0, means we should not cache the render surface.
-  unsigned cache_render_surface_requests_;
+  unsigned cache_render_surface_requests_ = 0;
 
-  float backdrop_filter_quality_;
+  float backdrop_filter_quality_ = 1.0f;
 
   // True when SetBackdropFilterBounds() has been called explicitly, preventing
   // automatic bounds recomputation. Cleared by ClearBackdropFilterBounds().
@@ -840,313 +797,13 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate {
   // the value > 0, means we need to perform trilinear filtering on the layer.
   // If the value == 0, means we should not perform trilinear filtering on the
   // layer.
-  unsigned trilinear_filtering_request_;
+  unsigned trilinear_filtering_request_ = 0;
 
   // If true, scroll updates will not use the impl-side fast-path, and will be
   // applied to the main layer tree.
   bool main_side_scrolling_enabled_ = false;
 
   base::WeakPtrFactory<Layer> weak_ptr_factory_{this};
-};
-
-class COMPOSITOR_EXPORT LayerNotDrawn : public Layer,
-                                        public cc::ContentLayerClient {
- public:
-  static constexpr LayerType kType = LAYER_NOT_DRAWN;
-
-  LayerNotDrawn();
-
-  LayerNotDrawn(const LayerNotDrawn&) = delete;
-  LayerNotDrawn& operator=(const LayerNotDrawn&) = delete;
-
-  ~LayerNotDrawn() override;
-
-  // Layer:
-  bool ShouldSchedulePaint() const override;
-  bool SwitchCCLayerForTest() override;
-
-  // ContentLayerClient implementation.
-  scoped_refptr<cc::DisplayItemList> PaintContentsToDisplayList() override;
-  bool FillsBoundsCompletely() const override;
-
- private:
-  // Layer:
-  void Reset() override;
-
-  scoped_refptr<cc::PictureLayer> content_layer_;
-};
-
-class COMPOSITOR_EXPORT LayerWithExternalTexture
-    : public Layer,
-      public cc::TextureLayerClient {
- public:
-  LayerWithExternalTexture(const LayerWithExternalTexture&) = delete;
-  LayerWithExternalTexture& operator=(const LayerWithExternalTexture&) = delete;
-
-  ~LayerWithExternalTexture() override;
-
-  // Set new TransferableResource for this layer. This method only supports
-  // a gpu-backed `resource` which is assumed to have top-left origin.
-  void SetTransferableResource(const viz::TransferableResource& resource,
-                               viz::ReleaseCallback release_callback,
-                               gfx::Size texture_size_in_dip);
-  void SetTextureSize(gfx::Size texture_size_in_dip);
-
-  // Layer:
-  bool HasExternalContent() const override;
-  bool HasTransferableResource() const override;
-  void RecomputeDrawsContentAndUVRect() override;
-  bool ShouldSchedulePaint() const override;
-
-  // TextureLayerClient:
-  bool PrepareTransferableResource(
-      viz::TransferableResource* resource,
-      viz::ReleaseCallback* release_callback) override;
-
-  const viz::TransferableResource& transfer_resource() const {
-    return transfer_resource_;
-  }
-
- protected:
-  explicit LayerWithExternalTexture(LayerType type);
-
-  // Layer:
-  std::unique_ptr<Layer> CreateMirror(
-      const LayerMirrorSettings& settings) override;
-  void Reset() override;
-  void OnPaintScheduled() override;
-  bool ShouldCommitDamage() const override;
-
-  cc::TextureLayer* texture_layer() { return texture_layer_.get(); }
-  const cc::TextureLayer* texture_layer() const { return texture_layer_.get(); }
-
- private:
-  scoped_refptr<cc::TextureLayer> texture_layer_;
-  viz::TransferableResource transfer_resource_;
-  viz::ReleaseCallback transfer_release_callback_;
-};
-
-class COMPOSITOR_EXPORT LayerTextured : public LayerWithExternalTexture,
-                                        public cc::ContentLayerClient {
- public:
-  static constexpr LayerType kType = LAYER_TEXTURED;
-
-  LayerTextured();
-
-  LayerTextured(const LayerTextured&) = delete;
-  LayerTextured& operator=(const LayerTextured&) = delete;
-
-  ~LayerTextured() override;
-
-  // Requests deferring painting for this layer.
-  // Note: While painting is deferred, damaged is accumulated, but it is not
-  // committed to the cc::Layer (and no draw is scheduled at the compositor).
-  // Once all deferred paint requests are removed, the accumulated damage is
-  // committed and a draw is scheduled.
-  void AddDeferredPaintRequest();
-  void RemoveDeferredPaintRequest();
-
-  // Layer:
-  std::unique_ptr<Layer> Clone() const override;
-  bool ShouldSchedulePaint() const override;
-  bool SwitchCCLayerForTest() override;
-
-  // ContentLayerClient implementation.
-  scoped_refptr<cc::DisplayItemList> PaintContentsToDisplayList() override;
-  bool FillsBoundsCompletely() const override;
-
-  // Set to true if this layer always paints completely within its bounds. If so
-  // we can omit an unnecessary clear, even if the layer is transparent.
-  void SetFillsBoundsCompletely(bool fills_bounds_completely);
-
-  cc::PictureLayer* content_layer() { return content_layer_.get(); }
-
-  bool IsPaintDeferredForTesting() const;
-
- protected:
-  // Layer:
-  void OnPaintScheduled() override;
-  bool ShouldCommitDamage() const override;
-  void CommitDamage(const cc::Region& damage) override;
-  void Reset() override;
-
- private:
-  // See `SetFillsBoundsCompletely()`.
-  bool fills_bounds_completely_ = false;
-
-  // Union of damaged rects, in layer space, to be used when compositor is ready
-  // to paint the content.
-  cc::Region paint_region_;
-
-  // The counter to maintain how many deferred paint requests we have. If the
-  // value > 0, means we need to defer painting the layer. If the value == 0,
-  // means we should paint the layer.
-  unsigned deferred_paint_requests_ = 0u;
-
-  scoped_refptr<cc::PictureLayer> content_layer_;
-};
-
-class COMPOSITOR_EXPORT LayerSolidColor : public LayerWithExternalTexture {
- public:
-  static constexpr LayerType kType = LAYER_SOLID_COLOR;
-
-  LayerSolidColor();
-
-  LayerSolidColor(const LayerSolidColor&) = delete;
-  LayerSolidColor& operator=(const LayerSolidColor&) = delete;
-
-  ~LayerSolidColor() override;
-
-  // Sets up this layer to mirror output of |subtree_reflected_layer|, including
-  // its entire hierarchy. |this| should not be a descendant of
-  // |subtree_reflected_layer|. This is achieved by using
-  // cc::MirrorLayer which forces a render surface for |subtree_reflected_layer|
-  // to be able to embed it. This might cause extra GPU memory bandwidth and/or
-  // read/writes which can impact performance negatively.
-  void SetShowReflectedLayerSubtree(Layer* subtree_reflected_layer);
-
-  // Show a solid color instead of delegated or surface contents.
-  void SetShowSolidColorContent();
-
-  // Sets the layer's fill color.
-  void SetColor(SkColor4f color);
-  SkColor4f GetTargetColor() const;
-  SkColor4f background_color() const;
-
-  // Layer:
-  std::unique_ptr<Layer> Clone() const override;
-  bool ShouldSchedulePaint() const override;
-  bool SwitchCCLayerForTest() override;
-
-  cc::MirrorLayer* mirror_layer_for_testing() { return mirror_layer_.get(); }
-
- private:
-  // Layer:
-  void Reset() override;
-  void OnPaintScheduled() override;
-
-  // LayerAnimatorDelegate:
-  void SetColorFromAnimation(SkColor4f color,
-                             PropertyChangeReason reason) override;
-  SkColor4f GetColorForAnimation() const override;
-
-  // Resets |subtree_reflected_layer_| and updates the reflected layer's
-  // |subtree_reflecting_layers_| list accordingly.
-  void ResetSubtreeReflectedLayer();
-
-  // The layer being reflected with its subtree by this one, if any.
-  raw_ptr<Layer> subtree_reflected_layer_ = nullptr;
-
-  scoped_refptr<cc::SolidColorLayer> solid_color_layer_;
-  scoped_refptr<cc::MirrorLayer> mirror_layer_;
-};
-
-class COMPOSITOR_EXPORT LayerNinePatch : public Layer {
- public:
-  static constexpr LayerType kType = LAYER_NINE_PATCH;
-
-  LayerNinePatch();
-
-  LayerNinePatch(const LayerNinePatch&) = delete;
-  LayerNinePatch& operator=(const LayerNinePatch&) = delete;
-
-  ~LayerNinePatch() override;
-
-  const gfx::Rect& border() const;
-
-  const gfx::Rect& aperture() const;
-
-  const gfx::Rect& occlusion() const;
-
-  // Layer:
-  bool ShouldSchedulePaint() const override;
-
-  // Updates the nine patch layer's image, aperture and border.
-  void UpdateNinePatchLayerImage(const gfx::ImageSkia& image);
-  void UpdateNinePatchLayerAperture(const gfx::Rect& aperture_in_dip);
-  void UpdateNinePatchLayerBorder(const gfx::Rect& border);
-  // Updates the area completely occluded by another layer, this can be an
-  // empty rectangle if nothing is occluded.
-  void UpdateNinePatchOcclusion(const gfx::Rect& occlusion);
-
- private:
-  // Layer:
-  void HandleDeviceScaleFactorChange() override;
-  void Reset() override;
-
-  // A cached copy of the nine patch layer's image and aperture.
-  // These are required for device scale factor change.
-  gfx::ImageSkia nine_patch_layer_image_;
-  gfx::Rect nine_patch_layer_aperture_;
-
-  scoped_refptr<cc::NinePatchLayer> nine_patch_layer_;
-};
-
-class COMPOSITOR_EXPORT LayerSurface : public Layer {
- public:
-  static constexpr LayerType kType = LAYER_SURFACE;
-
-  LayerSurface();
-
-  LayerSurface(const LayerSurface&) = delete;
-  LayerSurface& operator=(const LayerSurface&) = delete;
-
-  ~LayerSurface() override;
-
-  // Layer:
-  bool HasExternalContent() const override;
-  std::unique_ptr<Layer> Clone() const override;
-  bool ShouldSchedulePaint() const override;
-  bool SwitchCCLayerForTest() override;
-
-  void SetBackgroundColor(SkColor4f color);
-  SkColor4f GetBackgroundColor() const;
-
-  // Begins showing content from a surface with a particular ID.
-  // TODO(crbug.com/40285157): With surface sync, size shouldn't rely on
-  // `frame_size_in_dip` anymore, so this method can be deleted, and
-  // surface_size uses `bounds_` instead.
-  void SetShowSurface(const viz::SurfaceId& surface_id,
-                      const gfx::Size& frame_size_in_dip,
-                      const cc::DeadlinePolicy& deadline_policy,
-                      bool stretch_content_to_fill_bounds);
-
-  // Updates the surface to a particular ID without changing size.
-  void SetShowSurface(const viz::SurfaceId& surface_id,
-                      const cc::DeadlinePolicy& deadline_policy,
-                      bool stretch_content_to_fill_bounds);
-
-  // Begins mirroring content from a reflected surface, e.g. a software mirrored
-  // display. |surface_id| should be the root surface for a display.
-  void SetShowReflectedSurface(const viz::SurfaceId& surface_id,
-                               const gfx::Size& frame_size_in_pixels);
-
-  // In the event that the primary surface is not yet available in the
-  // display compositor, the fallback surface will be used.
-  void SetOldestAcceptableFallback(const viz::SurfaceId& surface_id);
-
-  // Returns the fallback SurfaceId set by SetOldestAcceptableFallback.
-  const viz::SurfaceId* GetOldestAcceptableFallback() const;
-
-  // If |surface_layer_| exists, return whether the contents should stretch to
-  // fill the bounds of |this|. Defaults to false.
-  bool StretchContentToFillBounds() const;
-
-  // If |surface_layer_| exists, update the size. The updated size is necessary
-  // for proper scaling if the embedder is resized and the |surface_layer_| is
-  // set to stretch to fill bounds.
-  void SetSurfaceSize(gfx::Size surface_size_in_dip);
-
-  // Returns the primary SurfaceId set by SetShowSurface.
-  const viz::SurfaceId* GetSurfaceId() const;
-
- protected:
-  // Layer:
-  void RecomputeDrawsContentAndUVRect() override;
-  void Reset() override;
-
- private:
-  scoped_refptr<cc::SurfaceLayer> surface_layer_;
 };
 
 }  // namespace ui

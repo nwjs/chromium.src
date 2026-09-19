@@ -55,6 +55,8 @@ source_set("impl") {
     "tab_drag_scroll_handler.cc",
     "tab_group_header_view.cc",
     "tab_group_header_view.h",
+    "tab_group_line_view.cc",
+    "tab_group_line_view.h",
     "tab_group_view.cc",
     "tab_group_view.h",
     "tab_group_view_layout.cc",
@@ -78,6 +80,7 @@ source_set("impl") {
 
   deps = [
     "//chrome/browser:primitives",
+    "//chrome/browser/dictation",
     "//chrome/browser/glic",
     "//chrome/browser/glic/browser_ui:glow",
     "//chrome/browser/glic/browser_ui:glow_controller",
@@ -101,9 +104,13 @@ source_set("impl") {
     "//chrome/browser/ui/views:layout_provider",
     "//chrome/browser/ui/views/frame",
     "//chrome/browser/ui/views/frame:glass_frame_service",
+    "//chrome/browser/ui/views/tabs:base",
+    "//chrome/browser/ui/views/tabs:tab_group",
+    "//chrome/browser/ui/views/tabs:tab_style_views",
     "//chrome/browser/ui/views/tabs/dragging:tab_drag_target",
     "//chrome/browser/ui/views/tabs/groups",
     "//chrome/browser/ui/views/tabs/horizontal",
+    "//chrome/browser/ui/views/tabs/hovercard",
     "//chrome/browser/ui/views/tabs/shared",
     "//chrome/browser/ui/views/tabs/tab",
     "//chrome/browser/ui/views/tabs/vertical",
@@ -143,6 +150,7 @@ source_set("impl") {
     ":common",
     "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ui/tabs/alert:tab_alert",
+    "//chrome/browser/ui/views/tabs/dragging",
   ]
 }
 
@@ -170,8 +178,11 @@ source_set("browser_tests") {
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/animation",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/tabs:tab_menu",
     "//chrome/browser/ui/tabs/tab_strip_api",
     "//chrome/browser/ui/views/animations",
+    "//chrome/browser/ui/views/tabs:tab_strip",
+    "//chrome/browser/ui/views/tabs/hovercard",
     "//chrome/browser/ui/views/tabs/hovercard:hovercard_helpers",
     "//chrome/browser/ui/views/tabs/shared",
     "//chrome/browser/ui/views/tabs/tab",
@@ -192,12 +203,12 @@ source_set("unit_tests") {
   sources = [
     "tab_collection_animating_layout_manager_unittest.cc",
     "tab_group_header_view_unittest.cc",
+    "tab_strip_layout_unittest.cc",
   ]
   deps = [
     ":common",
     ":impl",
     "//base/test:test_support",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/views/tabs/shared",
     "//chrome/test:test_support",
@@ -213,6 +224,8 @@ source_set("interactive_ui_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
   sources = [
+    "//chrome/browser/ui/views/tabs/horizontal/horizontal_tab_closing_helper_interactive_uitest.cc",
+    "tab_collection_animating_layout_manager_interactive_uitest.cc",
     "tab_collection_node_interactive_uitest.cc",
     "tab_drag_interactive_uitest.cc",
     "tab_strip_collection_controller_interactive_uitest.cc",
@@ -225,6 +238,8 @@ source_set("interactive_ui_tests") {
     "//chrome/browser/ui",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/tabs:tab_menu",
+    "//chrome/browser/ui/views/tabs/horizontal",
+    "//chrome/browser/ui/views/tabs/hovercard",
     "//chrome/browser/ui/views/tabs/shared",
     "//chrome/browser/ui/views/tabs/tab",
     "//chrome/test:test_support",

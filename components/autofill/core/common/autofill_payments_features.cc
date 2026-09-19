@@ -11,6 +11,12 @@ namespace autofill::features {
 BASE_FEATURE(kAllowReentryFromRespondToDelegate,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// When enabled, the `chrome_user_context` submessage in calls to Google
+// Payments includes the Chrome client type and major version (otherwise
+// available via the user agent).
+BASE_FEATURE(kAutofillAddChromeUserContextFields,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // When enabled, the BNPL flow acts as if the user has not yet seen the AI
 // terms. This allows the AI terms to be shown as bold font repeatedly for
 // testing purposes, regardless of the actual stored user preference.
@@ -160,6 +166,11 @@ BASE_FEATURE(kAutofillEnableCardBenefitsSync,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
+// When enabled, server card retrieval will ensure a card is verified via CVC on
+// a device before proceeding with risk-based or biometric authentication.
+BASE_FEATURE(kAutofillEnableCardOnDeviceVerificationEnforcement,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, this will enhance the CVV storage project. The enhancement will
 // enable CVV storage suggestions for standalone CVC fields.
 BASE_FEATURE(kAutofillEnableCvcStorageAndFillingStandaloneFormEnhancement,
@@ -254,7 +265,7 @@ const base::FeatureParam<int> kAutofillEnableResurrectingPaymentsUsersTreatment{
 
 // When enabled, the 'Save and Fill' suggestion will be offered in the credit
 // card dropdown menu for users who don't have any cards saved in Autofill.
-BASE_FEATURE(kAutofillEnableSaveAndFill, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAutofillEnableSaveAndFill, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, the 'Scan new card' option will be offered even if the user
 // does not have any credit cards saved in Autofill.
@@ -314,9 +325,9 @@ BASE_FEATURE(kAutofillEnableWalletBrandingV2,
 BASE_FEATURE(kAutofillEnableWalletDirectOffers,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, shows the Wallet Reminder Notice after payment form submission
-// if higher-priority Autofill features (such as mandatory re-auth, VCN, or card
-// save) do not take precedence.
+// When enabled, shows the Wallet Reminder Notice for credit cards after payment
+// form submission if higher-priority Autofill features (such as mandatory
+// re-auth, VCN, or card save) do not take precedence.
 BASE_FEATURE(kAutofillEnableWalletReminderNotice,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -396,9 +407,13 @@ BASE_FEATURE(kAutofillTouchToFillShowManualFillForVcnFix,
 BASE_FEATURE(kAutofillUpstream, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, users should not see offers to save the same credit card twice
-// in a week, as the strike database enforces a 7-day delay between strikes.
+// in a short period of time, as the strike database enforces a 1/3/7-day delay
+// between strikes.
 BASE_FEATURE(kAutofillUpstreamEnforceStrikeDelay,
              base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<int> kAutofillUpstreamEnforceStrikeDelayDays{
+    &kAutofillUpstreamEnforceStrikeDelay,
+    "autofill_upstream_enforce_strike_delay_days", 1};
 
 bool ShouldShowImprovedUserConsentForCreditCardSave() {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX)

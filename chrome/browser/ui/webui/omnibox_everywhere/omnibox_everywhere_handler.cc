@@ -8,20 +8,34 @@
 
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
+#include "build/build_config.h"
+#include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/profiles/profile_attributes_entry.h"
+#include "chrome/browser/profiles/profile_attributes_storage.h"
+#include "chrome/browser/profiles/profile_avatar_icon_util.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
+#include "chrome/browser/ui/chrome_pages.h"
+#include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_prefs.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere_service.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
-#include "chrome/browser/ui/profiles/profile_picker.h"
 #include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_omnibox_client.h"
+#include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
+#include "chrome/common/webui_url_constants.h"
+#include "components/omnibox/browser/aim_eligibility_service.h"
+#include "components/omnibox/browser/omnibox_pref_names.h"
+#include "components/omnibox/browser/searchbox.mojom-shared.h"
+#include "components/prefs/pref_service.h"
 #include "components/search/search.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
 #include "content/public/browser/web_ui.h"
 #include "ui/base/page_transition_types.h"
+#include "ui/base/webui/web_ui_util.h"
 #include "ui/base/window_open_disposition_utils.h"
 
 namespace {
@@ -32,6 +46,12 @@ namespace {
 // recognition, allowing Google Search to return voice-optimized results.
 constexpr char kVoiceSearchQueryParameterKey[] = "gs_ivs";
 constexpr char kVoiceSearchQueryParameterValue[] = "1";
+
+bool IsAimEligible(Profile* profile) {
+  auto* aim_eligibility_service =
+      AimEligibilityServiceFactory::GetForProfile(profile);
+  return aim_eligibility_service && aim_eligibility_service->IsAimEligible();
+}
 
 class OmniboxEverywhereClient : public ContextualOmniboxClient {
  public:
@@ -104,6 +124,27 @@ OmniboxEverywhereHandler::OmniboxEverywhereHandler(
       base::BindRepeating(&OmniboxEverywhereHandler::GetSuggestInputs,
                           base::Unretained(this)));
   autocomplete_controller_observation_.Observe(autocomplete_controller());
+  if (profile_ && profile_->GetPrefs()) {
+    pref_change_registrar_.Init(profile_->GetPrefs());
+    pref_change_registrar_.Add(
+        omnibox_everywhere::prefs::kOmniboxEverywhereShowAiMode,
+        base::BindRepeating(&OmniboxEverywhereHandler::OnShowAiModePrefChanged,
+                            base::Unretained(this)));
+    pref_change_registrar_.Add(
+        omnibox_everywhere::prefs::kFreDismissed,
+        base::BindRepeating(&OmniboxEverywhereHandler::UpdatePromoState,
+                            base::Unretained(this)));
+    pref_change_registrar_.Add(
+        omnibox_everywhere::prefs::kFreImpressionCount,
+        base::BindRepeating(&OmniboxEverywhereHandler::UpdatePromoState,
+                            base::Unretained(this)));
+  }
+
+  if (g_browser_process && g_browser_process->profile_manager()) {
+    profile_attributes_storage_observation_.Observe(
+        &g_browser_process->profile_manager()->GetProfileAttributesStorage());
+  }
+  UpdatePromoState();
 }
 
 OmniboxEverywhereHandler::~OmniboxEverywhereHandler() = default;
@@ -198,4 +239,111 @@ void OmniboxEverywhereHandler::OpenProfilePicker() {
   if (service_) {
     service_->ShowProfilePicker();
   }
+}
+
+void OmniboxEverywhereHandler::ActivateKeyword(
+    uint8_t line,
+    const GURL& url,
+    base::TimeTicks match_selection_timestamp,
+    bool is_mouse_event) {
+  // OmniboxEverywhere does not make use of OmniboxEditModel. Keyword mode is
+  // handled directly by the frontend SearchboxMixin via `onKeywordClick`.
+}
+
+void OmniboxEverywhereHandler::OnShowAiModePrefChanged() {
+  if (page()) {
+    const bool show_ai_mode =
+        !profile_ || !profile_->GetPrefs() ||
+        profile_->GetPrefs()->GetBoolean(
+            omnibox_everywhere::prefs::kOmniboxEverywhereShowAiMode);
+    page()->UpdateAimPopupEligibility(IsAimEligible(profile_) && show_ai_mode);
+  }
+}
+
+void OmniboxEverywhereHandler::OpenUrl(
+    GURL url,
+    const WindowOpenDisposition disposition,
+    base::OnceCallback<void(content::NavigationHandle&)>
+        navigation_handle_callback) {
+  if (service_) {
+    service_->OpenUrl(url, disposition, ui::PAGE_TRANSITION_LINK,
+                      std::move(navigation_handle_callback));
+  }
+}
+
+bool OmniboxEverywhereHandler::SupportsKeywordMode() const {
+  return true;
+}
+
+void OmniboxEverywhereHandler::UpdatePromoState() {
+  bool fre_enabled =
+      base::FeatureList::IsEnabled(omnibox::kOmniboxEverywhereFre);
+  bool fre_dismissed = profile_->GetPrefs()->GetBoolean(
+      omnibox_everywhere::prefs::kFreDismissed);
+  int impressions = profile_->GetPrefs()->GetInteger(
+      omnibox_everywhere::prefs::kFreImpressionCount);
+  bool show_fre = fre_enabled && !fre_dismissed &&
+                  (impressions < omnibox_everywhere::prefs::kMaxFreImpressions);
+  page()->SetShowFre(show_fre);
+}
+
+void OmniboxEverywhereHandler::DismissFre() {
+  profile_->GetPrefs()->SetBoolean(omnibox_everywhere::prefs::kFreDismissed,
+                                   true);
+}
+
+void OmniboxEverywhereHandler::OpenHotkeySettings() {
+  chrome::ShowSettingsSubPageForProfile(profile_, chrome::kSearchSubPage);
+}
+
+void OmniboxEverywhereHandler::OnProfileAvatarChanged(
+    const base::FilePath& profile_path) {
+  if (profile_ && profile_->GetPath() == profile_path) {
+    PushProfileInfo();
+  }
+}
+
+void OmniboxEverywhereHandler::OnProfileHighResAvatarLoaded(
+    const base::FilePath& profile_path) {
+  if (profile_ && profile_->GetPath() == profile_path) {
+    PushProfileInfo();
+  }
+}
+
+void OmniboxEverywhereHandler::OnProfileNameChanged(
+    const base::FilePath& profile_path,
+    const std::u16string& old_profile_name) {
+  if (profile_ && profile_->GetPath() == profile_path) {
+    PushProfileInfo();
+  }
+}
+
+void OmniboxEverywhereHandler::PushProfileInfo() {
+  if (!g_browser_process || !g_browser_process->profile_manager() ||
+      !profile_ || !page()) {
+    return;
+  }
+
+  ProfileAttributesEntry* entry =
+      g_browser_process->profile_manager()
+          ->GetProfileAttributesStorage()
+          .GetProfileAttributesWithPath(profile_->GetPath());
+  if (!entry) {
+    return;
+  }
+
+  gfx::Image icon =
+      profiles::GetSizedAvatarIcon(entry->GetAvatarIcon(), 48, 48);
+  std::string profile_avatar_url = webui::GetBitmapDataUrl(icon.AsBitmap());
+
+  std::u16string gaia_name = entry->GetGAIAName();
+  std::u16string profile_name = entry->GetName();
+  std::u16string display_name = profile_name;
+  if (!gaia_name.empty() && gaia_name != profile_name) {
+    display_name = gaia_name + u" • " + profile_name;
+  }
+
+  page()->UpdateProfileInfo(GURL(profile_avatar_url),
+                            base::UTF16ToUTF8(display_name),
+                            base::UTF16ToUTF8(entry->GetUserName()));
 }

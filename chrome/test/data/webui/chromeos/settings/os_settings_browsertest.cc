@@ -23,7 +23,6 @@
 #include "components/user_manager/user_names.h"
 #include "content/public/test/browser_test.h"
 #include "ui/accessibility/accessibility_features.h"
-#include "ui/base/ui_base_features.h"
 
 namespace ash::settings {
 
@@ -143,21 +142,7 @@ class OSSettingsMochaTestAppParentalControlsEnabled
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-class OSSettingsDeviceTestPeripheralAndSplitEnabled
-    : public OSSettingsMochaTest {
- protected:
-  OSSettingsDeviceTestPeripheralAndSplitEnabled() {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled=*/
-        {
-            ash::features::kPeripheralCustomization,
-        },
-        /*disabled=*/{});
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
+using OSSettingsDeviceTestPeripheralAndSplitEnabled = OSSettingsMochaTest;
 
 class OSSettingsDeviceTestSplitAndAltAndFKeyEnabled
     : public OSSettingsMochaTest {
@@ -165,10 +150,7 @@ class OSSettingsDeviceTestSplitAndAltAndFKeyEnabled
   OSSettingsDeviceTestSplitAndAltAndFKeyEnabled() {
     scoped_feature_list_.InitWithFeatures(
         /*enabled=*/
-        {
-            ash::features::kAltClickAndSixPackCustomization,
-            ::features::kSupportF11AndF12KeyShortcuts,
-        },
+        {ash::features::kAltClickAndSixPackCustomization},
         /*disabled=*/{});
   }
 

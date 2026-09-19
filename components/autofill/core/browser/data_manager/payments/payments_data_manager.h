@@ -26,7 +26,6 @@
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_model/payments/autofill_offer_data.h"
 #include "components/autofill/core/browser/data_model/payments/autofill_wallet_usage_data.h"
-#include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card_benefit.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card_cloud_token_data.h"
@@ -247,9 +246,14 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   std::vector<const AutofillOfferData*> GetAutofillOffers() const;
 
   // Returns autofill offer data, but only promo code offers that are not
-  // expired and that are for the given |origin|.
+  // expired and that are for the given `origin`.
   std::vector<const AutofillOfferData*>
   GetActiveAutofillPromoCodeOffersForOrigin(GURL origin) const;
+
+  // Returns direct offers from Google Wallet that are active and for the given
+  // `origin`.
+  virtual std::vector<const AutofillOfferData*>
+  GetActiveAutofillWalletDirectOffersForOrigin(GURL origin) const;
 
   AutofillImageFetcherBase* GetImageFetcher() { return image_fetcher_; }
 
@@ -543,6 +547,14 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
 
   // Returns the value of the FacilitatedPaymentsEwallet user pref.
   bool IsFacilitatedPaymentsEwalletUserPrefEnabled() const;
+
+  // Sets the FacilitatedPaymentsEwalletAccountLinking user pref value to
+  // `enabled`.
+  void SetFacilitatedPaymentsEwalletAccountLinkingUserPref(bool enabled);
+
+  // Returns the value of the FacilitatedPaymentsEwalletAccountLinking user
+  // pref.
+  bool IsFacilitatedPaymentsEwalletAccountLinkingUserPrefEnabled() const;
 
   // Returns the value of the FacilitatedPaymentsA2AEnabled user pref.
   bool IsFacilitatedPaymentsA2AUserPrefEnabled() const;

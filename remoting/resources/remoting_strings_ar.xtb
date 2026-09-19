@@ -48,6 +48,7 @@
 <translation id="3197730452537982411">سطح المكتب البعيد</translation>
 <translation id="3236334139428307578">‏جميع حقوق الطبع والنشر محفوظة لصالح The Chromium Authors لعام 2026.</translation>
 <translation id="324272851072175193">إرسال هذه التعليمات بالبريد الإلكتروني</translation>
+<translation id="3254626532848657899">نقل إلى الأسفل</translation>
 <translation id="3305934114213025800">يريد <ph name="PRODUCT_NAME" /> إجراء التغييرات.</translation>
 <translation id="3339299787263251426">الدخول إلى جهاز الكمبيوتر لديك بشكل آمن على الإنترنت</translation>
 <translation id="3385242214819933234">مالك المضيف غير صالح.</translation>
@@ -166,6 +167,7 @@
 <translation id="8073845705237259513">‏لاستخدام سطح المكتب البعيد من Chrome، يجب إضافة حساب في Google إلى جهازك.</translation>
 <translation id="809687642899217504">أجهزة الكمبيوتر الخاصة بي</translation>
 <translation id="8116630183974937060">حدث خطأ في الشبكة. يُرجى التحقق من اتصال الجهاز بالإنترنت ثم إعادة المحاولة.</translation>
+<translation id="8249310407154411074">نقل إلى الأعلى</translation>
 <translation id="8295077433896346116">‏لاستخدام <ph name="PRODUCT_NAME" />، عليك منح إذن "أدوات تمكين الوصول" لكي يصل الطلب من الجهاز البعيد إلى جهاز Mac هذا.
 
 لمنح هذا الإذن، يُرجى النقر على "<ph name="BUTTON_NAME" />" أدناه لفتح لوحة إعدادات "أدوات تمكين الوصول" المفضّلة ثم وضع علامة في المربّع بجانب "<ph name="SERVICE_SCRIPT_NAME" />".

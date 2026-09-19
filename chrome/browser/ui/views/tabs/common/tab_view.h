@@ -70,6 +70,9 @@ class TabView : public views::View,
   ~TabView() override;
 
   class LayoutManager : public views::LayoutManagerBase {
+   public:
+    virtual void OnTabClosing() {}
+
    protected:
     // views::LayoutManagerBase:
     void OnInstalled(views::View* host) override;
@@ -101,6 +104,7 @@ class TabView : public views::View,
   bool IsActive() const { return active_; }
   bool IsClosing() const { return !collection_node_; }
   bool split() const { return split_; }
+  bool pinned() const { return pinned_; }
   const tabs::TabInterface* GetTabInterface() const;
 
   GlowHoverController* GetHoverControllerForTesting() {

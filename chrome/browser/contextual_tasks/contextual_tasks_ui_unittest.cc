@@ -229,6 +229,13 @@ class ContextualTasksUiTest : public ChromeRenderViewHostTestHarness {
         }));
 
     ON_CALL(*service_for_nav_, IsAiUrl(_)).WillByDefault(Return(true));
+    ON_CALL(*service_for_nav_, SetInitialEntryPointForTask(_, _))
+        .WillByDefault([this](const base::Uuid& task_id,
+                              omnibox::ChromeAimEntryPoint entry_point) {
+          service_for_nav_
+              ->ContextualTasksUiService::SetInitialEntryPointForTask(
+                  task_id, entry_point);
+        });
 
     embedded_web_contents_ = content::WebContentsTester::CreateTestWebContents(
         profile_, content::SiteInstance::Create(profile_));
@@ -851,6 +858,23 @@ TEST_F(ContextualTasksUiTest,
                 "voiceSearchCoherenceCobrowsingComposeboxEnabled"),
             true);
 }
+
+TEST_F(ContextualTasksUiTest, ShouldClearAllInputsOnSubmit) {
+  // Default / no invocation source should clear inputs.
+  EXPECT_TRUE(ContextualTasksUI::ShouldClearAllInputsOnSubmit(std::nullopt));
+
+#if !BUILDFLAG(IS_ANDROID)
+  // Omnibox page action entrypoint should retain inputs.
+  EXPECT_FALSE(ContextualTasksUI::ShouldClearAllInputsOnSubmit(
+      lens::LensOverlayInvocationSource::kOmniboxPageAction));
+
+  // Other entrypoints should clear inputs.
+  EXPECT_TRUE(ContextualTasksUI::ShouldClearAllInputsOnSubmit(
+      lens::LensOverlayInvocationSource::kAppMenu));
+  EXPECT_TRUE(ContextualTasksUI::ShouldClearAllInputsOnSubmit(
+      lens::LensOverlayInvocationSource::kToolbar));
+#endif
+}
 #endif  // BUILDFLAG(ENABLE_WEBUI_CONTEXTUAL_TASKS_COMPOSEBOX)
 
 TEST_F(ContextualTasksUiTest, DidFinishNavigation_ZeroState) {
@@ -1351,6 +1375,100 @@ TEST_F(ContextualTasksUiTest, CanExpandToFullTab_FeatureDisabled) {
   EXPECT_FALSE(controller.CanExpandToFullTab());
 }
 
+TEST_F(ContextualTasksUiTest, IsCoBrowseOmniboxAction_True) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kWebUIOmniboxAskGAboutThisPage,
+      {{"Omnibox_AskGCoBrowseWithVisualSelection", "true"}});
+
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  ContextualTasksUI controller(&web_ui);
+
+  base::Uuid task_id = base::Uuid::GenerateRandomV4();
+  service_for_nav_->SetInitialEntryPointForTask(
+      task_id,
+      omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_OMNIBOX_ACTION);
+  controller.SetTaskId(task_id);
+
+  EXPECT_TRUE(controller.IsCoBrowseOmniboxAction());
+}
+
+TEST_F(ContextualTasksUiTest, IsCoBrowseOmniboxAction_False_FeatureDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      omnibox::kWebUIOmniboxAskGAboutThisPage);
+
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  ContextualTasksUI controller(&web_ui);
+
+  base::Uuid task_id = base::Uuid::GenerateRandomV4();
+  service_for_nav_->SetInitialEntryPointForTask(
+      task_id,
+      omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_OMNIBOX_ACTION);
+  controller.SetTaskId(task_id);
+
+  EXPECT_FALSE(controller.IsCoBrowseOmniboxAction());
+}
+
+TEST_F(ContextualTasksUiTest, IsCoBrowseOmniboxAction_False_OtherEntryPoint) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kWebUIOmniboxAskGAboutThisPage,
+      {{"Omnibox_AskGCoBrowseWithVisualSelection", "true"}});
+
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  ContextualTasksUI controller(&web_ui);
+
+  base::Uuid task_id = base::Uuid::GenerateRandomV4();
+  service_for_nav_->SetInitialEntryPointForTask(
+      task_id,
+      omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_TOOLBAR_BUTTON);
+  controller.SetTaskId(task_id);
+
+  EXPECT_FALSE(controller.IsCoBrowseOmniboxAction());
+}
+
+TEST_F(ContextualTasksUiTest, IsCoBrowseOmniboxAction_False_NoTaskId) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kWebUIOmniboxAskGAboutThisPage,
+      {{"Omnibox_AskGCoBrowseWithVisualSelection", "true"}});
+
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  ContextualTasksUI controller(&web_ui);
+
+  controller.SetTaskId(std::nullopt);
+
+  EXPECT_FALSE(controller.IsCoBrowseOmniboxAction());
+}
+
+TEST_F(ContextualTasksUiTest,
+       SetIsAiPage_CoBrowseOmniboxAction_SuppressesLensClose) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kWebUIOmniboxAskGAboutThisPage,
+      {{"Omnibox_AskGCoBrowseWithVisualSelection", "true"}});
+
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  ContextualTasksUI controller(&web_ui);
+
+  base::Uuid task_id = base::Uuid::GenerateRandomV4();
+  service_for_nav_->SetInitialEntryPointForTask(
+      task_id,
+      omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_OMNIBOX_ACTION);
+  controller.SetTaskId(task_id);
+
+  EXPECT_TRUE(controller.IsCoBrowseOmniboxAction());
+  // Calling SetIsAiPage should not trigger CloseLensAsync for CoBrowse Omnibox
+  // Action.
+  controller.SetIsAiPage(true);
+}
+
 TEST_F(ContextualTasksUiTest,
        DidFinishNavigation_PushTaskDetails_ZeroStateNavigation) {
   MockTaskInfoDelegate delegate;
@@ -1658,6 +1776,27 @@ TEST_F(ContextualTasksUiTest,
   observer.reset();
 }
 
+TEST_F(ContextualTasksUiTest, DidFinishNavigation_NonAiPage_ResetsTitle) {
+  MockTaskInfoDelegate delegate;
+  std::optional<base::Uuid> task_id = base::Uuid::ParseCaseInsensitive(kUuid);
+  std::optional<std::string> thread_id = "5678";
+  std::optional<std::string> title = "previous query title";
+
+  SetupMockDelegate(&delegate, task_id, thread_id, title);
+  auto observer = std::make_unique<ContextualTasksUI::FrameNavObserver>(
+      embedded_web_contents_.get(), service_for_nav_.get(),
+      contextual_tasks_service_.get(), &delegate);
+
+  GURL non_ai_url("https://google.com/search?q=puppy");
+  ON_CALL(*service_for_nav_, IsAiUrl(non_ai_url)).WillByDefault(Return(false));
+
+  std::unique_ptr<content::MockNavigationHandle> nav_handle =
+      CreateMockNavigationHandle(non_ai_url);
+  observer->DidFinishNavigation(nav_handle.get());
+
+  EXPECT_EQ(delegate.GetThreadTitle(), std::nullopt);
+}
+
 TEST_F(ContextualTasksUiTest, OnPageContextEligibilityChecked) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(kContextualTasks);
@@ -1767,6 +1906,102 @@ TEST_F(ContextualTasksUiTest,
 
   // Verify that a new task is created due to title mismatch when feature is
   // off.
+  EXPECT_CALL(*contextual_tasks_service_, CreateTaskFromUrl(url)).Times(1);
+  EXPECT_CALL(delegate, PrepareForTaskChange()).Times(1);
+  EXPECT_CALL(*service_for_nav_,
+              OnTaskChanged(_, _, _, Optional(new_task_id), _))
+      .Times(1);
+
+  std::unique_ptr<content::MockNavigationHandle> nav_handle =
+      CreateMockNavigationHandle(url);
+
+  observer->DidFinishNavigation(nav_handle.get());
+
+  EXPECT_EQ(delegate.GetTaskId(), new_task_id);
+
+  observer.reset();
+}
+
+// Ensure that when kContextManagementInComposebox is enabled, an existing task
+// is reused and not replaced by a new task when the webview performs a
+// same-document navigation updating its thread ID for the same query
+// (e.g. from provisional client mtid to canonical server mtid).
+TEST_F(ContextualTasksUiTest,
+       InPlaceThreadIdUpdate_SameDocSameQuery_ReusesTask) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(omnibox::kContextManagementInComposebox);
+
+  MockTaskInfoDelegate delegate;
+  base::Uuid task_id = base::Uuid::ParseCaseInsensitive(kUuid);
+  const std::string initial_title = "test";
+  const std::string initial_thread_id = "initial_thread_id";
+  const std::string updated_thread_id = "updated_thread_id";
+  const std::string turn_id = "1234";
+
+  // Simulate an existing task that already has an initial thread ID and title.
+  SetupMockDelegate(&delegate, task_id, initial_thread_id, initial_title);
+
+  auto observer = std::make_unique<ContextualTasksUI::FrameNavObserver>(
+      embedded_web_contents_.get(), service_for_nav_.get(),
+      contextual_tasks_service_.get(), &delegate);
+
+  GURL url(kAiPageUrl);
+  url = net::AppendQueryParameter(url, "q", initial_title);
+  url = net::AppendQueryParameter(url, "mtid", updated_thread_id);
+  url = net::AppendQueryParameter(url, "mstk", turn_id);
+
+  // A new task should NOT be created; the existing task should be reused.
+  EXPECT_CALL(*contextual_tasks_service_, CreateTaskFromUrl(_)).Times(0);
+  EXPECT_CALL(*service_for_nav_, OnTaskChanged(_, _, _, _, _)).Times(0);
+  EXPECT_CALL(*contextual_tasks_service_,
+              UpdateThreadForTask(task_id, _, updated_thread_id,
+                                  Optional(turn_id), Optional(initial_title)))
+      .Times(1);
+
+  std::unique_ptr<content::MockNavigationHandle> nav_handle =
+      CreateMockNavigationHandle(url);
+  nav_handle->set_is_same_document(true);
+
+  observer->DidFinishNavigation(nav_handle.get());
+
+  EXPECT_EQ(delegate.GetTaskId(), task_id);
+  EXPECT_EQ(delegate.GetThreadId(), updated_thread_id);
+
+  observer.reset();
+}
+
+// Ensure that when switching between different threads (different query/title),
+// a new task is created even if kContextManagementInComposebox is enabled,
+// so context does not leak between threads.
+TEST_F(ContextualTasksUiTest, ThreadSwitch_DifferentQuery_CreatesNewTask) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(omnibox::kContextManagementInComposebox);
+
+  MockTaskInfoDelegate delegate;
+  base::Uuid old_task_id = base::Uuid::ParseCaseInsensitive(kUuid);
+  base::Uuid new_task_id =
+      base::Uuid::ParseCaseInsensitive("22222222-2222-2222-2222-222222222222");
+  const std::string old_title = "first query";
+  const std::string new_query = "second query";
+  const std::string old_thread_id = "thread_1";
+  const std::string new_thread_id = "thread_2";
+
+  SetupMockDelegate(&delegate, old_task_id, old_thread_id, old_title);
+
+  auto observer = std::make_unique<ContextualTasksUI::FrameNavObserver>(
+      embedded_web_contents_.get(), service_for_nav_.get(),
+      contextual_tasks_service_.get(), &delegate);
+
+  GURL url(kAiPageUrl);
+  url = net::AppendQueryParameter(url, "q", new_query);
+  url = net::AppendQueryParameter(url, "mtid", new_thread_id);
+
+  ContextualTask new_task(new_task_id);
+  ON_CALL(*contextual_tasks_service_, CreateTaskFromUrl(url))
+      .WillByDefault(Return(new_task));
+  ON_CALL(*contextual_tasks_service_, GetTaskFromServerId(_, new_thread_id))
+      .WillByDefault(Return(std::nullopt));
+
   EXPECT_CALL(*contextual_tasks_service_, CreateTaskFromUrl(url)).Times(1);
   EXPECT_CALL(delegate, PrepareForTaskChange()).Times(1);
   EXPECT_CALL(*service_for_nav_,

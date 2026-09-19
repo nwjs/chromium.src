@@ -27,6 +27,9 @@ import "services/webnn/public/mojom/webnn_model_loader.mojom";
 [EnableIf=is_win]
 import "services/webnn/public/mojom/webnn_compiler_context.mojom";
 
+[EnableIf=is_apple]
+import "mojo/public/mojom/base/file_path.mojom";
+
 [EnableIf=is_win]
 import "services/webnn/public/mojom/webnn_context_properties.mojom";
 
@@ -102,14 +105,13 @@ interface GpuHost {
   EnsureWebNNExecutionProvidersReady()
       => (map<string, webnn.mojom.EpPackageInfo> ep_package_info);
 
-  // Requests a CompilerContext in the Compiler process for a specific EP
-  // device. Each EP device has its own dedicated Compiler process and the
-  // Browser launches one on first use for that device.
+  // Tells the GPU host to create a compiler context in the Compiler process for
+  // a specific EP device. Each EP device has its own dedicated Compiler
+  // process, launched on first use.
   //
-  // The caller (GPU process) creates both pipes and passes the endpoints
-  // here. The Browser forwards them to the Compiler process. If the Compiler
-  // cannot be launched, the pipes are simply dropped (disconnecting the
-  // peer endpoints).
+  // The GPU process creates both pipes, and the host forwards the endpoints to
+  // the Compiler process. The host returns true if the compiler context was
+  // created successfully, false otherwise.
   [EnableIf=is_win]
   RequestWebNNCompilerContext(
       webnn.mojom.CreateContextOptions context_options,
@@ -117,7 +119,8 @@ interface GpuHost {
       webnn.mojom.EpDeviceInfo target_device,
       pending_receiver<webnn.mojom.WebNNCompilerContext>
           compiler_context_receiver,
-      pending_remote<webnn.mojom.WebNNModelLoader> model_loader_remote);
+      pending_remote<webnn.mojom.WebNNModelLoader> model_loader_remote)
+      => (bool success);
 
   // Tells the GPU host to create a temporary file that can be used to save all
   // weights in the WebNN graph. Returns the open file handle if the file was
@@ -127,4 +130,12 @@ interface GpuHost {
   // TODO(crbug.com/364445586): Once the LiteRT MLDrift delegate moves from GPU
   // to the renderer process, this interface can be removed entirely.
   CreateWebNNWeightsFile() => (mojo_base.mojom.File? file);
+
+  // Tells the GPU host to copy a compiled CoreML model directory from the
+  // Compiler process's temp directory to the GPU process's temp directory.
+  // Returns the new path in the GPU process's temp directory, or null if the
+  // copy failed.
+  [EnableIf=is_apple]
+  CopyWebNNCompiledModel(mojo_base.mojom.FilePath compiler_model_path)
+    => (mojo_base.mojom.FilePath? gpu_model_path);
 };

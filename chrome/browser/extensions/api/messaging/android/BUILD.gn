@@ -9,34 +9,31 @@ import("//third_party/jni_zero/jni_zero.gni")
 assert(enable_extensions_core)
 assert(is_android)
 
-source_set("android") {
-  sources = [
-    "native_message_android_port.cc",
-    "native_message_android_port.h",
-  ]
-
-  deps = [
-    "//base",
-    "//chrome/browser/profiles:profile",
-    "//components/keyed_service/core",
-    "//content/public/browser",
-    "//extensions/browser",
-    "//extensions/common",
-  ]
-}
-
 android_aidl("aidl") {
   import_include = [ "java/src" ]
   sources = [
     "java/src/org/chromium/chrome/browser/extensions/api/messaging/IBrowserNativeMessageService.aidl",
+    "java/src/org/chromium/chrome/browser/extensions/api/messaging/IConnectExtensionCallback.aidl",
+    "java/src/org/chromium/chrome/browser/extensions/api/messaging/IConnectPortCallback.aidl",
     "java/src/org/chromium/chrome/browser/extensions/api/messaging/IExtensionNativeMessageCallback.aidl",
     "java/src/org/chromium/chrome/browser/extensions/api/messaging/IExtensionNativeMessagePort.aidl",
     "java/src/org/chromium/chrome/browser/extensions/api/messaging/IExtensionNativeMessageService.aidl",
+    "java/src/org/chromium/chrome/browser/extensions/api/messaging/MessagePayload.aidl",
+  ]
+}
+
+generate_jni("jni_headers") {
+  sources = [
+    "java/src/org/chromium/chrome/browser/extensions/api/messaging/NativeMessageAndroidPort.java",
+    "java/src/org/chromium/chrome/browser/extensions/api/messaging/NativeMessagingManager.java",
   ]
 }
 
 android_library("java") {
-  srcjar_deps = [ ":aidl" ]
+  srcjar_deps = [
+    ":aidl",
+    ":jni_headers",
+  ]
   resources_package = "org.chromium.chrome.browser.extensions.api.messaging"
   sources = [
     "java/src/org/chromium/chrome/browser/extensions/api/messaging/NativeMessageAndroidPort.java",

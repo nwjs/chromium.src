@@ -937,7 +937,7 @@ void HTMLElement::AttributeChanged(const AttributeModificationParams& params) {
              RuntimeEnabledFeatures::UnboundedElementEnabled()) {
     if (params.new_value.IsNull() &&
         HasElementFlag(ElementFlags::kIsUnboundedElementActive)) {
-      SetUnboundedElementActive(false);
+      SetUnboundedElementActive(false, UnboundedEvents::kFireNonCancelable);
     }
   }
 }
@@ -1690,7 +1690,8 @@ ScriptPromise<IDLUndefined> HTMLElement::showUnboundedElement(
     return promise;
   }
 #endif
-  SetUnboundedElementActive(true);
+
+  SetUnboundedElementActive(true, UnboundedEvents::kFireNonCancelable);
 
   mojo::PendingAssociatedRemote<mojom::blink::UnboundedSurfaceHost> host_remote;
   auto host_receiver = host_remote.InitWithNewEndpointAndPassReceiver();
@@ -1728,7 +1729,8 @@ ScriptPromise<IDLUndefined> HTMLElement::hideUnboundedElement(
     }
   }
   if (widget) {
-    widget->OnDismissed();
+    widget->DismissUnboundedSurfaceState(
+        WebFrameWidgetImpl::UnboundedDismissReason::kProgrammatic);
   }
 
   resolver->Resolve();
@@ -1740,12 +1742,32 @@ bool HTMLElement::IsUnboundedElementActive() const {
          !HasElementFlag(ElementFlags::kIsUnboundedElementActive));
   return HasElementFlag(ElementFlags::kIsUnboundedElementActive);
 }
-void HTMLElement::SetUnboundedElementActive(bool active,
+bool HTMLElement::SetUnboundedElementActive(bool active,
                                             UnboundedEvents fire_events) {
   DCHECK(RuntimeEnabledFeatures::UnboundedElementEnabled());
   DCHECK(!active || FastHasAttribute(html_names::kUnboundedAttr));
   if (HasElementFlag(ElementFlags::kIsUnboundedElementActive) == active) {
-    return;
+    // Already active.
+    return true;
+  }
+
+  if (fire_events != UnboundedEvents::kSuppress) {
+    String old_state = active ? keywords::kClosed : keywords::kOpen;
+    String new_state = active ? keywords::kOpen : keywords::kClosed;
+    Event::Cancelable cancelable =
+        (fire_events == UnboundedEvents::kFireCancelable)
+            ? Event::Cancelable::kYes
+            : Event::Cancelable::kNo;
+    ToggleEvent* before_event =
+        ToggleEvent::Create(event_type_names::kBeforetoggle, cancelable,
+                            old_state, new_state, nullptr);
+    if (DispatchEvent(*before_event) != DispatchEventResult::kNotCanceled) {
+      return false;
+    }
+    if (HasElementFlag(ElementFlags::kIsUnboundedElementActive) == active) {
+      // The event handler changed the state.
+      return true;
+    }
   }
   SetElementFlag(ElementFlags::kIsUnboundedElementActive, active);
   WebFrameWidgetImpl* widget = nullptr;
@@ -1781,7 +1803,7 @@ void HTMLElement::SetUnboundedElementActive(bool active,
           SubtreePaintPropertyUpdateReason::kContainerChainMayChange);
     }
   }
-  if (fire_events == UnboundedEvents::kFire) {
+  if (fire_events != UnboundedEvents::kSuppress) {
     auto& event_data = EnsureUnboundedEventData();
     String old_state = active ? keywords::kClosed : keywords::kOpen;
     if (event_data.hasPendingEventTask()) {
@@ -1792,7 +1814,7 @@ void HTMLElement::SetUnboundedElementActive(bool active,
       event_data.setPendingEventStartedClosed(active);
     }
     ToggleEvent* event = ToggleEvent::Create(
-        event_type_names::kUnbounded, Event::Cancelable::kNo, old_state,
+        event_type_names::kToggle, Event::Cancelable::kNo, old_state,
         active ? keywords::kOpen : keywords::kClosed, nullptr);
     event->SetTarget(this);
 
@@ -1806,11 +1828,11 @@ void HTMLElement::SetUnboundedElementActive(bool active,
             },
             WrapPersistent(this), WrapPersistent(event))));
   } else {
-    DCHECK_EQ(fire_events, UnboundedEvents::kSuppress);
     if (auto* event_data = GetUnboundedEventData()) {
       event_data->cancelPendingEventTask();
     }
   }
+  return true;
 }
 
 void HTMLElement::AttachLayoutTree(AttachContext& context) {
@@ -2122,6 +2144,19 @@ void HTMLElement::ShowPopoverInternal(Element* invoker,
   if (!IsInUserAgentShadowRoot()) {
     // Don't count things like customizable-`<select>`'s use of a popover.
     UseCounter::Count(GetDocument(), WebFeature::kPopoverShown);
+    switch (PopoverType()) {
+      case PopoverValueType::kAuto:
+        UseCounter::Count(GetDocument(), WebFeature::kPopoverTypeAutoShown);
+        break;
+      case PopoverValueType::kHint:
+        UseCounter::Count(GetDocument(), WebFeature::kPopoverTypeHintShown);
+        break;
+      case PopoverValueType::kManual:
+        UseCounter::Count(GetDocument(), WebFeature::kPopoverTypeManualShown);
+        break;
+      case PopoverValueType::kNone:
+        NOTREACHED();
+    }
   }
   MarkPopoverInvokersDirty(*this);
   GetPopoverData()->setPreviouslyFocusedElement(nullptr);
@@ -3200,7 +3235,7 @@ bool HTMLElement::IsValidBuiltinCommand(HTMLElement& invoker,
     CHECK(RuntimeEnabledFeatures::HTMLCommandForScrollCommandsEnabled());
     return true;
   }
-  if (command == CommandEventType::kToggleOverscroll) {
+  if (Element::IsOverscrollCommand(command)) {
     CHECK(RuntimeEnabledFeatures::OverscrollGesturesEnabled());
     return true;
   }
@@ -3221,6 +3256,26 @@ bool HTMLElement::HandleCommandInternal(HTMLElement& invoker,
     if (Element* container = GetOverscrollContainer()) {
       if (auto* tracker = container->GetOverscrollAreaTracker()) {
         tracker->ToggleArea(this);
+      }
+    }
+    return true;
+  }
+
+  if (command == CommandEventType::kShowOverscroll) {
+    CHECK(RuntimeEnabledFeatures::OverscrollGesturesEnabled());
+    if (Element* container = GetOverscrollContainer()) {
+      if (auto* tracker = container->GetOverscrollAreaTracker()) {
+        tracker->OpenArea(this);
+      }
+    }
+    return true;
+  }
+
+  if (command == CommandEventType::kHideOverscroll) {
+    CHECK(RuntimeEnabledFeatures::OverscrollGesturesEnabled());
+    if (Element* container = GetOverscrollContainer()) {
+      if (auto* tracker = container->GetOverscrollAreaTracker()) {
+        tracker->CloseArea(this);
       }
     }
     return true;
@@ -3433,9 +3488,16 @@ CommandEventType HTMLElement::GetCommandEventType(
   }
 
   // Overscroll gestures.
-  if (RuntimeEnabledFeatures::OverscrollGesturesEnabled() &&
-      EqualIgnoringAsciiCase(action, keywords::kToggleOverscroll)) {
-    return CommandEventType::kToggleOverscroll;
+  if (RuntimeEnabledFeatures::OverscrollGesturesEnabled()) {
+    if (EqualIgnoringAsciiCase(action, keywords::kToggleOverscroll)) {
+      return CommandEventType::kToggleOverscroll;
+    }
+    if (EqualIgnoringAsciiCase(action, keywords::kShowOverscroll)) {
+      return CommandEventType::kShowOverscroll;
+    }
+    if (EqualIgnoringAsciiCase(action, keywords::kHideOverscroll)) {
+      return CommandEventType::kHideOverscroll;
+    }
   }
 
   // V2 commands go below this point
@@ -4434,21 +4496,10 @@ void HTMLElement::OnContainerTimingAttrChanged(
     return;
   }
 
-  if (had_container_timing && !has_container_timing) {
-    if (!RecalcSelfOrAncestorHasContainerTiming()) {
-      ClearSelfOrAncestorHasContainerTiming();
-      UpdateDescendantHasContainerTiming(false /* has_container_timing */);
-    }
-  } else if (!had_container_timing && has_container_timing) {
-    SetSelfOrAncestorHasContainerTiming();
-    UpdateDescendantHasContainerTiming(true /* has_container_timing */);
-  }
-
-  if (RuntimeEnabledFeatures::ContainerTimingPrepaintTraversalEnabled(
-          GetExecutionContext())) {
-    if (auto* layout_object = GetLayoutObject()) {
-      layout_object->MarkContainerTimingChanged();
-    }
+  // Mark the layout object dirty so the next pre-paint walk re-attributes the
+  // subtree through the ContainerTimingPaintAttributionTracker.
+  if (auto* layout_object = GetLayoutObject()) {
+    layout_object->MarkContainerTimingChanged();
   }
 }
 
@@ -4476,34 +4527,19 @@ void HTMLElement::OnContainerTimingIgnoreAttrChanged(
     return;
   }
   // Only this spelling's presence is tracked here. That is still correct when
-  // the element carries both spellings: the branches below either consult
-  // RecalcSelfOrAncestorHasContainerTiming(), which sees the other spelling
-  // through HasContainerTimingIgnoreAttribute(), or re-clear an already cleared
-  // subtree.
+  // the element carries both spellings: all this does is mark the subtree for
+  // re-attribution, and the pre-paint walk resolves the effective ignore state
+  // through HasContainerTimingIgnoreAttribute(), which sees both spellings.
   bool had_container_timing_ignore = !params.old_value.IsNull();
   bool has_container_timing_ignore = !params.new_value.IsNull();
   if (had_container_timing_ignore == has_container_timing_ignore) {
     return;
   }
 
-  if (had_container_timing_ignore && !has_container_timing_ignore) {
-    if (RecalcSelfOrAncestorHasContainerTiming()) {
-      SetSelfOrAncestorHasContainerTiming();
-      UpdateDescendantHasContainerTiming(true /* has_container_timing */);
-    }
-  } else if (!had_container_timing_ignore && has_container_timing_ignore &&
-             !FastHasAttribute(html_names::kContainertimingAttr)) {
-    // containertiming has precedence over containertimingignore, only unset
-    // the tree if the node has ignore only
-    ClearSelfOrAncestorHasContainerTiming();
-    UpdateDescendantHasContainerTiming(false /* has_container_timing */);
-  }
-
-  if (RuntimeEnabledFeatures::ContainerTimingPrepaintTraversalEnabled(
-          GetExecutionContext())) {
-    if (auto* layout_object = GetLayoutObject()) {
-      layout_object->MarkContainerTimingChanged();
-    }
+  // Mark the layout object dirty so the next pre-paint walk re-attributes the
+  // subtree through the ContainerTimingPaintAttributionTracker.
+  if (auto* layout_object = GetLayoutObject()) {
+    layout_object->MarkContainerTimingChanged();
   }
 }
 

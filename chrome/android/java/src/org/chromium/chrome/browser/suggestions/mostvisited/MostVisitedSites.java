@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.suggestions.mostvisited;
 
 import org.jni_zero.CalledByNative;
+import org.jni_zero.JniType;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -56,6 +57,7 @@ public interface MostVisitedSites extends CustomLinkOperations {
          * @return The raw URL of the currently set home page.
          */
         @CalledByNative
+        @JniType("std::string")
         @Nullable String getHomepageUrl();
     }
 
@@ -98,7 +100,7 @@ public interface MostVisitedSites extends CustomLinkOperations {
     void recordOpenedMostVisitedItem(Tile tile);
 
     /**
-     * Returns the score of a recent suggestion identified by {@param url}, which is {@link
+     * Returns the score of a recent suggestion identified by {@code url}, which is {@link
      * INVALID_SUGGESTION_SCORE} if not found.
      */
     double getSuggestionScore(GURL url);

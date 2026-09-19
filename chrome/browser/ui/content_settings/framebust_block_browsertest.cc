@@ -16,9 +16,9 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/blocked_content/framebust_block_tab_helper.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_content_setting_bubble_model_delegate.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model.h"
 #include "chrome/browser/ui/content_settings/content_setting_image_model.h"
@@ -35,6 +35,7 @@
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/isolated_world_ids.h"
 #include "content/public/common/url_constants.h"
@@ -73,9 +74,7 @@ class FramebustBlockBrowserTest
     host_resolver()->AddRule("*", "127.0.0.1");
     ASSERT_TRUE(embedded_test_server()->Start());
     current_browser_ = InProcessBrowserTest::browser();
-    FramebustBlockTabHelper::FromWebContents(GetWebContents())
-        ->manager()
-        ->AddObserver(this);
+    GetFramebustTabHelper()->manager()->AddObserver(this);
   }
 
   // UrlListManager::Observer:
@@ -86,11 +85,12 @@ class FramebustBlockBrowserTest
   }
 
   content::WebContents* GetWebContents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   FramebustBlockTabHelper* GetFramebustTabHelper() {
-    return FramebustBlockTabHelper::FromWebContents(GetWebContents());
+    return FramebustBlockTabHelper::From(
+        tabs::TabInterface::GetFromContents(GetWebContents()));
   }
 
   void OnClick(const GURL& url, size_t index, size_t total_size) {
@@ -98,7 +98,7 @@ class FramebustBlockBrowserTest
     clicked_index_ = index;
   }
 
-  Browser* browser() { return current_browser_; }
+  BrowserWindowInterface* browser() { return current_browser_; }
 
   void CreateAndSetBrowser() {
     current_browser_ = CreateBrowser(browser()->GetProfile());
@@ -163,7 +163,8 @@ class FramebustBlockBrowserTest
   std::optional<size_t> clicked_index_;
 
   base::OnceClosure blocked_url_added_closure_;
-  raw_ptr<Browser, AcrossTasksDanglingUntriaged> current_browser_;
+  raw_ptr<BrowserWindowInterface, AcrossTasksDanglingUntriaged>
+      current_browser_;
 };
 
 // Tests that clicking an item in the list of blocked URLs trigger a navigation
@@ -230,7 +231,7 @@ IN_PROC_BROWSER_TEST_F(FramebustBlockBrowserTest,
   EXPECT_EQ(1u, helper->blocked_urls().size());
 
   ContentSettingFramebustBlockBubbleModel framebust_block_bubble_model(
-      browser()->GetFeatures().content_setting_bubble_model_delegate(),
+      BrowserContentSettingBubbleModelDelegate::From(browser()),
       GetWebContents()->GetPrimaryPage());
 
   class InitiatorObserver : public content::WebContentsObserver {
@@ -283,7 +284,7 @@ IN_PROC_BROWSER_TEST_F(FramebustBlockBrowserTest, AllowRadioButtonSelected) {
   // Create a content bubble and simulate clicking on the first radio button
   // before closing it.
   ContentSettingFramebustBlockBubbleModel framebust_block_bubble_model(
-      browser()->GetFeatures().content_setting_bubble_model_delegate(),
+      BrowserContentSettingBubbleModelDelegate::From(browser()),
       GetWebContents()->GetPrimaryPage());
   std::unique_ptr<FakeOwner> owner = FakeOwner::Create(
       framebust_block_bubble_model, kDisallowRadioButtonIndex);
@@ -315,7 +316,7 @@ IN_PROC_BROWSER_TEST_F(FramebustBlockBrowserTest, DisallowRadioButtonSelected) {
   // Create a content bubble and simulate clicking on the second radio button
   // before closing it.
   ContentSettingFramebustBlockBubbleModel framebust_block_bubble_model(
-      browser()->GetFeatures().content_setting_bubble_model_delegate(),
+      BrowserContentSettingBubbleModelDelegate::From(browser()),
       GetWebContents()->GetPrimaryPage());
 
   std::unique_ptr<FakeOwner> owner =
@@ -352,7 +353,7 @@ IN_PROC_BROWSER_TEST_F(FramebustBlockBrowserTest, MAYBE_ManageButtonClicked) {
   // Create a content bubble and simulate clicking on the second radio button
   // before closing it.
   ContentSettingFramebustBlockBubbleModel framebust_block_bubble_model(
-      browser()->GetFeatures().content_setting_bubble_model_delegate(),
+      BrowserContentSettingBubbleModelDelegate::From(browser()),
       GetWebContents()->GetPrimaryPage());
 
   content::TestNavigationObserver navigation_observer(nullptr);

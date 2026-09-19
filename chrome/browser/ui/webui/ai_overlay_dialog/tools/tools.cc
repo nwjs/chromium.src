@@ -13,6 +13,7 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/notimplemented.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
@@ -32,12 +33,18 @@
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ttc/resources/generated_tool_definitions.h"
-#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ttc/tool_controller.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/webui/ai_overlay_dialog/page_context_monitor.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
+#include "mojo/public/cpp/bindings/associated_remote.h"
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#endif
+#include "chrome/browser/ui/webui/ai_overlay_dialog/page_context_monitor.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_utils.h"
 #include "components/history/core/browser/history_service.h"
@@ -65,6 +72,15 @@
 #include "url/url_util.h"
 
 namespace {
+
+content::WebContents* GetActiveWebContentsFromBrowser(
+    BrowserWindowInterface* browser) {
+#if !BUILDFLAG(IS_ANDROID)
+  return browser->GetTabStripModel()->GetActiveWebContents();
+#else
+  return nullptr;
+#endif
+}
 
 void RecordToolCallInvoked(std::string_view tool_name) {
   base::UmaHistogramBoolean(
@@ -94,12 +110,14 @@ std::optional<base::TimeDelta> ParseTimecode(const std::string& timecode) {
   return std::nullopt;
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 std::string FormatDate(base::Time time) {
   base::Time::Exploded exploded;
   time.LocalExplode(&exploded);
   return base::StringPrintf("%04d-%02d-%02d", exploded.year, exploded.month,
                             exploded.day_of_month);
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace
 
@@ -111,7 +129,11 @@ AiOverlayTools::AiOverlayTools(
     PageContextMonitor* page_context_monitor)
     : receiver_(this, std::move(receiver)),
       browser_(browser),
-      page_context_monitor_(page_context_monitor) {}
+      page_context_monitor_(page_context_monitor) {
+  if (features::kAiOverlayDialogUsesActor.Get()) {
+    tool_controller_ = std::make_unique<ToolController>(browser_->GetProfile());
+  }
+}
 
 AiOverlayTools::~AiOverlayTools() = default;
 
@@ -125,17 +147,27 @@ void AiOverlayTools::OpenUrl(const std::string& url_string,
                              bool new_tab,
                              OpenUrlCallback callback) {
   RecordToolCallInvoked("OpenUrl");
+  if (tool_controller_) {
+    tool_controller_->OpenUrl(browser_, url_string, new_tab,
+                              std::move(callback));
+    return;
+  }
+
   GURL url(url_string);
   if (!url.is_valid()) {
     std::move(callback).Run(base::unexpected("Invalid URL"));
     return;
   }
 
+#if !BUILDFLAG(IS_ANDROID)
   WindowOpenDisposition disposition =
       new_tab ? WindowOpenDisposition::NEW_FOREGROUND_TAB
               : WindowOpenDisposition::CURRENT_TAB;
   browser_->OpenGURL(url, disposition);
   std::move(callback).Run(std::monostate());
+#else
+  std::move(callback).Run(base::unexpected("OpenUrl not yet ported to Clank"));
+#endif
 }
 
 void AiOverlayTools::FollowLink(const std::string& id,
@@ -180,6 +212,7 @@ void AiOverlayTools::PerformSearch(const std::string& query,
 void AiOverlayTools::SwitchTab(const std::string& query,
                                SwitchTabCallback callback) {
   RecordToolCallInvoked("SwitchTab");
+#if !BUILDFLAG(IS_ANDROID)
   std::string query_lower = base::ToLowerASCII(query);
   TabStripModel* tab_strip_model = browser_->GetTabStripModel();
   for (int i = 0; i < tab_strip_model->count(); ++i) {
@@ -202,22 +235,30 @@ void AiOverlayTools::SwitchTab(const std::string& query,
     }
   }
   std::move(callback).Run(base::unexpected("No matching tab found"));
+#else
+  std::move(callback).Run(
+      base::unexpected("SwitchTab not yet ported to Clank"));
+#endif
 }
 
 void AiOverlayTools::CloseCurrentTab(CloseCurrentTabCallback callback) {
   RecordToolCallInvoked("CloseCurrentTab");
+#if !BUILDFLAG(IS_ANDROID)
   if (browser_->GetTabStripModel()->count() > 0) {
     browser_->GetTabStripModel()->CloseSelectedTabs();
     std::move(callback).Run(std::monostate());
   } else {
     std::move(callback).Run(base::unexpected("No active tab to close"));
   }
+#else
+  std::move(callback).Run(
+      base::unexpected("CloseCurrentTab not yet ported to Clank"));
+#endif
 }
 
 void AiOverlayTools::GoBack(GoBackCallback callback) {
   RecordToolCallInvoked("GoBack");
-  content::WebContents* contents =
-      browser_->GetTabStripModel()->GetActiveWebContents();
+  content::WebContents* contents = GetActiveWebContentsFromBrowser(browser_);
   if (contents && contents->GetController().CanGoBack()) {
     contents->GetController().GoBack();
     std::move(callback).Run(std::monostate());
@@ -228,8 +269,7 @@ void AiOverlayTools::GoBack(GoBackCallback callback) {
 
 void AiOverlayTools::GoForward(GoForwardCallback callback) {
   RecordToolCallInvoked("GoForward");
-  content::WebContents* contents =
-      browser_->GetTabStripModel()->GetActiveWebContents();
+  content::WebContents* contents = GetActiveWebContentsFromBrowser(browser_);
   if (contents && contents->GetController().CanGoForward()) {
     contents->GetController().GoForward();
     std::move(callback).Run(std::monostate());
@@ -240,8 +280,7 @@ void AiOverlayTools::GoForward(GoForwardCallback callback) {
 
 void AiOverlayTools::ReloadPage(ReloadPageCallback callback) {
   RecordToolCallInvoked("ReloadPage");
-  content::WebContents* contents =
-      browser_->GetTabStripModel()->GetActiveWebContents();
+  content::WebContents* contents = GetActiveWebContentsFromBrowser(browser_);
   if (contents) {
     contents->GetController().Reload(content::ReloadType::NORMAL, true);
     std::move(callback).Run(std::monostate());
@@ -286,8 +325,7 @@ void AiOverlayTools::OnAnnotationAgentDisconnected() {
 void AiOverlayTools::FindAndHighlight(const std::string& query,
                                       FindAndHighlightCallback callback) {
   RecordToolCallInvoked("FindAndHighlight");
-  content::WebContents* contents =
-      browser_->GetTabStripModel()->GetActiveWebContents();
+  content::WebContents* contents = GetActiveWebContentsFromBrowser(browser_);
   if (!contents) {
     std::move(callback).Run(base::unexpected("No active tab"));
     return;
@@ -325,8 +363,8 @@ void AiOverlayTools::Scroll(
     double magnitude,
     ScrollCallback callback) {
   RecordToolCallInvoked("Scroll");
-  content::WebContents* contents =
-      browser_->GetTabStripModel()->GetActiveWebContents();
+#if !BUILDFLAG(IS_ANDROID)
+  content::WebContents* contents = GetActiveWebContentsFromBrowser(browser_);
   if (!contents || !contents->GetRenderWidgetHostView()) {
     std::move(callback).Run(base::unexpected("No active tab or view"));
     return;
@@ -359,12 +397,15 @@ void AiOverlayTools::Scroll(
       input::NativeWebKeyboardEvent(released_event));
 
   std::move(callback).Run(std::monostate());
+#else
+  NOTIMPLEMENTED();
+  std::move(callback).Run(base::unexpected("Scroll not yet ported to Clank"));
+#endif
 }
 
 void AiOverlayTools::PlayVideo(PlayVideoCallback callback) {
   RecordToolCallInvoked("PlayVideo");
-  content::WebContents* contents =
-      browser_->GetTabStripModel()->GetActiveWebContents();
+  content::WebContents* contents = GetActiveWebContentsFromBrowser(browser_);
   if (!contents) {
     std::move(callback).Run(base::unexpected("No active tab"));
     return;
@@ -382,8 +423,7 @@ void AiOverlayTools::PlayVideo(PlayVideoCallback callback) {
 
 void AiOverlayTools::PauseVideo(PauseVideoCallback callback) {
   RecordToolCallInvoked("PauseVideo");
-  content::WebContents* contents =
-      browser_->GetTabStripModel()->GetActiveWebContents();
+  content::WebContents* contents = GetActiveWebContentsFromBrowser(browser_);
   if (!contents) {
     std::move(callback).Run(base::unexpected("No active tab"));
     return;
@@ -411,7 +451,11 @@ void AiOverlayTools::InvokeGlic(const std::string& prompt,
     return;
   }
 
+#if !BUILDFLAG(IS_ANDROID)
   auto* active_tab = browser_->GetTabStripModel()->GetActiveTab();
+#else
+  tabs::TabInterface* active_tab = nullptr;
+#endif
   if (!active_tab) {
     std::move(callback).Run(base::unexpected("No active tab"));
     return;
@@ -442,8 +486,7 @@ void AiOverlayTools::InvokeGlic(const std::string& prompt,
 void AiOverlayTools::SeekToTimestamp(const std::string& timecode,
                                      SeekToTimestampCallback callback) {
   RecordToolCallInvoked("SeekToTimestamp");
-  content::WebContents* contents =
-      browser_->GetTabStripModel()->GetActiveWebContents();
+  content::WebContents* contents = GetActiveWebContentsFromBrowser(browser_);
   if (!contents) {
     std::move(callback).Run(base::unexpected("No active tab"));
     return;
@@ -467,8 +510,7 @@ void AiOverlayTools::SeekToTimestamp(const std::string& timecode,
 
 void AiOverlayTools::TranslatePage(const std::string& target_language,
                                    TranslatePageCallback callback) {
-  content::WebContents* contents =
-      browser_->GetTabStripModel()->GetActiveWebContents();
+  content::WebContents* contents = GetActiveWebContentsFromBrowser(browser_);
   if (!contents) {
     std::move(callback).Run(base::unexpected("No active tab"));
     return;
@@ -517,7 +559,7 @@ void AiOverlayTools::AddBookmark(AddBookmarkCallback callback) {
   }
 
   content::WebContents* active_contents =
-      browser_->GetTabStripModel()->GetActiveWebContents();
+      GetActiveWebContentsFromBrowser(browser_);
   if (!active_contents) {
     std::move(callback).Run(base::unexpected("No active tab"));
     return;
@@ -543,7 +585,7 @@ void AiOverlayTools::RemoveBookmark(RemoveBookmarkCallback callback) {
   }
 
   content::WebContents* active_contents =
-      browser_->GetTabStripModel()->GetActiveWebContents();
+      GetActiveWebContentsFromBrowser(browser_);
   if (!active_contents) {
     std::move(callback).Run(base::unexpected("No active tab"));
     return;
@@ -566,6 +608,8 @@ void AiOverlayTools::RemoveBookmark(RemoveBookmarkCallback callback) {
 }
 
 namespace {
+
+#if !BUILDFLAG(IS_ANDROID)
 
 bool HasOpenTabWithUrl(const TabStripModel& tab_strip, const GURL& url) {
   // TODO(crbug.com/540589868): Consider parameter/fragment-insensitive URL
@@ -676,11 +720,14 @@ void FinishOpenPage(base::DictValue response,
   std::move(callback).Run(base::ok(std::move(*json_str)));
 }
 
+#endif  // !BUILDFLAG(IS_ANDROID)
+
 }  // namespace
 
 void AiOverlayTools::OpenPage(const std::string& query,
                               OpenPageCallback callback) {
   RecordToolCallInvoked("OpenPage");
+#if !BUILDFLAG(IS_ANDROID)
   TabStripModel* tab_strip = browser_ ? browser_->GetTabStripModel() : nullptr;
   if (!tab_strip) {
     std::move(callback).Run(base::unexpected("No tab strip model available"));
@@ -783,6 +830,9 @@ void AiOverlayTools::OpenPage(const std::string& query,
           std::move(response), std::move(callback), weak_factory_.GetWeakPtr(),
           target_id_counter),
       &task_tracker_);
+#else
+  std::move(callback).Run(base::unexpected("OpenPage not yet ported to Clank"));
+#endif
 }
 
 void AiOverlayTools::SetText(const blink::DOMNodeIdType& dom_node_id,
@@ -791,8 +841,7 @@ void AiOverlayTools::SetText(const blink::DOMNodeIdType& dom_node_id,
   RecordToolCallInvoked("SetText");
   // TODO(crbug.com/540575255): Scope form editing actions to the target
   // WebContents active when tool invocation was requested.
-  content::WebContents* contents =
-      browser_->tab_strip_model()->GetActiveWebContents();
+  content::WebContents* contents = GetActiveWebContentsFromBrowser(browser_);
   if (!contents) {
     std::move(callback).Run(base::unexpected("No active tab"));
     return;
@@ -840,8 +889,7 @@ void AiOverlayTools::SetText(const blink::DOMNodeIdType& dom_node_id,
 void AiOverlayTools::ClickElement(const blink::DOMNodeIdType& dom_node_id,
                                   ClickElementCallback callback) {
   RecordToolCallInvoked("ClickElement");
-  content::WebContents* contents =
-      browser_->tab_strip_model()->GetActiveWebContents();
+  content::WebContents* contents = GetActiveWebContentsFromBrowser(browser_);
   if (!contents) {
     std::move(callback).Run(base::unexpected("No active tab"));
     return;
@@ -888,6 +936,7 @@ void AiOverlayTools::ClickElement(const blink::DOMNodeIdType& dom_node_id,
 void AiOverlayTools::SetFullscreen(bool fullscreen,
                                    SetFullscreenCallback callback) {
   RecordToolCallInvoked("SetFullscreen");
+#if !BUILDFLAG(IS_ANDROID)
   if (!browser_ || !browser_->GetWindow()) {
     std::move(callback).Run(base::unexpected("No active browser window"));
     return;
@@ -897,14 +946,17 @@ void AiOverlayTools::SetFullscreen(bool fullscreen,
     chrome::ToggleFullscreenMode(browser_.get());
   }
   std::move(callback).Run(base::ok(std::monostate()));
+#else
+  std::move(callback).Run(
+      base::unexpected("SetFullscreen not yet ported to Clank"));
+#endif
 }
 
 void AiOverlayTools::SelectOption(const blink::DOMNodeIdType& dom_node_id,
                                   const std::string& value,
                                   SelectOptionCallback callback) {
   RecordToolCallInvoked("SelectOption");
-  content::WebContents* contents =
-      browser_->GetTabStripModel()->GetActiveWebContents();
+  content::WebContents* contents = GetActiveWebContentsFromBrowser(browser_);
   if (!contents) {
     std::move(callback).Run(base::unexpected("No active tab"));
     return;

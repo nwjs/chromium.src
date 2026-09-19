@@ -14,7 +14,7 @@
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
-#include "components/prefs/pref_member.h"
+#include "components/prefs/pref_change_registrar.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 
@@ -62,13 +62,15 @@ class ContextualTasksButton
   void OnShouldUpdateVisibility(bool should_show);
   void OnEligibilityChange(bool is_eligible);
   void MaybeUpdateVisibility();
+  void MaybeShowFeaturePromo();
   void UpdateDropShadow(bool force_paint = false, float initial_opacity = 1.0f);
   void UpdateDropShadowLayerBounds();
   void AnimateShow();
   void ClearDropShadow();
   ui::ImageModel GetButtonImage();
+  bool IsSidePanelRightAligned() const;
 
-  BooleanPrefMember side_panel_alignment_;
+  PrefChangeRegistrar pref_change_registrar_;
   base::CallbackListSubscription should_update_visibility_subscription_;
   base::CallbackListSubscription eligibility_change_subscription_;
   base::CallbackListSubscription vertical_tabs_subscription_;

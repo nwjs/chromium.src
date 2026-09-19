@@ -8,15 +8,13 @@ import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.PorterDuff.Mode;
-import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
 
 import androidx.annotation.Px;
+import androidx.annotation.VisibleForTesting;
+import androidx.core.graphics.drawable.RoundedBitmapDrawable;
+import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory;
 
 import org.chromium.build.annotations.Contract;
 import org.chromium.build.annotations.NullMarked;
@@ -30,6 +28,9 @@ public class AvatarGenerator {
     // The margin around every avatar image when multiple are combined together.
     private static final int AVATAR_MARGIN_DIP = 1;
 
+    /** Scaling factor for rendering supersampled avatar bitmaps to improve sharpness. */
+    @VisibleForTesting static final int SUPERSAMPLING_FACTOR = 2;
+
     /**
      * Rescales avatar image and crops it into a circle.
      *
@@ -39,24 +40,27 @@ public class AvatarGenerator {
      * @return the scaled and cropped avatar.
      */
     @Contract("_, !null, _ -> !null")
-    public static @Nullable Drawable makeRoundAvatar(
+    public static @Nullable RoundedBitmapDrawable makeRoundAvatar(
             Resources resources, Bitmap avatar, @Px int imageSize) {
         if (avatar == null) return null;
 
-        Bitmap output = Bitmap.createBitmap(imageSize, imageSize, Config.ARGB_8888);
-        Canvas canvas = new Canvas(output);
-        // Fill the canvas with transparent color.
-        canvas.drawColor(Color.TRANSPARENT);
-        // Draw a white circle.
-        float radius = (float) imageSize / 2;
-        Paint paint = new Paint();
-        paint.setAntiAlias(true);
-        paint.setColor(Color.WHITE);
-        canvas.drawCircle(radius, radius, radius, paint);
-        // Use SRC_IN so white circle acts as a mask while drawing the avatar.
-        paint.setXfermode(new PorterDuffXfermode(Mode.SRC_IN));
-        canvas.drawBitmap(avatar, null, new Rect(0, 0, imageSize, imageSize), paint);
-        return new BitmapDrawable(resources, output);
+        // Render at a higher resolution and scale the density accordingly so the returned
+        // Drawable retains 1x intrinsic dimensions while providing supersampled resolution.
+        // This prevents blurring and resampling artifacts caused by subpixel centering and texture
+        // capture passes.
+        int renderSize = imageSize * SUPERSAMPLING_FACTOR;
+        Bitmap scaledAvatar = Bitmap.createScaledBitmap(avatar, renderSize, renderSize, true);
+        if (scaledAvatar == avatar) {
+            // Copy if returned as-is by createScaledBitmap to avoid mutating shared cache density.
+            scaledAvatar = avatar.copy(Bitmap.Config.ARGB_8888, true);
+        }
+        scaledAvatar.setDensity(resources.getDisplayMetrics().densityDpi * SUPERSAMPLING_FACTOR);
+
+        RoundedBitmapDrawable roundedAvatar =
+                RoundedBitmapDrawableFactory.create(resources, scaledAvatar);
+        roundedAvatar.setAntiAlias(true);
+        roundedAvatar.setCircular(true);
+        return roundedAvatar;
     }
 
     /**
@@ -68,7 +72,7 @@ public class AvatarGenerator {
      * @param imageSize the target image size in pixels.
      * @return the scaled and cropped avatar.
      */
-    public static @Nullable Drawable makeRoundAvatar(
+    public static @Nullable RoundedBitmapDrawable makeRoundAvatar(
             Resources resources, List<Bitmap> avatars, @Px int imageSize) {
         for (Bitmap avatar : avatars) {
             if (avatar == null) return null;
@@ -77,12 +81,17 @@ public class AvatarGenerator {
         if (avatarCount == 0) return null;
         if (avatarCount == 1) return makeRoundAvatar(resources, avatars.get(0), imageSize);
 
-        Bitmap output = Bitmap.createBitmap(imageSize, imageSize, Config.ARGB_8888);
+        // Render at supersampled resolution so collage slice details and margins remain sharp.
+        int renderSize = imageSize * SUPERSAMPLING_FACTOR;
+        Bitmap output = Bitmap.createBitmap(renderSize, renderSize, Config.ARGB_8888);
         Canvas canvas = new Canvas(output);
 
-        // Each image has a margin of 1 dp around it.
-        float margin = AVATAR_MARGIN_DIP * resources.getDisplayMetrics().density;
-        float halfSize = imageSize / 2f;
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+
+        // Each image has a margin of 1 dp around it, scaled for supersampled render resolution.
+        float margin =
+                AVATAR_MARGIN_DIP * resources.getDisplayMetrics().density * SUPERSAMPLING_FACTOR;
+        float halfSize = renderSize / 2f;
 
         if (avatarCount == 2) {
             // +------+ +------+
@@ -98,14 +107,14 @@ public class AvatarGenerator {
             canvas.drawBitmap(
                     avatars.get(0),
                     getCenterSliceRect(avatars.get(0)),
-                    new Rect(0, 0, (int) (halfSize - margin), imageSize),
-                    null);
+                    new Rect(0, 0, (int) (halfSize - margin), renderSize),
+                    paint);
             // Right
             canvas.drawBitmap(
                     avatars.get(1),
                     getCenterSliceRect(avatars.get(1)),
-                    new Rect((int) (halfSize + margin), 0, imageSize, imageSize),
-                    null);
+                    new Rect((int) (halfSize + margin), 0, renderSize, renderSize),
+                    paint);
         }
 
         if (avatarCount == 3) {
@@ -122,14 +131,14 @@ public class AvatarGenerator {
             canvas.drawBitmap(
                     avatars.get(0),
                     getCenterSliceRect(avatars.get(0)),
-                    new Rect(0, 0, (int) (halfSize - margin), imageSize),
-                    null);
+                    new Rect(0, 0, (int) (halfSize - margin), renderSize),
+                    paint);
             // Top right
             canvas.drawBitmap(
                     avatars.get(1),
                     getFullRect(avatars.get(1)),
-                    new Rect((int) (halfSize + margin), 0, imageSize, (int) (halfSize - margin)),
-                    null);
+                    new Rect((int) (halfSize + margin), 0, renderSize, (int) (halfSize - margin)),
+                    paint);
             // Bottom right
             canvas.drawBitmap(
                     avatars.get(2),
@@ -137,9 +146,9 @@ public class AvatarGenerator {
                     new Rect(
                             (int) (halfSize + margin),
                             (int) (halfSize + margin),
-                            imageSize,
-                            imageSize),
-                    null);
+                            renderSize,
+                            renderSize),
+                    paint);
         }
 
         // Use the first 4 images only.
@@ -158,19 +167,19 @@ public class AvatarGenerator {
                     avatars.get(0),
                     getFullRect(avatars.get(0)),
                     new Rect(0, 0, (int) (halfSize - margin), (int) (halfSize - margin)),
-                    null);
+                    paint);
             // Bottom left
             canvas.drawBitmap(
                     avatars.get(1),
                     getFullRect(avatars.get(1)),
-                    new Rect(0, (int) (halfSize + margin), (int) (halfSize - margin), imageSize),
-                    null);
+                    new Rect(0, (int) (halfSize + margin), (int) (halfSize - margin), renderSize),
+                    paint);
             // Top right
             canvas.drawBitmap(
                     avatars.get(2),
                     getFullRect(avatars.get(2)),
-                    new Rect((int) (halfSize + margin), 0, imageSize, (int) (halfSize - margin)),
-                    null);
+                    new Rect((int) (halfSize + margin), 0, renderSize, (int) (halfSize - margin)),
+                    paint);
             // Bottom right
             canvas.drawBitmap(
                     avatars.get(3),
@@ -178,9 +187,9 @@ public class AvatarGenerator {
                     new Rect(
                             (int) (halfSize + margin),
                             (int) (halfSize + margin),
-                            imageSize,
-                            imageSize),
-                    null);
+                            renderSize,
+                            renderSize),
+                    paint);
         }
         return makeRoundAvatar(resources, output, imageSize);
     }

@@ -1097,18 +1097,11 @@ scoped_refptr<VideoFrame> MappableSharedImageVideoFramePool::PoolImpl::
   base::UmaHistogramEnumeration(name, output_format_);
 
 #if BUILDFLAG(IS_MAC)
-  // Shared image uses iosurface as native resource which is compatible to
-  // WebGPU always.
-  // Gate this on SharedImage usage as ScopedAccess now CHECKs for it.
-  // TODO(crbug.com/413659843): Move this support check as part of
-  // SharedImageCapabilities.
-  is_webgpu_compatible =
-      frame_resource->shared_image->SupportsZeroCopyWebGPUImport() &&
-      frame_resource->shared_image->usage().Has(
-          gpu::SHARED_IMAGE_USAGE_WEBGPU_READ);
+  is_webgpu_compatible = frame_resource->shared_image->usage().Has(
+      gpu::SHARED_IMAGE_USAGE_WEBGPU_READ);
 #endif
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS)
   // Gate this on SharedImage usage as ScopedAccess now CHECKs for it.
   // TOOD(crbug.com/425634684, crbug.com/413659843): Check for webgpu support
   // from SharedImageCapabilities, once this metadata is compatible.
@@ -1287,8 +1280,13 @@ MappableSharedImageVideoFramePool::PoolImpl::GetOrCreateFrameResource(
     si_usage |= gpu::SHARED_IMAGE_USAGE_WEBGPU_READ;
   }
 #elif BUILDFLAG(IS_MAC)
-  // This SharedImage may be used for zero-copy import into WebGPU.
-  si_usage |= gpu::SHARED_IMAGE_USAGE_WEBGPU_READ;
+  auto cv_pixel_format = gfx::SharedImageFormatToIOSurfacePixelFormat(
+      si_format, /*override_rgba_to_bgra=*/false);
+  if (cv_pixel_format.has_value() &&
+      gfx::IOSurfacePixelFormatIsWebGPUCompatible(cv_pixel_format.value())) {
+    // This SharedImage may be used for zero-copy import into WebGPU.
+    si_usage |= gpu::SHARED_IMAGE_USAGE_WEBGPU_READ;
+  }
 #endif
 
   // Create a Mappable shared image.

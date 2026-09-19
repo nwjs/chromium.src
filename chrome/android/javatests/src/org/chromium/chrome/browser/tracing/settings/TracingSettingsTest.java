@@ -39,9 +39,9 @@ import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
-import org.chromium.chrome.browser.settings.SettingsActivity;
-import org.chromium.chrome.browser.settings.SettingsActivityTestRule;
+import org.chromium.chrome.browser.settings.SettingsActivityInterface;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
+import org.chromium.chrome.browser.settings.SettingsTestRule;
 import org.chromium.chrome.browser.tracing.TracingController;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
@@ -68,8 +68,8 @@ public class TracingSettingsTest {
             ChromeTransitTestRules.freshChromeTabbedActivityRule();
 
     @Rule
-    public final SettingsActivityTestRule<TracingSettings> mSettingsActivityTestRule =
-            new SettingsActivityTestRule<>(TracingSettings.class);
+    public final SettingsTestRule<TracingSettings> mSettingsTestRule =
+            new SettingsTestRule<>(TracingSettings.class);
 
     private MockNotificationManagerProxy mMockNotificationManager;
 
@@ -158,8 +158,8 @@ public class TracingSettingsTest {
     @Feature({"Preferences"})
     public void testRecordTrace() throws Exception {
         mActivityTestRule.startOnBlankPage();
-        mSettingsActivityTestRule.startSettingsActivity();
-        final PreferenceFragmentCompat fragment = mSettingsActivityTestRule.getFragment();
+        mSettingsTestRule.startSettingsActivity();
+        final PreferenceFragmentCompat fragment = mSettingsTestRule.getFragment();
         final ButtonPreference startTracingButton =
                 (ButtonPreference) fragment.findPreference(TracingSettings.UI_PREF_START_RECORDING);
         final ButtonPreference shareTraceButton =
@@ -275,8 +275,8 @@ public class TracingSettingsTest {
     public void testNotificationsDisabledMessage() throws Exception {
         NotificationProxyUtils.setNotificationEnabledForTest(false);
 
-        mSettingsActivityTestRule.startSettingsActivity();
-        final PreferenceFragmentCompat fragment = mSettingsActivityTestRule.getFragment();
+        mSettingsTestRule.startSettingsActivity();
+        final PreferenceFragmentCompat fragment = mSettingsTestRule.getFragment();
         final ButtonPreference startTracingButton =
                 (ButtonPreference) fragment.findPreference(TracingSettings.UI_PREF_START_RECORDING);
         final TextMessagePreference statusPreference =
@@ -316,8 +316,8 @@ public class TracingSettingsTest {
             throws Exception {
         // We need a renderer so that its tracing categories will be populated.
         mActivityTestRule.startOnBlankPage();
-        mSettingsActivityTestRule.startSettingsActivity();
-        final PreferenceFragmentCompat fragment = mSettingsActivityTestRule.getFragment();
+        mSettingsTestRule.startSettingsActivity();
+        final PreferenceFragmentCompat fragment = mSettingsTestRule.getFragment();
         final Preference categoriesPref = fragment.findPreference(preferenceKey);
 
         waitForTracingControllerInitialization(fragment);
@@ -334,8 +334,9 @@ public class TracingSettingsTest {
         Intent intent =
                 settingsNavigation.createSettingsIntent(
                         context, TracingCategoriesSettings.class, categoriesPref.getExtras());
-        mSettingsActivityTestRule.launchActivity(intent);
-        SettingsActivity categoriesActivity = mSettingsActivityTestRule.getActivity();
+        mSettingsTestRule.launchActivity(intent);
+        SettingsActivityInterface categoriesActivity =
+                (SettingsActivityInterface) mSettingsTestRule.getActivity();
 
         PreferenceFragmentCompat categoriesFragment =
                 (PreferenceFragmentCompat) categoriesActivity.getMainFragment();
@@ -361,8 +362,8 @@ public class TracingSettingsTest {
     @SmallTest
     @Feature({"Preferences"})
     public void testSelectMode() throws Exception {
-        mSettingsActivityTestRule.startSettingsActivity();
-        final PreferenceFragmentCompat fragment = mSettingsActivityTestRule.getFragment();
+        mSettingsTestRule.startSettingsActivity();
+        final PreferenceFragmentCompat fragment = mSettingsTestRule.getFragment();
         final ListPreference modePref =
                 (ListPreference) fragment.findPreference(TracingSettings.UI_PREF_MODE);
 

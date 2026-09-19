@@ -11,14 +11,14 @@ import {ResponseExtras} from '../transport/messaging.js';
 import type {PostMessageRemote} from '../transport/post_message_transport.js';
 
 import {additionalContextToClient, fileUploadPolicyStateToClient, focusedTabDataToClient, idToClient, invokeOptionsToClient, pageMetadataToClient, panelOpeningDataToClient, panelStateToClient, tabDataToClient, timeDeltaFromClient, webClientModeToMojo} from './conversions.js';
-import type {ApiHostEmbedder, GlicApiHost} from './glic_api_host.js';
+import type {GlicApiHost} from './glic_api_host.js';
 import {PanelOpenState} from './types.js';
 
 export class WebClientImpl implements WebClientInterface {
   private sender: PostMessageRemote<WebClient>;
   private clientCreated = Promise.withResolvers<void>();
 
-  constructor(private host: GlicApiHost, private embedder: ApiHostEmbedder) {
+  constructor(private host: GlicApiHost) {
     this.sender = this.host.sender;
   }
 
@@ -43,12 +43,6 @@ export class WebClientImpl implements WebClientInterface {
       this.host.setWaitingOnPanelWillOpen(false);
       this.host.panelOpenStateChanged(PanelOpenState.OPEN);
     }
-
-    // The web client is ready to show, ensure the webview is
-    // displayed.
-    const canUserResize = result.openPanelInfo?.canUserResize ?? true;
-    this.embedder.enableDragResize(canUserResize);
-    this.embedder.webClientReady();
 
     const openPanelInfoMojo: OpenPanelInfoMojo = {
       webClientMode: webClientModeToMojo(result.openPanelInfo?.startingMode),
@@ -157,6 +151,10 @@ export class WebClientImpl implements WebClientInterface {
     this.sender.requestNoResponse('notifyFileUploadStateChanged', {
       state: fileUploadPolicyStateToClient(state),
     });
+  }
+
+  notifyZoomLevelChanged(zoomFactor: number): void {
+    this.host.onZoomLevelChanged(zoomFactor);
   }
 
   notifyFocusedTabChanged(focusedTabData: (FocusedTabDataMojo)): void {

@@ -8,6 +8,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.AdditionalMatchers.not;
 import static org.mockito.ArgumentMatchers.any;
@@ -28,6 +29,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.chromium.ui.test.util.MockitoHelper.clearInvocations;
 
 import android.app.Activity;
+import android.graphics.Color;
 import android.graphics.Paint.FontMetrics;
 import android.graphics.Rect;
 import android.text.Editable;
@@ -81,6 +83,7 @@ import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarDelegate;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarTextContextMenuDelegate;
 import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFeatureList;
+import org.chromium.components.omnibox.OmniboxUrlEmphasizer.UrlEmphasisColorSpan;
 import org.chromium.components.omnibox.TextSelection;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.Clipboard;
@@ -1117,6 +1120,7 @@ public class UrlBarUnitTest {
      *
      * @param fontActualHeight the desired actual difference between top and the bottom pixel ever
      *     drawn by the font
+     * @return Expected font height scaled to fit URL bar constraints.
      */
     private float computeExpectedFontHeight(float fontActualHeight) {
         float lineHeightScaleFactor = LINE_HEIGHT_ELEGANT_FACTOR;
@@ -1249,6 +1253,7 @@ public class UrlBarUnitTest {
 
     @Test
     public void setInputIsMultilineEligible() {
+        mUrlBar.setAllowMultilineInput(true);
         // Mark current input as wrapping eligible.
         mUrlBar.setInputIsMultilineEligible(true);
         mUrlBar.onFocusChanged(true, View.LAYOUT_DIRECTION_LTR, new Rect());
@@ -1262,6 +1267,15 @@ public class UrlBarUnitTest {
         mUrlBar.onFocusChanged(false, View.LAYOUT_DIRECTION_LTR, new Rect());
         mUrlBar.setInputIsMultilineEligible(true);
         assertTrue(mUrlBar.isHorizontallyScrollable());
+
+        // Disallow multiline input - never multiline
+        mUrlBar.onFocusChanged(true, View.LAYOUT_DIRECTION_LTR, new Rect());
+        mUrlBar.setAllowMultilineInput(false);
+        assertTrue(mUrlBar.isHorizontallyScrollable());
+
+        // Re-allow multiline input while focused and eligible
+        mUrlBar.setAllowMultilineInput(true);
+        assertFalse(mUrlBar.isHorizontallyScrollable());
     }
 
     @Test
@@ -1270,6 +1284,7 @@ public class UrlBarUnitTest {
         mUrlBar.setUrlTextWrappingChangeListener(callback);
         doReturn(mLayout).when(mUrlBar).getLayout();
 
+        mUrlBar.setAllowMultilineInput(true);
         mUrlBar.onFocusChanged(true, 0, null);
         measureAndLayoutUrlBar();
 
@@ -1306,6 +1321,41 @@ public class UrlBarUnitTest {
     }
 
     @Test
+    public void testTextWrappingCallback_deduplicatesRapidTextChanges() {
+        Callback<Boolean> callback = MockitoHelper.mockCallback();
+        mUrlBar.setUrlTextWrappingChangeListener(callback);
+        doReturn(mLayout).when(mUrlBar).getLayout();
+
+        mUrlBar.setAllowMultilineInput(true);
+        mUrlBar.onFocusChanged(true, 0, null);
+        measureAndLayoutUrlBar();
+
+        doReturn(2).when(mLayout).getLineCount();
+        mUrlBar.onTextChanged("a", 0, 0, 1);
+        mUrlBar.onTextChanged("ab", 0, 0, 2);
+        mUrlBar.onTextChanged("abc", 0, 0, 3);
+
+        RobolectricUtil.runAllBackgroundAndUi();
+        verify(callback).onResult(true);
+    }
+
+    @Test
+    public void testTextWrappingCallback_clearedOnDestroy() {
+        Callback<Boolean> callback = MockitoHelper.mockCallback();
+        mUrlBar.setUrlTextWrappingChangeListener(callback);
+
+        mUrlBar.setAllowMultilineInput(true);
+        mUrlBar.onFocusChanged(true, 0, null);
+        measureAndLayoutUrlBar();
+
+        mUrlBar.onTextChanged("longer text", 0, 0, 11);
+        mUrlBar.destroy();
+
+        RobolectricUtil.runAllBackgroundAndUi();
+        verify(callback, never()).onResult(anyBoolean());
+    }
+
+    @Test
     @EnableFeatures(OmniboxFeatureList.URL_BAR_WITHOUT_LIGATURES)
     public void testUrlBarWithoutLigaturesEnabled() {
         assertEquals("liga=0, clig=0, calt=0, dlig=0", mUrlBar.getFontFeatureSettings());
@@ -1319,6 +1369,7 @@ public class UrlBarUnitTest {
 
     @Test
     public void onFocusChanged_MultilineEligibility() {
+        mUrlBar.setAllowMultilineInput(true);
         mUrlBar.onFocusChanged(false, View.FOCUS_DOWN, null);
         assertTrue(mUrlBar.isHorizontallyScrollable());
 
@@ -1779,4 +1830,95 @@ public class UrlBarUnitTest {
         assertTrue(spanStart > NUMBER_OF_VISIBLE_CHARACTERS);
         assertEquals(SUPER_LONG_URL.length() - (MAX_DISPLAYABLE_LENGTH / 2), spanEnd);
     }
+
+    @Test
+    public void testSetTextWithTruncation_identicalText_noReset() {
+        mUrlBar.setText("hello");
+        Editable textBefore = mUrlBar.getText();
+        mUrlBar.setTextWithTruncation("hello", UrlBar.ScrollType.SCROLL_TO_TLD, 5);
+        Editable textAfter = mUrlBar.getText();
+        assertSame(textBefore, textAfter);
+    }
+
+    @Test
+    public void testSetTextWithTruncation_identicalUrlEmphasis_noReset() {
+        SpannableStringBuilder firstText = new SpannableStringBuilder("hello");
+        firstText.setSpan(
+                new UrlEmphasisColorSpan(Color.BLACK),
+                0,
+                firstText.length(),
+                Editable.SPAN_INCLUSIVE_EXCLUSIVE);
+        mUrlBar.setText(firstText);
+        Editable textBefore = mUrlBar.getText();
+
+        SpannableStringBuilder secondText = new SpannableStringBuilder("hello");
+        secondText.setSpan(
+                new UrlEmphasisColorSpan(Color.BLACK),
+                0,
+                secondText.length(),
+                Editable.SPAN_INCLUSIVE_EXCLUSIVE);
+        mUrlBar.setTextWithTruncation(secondText, UrlBar.ScrollType.SCROLL_TO_TLD, 5);
+
+        assertSame(textBefore, mUrlBar.getText());
+    }
+
+    @Test
+    public void testSetTextWithTruncation_identicalLongFocusedText_noReset() {
+        mUrlBar.onFocusChanged(true, 0, null);
+        mUrlBar.setText(SUPER_LONG_URL);
+        Editable textBefore = mUrlBar.getText();
+        assertEquals(
+                1, textBefore.getSpans(0, textBefore.length(), EllipsisSpan.class).length);
+
+        mUrlBar.setTextWithTruncation(
+                SUPER_LONG_URL, UrlBar.ScrollType.SCROLL_TO_TLD, SHORT_DOMAIN.length());
+
+        assertSame(textBefore, mUrlBar.getText());
+    }
+
+    @Test
+    public void testSetTextWithTruncation_sameTextDifferentUrlEmphasis_updatesText() {
+        SpannableStringBuilder blackText = new SpannableStringBuilder("hello");
+        blackText.setSpan(
+                new UrlEmphasisColorSpan(Color.BLACK),
+                0,
+                blackText.length(),
+                Editable.SPAN_INCLUSIVE_EXCLUSIVE);
+        mUrlBar.setText(blackText);
+
+        SpannableStringBuilder whiteText = new SpannableStringBuilder("hello");
+        whiteText.setSpan(
+                new UrlEmphasisColorSpan(Color.WHITE),
+                0,
+                whiteText.length(),
+                Editable.SPAN_INCLUSIVE_EXCLUSIVE);
+        mUrlBar.setTextWithTruncation(whiteText, UrlBar.ScrollType.SCROLL_TO_TLD, 5);
+
+        Editable textAfter = mUrlBar.getText();
+        UrlEmphasisColorSpan[] spans =
+                textAfter.getSpans(0, textAfter.length(), UrlEmphasisColorSpan.class);
+        assertEquals(1, spans.length);
+        assertEquals(Color.WHITE, spans[0].getForegroundColor());
+    }
+
+    @Test
+    public void testSetTextWithTruncation_sameTextWithoutUrlEmphasis_updatesText() {
+        SpannableStringBuilder emphasizedText = new SpannableStringBuilder("hello");
+        emphasizedText.setSpan(
+                new UrlEmphasisColorSpan(Color.BLACK),
+                0,
+                emphasizedText.length(),
+                Editable.SPAN_INCLUSIVE_EXCLUSIVE);
+        mUrlBar.setText(emphasizedText);
+
+        mUrlBar.setTextWithTruncation("hello", UrlBar.ScrollType.SCROLL_TO_TLD, 5);
+
+        Editable textAfter = mUrlBar.getText();
+        assertEquals(
+                0,
+                textAfter
+                        .getSpans(0, textAfter.length(), UrlEmphasisColorSpan.class)
+                        .length);
+    }
+
 }

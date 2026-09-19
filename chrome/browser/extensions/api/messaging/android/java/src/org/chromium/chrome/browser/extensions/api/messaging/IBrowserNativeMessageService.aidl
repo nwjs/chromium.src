@@ -5,14 +5,18 @@
 package org.chromium.chrome.browser.extensions.api.messaging;
 
 import android.os.Bundle;
-import org.chromium.chrome.browser.extensions.api.messaging.IExtensionNativeMessageService;
+import org.chromium.chrome.browser.extensions.api.messaging.IConnectExtensionCallback;
 
-interface IBrowserNativeMessageService {
+oneway interface IBrowserNativeMessageService {
   // Called by the browser on behalf of the extension for its first native
   // messaging call.
   // extensionId: The string ID of the extension.
-  // TODO(crbug.com/515159909): Remove this @nullable once this information is
-  // available.
-  IExtensionNativeMessageService connectExtension(
-      String extensionId, in @nullable Bundle extensionInfo);
+  // extensionInfo: Contains additional extension metadata. This includes an
+  // "isVerified" boolean flag indicating if the extension's contents are
+  // verified against a source of truth.
+  // callback: Invoked by the external app to accept or reject the extension
+  // connection request.
+  void connectExtension(
+      String extensionId, in Bundle extensionInfo,
+      IConnectExtensionCallback callback);
 }

@@ -13,8 +13,6 @@ import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.view.ContextThemeWrapper;
-import android.view.LayoutInflater;
-import android.view.ViewGroup;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.SmallTest;
@@ -27,16 +25,14 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
-import org.chromium.base.shared_preferences.SharedPreferencesManager;
+import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchControllerFactory;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchHooks;
-import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchUtils;
 import org.chromium.chrome.browser.auxiliary_search.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.magic_stack.ModuleDelegate;
@@ -48,14 +44,12 @@ import org.chromium.components.segmentation_platform.InputContext;
 /** Unit tests for {@link AuxiliarySearchModuleBuilder}. */
 @EnableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MODULE})
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class AuxiliarySearchModuleBuilderUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private AuxiliarySearchHooks mHooks;
     @Mock private ModuleDelegate mModuleDelegate;
     @Mock private Callback<ModuleProvider> mOnModuleBuiltCallback;
-    private ViewGroup mParentView;
     @Mock private Runnable mOpenSettingsRunnable;
 
     private Context mContext;
@@ -68,16 +62,12 @@ public class AuxiliarySearchModuleBuilderUnitTest {
                 new ContextThemeWrapper(
                         ApplicationProvider.getApplicationContext(),
                         R.style.Theme_BrowserUI_DayNight);
-        mParentView =
-                (ViewGroup)
-                        LayoutInflater.from(mContext)
-                                .inflate(R.layout.auxiliary_search_module_layout, null);
 
         mFactory = AuxiliarySearchControllerFactory.getInstance();
         mHooks = Mockito.mock(AuxiliarySearchHooks.class);
         when(mHooks.isEnabled()).thenReturn(true);
         when(mHooks.isSettingDefaultEnabledByOs()).thenReturn(true);
-        mFactory.setHooksForTesting(mHooks);
+        ServiceLoaderUtil.setInstanceForTesting(AuxiliarySearchHooks.class, mHooks);
         assertTrue(mFactory.isEnabled());
         ChromeSharedPreferences.getInstance()
                 .writeBoolean(ChromePreferenceKeys.AUXILIARY_SEARCH_CONSUMER_SCHEMA_FOUND, true);
@@ -119,22 +109,6 @@ public class AuxiliarySearchModuleBuilderUnitTest {
     public void testBuild() {
         assertTrue(mBuilder.build(mModuleDelegate, mOnModuleBuiltCallback));
         verify(mOnModuleBuiltCallback).onResult(any(AuxiliarySearchModuleCoordinator.class));
-
-        SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
-        assertEquals(
-                0,
-                prefsManager.readInt(ChromePreferenceKeys.AUXILIARY_SEARCH_MODULE_IMPRESSION, 0));
-
-        // Verifies that the impression count increases after the view is created.
-        mBuilder.createView(mParentView);
-        assertEquals(
-                1,
-                prefsManager.readInt(ChromePreferenceKeys.AUXILIARY_SEARCH_MODULE_IMPRESSION, 0));
-
-        // Verifies that calling build() will return false after the module has been shown.
-        assertFalse(mBuilder.build(mModuleDelegate, mOnModuleBuiltCallback));
-
-        AuxiliarySearchUtils.resetSharedPreferenceForTesting();
     }
 
     @Test
@@ -148,7 +122,35 @@ public class AuxiliarySearchModuleBuilderUnitTest {
     @Test
     @SmallTest
     public void testCreateInputContext_Enabled() {
-        AuxiliarySearchModuleBuilder.resetShownInThisSessionForTesting();
+        InputContext inputContext = mBuilder.createInputContext();
+        assertEquals(1f, inputContext.getEntryValue("auxiliary_search_available").floatValue, 0.01);
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures({ChromeFeatureList.AUXILIARY_SEARCH_HISTORY_DONATION})
+    public void testIsEligible_BrowsingDataDonation() {
+        when(mHooks.isEnabled()).thenReturn(false);
+        when(mHooks.isBrowsingDataDonationSupported()).thenReturn(true);
+        assertFalse(mFactory.isEnabled());
+        assertTrue(mBuilder.isEligible());
+
+        when(mHooks.isEnabled()).thenReturn(true);
+        when(mHooks.isBrowsingDataDonationSupported()).thenReturn(false);
+        assertTrue(mFactory.isEnabled());
+        assertTrue(mBuilder.isEligible());
+
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.AUXILIARY_SEARCH_CONSUMER_SCHEMA_FOUND, false);
+        assertTrue(mFactory.isEnabled());
+        assertFalse(mBuilder.isEligible());
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures({ChromeFeatureList.AUXILIARY_SEARCH_HISTORY_DONATION})
+    public void testCreateInputContext_BrowsingDataDonation() {
+        when(mHooks.isBrowsingDataDonationSupported()).thenReturn(true);
         InputContext inputContext = mBuilder.createInputContext();
         assertEquals(1f, inputContext.getEntryValue("auxiliary_search_available").floatValue, 0.01);
     }

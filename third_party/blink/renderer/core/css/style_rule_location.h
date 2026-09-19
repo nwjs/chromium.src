@@ -6,6 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_STYLE_RULE_LOCATION_H_
 
 #include "third_party/blink/renderer/core/css/style_rule.h"
+#include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 
 namespace blink {
 
@@ -17,17 +18,26 @@ class Document;
 // https://drafts.csswg.org/css-navigation-1/#at-location
 class CORE_EXPORT StyleRuleLocation : public StyleRuleBase {
  public:
-  StyleRuleLocation(const String& name, CSSPropertyValueSet*);
-  StyleRuleLocation(const StyleRuleLocation&);
+  StyleRuleLocation(const AtomicString& name, CSSPropertyValueSet*);
+  StyleRuleLocation(const StyleRuleLocation&) = default;
 
   void TraceAfterDispatch(Visitor*) const;
 
-  const String& GetName() const { return name_; }
+  const AtomicString& GetName() const { return name_; }
+
+  const CSSURLPatternValue* GetPattern() const { return pattern_.Get(); }
+  const CSSStringValue* GetProtocol() const { return protocol_.Get(); }
+  const CSSStringValue* GetHostname() const { return hostname_.Get(); }
+  const CSSStringValue* GetPort() const { return port_.Get(); }
+  const CSSStringValue* GetPathname() const { return pathname_.Get(); }
+  const CSSStringValue* GetSearch() const { return search_.Get(); }
+  const CSSStringValue* GetHash() const { return hash_.Get(); }
+  const CSSStringValue* GetBaseUrl() const { return base_url_.Get(); }
 
   void CreateRouteIfNeeded(Document*) const;
 
  private:
-  String name_;
+  AtomicString name_;
 
   Member<const CSSURLPatternValue> pattern_;
   Member<const CSSStringValue> protocol_;

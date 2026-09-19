@@ -8,6 +8,7 @@
 #include <concepts>
 #include <cstdint>
 #include <iosfwd>
+#include <optional>
 
 #include "base/base_export.h"
 #include "base/numerics/checked_math.h"
@@ -561,43 +562,14 @@ constexpr ByteSizeDelta EiBS(T eib) {
                                              1024.0 * 1024.0 * 1024.0));
 }
 
-// Deprecated aliases for unsigned KiB()/MiB(), etc.
-// TODO(crbug.com/448661443): Remove all uses of these.
-
-template <typename T>
-constexpr ByteSize KiBU(T kib) {
-  return KiB(kib);
-}
-
-template <typename T>
-constexpr ByteSize MiBU(T mib) {
-  return MiB(mib);
-}
-
-template <typename T>
-constexpr ByteSize GiBU(T gib) {
-  return GiB(gib);
-}
-
-template <typename T>
-constexpr ByteSize TiBU(T tib) {
-  return TiB(tib);
-}
-
-template <typename T>
-constexpr ByteSize PiBU(T pib) {
-  return PiB(pib);
-}
-
-template <typename T>
-constexpr ByteSize EiBU(T eib) {
-  return EiB(eib);
-}
-
 // Stream operators for logging and testing.
 
 BASE_EXPORT std::ostream& operator<<(std::ostream& os, ByteSize size);
 BASE_EXPORT std::ostream& operator<<(std::ostream& os, ByteSizeDelta delta);
+BASE_EXPORT std::ostream& operator<<(std::ostream& os,
+                                     std::optional<ByteSize> size);
+BASE_EXPORT std::ostream& operator<<(std::ostream& os,
+                                     std::optional<ByteSizeDelta> delta);
 
 // Implementation.
 

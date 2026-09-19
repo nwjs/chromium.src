@@ -48,6 +48,7 @@ Nếu đã chọn '<ph name="SERVICE_SCRIPT_NAME" />', hãy bỏ chọn rồi ch
 <translation id="3197730452537982411">Máy tính từ xa</translation>
 <translation id="3236334139428307578">Bản quyền 2026 The Chromium Authors. Bảo lưu mọi quyền.</translation>
 <translation id="324272851072175193">Gửi những hướng dẫn này qua email</translation>
+<translation id="3254626532848657899">Chuyển xuống dưới cùng</translation>
 <translation id="3305934114213025800"><ph name="PRODUCT_NAME" /> muốn thực hiện thay đổi.</translation>
 <translation id="3339299787263251426">Truy cập máy tính của bạn qua Internet một cách an toàn</translation>
 <translation id="3385242214819933234">Chủ sở hữu máy chủ không hợp lệ.</translation>
@@ -166,6 +167,7 @@ Nếu đã chọn '<ph name="SERVICE_SCRIPT_NAME" />', hãy bỏ chọn rồi ch
 <translation id="8073845705237259513">Để sử dụng Chrome Remote Desktop, bạn cần thêm một tài khoản Google cho thiết bị của mình.</translation>
 <translation id="809687642899217504">Máy tính của tôi</translation>
 <translation id="8116630183974937060">Đã xảy ra lỗi mạng. Hãy kiểm tra xem thiết bị của bạn có trực tuyến hay không và thử lại.</translation>
+<translation id="8249310407154411074">Chuyển lên trên cùng</translation>
 <translation id="8295077433896346116">Để sử dụng <ph name="PRODUCT_NAME" />, bạn cần cấp quyền 'Hỗ trợ tiếp cận' để máy Mac này có thể nhận nội dung từ máy từ xa.
 
 Để cấp quyền này, hãy nhấp vào nút '<ph name="BUTTON_NAME" />' bên dưới để mở ngăn tùy chọn 'Hỗ trợ tiếp cận' rồi đánh dấu vào hộp bên cạnh '<ph name="SERVICE_SCRIPT_NAME" />'.

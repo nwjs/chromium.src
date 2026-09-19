@@ -71,12 +71,10 @@ import java.util.List;
 
 /** Unit tests for {@link TabbedCrashRecoveryDelegate}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE, sdk = 30)
+@Config(sdk = 30)
 @EnableFeatures(ChromeFeatureList.SESSION_RESTORE_AFTER_CRASH)
 public class TabbedCrashRecoveryDelegateUnitTest {
     private static final int HOST_WINDOW_ID = 0;
-    private static final int TEST_WINDOW_WIDTH = 800;
-    private static final int TEST_WINDOW_HEIGHT = 600;
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 

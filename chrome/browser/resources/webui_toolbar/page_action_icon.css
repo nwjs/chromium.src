@@ -5,7 +5,9 @@
 /* #css_wrapper_metadata_start
  * #type=style-lit
  * #import=/shared/webui_toolbar_shared_vars.css.js
+ * #import=/shared/help_bubble_anchor.css.js
  * #scheme=relative
+ * #include=help-bubble-anchor
  * #css_wrapper_metadata_end */
 
 :host {
@@ -22,8 +24,6 @@
  * on :host, because toolbar-chip-button's own :host block defines default
  * values that would override any values inherited from page-action-icon. */
 #button {
-  /* TODO(crbug.com/501449027): Add a different background color when expanded
-   * as a chip to match C++ views (e.g. for PWA install icons). */
   --toolbar-chip-height: calc(
       var(--location-bar-trailing-icon-size) +
       var(--location-bar-page-action-icon-padding-top) +
@@ -40,6 +40,10 @@
   --toolbar-chip-icon-label-gap:
       calc(var(--location-bar-child-internal-spacing) + 4px);
   --toolbar-chip-expand-duration: var(--chip-slide-duration);
+}
+
+#button[has-label] {
+  --toolbar-chip-bg-color: var(--color-omnibox-icon-background-tonal);
 }
 
 #text {

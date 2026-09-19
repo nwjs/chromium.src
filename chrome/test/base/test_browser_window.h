@@ -13,7 +13,6 @@
 #include "base/scoped_observation.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/autofill/test/test_autofill_bubble_handler.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -27,9 +26,10 @@
 #include "ui/base/mojom/window_show_state.mojom-forward.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/apps/link_capturing/intent_picker_info.h"
+#include "components/apps/link_capturing/intent_picker_info.h"
 #endif  //  !BUILDFLAG(IS_ANDROID)
 
+class Browser;
 class LocationBarTesting;
 class GlobalBrowserCollection;
 class OmniboxView;
@@ -299,7 +299,7 @@ class TestBrowserWindow : public BrowserWindow,
 };
 
 // Helper that handle the lifetime of TestBrowserWindow instances.
-std::unique_ptr<Browser> CreateBrowserWithTestWindowForParams(
+std::unique_ptr<BrowserWindowInterface> CreateBrowserWithTestWindowForParams(
     BrowserWindowCreateParams params);
 
 #endif  // CHROME_TEST_BASE_TEST_BROWSER_WINDOW_H_

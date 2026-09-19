@@ -17,7 +17,6 @@
 #include "base/task/current_thread.h"
 #include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
-#include "mojo/core/embedder/embedder.h"
 #include "mojo/core/ipcz_api.h"
 #include "mojo/core/ipcz_driver/driver.h"
 #include "mojo/core/ipcz_driver/transport.h"
@@ -126,7 +125,6 @@ thread_local ThreadLocalNode* g_thread_local_node;
 }  // namespace
 
 ThreadLocalNode::ThreadLocalNode(base::PassKey<ThreadLocalNode>) {
-  CHECK(IsDirectReceiverSupported());
   CHECK(!g_thread_local_node);
   g_thread_local_node = this;
 
@@ -364,10 +362,6 @@ void ThreadLocalNode::OnTransferredPortalAvailable() {
 
 namespace mojo {
 
-bool IsDirectReceiverSupported() {
-  return core::IsMojoIpczEnabled();
-}
-
 bool IsAsyncIOSupported() {
   if (!base::CurrentThread::IsSet()) {
     return false;
@@ -381,9 +375,7 @@ bool IsAsyncIOSupported() {
 void CreateDirectReceiverTransportBeforeSandbox() {
   CHECK(!internal::g_use_precreated_transport);
   internal::g_use_precreated_transport = true;
-  if (IsDirectReceiverSupported()) {
-    internal::TransportPairStorage::Get().CreateTransportPairBeforeSandbox();
-  }
+  internal::TransportPairStorage::Get().CreateTransportPairBeforeSandbox();
 }
 
 #endif  // BUILDFLAG(IS_WIN)

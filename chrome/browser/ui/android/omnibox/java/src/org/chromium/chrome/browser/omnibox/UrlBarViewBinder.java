@@ -40,6 +40,8 @@ class UrlBarViewBinder {
             view.setCustomSelectionActionModeCallback(callback);
         } else if (UrlBarProperties.ALLOW_FOCUS.equals(propertyKey)) {
             view.setAllowFocus(model.get(UrlBarProperties.ALLOW_FOCUS));
+        } else if (UrlBarProperties.ALLOW_MULTILINE_INPUT.equals(propertyKey)) {
+            view.setAllowMultilineInput(model.get(UrlBarProperties.ALLOW_MULTILINE_INPUT));
         } else if (UrlBarProperties.AUTOCOMPLETE_TEXT.equals(propertyKey)) {
             AutocompleteText autocomplete = model.get(UrlBarProperties.AUTOCOMPLETE_TEXT);
             boolean shouldAutocomplete = view.shouldAutocomplete();
@@ -183,7 +185,7 @@ class UrlBarViewBinder {
         textSelectHandleRight.mutate().setTint(color);
     }
 
-    private static @Nullable String getHintForModelState(PropertyModel model) {
+    private static @Nullable CharSequence getHintForModelState(PropertyModel model) {
         // Android TextView's set a desired size based on the max of the hint text size and the
         // "regular" size. In small text mode, where we don't intend to show the hint, we set it to
         // null to avoid over-allocating space for text that will never be shown.

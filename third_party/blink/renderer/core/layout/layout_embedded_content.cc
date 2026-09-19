@@ -55,12 +55,12 @@ LayoutEmbeddedContent::LayoutEmbeddedContent(HTMLFrameOwnerElement* element)
   SetInline(false);
 }
 
-void LayoutEmbeddedContent::WillBeDestroyed() {
+void LayoutEmbeddedContent::WillBeDestroyed(const ComputedStyle* style) {
   NOT_DESTROYED();
   if (auto* frame_owner = GetFrameOwnerElement())
     frame_owner->SetEmbeddedContentView(nullptr);
 
-  LayoutReplaced::WillBeDestroyed();
+  LayoutReplaced::WillBeDestroyed(style);
 
   ClearNode();
 }
@@ -143,6 +143,12 @@ gfx::PointF LayoutEmbeddedContent::EmbeddedContentFromBorderBox(
     const gfx::PointF& point) const {
   NOT_DESTROYED();
   return EmbeddedContentTransform().Inverse().MapPoint(point);
+}
+
+gfx::Rect LayoutEmbeddedContent::EmbeddedContentFromBorderBox(
+    const gfx::Rect& rect) const {
+  NOT_DESTROYED();
+  return EmbeddedContentTransform().Inverse().MapRect(rect);
 }
 
 PhysicalOffset LayoutEmbeddedContent::BorderBoxFromEmbeddedContent(
@@ -427,6 +433,13 @@ void LayoutEmbeddedContent::UpdateOnEmbeddedContentViewChange() {
 void LayoutEmbeddedContent::UpdateGeometry(
     EmbeddedContentView& embedded_content_view) {
   NOT_DESTROYED();
+  if (RuntimeEnabledFeatures::AvoidEmbeddedContentViewLocationEnabled()) {
+    embedded_content_view.SetNeedsFrameRectPropagation();
+    embedded_content_view.SetFrameRect(
+        gfx::Rect(ToCeiledSize(ReplacedContentRect().size)));
+    return;
+  }
+
   // TODO(wangxianzhu): We reset subpixel accumulation at some boundaries, so
   // the following code is incorrect when some ancestors are such boundaries.
   // What about multicol? Need a LayoutBox function to query sub-pixel

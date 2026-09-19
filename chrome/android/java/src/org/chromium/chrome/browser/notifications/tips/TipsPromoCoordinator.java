@@ -55,7 +55,6 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
-import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.LocalizationUtils;
@@ -177,10 +176,9 @@ public class TipsPromoCoordinator {
                 PropertyModelChangeProcessor.create(
                         mPropertyModel, mContentView, TipsPromoViewBinder::bind);
 
-        mViewFlipperView =
-                (ViewFlipper) mContentView.findViewById(R.id.tips_promo_bottom_sheet_view_flipper);
+        mViewFlipperView = mContentView.findViewById(R.id.tips_promo_bottom_sheet_view_flipper);
         mPropertyModel.addObserver(
-                (source, propertyKey) -> {
+                (_, propertyKey) -> {
                     if (TipsPromoProperties.CURRENT_SCREEN == propertyKey) {
                         mViewFlipperView.setDisplayedChild(
                                 mPropertyModel.get(TipsPromoProperties.CURRENT_SCREEN));
@@ -221,14 +219,14 @@ public class TipsPromoCoordinator {
         // MAIN_SCREEN from the DETAIL_SCREEN as the only final destination.
         mPropertyModel.set(
                 TipsPromoProperties.BACK_BUTTON_CLICK_LISTENER,
-                (view) -> {
+                _ -> {
                     mPropertyModel.set(TipsPromoProperties.CURRENT_SCREEN, ScreenType.MAIN_SCREEN);
                     recordFeatureTipPromoEventType(
                             featureType, FeatureTipPromoEventType.DETAIL_PAGE_BACK_BUTTON);
                 });
         mPropertyModel.set(
                 TipsPromoProperties.DETAILS_BUTTON_CLICK_LISTENER,
-                (view) -> {
+                _ -> {
                     mPropertyModel.set(
                             TipsPromoProperties.CURRENT_SCREEN, ScreenType.DETAIL_SCREEN);
                     recordFeatureTipPromoEventType(
@@ -236,7 +234,7 @@ public class TipsPromoCoordinator {
                 });
         mPropertyModel.set(
                 TipsPromoProperties.SETTINGS_BUTTON_CLICK_LISTENER,
-                (view) -> {
+                _ -> {
                     mBottomSheetController.hideContent(mSheetContent, /* animate= */ true);
                     performFeatureAction(featureType);
                     recordFeatureTipPromoEventType(featureType, FeatureTipPromoEventType.ACCEPTED);
@@ -244,8 +242,7 @@ public class TipsPromoCoordinator {
     }
 
     private void setupDetailPageSteps(List<String> steps) {
-        LinearLayout stepsContainer =
-                (LinearLayout) mContentView.findViewById(R.id.steps_container);
+        LinearLayout stepsContainer = mContentView.findViewById(R.id.steps_container);
         stepsContainer.removeAllViews();
         for (int i = 0; i < steps.size(); i++) {
             View stepView =
@@ -451,16 +448,14 @@ public class TipsPromoCoordinator {
             mScrollView = mContentView.findViewById(R.id.main_page_scrollview);
 
             mBottomSheetOpenedObserver =
-                    new EmptyBottomSheetObserver() {
+                    new BottomSheetObserver() {
                         @Override
                         public void onSheetOpened(@StateChangeReason int reason) {
-                            super.onSheetOpened(reason);
                             mBackPressStateChangedSupplier.set(true);
                         }
 
                         @Override
                         public void onSheetClosed(@StateChangeReason int reason) {
-                            super.onSheetClosed(reason);
                             mBackPressStateChangedSupplier.set(false);
                             mBottomSheetController.removeObserver(mBottomSheetOpenedObserver);
 

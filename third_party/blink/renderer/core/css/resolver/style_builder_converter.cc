@@ -2290,7 +2290,7 @@ ScopedCSSName* StyleBuilderConverter::ConvertCustomIdent(
   state.SetHasTreeScopedReference();
   return MakeGarbageCollected<ScopedCSSName>(
       ConvertCustomIdentUnscoped(state, value),
-      To<CSSCustomIdentValue>(value).GetTreeScope());
+      To<CSSCustomIdentValue>(value).GetPopulatedTreeScope());
 }
 
 AtomicString StyleBuilderConverter::ConvertNoneOrCustomIdentUnscoped(
@@ -2372,7 +2372,7 @@ StyleNameScope StyleBuilderConverter::ConvertNameScope(
     CHECK_EQ(scoped_keyword_value->GetValueID(), CSSValueID::kAll);
     state.SetHasTreeScopedReference();
     return StyleNameScope(StyleNameScope::Type::kAll,
-                          scoped_keyword_value->GetTreeScope(),
+                          scoped_keyword_value->GetPopulatedTreeScope(),
                           /* names */ nullptr);
   }
   if (const auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
@@ -2615,17 +2615,13 @@ template <typename T>
 GapDataList<T> ConvertGapDecorationDataList(const StyleResolverState& state,
                                             const CSSValue& value,
                                             bool for_visited_link = false) {
-  // The `value` will not be a list in two scenarios:
-  // 1. When using the legacy 'column-rule-*' properties.
-  // 2. When the fast parse path is taken (see
-  // CSSParserFastPaths::MaybeParseValue). In these cases, construct a
-  // GapDataList with a single Value.
+  // Single CSSValue inputs remain possible for compatibility and when the fast
+  // parse path is taken (see CSSParserFastPaths::MaybeParseValue). In these
+  // cases, construct a GapDataList with a single value.
   if (!IsA<CSSValueList>(value)) {
     return GapDataList<T>(
         ConvertGapDecorationPropertyValue<T>(state, value, for_visited_link));
   }
-  CHECK(RuntimeEnabledFeatures::CSSGapDecorationEnabled());
-
   // The CSS Gap Decorations API accepts a space separated list of values.
   // These values can be an auto repeater, an integer repeater, or a single
   // value.
@@ -3824,20 +3820,14 @@ ScrollbarGutter StyleBuilderConverter::ConvertScrollbarGutter(
   return flags;
 }
 
-ScopedCSSNameList* StyleBuilderConverter::ConvertContainerName(
+Vector<AtomicString> StyleBuilderConverter::ConvertContainerName(
     StyleResolverState& state,
     const CSSValue& value) {
-  DCHECK(value.IsScopedValue());
-  if (IsA<CSSIdentifierValue>(value)) {
-    DCHECK_EQ(To<CSSIdentifierValue>(value).GetValueID(), CSSValueID::kNone);
-    return nullptr;
+  if (const auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
+    DCHECK_EQ(identifier_value->GetValueID(), CSSValueID::kNone);
+    return Vector<AtomicString>();
   }
-  DCHECK(value.IsBaseValueList());
-  HeapVector<Member<const ScopedCSSName>> names;
-  for (const Member<const CSSValue>& item : To<CSSValueList>(value)) {
-    names.push_back(ConvertNoneOrCustomIdent(state, *item));
-  }
-  return MakeGarbageCollected<ScopedCSSNameList>(std::move(names));
+  return ConvertNoneOrCustomIdentListUnscoped(state, value);
 }
 
 StyleIntrinsicLength StyleBuilderConverter::ConvertIntrinsicDimension(

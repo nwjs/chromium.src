@@ -11,8 +11,8 @@
 #include "components/autofill/core/browser/form_structure_test_api.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics_test_base.h"
 #include "components/autofill/core/browser/metrics/payments/bnpl_metrics.h"
-#include "components/autofill/core/browser/metrics/ukm_metrics_test_utils.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/metrics/ukm_metrics_test_util.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -142,7 +142,7 @@ TEST_F(CreditCardFormEventLoggerTest,
   autofill_manager().AddSeenForm(form, field_types);
 
   autofill_manager().GetCreditCardFormEventLogger().OnBnplSuggestionShown(
-      /*suggestion_contains_pay_later_tab_entry=*/false);
+      /*pay_later_tab_shown=*/false);
   autofill_manager().GetCreditCardFormEventLogger().OnUserDecisionToUseBnpl({});
 
   {
@@ -489,7 +489,7 @@ TEST_F(CreditCardFormEventLoggerTest,
   base::HistogramTester histogram_tester;
 
   autofill_manager().GetCreditCardFormEventLogger().OnBnplSuggestionShown(
-      /*suggestion_contains_pay_later_tab_entry=*/false);
+      /*pay_later_tab_shown=*/false);
   histogram_tester.ExpectUniqueSample(
       "Autofill.FormEvents.CreditCard.Bnpl",
       /*sample=*/autofill_metrics::BnplFormEvent::kBnplSuggestionShown,
@@ -498,7 +498,7 @@ TEST_F(CreditCardFormEventLoggerTest,
   // Test that `kBnplSuggestionShown` is logged only once even if
   // `OnBnplSuggestionShown()` is called more than once on the same page.
   autofill_manager().GetCreditCardFormEventLogger().OnBnplSuggestionShown(
-      /*suggestion_contains_pay_later_tab_entry=*/false);
+      /*pay_later_tab_shown=*/false);
   histogram_tester.ExpectUniqueSample(
       "Autofill.FormEvents.CreditCard.Bnpl",
       /*sample=*/autofill_metrics::BnplFormEvent::kBnplSuggestionShown,
@@ -513,7 +513,7 @@ TEST_F(CreditCardFormEventLoggerTest,
   autofill_manager().AddSeenForm(form, field_types);
 
   autofill_manager().GetCreditCardFormEventLogger().OnBnplSuggestionShown(
-      /*suggestion_contains_pay_later_tab_entry=*/false);
+      /*pay_later_tab_shown=*/false);
 
   using Ukm = UkmBnplSuggestionShownType;
   EXPECT_THAT(GetUkmEvents(test_ukm_recorder(), Ukm::kEntryName),

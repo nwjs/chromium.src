@@ -284,13 +284,13 @@ void VideoEncodeAccelerator::RequestEncodingParametersChange(
 size_t VideoEncodeAccelerator::EstimateBitstreamBufferSize(
     const Bitrate& bitrate,
     uint32_t framerate,
+    VideoPixelFormat input_format,
     const gfx::Size& coded_size) {
   // Calculate how much data the frame takes without encoding.
   // Adding 2KB just in case the frame is really small, we don't want to
   // end up with no space for a video codec's headers.
-  // This is about 1.3Mb for 1280x720 frames.
-  size_t raw_frame_size =
-      VideoFrame::AllocationSize(PIXEL_FORMAT_I420, coded_size) + 2048;
+  const size_t raw_frame_size =
+      VideoFrame::AllocationSize(input_format, coded_size) + 2048;
 
   // Estimate the expected size of an encoded chunk based on bitrate and
   // framerate. This is capped at 30Mb, i.e. 50 Mbps at 1fps.
@@ -324,7 +324,8 @@ bool operator==(const VideoEncodeAccelerator::SupportedProfile& l,
          l.max_framerate_denominator == r.max_framerate_denominator &&
          l.rate_control_modes == r.rate_control_modes &&
          l.scalability_modes == r.scalability_modes &&
-         l.is_software_codec == r.is_software_codec;
+         l.is_software_codec == r.is_software_codec &&
+         l.chroma_sampling == r.chroma_sampling && l.bit_depth == r.bit_depth;
 }
 
 bool operator==(const H264Metadata& l, const H264Metadata& r) {

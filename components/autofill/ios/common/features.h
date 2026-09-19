@@ -14,10 +14,6 @@
 // content.
 BASE_DECLARE_FEATURE(kAutofillAllowDefaultPreventedSubmission);
 
-// Enables correctly setting the is_user_edited_deprecated bit in the parsed
-// form fields instead of using true by default.
-BASE_DECLARE_FEATURE(kAutofillCorrectUserEditedBitInParsedField);
-
 // Record form submissions events that are detected in the renderer before they
 // are processed. Act as a killswitch where the feature is enabled by default.
 BASE_DECLARE_FEATURE(kAutofillCountFormSubmissionInRenderer);
@@ -75,6 +71,9 @@ BASE_DECLARE_FEATURE(kAutofillReportFormSubmissionErrors);
 // badge. The badge may remain there after the infobar UI is dismissed from
 // timeout but will be dismissed once navigating from an explicit user gesture.
 BASE_DECLARE_FEATURE(kAutofillStickyInfobarIos);
+
+// Enables support for contenteditable elements in Autofill on iOS.
+BASE_DECLARE_FEATURE(kAutofillSupportContentEditableIos);
 
 // Enables support for <input type="date"> fields in Autofill.
 BASE_DECLARE_FEATURE_WITH_COUNTRY_RESTRICTIONS(kAutofillSupportDateInput);

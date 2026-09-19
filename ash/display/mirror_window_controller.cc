@@ -29,7 +29,7 @@
 #include "ui/aura/window_tree_host.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/compositor/compositor.h"
-#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_surface.h"
 #include "ui/display/display_layout.h"
 #include "ui/display/display_transform.h"
 #include "ui/display/manager/display_manager.h"
@@ -359,6 +359,7 @@ void MirrorWindowController::CloseIfNotNecessary() {
 }
 
 void MirrorWindowController::Close(bool delay_host_deletion) {
+  current_event_targeter_src_host_ = nullptr;
   for (auto& info : mirroring_host_info_map_)
     CloseAndDeleteHost(info.second, delay_host_deletion);
   mirroring_host_info_map_.clear();

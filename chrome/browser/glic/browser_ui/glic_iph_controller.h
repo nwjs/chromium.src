@@ -5,10 +5,13 @@
 #ifndef CHROME_BROWSER_GLIC_BROWSER_UI_GLIC_IPH_CONTROLLER_H_
 #define CHROME_BROWSER_GLIC_BROWSER_UI_GLIC_IPH_CONTROLLER_H_
 
+#include "base/memory/raw_ref.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "components/user_education/common/feature_promo/feature_promo_result.h"
+#include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
+
+class BrowserWindowInterface;
 
 namespace glic {
 
@@ -33,9 +36,15 @@ namespace glic {
 // suffices.
 class GlicIphController {
  public:
+  DECLARE_USER_DATA(GlicIphController);
+
   GlicIphController(BrowserWindowInterface* browser_window,
                     GlicKeyedService& glic_service);
   ~GlicIphController();
+
+  // Returns the controller for `browser_window`, or null if it does not have
+  // one (e.g. the profile is not eligible for glic).
+  static GlicIphController* From(BrowserWindowInterface* browser_window);
 
   void MaybeShowPromoForTest() { MaybeShowPromo(); }
 
@@ -54,6 +63,8 @@ class GlicIphController {
   // Limit how often we check to see if a promo can be shown; this prevents
   // hammering the feature promo system constantly.
   base::RepeatingTimer show_timer_;
+
+  ui::ScopedUnownedUserData<GlicIphController> scoped_unowned_user_data_;
 
   base::WeakPtrFactory<GlicIphController> weak_ptr_factory_{this};
 };

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ui/views/site_data/page_specific_site_data_dialog.h"
+
 #include <string>
 
 #include "base/functional/callback_helpers.h"
@@ -14,18 +16,17 @@
 #include "chrome/browser/preloading/scoped_prewarm_feature_list.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/app_menu_button.h"
 #include "chrome/browser/ui/views/page_info/page_info_cookies_content_view.h"
 #include "chrome/browser/ui/views/page_info/page_info_main_view.h"
 #include "chrome/browser/ui/views/page_info/page_info_view_factory.h"
-#include "chrome/browser/ui/views/site_data/page_specific_site_data_dialog.h"
 #include "chrome/browser/ui/views/site_data/page_specific_site_data_dialog_controller.h"
 #include "chrome/browser/ui/views/site_data/related_app_row_view.h"
 #include "chrome/browser/ui/views/site_data/site_data_row_view.h"
@@ -253,7 +254,7 @@ class PageSpecificSiteDataDialogInteractiveUiTest
 IN_PROC_BROWSER_TEST_F(PageSpecificSiteDataDialogInteractiveUiTest,
                        FirstPartyAllowed) {
   CookieChangeObserver observer(
-      browser()->tab_strip_model()->GetActiveWebContents(), 6);
+      browser()->GetTabStripModel()->GetActiveWebContents(), 6);
   RunTestSequence(
       NavigateAndOpenDialog(kPageSpecificSiteDataDialogFirstPartySection,
                             &observer),
@@ -290,7 +291,7 @@ IN_PROC_BROWSER_TEST_F(PageSpecificSiteDataDialogInteractiveUiTest,
 IN_PROC_BROWSER_TEST_F(PageSpecificSiteDataDialogInteractiveUiTest,
                        ThirdPartyBlocked) {
   CookieChangeObserver observer(
-      browser()->tab_strip_model()->GetActiveWebContents(), 6);
+      browser()->GetTabStripModel()->GetActiveWebContents(), 6);
   RunTestSequence(
       NavigateAndOpenDialog(kPageSpecificSiteDataDialogThirdPartySection,
                             &observer),
@@ -325,7 +326,7 @@ IN_PROC_BROWSER_TEST_F(PageSpecificSiteDataDialogInteractiveUiTest,
 IN_PROC_BROWSER_TEST_F(PageSpecificSiteDataDialogInteractiveUiTest,
                        OnlyPartitionedBlockedThirdPartyCookies) {
   CookieChangeObserver observer(
-      browser()->tab_strip_model()->GetActiveWebContents(), 6);
+      browser()->GetTabStripModel()->GetActiveWebContents(), 6);
   RunTestSequence(
       NavigateAndOpenDialog(kPageSpecificSiteDataDialogThirdPartySection,
                             &observer),
@@ -356,7 +357,7 @@ IN_PROC_BROWSER_TEST_F(PageSpecificSiteDataDialogInteractiveUiTest,
 IN_PROC_BROWSER_TEST_F(PageSpecificSiteDataDialogInteractiveUiTest,
                        MixedPartitionedBlockedThirdPartyCookies) {
   CookieChangeObserver observer(
-      browser()->tab_strip_model()->GetActiveWebContents(), 6);
+      browser()->GetTabStripModel()->GetActiveWebContents(), 6);
   RunTestSequence(
       NavigateAndOpenDialog(kPageSpecificSiteDataDialogThirdPartySection,
                             &observer),
@@ -476,7 +477,7 @@ IN_PROC_BROWSER_TEST_F(
     RelatedApplicationsSectionInBrowserTab) {
   // Unrelated to the RelatedApplications tests, but needed to avoid crashing.
   CookieChangeObserver observer(
-      browser()->tab_strip_model()->GetActiveWebContents(), 6);
+      browser()->GetTabStripModel()->GetActiveWebContents(), 6);
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Make sure the system web apps are installed since the app management page
@@ -517,7 +518,7 @@ IN_PROC_BROWSER_TEST_F(
     RelatedApplicationsSectionInAppWindow) {
   // Unrelated to the RelatedApplications tests, but needed to avoid crashing.
   CookieChangeObserver observer(
-      browser()->tab_strip_model()->GetActiveWebContents(), 6);
+      browser()->GetTabStripModel()->GetActiveWebContents(), 6);
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Make sure the system web apps are installed since the app management page
@@ -530,7 +531,7 @@ IN_PROC_BROWSER_TEST_F(
   auto app_id = web_app::test::InstallDummyWebApp(
       browser()->GetProfile(), GetDummyAppName(), GetDummyAppUrl());
 
-  Browser* app_browser =
+  BrowserWindowInterface* app_browser =
       web_app::LaunchWebAppBrowserAndWait(browser()->GetProfile(), app_id);
 
   // Helper for the test sequence.

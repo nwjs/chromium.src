@@ -349,7 +349,12 @@ const gfx::VectorIcon& GetMechanismIcon(
       absl::Overload{
           [ui_presentation](const Mechanism::Credential& credential)
               -> const gfx::VectorIcon& {
-            if (ui_presentation == UIPresentation::kModalImmediate) {
+            const bool show_modal_provider_icons =
+                ui_presentation == UIPresentation::kModalImmediate ||
+                (ui_presentation == UIPresentation::kModal &&
+                 base::FeatureList::IsEnabled(
+                     device::kWebAuthnModalProviderIcons));
+            if (show_modal_provider_icons) {
               switch (credential.value().source) {
                 case AuthenticatorType::kICloudKeychain:
                   return kIcloudKeychainColorCustomIcon;
@@ -363,7 +368,7 @@ const gfx::VectorIcon& GetMechanismIcon(
                   break;
               }
             }
-            // Default icon for non-immediate mode or other credential sources.
+            // Default icon for non-modal mode or other credential sources.
             return GetCredentialIcon(credential.value().source);
           },
           [](const Mechanism::Password&) -> const gfx::VectorIcon& {
@@ -1055,14 +1060,6 @@ void AuthenticatorRequestDialogController::
 
 void AuthenticatorRequestDialogController::OnCableEvent(
     device::cablev2::Event event) {
-  // Ignore background hybrid connection events if we are still showing the
-  // Autofill suggestion popup (conditional UI). We do not want to trigger any
-  // modal WebAuthn UI transitions in the background before the user selects an
-  // option.
-  if (model_->step() == Step::kPasskeyAutofill ||
-      model_->step() == Step::kNotStarted) {
-    return;
-  }
   switch (event) {
     case device::cablev2::Event::kPhoneConnected:
     case device::cablev2::Event::kBLEAdvertReceived:
@@ -2397,7 +2394,7 @@ void AuthenticatorRequestDialogController::PopulatePasswords() {
             &AuthenticatorRequestDialogModel::OnPasswordCredentialSelected,
             base::Unretained(model_.get()),
             std::make_pair(password->username_value,
-                           password->password_value)));
+                           password->password_value.value())));
     mechanism.description = l10n_util::GetStringUTF16(
         IDS_PASSWORD_MANAGER_PASSWORD_FROM_GOOGLE_PASSWORD_MANAGER);
 

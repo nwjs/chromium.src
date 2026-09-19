@@ -2,11 +2,29 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 import("//build/config/android/rules.gni")
+import("//testing/test.gni")
 import("//third_party/jni_zero/jni_zero.gni")
 
-# All targets in this file are meant as compile tests only to make sure the
-# generated code compiles for all edgecases.
+# Most targets in this file are compile tests only, to make sure the generated
+# code compiles for all edgecases. jni_zero_unittests contains runnable tests.
 testonly = true
+
+# Runnable C++ tests. Built both as a standalone binary and as part of
+# base_unittests so that CQ bots cover them.
+source_set("jni_zero_unittests_sources") {
+  sources = [ "jni_unique_ptr_unittest.cc" ]
+  deps = [
+    "//testing/gtest",
+    "//third_party/jni_zero",
+  ]
+}
+
+test("jni_zero_unittests") {
+  deps = [
+    ":jni_zero_unittests_sources",
+    "//testing/gtest:gtest_main",
+  ]
+}
 
 generate_jni("test_jni") {
   sources = [

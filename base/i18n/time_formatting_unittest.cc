@@ -6,7 +6,9 @@
 
 #include <memory>
 
+#include "base/i18n/language_tag.h"
 #include "base/i18n/rtl.h"
+#include "base/i18n/test/scoped_icu_locale.h"
 #include "base/i18n/timezone.h"
 #include "base/i18n/unicodestring.h"
 #include "base/strings/utf_string_conversions.h"
@@ -86,8 +88,8 @@ std::u16string TimeDurationCompactFormatWithSecondsString(
 TEST(TimeFormattingTest, TimeFormatTimeOfDayDefault12h) {
   // Test for a locale defaulted to 12h clock.
   // As an instance, we use third_party/icu/source/data/locales/en.txt.
-  test::ScopedRestoreICUDefaultLocale restore_locale;
-  i18n::SetICUDefaultLocale("en_US");
+  i18n::ScopedDefaultIcuLocale restore_locale(
+      i18n::GetKnownLanguageTag("en-US"));
   test::ScopedRestoreDefaultTimezone la_time("America/Los_Angeles");
 
   Time time;
@@ -116,8 +118,8 @@ TEST(TimeFormattingTest, TimeFormatTimeOfDayDefault12h) {
 TEST(TimeFormattingTest, TimeFormatTimeOfDayDefault24h) {
   // Test for a locale defaulted to 24h clock.
   // As an instance, we use third_party/icu/source/data/locales/en_GB.txt.
-  test::ScopedRestoreICUDefaultLocale restore_locale;
-  i18n::SetICUDefaultLocale("en_GB");
+  i18n::ScopedDefaultIcuLocale restore_locale(
+      i18n::GetKnownLanguageTag("en-GB"));
   test::ScopedRestoreDefaultTimezone la_time("America/Los_Angeles");
 
   Time time;
@@ -146,8 +148,8 @@ TEST(TimeFormattingTest, TimeFormatTimeOfDayDefault24h) {
 TEST(TimeFormattingTest, TimeFormatTimeOfDayJP) {
   // Test for a locale that uses different mark than "AM" and "PM".
   // As an instance, we use third_party/icu/source/data/locales/ja.txt.
-  test::ScopedRestoreICUDefaultLocale restore_locale;
-  i18n::SetICUDefaultLocale("ja_JP");
+  i18n::ScopedDefaultIcuLocale restore_locale(
+      i18n::GetKnownLanguageTag("ja-JP"));
   test::ScopedRestoreDefaultTimezone la_time("America/Los_Angeles");
 
   Time time;
@@ -173,8 +175,7 @@ TEST(TimeFormattingTest, TimeFormatTimeOfDayJP) {
 
 TEST(TimeFormattingTest, TimeFormatTimeOfDayDE) {
   // German uses 24h by default, but uses 'AM', 'PM' for 12h format.
-  test::ScopedRestoreICUDefaultLocale restore_locale;
-  i18n::SetICUDefaultLocale("de");
+  i18n::ScopedDefaultIcuLocale restore_locale(i18n::GetKnownLanguageTag("de"));
   test::ScopedRestoreDefaultTimezone la_time("America/Los_Angeles");
 
   Time time;
@@ -202,8 +203,8 @@ TEST(TimeFormattingTest, TimeFormatTimeOfDayDE) {
 TEST(TimeFormattingTest, TimeMonthYearInUTC) {
   // See third_party/icu/source/data/locales/en.txt.
   // The date patterns are "EEEE, MMMM d, y", "MMM d, y", and "M/d/yy".
-  test::ScopedRestoreICUDefaultLocale restore_locale;
-  i18n::SetICUDefaultLocale("en_US");
+  i18n::ScopedDefaultIcuLocale restore_locale(
+      i18n::GetKnownLanguageTag("en-US"));
   test::ScopedRestoreDefaultTimezone la_time("America/Los_Angeles");
 
   Time time;
@@ -227,8 +228,8 @@ TEST(TimeFormattingTest, TimeMonthYearInUTC) {
 TEST(TimeFormattingTest, TimeFormatDateUS) {
   // See third_party/icu/source/data/locales/en.txt.
   // The date patterns are "EEEE, MMMM d, y", "MMM d, y", and "M/d/yy".
-  test::ScopedRestoreICUDefaultLocale restore_locale;
-  i18n::SetICUDefaultLocale("en_US");
+  i18n::ScopedDefaultIcuLocale restore_locale(
+      i18n::GetKnownLanguageTag("en-US"));
   test::ScopedRestoreDefaultTimezone la_time("America/Los_Angeles");
 
   Time time;
@@ -252,8 +253,8 @@ TEST(TimeFormattingTest, TimeFormatDateUS) {
 TEST(TimeFormattingTest, TimeFormatDateGB) {
   // See third_party/icu/source/data/locales/en_GB.txt.
   // The date patterns are "EEEE, d MMMM y", "d MMM y", and "dd/MM/yyyy".
-  test::ScopedRestoreICUDefaultLocale restore_locale;
-  i18n::SetICUDefaultLocale("en_GB");
+  i18n::ScopedDefaultIcuLocale restore_locale(
+      i18n::GetKnownLanguageTag("en-GB"));
   test::ScopedRestoreDefaultTimezone la_time("America/Los_Angeles");
 
   Time time;
@@ -268,77 +269,6 @@ TEST(TimeFormattingTest, TimeFormatDateGB) {
   EXPECT_EQ(u"Saturday, 30 April 2011 at 15:42:07",
             TimeFormatFriendlyDateAndTime(time));
   EXPECT_EQ(u"Saturday, 30 April 2011", TimeFormatFriendlyDate(time));
-}
-
-TEST(TimeFormattingTest, TimeFormatWithPattern) {
-  test::ScopedRestoreICUDefaultLocale restore_locale;
-  test::ScopedRestoreDefaultTimezone la_time("America/Los_Angeles");
-
-  Time time;
-  EXPECT_TRUE(Time::FromUTCExploded(kTestDateTimeExploded, &time));
-
-  i18n::SetICUDefaultLocale("en_US");
-  EXPECT_EQ(u"Apr 30, 2011", LocalizedTimeFormatWithPattern(time, "yMMMd"));
-  EXPECT_EQ(u"April 30 at 3:42:07\u202fPM",
-            LocalizedTimeFormatWithPattern(time, "MMMMdjmmss"));
-  EXPECT_EQ(
-      "Sat! 30 Apr 2011 at 15.42+07",
-      UnlocalizedTimeFormatWithPattern(time, "E! dd MMM y 'at' HH.mm+ss"));
-  EXPECT_EQ("Sat! 30 Apr 2011 at 22.42+07",
-            UnlocalizedTimeFormatWithPattern(time, "E! dd MMM y 'at' HH.mm+ss",
-                                             icu::TimeZone::getGMT()));
-
-  i18n::SetICUDefaultLocale("en_GB");
-  EXPECT_EQ(u"30 Apr 2011", LocalizedTimeFormatWithPattern(time, "yMMMd"));
-  EXPECT_EQ(u"30 April at 15:42:07",
-            LocalizedTimeFormatWithPattern(time, "MMMMdjmmss"));
-  EXPECT_EQ(
-      "Sat! 30 Apr 2011 at 15.42+07",
-      UnlocalizedTimeFormatWithPattern(time, "E! dd MMM y 'at' HH.mm+ss"));
-
-  i18n::SetICUDefaultLocale("ja_JP");
-  EXPECT_EQ(u"2011年4月30日", LocalizedTimeFormatWithPattern(time, "yMMMd"));
-  EXPECT_EQ(u"4月30日 15:42:07",
-            LocalizedTimeFormatWithPattern(time, "MMMMdjmmss"));
-  EXPECT_EQ(
-      "Sat! 30 Apr 2011 at 15.42+07",
-      UnlocalizedTimeFormatWithPattern(time, "E! dd MMM y 'at' HH.mm+ss"));
-}
-
-TEST(TimeFormattingTest, UnlocalizedTimeFormatWithPatternMicroseconds) {
-  Time no_micros;
-  EXPECT_TRUE(Time::FromUTCExploded(kTestDateTimeExploded, &no_micros));
-  const Time micros = no_micros + Microseconds(987);
-
-  // Should support >3 'S' characters, truncating.
-  EXPECT_EQ("07.0009", UnlocalizedTimeFormatWithPattern(micros, "ss.SSSS"));
-  EXPECT_EQ("07.00098", UnlocalizedTimeFormatWithPattern(micros, "ss.SSSSS"));
-  EXPECT_EQ("07.000987", UnlocalizedTimeFormatWithPattern(micros, "ss.SSSSSS"));
-
-  // >6 'S' characters is also valid, and should be zero-filled.
-  EXPECT_EQ("07.0009870",
-            UnlocalizedTimeFormatWithPattern(micros, "ss.SSSSSSS"));
-
-  // Quoted 'S's should be ignored.
-  EXPECT_EQ("07.SSSSSS",
-            UnlocalizedTimeFormatWithPattern(micros, "ss.'SSSSSS'"));
-
-  // Multiple substitutions are possible.
-  EXPECT_EQ("07.000987'000987.07",
-            UnlocalizedTimeFormatWithPattern(micros, "ss.SSSSSS''SSSSSS.ss"));
-
-  // All the above should still work when the number of microseconds is zero.
-  EXPECT_EQ("07.0000", UnlocalizedTimeFormatWithPattern(no_micros, "ss.SSSS"));
-  EXPECT_EQ("07.00000",
-            UnlocalizedTimeFormatWithPattern(no_micros, "ss.SSSSS"));
-  EXPECT_EQ("07.000000",
-            UnlocalizedTimeFormatWithPattern(no_micros, "ss.SSSSSS"));
-  EXPECT_EQ("07.0000000",
-            UnlocalizedTimeFormatWithPattern(no_micros, "ss.SSSSSSS"));
-  EXPECT_EQ("07.SSSSSS",
-            UnlocalizedTimeFormatWithPattern(no_micros, "ss.'SSSSSS'"));
-  EXPECT_EQ("07.000000'000000.07", UnlocalizedTimeFormatWithPattern(
-                                       no_micros, "ss.SSSSSS''SSSSSS.ss"));
 }
 
 TEST(TimeFormattingTest, TimeFormatAsIso8601) {
@@ -408,8 +338,8 @@ TEST(TimeFormattingTest, TimeFormatHTTP) {
 TEST(TimeFormattingTest, TimeFormatHTTPUsesGmtRegardlessOfTimeZone) {
   // Use a non-English default locale so the assertions also verify that the
   // weekday/month names stay English (RFC 7231) rather than being localized.
-  test::ScopedRestoreICUDefaultLocale restore_locale;
-  i18n::SetICUDefaultLocale("fr_FR");
+  i18n::ScopedDefaultIcuLocale restore_locale(
+      i18n::GetKnownLanguageTag("fr-FR"));
 
   // Negative offset (Los Angeles): the local wall-clock is the previous day.
   {
@@ -473,50 +403,59 @@ TEST(TimeFormattingTest, TimeFormatHTTPUsesGmtRegardlessOfTimeZone) {
 }
 
 TEST(TimeFormattingTest, TimeDurationFormat) {
-  test::ScopedRestoreICUDefaultLocale restore_locale;
   TimeDelta delta = Minutes(15 * 60 + 42);
 
   // US English.
-  i18n::SetICUDefaultLocale("en_US");
-  EXPECT_EQ(u"15 hours, 42 minutes",
-            TimeDurationFormatString(delta, DURATION_WIDTH_WIDE));
-  EXPECT_EQ(u"15 hr, 42 min",
-            TimeDurationFormatString(delta, DURATION_WIDTH_SHORT));
-  EXPECT_EQ(u"15h 42m", TimeDurationFormatString(delta, DURATION_WIDTH_NARROW));
-  EXPECT_EQ(u"15:42", TimeDurationFormatString(delta, DURATION_WIDTH_NUMERIC));
+  {
+    i18n::ScopedDefaultIcuLocale scoped_locale(
+        i18n::GetKnownLanguageTag("en-US"));
+    EXPECT_EQ(u"15 hours, 42 minutes",
+              TimeDurationFormatString(delta, DURATION_WIDTH_WIDE));
+    EXPECT_EQ(u"15 hr, 42 min",
+              TimeDurationFormatString(delta, DURATION_WIDTH_SHORT));
+    EXPECT_EQ(u"15h 42m",
+              TimeDurationFormatString(delta, DURATION_WIDTH_NARROW));
+    EXPECT_EQ(u"15:42",
+              TimeDurationFormatString(delta, DURATION_WIDTH_NUMERIC));
+  }
 
   // Danish, with Latin alphabet but different abbreviations and punctuation.
-  i18n::SetICUDefaultLocale("da");
-  EXPECT_EQ(u"15 timer og 42 minutter",
-            TimeDurationFormatString(delta, DURATION_WIDTH_WIDE));
-  EXPECT_EQ(u"15 t. og 42 min.",
-            TimeDurationFormatString(delta, DURATION_WIDTH_SHORT));
-  EXPECT_EQ(u"15 t og 42 m",
-            TimeDurationFormatString(delta, DURATION_WIDTH_NARROW));
-  EXPECT_EQ(u"15.42", TimeDurationFormatString(delta, DURATION_WIDTH_NUMERIC));
+  {
+    i18n::ScopedDefaultIcuLocale scoped_locale(i18n::GetKnownLanguageTag("da"));
+    EXPECT_EQ(u"15 timer og 42 minutter",
+              TimeDurationFormatString(delta, DURATION_WIDTH_WIDE));
+    EXPECT_EQ(u"15 t. og 42 min.",
+              TimeDurationFormatString(delta, DURATION_WIDTH_SHORT));
+    EXPECT_EQ(u"15 t og 42 m",
+              TimeDurationFormatString(delta, DURATION_WIDTH_NARROW));
+    EXPECT_EQ(u"15.42",
+              TimeDurationFormatString(delta, DURATION_WIDTH_NUMERIC));
+  }
 
   // Persian, with non-Arabic numbers.
-  i18n::SetICUDefaultLocale("fa");
-  std::u16string fa_wide =
-      u"\u06f1\u06f5 \u0633\u0627\u0639\u062a \u0648 \u06f4\u06f2 \u062f\u0642"
-      u"\u06cc\u0642\u0647";
-  std::u16string fa_short =
-      u"\u06f1\u06f5 \u0633\u0627\u0639\u062a\u060c\u200f \u06f4\u06f2 \u062f"
-      u"\u0642\u06cc\u0642\u0647";
-  std::u16string fa_narrow = u"\u06f1\u06f5h \u06f4\u06f2m";
-  std::u16string fa_numeric = u"\u06f1\u06f5:\u06f4\u06f2";
-  EXPECT_EQ(fa_wide, TimeDurationFormatString(delta, DURATION_WIDTH_WIDE));
-  EXPECT_EQ(fa_short, TimeDurationFormatString(delta, DURATION_WIDTH_SHORT));
-  EXPECT_EQ(fa_narrow, TimeDurationFormatString(delta, DURATION_WIDTH_NARROW));
-  EXPECT_EQ(fa_numeric,
-            TimeDurationFormatString(delta, DURATION_WIDTH_NUMERIC));
+  {
+    i18n::ScopedDefaultIcuLocale scoped_locale(i18n::GetKnownLanguageTag("fa"));
+    std::u16string fa_wide =
+        u"\u06f1\u06f5 \u0633\u0627\u0639\u062a \u0648 \u06f4\u06f2 "
+        u"\u062f\u0642"
+        u"\u06cc\u0642\u0647";
+    std::u16string fa_short =
+        u"\u06f1\u06f5 \u0633\u0627\u0639\u062a\u060c\u200f \u06f4\u06f2 \u062f"
+        u"\u0642\u06cc\u0642\u0647";
+    std::u16string fa_narrow = u"\u06f1\u06f5h \u06f4\u06f2m";
+    std::u16string fa_numeric = u"\u06f1\u06f5:\u06f4\u06f2";
+    EXPECT_EQ(fa_wide, TimeDurationFormatString(delta, DURATION_WIDTH_WIDE));
+    EXPECT_EQ(fa_short, TimeDurationFormatString(delta, DURATION_WIDTH_SHORT));
+    EXPECT_EQ(fa_narrow,
+              TimeDurationFormatString(delta, DURATION_WIDTH_NARROW));
+    EXPECT_EQ(fa_numeric,
+              TimeDurationFormatString(delta, DURATION_WIDTH_NUMERIC));
+  }
 }
 
 TEST(TimeFormattingTest, TimeDurationFormatWithSeconds) {
-  test::ScopedRestoreICUDefaultLocale restore_locale;
-
-  // US English.
-  i18n::SetICUDefaultLocale("en_US");
+  i18n::ScopedDefaultIcuLocale restore_locale(
+      i18n::GetKnownLanguageTag("en-US"));
 
   // Test different formats.
   TimeDelta delta = Seconds(15 * 3600 + 42 * 60 + 30);
@@ -564,10 +503,8 @@ TEST(TimeFormattingTest, TimeDurationFormatWithSeconds) {
 }
 
 TEST(TimeFormattingTest, TimeDurationCompactFormatWithSeconds) {
-  test::ScopedRestoreICUDefaultLocale restore_locale;
-
-  // US English.
-  i18n::SetICUDefaultLocale("en_US");
+  i18n::ScopedDefaultIcuLocale restore_locale(
+      i18n::GetKnownLanguageTag("en-US"));
 
   // Test different formats.
   TimeDelta delta = Seconds(15 * 3600 + 42 * 60 + 30);
@@ -691,8 +628,7 @@ TEST(TimeFormattingTest, TimeDurationCompactFormatWithSeconds) {
 }
 
 TEST(TimeFormattingTest, GetHourClockType_Persian) {
-  test::ScopedRestoreICUDefaultLocale restore_locale;
-  i18n::SetICUDefaultLocale("fa");
+  i18n::ScopedDefaultIcuLocale restore_locale(i18n::GetKnownLanguageTag("fa"));
   Time time;
   EXPECT_TRUE(Time::FromUTCString("2026-05-25 22:30:00", &time));
   std::u16string result = TimeFormatTimeOfDay(time);
@@ -704,8 +640,8 @@ TEST(TimeFormattingTest, GetHourClockType_Persian) {
 }
 
 TEST(TimeFormattingTest, GetHourClockType_Arabic) {
-  test::ScopedRestoreICUDefaultLocale restore_locale;
-  i18n::SetICUDefaultLocale("ar-EG");
+  i18n::ScopedDefaultIcuLocale restore_locale(
+      i18n::GetKnownLanguageTag("ar-EG"));
   HourClockType type = GetHourClockType();
   // Arabic (Egypt) normally uses eastern Arabic-Indic digits.
   // Verify that the hour clock type (12-hour) is correctly detected.
@@ -713,10 +649,10 @@ TEST(TimeFormattingTest, GetHourClockType_Arabic) {
 }
 
 TEST(TimeFormattingTest, GetHourClockType_PersianIR) {
-  test::ScopedRestoreICUDefaultLocale restore_locale;
   // Persian (Iran) normally uses eastern Arabic-Indic digits natively.
   // Verify that the hour clock type (24-hour) is correctly detected.
-  i18n::SetICUDefaultLocale("fa-IR");
+  i18n::ScopedDefaultIcuLocale restore_locale(
+      i18n::GetKnownLanguageTag("fa-IR"));
   HourClockType type = GetHourClockType();
   EXPECT_EQ(k24HourClock, type);
 }

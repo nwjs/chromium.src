@@ -53,6 +53,7 @@ group("api_implementations") {
     "//chrome/browser/extensions/api/reading_list",
     "//chrome/browser/extensions/api/runtime",
     "//chrome/browser/extensions/api/search",
+    "//chrome/browser/extensions/api/side_panel",
     "//chrome/browser/extensions/api/tab_capture",
     "//chrome/browser/extensions/api/tab_groups",
     "//chrome/browser/extensions/api/web_navigation",
@@ -78,7 +79,6 @@ group("api_implementations") {
       "//chrome/browser/extensions/api/resources_private",
       "//chrome/browser/extensions/api/safe_browsing_private",
       "//chrome/browser/extensions/api/settings_overrides",
-      "//chrome/browser/extensions/api/side_panel",
       "//chrome/browser/extensions/api/webrtc_desktop_capture_private",
     ]
 
@@ -196,7 +196,6 @@ function_registration("api_registration") {
     "//chrome/browser/ash/extensions/input_method_api.h",
     "//chrome/browser/ash/extensions/login_screen_ui/login_screen_ui_api.h",
     "//chrome/browser/ash/extensions/media_player_api.h",
-    "//chrome/browser/ash/extensions/speech/speech_recognition_private_api.h",
     "//chrome/browser/ash/extensions/users_private/users_private_api.h",
     "//chrome/browser/extensions/api/enterprise_login/enterprise_login_api.h",
     "certificate_provider/certificate_provider_api.h",

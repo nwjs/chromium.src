@@ -61,6 +61,7 @@ import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
 import org.chromium.components.browser_ui.settings.CardWithButtonPreference;
 import org.chromium.components.browser_ui.settings.ChromeBasePreference;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
+import org.chromium.components.browser_ui.settings.ClickableSpansTextMessagePreference;
 import org.chromium.components.browser_ui.settings.SettingsFragment;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
@@ -69,6 +70,8 @@ import org.chromium.components.payments.AndroidPaymentAppFactory;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
+import org.chromium.ui.text.ChromeClickableSpan;
+import org.chromium.ui.text.SpanApplier;
 
 /**
  * Autofill credit cards fragment, which allows the user to edit credit cards and control payment
@@ -94,6 +97,7 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
     static final String PREF_CARD_BENEFITS = "card_benefits";
     static final String PREF_PAYMENT_APPS = "payment_apps";
     static final String PREF_LOYALTY_CARDS = "loyalty_cards";
+    static final String PREF_WALLET_REMINDER_NOTICE = "wallet_reminder_notice";
 
     @VisibleForTesting
     static final String PREF_FINANCIAL_ACCOUNTS_MANAGEMENT = "financial_accounts_management";
@@ -160,7 +164,8 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
         return manager.getMaskedBankAccounts().length != 0;
     }
 
-    private void rebuildPage() {
+    @VisibleForTesting
+    void rebuildPage() {
         getPreferenceScreen().removeAll();
         getPreferenceScreen().setOrderingAsAdded(true);
 
@@ -194,6 +199,11 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
                 PersonalDataManagerFactory.getForProfile(getProfile());
         ChromeSwitchPreference autofillSwitch =
                 new ChromeSwitchPreference(getStyledContext(), null);
+        // Do not persist this toggle to Android's SharedPreferences. Chrome natively
+        // persists this state across platforms via PersonalDataManager and UserPrefs.
+        // Failing to set this to false causes Android's PreferenceManager to override
+        // setChecked() with cached SharedPreferences values upon binding.
+        autofillSwitch.setPersistent(false);
         autofillSwitch.setKey(PREF_SAVE_AND_FILL_PAYMENT_METHODS);
         autofillSwitch.setTitle(R.string.autofill_enable_credit_cards_toggle_label);
         autofillSwitch.setSummary(R.string.autofill_enable_credit_cards_toggle_sublabel);
@@ -210,12 +220,6 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
                     @Override
                     public boolean isPreferenceControlledByPolicy(Preference preference) {
                         return personalDataManager.isAutofillCreditCardManaged();
-                    }
-
-                    @Override
-                    public boolean isPreferenceClickDisabled(Preference preference) {
-                        return personalDataManager.isAutofillCreditCardManaged()
-                                && !personalDataManager.isAutofillPaymentMethodsEnabled();
                     }
                 });
         getPreferenceScreen().addPreference(autofillSwitch);
@@ -302,15 +306,8 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
                         && personalDataManager.isPaymentCvcStorageEnabled()
                         && !disabledSettings);
 
-        // Add the deletion button for saved CVCs. Note that this button's presence doesn't
-        // depend on the value of the "Save and fill payment methods" toggle, since we would
-        // like to allow the user to delete saved CVCs even when the toggle is disabled.
-        // Conditionally show the deletion button based on whether there are any CVCs stored.
-        for (CreditCard card : personalDataManager.getCreditCardsForSettings()) {
-            if (!card.getCvc().isEmpty()) {
-                createDeleteSavedCvcsButton();
-                break;
-            }
+        if (shouldShowDeleteSavedCvcsPref(personalDataManager)) {
+            createDeleteSavedCvcsButton();
         }
 
         if (shouldShowCardBenefitsPref(personalDataManager, getProfile())) {
@@ -479,6 +476,10 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
                             getActivity(), getActivity().getPackageManager());
                     return true;
                 });
+
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_ENABLE_WALLET_REMINDER_NOTICE)) {
+            createWalletReminderNoticePreference();
+        }
         notifyPreferencesUpdated();
     }
 
@@ -529,6 +530,45 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
                         && !disabledSettingsInThirdPartyMode(getProfile()));
     }
 
+    private void createWalletReminderNoticePreference() {
+        ClickableSpansTextMessagePreference noticePref =
+                new ClickableSpansTextMessagePreference(getStyledContext(), /* attrs= */ null);
+        ChromeClickableSpan dataAndPrivacyLink =
+                new ChromeClickableSpan(
+                        getContext(),
+                        view ->
+                                CustomTabActivity.showInfoPage(
+                                        getActivity(),
+                                        AutofillPaymentMethodsConstants.WALLET_SETTINGS_URL));
+        ChromeClickableSpan paymentMethodsLink =
+                new ChromeClickableSpan(
+                        getContext(),
+                        view ->
+                                CustomTabActivity.showInfoPage(
+                                        getActivity(),
+                                        AutofillPaymentMethodsConstants
+                                                .WALLET_PAYMENT_METHODS_URL));
+        ChromeClickableSpan passesLink =
+                new ChromeClickableSpan(
+                        getContext(),
+                        view ->
+                                CustomTabActivity.showInfoPage(
+                                        getActivity(),
+                                        AutofillPaymentMethodsConstants.WALLET_PASSES_URL));
+
+        SpannableString summary =
+                SpanApplier.applySpans(
+                        getString(R.string.autofill_payment_methods_wallet_reminder_notice),
+                        new SpanApplier.SpanInfo("<link1>", "</link1>", dataAndPrivacyLink),
+                        new SpanApplier.SpanInfo("<link2>", "</link2>", paymentMethodsLink),
+                        new SpanApplier.SpanInfo("<link3>", "</link3>", passesLink));
+        noticePref.setSummary(summary);
+        noticePref.setKey(PREF_WALLET_REMINDER_NOTICE);
+        noticePref.setDividerAllowedAbove(false);
+        noticePref.setDividerAllowedBelow(false);
+        getPreferenceScreen().addPreference(noticePref);
+    }
+
     private Context getStyledContext() {
         return getPreferenceManager().getContext();
     }
@@ -570,7 +610,7 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
         RecordHistogram.recordEnumeratedHistogram(
                 histogramName,
                 MandatoryReauthAuthenticationFlowEvent.FLOW_STARTED,
-                MandatoryReauthAuthenticationFlowEvent.MAX_VALUE);
+                MandatoryReauthAuthenticationFlowEvent.MAX_VALUE + 1);
         // We require user authentication every time user tries to change this
         // preference. Set useLastValidAuth=false to skip the grace period.
         assertNonNull(mReauthenticatorBridge);
@@ -589,12 +629,12 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
                         RecordHistogram.recordEnumeratedHistogram(
                                 histogramName,
                                 MandatoryReauthAuthenticationFlowEvent.FLOW_SUCCEEDED,
-                                MandatoryReauthAuthenticationFlowEvent.MAX_VALUE);
+                                MandatoryReauthAuthenticationFlowEvent.MAX_VALUE + 1);
                     } else {
                         RecordHistogram.recordEnumeratedHistogram(
                                 histogramName,
                                 MandatoryReauthAuthenticationFlowEvent.FLOW_FAILED,
-                                MandatoryReauthAuthenticationFlowEvent.MAX_VALUE);
+                                MandatoryReauthAuthenticationFlowEvent.MAX_VALUE + 1);
                     }
                 });
         // Returning false here holds the toggle to still display the old value while
@@ -624,7 +664,7 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
         RecordHistogram.recordEnumeratedHistogram(
                 MANDATORY_REAUTH_EDIT_CARD_HISTOGRAM,
                 MandatoryReauthAuthenticationFlowEvent.FLOW_STARTED,
-                MandatoryReauthAuthenticationFlowEvent.MAX_VALUE);
+                MandatoryReauthAuthenticationFlowEvent.MAX_VALUE + 1);
         // When mandatory reauth is enabled, offer device authentication challenge.
         mReauthenticatorBridge.reauthenticate(
                 success -> {
@@ -634,13 +674,13 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
                         RecordHistogram.recordEnumeratedHistogram(
                                 MANDATORY_REAUTH_EDIT_CARD_HISTOGRAM,
                                 MandatoryReauthAuthenticationFlowEvent.FLOW_SUCCEEDED,
-                                MandatoryReauthAuthenticationFlowEvent.MAX_VALUE);
+                                MandatoryReauthAuthenticationFlowEvent.MAX_VALUE + 1);
                         showLocalCardEditPage(preference);
                     } else {
                         RecordHistogram.recordEnumeratedHistogram(
                                 MANDATORY_REAUTH_EDIT_CARD_HISTOGRAM,
                                 MandatoryReauthAuthenticationFlowEvent.FLOW_FAILED,
-                                MandatoryReauthAuthenticationFlowEvent.MAX_VALUE);
+                                MandatoryReauthAuthenticationFlowEvent.MAX_VALUE + 1);
                     }
                 });
         return true;
@@ -839,7 +879,7 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
                 && manager.isAutofillPaymentMethodsEnabled();
     }
 
-    private static boolean shouldShowBnplPref(PersonalDataManager manager, Profile profile) {
+    static boolean shouldShowBnplPref(PersonalDataManager manager, Profile profile) {
         return !disabledSettingsInThirdPartyMode(profile)
                 && manager.isAutofillPaymentMethodsEnabled()
                 && manager.shouldShowBnplSettings();
@@ -862,6 +902,19 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
         return !disabledSettingsInThirdPartyMode(profile)
                 && manager.isAutofillPaymentMethodsEnabled()
                 && manager.shouldShowAddIbanButtonOnSettingsPage();
+    }
+
+    // Deletion button for saved CVCs. Note that this button's presence doesn't
+    // depend on the value of the "Save and fill payment methods" toggle, since we would
+    // like to allow the user to delete saved CVCs even when the toggle is disabled.
+    // Conditionally show the deletion button based on whether there are any CVCs stored.
+    private static boolean shouldShowDeleteSavedCvcsPref(PersonalDataManager manager) {
+        for (CreditCard card : manager.getCreditCardsForSettings()) {
+            if (!card.getCvc().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static final ChromeBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
@@ -937,17 +990,26 @@ public class AutofillPaymentMethodsFragment extends ChromeBaseSettingsFragment
                                 R.string
                                         .autofill_settings_page_enable_payment_method_mandatory_reauth_sublabel);
                     }
+                    indexData.addEntryForKey(
+                            frag,
+                            PREF_SAVE_CVC,
+                            R.string.autofill_settings_page_enable_cvc_storage_label,
+                            R.string.autofill_settings_page_enable_cvc_storage_sublabel);
+
+                    if (shouldShowDeleteSavedCvcsPref(personalDataManager)) {
                         indexData.addEntryForKey(
                                 frag,
-                                PREF_SAVE_CVC,
-                                R.string.autofill_settings_page_enable_cvc_storage_label,
-                                R.string.autofill_settings_page_enable_cvc_storage_sublabel);
+                                PREF_DELETE_SAVED_CVCS,
+                                R.string.autofill_settings_page_bulk_remove_cvc_label,
+                                0);
+                    }
                     if (shouldShowCardBenefitsPref(personalDataManager, profile)) {
                         indexData.addEntryForKey(
                                 frag,
                                 PREF_CARD_BENEFITS,
                                 R.string.autofill_settings_page_card_benefits_label,
-                                R.string.autofill_settings_page_card_benefits_preference_summary);
+                                R.string.autofill_settings_page_card_benefits_preference_summary,
+                                AutofillCardBenefitsFragment.class.getName());
                     }
                     if (shouldShowBnplPref(personalDataManager, profile)) {
                         indexData.addEntryForKey(

@@ -9,6 +9,7 @@
 
 #include "base/files/file_util.h"
 #include "base/logging.h"
+#include "build/build_config.h"
 #include "mojo/public/cpp/base/file_path_mojom_traits.h"
 
 namespace mojo {
@@ -25,12 +26,14 @@ bool StructTraits<storage::mojom::StrictRelativePathDataView, base::FilePath>::
     return false;
   }
 
+#if BUILDFLAG(IS_WIN)
   if (std::ranges::any_of(path.GetComponents(),
-                          base::IsReservedNameOnWindows)) {
+                          &base::IsReservedNameOnWindows)) {
     DLOG(ERROR) << "Rejecting path containing reserved Windows device name: "
                 << path.value();
     return false;
   }
+#endif
 
   *out = std::move(path);
   return true;

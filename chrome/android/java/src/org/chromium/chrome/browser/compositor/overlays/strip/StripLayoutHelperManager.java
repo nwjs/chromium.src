@@ -6,8 +6,6 @@ package org.chromium.chrome.browser.compositor.overlays.strip;
 
 import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
-import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.BUTTON_TOUCH_TARGET_SIZE_DP;
-import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.MIN_TAB_WIDTH_DP;
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.TAB_OVERLAP_WIDTH_DP;
 
 import android.animation.Animator;
@@ -28,7 +26,6 @@ import android.view.ViewStub;
 import android.view.animation.Interpolator;
 
 import androidx.annotation.ColorInt;
-import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
@@ -66,7 +63,6 @@ import org.chromium.chrome.browser.compositor.scene_layer.TabStripSceneLayer;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.glic.GlicButtonDelegate;
-import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.layouts.EventFilter;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider.LayoutStateObserver;
 import org.chromium.chrome.browser.layouts.LayoutType;
@@ -125,7 +121,6 @@ import org.chromium.ui.dragdrop.DragAndDropDelegate;
 import org.chromium.ui.dragdrop.DragDropGlobalState;
 import org.chromium.ui.interpolators.Interpolators;
 import org.chromium.ui.resources.ResourceManager;
-import org.chromium.ui.util.StyleUtils;
 import org.chromium.url.GURL;
 
 import java.util.ArrayList;
@@ -186,10 +181,6 @@ public class StripLayoutHelperManager
                     return object.mStripTransitionScrimOpacity;
                 }
             };
-
-    // Shared button constants (Model selector and Glic).
-    static final float BUTTON_DESIRED_TOUCH_TARGET_SIZE =
-            StyleUtils.shouldApplyDesktopDensity() ? 32.f : 48.f;
 
     // Tab strip transition constants.
     @VisibleForTesting
@@ -282,8 +273,6 @@ public class StripLayoutHelperManager
     private final SettableNonNullObservableSupplier<@StripVisibilityState Integer>
             mStripVisibilityStateSupplier =
                     ObservableSuppliers.createNonNull(StripVisibilityState.VISIBLE);
-    private final SettableNonNullObservableSupplier<Integer> mStripBottomPxSupplier =
-            ObservableSuppliers.createNonNull(0);
     private final @Nullable NonNullObservableSupplier<Boolean> mXrSpaceModeObservableSupplier;
 
     // Drag-Drop
@@ -469,7 +458,7 @@ public class StripLayoutHelperManager
      *     tab drag and drop.
      * @param controlContainerView View passed to {@link TabStripDragHandler} for drag and drop.
      * @param tabHoverCardViewStub The ViewStub representing the strip tab hover card.
-     * @param tabContentManagerSupplier Supplier of the TabContentManager instance.
+     * @param tabContentManagerSupplier Supplier of the manager providing tab thumbnail snapshots.
      * @param browserControlsStateProvider BrowserControlsStateProvider for drag drop.
      * @param windowAndroid The {@link WindowAndroid} instance to access Activity.
      * @param toolbarManager The ToolbarManager instance.
@@ -488,6 +477,7 @@ public class StripLayoutHelperManager
      * @param leadingButtonDelegate The {@link LeadingButtonDelegate} for the leading button.
      * @param sideUiStateProviderSupplier Supplier of the {@link SideUiStateProvider}.
      * @param tabObscuringHandler The {@link TabObscuringHandler} to manage tab obscuring.
+     * @param canActivateTabLayoutToggleMenuSupplier Whether the tab layout toggle menu can open.
      */
     // TODO(crbug.com/484116872): Suppressing to observe SharedPreferences, which is discouraged;
     // should use another messaging channel instead.
@@ -647,10 +637,8 @@ public class StripLayoutHelperManager
                             () -> windowAndroid.getActivity().get(),
                             toolbarManager.getTabStripHeightSupplier());
 
-            if (ChromeFeatureList.sEscCancelDrag.isEnabled()) {
-                backPressManager.addHandler(
-                        mTabStripDragHandler, BackPressHandler.Type.CANCEL_TAB_STRIP_DRAG);
-            }
+            backPressManager.addHandler(
+                    mTabStripDragHandler, BackPressHandler.Type.CANCEL_TAB_STRIP_DRAG);
         }
 
         mToolbarManager = toolbarManager;
@@ -1057,10 +1045,6 @@ public class StripLayoutHelperManager
             mSceneLayerYOffset = yOffsetDp;
             mSceneLayerVisibleHeight = visibleHeightDp;
             pushAndUpdateStrip(mSceneLayerYOffset, mSceneLayerVisibleHeight);
-            @Px
-            int tabStripBottomPx =
-                    Math.round(mDensity * (mSceneLayerYOffset + mSceneLayerVisibleHeight));
-            mStripBottomPxSupplier.set(tabStripBottomPx);
         }
     }
 
@@ -1151,29 +1135,26 @@ public class StripLayoutHelperManager
     @Override
     public int getFadeTransitionThresholdDp() {
         if (mTabModelSelector == null) return 0;
-        TabModel incognitoTabModel = mTabModelSelector.getModel(/* incognito= */ true);
-        boolean hasIncognitoTabs = incognitoTabModel != null && incognitoTabModel.getCount() > 0;
-        boolean shouldShowMsb = !IncognitoUtils.shouldOpenIncognitoAsWindow() && hasIncognitoTabs;
 
         // The threshold is the minimum width required to start showing fade.
         // Base = 2 * minTabWidth - tabOverlap + newTabButton:
         //   Tablet Base: 2 * minTabWidth(108) - tabOverlap(28) + newTabButton (48) = 236dp
-        //   Desktop Base: 2 * minTabWidth(76) - tabOverlap(28) + newTabButton (32) = 156dp
+        //   Desktop Base: 2 * minTabWidth(68) - tabOverlap(28) + newTabButton (32) = 140dp
         // Optional Additions:
         //   + Tab Search Button: 48dp (Tablet) / 32dp (Desktop)
-        //   + Trailing Buttons (Glic, Glic actor): Dynamic (e.g. ~109dp in default state with only
-        //     Glic showing, ~96dp in collapsed state with both Glic and Glic actor showing)
-        //   + Model Selector Button (MSB): 48dp (Tablet) / 32dp (Desktop)
+        //   + Trailing Buttons (Glic, Glic actor, MSB): Dynamic (e.g. ~109dp in default state with
+        //     only Glic showing, ~96dp in collapsed state with both Glic and Glic actor showing,
+        //     +48dp (Tablet) / 32dp (Desktop) when MSB is showing)
 
+        float buttonTouchTargetSize = StripLayoutUtils.getButtonTouchTargetSizeDp(mContext);
         float thresholdDp =
-                (2 * MIN_TAB_WIDTH_DP)
+                (2 * StripLayoutUtils.getMinTabWidthDp())
                         - TAB_OVERLAP_WIDTH_DP
-                        + BUTTON_TOUCH_TARGET_SIZE_DP
+                        + buttonTouchTargetSize
                         + (getActiveStripLayoutHelper().getTabSearchButton().isVisible()
-                                ? BUTTON_TOUCH_TARGET_SIZE_DP
+                                ? buttonTouchTargetSize
                                 : 0.f)
-                        + mTrailingButtonsCoordinator.getTrailingButtonsWidthWithPadding()
-                        + (shouldShowMsb ? BUTTON_TOUCH_TARGET_SIZE_DP : 0f);
+                        + mTrailingButtonsCoordinator.getTrailingButtonsWidthWithPadding();
         return Math.round(thresholdDp);
     }
 
@@ -1687,8 +1668,7 @@ public class StripLayoutHelperManager
                     }
 
                     @Override
-                    public void onAlertStateChanged(
-                            Tab tab, @Nullable @TabAlert Integer alertState) {
+                    public void onAlertStateChanged(Tab tab, @TabAlert int alertState) {
                         getStripLayoutHelper(tab.isIncognito())
                                 .onAlertStateChanged(tab, alertState);
                         mRenderHost.requestRender();
@@ -1838,11 +1818,6 @@ public class StripLayoutHelperManager
         @StripVisibilityState int curVisibility = mStripVisibilityStateSupplier.get();
         mStripVisibilityStateSupplier.set(
                 clear ? (curVisibility & ~visibilityState) : (curVisibility | visibilityState));
-    }
-
-    /** Returns a {@link NonNullObservableSupplier} for the bottom of the tab strip in px. */
-    public NonNullObservableSupplier<Integer> getStripBottomPxSupplier() {
-        return mStripBottomPxSupplier;
     }
 
     void simulateHoverEventForTesting(int event, float x, float y) {

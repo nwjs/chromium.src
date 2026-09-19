@@ -15,6 +15,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/timer/elapsed_timer.h"
+#include "build/android_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/glic_pref_names.h"
@@ -34,6 +35,7 @@
 #include "chrome/browser/glic/service/glic_invoke_task.h"
 #include "chrome/browser/glic/service/glic_ui_types.h"
 #include "chrome/browser/glic/service/metrics/glic_instance_helper_metrics.h"
+#include "chrome/browser/glic/service/metrics/glic_invoke_metrics.h"
 #include "chrome/browser/glic/test_support/glic_browser_test.h"
 #include "chrome/browser/glic/test_support/glic_histogram_tester.h"
 #include "chrome/browser/glic/widget/glic_floating_ui.h"
@@ -299,7 +301,8 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUnbindOnCloseTest,
   EXPECT_EQ(instance1, instance2);
 
   // Simulate user input on tab2.
-  instance2->OnUserInputSubmitted(mojom::WebClientMode::kText);
+  instance2->OnUserInputSubmitted(mojom::WebClientMode::kText,
+                                  mojom::PromptType::kUnspecified);
 
   // Close the side panel for the active tab (tab2).
   ASSERT_OK(CloseGlicForTabAndWait(tab2));
@@ -1606,6 +1609,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorActuationBrowserTest,
       GlicInvokeHandler::ResolvedTarget{
           GlicInvokeHandler::TabSurface{active_tab, false}},
       std::move(options), GlicInvokeWithAutoSubmitOptions(), std::nullopt,
+      std::make_unique<GlicInvokeMetrics>(mojom::InvocationSource::kOsButton),
       base::BindLambdaForTesting([&](GlicInstance*, GlicInvokeHandler*) {
         handler_completion_future.SetValue();
       }));
@@ -1735,6 +1739,25 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorLocalHotkeyScopeTest,
 
   ASSERT_OK(WaitForGlicClose());
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorLocalHotkeyScopeTest,
+                       HotkeyWhenDetachedActiveCloses) {
+  // Open Glic and detach it into a floating window.
+  ASSERT_OK_AND_ASSIGN(GlicInstanceImpl * instance,
+                       OpenGlicForActiveTabAndDetach());
+
+  // Focus the floating Glic instance.
+  ASSERT_OK(FocusGlic(instance));
+
+  // Simulate receiving the hotkey command via the accelerator subsystem.
+  TriggerHotkey(LocalHotkeyManager::Command::kPanelToggle);
+
+  // Verify Glic is closed and no floating instance remains.
+  ASSERT_OK(WaitForGlicClose(instance));
+  EXPECT_EQ(coordinator().GetInstanceWithFloaty(), nullptr);
+}
+#endif
 
 class GlicInstanceCoordinatorLocalHotkeyScopeDisabledTest
     : public GlicInstanceCoordinatorBrowserTest {
@@ -2040,8 +2063,15 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorRemoveBlankInstancesTest,
   ASSERT_OK(WaitForInstanceDeletion(weak_instance));
 }
 
+#if BUILDFLAG(IS_DESKTOP_ANDROID)
+#define MAYBE_DoNotRemoveBlankInstanceWhenInvoking \
+  DISABLED_DoNotRemoveBlankInstanceWhenInvoking
+#else
+#define MAYBE_DoNotRemoveBlankInstanceWhenInvoking \
+  DoNotRemoveBlankInstanceWhenInvoking
+#endif
 IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorRemoveBlankInstancesTest,
-                       DoNotRemoveBlankInstanceWhenInvoking) {
+                       MAYBE_DoNotRemoveBlankInstanceWhenInvoking) {
   // Start an invocation. This asynchronously initializes the web client.
   tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
   GlicInvokeOptions options(glic::Target(*tab),

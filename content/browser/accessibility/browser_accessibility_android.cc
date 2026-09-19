@@ -195,6 +195,29 @@ void PopulateStyleData(const content::BrowserAccessibilityAndroid& node,
   }
 }
 
+// Returns whether supplemental descriptions should be populated via the
+// Android supplemental description API. Disabled when Samsung TalkBack is
+// running because older versions of Samsung TalkBack do not consume this API.
+bool ShouldPopulateSupplementalDescriptionApi() {
+  return base::FeatureList::IsEnabled(
+             features::kAccessibilityPopulateSupplementalDescriptionApi) &&
+         !ui::AccessibilityState::IsSamsungTalkBackEnabled();
+}
+
+bool IsOptionOrMenuItem(ax::mojom::Role role) {
+  return role == ax::mojom::Role::kListBoxOption ||
+         role == ax::mojom::Role::kMenuListOption || ui::IsMenuItem(role);
+}
+
+// Returns whether `node` can drop its descendant children when its accessible
+// name comes from contents, in order to avoid duplicate speech announcements.
+bool CanDropChildrenWithNameFromContents(
+    const content::BrowserAccessibilityAndroid& node) {
+  return node.HasState(ax::mojom::State::kFocusable) ||
+         node.GetRole() == ax::mojom::Role::kHeading ||
+         IsOptionOrMenuItem(node.GetRole());
+}
+
 }  // namespace
 
 namespace ui {
@@ -545,10 +568,10 @@ bool BrowserAccessibilityAndroid::IsInterestingOnAndroid() const {
   while (parent) {
     // Generally, if a parent is a control (like a combobox) and the child isn't
     // focusable, the child is hidden to reduce clutter.
-    // However, an exception is made for kListBoxOption so it remains exposed
-    // for touch interaction.
+    // However, an exception is made for options and menu items so they remain
+    // exposed for touch interaction.
     if (ui::IsControl(parent->GetRole()) && !IsFocusable() &&
-        GetRole() != ax::mojom::Role::kListBoxOption) {
+        !IsOptionOrMenuItem(GetRole())) {
       return false;
     }
 
@@ -873,11 +896,16 @@ bool BrowserAccessibilityAndroid::ComputeIsLeaf() const {
     return false;
   }
 
-  // Focusable nodes with name from attribute should never drop children.
+  // Focusable nodes with name from attribute should never drop children, unless
+  // they only have static text children.
   if (HasState(ax::mojom::State::kFocusable) &&
       GetNameFrom() == ax::mojom::NameFrom::kAttribute) {
-    // We exclude menuItems and comboBoxMenuButtons to prevent double utterance.
-    if (GetRole() != ax::mojom::Role::kMenuItem &&
+    if (HasOnlyTextChildren() && !HasListMarkerChild()) {
+      return true;
+    }
+    // We exclude options, menu items, and comboboxes to prevent double
+    // utterance.
+    if (!IsOptionOrMenuItem(GetRole()) &&
         GetRole() != ax::mojom::Role::kComboBoxMenuButton &&
         GetRole() != ax::mojom::Role::kComboBoxSelect) {
       return false;
@@ -898,14 +926,13 @@ bool BrowserAccessibilityAndroid::ComputeIsLeaf() const {
     return true;
   }
 
-  // Headings and focusable nodes can drop their children if the name comes from
-  // the node's contents in order to avoid announcing the contents twice. There
-  // are some exceptions where we want nodes to be navigatable despite the
-  // screen reader reading the contents twice such as a heading which contains a
-  // grid.
+  // Headings, focusable nodes, and options/menu-items can drop their children
+  // if the name comes from the node's contents in order to avoid announcing
+  // the contents twice. There are some exceptions where we want nodes to be
+  // navigatable despite the screen reader reading the contents twice such as a
+  // heading which contains a grid.
   if (HasTextContent() && GetNameFrom() == ax::mojom::NameFrom::kContents &&
-      (HasState(ax::mojom::State::kFocusable) ||
-       GetRole() == ax::mojom::Role::kHeading)) {
+      CanDropChildrenWithNameFromContents(*this)) {
     return IsLeafConsideringChildren();
   }
   return false;
@@ -1157,8 +1184,7 @@ std::u16string BrowserAccessibilityAndroid::GetAndroidHint() const {
 
   // TODO(accessibility): Remove this path once we roll out supplemental
   // descriptions.
-  if (!base::FeatureList::IsEnabled(
-          features::kAccessibilityPopulateSupplementalDescriptionApi)) {
+  if (!ShouldPopulateSupplementalDescriptionApi()) {
     // If we're returning the value as the main text, the name needs to be
     // part of the hint.
     if (ShouldPromoteValueToTextProperty(GetValueForControl()) &&
@@ -1294,8 +1320,7 @@ std::u16string BrowserAccessibilityAndroid::GetAndroidSupplementalDescription()
   // The control's value has been promoted to the primary `text` field.
   // In this situation, the accessible name (which was originally destined
   // for `text`) should be demoted to `supplementalDescription`.
-  if (base::FeatureList::IsEnabled(
-          features::kAccessibilityPopulateSupplementalDescriptionApi) &&
+  if (ShouldPopulateSupplementalDescriptionApi() &&
       ShouldPromoteValueToTextProperty(GetValueForControl()) &&
       ComputeAndroidNameTo() == AndroidNameTo::kText) {
     return GetNameAsString16();
@@ -1416,48 +1441,55 @@ std::u16string BrowserAccessibilityAndroid::GetRadioButtonStateDescription()
 }
 
 std::u16string BrowserAccessibilityAndroid::GetComboboxExpandedText() const {
-  // We consider comboboxes of the form:
+  // We consider three common ARIA combobox patterns (see [1]):
   //
-  // <div role="combobox">
-  //   <input type="text" aria-controls="options">
-  //   <ul role="listbox" id="options">...</ul> (Can be outside <div>)
-  // </div>
+  // 1. ARIA 1.1 wrapper pattern:
+  //    <div role="combobox">
+  //      <input type="text" aria-controls="options">
+  //      <ul role="listbox" id="options">...</ul>
+  //    </div>
   //
-  // Find child input node:
-  const BrowserAccessibilityAndroid* input_node = nullptr;
+  // 2. ARIA 1.0 input combobox pattern:
+  //    <input type="text" role="combobox" aria-owns="options">
+  //    <ul role="listbox" id="options">...</ul>
+  //
+  // 3. ARIA 1.2+ select-only / button combobox pattern:
+  //    <div role="combobox" aria-expanded="true"
+  //         aria-controls="options">...</div>
+  //    <ul role="listbox" id="options">...</ul> (Can be in a detached portal)
+  //
+  // [1] https://www.w3.org/WAI/ARIA/apg/patterns/combobox/
+
+  // First, look for a child input element holding aria-controls (ARIA 1.1):
+  const BrowserAccessibilityAndroid* controlling_node = nullptr;
   for (const auto& child : PlatformChildren()) {
     const BrowserAccessibilityAndroid& android_child =
         static_cast<const BrowserAccessibilityAndroid&>(child);
     if (android_child.IsTextField()) {
-      input_node = &android_child;
+      controlling_node = &android_child;
       break;
     }
   }
 
-  // If we have not found a child input element, consider aria 1.0 spec:
-  //
-  // <input type="text" role="combobox" aria-owns="options">
-  // <ul role="listbox" id="options">...</ul>
-  //
-  // Check if |this| is the input, otherwise try our fallbacks.
-  if (!input_node) {
-    if (IsTextField()) {
-      input_node = this;
-    } else {
-      return GetComboboxExpandedTextFallback();
-    }
+  // If there is no child text field, check if `this` is the input (ARIA 1.0)
+  // or a select-only combobox directly controlling options (ARIA 1.2+).
+  if (!controlling_node) {
+    controlling_node = this;
   }
 
-  // Get the aria-controls nodes of |input_node|.
+  // Get the aria-controls nodes of `controlling_node`.
   std::vector<BrowserAccessibility*> controls =
-      manager()->GetAriaControls(input_node);
+      manager()->GetAriaControls(controlling_node);
 
-  // |input_node| should control only one element, if it doesn't, try fallbacks.
+  // We look for a single container element which holds the combobox options. If
+  // the combobox uses `aria-owns` instead (such as ARIA 1.0), or does not have
+  // a single `aria-controls` target, try fallbacks to inspect owned/child
+  // collections.
   if (controls.size() != 1) {
     return GetComboboxExpandedTextFallback();
   }
 
-  // |controlled_node| needs to be a combobox container, if not, try fallbacks.
+  // `controlled_node` needs to be a combobox container, if not, try fallbacks.
   BrowserAccessibilityAndroid* controlled_node =
       static_cast<BrowserAccessibilityAndroid*>(controls[0]);
   if (!ui::IsComboBoxContainer(controlled_node->GetRole())) {
@@ -1469,7 +1501,7 @@ std::u16string BrowserAccessibilityAndroid::GetComboboxExpandedText() const {
     return GetLocalizedString(IDS_AX_COMBOBOX_EXPANDED_DIALOG);
   }
 
-  // Find |controlled_node| set size, or return default string.
+  // Find `controlled_node` set size, or return default string.
   if (!controlled_node->GetSetSize()) {
     return GetLocalizedString(IDS_AX_COMBOBOX_EXPANDED_AUTOCOMPLETE_DEFAULT);
   }
@@ -2734,9 +2766,7 @@ BrowserAccessibilityAndroid::ComputeAndroidNameTo() const {
         // TODO(crbug.com/438478760): Revisit kNameFromAttribute mapping to
         // contentDescription logic.
         name_to_cache_ = AndroidNameTo::kContentDescription;
-      } else if (base::FeatureList::IsEnabled(
-                     features::
-                         kAccessibilityPopulateSupplementalDescriptionApi)) {
+      } else if (ShouldPopulateSupplementalDescriptionApi()) {
         name_to_cache_ = AndroidNameTo::kSupplementalDescription;
       } else {
         // TODO(accessibility): remove this path once we roll out supplemental
@@ -2752,9 +2782,7 @@ BrowserAccessibilityAndroid::ComputeAndroidNameTo() const {
                  GetData().HasIntListAttribute(
                      ax::mojom::IntListAttribute::kLabelledbyIds)) {
         name_to_cache_ = AndroidNameTo::kLabeledBy;
-      } else if (base::FeatureList::IsEnabled(
-                     features::
-                         kAccessibilityPopulateSupplementalDescriptionApi)) {
+      } else if (ShouldPopulateSupplementalDescriptionApi()) {
         // Fallback to supplemental description when labeledBy cannot be used.
         name_to_cache_ = AndroidNameTo::kSupplementalDescription;
       } else {

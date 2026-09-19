@@ -8,6 +8,7 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/performance_controls/test_support/battery_saver_browser_test_mixin.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/performance_controls/battery_saver_bubble_view.h"
@@ -103,7 +104,7 @@ IN_PROC_BROWSER_TEST_F(BatterySaverHelpPromoTest, PromoCustomActionClicked) {
   EXPECT_TRUE(promo_active);
 
   content::TestNavigationObserver navigation_observer(
-      browser()->tab_strip_model()->GetWebContentsAt(0));
+      browser()->GetTabStripModel()->GetWebContentsAt(0));
   auto* const button =
       BrowserElementsViews::From(browser())->GetViewAs<views::Button>(
           user_education::HelpBubbleView::kFirstNonDefaultButtonIdForTesting);

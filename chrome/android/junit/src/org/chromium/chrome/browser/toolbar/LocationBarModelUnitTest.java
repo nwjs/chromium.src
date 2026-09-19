@@ -15,6 +15,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.view.ContextThemeWrapper;
 
 import androidx.annotation.DrawableRes;
@@ -469,6 +470,54 @@ public class LocationBarModelUnitTest {
 
         assertResourceIdIs(
                 R.drawable.omnibox_info,
+                ConnectionSecurityLevel.NONE,
+                ConnectionMaliciousContentStatus.NONE);
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_BOTTOM_BAR})
+    public void
+            getSecurityIconResource_connectionNone_nonHttpOrHttps_returnsOmniboxInfoEvenWhenLoading() {
+        mLocationBarModel.initializeWithNative();
+        doReturn(true).when(mRegularTabMock).isInitialized();
+        doReturn(true).when(mRegularTabMock).isLoading();
+
+        // Internal chrome:// scheme.
+        doReturn(new GURL("chrome://flags"))
+                .when(mLocationBarModelJni)
+                .getUrlOfVisibleNavigationEntry(Mockito.anyLong());
+        mLocationBarModel.setTab(mRegularTabMock, mRegularProfileMock);
+
+        assertResourceIdIs(
+                R.drawable.omnibox_info,
+                ConnectionSecurityLevel.NONE,
+                ConnectionMaliciousContentStatus.NONE);
+
+        // file:// scheme.
+        doReturn(new GURL("file:///sdcard/test.html"))
+                .when(mLocationBarModelJni)
+                .getUrlOfVisibleNavigationEntry(Mockito.anyLong());
+        mLocationBarModel.setTab(mRegularTabMock, mRegularProfileMock);
+
+        assertResourceIdIs(
+                R.drawable.omnibox_info,
+                ConnectionSecurityLevel.NONE,
+                ConnectionMaliciousContentStatus.NONE);
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_BOTTOM_BAR})
+    public void getSecurityIconResource_connectionNone_httpOrHttps_suppressesIconDuringLoading() {
+        mLocationBarModel.initializeWithNative();
+        doReturn(true).when(mRegularTabMock).isInitialized();
+        doReturn(true).when(mRegularTabMock).isLoading();
+        doReturn(new GURL("https://example.com"))
+                .when(mLocationBarModelJni)
+                .getUrlOfVisibleNavigationEntry(Mockito.anyLong());
+        mLocationBarModel.setTab(mRegularTabMock, mRegularProfileMock);
+
+        assertResourceIdIs(
+                Resources.ID_NULL,
                 ConnectionSecurityLevel.NONE,
                 ConnectionMaliciousContentStatus.NONE);
     }

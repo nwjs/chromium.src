@@ -49,6 +49,7 @@
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
 #include "third_party/blink/renderer/core/layout/geometry/transform_state.h"
 #include "third_party/blink/renderer/core/layout/hit_test_phase.h"
+#include "third_party/blink/renderer/core/layout/hit_test_request.h"
 #include "third_party/blink/renderer/core/layout/inline/caret_rect.h"
 #include "third_party/blink/renderer/core/layout/layout_invalidation_reason.h"
 #include "third_party/blink/renderer/core/layout/layout_object_child_list.h"
@@ -71,6 +72,7 @@
 #include "third_party/blink/renderer/platform/graphics/paint_invalidation_reason.h"
 #include "third_party/blink/renderer/platform/graphics/subtree_paint_property_update_reason.h"
 #include "third_party/blink/renderer/platform/graphics/visual_rect_flags.h"
+#include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "ui/gfx/geometry/quad_f.h"
 #include "ui/gfx/geometry/transform.h"
@@ -446,7 +448,11 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
  public:
   const LayoutObject* CommonAncestor(const LayoutObject& other) const;
 
-  bool IsBeforeInPreOrder(const LayoutObject& other) const;
+  using IndexCache = HeapHashMap<
+      Member<const LayoutObject>,
+      Member<GCedHeapHashMap<Member<const LayoutObject>, unsigned>>>;
+  bool IsBeforeInPreOrder(const LayoutObject& other,
+                          IndexCache* = nullptr) const;
 
   // The following functions are used when the layout tree hierarchy changes to
   // make sure layers get properly added and removed. Since containership can be
@@ -1600,7 +1606,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // canvas transform in a canvas subtree.
   bool HasTransform() const {
     NOT_DESTROYED();
-    if (IsInCanvasSubtree() && IsBox()) [[unlikely]] {
+    if (IsInCanvasSubtree() && IsBoxModelObject()) [[unlikely]] {
       if (const auto* element = DynamicTo<Element>(GetNode())) {
         if (element->GetUsedCanvasTransform()) {
           return true;
@@ -1905,7 +1911,8 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // is closed shadow hidden from |base|.
   Element* OffsetParent(const Element* base = nullptr) const;
 
-  // Inclusive of |this|, exclusive of |below|.
+  // Inclusive of |this|, exclusive of |below|. |below| must be reachable
+  // through the layout Container() ancestry.
   const LayoutBoxModelObject* FindFirstStickyContainer(
       const LayoutBox* below) const;
 
@@ -2607,8 +2614,12 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
                                            PropertyTreeStateOrAlias* = nullptr,
                                            VisualRectFlags = {}) const;
 
-  // Do a rect-based hit test with this object as the stop node.
-  HitTestResult HitTestForOcclusion(const PhysicalRect&) const;
+  // Do a rect-based hit test with this object as the stop node. If
+  // |hit_node_cb| is provided, performs a list-based penetrating hit test where
+  // the callback is executed at each hit node.
+  HitTestResult HitTestForOcclusion(const PhysicalRect&,
+                                    std::optional<HitTestRequest::HitNodeCb>
+                                        hit_node_cb = std::nullopt) const;
 
   bool IsFloatingOrOutOfFlowPositioned() const {
     NOT_DESTROYED();
@@ -2739,6 +2750,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
                                   MapCoordinatesFlags) const;
 
   bool ShouldUseTransformFromContainer(const LayoutObject* container) const;
+  LayoutObject* CanvasForDrawingLayoutObject() const;
 
   // The optional |size| parameter is used if the size of the object isn't
   // correct yet. If |fragment_transform| is provided, we'll use that instead of
@@ -2846,6 +2858,8 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // track paint invalidation reasons separately. To indicate that the
   // background needs full invalidation, use
   // SetBackgroundNeedsFullPaintInvalidation().
+  // This doesn't directly invalidate custom scrollbar parts which are separate
+  // LayoutObjects.
   void SetShouldDoFullPaintInvalidation(
       PaintInvalidationReason = PaintInvalidationReason::kLayout);
   void SetShouldDoFullPaintInvalidationWithoutLayoutChange(
@@ -2894,6 +2908,9 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   }
   void SetMayNeedPaintInvalidationAnimatedBackgroundImage();
 
+  // Sets the whole layout subtree to do full paint invalidation, including
+  // this object and all descendants, all backgrounds, and custom scrollbar
+  // parts.
   void SetSubtreeShouldDoFullPaintInvalidation(
       PaintInvalidationReason reason = PaintInvalidationReason::kSubtree);
   bool SubtreeShouldDoFullPaintInvalidation() const {
@@ -3051,9 +3068,9 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   }
 
   // Container Timing pre-paint attribution tracking bits (parallel to SoftNav).
-  // Setters DCHECK ContainerTimingPrepaintTraversal is on; ClearPaintFlags()
-  // resets them after every pre-paint walk, so reads stay 0 when the feature
-  // is off (no runtime check needed on the paint hot path).
+  // Setters DCHECK ContainerTiming is on; ClearPaintFlags() resets them after
+  // every pre-paint walk, so reads stay 0 when the feature is off (no runtime
+  // check needed on the paint hot path).
   void MarkContainerTimingChanged();
   bool ShouldInheritContainerTimingRoot() const {
     NOT_DESTROYED();
@@ -3061,7 +3078,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   }
   void SetShouldInheritContainerTimingRoot(bool should_inherit) {
     NOT_DESTROYED();
-    DCHECK(RuntimeEnabledFeatures::ContainerTimingPrepaintTraversalEnabled(
+    DCHECK(RuntimeEnabledFeatures::ContainerTimingEnabled(
         GetDocument().GetExecutionContext()));
     should_inherit_container_timing_root_ = should_inherit;
   }
@@ -3584,7 +3601,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // In this case, the code skips some unneeded expensive operations as we know
   // the tree is not reused (e.g. avoid clearing the containing block's line
   // box).
-  virtual void WillBeDestroyed();
+  virtual void WillBeDestroyed(const ComputedStyle*);
 
   virtual void InsertedIntoTree();
   virtual void WillBeRemovedFromTree();

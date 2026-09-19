@@ -31,14 +31,17 @@ enum class CoseKeyKey : int {
   kEllipticCurve = -1,
   kEllipticX = -2,
   kEllipticY = -3,
+  kAkpPublicKey = -1,
 };
 
 // Enumerates COSE key types. See
-// https://tools.ietf.org/html/rfc8152#section-13
+// https://tools.ietf.org/html/rfc8152#section-13 and
+// https://tools.ietf.org/html/rfc9964#name-new-cose-key-types.
 enum class CoseKeyTypes : int {
   kOKP = 1,
   kEC2 = 2,
   kRSA = 3,
+  kAKP = 7,
 };
 
 // Enumerates COSE elliptic curves. See
@@ -48,9 +51,15 @@ enum class CoseCurves : int {
   kEd25519 = 6,
 };
 
+// Enumerates COSE algorithm identifiers. See
+// https://tools.ietf.org/html/rfc8152#section-13 and
+// https://tools.ietf.org/html/rfc9964#section-8.1.
 enum class CoseAlgorithmIdentifier : int {
   kEs256 = -7,
   kEdDSA = -8,
+  kMlDsa44 = -48,
+  kMlDsa65 = -49,
+  kMlDsa87 = -50,
   kRs256 = -257,
 };
 
@@ -110,6 +119,45 @@ std::vector<uint8_t> EcP256ToCoseKey(const keypair::PublicKey& key) {
   return cbor_bytes.value();
 }
 
+std::vector<uint8_t> Ed25519ToCoseKey(const keypair::PublicKey& key) {
+  std::array<uint8_t, 32> pub_bytes = key.ToEd25519PublicKey();
+
+  cbor::Value::MapValue map;
+  map.emplace(static_cast<int64_t>(CoseKeyKey::kKty),
+              static_cast<int64_t>(CoseKeyTypes::kOKP));
+  map.emplace(static_cast<int64_t>(CoseKeyKey::kAlg),
+              static_cast<int64_t>(CoseAlgorithmIdentifier::kEdDSA));
+  map.emplace(static_cast<int64_t>(CoseKeyKey::kEllipticCurve),
+              static_cast<int64_t>(CoseCurves::kEd25519));
+  // The COSE RFC says that "This contains the x-coordinate for the EC point".
+  // The RFC authors do not appear to understand what's going on because it
+  // actually just contains the Ed25519 public key, which you would expect, and
+  // which also encodes the y-coordinate as a sign bit.
+  map.emplace(static_cast<int64_t>(CoseKeyKey::kEllipticX),
+              std::vector<uint8_t>(std::from_range, pub_bytes));
+
+  std::optional<std::vector<uint8_t>> cbor_bytes =
+      cbor::Writer::Write(cbor::Value(std::move(map)));
+  CHECK(cbor_bytes);
+  return cbor_bytes.value();
+}
+
+std::vector<uint8_t> MldsaToCoseKey(std::vector<uint8_t> pub_bytes,
+                                    CoseAlgorithmIdentifier alg) {
+  cbor::Value::MapValue map;
+  map.emplace(static_cast<int64_t>(CoseKeyKey::kKty),
+              static_cast<int64_t>(CoseKeyTypes::kAKP));
+  map.emplace(static_cast<int64_t>(CoseKeyKey::kAlg),
+              static_cast<int64_t>(alg));
+  map.emplace(static_cast<int64_t>(CoseKeyKey::kAkpPublicKey),
+              std::move(pub_bytes));
+
+  std::optional<std::vector<uint8_t>> cbor_bytes =
+      cbor::Writer::Write(cbor::Value(std::move(map)));
+  CHECK(cbor_bytes);
+  return cbor_bytes.value();
+}
+
 }  // namespace
 
 std::vector<uint8_t> PublicKeyToCoseKey(const keypair::PublicKey& key) {
@@ -117,6 +165,17 @@ std::vector<uint8_t> PublicKeyToCoseKey(const keypair::PublicKey& key) {
     return RsaToCoseKey(key.key());
   } else if (key.IsEcP256()) {
     return EcP256ToCoseKey(key);
+  } else if (key.IsEd25519()) {
+    return Ed25519ToCoseKey(key);
+  } else if (key.IsMldsa44()) {
+    return MldsaToCoseKey(key.ToMldsa44PublicKey(),
+                          CoseAlgorithmIdentifier::kMlDsa44);
+  } else if (key.IsMldsa65()) {
+    return MldsaToCoseKey(key.ToMldsa65PublicKey(),
+                          CoseAlgorithmIdentifier::kMlDsa65);
+  } else if (key.IsMldsa87()) {
+    return MldsaToCoseKey(key.ToMldsa87PublicKey(),
+                          CoseAlgorithmIdentifier::kMlDsa87);
   }
 
   NOTREACHED();

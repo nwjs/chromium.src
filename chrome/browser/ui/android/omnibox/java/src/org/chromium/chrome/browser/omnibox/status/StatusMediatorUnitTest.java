@@ -78,6 +78,7 @@ import org.chromium.components.favicon.LargeIconBridgeJni;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.metrics.OmniboxEventProtosIntDef.PageClassification;
 import org.chromium.components.omnibox.AutocompleteInput;
+import org.chromium.components.omnibox.AutocompleteInput.AutocompleteState;
 import org.chromium.components.omnibox.AutocompleteInput.DisplayState;
 import org.chromium.components.omnibox.AutocompleteInput.SiteSearchData;
 import org.chromium.components.omnibox.AutocompleteRequestType;
@@ -100,7 +101,6 @@ import org.chromium.url.JUnitTestGURLs;
 
 /** Unit tests for {@link StatusMediator}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public final class StatusMediatorUnitTest {
     private static final String TAG = "StatusMediatorUnitTest";
     private static final int CURRENT_TAB_ID = 5;
@@ -158,6 +158,10 @@ public final class StatusMediatorUnitTest {
             ObservableSuppliers.createNullable();
     private final SettableNonNullObservableSupplier<Integer> mRequestTypeSupplier =
             ObservableSuppliers.createNonNull(AutocompleteRequestType.SEARCH);
+    private final SettableNonNullObservableSupplier<Integer> mDisplayStateSupplier =
+            ObservableSuppliers.createNonNull(DisplayState.WEBSITE);
+    private final SettableNonNullObservableSupplier<Integer> mAutocompleteStateSupplier =
+            ObservableSuppliers.createNonNull(AutocompleteState.ENABLED);
 
     @Before
     public void setUp() {
@@ -178,10 +182,26 @@ public final class StatusMediatorUnitTest {
                 .when(mAutocompleteInput)
                 .getPreviewMatchUrl();
         doReturn(mRequestTypeSupplier).when(mAutocompleteInput).getRequestTypeSupplier();
-        doReturn(DisplayState.WEBSITE).when(mAutocompleteInput).getDisplayState();
-        doReturn(AutocompleteInput.AutocompleteState.ENABLED)
+        doReturn(mDisplayStateSupplier).when(mAutocompleteInput).getDisplayStateSupplier();
+        doAnswer(invocation -> mDisplayStateSupplier.get())
+                .when(mAutocompleteInput)
+                .getDisplayState();
+        doReturn(mAutocompleteStateSupplier)
+                .when(mAutocompleteInput)
+                .getAutocompleteStateSupplier();
+        doAnswer(invocation -> mAutocompleteStateSupplier.get())
                 .when(mAutocompleteInput)
                 .getAutocompleteState();
+        doAnswer(
+                        invocation ->
+                                mAutocompleteStateSupplier.get() == AutocompleteState.STANDBY
+                                        || mAutocompleteStateSupplier.get()
+                                                == AutocompleteState.STANDBY_NO_FOCUS)
+                .when(mAutocompleteInput)
+                .isStandby();
+        doReturn(mTab).when(mLocationBarDataProvider).getTab();
+        doReturn(mWebContents).when(mTab).getWebContents();
+        doReturn(mNavigationController).when(mWebContents).getNavigationController();
 
         mContext =
                 new ContextThemeWrapper(
@@ -217,6 +237,10 @@ public final class StatusMediatorUnitTest {
 
     private int getModelIconID() {
         return mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes();
+    }
+
+    private void assertModelIconResId(int resId) {
+        assertEquals(resId, mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
     }
 
     @Test
@@ -1053,6 +1077,45 @@ public final class StatusMediatorUnitTest {
     }
 
     @Test
+    public void testStandby_focusedOnWebPage_showsSecurityIcon() {
+        doReturn(false).when(mNewTabPageDelegate).isCurrentlyVisible();
+        mAutocompleteStateSupplier.set(AutocompleteState.STANDBY);
+        mMediator.updateSecurityIcon(R.drawable.ic_settings_tune_24dp, 0, 0);
+        mMediator.beginInput(mFuseboxSessionState);
+
+        assertFalse(mMediator.shouldDisplaySearchEngineIcon());
+
+        mMediator.updateLocationBarIcon(IconTransitionType.CROSSFADE);
+
+        assertNotNull(mModel.get(StatusProperties.STATUS_ICON_RESOURCE));
+        assertEquals(
+                R.drawable.ic_settings_tune_24dp,
+                mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+    }
+
+    @Test
+    public void autocompleteStateChanged_updatesStatusIcon() {
+        doReturn(false).when(mNewTabPageDelegate).isCurrentlyVisible();
+        mMediator.updateSecurityIcon(R.drawable.ic_settings_tune_24dp, 0, 0);
+        mMediator.beginInput(mFuseboxSessionState);
+        assertTrue(mMediator.shouldDisplaySearchEngineIcon());
+
+        mAutocompleteStateSupplier.set(AutocompleteState.STANDBY);
+        assertFalse(mMediator.shouldDisplaySearchEngineIcon());
+        assertNotNull(mModel.get(StatusProperties.STATUS_ICON_RESOURCE));
+        assertEquals(
+                R.drawable.ic_settings_tune_24dp,
+                mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+
+        mAutocompleteStateSupplier.set(AutocompleteState.ENABLED);
+        assertTrue(mMediator.shouldDisplaySearchEngineIcon());
+        assertNotNull(mModel.get(StatusProperties.STATUS_ICON_RESOURCE));
+        assertNotEquals(
+                R.drawable.ic_settings_tune_24dp,
+                mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+    }
+
+    @Test
     @SmallTest
     @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT + ":show_ntp_plus_button/true")
     public void testShowNtpPlusButton_unfocused_allConditionsMet() {
@@ -1411,8 +1474,89 @@ public final class StatusMediatorUnitTest {
         assertFalse(mModel.get(StatusProperties.STATUS_VIEW_HOVER_ENABLED));
     }
 
+    @Test
+    @SmallTest
+    public void statusIcon_blankWhenPendingHttpNavigation() {
+        mMediator.updateSecurityIcon(R.drawable.ic_settings_tune_24dp, 0, 0);
+
+        assertModelIconResId(R.drawable.ic_settings_tune_24dp);
+
+        doReturn(mNavigationEntry).when(mNavigationController).getPendingEntry();
+        doReturn(JUnitTestGURLs.BLUE_1).when(mNavigationEntry).getUrl();
+        mMediator.updateSecurityIcon(R.drawable.ic_info_24dp, 0, 0);
+
+        assertNull(mModel.get(StatusProperties.STATUS_ICON_RESOURCE));
+
+        doReturn(null).when(mNavigationController).getPendingEntry();
+        mMediator.updateSecurityIcon(R.drawable.ic_info_24dp, 0, 0);
+
+        assertModelIconResId(R.drawable.ic_info_24dp);
+    }
+
+    @Test
+    @SmallTest
+    @DisableFeatures(OmniboxFeatureList.SUPPRESS_STATUS_ICON_DURING_HTTP_NAVIGATION)
+    public void statusIcon_notBlankWhenPendingHttpNavigation_killSwitch() {
+        mMediator.updateSecurityIcon(R.drawable.ic_settings_tune_24dp, 0, 0);
+
+        assertModelIconResId(R.drawable.ic_settings_tune_24dp);
+
+        doReturn(mNavigationEntry).when(mNavigationController).getPendingEntry();
+        doReturn(JUnitTestGURLs.BLUE_1).when(mNavigationEntry).getUrl();
+        mMediator.updateSecurityIcon(R.drawable.ic_info_24dp, 0, 0);
+
+        assertModelIconResId(R.drawable.ic_info_24dp);
+    }
+
+    @Test
+    @SmallTest
+    public void statusIcon_infoIconWhenPendingNonHttpNavigation() {
+        mMediator.updateSecurityIcon(R.drawable.ic_settings_tune_24dp, 0, 0);
+
+        assertModelIconResId(R.drawable.ic_settings_tune_24dp);
+
+        doReturn(mNavigationEntry).when(mNavigationController).getPendingEntry();
+        doReturn(JUnitTestGURLs.CHROME_ABOUT).when(mNavigationEntry).getUrl();
+        mMediator.updateSecurityIcon(R.drawable.ic_info_24dp, 0, 0);
+
+        assertModelIconResId(R.drawable.ic_info_24dp);
+
+        doReturn(null).when(mNavigationController).getPendingEntry();
+        mMediator.updateSecurityIcon(R.drawable.ic_info_24dp, 0, 0);
+
+        assertModelIconResId(R.drawable.ic_info_24dp);
+    }
+
+    @Test
+    @SmallTest
+    public void statusIcon_searchEngineIconShownWhenPendingNavigationToNtp() {
+        doReturn(true).when(mNewTabPageDelegate).isCurrentlyVisible();
+        doReturn(JUnitTestGURLs.NTP_URL).when(mNavigationEntry).getUrl();
+        doReturn(mNavigationEntry).when(mNavigationController).getPendingEntry();
+        mMediator.updateLocationBarIcon(IconTransitionType.CROSSFADE);
+        assertEquals(
+                R.drawable.ic_logo_googleg_20dp,
+                mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+    }
+
+    @Test
+    public void displayStateChanged_updatesStatusIcon() {
+        mAutocompleteStateSupplier.set(AutocompleteState.STANDBY);
+        mMediator.updateSecurityIcon(R.drawable.ic_settings_tune_24dp, 0, 0);
+        mMediator.beginInput(mFuseboxSessionState);
+        assertEquals(
+                R.drawable.ic_settings_tune_24dp,
+                mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+
+        mDisplayStateSupplier.set(DisplayState.SUGGESTIONS);
+        assertNotNull(mModel.get(StatusProperties.STATUS_ICON_RESOURCE));
+        assertEquals(
+                R.drawable.ic_settings_tune_24dp,
+                mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+    }
+
     private void setDisplayState(@DisplayState int state) {
-        doReturn(state).when(mAutocompleteInput).getDisplayState();
+        mDisplayStateSupplier.set(state);
         mMediator.beginInput(mFuseboxSessionState);
     }
 

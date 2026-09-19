@@ -7,13 +7,12 @@ package org.chromium.chrome.browser.compositor.overlays.strip;
 import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.ANIM_TAB_MOVE_MS;
-import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.BUTTON_BACKGROUND_SIZE_DP;
-import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.BUTTON_TOUCH_TARGET_SIZE_DP;
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.INVALID_TIME;
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.MAX_TAB_WIDTH_DP;
-import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.MIN_TAB_WIDTH_DP;
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.PINNED_TAB_WIDTH_DP;
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.TAB_OVERLAP_WIDTH_DP;
+import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.getButtonTouchTargetSizeDp;
+import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.getDimensionDp;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil.FOLIO_FOOT_LENGTH_DP;
 
 import android.animation.Animator;
@@ -83,6 +82,7 @@ import org.chromium.chrome.browser.compositor.overlays.strip.reorder.ReorderDele
 import org.chromium.chrome.browser.compositor.overlays.strip.reorder.ReorderDelegate.ReorderType;
 import org.chromium.chrome.browser.compositor.overlays.strip.reorder.ReorderDelegate.StripUpdateDelegate;
 import org.chromium.chrome.browser.compositor.overlays.strip.reorder.TabStripDragHandler;
+import org.chromium.chrome.browser.contextual_tasks.ContextualTasksUtils;
 import org.chromium.chrome.browser.data_sharing.DataSharingServiceFactory;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
@@ -203,12 +203,6 @@ public class StripLayoutHelper
     // Desired spacing between new tab button and tabs when tab strip is not full.
     private static final float DESIRED_PADDING_BETWEEN_NEW_TAB_BUTTON_AND_TABS = 2.f;
     static final float FADE_FULL_OPACITY_THRESHOLD_DP = 24.f;
-
-    // Values adapt based on whether the device is desktop or tablet.
-    private static final float BUTTON_CLICK_SLOP_DP =
-            (BUTTON_TOUCH_TARGET_SIZE_DP - BUTTON_BACKGROUND_SIZE_DP) / 2;
-    private static final float NEW_TAB_BUTTON_WITH_STRIP_BUTTON_PADDING =
-            StyleUtils.shouldApplyDesktopDensity() ? 24.f : 8.f;
 
     private static final int MESSAGE_UPDATE_SPINNER = 1;
     private static final int MESSAGE_HOVER_CARD = 2;
@@ -560,7 +554,7 @@ public class StripLayoutHelper
     // Strip State
     /**
      * The {@link Supplier} for the width of a tab based on the number of tabs and the available
-     * space on the tab strip. Constricted by MIN_TAB_WIDTH_DP and MAX_TAB_WIDTH_DP.
+     * space on the tab strip. Constricted by minimum tab width and MAX_TAB_WIDTH_DP.
      */
     private final SettableNonNullObservableSupplier<Float> mCachedTabWidthSupplier =
             ObservableSuppliers.createNonNull(0f);
@@ -596,9 +590,12 @@ public class StripLayoutHelper
     // touchable, but other strip widgets (e.g new tab button) could be.
     private float mLeftMargin;
     private float mRightMargin;
+    private float mLeftFadeOpaqueWidth;
+    private float mLeftFadeGradientWidth;
     private float mLeftFadeWidth;
+    private float mRightFadeOpaqueWidth;
+    private float mRightFadeGradientWidth;
     private float mRightFadeWidth;
-    private float mButtonSideFadeGradientWidth;
     // Padding regions on the edges of the strip where strip touch events are blocked. Different
     // from margins, no strip widgets should be drawn within the padding regions.
     private float mLeftPadding;
@@ -774,9 +771,11 @@ public class StripLayoutHelper
             SnackbarManager snackbarManager,
             @Nullable ActivityResultTracker activityResultTracker,
             @Nullable BooleanSupplier canActivateTabLayoutToggleMenuSupplier) {
+        mContext = context;
+        mIncognito = incognito;
         mGroupTitleDrawXOffset = TAB_OVERLAP_WIDTH_DP - FOLIO_FOOT_LENGTH_DP;
         mGroupTitleOverlapWidth = FOLIO_FOOT_LENGTH_DP - mGroupTitleDrawXOffset;
-        mNewTabButtonWidth = BUTTON_BACKGROUND_SIZE_DP;
+        mNewTabButtonWidth = getDimensionDp(context, R.dimen.tab_strip_button_bg_size);
         mControlContainer = controlContainerView;
         mTabStripDragHandler = tabStripDragHandler;
         mWindowAndroid = windowAndroid;
@@ -819,14 +818,14 @@ public class StripLayoutHelper
                         incognito,
                         ButtonType.NEW_TAB,
                         null,
-                        BUTTON_BACKGROUND_SIZE_DP,
-                        BUTTON_BACKGROUND_SIZE_DP,
+                        mNewTabButtonWidth,
+                        mNewTabButtonWidth,
                         mControlContainer::setTooltipText,
                         /* clickHandler= */ this,
                         /* keyboardFocusHandler= */ this,
                         R.drawable.ic_new_tab_button,
                         R.drawable.bg_circle_tab_strip_button,
-                        BUTTON_CLICK_SLOP_DP);
+                        getButtonClickSlopDp(context));
 
         @ColorRes
         int iconTintRes = incognito ? R.color.modern_white : R.color.default_icon_color_tint_list;
@@ -845,8 +844,6 @@ public class StripLayoutHelper
                 incognito
                         ? res.getString(R.string.accessibility_toolbar_btn_new_incognito_tab)
                         : res.getString(R.string.accessibility_toolbar_btn_new_tab));
-        mContext = context;
-        mIncognito = incognito;
 
         mActionConfirmationManager = actionConfirmationManager;
         mGroupIdToHideSupplier.addSyncObserverAndPostIfNonNull(
@@ -862,7 +859,7 @@ public class StripLayoutHelper
 
         if (!mIncognito
                 && (GlicEnabling.isEnabledByFlags()
-                        || ChromeFeatureList.sContextualTasks.isEnabled())) {
+                        || ContextualTasksUtils.isContextualTasksUiEnabled())) {
             mTabUnderlineManager = new TabUnderlineManager(windowAndroid);
             mTabUnderlineObserver =
                     new TabUnderlineManager.Observer() {
@@ -935,10 +932,8 @@ public class StripLayoutHelper
 
     private TintedCompositorButton createTabSearchButton(
             Context context, boolean incognito, Resources res) {
-        float width =
-                ChromeFeatureList.sTabSearchForDesktop.isEnabled()
-                        ? BUTTON_BACKGROUND_SIZE_DP
-                        : 0.f;
+        float buttonBgSize = getDimensionDp(context, R.dimen.tab_strip_button_bg_size);
+        float width = ChromeFeatureList.sTabSearchForDesktop.isEnabled() ? buttonBgSize : 0.f;
         TintedCompositorButton button =
                 new TintedCompositorButton(
                         context,
@@ -946,13 +941,13 @@ public class StripLayoutHelper
                         ButtonType.TAB_SEARCH,
                         /* parentView= */ null,
                         width,
-                        BUTTON_BACKGROUND_SIZE_DP,
+                        buttonBgSize,
                         mControlContainer::setTooltipText,
                         /* clickHandler= */ this,
                         /* keyboardFocusHandler= */ this,
                         R.drawable.ic_manage_search_16dp,
                         R.drawable.bg_square_rounded_tab_strip_button,
-                        BUTTON_CLICK_SLOP_DP);
+                        getButtonClickSlopDp(context));
 
         // Set an off-color background for the tab search button to distinguish it in the strip.
         // Note that if this is not set, it will match the color of the background around it.
@@ -1081,6 +1076,18 @@ public class StripLayoutHelper
         return getCachedTabWidth(/* isPinned= */ false) < MAX_TAB_WIDTH_DP;
     }
 
+    private static float getButtonClickSlopDp(Context context) {
+        return (getButtonTouchTargetSizeDp(context)
+                        - getDimensionDp(context, R.dimen.tab_strip_button_bg_size))
+                / 2;
+    }
+
+    private float getNewTabButtonWithStripButtonPadding() {
+        return StyleUtils.shouldApplyDesktopDensity()
+                ? getDimensionDp(mContext, R.dimen.tab_strip_ntb_with_strip_button_padding_desktop)
+                : getDimensionDp(mContext, R.dimen.tab_strip_ntb_with_strip_button_padding);
+    }
+
     /**
      * Determine how far to shift new tab button icon visually towards the tab in order to achieve
      * the desired spacing between new tab button and tabs when tab strip is not full.
@@ -1089,7 +1096,7 @@ public class StripLayoutHelper
      */
     protected float getNtbVisualOffsetHorizontal() {
         return Math.max(
-                (BUTTON_TOUCH_TARGET_SIZE_DP - mNewTabButtonWidth) / 2
+                (getButtonTouchTargetSizeDp(mContext) - mNewTabButtonWidth) / 2
                         - DESIRED_PADDING_BETWEEN_NEW_TAB_BUTTON_AND_TABS,
                 0);
     }
@@ -1141,13 +1148,7 @@ public class StripLayoutHelper
      *     gradient width.
      */
     public float getLeftFadeGradientWidth() {
-        if (LocalizationUtils.isLayoutRtl()) {
-            return mButtonSideFadeGradientWidth;
-        } else {
-            return mTabSearchButton.isVisible()
-                    ? BUTTON_FADE_GRADIENT_SHORT_WIDTH_DP
-                    : NO_BUTTON_FADE_GRADIENT_WIDTH_DP;
-        }
+        return mLeftFadeGradientWidth;
     }
 
     /**
@@ -1157,13 +1158,7 @@ public class StripLayoutHelper
      *     edge fade gradient width.
      */
     public float getRightFadeGradientWidth() {
-        if (LocalizationUtils.isLayoutRtl()) {
-            return mTabSearchButton.isVisible()
-                    ? BUTTON_FADE_GRADIENT_SHORT_WIDTH_DP
-                    : NO_BUTTON_FADE_GRADIENT_WIDTH_DP;
-        } else {
-            return mButtonSideFadeGradientWidth;
-        }
+        return mRightFadeGradientWidth;
     }
 
     /**
@@ -1173,7 +1168,7 @@ public class StripLayoutHelper
      *     button. Otherwise, it covers the standard margin width.
      */
     public float getLeftFadeOpaqueWidth() {
-        return mLeftFadeWidth - getLeftFadeGradientWidth();
+        return mLeftFadeOpaqueWidth;
     }
 
     /**
@@ -1183,7 +1178,7 @@ public class StripLayoutHelper
      *     button. Otherwise, it covers the standard margin width.
      */
     public float getRightFadeOpaqueWidth() {
-        return mRightFadeWidth - getRightFadeGradientWidth();
+        return mRightFadeOpaqueWidth;
     }
 
     float getLeftFadeWidthForTesting() {
@@ -1209,37 +1204,58 @@ public class StripLayoutHelper
         return mScrollDelegate.getScrollOffset();
     }
 
-    /**
-     * Returns the visible left bound of the tab strip for pinned or unpinned views. Pinned views
-     * begin at {@code mLeftPadding} and remain fixed (do not scroll), while unpinned views scroll
-     * and are positioned after the pinned tabs. Pass {@code false} for the entire tab strip bound,
-     * or {@code true} for the scrolling portion.
-     *
-     * @param clampToUnpinnedViews true to return the bound for unpinned views; false for pinned
-     *     views.
-     * @return the tab strip's visible left bound.
-     */
-    float getVisibleLeftBound(boolean clampToUnpinnedViews) {
-        if (!clampToUnpinnedViews) {
-            return mLeftPadding;
-        }
-        return mLeftPadding + (LocalizationUtils.isLayoutRtl() ? 0.f : getTotalPinnedTabsWidth());
+    /** Returns the left bound of the tab strip. */
+    float getLeftBound() {
+        return mLeftPadding;
+    }
+
+    /** Returns the right bound of the tab strip. */
+    float getRightBound() {
+        return mWidth - mRightPadding;
+    }
+
+    /** Returns the visible left bound of the tab strip. Accounts for the opaque fade region. */
+    float getVisibleLeftBound() {
+        return getLeftBound() + mLeftFadeOpaqueWidth;
+    }
+
+    /** Returns the visible right bound of the tab strip. Accounts for the opaque fade region. */
+    float getVisibleRightBound() {
+        return getRightBound() - mRightFadeOpaqueWidth;
+    }
+
+    /** Returns the fully visible left bound of the tab strip. Accounts for the fade region. */
+    float getFullyVisibleLeftBound() {
+        return getLeftBound() + mLeftFadeWidth;
+    }
+
+    /** Returns the fully visible right bound of the tab strip. Accounts for the fade region. */
+    float getFullyVisibleRightBound() {
+        return getRightBound() - mRightFadeWidth;
     }
 
     /**
-     * See {@link #getVisibleLeftBound(boolean)} for details on difference between pinned and
-     * unpinned bounds.
+     * Returns the visible left bound of the tab strip for unpinned views. Pinned views begin at
+     * {@code mLeftPadding} and remain fixed (do not scroll), while unpinned views scroll and are
+     * positioned after the pinned tabs.
      *
-     * @param clampToUnpinnedViews true to return the bound for unpinned views; false for pinned
-     *     views.
-     * @return the tab strip's visible right bound.
+     * @return the visible left bound of the tab strip for unpinned views.
      */
-    float getVisibleRightBound(boolean clampToUnpinnedViews) {
-        float baseRightBound = mWidth - mRightPadding;
-        if (!clampToUnpinnedViews) {
-            return baseRightBound;
-        }
-        return baseRightBound - (LocalizationUtils.isLayoutRtl() ? getTotalPinnedTabsWidth() : 0.f);
+    float getFullyVisibleLeftUnpinnedBound() {
+        float leftPinnedTabsWidth =
+                (LocalizationUtils.isLayoutRtl() ? 0.f : getTotalPinnedTabsWidth());
+        return getFullyVisibleLeftBound() + leftPinnedTabsWidth;
+    }
+
+    /**
+     * See {@link #getFullyVisibleLeftUnpinnedBound}.
+     *
+     * @return the visible right bound of the tab strip for unpinned views.
+     */
+    float getFullyVisibleRightUnpinnedBound() {
+        float rightPinnedTabsWidth =
+                (LocalizationUtils.isLayoutRtl() ? getTotalPinnedTabsWidth() : 0.f);
+        return getFullyVisibleRightBound() - rightPinnedTabsWidth;
     }
 
     /** Returns tab strip's visible left padding accounting for pinned tab background. */
@@ -1263,7 +1279,7 @@ public class StripLayoutHelper
         // here.
         float padding =
                 trailingButtonsTouchTargetSize > 0
-                        ? NEW_TAB_BUTTON_WITH_STRIP_BUTTON_PADDING
+                        ? getNewTabButtonWithStripButtonPadding()
                         : mFixedEndPadding;
         mReservedEndMargin = trailingButtonsTouchTargetSize + mNewTabButtonWidth + padding;
 
@@ -1273,12 +1289,12 @@ public class StripLayoutHelper
 
     private void updateMargins(boolean recalculateTabWidth) {
         // Reserve space for tab search button if it is visible at the start of the strip.
-        // Subtracting 10dp from BUTTON_TOUCH_TARGET_SIZE_DP guarantees a touch target gap of
+        // Subtracting 10dp from buttonTouchTargetSize guarantees a touch target gap of
         // exactly 6dp between the button and the first tab on both desktop and non-desktop:
-        // (BUTTON_TOUCH_TARGET_SIZE_DP - 10dp) + FOLIO_FOOT_LENGTH_DP (16dp tab start touch target
-        // inset) - BUTTON_TOUCH_TARGET_SIZE_DP = 6dp.
-        mReservedStartMargin =
-                mTabSearchButton.isVisible() ? BUTTON_TOUCH_TARGET_SIZE_DP - 10.f : 0.f;
+        // (buttonTouchTargetSize - 10dp) + FOLIO_FOOT_LENGTH_DP (16dp tab start touch target
+        // inset) - buttonTouchTargetSize = 6dp.
+        float buttonTouchTargetSize = getButtonTouchTargetSizeDp(mContext);
+        mReservedStartMargin = mTabSearchButton.isVisible() ? buttonTouchTargetSize - 10.f : 0.f;
         if (LocalizationUtils.isLayoutRtl()) {
             mLeftMargin = mReservedEndMargin + mLeftPadding;
             mRightMargin = mReservedStartMargin + mRightPadding;
@@ -1293,30 +1309,37 @@ public class StripLayoutHelper
     }
 
     private void updateFades(float stripButtonsTouchTargetSize) {
-        mButtonSideFadeGradientWidth =
+        float startFadeOpaqueWidth;
+        float startFadeGradientWidth;
+        if (mTabSearchButton.isVisible()) {
+            startFadeOpaqueWidth = getButtonTouchTargetSizeDp(mContext) + mButtonSideFadePadding;
+            startFadeGradientWidth = BUTTON_FADE_GRADIENT_SHORT_WIDTH_DP;
+        } else {
+            startFadeOpaqueWidth = NO_BUTTON_FADE_OPAQUE_WIDTH_DP;
+            startFadeGradientWidth = NO_BUTTON_FADE_GRADIENT_WIDTH_DP;
+        }
+        float endFadeOpaqueWidth = mReservedEndMargin + mButtonSideFadePadding;
+        float endFadeGradientWidth =
                 stripButtonsTouchTargetSize > 0
                         ? BUTTON_FADE_GRADIENT_LONG_WIDTH_DP
                         : BUTTON_FADE_GRADIENT_SHORT_WIDTH_DP;
 
-        float startFadeWidth;
-        if (mTabSearchButton.isVisible()) {
-            // BUTTON_TOUCH_TARGET_SIZE_DP represents the Tab Search button's touch target size.
-            startFadeWidth =
-                    BUTTON_TOUCH_TARGET_SIZE_DP
-                            + mButtonSideFadePadding
-                            + BUTTON_FADE_GRADIENT_SHORT_WIDTH_DP;
-        } else {
-            startFadeWidth = NO_BUTTON_FADE_GRADIENT_WIDTH_DP + NO_BUTTON_FADE_OPAQUE_WIDTH_DP;
-        }
-
-        float endFadeWidth =
-                mReservedEndMargin + mButtonSideFadePadding + mButtonSideFadeGradientWidth;
         if (LocalizationUtils.isLayoutRtl()) {
-            mRightFadeWidth = startFadeWidth;
-            mLeftFadeWidth = endFadeWidth;
+            mRightFadeOpaqueWidth = startFadeOpaqueWidth;
+            mRightFadeGradientWidth = startFadeGradientWidth;
+            mRightFadeWidth = mRightFadeOpaqueWidth + mRightFadeGradientWidth;
+
+            mLeftFadeOpaqueWidth = endFadeOpaqueWidth;
+            mLeftFadeGradientWidth = endFadeGradientWidth;
+            mLeftFadeWidth = mLeftFadeOpaqueWidth + mLeftFadeGradientWidth;
         } else {
-            mLeftFadeWidth = startFadeWidth;
-            mRightFadeWidth = endFadeWidth;
+            mLeftFadeOpaqueWidth = startFadeOpaqueWidth;
+            mLeftFadeGradientWidth = startFadeGradientWidth;
+            mLeftFadeWidth = mLeftFadeOpaqueWidth + mLeftFadeGradientWidth;
+
+            mRightFadeOpaqueWidth = endFadeOpaqueWidth;
+            mRightFadeGradientWidth = endFadeGradientWidth;
+            mRightFadeWidth = mRightFadeOpaqueWidth + mRightFadeGradientWidth;
         }
     }
 
@@ -2311,8 +2334,8 @@ public class StripLayoutHelper
         boolean anyVisibilityChange = false;
 
         final int count = mStripTabs.length;
-        float visibleLeftBound = getVisibleLeftBound(/* clampToUnpinnedViews= */ true);
-        float visibleRightBound = getVisibleRightBound(/* clampToUnpinnedViews= */ true);
+        float visibleLeftBound = getLeftPaddingToDraw();
+        float visibleRightBound = mWidth - getRightPaddingToDraw();
 
         for (int i = 0; i < count; i++) {
             final StripLayoutTab tab = mStripTabs[i];
@@ -2387,11 +2410,7 @@ public class StripLayoutHelper
         // Make the entire strip touchable when during dragging / reordering mode.
         boolean isTabDraggingInProgress = isViewDraggingInProgress();
         if (mReorderDelegate.getInReorderMode() || isTabDraggingInProgress) {
-            mTouchableRect.set(
-                    getVisibleLeftBound(/* clampToUnpinnedViews= */ false),
-                    0,
-                    getVisibleRightBound(/* clampToUnpinnedViews= */ false),
-                    mHeight);
+            mTouchableRect.set(getLeftBound(), 0, getRightBound(), mHeight);
             return;
         }
 
@@ -2406,14 +2425,14 @@ public class StripLayoutHelper
 
         float leftBound = firstStripView.getDrawX();
         float rightBound = lastStripView.getDrawX() + lastStripView.getWidth();
-        float minLeft = getVisibleLeftBound(/* clampToUnpinnedViews= */ false);
+        float minLeft = getLeftBound();
         float maxRight = mWidth - mRightMargin;
 
         if (LocalizationUtils.isLayoutRtl()) {
             leftBound = lastStripView.getDrawX();
             rightBound = firstStripView.getDrawX() + firstStripView.getWidth();
             minLeft = mLeftMargin;
-            maxRight = getVisibleRightBound(/* clampToUnpinnedViews= */ false);
+            maxRight = getRightBound();
         }
 
         // Clamp the bounding box to the visible area (excluding reserved margins for the NTB and
@@ -3150,7 +3169,8 @@ public class StripLayoutHelper
 
     @VisibleForTesting
     int getHoverCardDelay(float tabWidth) {
-        return TabHoverCardView.getHoverCardDelay(tabWidth, MIN_TAB_WIDTH_DP, MAX_TAB_WIDTH_DP);
+        return TabHoverCardView.getHoverCardDelay(
+                tabWidth, StripLayoutUtils.getMinTabWidthDp(), MAX_TAB_WIDTH_DP);
     }
 
     private void showTabHoverCardView(boolean isDelayedCall) {
@@ -3503,7 +3523,6 @@ public class StripLayoutHelper
         assert isCollapsed == groupTitle.isCollapsed();
 
         mModel.setTabGroupCollapsed(tabGroupId, !isCollapsed, /* animate= */ true);
-        RecordHistogram.recordBooleanHistogram("Android.TabStrip.TabGroupCollapsed", !isCollapsed);
     }
 
     private void handleNewTabClick(@NewTabSource int source) {
@@ -3803,8 +3822,8 @@ public class StripLayoutHelper
                 tab.addLoadingSpinnerRotation(degrees);
                 tabHasSpinner = true;
             }
-            if (tab.getAlertState() != null && tab.getAlertState() == TabAlert.ACTOR_ACCESSING) {
-                tab.addTabIndicatorOverlayRotation(degrees);
+            if (tab.getAlertState() == TabAlert.ACTOR_ACCESSING) {
+                tab.addAlertIndicatorOverlayRotation(degrees);
                 tabHasSpinner = true;
             }
         }
@@ -3868,10 +3887,8 @@ public class StripLayoutHelper
 
     private String buildGroupAccessibilityDescription(StripLayoutGroupTitle groupTitle) {
         Resources res = mContext.getResources();
-        StringBuilder builder = new StringBuilder();
 
-        // 1. Determine and append the correct a11y string for the group depending on its shared
-        // state.
+        // 1. Determine the correct base a11y string for the group depending on its shared state.
         @StringRes int resId = R.string.accessibility_tabstrip_group;
         if (groupTitle.isGroupShared()) {
             resId =
@@ -3880,30 +3897,41 @@ public class StripLayoutHelper
                             : R.string.accessibility_tabstrip_shared_group;
         }
         String groupDescription = res.getString(resId, groupTitle.getTitle());
-        builder.append(groupDescription);
 
-        // 2. Retrieve the grouped tabs and append the tab titles.
+        // 2. Retrieve the grouped tabs and get the tabs description.
         List<Tab> relatedTabs =
                 mModel == null ? List.of() : mModel.getTabsInGroup(groupTitle.getTabGroupId());
         int relatedTabsCount = relatedTabs.size();
+        String groupDetails;
         if (relatedTabsCount > 0) {
-            final String contentDescriptionSeparator = " - ";
-            builder.append(contentDescriptionSeparator);
-
             String firstTitle = relatedTabs.get(0).getTitle();
-            String tabsDescription;
-            if (relatedTabsCount == 1) {
-                // <title>
-                tabsDescription = firstTitle;
-            } else {
-                // <title> and <num> other tabs
-                int descriptionRes = R.string.accessibility_tabstrip_group_multiple_tabs;
-                tabsDescription = res.getString(descriptionRes, firstTitle, relatedTabsCount - 1);
-            }
-            builder.append(tabsDescription);
+            String tabsDescription =
+                    relatedTabsCount == 1
+                            ? firstTitle
+                            : res.getString(
+                                    R.string.accessibility_tabstrip_group_multiple_tabs,
+                                    firstTitle,
+                                    relatedTabsCount - 1);
+            groupDetails =
+                    res.getString(
+                            R.string.accessibility_tabstrip_group_with_tabs,
+                            groupDescription,
+                            tabsDescription);
+        } else {
+            groupDetails = groupDescription;
         }
 
-        return builder.toString();
+        // 3. Get the collapsed/expanded state.
+        @StringRes
+        int collapsedStateId =
+                groupTitle.isCollapsed()
+                        ? R.string.accessibility_tabstrip_group_collapsed
+                        : R.string.accessibility_tabstrip_group_expanded;
+        String collapsedState = res.getString(collapsedStateId);
+
+        // 4. Return the final formatted string containing base details and the state.
+        return res.getString(
+                R.string.accessibility_tabstrip_group_with_state, groupDetails, collapsedState);
     }
 
     private void updateGroupAccessibilityDescription(@Nullable StripLayoutGroupTitle groupTitle) {
@@ -3966,6 +3994,7 @@ public class StripLayoutHelper
 
         finishAnimations();
         groupTitle.setCollapsed(isCollapsed);
+        updateGroupAccessibilityDescription(groupTitle);
         List<StripLayoutTab> groupedTabs =
                 StripLayoutUtils.getGroupedTabs(mModel, mStripTabs, groupTitle.getTabGroupId());
         for (StripLayoutTab tab : groupedTabs) {
@@ -4464,7 +4493,7 @@ public class StripLayoutHelper
                         mUpdateHost,
                         mIncognito,
                         /* isPinned= */ false,
-                        /* alertState= */ null);
+                        /* alertState= */ TabAlert.NONE);
         mTabDelegate.setIsTabPlaceholder(tab, true);
 
         // TODO(crbug.com/40942588): Added placeholder a11y descriptions to prevent crash due
@@ -4478,10 +4507,8 @@ public class StripLayoutHelper
         return tab;
     }
 
-    // TODO(crbug.com/546133121): Add NONE value to Java TabAlert enum
     @VisibleForTesting
-    StripLayoutTab createStripTab(
-            int id, boolean isPinned, @Nullable @TabAlert Integer alertState) {
+    StripLayoutTab createStripTab(int id, boolean isPinned, @TabAlert int alertState) {
         // TODO: Cache these
         StripLayoutTab tab =
                 new StripLayoutTab(
@@ -4657,7 +4684,8 @@ public class StripLayoutHelper
 
         // 4. Calculate the realistic tab width.
         mCachedTabWidthSupplier.set(
-                MathUtils.clamp(optimalTabWidth, MIN_TAB_WIDTH_DP, MAX_TAB_WIDTH_DP));
+                MathUtils.clamp(
+                        optimalTabWidth, StripLayoutUtils.getMinTabWidthDp(), MAX_TAB_WIDTH_DP));
     }
 
     /**
@@ -4784,9 +4812,7 @@ public class StripLayoutHelper
 
         // 3. Calculate view stacking - update view draw properties and visibility.
         mStripStacker.pushDrawPropertiesToViews(
-                mStripViews,
-                getVisibleLeftBound(/* clampToUnpinnedViews= */ false),
-                getVisibleRightBound(/* clampToUnpinnedViews= */ false));
+                mStripViews, getVisibleLeftBound(), getVisibleRightBound());
         mStripStacker.pushDrawPropertiesToButtons(
                 mNewTabButton,
                 mStripTabs,
@@ -4855,7 +4881,15 @@ public class StripLayoutHelper
                 float drawXOffset = MathUtils.flipSignIf(mGroupTitleDrawXOffset, rtl);
                 setGroupTitleIdealX(groupTitle, startX + drawXOffset);
 
-                delta = (view.getWidth() - mGroupTitleOverlapWidth) * view.getWidthWeight();
+                float overlapWidth = mGroupTitleOverlapWidth;
+                if (groupTitle.isCollapsed()) {
+                    // When a tab group is collapsed, both its left and right neighbors are tabs
+                    // outside the group, so both sides should use the start margin instead of the
+                    // end margin. We adjust the overlap width on the right to match the left side
+                    // spacing.
+                    overlapWidth -= StripLayoutGroupTitle.COLLAPSED_MARGIN_ADJUSTMENT_DP;
+                }
+                delta = (view.getWidth() - overlapWidth) * view.getWidthWeight();
             } else {
                 assert false : "Unexpected view type in tab strip views.";
                 delta = 0;
@@ -4948,11 +4982,8 @@ public class StripLayoutHelper
 
         // 1. Calculate the bounds to fully show the regular view on the left/right side of the
         // strip.
-        // TODO(wenyufu): Account for offsetX{Left,Right} result too much offset. Is this expected?
-        final float rightBound =
-                getVisibleRightBound(/* clampToUnpinnedViews= */ true) - mRightFadeWidth;
-        final float leftBound =
-                getVisibleLeftBound(/* clampToUnpinnedViews= */ true) + mLeftFadeWidth;
+        final float rightBound = getFullyVisibleRightUnpinnedBound();
+        final float leftBound = getFullyVisibleLeftUnpinnedBound();
 
         // 2. Calculate vectors from the view's ideal position to the farthest left/right point
         // where the view can be visible.
@@ -5073,13 +5104,8 @@ public class StripLayoutHelper
 
     private void handleReorderAutoScrolling(long time) {
         if (!mReorderDelegate.getInReorderMode()) return;
-        boolean rtl = LocalizationUtils.isLayoutRtl();
-        float leftBound =
-                getVisibleLeftBound(/* clampToUnpinnedViews= */ true)
-                        + (rtl ? mReservedEndMargin : 0f);
-        float rightBound =
-                getVisibleRightBound(/* clampToUnpinnedViews= */ true)
-                        + (rtl ? 0f : mReservedEndMargin);
+        float leftBound = getFullyVisibleLeftUnpinnedBound();
+        float rightBound = getFullyVisibleRightUnpinnedBound();
         mReorderDelegate.updateReorderPositionAutoScroll(
                 mStripViews, mStripGroupTitles, mStripTabs, time, leftBound, rightBound);
     }
@@ -5280,9 +5306,9 @@ public class StripLayoutHelper
     private boolean isViewCompletelyVisible(StripLayoutView view) {
         boolean isPinned = (view instanceof StripLayoutTab tab) && tab.getIsPinned();
         float leftBound =
-                getVisibleLeftBound(/* clampToUnpinnedViews= */ !isPinned) + mLeftFadeWidth;
+                isPinned ? getFullyVisibleLeftBound() : getFullyVisibleLeftUnpinnedBound();
         float rightBound =
-                getVisibleRightBound(/* clampToUnpinnedViews= */ !isPinned) - mRightFadeWidth;
+                isPinned ? getFullyVisibleRightBound() : getFullyVisibleRightUnpinnedBound();
         float viewStart = 0f;
         float viewEnd = 0f;
         if (view instanceof StripLayoutTab tab) {
@@ -5323,9 +5349,9 @@ public class StripLayoutHelper
 
     private boolean isViewCompletelyHiddenAt(float viewX, float viewWidth, boolean isPinned) {
         float leftBound =
-                getVisibleLeftBound(/* clampToUnpinnedViews= */ !isPinned) + mLeftFadeWidth;
+                isPinned ? getFullyVisibleLeftBound() : getFullyVisibleLeftUnpinnedBound();
         float rightBound =
-                getVisibleRightBound(/* clampToUnpinnedViews= */ !isPinned) - mRightFadeWidth;
+                isPinned ? getFullyVisibleRightBound() : getFullyVisibleRightUnpinnedBound();
         // Check if the tab is outside the visible bounds to the left...
         return viewX + viewWidth <= leftBound
                 // ... or to the right.
@@ -5869,7 +5895,7 @@ public class StripLayoutHelper
      * @param tab The {@link Tab} whose alert state changed.
      * @param alertState The {@link TabAlert} state of the tab.
      */
-    public void onAlertStateChanged(Tab tab, @Nullable @TabAlert Integer alertState) {
+    public void onAlertStateChanged(Tab tab, @TabAlert int alertState) {
         StripLayoutTab stripLayoutTab = findTabById(tab.getId());
         // This state may get reset after the tab has already closed, so ignore if null.
         if (stripLayoutTab == null) return;

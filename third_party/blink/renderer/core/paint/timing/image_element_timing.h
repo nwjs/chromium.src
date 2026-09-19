@@ -12,6 +12,7 @@
 #include "third_party/blink/renderer/core/paint/timing/container_timing.h"
 #include "third_party/blink/renderer/core/paint/timing/media_record_id.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_callbacks.h"
+#include "third_party/blink/renderer/core/paint/timing/paint_timing_client.h"
 #include "third_party/blink/renderer/core/timing/window_performance.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
@@ -20,6 +21,7 @@
 
 namespace blink {
 
+struct ElementTimingInfo;
 class ImagePaintTimingDetector;
 class ImageResourceContent;
 class PropertyTreeStateOrAlias;
@@ -28,7 +30,8 @@ class StyleImage;
 // ImageElementTiming is responsible for tracking the paint timings for <img>
 // elements for a given window.
 class CORE_EXPORT ImageElementTiming final
-    : public GarbageCollected<ImageElementTiming> {
+    : public GarbageCollected<ImageElementTiming>,
+      public PaintTimingClient {
  public:
   // The maximum amount of characters included in Element Timing and Largest
   // Contentful Paint for inline images.
@@ -37,9 +40,15 @@ class CORE_EXPORT ImageElementTiming final
   ImageElementTiming(LocalDOMWindow&, const ImagePaintTimingDetector&);
   ImageElementTiming(const ImageElementTiming&) = delete;
   ImageElementTiming& operator=(const ImageElementTiming&) = delete;
-  ~ImageElementTiming() = default;
 
   static ImageElementTiming& From(LocalDOMWindow&);
+
+  // PaintTimingClient:
+  void OnFramePresented(const HeapVector<Member<ImageRecord>>&,
+                        const HeapVector<Member<TextRecord>>&,
+                        const GCedHeapVector<Member<ElementTimingInfo>>*,
+                        const DOMPaintTimingInfo&) override;
+  void Trace(Visitor* visitor) const override;
 
   // Called when the LayoutObject has been painted. Does nothing if the image is
   // not fully loaded. This method might queue a presentation promise to compute
@@ -59,46 +68,14 @@ class CORE_EXPORT ImageElementTiming final
   void NotifyImageRemoved(const LayoutObject&,
                           const ImageResourceContent* image);
 
-  void Trace(Visitor*) const;
-
-  OptionalPaintTimingCallback TakePaintTimingCallback();
+  HeapVector<Member<ElementTimingInfo>> TakeElementTimingsOnPaintFinished();
 
  private:
   friend class ImageElementTimingTest;
 
-  // Class containing information about image element timing.
-  class ElementTimingInfo final : public GarbageCollected<ElementTimingInfo> {
-   public:
-    ElementTimingInfo(const String& url,
-                      const gfx::RectF& rect,
-                      const base::TimeTicks& response_end,
-                      const AtomicString& identifier,
-                      const gfx::Size& intrinsic_size,
-                      const AtomicString& id,
-                      Element* element)
-        : url(url),
-          rect(rect),
-          response_end(response_end),
-          identifier(identifier),
-          intrinsic_size(intrinsic_size),
-          id(id),
-          element(element) {}
-    ElementTimingInfo(const ElementTimingInfo&) = delete;
-    ElementTimingInfo& operator=(const ElementTimingInfo&) = delete;
-    ~ElementTimingInfo() = default;
-
-    void Trace(Visitor* visitor) const { visitor->Trace(element); }
-
-    String url;
-    gfx::RectF rect;
-    base::TimeTicks response_end;
-    AtomicString identifier;
-    gfx::Size intrinsic_size;
-    AtomicString id;
-    Member<Element> element;
-  };
-
-  bool ContributesToContainerTiming(const Element*);
+  // Only valid at paint time: the answer comes from the tracker, which the
+  // pre-paint walk populates.
+  bool ContributesToContainerTiming(Element*);
   bool NeededForTiming(const LayoutObject&);
 
   void EnsureContainerTiming();
@@ -122,7 +99,7 @@ class CORE_EXPORT ImageElementTiming final
 
   // Vector containing the element timing infos that will be reported during the
   // next presentation promise callback.
-  Member<GCedHeapVector<Member<ElementTimingInfo>>> element_timings_;
+  HeapVector<Member<ElementTimingInfo>> element_timings_;
 
   // Set of images that have already been considered for Element Timing.
   HashSet<MediaRecordIdHash> recorded_images_;

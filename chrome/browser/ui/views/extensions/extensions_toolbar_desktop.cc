@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/extensions/extension_action_view_model.h"
+#include "chrome/browser/ui/extensions/extension_side_panel_coordinator.h"
 #include "chrome/browser/ui/extensions/extensions_toolbar_view_model.h"
 #include "chrome/browser/ui/extensions/settings_api_bubble_helpers.h"
 #include "chrome/browser/ui/layout_constants.h"
@@ -39,7 +40,6 @@
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_desktop_view_controller.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
-#include "chrome/browser/ui/views/side_panel/extensions/extension_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_action_hover_card_controller.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/user_education/user_education_service.h"
@@ -48,6 +48,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/prefs/pref_service.h"
+#include "components/tabs/public/tab_interface.h"
 #include "components/user_education/common/feature_promo/feature_promo_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_util.h"
@@ -683,7 +684,8 @@ void ExtensionsToolbarDesktop::CreateActionViewForId(
 }
 
 content::WebContents* ExtensionsToolbarDesktop::GetCurrentWebContents() {
-  return browser_->tab_strip_model()->GetActiveWebContents();
+  tabs::TabInterface* const tab = browser_->GetActiveTabInterface();
+  return tab ? tab->GetContents() : nullptr;
 }
 
 views::LabelButton* ExtensionsToolbarDesktop::GetOverflowReferenceView() const {

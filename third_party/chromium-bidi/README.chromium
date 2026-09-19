@@ -1,0 +1,43 @@
+Name: Implementation of WebDriver BiDi standard
+Short Name: chromium-bidi
+URL: https://github.com/GoogleChromeLabs/chromium-bidi
+Version: 17.0.2
+Revision: d3bda5afa8c3fe9d3616bcce09ecaf38596d1ac9
+Update Mechanism: Static.HardFork (https://crbug.com/551581139)
+License: Apache-2.0
+License File: LICENSE
+Shipped: yes
+Security Critical: no
+CPEPrefix: unknown
+License Android Compatible: yes
+
+Description:
+WebDriver BiDi implementation for ChromeDriver.
+The software is compiled into mapperTab.js script that is uploaded by ChromeDriver into the Chrome browser.
+
+Local Modifications:
+None for now, but further development continues here.
+
+-------------------- DEPENDENCY DIVIDER --------------------
+
+Name: mitt
+URL: https://github.com/developit/mitt
+Version: 3.0.1
+License: MIT
+Revision: b240473b5707857ba2c6a8e6d707c28d1e39da49
+Update Mechanism: Manual
+Security Critical: no
+Shipped: yes
+License File: licenses/LICENSE.mitt
+
+-------------------- DEPENDENCY DIVIDER --------------------
+
+Name: zod
+URL: https://zod.dev
+Version: 3.25.76
+License: MIT
+Revision: 50606616c0d291caf3210a7521da51271b918333
+Update Mechanism: Manual
+Security Critical: no
+Shipped: yes
+License File: licenses/LICENSE.zod

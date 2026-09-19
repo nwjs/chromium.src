@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_INFOBARS_INFOBAR_SPEC_H_
 
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -43,17 +44,25 @@ enum class InfoBarResult {
   kDismissed,
   // Went away without the user touching it, e.g. the tab was closed.
   kIgnored,
+  // The only user interaction was a link click.
+  kLinkClicked,
 };
 
 // InfoBarSpec defines an InfoBar's appearance and behavior.
 class InfoBarSpec {
  public:
+  // Runs when the user presses a button or dismisses the infobar. The
+  // infobar is torn down right after the call, so an action callback must
+  // not destroy it or close the tab synchronously. Use Hide() or the
+  // result callback for work that has to happen after teardown.
   using ActionCallback = base::RepeatingCallback<void(content::WebContents*)>;
   using SubstitutionsCallback =
       base::RepeatingCallback<std::vector<MessageSubstitution>(
           content::WebContents*)>;
+  // Called with the substitution index when an inline link is clicked.
+  // Returns true to close the infobar.
   using InlineLinkCallback = base::RepeatingCallback<
-      void(content::WebContents*, size_t, WindowOpenDisposition)>;
+      bool(content::WebContents*, size_t, WindowOpenDisposition)>;
   // Reports the terminal outcome. The WebContents may already be gone by
   // then, in which case it is null.
   using ResultCallback =
@@ -94,6 +103,7 @@ class InfoBarSpec {
   bool should_hide_in_fullscreen() const { return should_hide_in_fullscreen_; }
   bool should_animate() const { return should_animate_; }
   bool is_closeable() const { return is_closeable_; }
+  bool close_on_accept() const { return close_on_accept_; }
 
   const std::u16string& ok_button_label() const { return ok_button_label_; }
   const ActionCallback& ok_button_callback() const {
@@ -131,6 +141,7 @@ class InfoBarSpec {
   bool should_hide_in_fullscreen_ = false;
   bool should_animate_ = true;
   bool is_closeable_ = true;
+  bool close_on_accept_ = true;
 
   std::u16string ok_button_label_;
   ActionCallback ok_button_callback_;
@@ -139,6 +150,41 @@ class InfoBarSpec {
   ActionCallback dismiss_callback_;
   ResultCallback result_callback_;
   BrowserFilter browser_filter_;
+};
+
+// Per-show overrides for values only known at show time. Anything set here
+// wins over the registered InfoBarSpec for that one instance.
+struct InfoBarShowParams {
+  InfoBarShowParams();
+  InfoBarShowParams(InfoBarShowParams&&);
+  InfoBarShowParams& operator=(InfoBarShowParams&&);
+  // Copyable: a global show stamps one params set onto every mirrored
+  // instance.
+  InfoBarShowParams(const InfoBarShowParams&);
+  InfoBarShowParams& operator=(const InfoBarShowParams&);
+  ~InfoBarShowParams();
+
+  // Overrides the spec's message text and suppresses its template.
+  std::optional<std::u16string> message_text;
+
+  // Substitutions for the spec's message template, computed by the caller.
+  std::optional<std::vector<MessageSubstitution>> substitutions;
+
+  // Overrides the spec's link text; empty suppresses the link.
+  std::optional<std::u16string> link_text;
+
+  // Overrides the spec's scope in Show().
+  //
+  // Limitation: while the override instance occupies a tab, an armed global
+  // instance is deduplicated away there and only reappears on the next
+  // active-tab change.
+  std::optional<InfoBarScope> scope;
+
+  // Override the spec's callbacks when non-null.
+  InfoBarSpec::ActionCallback ok_button_callback;
+  InfoBarSpec::ActionCallback cancel_button_callback;
+  InfoBarSpec::InlineLinkCallback inline_link_callback;
+  InfoBarSpec::ResultCallback result_callback;
 };
 
 class InfoBarSpec::Builder {
@@ -165,6 +211,10 @@ class InfoBarSpec::Builder {
   Builder& SetShouldHideInFullscreen(bool should_hide_in_fullscreen);
   Builder& SetShouldAnimate(bool should_animate);
   Builder& SetIsCloseable(bool is_closeable);
+  // Pressing the OK button closes the infobar by default. Pass false to
+  // keep it up, e.g. when the button starts work whose outcome the infobar
+  // is still describing.
+  Builder& SetCloseOnAccept(bool close_on_accept);
 
   Builder& AddOkButton(const std::u16string& label,
                        InfoBarSpec::ActionCallback callback);

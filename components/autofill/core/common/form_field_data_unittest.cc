@@ -7,7 +7,7 @@
 #include "base/i18n/rtl.h"
 #include "base/pickle.h"
 #include "base/strings/utf_string_conversions.h"
-#include "components/autofill/core/common/autofill_test_utils.h"
+#include "components/autofill/core/common/autofill_test_util.h"
 #include "components/autofill/core/common/autofill_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -25,7 +25,6 @@ void FillCommonFields(FormFieldData* data) {
   data->set_autocomplete_attribute("off");
   data->set_max_length(200);
   data->set_is_autofilled_according_to_renderer(true);
-  data->set_check_status(FormFieldData::CheckStatus::kChecked);
   data->set_is_focusable(true);
   data->set_should_autocomplete(false);
   data->set_text_direction(base::i18n::RIGHT_TO_LEFT);
@@ -73,12 +72,13 @@ void WriteSection1(const FormFieldData& data, base::Pickle* pickle) {
 }
 
 void WriteSection3(const FormFieldData& data, base::Pickle* pickle) {
-  pickle->WriteBool(IsChecked(data.check_status()));
-  pickle->WriteBool(IsCheckable(data.check_status()));
+  // These two booleans are for <input type=checkboxk> and <input type=radio>:
+  pickle->WriteBool(false);  // Whether the element is checked.
+  pickle->WriteBool(false);  // Whether the element is checkable.
 }
 
 void WriteSection4(const FormFieldData& data, base::Pickle* pickle) {
-  pickle->WriteInt(static_cast<int>(data.check_status()));
+  pickle->WriteInt(0);
 }
 
 void WriteSection5(const FormFieldData& data, base::Pickle* pickle) {
@@ -498,7 +498,6 @@ TEST(FormFieldDataTest, IsTextInputElement) {
       {FormControlType::kInputPassword, true},
       {FormControlType::kInputNumber, true},
       {FormControlType::kSelectOne, false},
-      {FormControlType::kInputCheckbox, false},
       {FormControlType::kTextArea, false},
   };
 

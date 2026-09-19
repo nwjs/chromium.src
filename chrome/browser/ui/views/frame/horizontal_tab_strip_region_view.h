@@ -29,7 +29,6 @@ class TabStripComboButton;
 class TabStrip;
 class TabStripScrollContainer;
 class TabStripControlButton;
-class TabScrollButtonContainer;
 
 // Container for the tabstrip and the other views sharing space with it -
 // with the exception of the caption buttons.
@@ -115,6 +114,8 @@ class HorizontalTabStripRegionViewOld : public TabStripRegionView {
   // Updates the left and right margins for the tab strip.
   void UpdateTabStripMargin();
 
+  void OnUnfocusButtonVisibilityChanged();
+
   // Gets called on `Layout` and adjusts the x-axis position of the `view` based
   // on `offset`. This should only used for views that show before tab strip.
   void AdjustViewBoundsRect(View* view, int offset);
@@ -132,6 +133,7 @@ class HorizontalTabStripRegionViewOld : public TabStripRegionView {
   raw_ptr<TabStripControlButton> unfocus_button_ = nullptr;
 
   std::unique_ptr<views::ActionViewController> action_view_controller_;
+  base::CallbackListSubscription unfocus_button_subscription_;
 
   const base::CallbackListSubscription subscription_ =
       ui::TouchUiController::Get()->RegisterCallback(base::BindRepeating(
@@ -166,16 +168,8 @@ class HorizontalTabStripRegionViewNew : public BaseTabStripRegionView {
       const BrowserRootView::DropIndex& drop_index,
       DropArrow::Direction* direction) override;
 
-  TabScrollButtonContainer* scroll_button_container_for_testing() {
-    return scroll_button_container_;
-  }
-
  private:
   void OnTabStripViewSet() override;
-  void OnTabStripViewWillClear() override;
-  // Computes if the unpinned container would be scrollable
-  // if we did not show the scroll buttons. To be used only in Layout().
-  bool ComputeIsUnpinnedTabsScrollable(views::ManualLayoutUtil& layout_util);
 
   void UpdateButtonBorders();
 
@@ -183,7 +177,6 @@ class HorizontalTabStripRegionViewNew : public BaseTabStripRegionView {
   raw_ptr<views::View> reserved_grab_handle_space_ = nullptr;
   raw_ptr<TabStripComboButton> combo_button_ = nullptr;
   raw_ptr<views::Button> new_tab_button_ = nullptr;
-  raw_ptr<TabScrollButtonContainer> scroll_button_container_ = nullptr;
 
   std::unique_ptr<views::ActionViewController> action_view_controller_;
 

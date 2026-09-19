@@ -295,7 +295,6 @@ bool IsPasswordSuggestion(FormSuggestion* suggestion) {
     case SuggestionType::kTitle:
     case SuggestionType::kSeparator:
     case SuggestionType::kUndo:
-    case SuggestionType::kMixedFormMessage:
     case SuggestionType::kDevtoolsTestAddresses:
     case SuggestionType::kDevtoolsTestAddressByCountry:
     case SuggestionType::kDevtoolsTestAddressEntry:
@@ -310,7 +309,7 @@ bool IsPasswordSuggestion(FormSuggestion* suggestion) {
     case SuggestionType::kAtMemoryInactivityNudge:
     case SuggestionType::kBnplFootnote:
     case SuggestionType::kAutocompleteAtMemoryButton:
-    case SuggestionType::kOpenGemini:
+    case SuggestionType::kAtMemoryOpenGemini:
     case SuggestionType::kAtMemoryNoConnection:
     case SuggestionType::kAtMemoryFetching:
     case SuggestionType::kAtMemoryGenericError:
@@ -320,6 +319,7 @@ bool IsPasswordSuggestion(FormSuggestion* suggestion) {
     case SuggestionType::kAutofillAiOtherOrders:
     case SuggestionType::kAutofillAiOtherShipments:
     case SuggestionType::kAutofillAiPrivateInferenceNotice:
+    case SuggestionType::kAutofillAiSourceAttribution:
     case SuggestionType::kRemoveAutofillAi:
     case SuggestionType::kFetchingAmbientData:
     case SuggestionType::kMaximizeCreditCardBenefitsEntry:
@@ -843,6 +843,49 @@ void ConfigureFetchingAmbientDataSuggestion(UIStackView* stackView,
   return settingsAction;
 }
 
+// Handles the tap on the view sources context menu action.
+- (void)handleViewSourcesTap {
+  [_delegate openSourcesForSuggestion:self.suggestion];
+}
+
+// Returns the action to view sources.
+- (UIAction*)viewSourcesAction {
+  __weak __typeof(self) weakSelf = self;
+  UIAction* viewSourcesAction = [UIAction
+      actionWithTitle:l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_VIEW_SOURCES)
+                image:SymbolWithPointSize(SymbolLinkAction,
+                                          kSymbolActionPointSize)
+           identifier:nil
+              handler:^(__kindof UIAction* action) {
+                [weakSelf handleViewSourcesTap];
+              }];
+  viewSourcesAction.accessibilityIdentifier =
+      kFormSuggestionLabelViewSourcesAccessibilityIdentifier;
+  return viewSourcesAction;
+}
+
+// Handles the tap on the remove context menu action.
+- (void)handleRemoveTap {
+  [_delegate suppressPersonalContextSuggestion:self.suggestion];
+}
+
+// Returns the action to remove a personal context suggestion.
+- (UIAction*)removeAction {
+  __weak __typeof(self) weakSelf = self;
+  UIAction* removeAction = [UIAction
+      actionWithTitle:l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_REMOVE_ACTION)
+                image:SymbolWithPointSize(SymbolHideAction,
+                                          kSymbolActionPointSize)
+           identifier:nil
+              handler:^(__kindof UIAction* action) {
+                [weakSelf handleRemoveTap];
+              }];
+  removeAction.attributes = UIMenuElementAttributesDestructive;
+  removeAction.accessibilityIdentifier =
+      kFormSuggestionLabelRemoveAccessibilityIdentifier;
+  return removeAction;
+}
+
 // Returns the context menu for the suggestion.
 - (UIMenu*)contextMenu {
   NSMutableArray<UIMenuElement*>* children = [[NSMutableArray alloc] init];
@@ -850,6 +893,15 @@ void ConfigureFetchingAmbientDataSuggestion(UIStackView* stackView,
     [children addObject:[self editAction]];
   }
   [children addObject:[self openSettingsAction]];
+
+  if ([_delegate hasSourcesForSuggestion:self.suggestion]) {
+    [children addObject:[self viewSourcesAction]];
+  }
+
+  if (self.suggestion.type == autofill::SuggestionType::kFillAutofillAi &&
+      [_delegate canSuppressPersonalContextSuggestion:self.suggestion]) {
+    [children addObject:[self removeAction]];
+  }
 
   NSString* title = @"";
   if (self.suggestion.type == autofill::SuggestionType::kFillAutofillAi &&

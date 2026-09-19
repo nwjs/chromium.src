@@ -74,6 +74,7 @@ source_set("impl") {
   public_deps = [
     ":sessions",
     "//chrome/browser:browser_public_dependencies",
+    "//chrome/browser/ui:browser_live_tab_context",
   ]
 
   deps = [
@@ -132,6 +133,7 @@ source_set("impl") {
       "//chrome/browser/profiles/keep_alive",
       "//chrome/browser/search",
       "//chrome/browser/tab_group_sync:factories",
+      "//chrome/browser/ui:browser_init_state",
       "//chrome/browser/ui:session_crashed_bubble",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/browser_window:create_browser_window",
@@ -143,6 +145,7 @@ source_set("impl") {
       "//chrome/browser/ui/webui/tab_strip_internals",
       "//chrome/browser/ui/webui/tab_strip_internals:impl",
       "//chrome/browser/ui/webui/whats_new",
+      "//chrome/browser/ui/window_feature_controller",
       "//chrome/browser/ui/window_metadata",
       "//chrome/browser/web_applications",
       "//components/keep_alive_registry",
@@ -242,7 +245,6 @@ source_set("unit_tests") {
       "//chrome/browser:browser_process",
       "//chrome/browser/performance_manager",
       "//chrome/browser/profiles:profile",
-      "//chrome/browser/ui",
       "//components/favicon/content",
       "//components/favicon/core/test:test_support",
       "//components/performance_manager/test_support:test_support_common",
@@ -292,6 +294,9 @@ if (!is_android) {
       "//chrome/browser/prefs:util",
       "//chrome/browser/tab_group_sync:factories",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:browser_init_state",
+      "//chrome/browser/ui:browser_live_tab_context",
+      "//chrome/browser/ui:browser_window_state",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/browser_web_contents_delegate",
       "//chrome/browser/ui/startup",
@@ -306,6 +311,7 @@ if (!is_android) {
       "//components/saved_tab_groups/internal:model",
       "//components/sessions",
       "//components/sessions:test_support",
+      "//components/sync",
       "//content/test:test_support",
       "//testing/gmock",
       "//testing/gtest",
@@ -349,7 +355,10 @@ if (!is_android) {
 
       defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
-      sources = [ "session_restore_interactive_uitest.cc" ]
+      sources = [
+        "multi_profile_session_restore_interactive_uitest.cc",
+        "session_restore_interactive_uitest.cc",
+      ]
 
       deps = [
         ":sessions",

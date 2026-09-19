@@ -9,6 +9,7 @@
 <translation id="1065672644894730302">Nie można odczytać ustawień. Niektóre funkcje mogą być niedostępne, a zmiany w ustawieniach nie zostaną zapisane.</translation>
 <translation id="1083934481477628225">Rodzic wyłączył „Uprawnienia stron, aplikacji i rozszerzeń” w Chromium</translation>
 <translation id="1090946077924227754">Aby wyszukać konkretną funkcję lub rozszerzenie Chromium, wpisz skrót do danego elementu na pasku adresu i naciśnij wybrany klawisz</translation>
+<translation id="1098493699368672217">Pokaż wyszukiwarkę w Chromium w obszarze powiadomień i włącz skrót klawiszowy</translation>
 <translation id="1104942323762546749">Chromium chce wyeksportować Twoje hasła. Wpisz swoje hasło do Windows, by na to zezwolić.</translation>
 <translation id="112640046208448578">Rozpoznawaj obiekty lub miejsca i kopiuj lub tłumacz tekst. Gdy używasz wyszukiwania obrazów, na serwer jest wysyłany zrzut ekranu ze strony. <ph name="LEARN_MORE" /></translation>
 <translation id="113122355610423240">Chromium jest domyślną przeglądarką</translation>
@@ -38,7 +39,6 @@
 <translation id="1356661055722410047">Nowość! Możesz tłumaczyć tekst i obrazy na ekranie</translation>
 <translation id="1383876407941801731">Szukaj</translation>
 <translation id="1388276868779258475">Używaj aplikacji Chromium, aby przeglądać internet, gdziekolwiek jesteś</translation>
-<translation id="1397530502368084401">Zarządzaj profila&amp;mi Chromium</translation>
 <translation id="141901961143729572">Podziel się swoimi wrażeniami</translation>
 <translation id="1465192221147974788">Aby udostępnić okno, pozwól Chromium na nagrywanie ekranu w ustawieniach systemu.</translation>
 <translation id="1478370723027452770">Pomoc dotycząca Chrome for Testing</translation>
@@ -151,7 +151,6 @@
 <translation id="2620436844016719705">System</translation>
 <translation id="2629740064077610681">Twoja organizacja może wyświetlać dane przeglądania (np. zakładki, historię i hasła) oraz nimi zarządzać. Nie widzi danych przeglądania w innych profilach Chromium</translation>
 <translation id="2635452620547538388">Potwierdź swoją tożsamość, aby móc zapisywać dane z Chromium na koncie <ph name="ACCOUNT_EMAIL" /> i ich używać</translation>
-<translation id="2636783171884046627">Aby wyjść z Gemini w Chromium lub do niego wrócić, użyj skrótu klawiszowego.</translation>
 <translation id="2637732208198500597">{COUNT,plural, =0{Ochrona zaawansowana wymaga ponownego uruchomienia Chromium, aby zastosować aktualizację}=1{Ochrona zaawansowana wymaga ponownego uruchomienia Chromium, aby zastosować aktualizację. Okno incognito nie otworzy się ponownie.}few{Ochrona zaawansowana wymaga ponownego uruchomienia Chromium, aby zastosować aktualizację. # okna incognito nie otworzą się ponownie.}many{Ochrona zaawansowana wymaga ponownego uruchomienia Chromium, aby zastosować aktualizację. # okien incognito nie otworzy się ponownie.}other{Ochrona zaawansowana wymaga ponownego uruchomienia Chromium, aby zastosować aktualizację. # okna incognito nie otworzy się ponownie.}}</translation>
 <translation id="263863604136125912">Uruchom Chromium</translation>
 <translation id="2648074677641340862">Podczas instalacji wystąpił błąd systemu operacyjnego. Pobierz Chromium ponownie.</translation>
@@ -226,6 +225,7 @@
 <translation id="3387527074123400161">System operacyjny Chromium</translation>
 <translation id="3406848076815591792">Przełączyć na istniejący profil Chromium?</translation>
 <translation id="3412460710772753638">W Menedżerze haseł na tym urządzeniu</translation>
+<translation id="3438772217992559640">Wyszukaj na tej karcie za pomocą wyszukiwania obrazów</translation>
 <translation id="3455907671758333080">Korzystaj z Ulepszonego bezpiecznego przeglądania także na telefonie dzięki Chromium</translation>
 <translation id="3461644266919055473">Dostosowuję Chromium…</translation>
 <translation id="3474745554856756813">Spowoduje to usunięcie <ph name="ITEMS_COUNT" /> elementów z tego urządzenia. Aby później odzyskać dane, zaloguj się w Chromium jako <ph name="USER_EMAIL" />.</translation>
@@ -264,7 +264,6 @@
 <translation id="3892148308691398805">Kopiuj tekst</translation>
 <translation id="390528597099634151">W tym profilu Chromium jest już zalogowany użytkownik <ph name="EXISTING_USER" />. Aby umożliwić Ci przeglądanie osobno, Chromium może utworzyć dla Ciebie nowy profil.</translation>
 <translation id="3909353120217047026">To rozszerzenie narusza zasady Chrome Web Store i może być niebezpieczne. Usuń je z Chromium, aby nie odczytywało ani nie zmieniało Twoich danych na stronach, które odwiedzasz. Dotyczy to też Twoich danych osobowych.</translation>
-<translation id="3937491663738985329">Spersonaliz&amp;uj Chromium</translation>
 <translation id="3941890832296813527">Błąd instalacji: nazwa pliku instalatora jest nieprawidłowa lub nieobsługiwana.</translation>
 <translation id="3945058413678539331">Chromium próbuje skopiować hasła. Aby na to zezwolić, podaj swoje hasło do Windows.</translation>
 <translation id="3954172517175569325">Hasła, formy płatności i adresy zapisane na koncie Google zostaną usunięte z tego urządzenia. Aby znowu korzystać z nich w Chromium, zaloguj się ponownie.</translation>
@@ -304,6 +303,7 @@
 <translation id="4298125729853015961">Eksportuj hasła z Chromium</translation>
 <translation id="4304713468139749426">Menedżer haseł</translation>
 <translation id="4334241893986177674">Przeszukaj ten zrzut ekranu</translation>
+<translation id="4368547723231502008">Wyszukuj i zadawaj pytania z dowolnego miejsca, nawet gdy przeglądarka Chromium jest zminimalizowana</translation>
 <translation id="4384331407722351213">Uruchamiaj Chromium po uruchomieniu systemu Windows</translation>
 <translation id="4400772909124543403">Brak dostępnych aktualizacji</translation>
 <translation id="4407044323746248786">Zamknąć Chromium mimo to?</translation>
@@ -333,6 +333,7 @@
 <translation id="4613863813562375431">Wersja systemu operacyjnego Chromium</translation>
 <translation id="4621240073146040695">Już prawie gotowe. Uruchom ponownie Chromium, by zakończyć aktualizację.</translation>
 <translation id="4625064703209785397">Witryny będą działać szybciej dzięki mechanizmowi V8 w przeglądarce Chromium, ale będzie ona trochę mniej odporna na ataki</translation>
+<translation id="4626321472657185181">Otwórz wyszukiwanie w Chromium</translation>
 <translation id="4665829708273112819">Ostrzeżenie: Chromium nie może uniemożliwić rozszerzeniom zapisywania historii przeglądania. Aby wyłączyć to rozszerzenie w trybie incognito, odznacz tę opcję.</translation>
 <translation id="4673151026126227699">Jeśli udostępnisz też raporty o użytkowaniu Chromium, będą one zawierały odwiedzane przez Ciebie adresy URL.</translation>
 <translation id="4673710618874938871">Zalogowano jako <ph name="USER_NAME" />, subskrypcja. Otwórz menu konta</translation>
@@ -374,6 +375,7 @@
 <translation id="5286907366254680517">Wykryto</translation>
 <translation id="5289287148052354622">Pobierz aplikację Chromium</translation>
 <translation id="5294316920224716406">Podczas przeglądania w trybie incognito Chromium będzie Cię ostrzegać przed wczytaniem strony korzystającej z niezabezpieczonego połączenia</translation>
+<translation id="5296581118566748922">Wyszukaj w Chromium</translation>
 <translation id="5313228254328109263">Wewnętrzna usługa aktualizatora Chromium</translation>
 <translation id="5324450571874973775">Używaj ich razem z innymi funkcjami Gemini w Chromium</translation>
 <translation id="5346389065299425353">Pogłębiaj wyszukiwanie, dodając kilka kart, plików i narzędzi</translation>
@@ -384,6 +386,7 @@
 <translation id="5358375970380395591">Logujesz się na zarządzane konto i przekazujesz jego administratorowi kontrolę nad swoim profilem Chromium. Twoje dane Chromium, takie jak aplikacje, zakładki, historia, hasła i inne ustawienia, zostaną trwale powiązane z użytkownikiem <ph name="USER_NAME" />. Będzie można je usunąć w Panelu kont Google, ale nie będzie można ich powiązać z innym kontem. <ph name="LEARN_MORE" /></translation>
 <translation id="5368118228313795342">Dodatkowy kod: <ph name="EXTRA_CODE" />.</translation>
 <translation id="5377622451696208284">Aby korzystać z personalizacji, uwzględnij Chromium w Aktywności w internecie i aplikacjach</translation>
+<translation id="5382964351116519680">Otwórz wyszukiwanie w Chromium</translation>
 <translation id="5383439451358640070">Dowiedz się, dlaczego Chromium blokuje niektóre pliki</translation>
 <translation id="5386450000063123300">Aktualizuję Chromium (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="538767207339317086">Zezwalaj na logowanie w Chromium</translation>
@@ -440,6 +443,7 @@ Jeśli ta strona nie działa zgodnie z oczekiwaniami, spróbuj zezwolić na opt
 <translation id="5977420883993828287">Przypięto. Użyj ponownie zadań kontekstowych z paska narzędzi</translation>
 <translation id="5986585015444752010">{COUNT,plural, =1{Twoja organizacja automatycznie zamyka przeglądarkę Chromium, gdy nie korzystasz z niej przez minutę.}few{Twoja organizacja automatycznie zamyka przeglądarkę Chromium, gdy nie korzystasz z niej przez # minuty.}many{Twoja organizacja automatycznie zamyka przeglądarkę Chromium, gdy nie korzystasz z niej przez # minut.}other{Twoja organizacja automatycznie zamyka przeglądarkę Chromium, gdy nie korzystasz z niej przez # minuty.}}</translation>
 <translation id="5987687638152509985">Zaktualizuj Chromium, by rozpocząć synchronizację</translation>
+<translation id="5990360079535151574">Za pomocą przycisku „Zadania kontekstowe” na pasku narzędzi możesz ponownie otworzyć zadania kontekstowe, aby zadawać pytania podczas przeglądania</translation>
 <translation id="6003112304606738118">Pobieram… Pozostało: <ph name="HOURS" /> godz.</translation>
 <translation id="6009821354356307391">Zadaj pytanie</translation>
 <translation id="6040143037577758943">Zamknij</translation>
@@ -502,6 +506,7 @@ Jeśli ta strona nie działa zgodnie z oczekiwaniami, spróbuj zezwolić na opt
 <translation id="651535675648445253">Skróty otwierają się w Chromium</translation>
 <translation id="6539122709674868420">Twoja organizacja zamyka przeglądarkę Chromium, gdy nie jest ona używana przez <ph name="TIMEOUT_DURATION" />. Dane przeglądania zostały usunięte. Może to obejmować historię, autouzupełnianie i pobrane pliki.</translation>
 <translation id="6542839706527980775">Każdy profil zawiera własne dane Chromium, takie jak zakładki, historia, hasła i inne</translation>
+<translation id="6556755379298048869">Wyszukuj za pomocą skrótu klawiszowego.</translation>
 <translation id="6563921047760808519">Dowiedz się więcej o tym, <ph name="BEGIN_LINK" />jak Chromium dba o prywatność Twoich danych<ph name="END_LINK" />.</translation>
 <translation id="6564039629497156115">Zmiany tego ustawienia zostaną zastosowane po ponownym uruchomieniu Chromium.</translation>
 <translation id="6567032987737689854">Aby zarządzać rozszerzeniami, kliknij Rozszerzenia w menu głównym Chromium.</translation>
@@ -536,6 +541,7 @@ Niektóre funkcje mogą być niedostępne. Podaj inny katalog z profilem lub uż
 <translation id="6857782730669500492">Chromium – <ph name="PAGE_TITLE" /></translation>
 <translation id="6859580922007887573">Kliknij, aby kontynuować</translation>
 <translation id="6862030660799253820">Wyszukaj na tym obrazie za pomocą wyszukiwania obrazów</translation>
+<translation id="6869568587896659271">Łatwy dostęp do stron internetowych pod paskiem adresu</translation>
 <translation id="6873893289264747459">Przeglądarka Chromium wykryła, że rozszerzenie „<ph name="EXTENSION_NAME" />” zawiera złośliwe oprogramowanie</translation>
 <translation id="6877155553248388166">prawy dolny róg obszaru wyszukiwania: po prawej stronie <ph name="RIGHT" />%, u dołu <ph name="BOTTOM" />%</translation>
 <translation id="6896758677409633944">Kopiuj</translation>
@@ -589,6 +595,7 @@ Dopóki nie usuniesz niektórych zakładek, nie będzie można zapisywać nowych
 <translation id="7318036098707714271">Plik ustawień jest uszkodzony lub nieprawidłowy.
 
 Chromium nie może odzyskać ustawień.</translation>
+<translation id="7324051657739063017">Możesz ponownie otworzyć zadania kontekstowe, aby zadawać pytania podczas przeglądania</translation>
 <translation id="734373864078049451">Tu są Twoje strony, zakładki i inne dane z Chromium.</translation>
 <translation id="7347827960336370838">Twoje zaszyfrowane dane może odczytać tylko osoba znająca hasło. Hasło nie jest wysyłane do Google ani tam przechowywane. Jeśli zapomnisz hasło lub zechcesz zmienić to ustawienie, musisz <ph name="BEGIN_LINK" />usunąć dane Chromium na swoim koncie<ph name="END_LINK" />.</translation>
 <translation id="7349591376906416160">Administrator systemu skonfigurował Chromium tak, by strona <ph name="TARGET_URL_HOSTNAME" /> otwierała się w przeglądarce <ph name="ALTERNATIVE_BROWSER_NAME" />.</translation>
@@ -597,6 +604,7 @@ Chromium nie może odzyskać ustawień.</translation>
 <translation id="7376384068949534168">Od jakiegoś czasu nie odwiedzasz tej witryny. Przeglądarka Chromium usunęła te uprawnienia: <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" />.</translation>
 <translation id="73786666777299047">Otwórz Chrome Web Store</translation>
 <translation id="7394275517973019558">Pokaż Gemini w Chromium w obszarze powiadomień</translation>
+<translation id="7401687852903179959">Wyszukaj ten film za pomocą wyszukiwania obrazów</translation>
 <translation id="7407655596887111931">Chromium jest teraz Twoją przeglądarką domyślną</translation>
 <translation id="7413153308467572558">Wznawianie przeglądania od tego samego miejsca: Chromium po każdym ponownym uruchomieniu przywraca karty. Aby wyłączyć tę funkcję, otwórz</translation>
 <translation id="7427879960656355200">Importuj hasła do Chromium</translation>
@@ -630,6 +638,7 @@ Chromium nie może odzyskać ustawień.</translation>
 <translation id="77283119132245232">Zapewnia usługi śledzenia systemu dla <ph name="BROWSER_NAME" />. Jeśli ta usługa jest wyłączona, śledzenie wydajności tworzone przez przeglądarkę nie zawiera zdarzeń dotyczących całego systemu, takich jak przełączanie kontekstu i gotowe zdarzenia wątków.</translation>
 <translation id="7745317241717453663">Spowoduje to usunięcie danych przeglądania z tego urządzenia. Aby później odzyskać dane, zaloguj się w Chromium jako <ph name="USER_EMAIL" />.</translation>
 <translation id="7747138024166251722">Instalator nie mógł utworzyć katalogu tymczasowego. Sprawdź, czy na dysku jest dość wolnego miejsca oraz sprawdź, czy posiadasz uprawnienia do instalowania programów.</translation>
+<translation id="7747820849741499258">Wyszukaj w Chromium</translation>
 <translation id="7750130090210923118">Przywróć domyślny motyw Chromium</translation>
 <translation id="7752521946322750699">Aby zabezpieczyć Twoją pracę w Chromium, Twoja organizacja będzie mogła wyświetlać określone informacje lub nimi zarządzać, gdy zalogujesz się w Chromium.</translation>
 <translation id="7781047659465034537">Ustaw Chromium jako przeglądarkę domyślną i przypnij ją do paska zadań</translation>
@@ -637,6 +646,7 @@ Chromium nie może odzyskać ustawień.</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> – Chromium Canary</translation>
 <translation id="7803986347287457849">Utrudnij osobom mającym dostęp do Twojego ruchu internetowego sprawdzanie, jakie strony odwiedzasz. Do wyszukiwania adresu IP witryny w Systemie nazw domenowych (DNS) Chromium używa bezpiecznego połączenia.</translation>
 <translation id="7810005234485217901">Możesz przypiąć wyszukiwanie obrazów, aby mieć do niego łatwy dostęp</translation>
+<translation id="7828527096541974699">Wybierz, co chcesz udostępnić Chromium</translation>
 <translation id="7828947555739565424">Na tym urządzeniu istnieje już profil Chromium z tym kontem</translation>
 <translation id="7845233973568007926">Dziękujemy za instalację. Przed rozpoczęciem korzystania z programu <ph name="BUNDLE_NAME" /> musisz ponownie uruchomić komputer.</translation>
 <translation id="7847673590271334840">Twoja wyszukiwarka została zmieniona poza Chromium. Aby Cię chronić, przeglądarka Chromium zresetowała to ustawienie do pierwotnej wartości domyślnej. <ph name="LEARN_MORE_LINK" /></translation>
@@ -676,6 +686,7 @@ Chromium nie może odzyskać ustawień.</translation>
 <translation id="81770708095080097">Ten plik jest niebezpieczny, dlatego został zablokowany przez Chromium.</translation>
 <translation id="8177472873527554730">Nie można znaleźć treści na stronie</translation>
 <translation id="8200109504272824693">Wpisz hasło, aby móc zapisywać dane z Chromium na koncie <ph name="USER_EMAIL" /> i ich używać</translation>
+<translation id="820759916613250543">Wyszukaj ten obraz za pomocą wyszukiwania obrazów</translation>
 <translation id="8221491193165283816">Zazwyczaj blokujesz powiadomienia. Aby zezwolić tej stronie na ich wysyłanie, kliknij tutaj.</translation>
 <translation id="8223363452568144035">Aby używać kamery, przyznaj Chromium dostęp w <ph name="BEGIN_LINK" />ustawieniach systemu<ph name="END_LINK" /></translation>
 <translation id="8232193495299001329">Chromium nie może zweryfikować, skąd pochodzi to rozszerzenie, które może być niebezpieczne. Usuń je z Chromium, aby nie odczytywało ani nie zmieniało Twoich danych na stronach, które odwiedzasz. Dotyczy to też danych osobowych.</translation>
@@ -755,13 +766,16 @@ Chromium nie może odzyskać ustawień.</translation>
             • usunięcie plików cookie i innych tymczasowych danych witryn.
             <ph name="LINE_BREAKS" />
             Zakładki, historia i zapisane hasła pozostaną bez zmian.</translation>
+<translation id="8966875421152977384">Pokaż skróty do witryn w Chromium</translation>
 <translation id="897581876605952338">Logo Chromium Enterprise</translation>
 <translation id="8980139959902937527">Zabierz ze sobą funkcje bezpieczeństwa Google dzięki aplikacji Chromium na urządzeniu <ph name="DEVICE_TYPE" /></translation>
 <translation id="8981150672034878610">Nie można uruchomić Chromium – coś poszło nie tak podczas otwierania Twojego profilu. Spróbuj jeszcze raz uruchomić Chromium.</translation>
 <translation id="8988036198400390003">Zarządzaj profilami Chromium</translation>
+<translation id="8993855408334954620">Używaj klawiatury, aby przechodzić między Gemini w Chromium a otwartą kartą.</translation>
 <translation id="9018218886431812662">Instalacja ukończona</translation>
 <translation id="9019929317751753759">Aby poprawić bezpieczeństwo Chromium, wyłączyliśmy to rozszerzenie. Nie jest ono dostępne w <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> i mogło zostać dodane bez Twojej wiedzy.</translation>
 <translation id="9022552996538154597">Zaloguj się w Chromium</translation>
+<translation id="9035791714111278917">Pokaż wyszukiwarkę w Chromium na pasku menu Maca i włącz skrót klawiszowy</translation>
 <translation id="904366664621834601">Pobieranie zostało zablokowane przez Chromium, ponieważ plik archiwum zawiera inne pliki, które mogą ukrywać złośliwe oprogramowanie</translation>
 <translation id="9053882453960391422">Synchronizuj hasła, zakładki i historię na wszystkich swoich urządzeniach. Zaktualizuj przeglądarkę domyślną do Chromium, aby mieć łatwy dostęp do znanych i lubianych funkcji. Przeglądarka Chromium zostanie przypięta do paska zadań, aby była łatwo dostępna.</translation>
 <translation id="9056398481763999048">Korzystaj z najlepszych narzędzi AI od Google w aplikacji Chromium na telefonie</translation>

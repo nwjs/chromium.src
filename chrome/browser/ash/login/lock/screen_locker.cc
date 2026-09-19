@@ -140,11 +140,6 @@ ScreenLocker::ScreenLocker(
   }
 }
 
-// static
-ScreenLocker* ScreenLocker::default_screen_locker() {
-  return ScreenLockerController::Get().screen_locker();
-}
-
 void ScreenLocker::Init() {
   VLOG(1) << "ScreenLocker::Init()";
   input_method::InputMethodManager* imm =
@@ -272,7 +267,8 @@ void ScreenLocker::OnAuthSuccess(const UserContext& user_context) {
   weak_factory_.InvalidateWeakPtrs();
 
   VLOG(1) << "Hiding the lock screen.";
-  ScreenLocker::Hide();
+  // TODO(crbug.com/539761804): Avoid circular dependency.
+  ScreenLockerController::Get().HideLockScreen();
 }
 
 void ScreenLocker::ReenableAuthForUser(const AccountId& account_id) {
@@ -473,19 +469,6 @@ user_manager::UserList ScreenLocker::GetUsersToShow() const {
   return users_to_show;
 }
 
-// static
-void ScreenLocker::Show() {
-  VLOG(1) << "ScreenLocker::Show()";
-  CHECK(base::CurrentUIThread::IsSet());
-  ScreenLockerController::Get().ShowLockScreen();
-}
-
-// static
-void ScreenLocker::Hide() {
-  CHECK(base::CurrentUIThread::IsSet());
-  ScreenLockerController::Get().HideLockScreen();
-}
-
 void ScreenLocker::ResetToLockedState() {
   CHECK(base::CurrentUIThread::IsSet());
   LoginScreen::Get()->GetModel()->ResetFingerprintUIState(
@@ -526,7 +509,7 @@ void ScreenLocker::SetClocksForTesting(const base::Clock* clock,
   // Testing clocks should be already set at timer's initialization,
   // which happens in ScreenLocker's constructor.
   CHECK(base::CurrentUIThread::IsSet());
-  CHECK(!default_screen_locker());
+  CHECK(!ScreenLockerController::Get().screen_locker());
   g_clock_for_testing_ = clock;
   g_tick_clock_for_testing_ = tick_clock;
 }

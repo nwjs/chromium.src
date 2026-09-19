@@ -141,6 +141,15 @@ export function getHtml(this: ItemElement) {
           </div>
         ` : ''}
       ` : ''}
+      <div id="rate-link-container"
+          ?hidden="${!this.showOpenReviewPageLink_()}">
+        <a id="rate-link" is="action-link"
+            @click="${this.onOpenReviewPageClick_}"
+            aria-describedby="a11yAssociation">
+          $i18n{itemRateExtension}
+          <cr-icon icon="cr:open-in-new"></cr-icon>
+        </a>
+      </div>
     </div>
   </div>
   <div id="button-strip" class="layout-horizontal-center cr-secondary-text">

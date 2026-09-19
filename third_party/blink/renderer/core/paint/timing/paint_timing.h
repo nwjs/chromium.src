@@ -8,9 +8,11 @@
 #include <array>
 #include <memory>
 
+#include "base/functional/function_ref.h"
 #include "base/gtest_prod_util.h"
 #include "base/time/time.h"
 #include "components/viz/common/frame_timing_details.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/web/web_performance_metrics_for_reporting.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -18,15 +20,20 @@
 #include "third_party/blink/renderer/core/paint/timing/first_meaningful_paint_detector.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_callbacks.h"
 #include "third_party/blink/renderer/core/timing/animation_frame_timing_info.h"
+#include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/supplementable.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/blink/renderer/platform/wtf/hash_set.h"
 
 namespace blink {
+class AnimationFrameTimingInfo;
 struct DOMPaintTimingInfo;
+struct ElementTimingInfo;
 class LargestContentfulPaintManager;
 class ImageElementTiming;
 class LocalFrame;
+class PaintTimingClient;
 class PaintTimingDetector;
 class TextElementTiming;
 
@@ -97,6 +104,8 @@ class CORE_EXPORT PaintTiming final : public GarbageCollected<PaintTiming>,
       FirstMeaningfulPaintDetector::HadUserInput had_input);
   void NotifyPaint(bool is_first_paint, bool text_painted, bool image_painted);
   void NotifyPaintFinished();
+  void NotifyInputEvent(WebInputEvent::Type);
+  void NotifyScroll(mojom::blink::ScrollType);
 
   // The getters below return monotonically-increasing seconds, or zero if the
   // given paint event has not yet occurred. See the comments for
@@ -190,8 +199,6 @@ class CORE_EXPORT PaintTiming final : public GarbageCollected<PaintTiming>,
 
   void MarkPaintTiming();
 
-  void OnInputOrScroll();
-
   void Trace(Visitor*) const override;
 
   // Returns the `LargestContentfulPaintManager` associated with this
@@ -215,8 +222,25 @@ class CORE_EXPORT PaintTiming final : public GarbageCollected<PaintTiming>,
 
   ImageElementTiming* GetImageElementTiming() { return image_element_timing_; }
 
+  // Adds a `PaintTimingClient` to observe contentful paints. The client must
+  // not have been previously added.
+  void AddClient(PaintTimingClient*);
+
+  // Removes a previously added `PaintTimingClient`. The client must have been
+  // previously added.
+  void RemoveClient(PaintTimingClient*);
+
+  // Iterates over the `PaintTimingClient`s invoking the given function. Must
+  // not add or remove clients.
+  void ForEachClient(base::FunctionRef<void(PaintTimingClient*)>);
+
  private:
   friend class RecodingTimeAfterBackForwardCacheRestoreFrameCallback;
+
+  struct PendingPaintTimingRecord {
+    HashSet<PaintEvent> paint_events;
+    base::TimeTicks rendering_update_end_time;
+  };
 
   LocalFrame* GetFrame() const;
   void NotifyPaintTimingChanged();
@@ -256,6 +280,24 @@ class CORE_EXPORT PaintTiming final : public GarbageCollected<PaintTiming>,
   void Mark(PaintEvent);
   void RegisterNotifyFirstPaintAfterBackForwardCacheRestorePresentationTime(
       wtf_size_t index);
+
+  // Flushes pending paint timing entries, e.g. LCP and ICP entries, element
+  // timings, LoAF entries, etc., after the frame has been presented. If
+  // coarsening is required, than this runs after waiting for the coarsened time
+  // to been reached. Corresponds to step 10 of
+  // https://w3c.github.io/paint-timing/#mark-paint-timing.
+  void FlushPaintTimingsOnFramePresented(
+      const PendingPaintTimingRecord&,
+      AnimationFrameTimingInfo*,
+      GCedHeapVector<Member<ElementTimingInfo>>*,
+      OptionalPaintTimingDetectorCallback<ImageRecord>
+          compute_painted_images_callback,
+      OptionalPaintTimingDetectorCallback<TextRecord>
+          compute_painted_text_callback,
+      const base::TimeTicks& raw_presentation_timestamp,
+      const DOMPaintTimingInfo&);
+
+  void OnInputOrScroll();
 
   Vector<base::TimeTicks>
       first_paints_after_back_forward_cache_restore_presentation_;
@@ -301,6 +343,13 @@ class CORE_EXPORT PaintTiming final : public GarbageCollected<PaintTiming>,
 
   // Set in some unit tests.
   Member<CallbackManager> callback_manager_;
+
+  // List of `PaintTimingClient` observers. We could use HeapObserverList for
+  // this, but in practice the list should be small (3-4 observers at most), so
+  // we don't need to optimize for removal.
+  HeapVector<Member<PaintTimingClient>> clients_;
+  // Used to enforce `clients_` is not modified during iteration.
+  bool allow_client_modifications_ = true;
 };
 
 }  // namespace blink

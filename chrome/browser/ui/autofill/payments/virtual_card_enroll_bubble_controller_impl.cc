@@ -21,10 +21,10 @@
 #include "components/autofill/core/browser/payments/autofill_virtual_card_enrollment_bottom_sheet_delegate_mobile.h"
 #include "components/infobars/core/infobar.h"  // nogncheck
 #else
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
 namespace autofill {

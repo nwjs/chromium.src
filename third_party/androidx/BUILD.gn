@@ -1108,109 +1108,131 @@ if (!limit_android_deps) {
   }
 
   # This is generated, do not edit. Update BuildConfigGenerator.groovy instead.
-  androidx_android_aar_prebuilt("androidx_media3_media3_common_java") {
-    aar_path = "cipd/libs/androidx_media3_media3_common/media3-common.aar"
-    info_path = "committed/libs/androidx_media3_media3_common/androidx_media3_media3_common.info"
-    enable_bytecode_checks = false
-    deps = [
-      ":androidx_annotation_annotation_experimental_java",
-      ":androidx_annotation_annotation_java",
-      "//third_party/android_deps:guava_java",
-    ]
+  if (!defined(media3_target)) {
+    androidx_android_aar_prebuilt("androidx_media3_media3_common_java") {
+      aar_path = "cipd/libs/androidx_media3_media3_common/media3-common.aar"
+      info_path = "committed/libs/androidx_media3_media3_common/androidx_media3_media3_common.info"
+      enable_bytecode_checks = false
+      deps = [
+        ":androidx_annotation_annotation_experimental_java",
+        ":androidx_annotation_annotation_java",
+        "//third_party/android_deps:guava_java",
+      ]
+    }
   }
 
   # This is generated, do not edit. Update BuildConfigGenerator.groovy instead.
-  androidx_android_aar_prebuilt("androidx_media3_media3_database_java") {
-    aar_path = "cipd/libs/androidx_media3_media3_database/media3-database.aar"
-    info_path = "committed/libs/androidx_media3_media3_database/androidx_media3_media3_database.info"
-    enable_bytecode_checks = false
-    deps = [
-      ":androidx_annotation_annotation_java",
-      ":androidx_media3_media3_common_java",
-    ]
+  if (!defined(media3_target)) {
+    androidx_android_aar_prebuilt("androidx_media3_media3_database_java") {
+      aar_path = "cipd/libs/androidx_media3_media3_database/media3-database.aar"
+      info_path = "committed/libs/androidx_media3_media3_database/androidx_media3_media3_database.info"
+      enable_bytecode_checks = false
+      deps = [
+        ":androidx_annotation_annotation_java",
+        ":androidx_media3_media3_common_java",
+      ]
+    }
   }
 
   # This is generated, do not edit. Update BuildConfigGenerator.groovy instead.
-  androidx_android_aar_prebuilt("androidx_media3_media3_datasource_java") {
-    aar_path =
-        "cipd/libs/androidx_media3_media3_datasource/media3-datasource.aar"
-    info_path = "committed/libs/androidx_media3_media3_datasource/androidx_media3_media3_datasource.info"
-    enable_bytecode_checks = false
-    deps = [
-      ":androidx_annotation_annotation_java",
-      ":androidx_exifinterface_exifinterface_java",
-      ":androidx_media3_media3_common_java",
-      ":androidx_media3_media3_database_java",
-    ]
+  if (!defined(media3_target)) {
+    androidx_android_aar_prebuilt("androidx_media3_media3_datasource_java") {
+      aar_path =
+          "cipd/libs/androidx_media3_media3_datasource/media3-datasource.aar"
+      info_path = "committed/libs/androidx_media3_media3_datasource/androidx_media3_media3_datasource.info"
+      enable_bytecode_checks = false
+      deps = [
+        ":androidx_annotation_annotation_java",
+        ":androidx_exifinterface_exifinterface_java",
+        ":androidx_media3_media3_common_java",
+        ":androidx_media3_media3_database_java",
+      ]
+    }
   }
 
   # This is generated, do not edit. Update BuildConfigGenerator.groovy instead.
-  androidx_android_aar_prebuilt("androidx_media3_media3_decoder_java") {
-    aar_path = "cipd/libs/androidx_media3_media3_decoder/media3-decoder.aar"
-    info_path = "committed/libs/androidx_media3_media3_decoder/androidx_media3_media3_decoder.info"
-    enable_bytecode_checks = false
-    deps = [
-      ":androidx_annotation_annotation_java",
-      ":androidx_media3_media3_common_java",
-    ]
+  if (!defined(media3_target)) {
+    androidx_android_aar_prebuilt("androidx_media3_media3_decoder_java") {
+      aar_path = "cipd/libs/androidx_media3_media3_decoder/media3-decoder.aar"
+      info_path = "committed/libs/androidx_media3_media3_decoder/androidx_media3_media3_decoder.info"
+      enable_bytecode_checks = false
+      deps = [
+        ":androidx_annotation_annotation_java",
+        ":androidx_media3_media3_common_java",
+      ]
+    }
   }
 
   # This is generated, do not edit. Update BuildConfigGenerator.groovy instead.
-  androidx_android_aar_prebuilt("androidx_media3_media3_exoplayer_java") {
-    aar_path = "cipd/libs/androidx_media3_media3_exoplayer/media3-exoplayer.aar"
-    info_path = "committed/libs/androidx_media3_media3_exoplayer/androidx_media3_media3_exoplayer.info"
-    enable_bytecode_checks = false
-    deps = [
-      ":androidx_annotation_annotation_java",
-      ":androidx_collection_collection_java",
-      ":androidx_core_core_java",
-      ":androidx_exifinterface_exifinterface_java",
-      ":androidx_media3_media3_common_java",
-      ":androidx_media3_media3_database_java",
-      ":androidx_media3_media3_datasource_java",
-      ":androidx_media3_media3_decoder_java",
-      ":androidx_media3_media3_extractor_java",
-    ]
+  if (!defined(media3_target)) {
+    androidx_android_aar_prebuilt("androidx_media3_media3_exoplayer_java") {
+      aar_path =
+          "cipd/libs/androidx_media3_media3_exoplayer/media3-exoplayer.aar"
+      info_path = "committed/libs/androidx_media3_media3_exoplayer/androidx_media3_media3_exoplayer.info"
+      enable_bytecode_checks = false
+
+      # Target is swapped out when internal code is enabled.
+      # Please depend on //third_party/androidx:exoplayer_java instead.
+      visibility = [ "//third_party/androidx:*" ]
+      deps = [
+        ":androidx_annotation_annotation_java",
+        ":androidx_collection_collection_java",
+        ":androidx_core_core_java",
+        ":androidx_exifinterface_exifinterface_java",
+        ":androidx_media3_media3_common_java",
+        ":androidx_media3_media3_database_java",
+        ":androidx_media3_media3_datasource_java",
+        ":androidx_media3_media3_decoder_java",
+        ":androidx_media3_media3_extractor_java",
+      ]
+    }
   }
 
   # This is generated, do not edit. Update BuildConfigGenerator.groovy instead.
-  androidx_android_aar_prebuilt("androidx_media3_media3_extractor_java") {
-    aar_path = "cipd/libs/androidx_media3_media3_extractor/media3-extractor.aar"
-    info_path = "committed/libs/androidx_media3_media3_extractor/androidx_media3_media3_extractor.info"
-    enable_bytecode_checks = false
-    deps = [
-      ":androidx_annotation_annotation_java",
-      ":androidx_media3_media3_common_java",
-      ":androidx_media3_media3_container_java",
-      ":androidx_media3_media3_decoder_java",
-    ]
+  if (!defined(media3_target)) {
+    androidx_android_aar_prebuilt("androidx_media3_media3_extractor_java") {
+      aar_path =
+          "cipd/libs/androidx_media3_media3_extractor/media3-extractor.aar"
+      info_path = "committed/libs/androidx_media3_media3_extractor/androidx_media3_media3_extractor.info"
+      enable_bytecode_checks = false
+      deps = [
+        ":androidx_annotation_annotation_java",
+        ":androidx_media3_media3_common_java",
+        ":androidx_media3_media3_container_java",
+        ":androidx_media3_media3_decoder_java",
+      ]
+    }
   }
 
   # This is generated, do not edit. Update BuildConfigGenerator.groovy instead.
-  androidx_android_aar_prebuilt("androidx_media3_media3_session_java") {
-    aar_path = "cipd/libs/androidx_media3_media3_session/media3-session.aar"
-    info_path = "committed/libs/androidx_media3_media3_session/androidx_media3_media3_session.info"
-    enable_bytecode_checks = false
-    deps = [
-      ":androidx_collection_collection_java",
-      ":androidx_core_core_java",
-      ":androidx_media3_media3_common_java",
-      ":androidx_media3_media3_datasource_java",
-      ":androidx_media_media_java",
-    ]
+  if (!defined(media3_target)) {
+    androidx_android_aar_prebuilt("androidx_media3_media3_session_java") {
+      aar_path = "cipd/libs/androidx_media3_media3_session/media3-session.aar"
+      info_path = "committed/libs/androidx_media3_media3_session/androidx_media3_media3_session.info"
+      enable_bytecode_checks = false
+      deps = [
+        ":androidx_collection_collection_java",
+        ":androidx_core_core_java",
+        ":androidx_media3_media3_common_java",
+        ":androidx_media3_media3_datasource_java",
+        ":androidx_media_media_java",
+      ]
+    }
   }
 
   # This is generated, do not edit. Update BuildConfigGenerator.groovy instead.
-  androidx_android_aar_prebuilt("androidx_media3_media3_ui_java") {
-    aar_path = "cipd/libs/androidx_media3_media3_ui/media3-ui.aar"
-    info_path = "committed/libs/androidx_media3_media3_ui/androidx_media3_media3_ui.info"
-    enable_bytecode_checks = false
-    deps = [
-      ":androidx_annotation_annotation_java",
-      ":androidx_media3_media3_common_java",
-      ":androidx_media_media_java",
-      ":androidx_recyclerview_recyclerview_java",
-    ]
+  if (!defined(media3_target)) {
+    androidx_android_aar_prebuilt("androidx_media3_media3_ui_java") {
+      aar_path = "cipd/libs/androidx_media3_media3_ui/media3-ui.aar"
+      info_path = "committed/libs/androidx_media3_media3_ui/androidx_media3_media3_ui.info"
+      enable_bytecode_checks = false
+      deps = [
+        ":androidx_annotation_annotation_java",
+        ":androidx_media3_media3_common_java",
+        ":androidx_media_media_java",
+        ":androidx_recyclerview_recyclerview_java",
+      ]
+    }
   }
 
   # This is generated, do not edit. Update BuildConfigGenerator.groovy instead.
@@ -1812,6 +1834,21 @@ if (!limit_android_deps) {
   }
 
   # This is generated, do not edit. Update BuildConfigGenerator.groovy instead.
+  androidx_android_aar_prebuilt("androidx_web_web_java") {
+    aar_path = "../androidx/cipd/libs/androidx_web_web/web.aar"
+    info_path =
+        "../androidx/committed/libs/androidx_web_web/androidx_web_web.info"
+    enable_bytecode_checks = false
+    deps = [
+      ":androidx_annotation_annotation_java",
+      ":androidx_webkit_webkit_java",
+      "//third_party/android_deps:org_jetbrains_kotlinx_kotlinx_coroutines_core_java",
+      "//third_party/android_deps:org_jspecify_jspecify_java",
+      "//third_party/kotlin_stdlib:kotlin_stdlib_java",
+    ]
+  }
+
+  # This is generated, do not edit. Update BuildConfigGenerator.groovy instead.
   androidx_android_aar_prebuilt("androidx_webkit_webkit_java") {
     aar_path = "../androidx/cipd/libs/androidx_webkit_webkit/webkit.aar"
     info_path = "../androidx/committed/libs/androidx_webkit_webkit/androidx_webkit_webkit.info"
@@ -2242,6 +2279,7 @@ if (!limit_android_deps) {
       ":androidx_compose_ui_ui_util_java",
       ":androidx_core_core_java",
       ":androidx_emoji2_emoji2_java",
+      ":androidx_graphics_graphics_shapes_java",
       "//third_party/kotlin_stdlib:kotlin_stdlib_java",
     ]
   }
@@ -2500,6 +2538,7 @@ if (!limit_android_deps) {
       ":androidx_lifecycle_lifecycle_runtime_compose_java",
       ":androidx_lifecycle_lifecycle_viewmodel_java",
       ":androidx_lifecycle_lifecycle_viewmodel_ktx_java",
+      ":androidx_navigationevent_navigationevent_java",
       ":androidx_savedstate_savedstate_compose_java",
       ":androidx_savedstate_savedstate_ktx_java",
       ":androidx_window_window_java",
@@ -3499,21 +3538,24 @@ if (!limit_android_deps) {
   }
 
   # This is generated, do not edit. Update BuildConfigGenerator.groovy instead.
-  androidx_android_aar_prebuilt("androidx_media3_media3_container_java") {
-    aar_path = "cipd/libs/androidx_media3_media3_container/media3-container.aar"
-    info_path = "committed/libs/androidx_media3_media3_container/androidx_media3_media3_container.info"
-    enable_bytecode_checks = false
+  if (!defined(media3_target)) {
+    androidx_android_aar_prebuilt("androidx_media3_media3_container_java") {
+      aar_path =
+          "cipd/libs/androidx_media3_media3_container/media3-container.aar"
+      info_path = "committed/libs/androidx_media3_media3_container/androidx_media3_media3_container.info"
+      enable_bytecode_checks = false
 
-    # To remove visibility constraint, add this dependency to
-    # //third_party/androidx/build.gradle.template
-    visibility = [
-      ":*",
-      "//third_party/android_deps:*",
-    ]
-    deps = [
-      ":androidx_annotation_annotation_java",
-      ":androidx_media3_media3_common_java",
-    ]
+      # To remove visibility constraint, add this dependency to
+      # //third_party/androidx/build.gradle.template
+      visibility = [
+        ":*",
+        "//third_party/android_deps:*",
+      ]
+      deps = [
+        ":androidx_annotation_annotation_java",
+        ":androidx_media3_media3_common_java",
+      ]
+    }
   }
 
   # This is generated, do not edit. Update BuildConfigGenerator.groovy instead.

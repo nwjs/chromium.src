@@ -15,7 +15,6 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
-#include "base/memory/memory_pressure_level.h"
 #include "base/memory_coordinator/memory_coordinator_features.h"
 #include "base/memory_coordinator/traits.h"
 #include "base/memory_coordinator/utils.h"
@@ -804,7 +803,7 @@ void GpuChannelManager::OnApplicationBackgrounded() {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
   if (shared_context_state_) {
-    shared_context_state_->PurgeMemory(base::MEMORY_PRESSURE_LEVEL_CRITICAL);
+    shared_context_state_->PurgeMemory(base::kCriticalMemoryPressureThreshold);
   }
 
   // Release all skia caching when the application is backgrounded.
@@ -847,40 +846,45 @@ void GpuChannelManager::PerformImmediateCleanup() {
 #endif
 }
 
-void GpuChannelManager::OnUpdateMemoryLimit() {}
-
-void GpuChannelManager::OnReleaseMemory() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-
-  // Map the memory limit percentage to the legacy MemoryPressureLevel used by
-  // the downstream PurgeMemory calls.
-  base::MemoryPressureLevel memory_pressure_level;
-  if (memory_limit() <= base::kCriticalMemoryPressureThreshold) {
-    memory_pressure_level = base::MEMORY_PRESSURE_LEVEL_CRITICAL;
-  } else if (memory_limit() <= base::kModerateMemoryPressureThreshold) {
-    memory_pressure_level = base::MEMORY_PRESSURE_LEVEL_MODERATE;
-  } else {
-    return;
-  }
-
-  // SharedContextState requires a current context for cleanup.
-  if (shared_context_state_ &&
-      shared_context_state_->MakeCurrent(nullptr, true /* needs_gl */)) {
-    shared_context_state_->PurgeMemory(memory_pressure_level);
+void GpuChannelManager::OnUpdateMemoryLimit() {
+  if (shared_context_state_) {
+    shared_context_state_->OnUpdateMemoryLimit(memory_limit());
   }
 
 #if BUILDFLAG(USE_DAWN) || BUILDFLAG(SKIA_USE_DAWN)
   if (dawn_caching_interface_factory()) {
-    dawn_caching_interface_factory()->PurgeMemory(memory_pressure_level);
+    dawn_caching_interface_factory()->OnUpdateMemoryLimit(memory_limit());
   }
 #endif  // BUILDFLAG(USE_DAWN) || BUILDFLAG(SKIA_USE_DAWN)
 
   if (persistent_caches_) {
-    persistent_caches_->PurgeMemory(memory_pressure_level);
+    persistent_caches_->OnUpdateMemoryLimit(memory_limit());
+  }
+}
+
+void GpuChannelManager::OnReleaseMemory() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+
+  // SharedContextState requires a current context for cleanup.
+  if (shared_context_state_ &&
+      shared_context_state_->MakeCurrent(nullptr, true /* needs_gl */)) {
+    shared_context_state_->PurgeMemory(memory_limit());
+  }
+
+#if BUILDFLAG(USE_DAWN) || BUILDFLAG(SKIA_USE_DAWN)
+  if (dawn_caching_interface_factory()) {
+    dawn_caching_interface_factory()->OnReleaseMemory(memory_limit());
+  }
+#endif  // BUILDFLAG(USE_DAWN) || BUILDFLAG(SKIA_USE_DAWN)
+
+  if (persistent_caches_) {
+    persistent_caches_->OnReleaseMemory(memory_limit());
   }
 
 #if BUILDFLAG(IS_WIN)
-  TrimD3DResources(shared_context_state_);
+  if (memory_limit() <= base::kModerateMemoryPressureThreshold) {
+    TrimD3DResources(shared_context_state_);
+  }
 #endif  // BUILDFLAG(IS_WIN)
 }
 

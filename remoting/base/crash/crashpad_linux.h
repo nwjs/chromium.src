@@ -5,31 +5,35 @@
 #ifndef REMOTING_BASE_CRASH_CRASHPAD_LINUX_H_
 #define REMOTING_BASE_CRASH_CRASHPAD_LINUX_H_
 
+#include <sys/types.h>
+
 #include "base/files/file_path.h"
-#include "remoting/base/crash/crashpad_database_manager.h"
+#include "base/files/scoped_file.h"
 
 namespace remoting {
 
-class CrashpadLinux : CrashpadDatabaseManager::Logger {
+class CrashpadLinux {
  public:
-  CrashpadLinux();
-
+  CrashpadLinux() = delete;
   CrashpadLinux(const CrashpadLinux&) = delete;
   CrashpadLinux& operator=(const CrashpadLinux&) = delete;
 
-  bool Initialize();
-  void LogAndCleanupCrashpadDatabase();
+  // Initializes Crashpad in the supervisor / host process by spawning the
+  // Crashpad handler subprocess.
+  static bool Initialize();
 
-  static CrashpadLinux& GetInstance();
+  // Initializes Crashpad in a client / worker process by connecting the
+  // Crashpad signal handler to an inherited or received handler socket.
+  static bool InitializeClient(base::ScopedFD handler_socket,
+                               pid_t handler_pid);
+
+  // Gets a duplicated `base::ScopedFD` connected to the Crashpad handler and
+  // the handler PID. Returns true if the handler socket was retrieved
+  // successfully.
+  static bool GetHandlerSocket(base::ScopedFD& socket, pid_t& pid);
 
  private:
-  bool GetCrashpadHandlerPath(base::FilePath* handler_path);
-
-  // CrashpadDatabaseManager::Logger overrides
-  void Log(std::string message) const override;
-  void LogError(std::string message) const override;
-
-  remoting::CrashpadDatabaseManager database_;
+  static bool GetCrashpadHandlerPath(base::FilePath* handler_path);
 };
 
 }  // namespace remoting

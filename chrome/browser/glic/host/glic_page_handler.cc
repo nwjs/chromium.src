@@ -13,6 +13,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
+#include "base/no_destructor.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "chrome/browser/glic/common/glic_navigation.h"
@@ -22,7 +23,6 @@
 #include "chrome/browser/glic/glic_profile_manager.h"
 #include "chrome/browser/glic/host/auth_controller.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
-#include "chrome/browser/glic/host/glic_ui.h"
 #include "chrome/browser/glic/host/glic_web_client_access.h"
 #include "chrome/browser/glic/host/glic_web_client_handler.h"
 #include "chrome/browser/glic/host/guest_util.h"
@@ -41,6 +41,8 @@
 #include "content/public/browser/web_contents.h"
 #include "extensions/buildflags/buildflags.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/display/display.h"
+#include "ui/display/screen.h"
 #include "ui/gfx/geometry/size.h"
 #include "url/gurl.h"
 
@@ -65,10 +67,10 @@ GlicPageHandler::GlicPageHandler(
   VLOG(1) << "Glic [PageHandler] Constructor";
   CHECK(host_);
   MarkProcessAsGlic(webui_contents->GetPrimaryMainFrame()->GetProcess());
+  host_observation_.Observe(host_);
   host_->WebUIPageHandlerAdded(this);
-  host_->AddObserver(this);
-  page_->WebClientStateChanged(host_->web_client_state());
   host_->instance().AddStateObserver(this);
+
   UpdatePageState(host_->instance().GetPanelState().kind);
   subscriptions_.push_back(
       GetGlicService()->enabling().RegisterProfileReadyStateChanged(
@@ -80,13 +82,7 @@ GlicPageHandler::GlicPageHandler(
 GlicPageHandler::~GlicPageHandler() {
   VLOG(1) << "Glic [PageHandler] Destructor";
   host_->instance().RemoveStateObserver(this);
-  WebUiStateChanged(glic::mojom::WebUiState::kUninitialized);
-  // Clear `host_` before unregistering so the Host can be deleted
-  // synchronously without leaving a dangling raw_ptr during teardown.
-  Host* host = host_;
-  host_ = nullptr;
-  host->RemoveObserver(this);
-  host->WebUIPageHandlerRemoved(this);
+  host_->WebUIPageHandlerRemoved(this);
 }
 
 content::WebContents* GlicPageHandler::webui_contents() {
@@ -101,11 +97,6 @@ GlicKeyedService* GlicPageHandler::GetGlicService() {
   return GlicKeyedServiceFactory::GetGlicKeyedService(browser_context_);
 }
 
-void GlicPageHandler::CreateWebClient(
-    ::mojo::PendingReceiver<glic::mojom::WebClientHandler>
-        web_client_receiver) {
-  host_->CreateWebClient(std::move(web_client_receiver));
-}
 
 void GlicPageHandler::PrepareForClient(
     base::OnceCallback<void(mojom::PrepareForClientResult)> callback) {
@@ -163,7 +154,7 @@ void GlicPageHandler::NotifyWindowIntentToShow() {
   page_->IntentToShow();
 }
 
-void GlicPageHandler::Zoom(mojom::ZoomAction zoom_action) {
+void GlicPageHandler::Zoom(mojom::ZoomAction zoom_action, ZoomSource source) {
   auto* pref_service =
       Profile::FromBrowserContext(browser_context_)->GetPrefs();
   int current_zoom = pref_service->GetInteger(prefs::kGlicZoomLevel);
@@ -194,7 +185,26 @@ void GlicPageHandler::Zoom(mojom::ZoomAction zoom_action) {
       break;
   }
 
+  // Log the aggregate base metric for reporting continuity.
   base::UmaHistogramEnumeration("Glic.ZoomAction", action_metric);
+
+  // Log the sliced metric.
+  const char* zoom_action_by_source_metric_name;
+  switch (source) {
+    case ZoomSource::kHotkey:
+      zoom_action_by_source_metric_name = "Glic.ZoomAction.Hotkey";
+      break;
+    case ZoomSource::kHotkeyWithShift:
+      zoom_action_by_source_metric_name = "Glic.ZoomAction.HotkeyWithShift";
+      break;
+    case ZoomSource::kScroll:
+      zoom_action_by_source_metric_name = "Glic.ZoomAction.Scroll";
+      break;
+  }
+
+  base::UmaHistogramEnumeration(zoom_action_by_source_metric_name,
+                                action_metric);
+
   page_->Zoom(zoom_action);
 }
 
@@ -223,6 +233,49 @@ void GlicPageHandler::OpenDisabledByAdminLinkAndClosePanel() {
   host().ClosePanel();
   base::RecordAction(
       base::UserMetricsAction("Glic.DisabledByAdminPanelLinkClicked"));
+}
+
+void GlicPageHandler::OpenLinkInPopup(const GURL& url,
+                                      int32_t popup_width,
+                                      int32_t popup_height) {
+  if (!url.SchemeIsHTTPOrHTTPS()) {
+    return;
+  }
+
+  gfx::NativeView native_view = webui_contents_->GetContentNativeView();
+  const display::Display& display =
+      display::Screen::Get()->GetDisplayNearestView(native_view);
+  const gfx::Rect work_area = display.work_area();
+
+  const int x = work_area.x() + (work_area.width() - popup_width) / 2;
+  const int y = work_area.y() + (work_area.height() - popup_height) / 2;
+
+  std::unique_ptr<NavigateParams> params = std::make_unique<NavigateParams>(
+      Profile::FromBrowserContext(browser_context_), url,
+      ui::PAGE_TRANSITION_LINK);
+  params->disposition = WindowOpenDisposition::NEW_POPUP;
+  params->opened_by_another_window = true;
+  params->window_features.bounds = gfx::Rect(x, y, popup_width, popup_height);
+  glic::NavigateAsync(std::move(params), base::DoNothing());
+}
+
+void GlicPageHandler::OpenLinkInNewTab(const GURL& url) {
+  if (!url.SchemeIsHTTPOrHTTPS()) {
+    return;
+  }
+  std::unique_ptr<NavigateParams> params = std::make_unique<NavigateParams>(
+      Profile::FromBrowserContext(browser_context_), url,
+      ui::PAGE_TRANSITION_LINK);
+  params->disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  glic::NavigateAsync(std::move(params), base::DoNothing());
+}
+
+void GlicPageHandler::ShouldAllowGeolocationPermissionRequest(
+    ShouldAllowGeolocationPermissionRequestCallback callback) {
+  std::move(callback).Run(Profile::FromBrowserContext(browser_context_)
+                              ->GetPrefs()
+                              ->GetBoolean(prefs::kGlicGeolocationEnabled) &&
+                          host_->IsWidgetShowing(nullptr));
 }
 
 void GlicPageHandler::OpenHelpCenterTopicAndClosePanel(
@@ -266,6 +319,10 @@ void GlicPageHandler::OnWebUiStateChanged(glic::mojom::WebUiState new_state) {
   host().WebUiStateChanged(this, new_state);
 }
 
+void GlicPageHandler::ClientReadyToShow(const mojom::OpenPanelInfo& open_info) {
+  page_->ClientReadyStateChanged(true);
+}
+
 void GlicPageHandler::PanelStateChanged(
     const glic::mojom::PanelState& panel_state) {
   UpdatePageState(panel_state.kind);
@@ -278,10 +335,6 @@ void GlicPageHandler::UpdatePageState(mojom::PanelStateKind panelStateKind) {
 void GlicPageHandler::UpdateProfileReadyState() {
   page_->SetProfileReadyState(GlicEnabling::GetProfileReadyState(
       Profile::FromBrowserContext(browser_context_)));
-}
-
-void GlicPageHandler::WebClientStateChanged(mojom::WebClientState state) {
-  page_->WebClientStateChanged(state);
 }
 
 }  // namespace glic

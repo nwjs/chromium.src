@@ -207,6 +207,7 @@
 #include "third_party/blink/renderer/core/events/before_unload_event.h"
 #include "third_party/blink/renderer/core/events/event_factory.h"
 #include "third_party/blink/renderer/core/events/event_util.h"
+#include "third_party/blink/renderer/core/events/focus_event.h"
 #include "third_party/blink/renderer/core/events/hash_change_event.h"
 #include "third_party/blink/renderer/core/events/page_transition_event.h"
 #include "third_party/blink/renderer/core/events/visual_viewport_resize_event.h"
@@ -290,6 +291,7 @@
 #include "third_party/blink/renderer/core/html_element_type_helpers.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
+#include "third_party/blink/renderer/core/input/input_device_capabilities.h"
 #include "third_party/blink/renderer/core/input/touch_list.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/inspector/inspector_audits_issue.h"
@@ -351,7 +353,7 @@
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_controller.h"
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_entry.h"
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_size.h"
-#include "third_party/blink/renderer/core/route_matching/route_map.h"
+#include "third_party/blink/renderer/core/route_matching/navigation_state.h"
 #include "third_party/blink/renderer/core/sanitizer/sanitizer.h"
 #include "third_party/blink/renderer/core/sanitizer/sanitizer_api.h"
 #include "third_party/blink/renderer/core/sanitizer/sanitizer_builtins.h"
@@ -1320,6 +1322,34 @@ void Document::ChildrenChanged(const ChildrenChange& change) {
   // frames when there's only a <head>, but such documents are pretty rare.
   if (document_element_ && !IsA<HTMLDocument>(this))
     BeginLifecycleUpdatesIfRenderingReady();
+}
+
+namespace {
+
+void HandleFrameOwnerInterestForFocusEvent(FocusEvent* focus_event,
+                                           HTMLFrameOwnerElement* owner,
+                                           Document& current_document) {
+  if (!owner || !focus_event) {
+    return;
+  }
+  // If focus transitioned to another element inside the same child document,
+  // the frame owner element does not lose focus/interest. This focus shift
+  // will be handled by the Element::DefaultEventHandler code.
+  if (focus_event->type() == event_type_names::kFocusout &&
+      focus_event->relatedTarget() && focus_event->relatedTarget()->ToNode() &&
+      &focus_event->relatedTarget()->ToNode()->GetDocument() ==
+          &current_document) {
+    return;
+  }
+  owner->HandleFocusEventsForInterestFor(focus_event);
+}
+
+}  // namespace
+
+void Document::DefaultEventHandler(Event& event) {
+  HandleFrameOwnerInterestForFocusEvent(DynamicTo<FocusEvent>(event),
+                                        LocalOwner(), *this);
+  Node::DefaultEventHandler(event);
 }
 
 bool Document::IsInMainFrame() const {
@@ -2335,7 +2365,7 @@ String Document::nodeName() const {
   return "#document";
 }
 
-FormController& Document::GetFormController() {
+FormController& Document::EnsureFormController() {
   if (!form_controller_) {
     form_controller_ = MakeGarbageCollected<FormController>(*this);
     HistoryItem* history_item = Loader() ? Loader()->GetHistoryItem() : nullptr;
@@ -2354,7 +2384,7 @@ DocumentState* Document::GetDocumentState() const {
 void Document::SetStateForNewControls(const Vector<String>& state_vector) {
   if (!state_vector.size() && !form_controller_)
     return;
-  GetFormController().SetStateForNewControls(state_vector);
+  EnsureFormController().SetStateForNewControls(state_vector);
 }
 
 LocalFrameView* Document::View() const {
@@ -2825,6 +2855,10 @@ void Document::UpdateStyle() {
   style_engine.UpdateStyleAndLayoutTree();
 
   LayoutView* layout_view = GetLayoutView();
+  if (View()->IsAutoSizeModeEnabled() &&
+      layout_view->NeedsScrollableOverflowRecalc()) {
+    View()->SetNeedsAutoSizeForOverflow();
+  }
   layout_view->RecalcScrollableOverflow();
 
 #if DCHECK_IS_ON()
@@ -4608,7 +4642,9 @@ bool Document::DispatchBeforeUnloadEvent(
   return false;
 }
 
-void Document::DispatchUnloadEvents(UnloadEventTimingInfo* unload_timing_info) {
+void Document::DispatchUnloadEvents(
+    UnloadEventTimingInfo* unload_timing_info,
+    bool will_commit_new_document_in_this_frame) {
   TRACE_EVENT("blink", "Document::DispatchUnloadEvents",
               perfetto::Flow::FromPointer(this));
   base::ScopedUmaHistogramTimer histogram_timer(
@@ -4630,6 +4666,13 @@ void Document::DispatchUnloadEvents(UnloadEventTimingInfo* unload_timing_info) {
   Element* current_focused_element = FocusedElement();
   if (auto* input = DynamicTo<HTMLInputElement>(current_focused_element))
     input->EndEditing();
+
+  if (!will_commit_new_document_in_this_frame && GetFrame() &&
+      !GetFrame()->IsMainFrame() &&
+      RuntimeEnabledFeatures::OmitSubframeDetachmentEventsOnRemovalEnabled()) {
+    load_event_progress_ = kUnloadEventHandled;
+    return;
+  }
 
   // Since we do not allow registering the unload event handlers in
   // fenced frames, it should not be fired by fencedframes.
@@ -5562,8 +5605,8 @@ bool Document::CanAcceptChild(const Node* new_child,
   if (num_elements > 1 || num_doctypes > 1) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kHierarchyRequestError,
-        UNSAFE_TODO(String::Format("Only one %s on document allowed.",
-                                   num_elements > 1 ? "element" : "doctype")));
+        StrCat({"Only one ", num_elements > 1 ? "element" : "doctype",
+                " on document allowed."}));
     return false;
   }
 
@@ -8450,7 +8493,8 @@ ukm::UkmRecorder* Document::UkmRecorder() {
     Platform::Current()->GetBrowserInterfaceBroker()->GetInterface(
         factory.BindNewPipeAndPassReceiver());
     auto mojo_recorder = ukm::MojoUkmRecorder::Create(*factory);
-    if (WebTestSupport::IsRunningWebTest()) {
+    if (WebTestSupport::IsRunningWebTest() &&
+        WebTestSupport::CanRegisterUkmRecorderDelegateForWebTest()) {
       ukm::DelegatingUkmRecorder::Get()->AddDelegate(
           mojo_recorder->GetWeakPtr());
     }
@@ -10109,8 +10153,7 @@ void Document::EnqueuePageRevealEvent() {
     //
     // TODO(crbug.com/436805487): This seems rather heavy. Should it be
     // conditioned on active view transitions or something?
-    auto& route_map = RouteMap::Ensure(*this);
-    route_map.EstablishNavigationStateFromActivation();
+    NavigationState::CreateFromActivation(*this);
   }
 
   dom_window_->SetHasBeenRevealed(false);

@@ -55,6 +55,7 @@
 #include "components/omnibox/common/composebox_features.h"
 #include "components/omnibox/common/input_state.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "components/tabs/public/tab_handle_factory.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/url_deduplication/url_deduplication_helper.h"
@@ -413,9 +414,6 @@ void ContextualTasksComposeboxHandler::CreateAndSendQueryMessage(
   std::optional<base::Uuid> task_id = web_ui_interface_->GetTaskId();
   auto* contextual_tasks_service = GetContextualTasksService();
 
-  MaybeTriggerSmartTabSharingPromo(query,
-                                   web_ui_interface_->GetWebUIWebContents());
-
   bool is_only_visual_selection =
       has_visual_selection && !IsAnyContextUploading() && session_handle &&
       session_handle->GetUploadedContextTokens().empty();
@@ -530,9 +528,6 @@ void ContextualTasksComposeboxHandler::UpdateStateFromUrl(const GURL& url) {
 void ContextualTasksComposeboxHandler::OnTaskChanged() {
   ClearFiles(/*should_block_auto_suggested_tabs=*/false);
   SetSmartTabSharingActive(false);
-  // Maybe trigger lens overlay when Side Panel is done with navigation
-  // which triggers OnTaskChanged().
-  MaybeTriggerLens();
   InitializeInputStateModel();
 }
 
@@ -619,11 +614,15 @@ void ContextualTasksComposeboxHandler::InitializeInputStateModel() {
                          .GetHandleForSessionId(
                              file_info.tab_session_id.value().id());
             // In case the tab is not mapped.
-            if (tab_id == tabs::TabHandle::NullValue) {
+            if (tab_id == tabs::TabHandle::NullValue &&
+                SessionID::IsValidValue(
+                    file_info.tab_session_id.value().id())) {
               tab_id = file_info.tab_session_id.value().id();
             }
           }
-          tab_info->tab_id = tab_id;
+          tab_info->tab_id = SessionID::IsValidValue(tab_id)
+                                 ? tab_id
+                                 : tabs::TabHandle::NullValue;
           tab_info->title = file_info.tab_title.value_or("");
           tab_info->url = file_info.tab_url.value_or(GURL());
           submitted_tabs.push_back(std::move(tab_info));
@@ -1206,24 +1205,6 @@ bool ContextualTasksComposeboxHandler::HasAutoSuggestedTab() {
   auto* auto_suggestion_manager = web_ui_interface_->GetAutoSuggestionManager();
   return auto_suggestion_manager &&
          auto_suggestion_manager->GetCurrentSuggestion() != nullptr;
-}
-
-void ContextualTasksComposeboxHandler::MaybeTriggerLens() {
-#if !BUILDFLAG(IS_ANDROID)
-  if (!omnibox::kAskGCoBrowseWithVisualSelection.Get()) {
-    return;
-  }
-  if (auto* controller = GetLensSearchController()) {
-    if (controller->invocation_source() ==
-            lens::LensOverlayInvocationSource::kOmniboxPageAction) {
-      DCHECK(controller->invocation_source().has_value());
-      controller->SetThumbnailCreatedCallback(base::BindRepeating(
-          &ContextualTasksComposeboxHandler::OnLensThumbnailCreated,
-          weak_factory_.GetWeakPtr()));
-      controller->OpenLensOverlay(controller->invocation_source().value());
-    }
-  }
-#endif
 }
 
 void ContextualTasksComposeboxHandler::UpdateSuggestedTabContext(

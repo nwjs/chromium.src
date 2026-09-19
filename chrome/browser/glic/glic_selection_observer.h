@@ -19,6 +19,8 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/glic/host/host.h"
+#include "components/content_settings/core/browser/content_settings_observer.h"
+#include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/optimization_guide/content/browser/page_context_eligibility_observer.h"
 #include "components/shared_highlighting/core/common/shared_highlighting_metrics.h"
 #include "components/skills/public/skill.h"
@@ -45,8 +47,6 @@ class PageContextEligibility;
 
 namespace glic {
 
-enum class GlicNudgeActivity;
-
 class ExplainSelectionTrigger;
 class GlicSelectionWidgetDelegate;
 class GlicKeyedService;
@@ -55,7 +55,8 @@ using GlicSkillOption = skills::Skill;
 
 class GlicSelectionObserver
     : public content::WebContentsObserver,
-      public content::RenderWidgetHost::InputEventObserver {
+      public content::RenderWidgetHost::InputEventObserver,
+      public content_settings::Observer {
  public:
   enum class DismissReason {
     kActionTaken,  // User clicked Ask Gemini, Copy, Copy Link, or Open in Side
@@ -100,6 +101,9 @@ class GlicSelectionObserver
   virtual void ShowSelectionAffordance(const std::u16string& selected_text,
                                        BrowserWindowInterface* bwi);
 
+  // Returns true if the selection widget should be shown for the current page.
+  bool ShouldShowSelectionWidget();
+
   // Triggers Glic region capture when a mouse shake is detected.
   // Virtual for testing.
   virtual void TriggerRegionCapture();
@@ -107,6 +111,11 @@ class GlicSelectionObserver
   // Returns true if mouse shake trigger is enabled by feature flag and pref.
   // Virtual for testing.
   virtual bool IsShakeTriggerEnabled() const;
+
+  // Called when the page context eligibility changes.
+  // Virtual for testing.
+  virtual void OnPageContextEligibilityChanged(
+      optimization_guide::PageContextEligibilityStatus status);
 
   // content::WebContentsObserver:
   void RenderFrameCreated(content::RenderFrameHost* render_frame_host) override;
@@ -124,7 +133,14 @@ class GlicSelectionObserver
       content::RenderWidgetHost::InputEventObserver::InputEventSource source)
       override;
 
+  // content_settings::Observer:
+  void OnContentSettingChanged(
+      const ContentSettingsPattern& primary_pattern,
+      const ContentSettingsPattern& secondary_pattern,
+      ContentSettingsTypeSet content_type_set) override;
+
  private:
+  void UpdatePageBlockedState();
   void ProcessPendingSelection();
   void ResetPendingSelection();
   void ProcessInputEvent(std::unique_ptr<blink::WebInputEvent> event);
@@ -135,13 +151,11 @@ class GlicSelectionObserver
       std::u16string selected_text,
       bool is_widget,
       base::WeakPtr<content::WebContents> web_contents,
-      GlicNudgeActivity activity,
       std::u16string prompt_override = u"",
       const GlicSkillOption& skill = {},
       const std::string& skill_prompt = "");
 
 
-  bool ShouldShowSelectionWidget();
   void OnAskGemini();
   void OnAskGeminiWithSkill(const GlicSkillOption& skill);
   std::vector<GlicSkillOption> GetContextualSkills();
@@ -171,9 +185,6 @@ class GlicSelectionObserver
       shared_highlighting::LinkGenerationReadyStatus ready_status);
 
   void RequestLinkGeneration(content::RenderFrameHost* rfh);
-
-  void OnPageContextEligibilityChanged(
-      optimization_guide::PageContextEligibilityStatus status);
   void CreatePageContextEligibilityAPI(std::string account);
   void OnPageContextEligibilityAPILoaded(
       std::string account,
@@ -238,8 +249,10 @@ class GlicSelectionObserver
  protected:
   // True if the user temporarily blocked the selection widget for the current
   // page load.
-  // TODO(b/519247911): Remove this.
   bool is_hidden_on_current_page_ = false;
+  // True if the site is blocked from showing the inline cue by user settings or
+  // default blocklist.
+  bool is_site_blocked_on_current_page_ = false;
 
   bool IsPageContextEligible() const;
 
@@ -248,6 +261,8 @@ class GlicSelectionObserver
   }
 
  private:
+  base::ScopedObservation<HostContentSettingsMap, content_settings::Observer>
+      content_settings_observation_{this};
   base::CallbackListSubscription page_context_eligibility_subscription_;
   std::unique_ptr<::optimization_guide::PageContextEligibilityObserver>
       page_context_tracker_;

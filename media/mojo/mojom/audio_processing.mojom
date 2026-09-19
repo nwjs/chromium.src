@@ -22,6 +22,9 @@ struct AudioProcessingSettings {
   bool automatic_gain_control;
   bool multi_channel_capture_processing;
   bool use_loopback_aec_reference;
+
+  [EnableIf=chrome_wide_echo_cancellation]
+  bool voice_isolation;
 };
 
 // This interface is hosted in the audio service and called from the renderer.
@@ -42,6 +45,9 @@ interface AudioProcessorControls {
   // Values less than 1 and greater than the input stream capacity are adjusted
   // to the nearest valid number.
   SetPreferredNumCaptureChannels(int32 num_preferred_channels);
+
+  // Enables or disables voice isolation.
+  SetVoiceIsolation(bool enabled);
 };
 
 struct AudioProcessingConfig {

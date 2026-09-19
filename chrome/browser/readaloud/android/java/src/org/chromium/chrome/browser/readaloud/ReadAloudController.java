@@ -91,7 +91,6 @@ import org.chromium.chrome.modules.readaloud.contentjs.Highlighter.Mode;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
-import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
@@ -248,47 +247,52 @@ public class ReadAloudController
 
   @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
   static class ReadabilityInfo {
-      private final Map<PlaybackArgs.PlaybackMode, ReadAloudReadabilityHooks.ReadabilityResult> mReadabilityInfoPerMode;
+        private final Map<PlaybackArgs.PlaybackMode, ReadAloudReadabilityHooks.ReadabilityResult>
+                mReadabilityInfoPerMode;
       private final long mResponseTimestamp;
 
-      /**
-       * Constructor.
-      *
-      * @param readabilityInfoPerMode Readability info per mode.
-      * @param responseTimestamp Timestamp when readability request responded.
-      */
-      ReadabilityInfo(
-          Map<PlaybackArgs.PlaybackMode, ReadAloudReadabilityHooks.ReadabilityResult>
-              readabilityInfoPerMode,
-          long responseTimestamp) {
+        /**
+         * Constructor.
+         *
+         * @param readabilityInfoPerMode Readability info per mode.
+         * @param responseTimestamp Timestamp when readability request responded.
+         */
+        ReadabilityInfo(
+                Map<PlaybackArgs.PlaybackMode, ReadAloudReadabilityHooks.ReadabilityResult>
+                        readabilityInfoPerMode,
+                long responseTimestamp) {
           mReadabilityInfoPerMode = readabilityInfoPerMode;
           mResponseTimestamp = responseTimestamp;
       }
 
       static ReadabilityInfo entirelyUnsupported(long responseTimestamp) {
-          return new ReadabilityInfo(
-              ImmutableMap.of(
-                  PlaybackArgs.PlaybackMode.CLASSIC,
-                  new ReadAloudReadabilityHooks.ReadabilityResult(false, false),
-                  PlaybackArgs.PlaybackMode.OVERVIEW,
-                      new ReadAloudReadabilityHooks.ReadabilityResult(false, false)),
-                  responseTimestamp);
+            return new ReadabilityInfo(
+                    ImmutableMap.of(
+                            PlaybackArgs.PlaybackMode.CLASSIC,
+                            new ReadAloudReadabilityHooks.ReadabilityResult(false, false),
+                            PlaybackArgs.PlaybackMode.OVERVIEW,
+                            new ReadAloudReadabilityHooks.ReadabilityResult(false, false)),
+                    responseTimestamp);
       }
 
-      static ReadabilityInfo forTimepoints(boolean timepointsSupported, long responseTimestamp) {
-          return new ReadabilityInfo(
-            ImmutableMap.of(
-                PlaybackArgs.PlaybackMode.CLASSIC,
-                new ReadAloudReadabilityHooks.ReadabilityResult(true, timepointsSupported),
-                PlaybackArgs.PlaybackMode.OVERVIEW,
-                new ReadAloudReadabilityHooks.ReadabilityResult(true, timepointsSupported)),
-            responseTimestamp);
+        static ReadabilityInfo forTimepoints(boolean timepointsSupported, long responseTimestamp) {
+            return new ReadabilityInfo(
+                    ImmutableMap.of(
+                            PlaybackArgs.PlaybackMode.CLASSIC,
+                            new ReadAloudReadabilityHooks.ReadabilityResult(
+                                    true, timepointsSupported),
+                            PlaybackArgs.PlaybackMode.OVERVIEW,
+                            new ReadAloudReadabilityHooks.ReadabilityResult(
+                                    true, timepointsSupported)),
+                    responseTimestamp);
       }
 
       boolean isReadable() {
-          // For audio overviews, we don't account for the language in the readability phase (we will check it during playback).
-          return isReadable(PlaybackArgs.PlaybackMode.CLASSIC)
-                  || (isAudioOverviewsAllowed() && isReadable(PlaybackArgs.PlaybackMode.OVERVIEW));
+            // For audio overviews, we don't account for the language in the
+            // readability phase (we will check it during playback).
+            return isReadable(PlaybackArgs.PlaybackMode.CLASSIC)
+                    || (isAudioOverviewsAllowed()
+                            && isReadable(PlaybackArgs.PlaybackMode.OVERVIEW));
       }
 
       boolean isReadable(String tabLanguage) {
@@ -658,7 +662,7 @@ public class ReadAloudController
         mFullscreenManager.addObserver(mFullscreenObserver);
 
         mBottomSheetObserver =
-                new EmptyBottomSheetObserver() {
+                new BottomSheetObserver() {
                     @Override
                     public void onSheetContentChanged(@Nullable BottomSheetContent newContent) {
                         if (newContent == null) {
@@ -894,7 +898,7 @@ public class ReadAloudController
         if (!isAvailable()) {
             return;
         }
-        if (mReadabilityHooks == null) {
+        if (!ReadAloudFeatures.isNativeEnabled() && mReadabilityHooks == null) {
             return;
         }
         if (mProfileSupplier.get() == null || !mProfileSupplier.get().isNativeInitialized()) {
@@ -918,8 +922,15 @@ public class ReadAloudController
             ReadAloudMetrics.recordIsPageReadable(info.isReadable());
             return;
         }
-        mPendingRequests.add(urlSpecHash);
-        mReadabilityHooks.isPageReadable(urlSpec, mReadabilityPerModeCallback);
+        if (ReadAloudFeatures.isNativeEnabled()) {
+            if (mNativeBridge != null) {
+                mPendingRequests.add(urlSpecHash);
+                mNativeBridge.checkReadability(url);
+            }
+        } else if (mReadabilityHooks != null) {
+            mPendingRequests.add(urlSpecHash);
+            mReadabilityHooks.isPageReadable(urlSpec, mReadabilityPerModeCallback);
+        }
     }
 
     @Nullable
@@ -979,28 +990,45 @@ public class ReadAloudController
                 || (tab.isNativePage() && assumeNonNull(tab.getNativePage()).isPdf());
     }
 
+    @Nullable
+    private ReadabilityInfo getReadabilityInfoForTab(@Nullable Tab tab) {
+        if (isTabUnavailableForReadAloud(tab) || !isAvailable()) {
+            return null;
+        }
+        int sanitizedUrlHash = urlToHash(stripUserData(assumeNonNull(tab).getUrl()).getSpec());
+        return getReadabilityInfoIfUnexpired(sanitizedUrlHash);
+    }
+
     /** Returns true if the web contents within current Tab is readable. */
     @Contract("null -> false")
     public boolean isReadable(@Nullable Tab tab) {
+        if (ReadAloudFeatures.isNativeEnabled()) {
+            // TODO: Verify tab language support or handle unsupported language playback gracefully
+            // under native mode.
+            ReadabilityInfo info = getReadabilityInfoForTab(tab);
+            return info != null && info.isReadable();
+        }
         if (isTabUnavailableForReadAloud(tab)) {
             return false;
         }
         Tab nonNullTab = assumeNonNull(tab);
         TabLanguageStatus tabLanguageStatus = isTabLanguageSupported(nonNullTab);
-        if (tabLanguageStatus.mSupported && isAvailable()) {
-            int sanitizedUrlHash = urlToHash(stripUserData(nonNullTab.getUrl()).getSpec());
-            ReadabilityInfo info = getReadabilityInfoIfUnexpired(sanitizedUrlHash);
+        if (tabLanguageStatus.mSupported) {
+            ReadabilityInfo info = getReadabilityInfoForTab(nonNullTab);
             if (info != null) {
-              if (ReadAloudFeatures.shouldConsiderLanguageInOverviewReadability()) {
-                return info.isReadable(tabLanguageStatus.mLanguage);
-              }
-              return info.isReadable();
+                if (ReadAloudFeatures.shouldConsiderLanguageInOverviewReadability()) {
+                    return info.isReadable(tabLanguageStatus.mLanguage);
+                }
+                return info.isReadable();
             }
         }
         return false;
     }
 
-    /** Returns which mode would be played if the user chooses to listen to this page, or UNSPECIFIED if unsupported. */
+    /**
+     * Returns which mode would be played if the user chooses to listen to this page, or UNSPECIFIED
+     * if unsupported.
+     */
     public PlaybackMode getModeToPlay(@Nullable Tab tab) {
         // If we don't have a valid Profile, playback won't work.
         // TODO(crbug.com/41491180): Remove when valid profile is guaranteed.
@@ -1009,13 +1037,20 @@ public class ReadAloudController
         }
 
         Tab nonNullTab = assumeNonNull(tab);
+        if (ReadAloudFeatures.isNativeEnabled()) {
+            return isReadable(nonNullTab) ? PlaybackMode.CLASSIC : PlaybackMode.UNSPECIFIED;
+        }
+
         TabLanguageStatus tabLanguageStatus = isTabLanguageSupported(nonNullTab);
-        if (tabLanguageStatus.mSupported && isAvailable()) {
-            int sanitizedUrlHash = urlToHash(stripUserData(nonNullTab.getUrl()).getSpec());
-            ReadabilityInfo info = getReadabilityInfoIfUnexpired(sanitizedUrlHash);
-            if (info != null && (ReadAloudFeatures.shouldConsiderLanguageInOverviewReadability() ? info.isReadable(tabLanguageStatus.mLanguage) : info.isReadable())) {
-              List<PlaybackMode> playbackModes = getPlaybackModesForNewPlayback(info, tabLanguageStatus.mLanguage);
-              return playbackModes.size() > 0 ? playbackModes.get(0) : PlaybackMode.UNSPECIFIED;
+        if (tabLanguageStatus.mSupported) {
+            ReadabilityInfo info = getReadabilityInfoForTab(nonNullTab);
+            if (info != null
+                    && (ReadAloudFeatures.shouldConsiderLanguageInOverviewReadability()
+                            ? info.isReadable(tabLanguageStatus.mLanguage)
+                            : info.isReadable())) {
+                List<PlaybackMode> playbackModes =
+                        getPlaybackModesForNewPlayback(info, tabLanguageStatus.mLanguage);
+                return playbackModes.size() > 0 ? playbackModes.get(0) : PlaybackMode.UNSPECIFIED;
             }
         }
         return PlaybackMode.UNSPECIFIED;
@@ -1317,6 +1352,10 @@ public class ReadAloudController
                                     : getLanguage(metadata.languageCode()));
                     mPlayback = playback;
                     mPlayback.addListener(ReadAloudController.this);
+                    if (ReadAloudFeatures.isNativeEnabled()
+                            && mPlayback instanceof NativePlayback nativePlayback) {
+                        nativePlayback.initializeSession();
+                    }
                 },
                 exception -> {
                   String message = assumeNonNull(assumeNonNull(exception).getMessage());
@@ -1883,14 +1922,18 @@ public class ReadAloudController
             return promise;
         }
 
-        // If native C++ Read Aloud is enabled and this is a classic article tab playback request,
-        // instantiate a NativePlayback session bridging UI controls to C++ via JNI.
+        // If native C++ Read Aloud is enabled and this is an article tab playback request
+        // (Classic or Overview mode), instantiate a NativePlayback session bridging UI controls
+        // to C++ via JNI.
         // TODO(b/542260163): Support native Overview playback for standalone URLs.
         // TODO(b/542261432): Support native Voice Preview sample playback.
         if (ReadAloudFeatures.isNativeEnabled()
                 && mNativeBridge.isInitialized()
-                && args.isSourceUrl()
-                && args.getPlaybackMode() == PlaybackMode.CLASSIC) {
+                && args.isSourceUrl()) {
+            PlaybackMode playbackMode =
+                    args.getPlaybackMode() != PlaybackMode.UNSPECIFIED
+                            ? args.getPlaybackMode()
+                            : PlaybackMode.CLASSIC;
             Tab activeTab = mActivePlaybackTabSupplier.get();
             WebContents webContents = activeTab != null ? activeTab.getWebContents() : null;
             // Resolve language from playback arguments, falling back to tab or default language.
@@ -1905,11 +1948,7 @@ public class ReadAloudController
             }
             Playback playback =
                     new NativePlayback(
-                            mNativeBridge,
-                            webContents,
-                            language,
-                            args.getSource(),
-                            args.getPlaybackMode());
+                            mNativeBridge, webContents, language, args.getSource(), playbackMode);
             promise.fulfill(playback);
             return promise;
         }
@@ -2384,9 +2423,30 @@ public class ReadAloudController
     }
 
     // Called with the result of an asynchronous page readability check.
-    void onReadabilityResult(GURL url, boolean isReadable) {
-        // TODO: Update property model with readability result.
-        Log.d(TAG, "onReadabilityResult: url = %s, isReadable = %b", url.getSpec(), isReadable);
+    void onReadabilityResult(@Nullable GURL url, boolean isReadable) {
+        Log.d(
+                TAG,
+                "onReadabilityResult: url = %s, isReadable = %b",
+                url != null ? url.getSpec() : "null",
+                isReadable);
+        if (mIsDestroyed || url == null || GURL.isEmptyOrInvalid(url)) {
+            return;
+        }
+        String urlSpec = stripUserData(url).getSpec();
+        int urlHash = urlToHash(urlSpec);
+        mPendingRequests.remove(urlHash);
+
+        ReadabilityInfo info =
+                isReadable
+                        ? ReadabilityInfo.forTimepoints(true, sClock.currentTimeMillis())
+                        : ReadabilityInfo.entirelyUnsupported(sClock.currentTimeMillis());
+        sReadabilityInfoMap.put(urlHash, info);
+
+        ReadAloudMetrics.recordIsPageReadable(isReadable);
+        // TODO(crbug.com/552605982): Add dedicated UMA telemetry metrics for native ReadAloud page
+        // readability.
+
+        notifyReadabilityMayHaveChanged();
     }
 
     // Called immediately before the native service is destroyed.

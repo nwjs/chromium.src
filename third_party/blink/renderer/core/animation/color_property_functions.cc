@@ -42,12 +42,6 @@ OptionalStyleColor ColorPropertyFunctions::GetUnvisitedColor(
       return OptionalStyleColor(style.Color());
     case CSSPropertyID::kOutlineColor:
       return OptionalStyleColor(style.OutlineColor());
-    case CSSPropertyID::kColumnRuleColor:
-      // TODO(crbug.com/357648037): Look into supporting multiple colors and
-      // deprecating the legacy method.
-      return OptionalStyleColor(style.ColumnRuleColor().GetLegacyValue());
-    case CSSPropertyID::kRowRuleColor:
-      return OptionalStyleColor(style.RowRuleColor().GetLegacyValue());
     case CSSPropertyID::kTextEmphasisColor:
       return OptionalStyleColor(style.TextEmphasisColor());
     case CSSPropertyID::kWebkitTextFillColor:
@@ -103,12 +97,6 @@ OptionalStyleColor ColorPropertyFunctions::GetVisitedColor(
       return OptionalStyleColor(style.InternalVisitedColor());
     case CSSPropertyID::kOutlineColor:
       return OptionalStyleColor(style.InternalVisitedOutlineColor());
-    case CSSPropertyID::kColumnRuleColor:
-      return OptionalStyleColor(
-          style.InternalVisitedColumnRuleColor().GetLegacyValue());
-    case CSSPropertyID::kRowRuleColor:
-      // TODO(crbug.com/357648037): Update to use multiple values.
-      return OptionalStyleColor(style.RowRuleColor().GetLegacyValue());
     case CSSPropertyID::kTextEmphasisColor:
       return OptionalStyleColor(style.InternalVisitedTextEmphasisColor());
     case CSSPropertyID::kWebkitTextFillColor:
@@ -184,12 +172,6 @@ void ColorPropertyFunctions::SetUnvisitedColor(const CSSProperty& property,
     case CSSPropertyID::kTextEmphasisColor:
       builder.SetTextEmphasisColor(style_color);
       return;
-    case CSSPropertyID::kColumnRuleColor:
-      builder.SetColumnRuleColor(GapDataList<StyleColor>(style_color));
-      return;
-    case CSSPropertyID::kRowRuleColor:
-      builder.SetRowRuleColor(GapDataList<StyleColor>(style_color));
-      return;
     case CSSPropertyID::kWebkitTextFillColor:
       builder.SetTextFillColor(style_color);
       return;
@@ -240,10 +222,6 @@ void ColorPropertyFunctions::SetVisitedColor(const CSSProperty& property,
     case CSSPropertyID::kOutlineColor:
       builder.SetInternalVisitedOutlineColor(style_color);
       return;
-    case CSSPropertyID::kRowRuleColor:
-      // TODO(crbug.com/357648037): The row-rule-color property is not
-      // valid for :visited currently.
-      return;
     case CSSPropertyID::kStopColor:
       builder.SetStopColor(style_color);
       return;
@@ -252,10 +230,6 @@ void ColorPropertyFunctions::SetVisitedColor(const CSSProperty& property,
       return;
     case CSSPropertyID::kTextEmphasisColor:
       builder.SetInternalVisitedTextEmphasisColor(style_color);
-      return;
-    case CSSPropertyID::kColumnRuleColor:
-      builder.SetInternalVisitedColumnRuleColor(
-          GapDataList<StyleColor>(style_color));
       return;
     case CSSPropertyID::kWebkitTextFillColor:
       builder.SetInternalVisitedTextFillColor(style_color);

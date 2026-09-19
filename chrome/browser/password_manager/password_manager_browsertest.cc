@@ -35,7 +35,6 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/autofill/chrome_autofill_client.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/login/login_handler.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
@@ -73,6 +72,7 @@
 #include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
+#include "components/password_manager/core/browser/password_string.h"
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
@@ -126,6 +126,7 @@ using testing::_;
 using testing::ElementsAre;
 using testing::Field;
 using testing::Pair;
+using testing::Property;
 using testing::SizeIs;
 
 namespace password_manager {
@@ -521,7 +522,8 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, PromptForDynamicForm) {
   signin_form.signon_realm = psl_orogin.spec();
   signin_form.url = psl_orogin;
   signin_form.username_value = u"unused_username";
-  signin_form.password_value = u"unused_password";
+  signin_form.password_value =
+      password_manager::PasswordString(u"unused_password");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   // Show the dynamic form.
@@ -1224,7 +1226,8 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
       "example.com", "/password/prefilled_username.html");
   saved_form.url = kFormUrl;
   saved_form.username_value = u"saved_username";
-  saved_form.password_value = u"saved_password";
+  saved_form.password_value =
+      password_manager::PasswordString(u"saved_password");
   password_store->AddLogin(password_manager::FromPasswordForm(saved_form));
 
   // This fixture is needed to allow filling on page load.
@@ -1256,7 +1259,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   signin_form.url = embedded_test_server()->base_url();
   signin_form.action = embedded_test_server()->base_url();
   signin_form.username_value = u"admin";
-  signin_form.password_value = u"12345";
+  signin_form.password_value = password_manager::PasswordString(u"12345");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   // Steps from https://crbug.com/40348800#comment38.
@@ -1298,7 +1301,8 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   signin_form.url = embedded_test_server()->base_url();
   signin_form.action = embedded_test_server()->base_url();
   signin_form.username_value = u"admin";
-  signin_form.password_value = u"random_secret";
+  signin_form.password_value =
+      password_manager::PasswordString(u"random_secret");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   NavigateToFile("/password/form_and_link.html");
@@ -1406,7 +1410,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   signin_form.url = embedded_test_server()->base_url();
   signin_form.action = embedded_test_server()->base_url();
   signin_form.username_value = u"admin";
-  signin_form.password_value = u"12345";
+  signin_form.password_value = password_manager::PasswordString(u"12345");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   NavigateToFile("/password/between_parsing_and_rendering.html?hidden");
@@ -1435,7 +1439,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, SlowPageFill) {
   signin_form.url = embedded_test_server()->base_url();
   signin_form.action = embedded_test_server()->base_url();
   signin_form.username_value = u"admin";
-  signin_form.password_value = u"12345";
+  signin_form.password_value = password_manager::PasswordString(u"12345");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   GURL url =
@@ -1601,7 +1605,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   // page.
   http_form.action = https_origin;
   http_form.username_value = u"user";
-  http_form.password_value = u"12345";
+  http_form.password_value = password_manager::PasswordString(u"12345");
   password_manager::PasswordStoreInterface* password_store =
       GetDefaultPasswordStore(browser()->GetProfile());
   password_store->AddLogin(password_manager::FromPasswordForm(http_form));
@@ -1642,7 +1646,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   http_form.signon_realm = http_origin.spec();
   http_form.url = http_origin;
   http_form.username_value = u"user";
-  http_form.password_value = u"12345";
+  http_form.password_value = password_manager::PasswordString(u"12345");
   password_manager::TestPasswordStore* password_store =
       GetDefaultPasswordStore(browser()->GetProfile());
   password_store->AddLogin(password_manager::FromPasswordForm(http_form));
@@ -1715,7 +1719,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, ReCreatedFormsGetFilled) {
   signin_form.url = embedded_test_server()->base_url();
   signin_form.action = embedded_test_server()->base_url();
   signin_form.username_value = u"temp";
-  signin_form.password_value = u"random";
+  signin_form.password_value = password_manager::PasswordString(u"random");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   NavigateToFile("/password/dynamic_password_form.html");
@@ -1746,7 +1750,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, DuplicateFormsGetFilled) {
   signin_form.url = embedded_test_server()->base_url();
   signin_form.action = embedded_test_server()->base_url();
   signin_form.username_value = u"temp";
-  signin_form.password_value = u"random";
+  signin_form.password_value = password_manager::PasswordString(u"random");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   NavigateToFile("/password/recurring_dynamic_form.html");
@@ -1774,7 +1778,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   signin_form.url = embedded_test_server()->base_url();
   signin_form.action = embedded_test_server()->base_url();
   signin_form.username_value = u"admin";
-  signin_form.password_value = u"1234";
+  signin_form.password_value = password_manager::PasswordString(u"1234");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   NavigateToFile("/password/password_form.html");
@@ -1934,7 +1938,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerAutofillPopupBrowserTest,
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.username_value = u"temp";
-  signin_form.password_value = u"random123";
+  signin_form.password_value = password_manager::PasswordString(u"random123");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   NavigateToFile("/password/password_form.html");
@@ -2093,7 +2097,7 @@ IN_PROC_BROWSER_TEST_F(
       GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
-  signin_form.password_value = u"pw";
+  signin_form.password_value = password_manager::PasswordString(u"pw");
   signin_form.username_value = u"temp";
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
   WaitForPasswordStore();
@@ -2153,7 +2157,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   signin_form.signon_realm = iframe_url.DeprecatedGetOriginAsURL().spec();
   signin_form.url = iframe_url;
   signin_form.username_value = u"temp";
-  signin_form.password_value = u"pa55w0rd";
+  signin_form.password_value = password_manager::PasswordString(u"pa55w0rd");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
   WaitForPasswordStore();
 
@@ -2213,7 +2217,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   signin_form.signon_realm = iframe_url.DeprecatedGetOriginAsURL().spec();
   signin_form.url = iframe_url;
   signin_form.username_value = u"temp";
-  signin_form.password_value = u"pa55w0rd";
+  signin_form.password_value = password_manager::PasswordString(u"pa55w0rd");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
   WaitForPasswordStore();
 
@@ -2332,7 +2336,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, ChangePwd1AccountStored) {
       GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
-  signin_form.password_value = u"pw";
+  signin_form.password_value = password_manager::PasswordString(u"pw");
   signin_form.username_value = u"temp";
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
@@ -2380,7 +2384,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
       GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
-  signin_form.password_value = u"random";
+  signin_form.password_value = password_manager::PasswordString(u"random");
   signin_form.username_value = u"temp";
   signin_form.SetPasswordBackupNote(u"backup_password");
   signin_form.type = PasswordForm::Type::kChangeSubmission;
@@ -2413,7 +2417,8 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
       passwords_vector,
       ElementsAre(AllOf(
           Field(&password_manager::PasswordForm::username_value, u"temp"),
-          Field(&password_manager::PasswordForm::password_value, u"new_pw"),
+          Field(&password_manager::PasswordForm::password_value,
+                Property(&PasswordString::value, u"new_pw")),
           Field(&password_manager::PasswordForm::notes, testing::IsEmpty()))));
 }
 
@@ -2425,7 +2430,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTestWithAutofillDisabled,
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.username_value = u"temp";
-  signin_form.password_value = u"pw";
+  signin_form.password_value = password_manager::PasswordString(u"pw");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   // Check that password update bubble is shown.
@@ -2455,7 +2460,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.username_value = u"temp";
-  signin_form.password_value = u"pw";
+  signin_form.password_value = password_manager::PasswordString(u"pw");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   // Check that password update bubble is shown.
@@ -2526,7 +2531,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
       GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
-  signin_form.password_value = u"pw";
+  signin_form.password_value = password_manager::PasswordString(u"pw");
   signin_form.username_value = u"temp";
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
@@ -2564,7 +2569,7 @@ IN_PROC_BROWSER_TEST_F(
   login_form.signon_realm = embedded_test_server()->base_url().spec();
   login_form.action = embedded_test_server()->GetURL("/password/done.html");
   login_form.username_value = u"myusername";
-  login_form.password_value = u"mypassword";
+  login_form.password_value = password_manager::PasswordString(u"mypassword");
   password_store->AddLogin(password_manager::FromPasswordForm(login_form));
 
   // Now, navigate to the password form having ambiguous Ids for username and
@@ -2592,7 +2597,7 @@ IN_PROC_BROWSER_TEST_F(
   login_form.signon_realm = embedded_test_server()->base_url().spec();
   login_form.action = embedded_test_server()->GetURL("/password/done.html");
   login_form.username_value = u"myusername";
-  login_form.password_value = u"mypassword";
+  login_form.password_value = password_manager::PasswordString(u"mypassword");
   password_store->AddLogin(password_manager::FromPasswordForm(login_form));
 
   // Now, navigate to the password form having no Ids for username and password
@@ -2619,7 +2624,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   login_form.signon_realm = embedded_test_server()->base_url().spec();
   login_form.action = embedded_test_server()->GetURL("/password/done.html");
   login_form.username_value = u"myusername";
-  login_form.password_value = u"mypassword";
+  login_form.password_value = password_manager::PasswordString(u"mypassword");
   password_store->AddLogin(password_manager::FromPasswordForm(login_form));
 
   // Now, navigate to the password form having no Ids for username and password
@@ -2656,7 +2661,7 @@ IN_PROC_BROWSER_TEST_F(
   login_form.signon_realm = embedded_test_server()->base_url().spec();
   login_form.action = embedded_test_server()->GetURL("/password/done.html");
   login_form.username_value = u"myusername";
-  login_form.password_value = u"mypassword";
+  login_form.password_value = password_manager::PasswordString(u"mypassword");
   password_store->AddLogin(password_manager::FromPasswordForm(login_form));
 
   // Now, navigate to the password form having no Ids for username and password
@@ -2690,7 +2695,7 @@ IN_PROC_BROWSER_TEST_F(
   login_form.signon_realm = embedded_test_server()->base_url().spec();
   login_form.action = embedded_test_server()->GetURL("/password/done.html");
   login_form.username_value = u"myusername";
-  login_form.password_value = u"mypassword";
+  login_form.password_value = password_manager::PasswordString(u"mypassword");
   password_store->AddLogin(password_manager::FromPasswordForm(login_form));
 
   // Now, navigate to the password form having no Ids for username and password
@@ -2739,7 +2744,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, BasicAuthSeparateRealms) {
   password_manager::PasswordForm creds;
   creds.scheme = password_manager::PasswordForm::Scheme::kBasic;
   creds.signon_realm = http_test_server.base_url().spec() + "test realm";
-  creds.password_value = u"pw";
+  creds.password_value = password_manager::PasswordString(u"pw");
   creds.username_value = u"temp";
   password_store->AddLogin(password_manager::FromPasswordForm(creds));
   WaitForPasswordStore();
@@ -2783,7 +2788,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, ProxyAuthFilling) {
   creds.scheme = password_manager::PasswordForm::Scheme::kBasic;
   creds.url = test_page;
   creds.signon_realm = embedded_test_server()->base_url().spec() + "testrealm";
-  creds.password_value = u"pw";
+  creds.password_value = password_manager::PasswordString(u"pw");
   creds.username_value = u"temp";
   password_store->AddLogin(password_manager::FromPasswordForm(creds));
 
@@ -2808,7 +2813,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   login_form.signon_realm = embedded_test_server()->base_url().spec();
   login_form.action = embedded_test_server()->GetURL("/password/done.html");
   login_form.username_value = u"myusername";
-  login_form.password_value = u"mypassword";
+  login_form.password_value = password_manager::PasswordString(u"mypassword");
   password_store->AddLogin(password_manager::FromPasswordForm(login_form));
 
   // Now, navigate to the hidden password form and verify whether username and
@@ -2835,7 +2840,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   login_form.signon_realm = embedded_test_server()->base_url().spec();
   login_form.action = embedded_test_server()->GetURL("/password/done.html");
   login_form.username_value = u"myusername";
-  login_form.password_value = u"mypassword";
+  login_form.password_value = password_manager::PasswordString(u"mypassword");
   password_store->AddLogin(password_manager::FromPasswordForm(login_form));
 
   // Now, navigate to the password form with a hidden password field and verify
@@ -2862,7 +2867,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   login_form.signon_realm = embedded_test_server()->base_url().spec();
   login_form.action = embedded_test_server()->GetURL("/password/done.html");
   login_form.username_value = u"myusername";
-  login_form.password_value = u"mypassword";
+  login_form.password_value = password_manager::PasswordString(u"mypassword");
   password_store->AddLogin(password_manager::FromPasswordForm(login_form));
 
   // Now, navigate to the password form having ambiguous Ids for username and
@@ -2980,10 +2985,10 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.username_value = u"temp";
-  signin_form.password_value = u"pw";
+  signin_form.password_value = password_manager::PasswordString(u"pw");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
   signin_form.username_value = u"temp1";
-  signin_form.password_value = u"pw1";
+  signin_form.password_value = password_manager::PasswordString(u"pw1");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   // Check that no password bubble is shown when the submitted password is the
@@ -3010,7 +3015,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.username_value = u"temp";
-  signin_form.password_value = u"pw";
+  signin_form.password_value = password_manager::PasswordString(u"pw");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   // Check that password update bubble is shown.
@@ -3038,7 +3043,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
       GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
-  signin_form.password_value = u"password";
+  signin_form.password_value = password_manager::PasswordString(u"password");
   signin_form.username_value = u"user";
   signin_form.url = embedded_test_server()->base_url();
   signin_form.skip_zero_click = true;
@@ -3083,7 +3088,7 @@ IN_PROC_BROWSER_TEST_F(
       GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
-  signin_form.password_value = u"password";
+  signin_form.password_value = password_manager::PasswordString(u"password");
   signin_form.username_value = u"user";
   signin_form.url = embedded_test_server()->base_url();
   signin_form.skip_zero_click = true;
@@ -3125,7 +3130,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
       GetDefaultPasswordStore(browser()->GetProfile());
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
-  signin_form.password_value = u"password";
+  signin_form.password_value = password_manager::PasswordString(u"password");
   signin_form.username_value = u"user";
   signin_form.url = embedded_test_server()->base_url();
   signin_form.skip_zero_click = true;
@@ -3190,10 +3195,12 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.url = embedded_test_server()->base_url();
   signin_form.username_value = u"current_username";
-  signin_form.password_value = u"current_username_password";
+  signin_form.password_value =
+      password_manager::PasswordString(u"current_username_password");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
   signin_form.username_value = u"last_used_username";
-  signin_form.password_value = u"last_used_password";
+  signin_form.password_value =
+      password_manager::PasswordString(u"last_used_password");
   signin_form.date_last_used = base::Time::Now();
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
@@ -3314,7 +3321,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   signin_form.signon_realm = "about:";
   GURL submit_url(embedded_test_server()->GetURL("/password/done.html"));
   signin_form.action = submit_url;
-  signin_form.password_value = u"pa55w0rd";
+  signin_form.password_value = password_manager::PasswordString(u"pa55w0rd");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   // Start from a page without a password form.
@@ -3564,7 +3571,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   signin_form.signon_realm = url_A.DeprecatedGetOriginAsURL().spec();
   signin_form.url = url_A;
   signin_form.username_value = u"user";
-  signin_form.password_value = u"oldpassword";
+  signin_form.password_value = password_manager::PasswordString(u"oldpassword");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
   WaitForPasswordStore();
 
@@ -3625,7 +3632,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   signin_form.signon_realm = url.GetWithEmptyPath().spec();
   signin_form.url = url.GetWithEmptyPath();
   signin_form.username_value = u"user";
-  signin_form.password_value = u"password123";
+  signin_form.password_value = password_manager::PasswordString(u"password123");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
@@ -3650,7 +3657,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   signin_form.signon_realm = url.GetWithEmptyPath().spec();
   signin_form.url = url.GetWithEmptyPath();
   signin_form.username_value = u"user";
-  signin_form.password_value = u"password123";
+  signin_form.password_value = password_manager::PasswordString(u"password123");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
@@ -3668,7 +3675,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, FormDynamicallyChanged) {
   password_manager::PasswordForm signin_form;
   signin_form.signon_realm = embedded_test_server()->base_url().spec();
   signin_form.username_value = u"temp";
-  signin_form.password_value = u"pw";
+  signin_form.password_value = password_manager::PasswordString(u"pw");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   // Check that password update bubble is shown.
@@ -4685,7 +4692,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerCredentiallessIframeTest,
   signin_form.url = base_url;
   signin_form.action = base_url;
   signin_form.username_value = u"temp";
-  signin_form.password_value = u"pa55w0rd";
+  signin_form.password_value = password_manager::PasswordString(u"pa55w0rd");
   password_store->AddLogin(password_manager::FromPasswordForm(signin_form));
 
   // 2. Load the form again, from a normal and a credentialless iframe.

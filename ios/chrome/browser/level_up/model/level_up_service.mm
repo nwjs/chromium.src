@@ -7,6 +7,7 @@
 #import <algorithm>
 #import <numeric>
 
+#import "base/functional/bind.h"
 #import "base/logging.h"
 #import "base/scoped_multi_source_observation.h"
 #import "base/scoped_observation.h"
@@ -14,6 +15,7 @@
 #import "components/prefs/pref_service.h"
 #import "components/prefs/scoped_user_pref_update.h"
 #import "ios/chrome/browser/level_up/model/tasks/task_factories.h"
+#import "ios/chrome/browser/passwords/model/ios_chrome_password_check_manager.h"
 #import "ios/chrome/browser/sessions/model/session_restoration_observer.h"
 #import "ios/chrome/browser/sessions/model/session_restoration_service.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -173,10 +175,56 @@ class LevelUpService::LevelUpTabGroupObserver
       session_restoration_observation_{this};
 };
 
+// Helper class to observe IOSChromePasswordCheckManager and count passwords
+// checked when a password checkup completes.
+class LevelUpService::LevelUpPasswordCheckObserver
+    : public IOSChromePasswordCheckManager::Observer {
+ public:
+  LevelUpPasswordCheckObserver(
+      LevelUpService* level_up_service,
+      IOSChromePasswordCheckManager* password_check_manager)
+      : level_up_service_(level_up_service),
+        password_check_manager_(password_check_manager) {
+    if (password_check_manager_) {
+      password_check_manager_observation_.Observe(
+          password_check_manager_.get());
+    }
+  }
+
+  ~LevelUpPasswordCheckObserver() override = default;
+
+  void Shutdown() {
+    password_check_manager_observation_.Reset();
+    password_check_manager_ = nullptr;
+  }
+
+  // IOSChromePasswordCheckManager::Observer
+  void PasswordCheckFinished(size_t passwords_checked) override {
+    if (passwords_checked > 0) {
+      level_up_service_->IncrementStatValue(
+          LevelUpTaskStatType::kPasswordsVerified,
+          static_cast<int>(passwords_checked));
+    }
+  }
+
+  void ManagerWillShutdown(
+      IOSChromePasswordCheckManager* password_check_manager) override {
+    Shutdown();
+  }
+
+ private:
+  raw_ptr<LevelUpService> level_up_service_ = nullptr;
+  raw_ptr<IOSChromePasswordCheckManager> password_check_manager_ = nullptr;
+  base::ScopedObservation<IOSChromePasswordCheckManager,
+                          IOSChromePasswordCheckManager::Observer>
+      password_check_manager_observation_{this};
+};
+
 LevelUpService::LevelUpService(
     PrefService* pref_service,
     BrowserList* browser_list,
-    SessionRestorationService* session_restoration_service)
+    SessionRestorationService* session_restoration_service,
+    IOSChromePasswordCheckManager* password_check_manager)
     : pref_service_(pref_service) {
   if (!IsLevelUpEnabled()) {
     return;
@@ -184,15 +232,35 @@ LevelUpService::LevelUpService(
   PopulateTasks();
   LoadPrefs();
 
+  if (pref_service_) {
+    pref_change_registrar_.Init(pref_service_);
+    pref_change_registrar_.Add(
+        prefs::kLevelUpUIEnabled,
+        base::BindRepeating(&LevelUpService::OnUIEnabledPrefChanged,
+                            base::Unretained(this)));
+  }
+
   tab_group_observer_ = std::make_unique<LevelUpTabGroupObserver>(
       this, browser_list, session_restoration_service);
+  password_check_observer_ = std::make_unique<LevelUpPasswordCheckObserver>(
+      this, password_check_manager);
 }
 
 LevelUpService::~LevelUpService() = default;
 
 void LevelUpService::Shutdown() {
+  pref_change_registrar_.Reset();
   if (tab_group_observer_) {
     tab_group_observer_->Shutdown();
+  }
+  if (password_check_observer_) {
+    password_check_observer_->Shutdown();
+  }
+}
+
+void LevelUpService::OnUIEnabledPrefChanged() {
+  if (pref_service_) {
+    is_ui_enabled_ = pref_service_->GetBoolean(prefs::kLevelUpUIEnabled);
   }
 }
 
@@ -237,6 +305,19 @@ void LevelUpService::MarkTaskCompleted(TaskType task_type) {
     pref_service_->SetInteger(
         prefs::kIosMagicStackSegmentationLevelUpImpressionsSinceFreshness, 0);
   }
+}
+
+void LevelUpService::ResetAllTasksStatus() {
+  completed_tasks_.clear();
+  current_level_ = 1;
+  pref_service_->ClearPref(prefs::kLevelUpCompletedTasks);
+  pref_service_->SetInteger(prefs::kLevelUpHighestLevel, 1);
+  pref_service_->SetInteger(prefs::kLevelUpTabsDeclutteredStat, 0);
+  pref_service_->SetInteger(prefs::kLevelUpTypingSavedStat, 0);
+  pref_service_->SetInteger(prefs::kLevelUpPasswordsVerifiedStat, 0);
+  pref_service_->SetInteger(prefs::kLevelUpPhotoSearchesPerformedStat, 0);
+  pref_service_->SetInteger(
+      prefs::kIosMagicStackSegmentationLevelUpImpressionsSinceFreshness, 0);
 }
 
 bool LevelUpService::IsTaskCompleted(TaskType task_type) const {
@@ -287,9 +368,9 @@ void LevelUpService::PopulateTasks() {
   tasks_[TaskType::kSafeBrowsing] = CreateSafeBrowsingTaskInfo();
   tasks_[TaskType::kIncognito] = CreateIncognitoTaskInfo();
   tasks_[TaskType::kPasswordCheckup] = CreatePasswordCheckupTaskInfo();
-  tasks_[TaskType::kLensSearch] = CreateLensSearchTaskInfo();
+  tasks_[TaskType::kLensWebsiteSearch] = CreateLensWebsiteSearchTaskInfo();
   tasks_[TaskType::kAISearch] = CreateAISearchTaskInfo();
-  tasks_[TaskType::kCameraSearch] = CreateCameraSearchTaskInfo();
+  tasks_[TaskType::kLensCameraSearch] = CreateLensCameraSearchTaskInfo();
 
   stat_trigger_user_actions_["Mobile.LensOverlay.CameraSearch.Performed"] =
       LevelUpTaskStatType::kPhotoSearchesPerformed;

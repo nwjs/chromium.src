@@ -9,16 +9,30 @@ import {NotificationType} from 'chrome-untrusted://read-anything-side-panel.top-
 import {assertEquals, assertFalse, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 import {microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
 
+import {setupTestEnvironment} from './common.js';
+// <if expr="is_chromeos">
+import type {TestAudioBrowserProxy} from './test_audio_browser_proxy.js';
+// </if>
+
 suite('LanguageToast', () => {
   let toast: LanguageToastElement;
+  // <if expr="is_chromeos">
+  let audioBrowserProxy: TestAudioBrowserProxy;
+  // </if>
 
   function getTitle(): string {
     return toast.$.toast.querySelector<HTMLElement>('#toastTitle')!.textContent;
   }
 
   setup(() => {
-    // Clearing the DOM should always be done first.
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    // <if expr="is_chromeos">
+    const result = setupTestEnvironment();
+    audioBrowserProxy = result.audioBrowserProxy;
+    // </if>
+    // <if expr="not is_chromeos">
+    setupTestEnvironment();
+    // </if>
+
     toast = document.createElement('language-toast');
     document.body.appendChild(toast);
     toast.numAvailableVoices = 0;
@@ -27,6 +41,7 @@ suite('LanguageToast', () => {
 
   // <if expr="is_chromeos">
   test('shows downloaded message on ChromeOS', async () => {
+    audioBrowserProxy.localeToDisplayName['pt-br'] = 'Português (Brasil)';
     const lang = 'pt-br';
     toast.notify(NotificationType.DOWNLOADING, lang);
     toast.notify(NotificationType.DOWNLOADED, lang);

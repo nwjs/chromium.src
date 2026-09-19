@@ -11,8 +11,6 @@
 
 namespace viz {
 
-ReservedResourceDelegate::~ReservedResourceDelegate() = default;
-
 SurfaceResourceHolder::ResourceRefs::ResourceRefs() = default;
 
 SurfaceResourceHolder::ResourceRefs::~ResourceRefs() = default;
@@ -44,27 +42,33 @@ void SurfaceResourceHolder::ReceiveFromChild(
   }
 }
 
-void SurfaceResourceHolder::RefResources(
+std::vector<TransferableResource> SurfaceResourceHolder::RefResources(
     const std::vector<TransferableResource>& resources) {
+  std::vector<TransferableResource> unhandled_resources;
   for (const auto& resource : resources) {
     // We don't handle reserved resources here.
-    if (resource.id >= kVizReservedRangeStartId)
+    if (resource.id >= kVizReservedRangeStartId) {
+      unhandled_resources.push_back(resource);
       continue;
+    }
 
     auto count_it = resource_id_info_map_.find(resource.id);
     DCHECK(count_it != resource_id_info_map_.end())
         << "ResourceId: " << resource.id;
     count_it->second.refs_holding_resource_alive++;
   }
+  return unhandled_resources;
 }
 
-void SurfaceResourceHolder::UnrefResources(
+std::vector<ReturnedResourceViz> SurfaceResourceHolder::UnrefResources(
     std::vector<ReturnedResourceViz> resources_viz) {
   std::vector<ReturnedResource> resources_available_to_return;
+  std::vector<ReturnedResourceViz> unhandled_resources;
 
   for (auto& resource_viz : resources_viz) {
     // We don't handle reserved resources here.
     if (resource_viz.id >= kVizReservedRangeStartId) {
+      unhandled_resources.push_back(std::move(resource_viz));
       continue;
     }
 
@@ -89,6 +93,7 @@ void SurfaceResourceHolder::UnrefResources(
   }
 
   client_->ReturnResources(std::move(resources_available_to_return));
+  return unhandled_resources;
 }
 
 }  // namespace viz

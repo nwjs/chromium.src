@@ -9,7 +9,6 @@
 #include "base/test/test_future.h"
 #include "chrome/browser/apps/link_capturing/link_capturing_feature_test_support.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/intent_picker_tab_helper.h"
@@ -24,6 +23,7 @@
 #include "chrome/browser/web_applications/web_app_ui_manager.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/user_education/interactive_feature_promo_test.h"
+#include "components/tabs/public/tab_interface.h"
 #include "components/user_education/views/help_bubble_factory_views.h"
 #include "components/user_education/views/help_bubble_view.h"
 #include "content/public/browser/web_contents.h"
@@ -105,7 +105,6 @@ class DefaultLinkCapturingInteractiveUiTest
     return {outer_app_id, inner_app_id};
   }
 
-
  private:
   base::test::ScopedFeatureList feature_list_;
 };
@@ -137,7 +136,7 @@ IN_PROC_BROWSER_TEST_P(DefaultLinkCapturingInteractiveUiTest,
 
   EXPECT_EQ(
       1, user_action_tester.GetActionCount("IntentPickerViewAcceptLaunchApp"));
-  Browser* app_browser = browser_created_observer.Wait();
+  BrowserWindowInterface* app_browser = browser_created_observer.Wait();
   ASSERT_TRUE(app_browser);
   EXPECT_TRUE(web_app::AppBrowserController::IsWebApp(app_browser));
   EXPECT_TRUE(
@@ -188,8 +187,8 @@ IN_PROC_BROWSER_TEST_P(DefaultLinkCapturingInteractiveUiTest,
 
   // Verify that no icon was shown.
   EXPECT_TRUE(web_app::AwaitIntentPickerTabHelperIconUpdateComplete(
-      browser()->tab_strip_model()->GetActiveWebContents()));
-  ASSERT_FALSE(web_app::GetIntentPickerButton(browser())->GetVisible());
+      browser()->GetTabStripModel()->GetActiveWebContents()));
+  ASSERT_FALSE(web_app::GetIntentPickerButton(browser()).GetVisible());
 
   // Load a different page while simulating it having a native app.
   apps::OverrideMacAppForUrlForTesting(true, kFinderAppPath);
@@ -197,16 +196,15 @@ IN_PROC_BROWSER_TEST_P(DefaultLinkCapturingInteractiveUiTest,
 
   // Verify app icon shows up in the intent picker.
   EXPECT_TRUE(web_app::AwaitIntentPickerTabHelperIconUpdateComplete(
-      browser()->tab_strip_model()->GetActiveWebContents()));
-  views::Button* intent_picker_icon = web_app::GetIntentPickerButton(browser());
-  ASSERT_NE(intent_picker_icon, nullptr);
+      browser()->GetTabStripModel()->GetActiveWebContents()));
+  ASSERT_TRUE(web_app::GetIntentPickerButton(browser()).GetVisible());
 
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_NE(web_contents, nullptr);
 
-  IntentPickerTabHelper* tab_helper =
-      IntentPickerTabHelper::FromWebContents(web_contents);
+  IntentPickerTabHelper* tab_helper = IntentPickerTabHelper::From(
+      tabs::TabInterface::GetFromContents(web_contents));
 
   ui::ImageModel app_icon = tab_helper->app_icon();
 

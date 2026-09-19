@@ -11,6 +11,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
+#include "build/build_config.h"
 #include "components/webdata/common/web_database_table.h"
 #include "sql/database.h"
 #include "sql/init_status.h"
@@ -256,6 +257,19 @@ TEST_F(WebDatabaseTest, InitFailureMetaTableInitFailed) {
       1);
 }
 
+// A fake `WebDatabaseTable` that always fails upgrading to newer versions.
+class MigrationFailedTable : public WebDatabaseTable {
+ public:
+  WebDatabaseTable::TypeKey GetTypeKey() const override {
+    static int table_key = 0;
+    return reinterpret_cast<void*>(&table_key);
+  }
+  bool CreateTablesIfNecessary() override { return true; }
+  bool MigrateToVersion(int version, bool* update_compatible_version) override {
+    return false;
+  }
+};
+
 TEST_F(WebDatabaseTest, InitFailureMigrationError) {
   base::HistogramTester histogram_tester;
 
@@ -269,13 +283,10 @@ TEST_F(WebDatabaseTest, InitFailureMigrationError) {
                                 WebDatabase::kDeprecatedVersionNumber + 1));
   }
 
-  sql::test::DriveErrorTestVfs vfs;
+  MigrationFailedTable table;
   WebDatabase db;
-
-  // Force disk writes to fail so migration fails when updating meta table.
-  vfs.set_drive_full(true);
+  db.AddTable(&table);
   EXPECT_EQ(db.Init(db_path_), sql::INIT_FAILURE);
-  vfs.set_drive_full(false);
 
   histogram_tester.ExpectUniqueSample(
       "WebDatabase.InitResult", WebDatabase::InitResult::kMigrationError, 1);

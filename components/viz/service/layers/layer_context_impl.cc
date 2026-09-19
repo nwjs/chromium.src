@@ -646,9 +646,12 @@ base::expected<bool, std::string> UpdatePropertyTree(
     }
 
     auto& node = tree.MutableNode(wire->id);
+    // Defer updating node ID and parent ID until validation succeeds to
+    // prevent corrupting the tree state on failure. See
+    // https://crbug.com/537935016
+    RETURN_IF_ERROR(UpdatePropertyTreeNode(trees, node, *wire));
     node.id = wire->id;
     node.parent_id = wire->parent_id;
-    RETURN_IF_ERROR(UpdatePropertyTreeNode(trees, node, *wire));
   }
 
   if (cc::kRootPropertyNodeId >= static_cast<int>(tree.size())) {
@@ -2294,6 +2297,10 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
       !std::isfinite(update->external_page_scale_factor)) {
     return base::unexpected("Invalid external page scale factor");
   }
+  // The renderer has already applied this scale to serialized effect nodes, so
+  // Viz cannot rediscover the change while updating surface contents scales.
+  const bool external_page_scale_factor_changed =
+      layers.external_page_scale_factor() != update->external_page_scale_factor;
   layers.SetExternalPageScaleFactor(update->external_page_scale_factor);
 
   if (update->device_scale_factor <= 0 ||
@@ -2398,6 +2405,9 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
       property_trees.transform_tree().needs_update());
   property_trees.clip_tree_mutable().set_needs_update(
       clip_size_changed || clip_nodes_changed ||
+      // External scale changes surface contents scales, which affects clips
+      // expressed in surface space.
+      external_page_scale_factor_changed ||
       property_trees.clip_tree().needs_update());
   property_trees.effect_tree_mutable().set_needs_update(
       effect_size_changed || effect_nodes_changed ||

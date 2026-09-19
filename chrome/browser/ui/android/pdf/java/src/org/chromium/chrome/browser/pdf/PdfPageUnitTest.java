@@ -7,17 +7,21 @@ package org.chromium.chrome.browser.pdf;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import android.app.Activity;
+import android.content.DialogInterface;
 import android.net.Uri;
 import android.os.Build;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
 import org.json.JSONObject;
@@ -27,10 +31,12 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowDialog;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.UserDataHost;
@@ -40,12 +46,14 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.native_page.NativePageHost;
 import org.chromium.chrome.browser.util.ChromeFileProvider;
 import org.chromium.components.embedder_support.util.UrlConstants;
+import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.MimeTypeUtils;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.url.GURL;
@@ -55,7 +63,13 @@ import java.io.File;
 @RunWith(BaseRobolectricTestRunner.class)
 @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
 @DisableFeatures(ChromeFeatureList.PDF_REUSE_FRAGMENT)
-@Config(sdk = Build.VERSION_CODES.VANILLA_ICE_CREAM)
+@Config(
+        sdk = Build.VERSION_CODES.VANILLA_ICE_CREAM,
+        instrumentedPackages = {"androidx.fragment.app", "androidx.pdf"},
+        shadows = {
+            PdfCoordinatorUnitTest.ShadowPdfViewerFragment.class,
+            PdfCoordinatorUnitTest.ShadowEditablePdfViewerFragment.class
+        })
 public class PdfPageUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -74,6 +88,7 @@ public class PdfPageUnitTest {
     private PdfInfo mPdfInfo;
     private String mPdfPageUrl;
     private String mPdfPageBlobUrl;
+    private UserActionTester mUserActionTester;
 
     private static final String DEFAULT_TAB_TITLE = "Loading PDF…";
     private static final int TAB_ID = 123;
@@ -81,7 +96,6 @@ public class PdfPageUnitTest {
     private static final String FILE_URL = "file:///media/external/downloads/sample.pdf";
     private static final String PDF_LINK = "https://www.foo.com/testfiles/pdf/sample.pdf";
     private static final String PDF_BLOB_URL = "blob:https://www.foo.com/abc";
-    private static final String EXAMPLE_URL = "https://www.example.com/";
     private static final String FILE_PATH = "/media/external/downloads/sample.pdf";
     private static final String FILE_NAME = "sample.pdf";
 
@@ -96,6 +110,9 @@ public class PdfPageUnitTest {
                             doReturn(activity).when(mMockNativePageHost).getContext();
                         });
         doReturn(mMarginSupplier).when(mMockNativePageHost).createDefaultMarginAdapter(any());
+        doReturn(TAB_ID).when(mMockTab).getId();
+        UserDataHost userDataHost = new UserDataHost();
+        doReturn(userDataHost).when(mMockTab).getUserDataHost();
         mPdfInfo = new PdfInfo();
         ChromeFileProvider.setGeneratedUriForTesting(Uri.parse(CONTENT_URL));
         PdfCoordinator.skipLoadPdfForTesting(true);
@@ -105,12 +122,16 @@ public class PdfPageUnitTest {
         doReturn(mUserDataHost).when(mMockTab).getUserDataHost();
         doReturn(mMockProfile).when(mMockTab).getProfile();
         doReturn(TAB_ID).when(mMockTab).getId();
+        mUserActionTester = new UserActionTester();
     }
 
     @After
     public void tearDown() throws Exception {
         ChromeFileProvider.setGeneratedUriForTesting(null);
         PdfCoordinator.skipLoadPdfForTesting(false);
+        if (mUserActionTester != null) {
+            mUserActionTester.tearDown();
+        }
     }
 
     @Test
@@ -331,8 +352,8 @@ public class PdfPageUnitTest {
 
     @Test
     @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
-    public void testDestroy_DeletesFile_WhenTabFrozen() throws Exception {
-        doReturn(true).when(mMockTab).isFrozen();
+    public void testDestroy_PreservesFile_WhenTabHidden() throws Exception {
+        doReturn(true).when(mMockTab).isHidden();
         doReturn(new GURL(mPdfPageUrl)).when(mMockTab).getUrl();
         File tempFile = File.createTempFile("test_pdf", ".pdf");
         PdfPage pdfPage =
@@ -349,7 +370,10 @@ public class PdfPageUnitTest {
 
         pdfPage.destroy();
 
-        assertFalse("Transient file should be deleted when tab is frozen", tempFile.exists());
+        assertTrue(
+                "Transient file should be preserved when tab is hidden in background",
+                tempFile.exists());
+        tempFile.delete();
     }
 
     @Test
@@ -409,6 +433,34 @@ public class PdfPageUnitTest {
         // Increase zoom level (decrease = false) -> next level should be 1.0f, which is valid, so
         // it returns true.
         Assert.assertTrue(pdfPage.changeZoomLevel(/* decrease= */ false));
+    }
+
+    @Test
+    public void testResetZoomLevel() {
+        String encodedUrl = PdfUtils.encodePdfPageUrl(CONTENT_URL);
+        PdfPage pdfPage =
+                new PdfPage(
+                        mMockNativePageHost,
+                        mMockTab,
+                        mActivity,
+                        encodedUrl,
+                        mPdfInfo,
+                        DEFAULT_TAB_TITLE,
+                        mPdfFragmentViewTracker);
+        Assert.assertNotNull(pdfPage);
+
+        PdfCoordinator pdfCoordinator = (PdfCoordinator) pdfPage.mPdfCoordinator;
+        PdfToolbarCoordinator toolbar = pdfCoordinator.getToolbarCoordinatorForTesting();
+        Assert.assertNotNull(toolbar);
+
+        // Initially no default zoom level set.
+        Assert.assertFalse(pdfPage.resetZoomLevel());
+
+        // Set default zoom level.
+        toolbar.setDefaultZoomLevel(1.5f);
+
+        // Zoom should reset successfully.
+        Assert.assertTrue(pdfPage.resetZoomLevel());
     }
 
     @Test
@@ -590,7 +642,7 @@ public class PdfPageUnitTest {
                 "Pdf should be loaded after download complete and attached.",
                 ((PdfCoordinator) pdfPage.mPdfCoordinator).getIsPdfLoadedForTesting());
 
-        pdfPage.updateForUrl(mPdfPageUrl);
+        pdfPage.updateForUrl(mPdfPageUrl + "&new=1");
 
         Assert.assertFalse(
                 "Pdf load state should be reset for non-local pdf in updateForUrl.",
@@ -630,7 +682,8 @@ public class PdfPageUnitTest {
                 "Pdf should be loaded when attached to window.",
                 ((PdfCoordinator) pdfPage.mPdfCoordinator).getIsPdfLoadedForTesting());
 
-        pdfPage.updateForUrl(encodedUrl);
+        String newEncodedUrl = PdfUtils.encodePdfPageUrl(CONTENT_URL + "5");
+        pdfPage.updateForUrl(newEncodedUrl);
         ShadowLooper.idleMainLooper();
 
         Assert.assertTrue(
@@ -639,5 +692,188 @@ public class PdfPageUnitTest {
 
         contentView.removeView(view);
         pdfPage.destroy();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.PDF_REUSE_FRAGMENT)
+    public void testUpdateForUrl_WithChanges_ShowsReloadDialog() throws Exception {
+        String encodedUrl = PdfUtils.encodePdfPageUrl(CONTENT_URL);
+        PdfPage pdfPage =
+                new PdfPage(
+                        mMockNativePageHost,
+                        mMockTab,
+                        mActivity,
+                        encodedUrl,
+                        mPdfInfo,
+                        DEFAULT_TAB_TITLE,
+                        mPdfFragmentViewTracker);
+
+        View view = pdfPage.mPdfCoordinator.getView();
+        ViewGroup contentView = mActivity.findViewById(android.R.id.content);
+        contentView.addView(view);
+        ShadowLooper.idleMainLooper();
+
+        // Simulate changes applied
+        ((PdfCoordinator) pdfPage.mPdfCoordinator).onEditsApplied();
+
+        pdfPage.updateForUrl(encodedUrl);
+
+        // Verify reload dialog is shown
+        AlertDialog latestDialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        Assert.assertNotNull("Dialog should be shown on reload with changes", latestDialog);
+        Assert.assertTrue("Dialog should be showing", latestDialog.isShowing());
+
+        contentView.removeView(view);
+        pdfPage.destroy();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.PDF_REUSE_FRAGMENT)
+    public void testUpdateForUrl_IdenticalUrl_WithoutChanges_DoesNotShowReloadDialog()
+            throws Exception {
+        String encodedUrl = PdfUtils.encodePdfPageUrl(CONTENT_URL);
+        PdfPage pdfPage =
+                new PdfPage(
+                        mMockNativePageHost,
+                        mMockTab,
+                        mActivity,
+                        encodedUrl,
+                        mPdfInfo,
+                        DEFAULT_TAB_TITLE,
+                        mPdfFragmentViewTracker);
+
+        View view = pdfPage.mPdfCoordinator.getView();
+        ViewGroup contentView = mActivity.findViewById(android.R.id.content);
+        contentView.addView(view);
+        ShadowLooper.idleMainLooper();
+
+        Assert.assertTrue(
+                "Pdf should be loaded when attached to window.",
+                ((PdfCoordinator) pdfPage.mPdfCoordinator).getIsPdfLoadedForTesting());
+
+        // Calling updateForUrl with identical URL and no changes should return early (no-op).
+        pdfPage.updateForUrl(encodedUrl);
+        ShadowLooper.idleMainLooper();
+
+        AlertDialog latestDialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        if (latestDialog != null) {
+            Assert.assertFalse("Dialog should not be showing", latestDialog.isShowing());
+        }
+
+        Assert.assertTrue(
+                "Pdf should remain loaded.",
+                ((PdfCoordinator) pdfPage.mPdfCoordinator).getIsPdfLoadedForTesting());
+
+        contentView.removeView(view);
+        pdfPage.destroy();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    @Config(sdk = Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    public void testReload_WebPdf_WithChanges_ShowsDialog() throws Exception {
+        PdfPage pdfPage =
+                new PdfPage(
+                        mMockNativePageHost,
+                        mMockTab,
+                        mActivity,
+                        mPdfPageUrl,
+                        mPdfInfo,
+                        DEFAULT_TAB_TITLE,
+                        mPdfFragmentViewTracker);
+        Assert.assertNotNull(pdfPage);
+
+        // Create a temporary file to simulate downloaded PDF
+        File tempFile = File.createTempFile("test_pdf", ".pdf");
+        tempFile.deleteOnExit();
+        String tempFilePath = tempFile.getAbsolutePath();
+        String tempFileName = tempFile.getName();
+
+        // Simulate download complete and attach view to load PDF
+        pdfPage.onDownloadComplete(tempFileName, tempFilePath, true);
+        View view = pdfPage.mPdfCoordinator.getView();
+        ViewGroup contentView = mActivity.findViewById(android.R.id.content);
+        contentView.addView(view);
+
+        PdfCoordinator pdfCoordinator = (PdfCoordinator) pdfPage.mPdfCoordinator;
+
+        // Simulate changes applied
+        pdfCoordinator.onEditsApplied();
+
+        // Call reload
+        pdfPage.reload();
+
+        // Verify loadUrl was NOT called yet (since dialog should be shown)
+        verify(mMockNativePageHost, never()).loadUrl(any(), anyBoolean());
+
+        // Verify dialog is shown
+        AlertDialog latestDialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        Assert.assertNotNull("Dialog should be shown", latestDialog);
+        Assert.assertTrue("Dialog should be showing", latestDialog.isShowing());
+
+        // Confirm reload in dialog
+        latestDialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick();
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+        Assert.assertTrue(
+                mUserActionTester.getActions().contains("Android.Pdf.DiscardAnnotations"));
+
+        // Now verify loadUrl WAS called
+        ArgumentCaptor<LoadUrlParams> paramsCaptor = ArgumentCaptor.forClass(LoadUrlParams.class);
+        ArgumentCaptor<Boolean> incognitoCaptor = ArgumentCaptor.forClass(Boolean.class);
+        verify(mMockNativePageHost).loadUrl(paramsCaptor.capture(), incognitoCaptor.capture());
+
+        LoadUrlParams capturedParams = paramsCaptor.getValue();
+        Assert.assertEquals("Should load original PDF link", PDF_LINK, capturedParams.getUrl());
+        Assert.assertTrue(
+                "Should replace current entry", capturedParams.getShouldReplaceCurrentEntry());
+        Assert.assertEquals(
+                "Incognito state should match", false, incognitoCaptor.getValue().booleanValue());
+
+        // Simulate download complete after reload
+        pdfPage.onDownloadComplete(tempFileName, tempFilePath, true);
+
+        // Verify dialog is NOT shown again
+        latestDialog = (androidx.appcompat.app.AlertDialog) ShadowDialog.getLatestDialog();
+        if (latestDialog != null) {
+            Assert.assertFalse("Dialog should not be showing again", latestDialog.isShowing());
+        }
+
+        contentView.removeView(view);
+        pdfPage.destroy();
+    }
+
+    @Test
+    public void testDestroy_WhenUserDataHostAlreadyDestroyed_DoesNotThrow() {
+        PdfPage pdfPage =
+                new PdfPage(
+                        mMockNativePageHost,
+                        mMockTab,
+                        mActivity,
+                        mPdfPageUrl,
+                        mPdfInfo,
+                        DEFAULT_TAB_TITLE,
+                        mPdfFragmentViewTracker);
+        Assert.assertNotNull(pdfPage);
+
+        // Simulate Tab destroying its UserDataHost before destroying the native page.
+        mUserDataHost.destroy();
+
+        // Destroying the PdfPage should not throw IllegalStateException.
+        pdfPage.destroy();
+    }
+
+    @Test
+    public void testDownload_DelegatesToCoordinator() {
+        PdfPage pdfPage =
+                new PdfPage(
+                        mMockNativePageHost,
+                        mMockTab,
+                        mActivity,
+                        mPdfPageUrl,
+                        mPdfInfo,
+                        DEFAULT_TAB_TITLE,
+                        mPdfFragmentViewTracker);
+        pdfPage.download();
+        verify(mMockNativePageHost).downloadUrl(PDF_LINK);
     }
 }

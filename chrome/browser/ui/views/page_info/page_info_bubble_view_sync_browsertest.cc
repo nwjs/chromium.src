@@ -9,8 +9,7 @@
 #include "chrome/browser/sync/test/integration/sync_service_impl_harness.h"
 #include "chrome/browser/sync/test/integration/sync_test.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-#include "chrome/browser/ui/views/location_bar/location_icon_view.h"
+#include "chrome/browser/ui/views/location_bar/location_icon_test_accessor.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view.h"
 #include "chrome/browser/ui/views/page_info/page_info_view_factory.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
@@ -49,13 +48,8 @@ void PerformMouseClickOnView(views::View* view) {
 }
 
 // Clicks the location icon to open the page info bubble.
-void OpenPageInfoBubble(Browser* browser) {
-  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
-  LocationIconView* location_icon_view =
-      browser_view->toolbar()->location_bar_view()->location_icon_view();
-  ASSERT_TRUE(location_icon_view);
-  ui::test::TestEvent event;
-  location_icon_view->ShowBubble(event);
+void OpenPageInfoBubble(BrowserWindowInterface* browser) {
+  LocationIconTestAccessor(browser).ShowBubble();
   views::BubbleDialogDelegateView* page_info =
       PageInfoBubbleView::GetPageInfoBubbleForTesting();
   EXPECT_NE(nullptr, page_info);
@@ -64,7 +58,7 @@ void OpenPageInfoBubble(Browser* browser) {
 
 // Opens the Page Info bubble and retrieves the UI view identified by
 // |view_id|.
-views::View* GetView(Browser* browser, int view_id) {
+views::View* GetView(BrowserWindowInterface* browser, int view_id) {
   views::Widget* page_info_bubble =
       PageInfoBubbleView::GetPageInfoBubbleForTesting()->GetWidget();
   EXPECT_TRUE(page_info_bubble);
@@ -135,7 +129,7 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewSyncBrowserTest,
           GetPasswordProtectionService(GetProfile(0));
   service->set_username_for_last_shown_warning("user@gmail.com");
   content::WebContents* contents =
-      GetBrowser(0)->tab_strip_model()->GetActiveWebContents();
+      GetBrowser(0)->GetTabStripModel()->GetActiveWebContents();
   safe_browsing::ReusedPasswordAccountType account_type;
   account_type.set_account_type(
       safe_browsing::ReusedPasswordAccountType::GMAIL);

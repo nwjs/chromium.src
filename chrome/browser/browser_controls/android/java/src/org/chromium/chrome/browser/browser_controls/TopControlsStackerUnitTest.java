@@ -20,14 +20,10 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
-import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
 import org.chromium.build.annotations.Nullable;
@@ -39,7 +35,6 @@ import org.chromium.components.browser_ui.util.BrowserControlsVisibilityDelegate
 
 /** Unit tests for {@link TopControlsStacker}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class TopControlsStackerUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     private static final int OFFSET_NOT_OBSERVED = -1024;
@@ -239,7 +234,6 @@ public class TopControlsStackerUnitTest {
     }
 
     @Mock private BrowserControlsSizer mBrowserControlsSizer;
-    @Captor private ArgumentCaptor<Callback<Integer>> mVisibilityCallbackCaptor;
 
     private BrowserControlsVisibilityDelegate mVisibilityDelegate;
     private TopControlsStacker mTopControlsStacker;
@@ -461,6 +455,52 @@ public class TopControlsStackerUnitTest {
         assertEquals(100, mTopControlsStacker.getHeightFromLayerToTop(TopControlType.BOOKMARK_BAR));
         assertEquals(220, mTopControlsStacker.getHeightFromLayerToTop(TopControlType.HAIRLINE));
         assertEquals(220, mTopControlsStacker.getHeightFromLayerToTop(TopControlType.PROGRESS_BAR));
+    }
+
+    @Test
+    public void getHeightFromLayerBottomToTop() {
+        TestLayer tabStrip = TestLayer.tabStripLayer();
+        TestLayer toolbar = TestLayer.toolbarLayer();
+        TestLayer bookmarkBar = TestLayer.bookmarkLayer();
+        TestLayer hairline = TestLayer.hairlineLayer();
+        TestLayer progressBar = TestLayer.progressBarLayer();
+
+        tabStrip.mVisibility = TopControlVisibility.HIDDEN;
+
+        mTopControlsStacker.addControl(tabStrip);
+        mTopControlsStacker.addControl(toolbar);
+        mTopControlsStacker.addControl(bookmarkBar);
+        mTopControlsStacker.addControl(hairline);
+        mTopControlsStacker.addControl(progressBar);
+
+        mTopControlsStacker.requestLayerUpdateSync(false);
+
+        assertControlsHeight(220, 0);
+
+        assertEquals(0, mTopControlsStacker.getHeightFromLayerBottomToTop(TopControlType.TABSTRIP));
+        assertEquals(
+                100, mTopControlsStacker.getHeightFromLayerBottomToTop(TopControlType.TOOLBAR));
+        assertEquals(
+                220,
+                mTopControlsStacker.getHeightFromLayerBottomToTop(TopControlType.BOOKMARK_BAR));
+        assertEquals(
+                220, mTopControlsStacker.getHeightFromLayerBottomToTop(TopControlType.HAIRLINE));
+        assertEquals(
+                220,
+                mTopControlsStacker.getHeightFromLayerBottomToTop(TopControlType.PROGRESS_BAR));
+
+        // When tabStrip is visible, its height (50) is included.
+        tabStrip.mVisibility = TopControlVisibility.VISIBLE;
+        mTopControlsStacker.requestLayerUpdateSync(false);
+        assertControlsHeight(270, 0);
+
+        assertEquals(
+                50, mTopControlsStacker.getHeightFromLayerBottomToTop(TopControlType.TABSTRIP));
+        assertEquals(
+                150, mTopControlsStacker.getHeightFromLayerBottomToTop(TopControlType.TOOLBAR));
+        assertEquals(
+                270,
+                mTopControlsStacker.getHeightFromLayerBottomToTop(TopControlType.BOOKMARK_BAR));
     }
 
     @Test

@@ -103,6 +103,7 @@
 
 namespace network {
 struct IntegrityPolicy;
+class ResourceRequestBody;
 struct URLLoaderCompletionStatus;
 }  // namespace network
 
@@ -269,9 +270,7 @@ class CONTENT_EXPORT NavigationRequest
       bool is_form_submission,
       std::unique_ptr<NavigationUIData> navigation_ui_data,
       EmbedderIsolationInfo::Mode embedder_isolation_mode,
-      bool is_embedder_initiated_fenced_frame_navigation = false,
-      std::optional<std::u16string> embedder_shared_storage_context =
-          std::nullopt);
+      bool is_embedder_initiated_fenced_frame_navigation = false);
 
   // Creates a request for either a browser-initiated navigation or a
   // renderer-initiated navigation. Normally, renderer-initiated navigations
@@ -306,9 +305,7 @@ class CONTENT_EXPORT NavigationRequest
       EmbedderIsolationInfo::Mode embedder_isolation_mode,
       bool is_embedder_initiated_fenced_frame_navigation = false,
       bool is_container_initiated = false,
-      bool has_rel_opener = false,
-      std::optional<std::u16string> embedder_shared_storage_context =
-          std::nullopt);
+      bool has_rel_opener = false);
 
   // Creates a request for a renderer-initiated navigation.
   static std::unique_ptr<NavigationRequest> CreateRendererInitiated(
@@ -415,6 +412,7 @@ class CONTENT_EXPORT NavigationRequest
   const NavigationHandleTiming& GetNavigationHandleTiming() override;
   bool IsPost() override;
   std::string GetRequestMethod() override;
+  scoped_refptr<network::ResourceRequestBody> GetPostData() const override;
   const blink::mojom::Referrer& GetReferrer() override;
   void SetReferrer(blink::mojom::ReferrerPtr referrer) override;
   bool HasUserGesture() override;
@@ -522,6 +520,7 @@ class CONTENT_EXPORT NavigationRequest
       override;
   BeforeUnloadExecutionMode GetBeforeUnloadExecutionMode() const override;
   void SetIsAdTagged() override;
+  void SetIsAdTaggedByHostFilter() override;
   std::optional<NavigationDiscardReason> GetNavigationDiscardReason() override;
   // NOTE: Read function comments in NavigationHandle before use!
   std::optional<url::Origin> GetOriginToCommit() override;
@@ -532,6 +531,7 @@ class CONTENT_EXPORT NavigationRequest
   bool IsPageActivation() const override;
   bool IsNavigatingFromInitialEmptyDocument() const override;
   bool IsBlockedByConnectionAllowlist() const override;
+  bool IsAdTaggedByHostFilter() const override;
   // End of NavigationHandle implementation.
 
   // Returns a perfetto Track that represents this navigation, nested under the
@@ -1581,7 +1581,21 @@ class CONTENT_EXPORT NavigationRequest
                                  : -1;
   }
 
-  bool is_ad_tagged() const { return is_ad_tagged_; }
+  // Keeps track of the ad tagging status of a NavigationRequest.
+  enum class AdStatus {
+    // The navigation is not tagged as an ad.
+    kNone = 0,
+    // The navigation is tagged as an ad (e.g., from an ad frame, created by ad
+    // script, etc.),
+    // but did not match an ad filter anchored to the domain/host.
+    kAdTagged = 1,
+    // The navigation is tagged as an ad AND matched an ad filter anchored to
+    // the domain/host.
+    kAdTaggedByHostFilter = 2,
+    kMaxValue = kAdTaggedByHostFilter,
+  };
+
+  bool is_ad_tagged() const { return ad_status_ != AdStatus::kNone; }
 
   const GURL& original_url() const { return original_url_; }
 
@@ -1904,6 +1918,11 @@ class CONTENT_EXPORT NavigationRequest
     return initiator_state_token_to_commit_;
   }
 
+  // Returns true if this navigation is for a subframe inside an ancestor ad
+  // frame tree that has site-keyed OAC status by default, and this navigation's
+  // origin is same-site to that ancestor ad frame.
+  bool HasSameSiteAdAncestor();
+
  private:
   friend class NavigationRequestTest;
   FRIEND_TEST_ALL_PREFIXES(
@@ -1956,9 +1975,7 @@ class CONTENT_EXPORT NavigationRequest
           renderer_ignore_duplicate_navigation_listener = mojo::NullReceiver(),
       mojo::PendingReceiver<
           blink::mojom::NavigationResumeDeferredCommitListener>
-          deferred_commit_resume_listener = mojo::NullReceiver(),
-      std::optional<std::u16string> embedder_shared_storage_context =
-          std::nullopt);
+          deferred_commit_resume_listener = mojo::NullReceiver());
 
   // Checks if this navigation may activate a prerendered page. If it's
   // possible, schedules to start running CommitDeferringConditions for
@@ -2245,6 +2262,13 @@ class CONTENT_EXPORT NavigationRequest
   // and decides whether the required allowlist may be enforced on the frame
   // (possibly blocking it).
   void SetupConnectionAllowlistEmbeddedEnforcement();
+
+  // Records `feature` against the embedder, which is the document that asserted
+  // (or inherited) the Connection-Allowlist requirement. The framed document
+  // may be blocked and never commit, so the parent is the only frame reliably
+  // available to attribute usage to.
+  void LogConnectionAllowlistEmbeddedEnforcementUseCounter(
+      blink::mojom::WebFeature feature);
 
   enum class ConnectionAllowlistEmbeddedEnforcementResult {
     ALLOW_RESPONSE,
@@ -3448,14 +3472,6 @@ class CONTENT_EXPORT NavigationRequest
   // frame properties will not be stored in the fenced frame root.
   std::optional<FencedFrameProperties> fenced_frame_properties_;
 
-  // For fenced frames, any contextual string that was written by the embedder
-  // via `blink::FencedFrameConfig::setSharedStorageContext()` to be later
-  // retrieved only inside an eligible shared storage worklet in the fenced
-  // frame via `sharedStorage.context`. absl:nullopt if this request is not for
-  // a fenced frame or if the context string wasn't set prior to this
-  // navigation.
-  std::optional<std::u16string> embedder_shared_storage_context_;
-
   // Prerender2:
   // The information about the reserved prerender host. This is used to pass
   // information about the reserved host including information required for
@@ -3662,9 +3678,9 @@ class CONTENT_EXPORT NavigationRequest
   EarlyRenderFrameHostSwapType early_render_frame_host_swap_type_ =
       EarlyRenderFrameHostSwapType::kNone;
 
-  // Whether the embedder indicated this navigation is being used for
+  // Tracks whether the embedder indicated this navigation is being used for
   // advertising purposes.
-  bool is_ad_tagged_ = false;
+  AdStatus ad_status_ = AdStatus::kNone;
 
   // This is the origin to commit value calculated at request time for data: URL
   // navigations. It is stored so that the opaque origin nonce can be maintained

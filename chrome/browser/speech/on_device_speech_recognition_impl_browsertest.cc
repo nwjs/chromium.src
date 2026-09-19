@@ -17,7 +17,7 @@
 #include "chrome/browser/browsing_data/chrome_browsing_data_remover_constants.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -229,7 +229,7 @@ IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplBrowserTest,
   NavigateToUrl("foo.com");
 
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   content::RenderFrameHost* main_frame = web_contents->GetPrimaryMainFrame();
 
   ASSERT_TRUE(content::ExecJs(
@@ -784,19 +784,20 @@ IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplBrowserTest,
       speech::LanguageCode::kNone);
 }
 
-class OnDeviceSpeechRecognitionImplTinyGemmaBrowserTest
+class OnDeviceSpeechRecognitionImplSpeechRecognitionSmallExpertModelBrowserTest
     : public OnDeviceSpeechRecognitionImplBrowserTest {
  public:
-  OnDeviceSpeechRecognitionImplTinyGemmaBrowserTest()
+  OnDeviceSpeechRecognitionImplSpeechRecognitionSmallExpertModelBrowserTest()
       : OnDeviceSpeechRecognitionImplBrowserTest(
             {media::kOnDeviceWebSpeech,
              media::kOnDeviceWebSpeechSmallExpertModel}) {}
 };
 
-class OnDeviceSpeechRecognitionImplTinyGemmaMultiLanguageBrowserTest
+class
+    OnDeviceSpeechRecognitionImplSpeechRecognitionSmallExpertModelMultiLanguageBrowserTest
     : public OnDeviceSpeechRecognitionImplBrowserTest {
  public:
-  OnDeviceSpeechRecognitionImplTinyGemmaMultiLanguageBrowserTest()
+  OnDeviceSpeechRecognitionImplSpeechRecognitionSmallExpertModelMultiLanguageBrowserTest()
       : OnDeviceSpeechRecognitionImplBrowserTest(
             {media::kOnDeviceWebSpeech,
              media::kOnDeviceWebSpeechSmallExpertModel,
@@ -811,7 +812,7 @@ class OnDeviceSpeechRecognitionImplTinyGemmaMultiLanguageBrowserTest
 };
 
 IN_PROC_BROWSER_TEST_F(
-    OnDeviceSpeechRecognitionImplTinyGemmaMultiLanguageBrowserTest,
+    OnDeviceSpeechRecognitionImplSpeechRecognitionSmallExpertModelMultiLanguageBrowserTest,
     AvailableAndInstallSupportedLanguage) {
   NavigateToUrl("foo.com");
   on_device_speech_recognition()->Available(
@@ -827,7 +828,7 @@ IN_PROC_BROWSER_TEST_F(
 }
 
 IN_PROC_BROWSER_TEST_F(
-    OnDeviceSpeechRecognitionImplTinyGemmaMultiLanguageBrowserTest,
+    OnDeviceSpeechRecognitionImplSpeechRecognitionSmallExpertModelMultiLanguageBrowserTest,
     AvailableAndInstallUnsupportedLanguage) {
   NavigateToUrl("foo.com");
   on_device_speech_recognition()->Available(
@@ -844,8 +845,9 @@ IN_PROC_BROWSER_TEST_F(
                      base::Unretained(this), false));
 }
 
-IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplTinyGemmaBrowserTest,
-                       AvailableAndInstall) {
+IN_PROC_BROWSER_TEST_F(
+    OnDeviceSpeechRecognitionImplSpeechRecognitionSmallExpertModelBrowserTest,
+    AvailableAndInstall) {
   NavigateToUrl("foo.com");
   on_device_speech_recognition()->Available(
       {kEnglishLanguageCode},
@@ -861,8 +863,9 @@ IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplTinyGemmaBrowserTest,
                      base::Unretained(this), true));
 }
 
-IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplTinyGemmaBrowserTest,
-                       AvailableAndInstallUnsupportedLanguage) {
+IN_PROC_BROWSER_TEST_F(
+    OnDeviceSpeechRecognitionImplSpeechRecognitionSmallExpertModelBrowserTest,
+    AvailableAndInstallUnsupportedLanguage) {
   NavigateToUrl("foo.com");
   on_device_speech_recognition()->Available(
       {kFrenchLanguageCode}, media::mojom::SpeechRecognitionQuality::kDictation,
@@ -876,8 +879,9 @@ IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplTinyGemmaBrowserTest,
                      base::Unretained(this), false));
 }
 
-IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplTinyGemmaBrowserTest,
-                       AvailableUnsupportedLanguage) {
+IN_PROC_BROWSER_TEST_F(
+    OnDeviceSpeechRecognitionImplSpeechRecognitionSmallExpertModelBrowserTest,
+    AvailableUnsupportedLanguage) {
   NavigateToUrl("foo.com");
   on_device_speech_recognition()->Available(
       {kFrenchLanguageCode}, media::mojom::SpeechRecognitionQuality::kDictation,
@@ -887,8 +891,9 @@ IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplTinyGemmaBrowserTest,
                      media::mojom::AvailabilityStatus::kUnavailable));
 }
 
-IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplTinyGemmaBrowserTest,
-                       InstallUnsupportedLanguage) {
+IN_PROC_BROWSER_TEST_F(
+    OnDeviceSpeechRecognitionImplSpeechRecognitionSmallExpertModelBrowserTest,
+    InstallUnsupportedLanguage) {
   NavigateToUrl("foo.com");
   on_device_speech_recognition()->Install(
       {kFrenchLanguageCode}, media::mojom::SpeechRecognitionQuality::kDictation,

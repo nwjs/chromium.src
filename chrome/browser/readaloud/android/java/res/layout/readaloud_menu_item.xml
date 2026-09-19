@@ -53,7 +53,6 @@ found in the LICENSE file.
             android:visibility="gone"
             android:src="@drawable/mini_play_button"
             android:background="@drawable/rounded_ripple"
-            android:clickable="true"
             android:focusable="true"/>
         <LinearLayout
             android:layout_width="fill_parent"

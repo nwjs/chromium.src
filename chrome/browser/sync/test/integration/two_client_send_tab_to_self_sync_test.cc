@@ -14,9 +14,9 @@
 #include "chrome/browser/sync/test/integration/send_tab_to_self_helper.h"
 #include "chrome/browser/sync/test/integration/sync_service_impl_harness.h"
 #include "chrome/browser/sync/test/integration/sync_test.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/send_tab_to_self/metrics_util.h"
@@ -330,6 +330,7 @@ IN_PROC_BROWSER_TEST_P(TwoClientSendTabToSelfSyncTest,
 
   // Ensure receiver browser is active so notification is handled immediately,
   // as opposed to getting queued and executing during teardown.
+  AddBrowser(1);
   GetBrowser(1)->GetWindow()->Activate();
 
   // Client 1: Wait for entry and fill.

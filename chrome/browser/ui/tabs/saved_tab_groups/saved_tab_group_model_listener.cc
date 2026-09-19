@@ -8,8 +8,8 @@
 
 #include "base/check.h"
 #include "base/memory/raw_ptr.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/local_tab_group_listener.h"
@@ -158,10 +158,11 @@ void SavedTabGroupModelListener::TabGroupedStateChanged(
       local_tab_group_listeners_.contains(new_local_group_id.value())) {
     LocalTabGroupListener& listener =
         local_tab_group_listeners_.at(new_local_group_id.value());
-    const Browser* const browser = SavedTabGroupUtils::GetBrowserWithTabGroupId(
-        new_local_group_id.value());
+    const BrowserWindowInterface* const browser =
+        SavedTabGroupUtils::GetBrowserWithTabGroupId(
+            new_local_group_id.value());
     CHECK(browser);
-    listener.AddTabFromLocal(tab, browser->tab_strip_model(), index);
+    listener.AddTabFromLocal(tab, browser->GetTabStripModel(), index);
   }
 }
 
@@ -330,10 +331,10 @@ void SavedTabGroupModelListener::OnBrowserCreated(
 std::pair<SavedTabGroup, std::map<tabs::TabInterface*, base::Uuid>>
 SavedTabGroupModelListener::CreateSavedTabGroupAndTabMapping(
     const tab_groups::TabGroupId& group_id) {
-  Browser* browser =
+  BrowserWindowInterface* browser =
       tab_groups::SavedTabGroupUtils::GetBrowserWithTabGroupId(group_id);
   CHECK(browser);
-  TabStripModel* tab_strip_model = browser->tab_strip_model();
+  TabStripModel* tab_strip_model = browser->GetTabStripModel();
   CHECK(tab_strip_model);
   CHECK(tab_strip_model->SupportsTabGroups());
 

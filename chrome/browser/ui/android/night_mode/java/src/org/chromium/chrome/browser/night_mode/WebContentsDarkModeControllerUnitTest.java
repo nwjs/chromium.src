@@ -21,13 +21,10 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
-import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
-import org.chromium.components.browser_ui.site_settings.AutoDarkMetrics.AutoDarkSettingsChangeSource;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridgeJni;
 import org.chromium.components.content_settings.ContentSetting;
@@ -37,7 +34,6 @@ import org.chromium.url.GURL;
 
 /** Unit tests for {@link WebContentsDarkModeController}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 @SuppressWarnings("DoNotMock") // Mocking GURL
 public class WebContentsDarkModeControllerUnitTest {
 
@@ -133,10 +129,6 @@ public class WebContentsDarkModeControllerUnitTest {
                 "Auto dark settings state incorrect.",
                 enabled,
                 WebContentsDarkModeController.isGlobalUserSettingsEnabled(mMockProfile));
-        assertAutoDarkModeChangeSourceRecorded(
-                AutoDarkSettingsChangeSource.THEME_SETTINGS, enabled, 1);
-        assertAutoDarkModeChangeSourceRecorded(
-                AutoDarkSettingsChangeSource.SITE_SETTINGS_GLOBAL, enabled, 0);
     }
 
     @Test
@@ -161,8 +153,6 @@ public class WebContentsDarkModeControllerUnitTest {
                 "Auto dark for URL is incorrect.",
                 enableForUrl,
                 WebContentsDarkModeController.isEnabledForUrl(mMockProfile, mMockGurl));
-        assertAutoDarkModeChangeSourceRecorded(
-                AutoDarkSettingsChangeSource.APP_MENU, enableForUrl, 1);
     }
 
     @Test
@@ -189,22 +179,6 @@ public class WebContentsDarkModeControllerUnitTest {
         mIsGlobalSettingsEnabled = true;
         mIsAutoDarkEnabledForUrlContentSettingValue = ContentSetting.BLOCK;
         assertEnabledState(mMockGurl, false);
-    }
-
-    private void assertAutoDarkModeChangeSourceRecorded(
-            @AutoDarkSettingsChangeSource int source, boolean enabled, int expectedCounts) {
-        String histogramName =
-                "Android.DarkTheme.AutoDarkMode.SettingsChangeSource."
-                        + (enabled ? "Enabled" : "Disabled");
-        int actualCount = RecordHistogram.getHistogramValueCountForTesting(histogramName, source);
-        Assert.assertEquals(
-                "Histogram <"
-                        + histogramName
-                        + "> for sample <"
-                        + source
-                        + "> is not recorded correctly.",
-                expectedCounts,
-                actualCount);
     }
 
     private void assertEnabledState(GURL url, boolean expectedEnabledState) {

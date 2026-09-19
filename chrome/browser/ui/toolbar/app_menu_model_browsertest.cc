@@ -145,7 +145,7 @@ class AppMenuModelTest : public InProcessBrowserTest,
 class TestAppMenuModel : public AppMenuModel {
  public:
   TestAppMenuModel(ui::AcceleratorProvider* provider,
-                   Browser* browser,
+                   BrowserWindowInterface* browser,
                    AppMenuIconController* app_menu_icon_controller)
       : AppMenuModel(provider, browser, app_menu_icon_controller) {}
 
@@ -175,7 +175,7 @@ class TestAppMenuModel : public AppMenuModel {
 class TestLogMetricsAppMenuModel : public AppMenuModel {
  public:
   TestLogMetricsAppMenuModel(ui::AcceleratorProvider* provider,
-                             Browser* browser)
+                             BrowserWindowInterface* browser)
       : AppMenuModel(provider, browser) {}
 
   void ExecuteCommand(int command_id, int event_flags) override {
@@ -383,7 +383,7 @@ IN_PROC_BROWSER_TEST_F(AppMenuModelTest, ModelHasIcons) {
   // Skip the items that are either not supposed to have an icon, or are not
   // ready to be tested. Remove items once they're ready for testing.
   const std::vector<int> skip_commands = {
-      kRecentTabsNoDeviceTabsId,
+      IDC_RECENT_TABS_NO_DEVICE_TABS,
       IDC_ABOUT,
       RecentTabsSubMenuModel::GetDisabledRecentlyClosedHeaderCommandId(),
       IDC_EXTENSIONS_SUBMENU_VISIT_CHROME_WEB_STORE,
@@ -916,15 +916,17 @@ class TabSearchMenuModelTest : public AppMenuModelTest {
     AppMenuModelTest::SetUpOnMainThread();
     // This is necessary because the global features that GlicEnabling depends
     // on are not initialized for glic.
-    glic::GlicEnabling::SetBypassEnablementChecksForTesting(true);
+    scoped_glic_bypass_.emplace();
   }
 
   void TearDownOnMainThread() override {
-    glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
+    scoped_glic_bypass_.reset();
     AppMenuModelTest::TearDownOnMainThread();
   }
 
  private:
+  std::optional<glic::GlicEnabling::ScopedBypassEnablementChecksForTesting>
+      scoped_glic_bypass_;
   base::test::ScopedFeatureList glic_enabled_feature_list_;
 };
 
@@ -1072,7 +1074,7 @@ class AppMenuModelSendTabToSelfEnhancedDisabledTest
 };
 
 // Tests that when kSendTabToSelfEnhancedDesktopUIv2 feature is enabled, the
-// "Send to Your Devices" item in the Save and Share submenu is a submenu model.
+// "Send to your device" item in the Save and Share submenu is a submenu model.
 IN_PROC_BROWSER_TEST_F(AppMenuModelSendTabToSelfEnhancedEnabledTest,
                        SendTabToSelfSaveAndShareSubmenuEnabled) {
   auto* sync_service = static_cast<StubSendTabToSelfSyncService*>(
@@ -1100,7 +1102,7 @@ IN_PROC_BROWSER_TEST_F(AppMenuModelSendTabToSelfEnhancedEnabledTest,
 }
 
 // Tests that when kSendTabToSelfEnhancedDesktopUIv2 feature is disabled, the
-// "Send to Your Devices" item in the Save and Share submenu remains a simple
+// "Send to your device" item in the Save and Share submenu remains a simple
 // command.
 IN_PROC_BROWSER_TEST_F(AppMenuModelSendTabToSelfEnhancedDisabledTest,
                        SendTabToSelfSaveAndShareSubmenuDisabled) {

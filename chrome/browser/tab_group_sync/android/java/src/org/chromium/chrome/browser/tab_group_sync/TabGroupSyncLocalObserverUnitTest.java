@@ -36,7 +36,6 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.Token;
 import org.chromium.base.supplier.LazyOneshotSupplier;
@@ -74,13 +73,11 @@ import java.util.Set;
 
 /** Unit tests for the {@link TabGroupSyncLocalObserver}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class TabGroupSyncLocalObserverUnitTest {
     private static final int TAB_ID_1 = 1;
     private static final int TAB_ID_2 = 2;
     private static final int TAB_ID_3 = 3;
     private static final int ROOT_ID_1 = 1;
-    private static final int ROOT_ID_2 = 2;
     private static final int ROOT_ID_3 = 3;
     private static final Token TOKEN_1 = new Token(2, 3);
     private static final LocalTabGroupId LOCAL_TAB_GROUP_ID_1 = new LocalTabGroupId(TOKEN_1);

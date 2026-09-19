@@ -15,6 +15,10 @@
 #import "ios/chrome/browser/composebox/public/composebox_entrypoint.h"
 #import "ios/chrome/browser/intents/model/intents_donation_helper.h"
 #import "ios/chrome/browser/ntp/shared/metrics/home_metrics.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_color_palette.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_image_background_trait.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_trait.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/scene_layout_state.h"
 #import "ios/chrome/browser/shared/public/commands/activity_service_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
@@ -49,6 +53,9 @@
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
+
+// The name of the default NTP background color asset.
+NSString* const kNTPBackgroundColor = @"ntp_background_color";
 
 // Spacing between buttons in the toolbar's horizontal stack view.
 constexpr CGFloat kStackViewSpacing = 9;
@@ -117,6 +124,9 @@ constexpr CGFloat kGlassShadowOpacity = 0.09;
 
 // Dark mode background opacity for the glass effect container (25% Black).
 constexpr CGFloat kGlassContainerDarkBackgroundAlpha = 0.25;
+
+// The scale factor for the glass effect container when in fullscreen.
+constexpr CGFloat kGlassFullscreenScaleFactor = 0.8;
 
 }  // namespace
 
@@ -248,6 +258,10 @@ constexpr CGFloat kGlassContainerDarkBackgroundAlpha = 0.25;
 
   // Used to record the latest fullscreen progress.
   CGFloat _fullscreenProgress;
+
+  // YES when the last "settled" state was Fullscreen and NO when the last
+  // "settled" state was not Fullscreen.
+  BOOL _isFullscreen;
 
   // Used to record the scroll progress to show and hide the toolbar.
   CGFloat _NTPScrollProgress;
@@ -405,11 +419,7 @@ constexpr CGFloat kGlassContainerDarkBackgroundAlpha = 0.25;
 - (void)viewDidLoad {
   [super viewDidLoad];
   self.view.translatesAutoresizingMaskIntoConstraints = NO;
-  if (IsGlassToolbarEnabled()) {
-    self.view.backgroundColor = [UIColor clearColor];
-  } else {
-    self.view.backgroundColor = [UIColor colorNamed:kBackgroundColor];
-  }
+  self.view.backgroundColor = [self toolbarBackgroundColor];
   self.view.accessibilityIdentifier = _topPosition
                                           ? kPrimaryToolbarViewIdentifier
                                           : kSecondaryToolbarViewIdentifier;
@@ -436,7 +446,8 @@ constexpr CGFloat kGlassContainerDarkBackgroundAlpha = 0.25;
           @[ UITraitVerticalSizeClass.class, UITraitHorizontalSizeClass.class ]
                    withAction:@selector(sizeClassDidChange)];
 
-  [self registerForTraitChanges:@[ UITraitUserInterfaceStyle.class ]
+  [self registerForTraitChanges:
+            @[ UITraitUserInterfaceStyle.class, NewTabPageTrait.class ]
                      withAction:@selector(userInterfaceStyleDidChange)];
 }
 
@@ -491,6 +502,7 @@ constexpr CGFloat kGlassContainerDarkBackgroundAlpha = 0.25;
   if (self.isViewLoaded) {
     [self updateButtons:@[ _assistantButton ]
         forFullscreenProgress:_fullscreenProgress];
+    [self updateLayoutGuides];
   }
 }
 
@@ -573,6 +585,7 @@ constexpr CGFloat kGlassContainerDarkBackgroundAlpha = 0.25;
   if (loadingStateChanged || ntpVisibilityChanged) {
     if (ntpVisibilityChanged) {
       _NTPVisible = NTPVisible;
+      [self updateBackgroundColors];
       [self updateToolbarVisibility];
     }
 
@@ -763,6 +776,11 @@ constexpr CGFloat kGlassContainerDarkBackgroundAlpha = 0.25;
 #pragma mark - FullscreenUIElement
 
 - (void)updateForFullscreenProgress:(CGFloat)progress {
+  if (progress == 1.0) {
+    _isFullscreen = NO;
+  } else if (progress == 0.0) {
+    _isFullscreen = YES;
+  }
   _fullscreenProgress = progress;
   CGFloat locationBarExpandedHeight;
   if (IsGlassToolbarEnabled()) {
@@ -785,6 +803,9 @@ constexpr CGFloat kGlassContainerDarkBackgroundAlpha = 0.25;
   _locationBarContentView.layer.cornerRadius = locationBarHeight / 2.0;
 
   if (IsGlassToolbarEnabled()) {
+    CGFloat scaleValue = [self glassBackgroundScaleValueForProgress:progress];
+    _glassBackgroundContainer.transform =
+        CGAffineTransformMakeScale(scaleValue, scaleValue);
     CGFloat glassHeight = progress * kGlassExpandedHeight +
                           (1 - progress) * kGlassCollapsedHeight;
     _glassBackgroundHeightConstraint.constant = glassHeight;
@@ -917,6 +938,24 @@ constexpr CGFloat kGlassContainerDarkBackgroundAlpha = 0.25;
          (1 - progress) * kGlassFullscreenMargin;
 }
 
+// Returns the scale value of the glass background for `progress`.
+- (CGFloat)glassBackgroundScaleValueForProgress:(CGFloat)progress {
+  CHECK(IsGlassToolbarEnabled());
+  CGFloat easedProgress;
+  if (_isFullscreen) {
+    // Scales fully to 1.0 by progress = 0.8 with ease-out.
+    CGFloat linearProgress = std::clamp<CGFloat>(progress / 0.8, 0.0, 1.0);
+    easedProgress = 1.0 - (1.0 - linearProgress) * (1.0 - linearProgress);
+  } else {
+    // Scales fully to 0.0 by progress = 0.2 with ease-in.
+    CGFloat linearProgress =
+        std::clamp<CGFloat>((progress - 0.2) / 0.8, 0.0, 1.0);
+    easedProgress = linearProgress * linearProgress;
+  }
+  CGFloat scaleDelta = 1.0 - kGlassFullscreenScaleFactor;
+  return kGlassFullscreenScaleFactor + scaleDelta * easedProgress;
+}
+
 // Updates all the `buttons` according to the fullscreen `progress`.
 - (void)updateButtons:(NSArray<UIView*>*)buttons
     forFullscreenProgress:(CGFloat)progress {
@@ -988,6 +1027,56 @@ constexpr CGFloat kGlassContainerDarkBackgroundAlpha = 0.25;
 }
 
 #pragma mark - Private
+
+// Updates the background colors of the toolbar view and location bar.
+- (void)updateBackgroundColors {
+  _locationBarBackground.backgroundColor = [self locationBarBackgroundColor];
+  self.view.backgroundColor = [self toolbarBackgroundColor];
+}
+
+// Returns the background color for the location bar based on current state.
+- (UIColor*)locationBarBackgroundColor {
+  // On iPhone, the location bar matches the fakebox color (white or custom
+  // palette) when `kNewTabPageUICleanup` is enabled. Otherwise, fallback to the
+  // standard location bar background color.
+  if (!CanShowTabStrip(self) && _NTPVisible &&
+      ShouldApplyFakeboxBackgroundAndShadow()) {
+    NewTabPageColorPalette* colorPalette =
+        [self.traitCollection objectForNewTabPageTrait];
+    return colorPalette ? colorPalette.omniboxColor
+                        : [UIColor colorNamed:kSolidWhiteColor];
+  }
+  return ToolbarElementBackgroundColor(_incognito);
+}
+
+// Returns the background color for the toolbar view based on current state.
+- (UIColor*)toolbarBackgroundColor {
+  if (IsGlassToolbarEnabled()) {
+    return [UIColor clearColor];
+  }
+
+  if (!CanShowTabStrip(self) && _NTPVisible) {
+    NewTabPageColorPalette* colorPalette =
+        [self.traitCollection objectForNewTabPageTrait];
+    if (colorPalette) {
+      return colorPalette.primaryColor;
+    } else if ([self.traitCollection boolForNewTabPageImageBackgroundTrait]) {
+      return [UIColor colorNamed:kBackgroundColor];
+    } else if (IsNewTabPageUICleanupEnabled()) {
+      // Matches the updated NTP UI cleanup background color.
+      return [UIColor colorNamed:kNewTabPageBackgroundColor];
+    } else if (ShouldApplyFakeboxBackgroundAndShadow()) {
+      // In light mode, matches the default light blue NTP background
+      // color to prevent the white pinned omnibox from blending into a white
+      // toolbar. In dark mode, matches standard `kBackgroundColor`.
+      if (self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        return [UIColor colorNamed:kBackgroundColor];
+      }
+      return [UIColor colorNamed:kNTPBackgroundColor];
+    }
+  }
+  return [UIColor colorNamed:kBackgroundColor];
+}
 
 // Creates and configures a separator line for the toolbar.
 - (UIView*)createSeparator {
@@ -1164,10 +1253,7 @@ constexpr CGFloat kGlassContainerDarkBackgroundAlpha = 0.25;
   UIView* locationBarBackground = [[UIView alloc] init];
   locationBarBackground.translatesAutoresizingMaskIntoConstraints = NO;
   locationBarBackground.layer.cornerRadius = kLocationBarHeight / 2.0;
-
-  locationBarBackground.backgroundColor =
-      ToolbarElementBackgroundColor(_incognito);
-
+  locationBarBackground.backgroundColor = [self locationBarBackgroundColor];
   ConfigureShadowForToolbarElement(locationBarBackground);
 
   return locationBarBackground;
@@ -1954,6 +2040,7 @@ constexpr CGFloat kGlassContainerDarkBackgroundAlpha = 0.25;
   [self updateToolbarVisibility];
   [self updateTabGroupIndicatorAvailability];
   [self updateTabSwitcherGuide];
+  [self updateBackgroundColors];
   if (_topPosition) {
     [self updateBannerConstraints];
     _bannerPromoBackgroundHeightConstraint.constant = [self
@@ -1966,6 +2053,7 @@ constexpr CGFloat kGlassContainerDarkBackgroundAlpha = 0.25;
   if (_locationBarBackground) {
     ConfigureShadowForToolbarElement(_locationBarBackground);
   }
+  [self updateBackgroundColors];
 }
 
 // Safely updates a layout guide by either referencing `view` or unreferencing
@@ -1995,6 +2083,15 @@ constexpr CGFloat kGlassContainerDarkBackgroundAlpha = 0.25;
            withView:_forwardButton
                hide:hideToolbar];
   [self updateGuide:kShareButtonGuide withView:_shareButton hide:hideToolbar];
+
+  // The assistant button is hidden in non Regular-Regular size classes, but the
+  // toolbar button's visibility handler may run after this, so
+  // `_assistantButton.hidden` is not yet accurate.
+  BOOL hideAssistant = hideToolbar || !IsRegularXRegularSizeClass(self) ||
+                       _assistantButton.forceHidden;
+  [self updateGuide:kAppBarAssistantButtonGuide
+           withView:_assistantButton
+               hide:hideAssistant];
 
   [self updateTabSwitcherGuide];
 }

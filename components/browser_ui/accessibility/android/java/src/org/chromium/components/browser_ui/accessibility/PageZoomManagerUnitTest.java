@@ -36,7 +36,6 @@ import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.NavigationEntry;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.ContentFeatures;
-import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.GURL;
 
 /** Unit tests for {@link PageZoomManager}. */
@@ -59,7 +58,6 @@ public class PageZoomManagerUnitTest {
     @Mock private WebContents mWebContentsMock;
     @Mock private BrowserContextHandle mBrowserContextHandleMock;
 
-    private PropertyModel mModel;
     private PageZoomManager mManager;
 
     @Before
@@ -70,6 +68,7 @@ public class PageZoomManagerUnitTest {
         when(mPageZoomManagerDelegateMock.getWebContents()).thenReturn(mWebContentsMock);
         when(mPageZoomManagerDelegateMock.getBrowserContextHandle())
                 .thenReturn(mBrowserContextHandleMock);
+        when(mPageZoomManagerDelegateMock.isPageZoomSupported()).thenReturn(true);
 
         mManager = new PageZoomManager(mPageZoomManagerDelegateMock);
     }
@@ -209,5 +208,69 @@ public class PageZoomManagerUnitTest {
 
         Assert.assertTrue(mManager.canShowPopupWindow("pending.com"));
         Assert.assertFalse(mManager.canShowPopupWindow("example.com"));
+    }
+
+    @Test
+    public void testIsPageZoomSupported_ReturnsDelegateValue() {
+        when(mPageZoomManagerDelegateMock.isPageZoomSupported()).thenReturn(true);
+        Assert.assertTrue(mManager.isPageZoomSupported());
+
+        when(mPageZoomManagerDelegateMock.isPageZoomSupported()).thenReturn(false);
+        Assert.assertFalse(mManager.isPageZoomSupported());
+    }
+
+    @Test
+    public void testCanShowPopupWindow_UnsupportedPageZoom() {
+        when(mPageZoomManagerDelegateMock.isPageZoomSupported()).thenReturn(false);
+        when(mPageZoomManagerDelegateMock.canShowPopupWindow()).thenReturn(true);
+        Assert.assertFalse(mManager.canShowPopupWindow("example.com"));
+    }
+
+    @Test
+    public void testIsZoomLevelDefault_DefaultZoom() {
+        when(mPageZoomManagerDelegateMock.isCurrentTabNull()).thenReturn(false);
+        when(mPageZoomManagerDelegateMock.isPageZoomSupported()).thenReturn(true);
+        when(mHostZoomMapMock.getZoomLevel(mWebContentsMock)).thenReturn(0.0);
+        when(mHostZoomMapMock.getDefaultZoomLevel(mBrowserContextHandleMock)).thenReturn(0.0);
+
+        Assert.assertTrue(mManager.isZoomLevelDefault());
+    }
+
+    @Test
+    public void testIsZoomLevelDefault_NonDefaultZoom() {
+        when(mPageZoomManagerDelegateMock.isCurrentTabNull()).thenReturn(false);
+        when(mPageZoomManagerDelegateMock.isPageZoomSupported()).thenReturn(true);
+        when(mHostZoomMapMock.getZoomLevel(mWebContentsMock)).thenReturn(2.22);
+        when(mHostZoomMapMock.getDefaultZoomLevel(mBrowserContextHandleMock)).thenReturn(0.0);
+
+        Assert.assertFalse(mManager.isZoomLevelDefault());
+    }
+
+    @Test
+    public void testIsZoomLevelDefault_NullTab_ReturnsTrue() {
+        when(mPageZoomManagerDelegateMock.isCurrentTabNull()).thenReturn(true);
+
+        Assert.assertTrue(mManager.isZoomLevelDefault());
+    }
+
+    @Test
+    public void testIsZoomLevelDefault_UnsupportedPageZoom_ReturnsTrue() {
+        when(mPageZoomManagerDelegateMock.isCurrentTabNull()).thenReturn(false);
+        when(mPageZoomManagerDelegateMock.isPageZoomSupported()).thenReturn(false);
+
+        Assert.assertTrue(mManager.isZoomLevelDefault());
+    }
+
+    @Test
+    public void testResetZoomLevel() {
+        when(mHostZoomMapMock.getDefaultZoomLevel(mBrowserContextHandleMock)).thenReturn(1.56);
+
+        mManager.resetZoomLevel();
+
+        verify(mHostZoomMapMock, times(1))
+                .setZoomLevel(
+                        eq(mWebContentsMock),
+                        doubleThat(closeTo(1.56, 0.01)),
+                        doubleThat(closeTo(1.56, 0.01)));
     }
 }

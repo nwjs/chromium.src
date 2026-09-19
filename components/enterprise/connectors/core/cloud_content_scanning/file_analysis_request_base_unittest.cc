@@ -492,7 +492,7 @@ TEST_F(FileAnalysisRequestBaseTest, DelayedFileOpening) {
       }));
 
   EXPECT_FALSE(run_loop.AnyQuitCalled());
-  request->OpenFile();
+  request->OpenFile(/*is_cancelled=*/nullptr);
   run_loop.Run();
 
   EXPECT_TRUE(run_loop.AnyQuitCalled());
@@ -582,7 +582,7 @@ TEST_F(FileAnalysisRequestBaseTest, FileHashComputesAsyncWhenEnabled) {
             << data.mime_type << " is not an expected mimetype";
       }));
 
-  request->OpenFile();
+  request->OpenFile(/*is_cancelled=*/nullptr);
 
   run_loop.Run();
   EXPECT_TRUE(run_loop.AnyQuitCalled());
@@ -632,7 +632,7 @@ TEST_F(FileAnalysisRequestBaseTest,
         run_loop.Quit();
       }));
 
-  request->OpenFile();
+  request->OpenFile(/*is_cancelled=*/nullptr);
   run_loop.Run();
   EXPECT_TRUE(run_loop.AnyQuitCalled());
 }
@@ -650,24 +650,13 @@ TEST_F(FileAnalysisRequestBaseTest, VirtualFilesOnChromeOS) {
 }
 
 class FileAnalysisRequestBaseVirtualFileTest
-    : public FileAnalysisRequestBaseTest,
-      public testing::WithParamInterface<std::tuple<bool, bool>> {
+    : public FileAnalysisRequestBaseTest {
  public:
-  bool should_check_virtual_files() const { return std::get<0>(GetParam()); }
-  bool is_virtual_file() const { return std::get<1>(GetParam()); }
-
   void SetUp() override {
     FileAnalysisRequestBaseTest::SetUp();
-
-    if (should_check_virtual_files()) {
-      scoped_feature_list_.InitAndEnableFeature(
-          enterprise_connectors::kEnableDlpFileSystemApi);
-    } else {
-      scoped_feature_list_.InitAndDisableFeature(
-          enterprise_connectors::kEnableDlpFileSystemApi);
-    }
-
-    FileAnalysisRequestBase::SetIsVirtualFileForTesting(is_virtual_file());
+    scoped_feature_list_.InitAndEnableFeature(
+        enterprise_connectors::kEnableDlpFileSystemApi);
+    FileAnalysisRequestBase::SetIsVirtualFileForTesting(true);
   }
 
   void TearDown() override {
@@ -679,7 +668,7 @@ class FileAnalysisRequestBaseVirtualFileTest
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-TEST_P(FileAnalysisRequestBaseVirtualFileTest, LargeFileNoHashAndFileTooLarge) {
+TEST_F(FileAnalysisRequestBaseVirtualFileTest, LargeFileNoHashAndFileTooLarge) {
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
 
@@ -707,7 +696,7 @@ TEST_P(FileAnalysisRequestBaseVirtualFileTest, LargeFileNoHashAndFileTooLarge) {
   EXPECT_EQ(data.mime_type, "application/pdf");
 }
 
-TEST_P(FileAnalysisRequestBaseVirtualFileTest,
+TEST_F(FileAnalysisRequestBaseVirtualFileTest,
        SmallFileComputesHashAndSuccess) {
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
@@ -730,9 +719,5 @@ TEST_P(FileAnalysisRequestBaseVirtualFileTest,
   EXPECT_FALSE(data.hash.empty());
   EXPECT_EQ(data.mime_type, "application/pdf");
 }
-
-INSTANTIATE_TEST_SUITE_P(All,
-                         FileAnalysisRequestBaseVirtualFileTest,
-                         testing::Combine(testing::Bool(), testing::Bool()));
 
 }  // namespace enterprise_connectors

@@ -94,14 +94,6 @@ Cq-Include-Trybots: chrome/try:linux-chromeos-chrome
 Cq-Include-Trybots: chrome/try:linux-pgo,mac-pgo,win32-pgo,win64-pgo
 Cq-Include-Trybots: chrome/try:win-chrome,win64-chrome,linux-chrome,mac-chrome'''
 
-RUST_BOTS = '''Cq-Include-Trybots: chromium/try:android-rust-arm32-rel
-Cq-Include-Trybots: chromium/try:android-rust-arm64-dbg
-Cq-Include-Trybots: chromium/try:android-rust-arm64-rel
-Cq-Include-Trybots: chromium/try:linux-rust-x64-dbg
-Cq-Include-Trybots: chromium/try:linux-rust-x64-rel
-Cq-Include-Trybots: chromium/try:mac-rust-x64-dbg
-Cq-Include-Trybots: chromium/try:win-rust-x64-dbg
-Cq-Include-Trybots: chromium/try:win-rust-x64-rel'''
 
 is_win = sys.platform.startswith('win32')
 
@@ -247,13 +239,13 @@ def PatchRustStage0():
   with open(RUST_UPDATE_PY_PATH) as f:
     content = f.read()
 
-  STAGE0_HASH = '\'([0-9a-z]+)\''
-  content = re.sub(
-    f'STAGE0_JSON_SHA256 = {STAGE0_HASH}',
-    f'STAGE0_JSON_SHA256 = \'{new_stage0_hash}\'',
+  content, count = re.subn(
+    r"STAGE0_JSON_SHA256 = \(?[ \n]*'([0-9a-z]+)'[ \n]*\)?",
+    f"STAGE0_JSON_SHA256 = (\n    '{new_stage0_hash}'\n)",
     content,
     count=1,
   )
+  assert count == 1, 'Failed to update STAGE0_JSON_SHA256 in update_rust.py'
   with open(RUST_UPDATE_PY_PATH, 'w') as f:
     f.write(content)
 
@@ -456,8 +448,6 @@ def main():
   body = f'{clang_change_log}{rust_change_log}Ran: {cmd}'
 
   commit_message = f'{title}\n\n{body}\n{COMMIT_FOOTER}'
-  if not args.skip_rust:
-    commit_message += f'\n{RUST_BOTS}'
 
   Git('add', CLANG_UPDATE_PY_PATH, RUST_UPDATE_PY_PATH, no_run=args.no_git)
   Git('commit', '-m', commit_message, no_run=args.no_git)

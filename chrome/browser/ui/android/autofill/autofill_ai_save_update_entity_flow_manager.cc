@@ -22,7 +22,7 @@
 #include "chrome/browser/ui/autofill/autofill_message_model.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
-#include "components/autofill/core/browser/ui/autofill_resource_utils.h"
+#include "components/autofill/core/browser/ui/autofill_resource_util.h"
 #include "components/messages/android/message_enums.h"
 #include "components/resources/android/theme_resources.h"
 #include "components/signin/public/identity_manager/account_info.h"
@@ -50,7 +50,7 @@ std::u16string GetMessageDescription(content::WebContents* web_contents,
       l10n_util::GetStringUTF16(IDS_AUTOFILL_GOOGLE_WALLET_TITLE);
   return l10n_util::GetStringFUTF16(
       IDS_AUTOFILL_AI_SAVE_ENTITY_TO_WALLET_MESSAGE_SUBTITLE,
-      google_wallet_text, base::UTF8ToUTF16(account->email));
+      google_wallet_text, base::UTF8ToUTF16(account->GetEmail()));
 }
 
 int GetMessageIconResourceId(const EntityInstance& entity) {

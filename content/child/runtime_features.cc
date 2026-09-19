@@ -147,10 +147,15 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
           {wf::EnableEyeDropperAPI, raw_ref(features::kEyeDropper),
            kSetOnlyIfOverridden},
           {wf::EnableFedCm, raw_ref(features::kFedCm), kSetOnlyIfOverridden},
+          {wf::EnableFedCmActiveModeMultipleIdentityProviders,
+           raw_ref(features::kFedCmActiveModeMultipleIdentityProviders),
+           kDefault},
           {wf::EnableFedCmAutofill, raw_ref(features::kFedCmAutofill),
            kDefault},
           {wf::EnableFedCmDelegation, raw_ref(features::kFedCmDelegation),
            kDefault},
+          {wf::EnableFedCmIdentityHandler,
+           raw_ref(features::kFedCmIdentityHandler), kDefault},
           {wf::EnableFedCmIdPRegistration,
            raw_ref(features::kFedCmIdPRegistration), kDefault},
           {wf::EnableFedCmLightweightMode,
@@ -276,10 +281,7 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
           {"AllowURNsInIframes",
            raw_ref(features::kPrivacySandboxAdsAPIsM1Override)},
           {"AttributionReporting",
-           raw_ref(features::kPrivacySandboxAdsAPIsOverride),
-           kSetOnlyIfOverridden},
-          {"AttributionReporting",
-           raw_ref(features::kPrivacySandboxAdsAPIsM1Override)},
+           raw_ref(attribution_reporting::features::kConversionMeasurement)},
           {"ApproximateGeolocationPermission",
            raw_ref(
                content_settings::features::kApproximateGeolocationPermission)},
@@ -514,18 +516,6 @@ void ResolveInvalidConfigurations() {
     WebRuntimeFeatures::EnableFeatureFromString(
         "FencedFramesLocalUnpartitionedDataAccess", false);
   }
-
-  if (!base::FeatureList::IsEnabled(
-          attribution_reporting::features::kConversionMeasurement)) {
-    LOG_IF(WARNING, WebRuntimeFeatures::IsAttributionReportingEnabled())
-        << "AttributionReporting cannot be enabled in this "
-           "configuration. Use --"
-        << switches::kEnableFeatures << "="
-        << attribution_reporting::features::kConversionMeasurement.name
-        << " in addition.";
-    WebRuntimeFeatures::EnableAttributionReporting(false);
-  }
-
 
   // UserMediaElement cannot be enabled without the support of the
   // browser process.

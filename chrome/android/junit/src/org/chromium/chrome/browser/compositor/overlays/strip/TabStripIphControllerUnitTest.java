@@ -28,7 +28,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -42,11 +41,11 @@ import org.chromium.chrome.browser.user_education.IphCommand;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
+import org.chromium.components.tabs.TabAlert;
 import org.chromium.ui.base.LocalizationUtils;
 
 /** Unit tests for {@link TabStripIphController}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class TabStripIphControllerUnitTest {
     private static final float TAB_STRIP_HEIGHT = 40f;
     private static final float TAB_WIDTH = 150f;
@@ -108,7 +107,7 @@ public class TabStripIphControllerUnitTest {
                         mUpdateHost,
                         /* incognito= */ false,
                         /* isPinned= */ false,
-                        /* alertState= */ null);
+                        /* alertState= */ TabAlert.NONE);
         mGroupTitle.setWidth(GROUP_TITLE_WIDTH);
         mGroupTitle.setHeight(TAB_STRIP_HEIGHT);
         mTab.setWidth(TAB_WIDTH);
@@ -304,7 +303,7 @@ public class TabStripIphControllerUnitTest {
 
         // Assert: feature name and iph string.
         assertEquals(FeatureConstants.GLIC_PROMO_ANDROID_FEATURE, cmd.featureName);
-        assertEquals(R.string.iph_glic_promo_text, cmd.stringId);
+        assertEquals(R.string.iph_tab_strip_glic_promo_text, cmd.stringId);
 
         // Assert: anchor rect bounds.
         assertEquals(10, cmd.anchorRect.left);

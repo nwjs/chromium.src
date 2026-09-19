@@ -8,6 +8,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/storage_pressure_bubble.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -40,8 +41,7 @@ void StoragePressureBubbleView::ShowBubble(const url::Origin& origin) {
     return;
   }
 
-  auto* browser_view =
-      BrowserView::GetBrowserViewForBrowser(bwi->GetBrowserForMigrationOnly());
+  auto* browser_view = BrowserView::GetBrowserViewForBrowser(bwi);
   auto* control = browser_view->toolbar_button_provider()->GetAppMenuControl();
   views::BubbleAnchor anchor =
       control ? control->GetAnchor() : views::BubbleAnchor();
@@ -71,7 +71,7 @@ StoragePressureBubbleView::~StoragePressureBubbleView() = default;
 
 void StoragePressureBubbleView::OnDialogAccepted() {
   const GURL all_sites_gurl(kAllSitesContentSettingsUrl);
-  NavigateParams params(bwi_->GetBrowserForMigrationOnly(), all_sites_gurl,
+  NavigateParams params(bwi_, all_sites_gurl,
                         ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
   params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
   Navigate(&params);

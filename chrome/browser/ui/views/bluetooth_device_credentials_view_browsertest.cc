@@ -5,7 +5,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ui/bluetooth/bluetooth_dialogs.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "content/public/browser/bluetooth_delegate.h"
@@ -27,8 +26,8 @@ class BluetoothDeviceCredentialsViewBrowserTest : public DialogBrowserTest {
 
   void ShowUi(const std::string& name) override {
     ShowBluetoothDeviceCredentialsDialog(
-        browser()->tab_strip_model()->GetActiveWebContents(), kDeviceIdentifier,
-        base::NullCallback());
+        browser()->GetTabStripModel()->GetActiveWebContents(),
+        kDeviceIdentifier, base::NullCallback());
   }
 
  private:

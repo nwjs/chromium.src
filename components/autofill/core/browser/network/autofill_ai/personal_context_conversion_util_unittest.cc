@@ -337,8 +337,6 @@ TEST(AutofillAiPersonalContextConverters, ConvertShipment) {
   shipment.set_merchant_name("SuperStore");
   shipment.add_product_names("Widget A");
   shipment.add_product_names("Widget B");
-  shipment.add_associated_order_ids("ORD-001");
-  shipment.add_associated_order_ids("ORD-002");
 
   personal_context::proto::Entity entity;
   *entity.mutable_shipment() = shipment;
@@ -358,7 +356,6 @@ TEST(AutofillAiPersonalContextConverters, ConvertShipment) {
   ExpectAttributeValue(result, kShipmentDeliveryZipCode, u"94043");
   ExpectAttributeValue(result, kShipmentMerchantName, u"SuperStore");
   ExpectAttributeValue(result, kShipmentProductNames, u"Widget A, Widget B");
-  ExpectAttributeValue(result, kShipmentOrderIds, u"ORD-001, ORD-002");
 }
 
 TEST(AutofillAiPersonalContextConverters, ConvertKnownTravelerNumber) {
@@ -513,6 +510,54 @@ TEST(AutofillAiPersonalContextConverters,
   EXPECT_EQ(AutofillEntityTypeToPersonalContextEntityType(
                 autofill::EntityType(kKnownTravelerNumber)),
             EntityType::KNOWN_TRAVELER_NUMBER);
+}
+
+TEST(AutofillAiPersonalContextConverters, MaskSpiiEntityFields) {
+  // Passport
+  {
+    personal_context::proto::Entity entity;
+    entity.mutable_passport()->set_name("Jane Doe");
+    entity.mutable_passport()->set_number("P12345");
+    MaskSpiiEntityFields(entity);
+    EXPECT_EQ(entity.passport().name(), "Jane Doe");
+    EXPECT_EQ(entity.passport().number(), "45");
+  }
+  // Drivers License
+  {
+    personal_context::proto::Entity entity;
+    entity.mutable_drivers_license()->set_name("John Smith");
+    entity.mutable_drivers_license()->set_number("DL9876");
+    MaskSpiiEntityFields(entity);
+    EXPECT_EQ(entity.drivers_license().name(), "John Smith");
+    EXPECT_EQ(entity.drivers_license().number(), "76");
+  }
+  // National ID
+  {
+    personal_context::proto::Entity entity;
+    entity.mutable_national_id()->set_name("Alex Doe");
+    entity.mutable_national_id()->set_number("4658233983");
+    MaskSpiiEntityFields(entity);
+    EXPECT_EQ(entity.national_id().name(), "Alex Doe");
+    EXPECT_EQ(entity.national_id().number(), "983");
+  }
+  // Known Traveler Number
+  {
+    personal_context::proto::Entity entity;
+    entity.mutable_known_traveler_number()->set_name("Alice");
+    entity.mutable_known_traveler_number()->set_number("T12345678");
+    MaskSpiiEntityFields(entity);
+    EXPECT_EQ(entity.known_traveler_number().name(), "Alice");
+    EXPECT_EQ(entity.known_traveler_number().number(), "678");
+  }
+  // Non-SPII entity (Order) should not be modified
+  {
+    personal_context::proto::Entity entity;
+    entity.mutable_order()->set_order_id("ORD-12345");
+    entity.mutable_order()->set_merchant_name("Merchant");
+    MaskSpiiEntityFields(entity);
+    EXPECT_EQ(entity.order().order_id(), "ORD-12345");
+    EXPECT_EQ(entity.order().merchant_name(), "Merchant");
+  }
 }
 
 }  // namespace

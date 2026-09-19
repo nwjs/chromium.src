@@ -14,10 +14,10 @@
 #include "base/test/scoped_feature_list.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/field_types.h"
-#include "components/autofill/core/browser/form_parsing/autofill_parsing_utils.h"
+#include "components/autofill/core/browser/form_parsing/autofill_parsing_util.h"
 #include "components/autofill/core/browser/form_parsing/autofill_scanner.h"
 #include "components/autofill/core/browser/form_parsing/form_field_parser_test_api.h"
-#include "components/autofill/core/browser/form_parsing/parsing_test_utils.h"
+#include "components/autofill/core/browser/form_parsing/parsing_test_util.h"
 #include "components/autofill/core/browser/form_parsing/regex_patterns.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -152,18 +152,6 @@ TEST_P(MatchTest, Match) {
     EXPECT_FALSE(FormFieldParserTestApi::Match(context, *field, pattern,
                                                {MatchAttribute::kLabel}));
   }
-}
-
-// Test that we ignore checkable elements.
-TEST_F(FormFieldParserTest, ParseFormFieldsIgnoreCheckableElements) {
-  AddFormFieldData(FormControlType::kInputCheckbox, "", "Is PO Box",
-                   UNKNOWN_TYPE);
-  // Add 3 dummy fields to reach kMinRequiredFieldsForHeuristics = 3.
-  AddTextFormFieldData("", "Address line 1", ADDRESS_HOME_LINE1);
-  AddTextFormFieldData("", "Address line 2", ADDRESS_HOME_LINE2);
-  AddTextFormFieldData("", "Address line 3", ADDRESS_HOME_LINE3);
-  EXPECT_EQ(ParseFormFields(), 3);
-  TestClassificationExpectations();
 }
 
 // Test that the minimum number of required fields for the heuristics considers

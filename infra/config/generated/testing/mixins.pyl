@@ -530,6 +530,14 @@
       },
     },
   },
+  'linux_gpu_high_tier_gemma4_ai_wpt_dimensions': {
+    'fail_if_unused': False,
+    'swarming': {
+      'dimensions': {
+        'gpu': '10de|1002',
+      },
+    },
+  },
   'linux_intel_uhd_630_experimental': {
     'fail_if_unused': False,
     'swarming': {
@@ -570,8 +578,8 @@
     'swarming': {
       'dimensions': {
         'display_server': 'x11',
-        'gpu': '10de:2184-535.183.01',
-        'os': 'Ubuntu-22.04',
+        'gpu': '10de:2184-595.91.07',
+        'os': 'Ubuntu-24.04',
         'pool': 'chromium.tests.gpu',
       },
     },
@@ -1094,6 +1102,14 @@
       },
     },
   },
+  'win_gpu_gemma4_ai_wpt_dimensions': {
+    'fail_if_unused': False,
+    'swarming': {
+      'dimensions': {
+        'gpu': '10de',
+      },
+    },
+  },
   'x64_ai_wpt_shards': {
     'swarming': {
       'shards': 8,
@@ -1107,15 +1123,15 @@
       },
     },
   },
-  'xcode_26_main': {
+  'xcode_27_main': {
     'args': [
       '--xcode-build-version',
-      '17f42',
+      '27a5252f',
     ],
     'swarming': {
       'named_caches': [
         {
-          'name': 'xcode_ios_17f42',
+          'name': 'xcode_ios_27a5252f',
           'path': 'Xcode.app',
         },
       ],

@@ -509,7 +509,7 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
 + (id<GREYMatcher>)navigationBarCancelButton {
   return grey_allOf(
       grey_ancestor(grey_kindOfClass([UINavigationBar class])),
-      [self cancelButton],
+      [self cancelButton], grey_userInteractionEnabled(),
       grey_not(grey_accessibilityTrait(UIAccessibilityTraitNotEnabled)), nil);
 }
 
@@ -520,7 +520,7 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
 + (id<GREYMatcher>)navigationBarSaveButton {
   return grey_allOf(
       grey_ancestor(grey_kindOfClass([UINavigationBar class])),
-      [self saveButton],
+      [self saveButton], grey_userInteractionEnabled(),
       grey_not(grey_accessibilityTrait(UIAccessibilityTraitNotEnabled)), nil);
 }
 
@@ -877,6 +877,14 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
       [ChromeMatchersAppInterface
           buttonWithAccessibilityLabelID:(IDS_IOS_NAVIGATION_BAR_DONE_BUTTON)],
       grey_userInteractionEnabled(), grey_sufficientlyVisible(), nil);
+}
+
++ (id<GREYMatcher>)navigationBarEditButton {
+  return grey_allOf(
+      [ChromeMatchersAppInterface
+          buttonWithAccessibilityLabelID:(IDS_IOS_NAVIGATION_BAR_EDIT_BUTTON)],
+      grey_userInteractionEnabled(),
+      grey_not(grey_accessibilityTrait(UIAccessibilityTraitNotEnabled)), nil);
 }
 
 + (id<GREYMatcher>)bookmarksNavigationBarDoneButton {

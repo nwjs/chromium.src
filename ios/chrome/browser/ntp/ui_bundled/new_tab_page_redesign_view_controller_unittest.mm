@@ -10,11 +10,14 @@
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_tiles_collection_view.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_tiles_config.h"
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_collection_utils.h"
+#import "ios/chrome/browser/ntp/search_engine_logo/ui/search_engine_logo_state.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_bottom_sheet_view_controller.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_content_delegate.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "testing/gtest/include/gtest/gtest.h"
+#import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
@@ -29,6 +32,7 @@ const CGFloat kMinDragHandleHeight = 24.0;
 - (CGFloat)restingOffsetForBottomSheetViewController:
     (NewTabPageBottomSheetViewController*)viewController;
 - (CGFloat)topContentHeight;
+- (CGFloat)centeredFakeOmniboxTop;
 - (BOOL)isCompactHeight;
 @end
 
@@ -104,45 +108,23 @@ TEST_F(NewTabPageRedesignViewControllerTest, TestLandscapeSafetyGuard) {
   EXPECT_EQ(resting_offset, max_allowed_offset);
 }
 
-// Tests that the view controller loads its view correctly.
+// Tests that the view controller loads its view correctly with redesign
+// background color.
 TEST_F(NewTabPageRedesignViewControllerTest, TestLoadView) {
   [view_controller_ loadViewIfNeeded];
   EXPECT_NE(nil, view_controller_.view);
+  EXPECT_NSEQ([UIColor colorNamed:kNTPRedesignBackgroundColor],
+              view_controller_.view.backgroundColor);
 }
 
-// Tests that didUpdateTopOffset in legacy mode (static-fakebox: false)
-// translates fakeLocationBar and keeps alpha at 1.0.
-TEST_F(NewTabPageRedesignViewControllerTest, TestLegacyDidUpdateTopOffset) {
-  view_controller_.view.frame = CGRectMake(0, 0, 400, 800);
-  [view_controller_ loadViewIfNeeded];
-  [view_controller_.view layoutIfNeeded];
-
-  UIView* fake_location_bar =
-      [view_controller_ valueForKey:@"_fakeLocationBar"];
-  EXPECT_NE(nil, fake_location_bar);
-
-  NewTabPageBottomSheetViewController* sheet =
-      [view_controller_ valueForKey:@"_bottomSheetViewController"];
-  CGFloat expandedOffset = [sheet expandedOffset];
-  CGFloat restingOffset = [sheet restingOffset];
-  CGFloat midOffset = (expandedOffset + restingOffset) / 2.0;
-
-  [view_controller_ bottomSheetViewController:sheet
-                           didUpdateTopOffset:midOffset];
-
-  EXPECT_FLOAT_EQ(1.0, fake_location_bar.alpha);
-}
-
-// Tests that didUpdateTopOffset in static-fakebox mode updates
-// fakeLocationBar.alpha and calls NTPContentDelegate.
-TEST_F(NewTabPageRedesignViewControllerTest,
-       TestStaticFakeboxDidUpdateTopOffset) {
+// Tests that didUpdateTopOffset updates fakeLocationBar.alpha and calls
+// NTPContentDelegate.
+TEST_F(NewTabPageRedesignViewControllerTest, TestDidUpdateTopOffset) {
   if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
     return;
   }
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      kNewTabPageRedesign, {{kNewTabPageRedesignStaticFakeboxParam, "true"}});
+  feature_list.InitAndEnableFeature(kNewTabPageRedesign);
 
   view_controller_.view.frame = CGRectMake(0, 0, 400, 800);
   [view_controller_ loadViewIfNeeded];
@@ -174,15 +156,13 @@ TEST_F(NewTabPageRedesignViewControllerTest,
 }
 
 // Tests that didUpdateTopOffset moves top content downward when topOffset >
-// restingOffset in static-fakebox mode.
-TEST_F(NewTabPageRedesignViewControllerTest,
-       TestStaticFakeboxDidUpdateTopOffsetCollapsed) {
+// restingOffset.
+TEST_F(NewTabPageRedesignViewControllerTest, TestDidUpdateTopOffsetCollapsed) {
   if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
     return;
   }
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      kNewTabPageRedesign, {{kNewTabPageRedesignStaticFakeboxParam, "true"}});
+  feature_list.InitAndEnableFeature(kNewTabPageRedesign);
 
   view_controller_.view.frame = CGRectMake(0, 0, 400, 800);
   [view_controller_ loadViewIfNeeded];
@@ -221,19 +201,12 @@ TEST_F(NewTabPageRedesignViewControllerTest, TestExpandedOffsetForBottomSheet) {
   if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
     return;
   }
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kNewTabPageRedesign);
+
   [view_controller_ loadViewIfNeeded];
   NewTabPageBottomSheetViewController* sheet =
       [view_controller_ valueForKey:@"_bottomSheetViewController"];
-
-  // Default legacy mode (static-fakebox: false): safeAreaTop + 20.0
-  CGFloat legacyOffset =
-      [view_controller_ expandedOffsetForBottomSheetViewController:sheet];
-  EXPECT_EQ(legacyOffset, view_controller_.view.safeAreaInsets.top + 20.0);
-
-  // Enable static-fakebox feature
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      kNewTabPageRedesign, {{kNewTabPageRedesignStaticFakeboxParam, "true"}});
 
   // Top Omnibox: safeAreaTop + kToolbarHeight
   CGFloat offsetTop =
@@ -247,28 +220,13 @@ TEST_F(NewTabPageRedesignViewControllerTest, TestExpandedOffsetForBottomSheet) {
   EXPECT_EQ(offsetBottom, view_controller_.view.safeAreaInsets.top);
 }
 
-// Tests that setOmniboxInBottomPosition is a no-op in legacy mode
-// (static-fakebox: false).
-TEST_F(NewTabPageRedesignViewControllerTest,
-       TestSetOmniboxInBottomPositionLegacy) {
-  [view_controller_ loadViewIfNeeded];
-  [view_controller_ setOmniboxInBottomPosition:YES];
-
-  // _isBottomOmnibox remains NO
-  BOOL isBottom =
-      [[view_controller_ valueForKey:@"_isBottomOmnibox"] boolValue];
-  EXPECT_FALSE(isBottom);
-}
-
-// Tests that setOmniboxInBottomPosition updates state in static-fakebox mode.
-TEST_F(NewTabPageRedesignViewControllerTest,
-       TestSetOmniboxInBottomPositionStaticFakebox) {
+// Tests that setOmniboxInBottomPosition updates state.
+TEST_F(NewTabPageRedesignViewControllerTest, TestSetOmniboxInBottomPosition) {
   if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
     return;
   }
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      kNewTabPageRedesign, {{kNewTabPageRedesignStaticFakeboxParam, "true"}});
+  feature_list.InitAndEnableFeature(kNewTabPageRedesign);
 
   [view_controller_ loadViewIfNeeded];
   [view_controller_ setOmniboxInBottomPosition:YES];
@@ -353,4 +311,31 @@ TEST_F(NewTabPageRedesignViewControllerTest,
   }
   ASSERT_TRUE(collection_view != nil);
   EXPECT_TRUE(collection_view.onContentSizeChanged == nil);
+}
+
+// Tests that centeredFakeOmniboxTop and restingOffset remain identical between
+// Logo and Doodle when kConsistentLogoDoodleHeight is enabled.
+TEST_F(NewTabPageRedesignViewControllerTest, TestConsistentLogoDoodleHeight) {
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+    return;
+  }
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kConsistentLogoDoodleHeight);
+
+  [view_controller_ loadViewIfNeeded];
+
+  [view_controller_
+      searchEngineLogoStateDidChange:SearchEngineLogoState::kLogo];
+  CGFloat omnibox_top_with_logo = [view_controller_ centeredFakeOmniboxTop];
+  CGFloat resting_offset_with_logo =
+      [view_controller_ restingOffsetForBottomSheetViewController:nil];
+
+  [view_controller_
+      searchEngineLogoStateDidChange:SearchEngineLogoState::kDoodle];
+  CGFloat omnibox_top_with_doodle = [view_controller_ centeredFakeOmniboxTop];
+  CGFloat resting_offset_with_doodle =
+      [view_controller_ restingOffsetForBottomSheetViewController:nil];
+
+  EXPECT_EQ(omnibox_top_with_logo, omnibox_top_with_doodle);
+  EXPECT_EQ(resting_offset_with_logo, resting_offset_with_doodle);
 }

@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.printing;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import android.app.Activity;
 import android.os.Build.VERSION_CODES;
 import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
@@ -32,11 +33,14 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.TestFileUtil;
 import org.chromium.base.test.util.UrlUtils;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabHidingType;
@@ -47,9 +51,11 @@ import org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
+import org.chromium.chrome.test.transit.page.PdfCtaPageStation;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.content_public.browser.test.util.DomAutomationController;
 import org.chromium.content_public.browser.test.util.JavaScriptUtils;
 import org.chromium.printing.PrintDocumentAdapterWrapper.LayoutResultCallbackWrapper;
@@ -200,6 +206,22 @@ public class PrintingControllerTest {
                 "PDF page is not loaded successfully.",
                 PDF_LOAD_TIMEOUT_MS,
                 POLLING_INTERVAL_MS);
+        testNormalPrintingFlowHelper(currentTab);
+    }
+
+    /** Test a basic printing flow on pdf page in incognito mode. */
+    @Test
+    @LargeTest
+    @Feature({"Printing"})
+    @EnableFeatures({ChromeFeatureList.INLINE_PDF_V2, ChromeFeatureList.INLINE_PDF_V2_INCOGNITO})
+    @MinAndroidSdkLevel(VERSION_CODES.VANILLA_ICE_CREAM)
+    public void testNormalPrintingFlow_PDF_Incognito() throws Throwable {
+        WebPageStation incognitoPage = mActivityTestRule.startOnIncognitoBlankPage();
+        EmbeddedTestServer testServer = mActivityTestRule.getTestServer();
+        final String url = testServer.getURL("/pdf/test/data/hello_world2.pdf");
+        PdfCtaPageStation pdfPage =
+                incognitoPage.openFakeLink(url, PdfCtaPageStation.newBuilder());
+        Tab currentTab = pdfPage.getTab();
         testNormalPrintingFlowHelper(currentTab);
     }
 
@@ -596,11 +618,12 @@ public class PrintingControllerTest {
     private PrintManagerDelegate mockPrintManagerDelegate(final Runnable r) {
         return new PrintManagerDelegate() {
             @Override
-            public void print(
+            public boolean print(
                     String printJobName,
                     PrintDocumentAdapter documentAdapter,
-                    PrintAttributes attributes) {
+                    @Nullable PrintAttributes attributes) {
                 if (r != null) r.run();
+                return true;
             }
         };
     }
@@ -804,5 +827,145 @@ public class PrintingControllerTest {
         // Wait for the JS execution to complete.
         String result = controller.waitForResult("JS failed to complete after window.print()");
         Assert.assertEquals("true", result);
+    }
+
+    /**
+     * Test to verify that if PrintManagerDelegate fails to initiate printing (e.g. Activity is
+     * finishing/destroyed or an exception occurs), the pending print callback is invoked
+     * immediately and the controller is not stuck in a busy state.
+     */
+    @Test
+    @SmallTest
+    @Feature({"Printing"})
+    public void testPrintManagerFailureUnblocksPendingCallback() throws Throwable {
+        WebPageStation page = mActivityTestRule.startOnUrl(URL);
+        Tab tab = page.getTab();
+        WindowAndroid window = tab.getWindowAndroid();
+
+        PrintManagerDelegate failingPrintManager =
+                new PrintManagerDelegate() {
+                    @Override
+                    public boolean print(
+                            String printJobName,
+                            PrintDocumentAdapter documentAdapter,
+                            @Nullable PrintAttributes attributes) {
+                        return false;
+                    }
+                };
+
+        Runnable mockCallback = Mockito.mock(Runnable.class);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    PrintingControllerImpl printingController =
+                            (PrintingControllerImpl) PrintingControllerImpl.getInstance(window);
+                    printingController.setPendingPrint(
+                            new TabPrinter(tab), failingPrintManager, -1, -1);
+                    printingController.setPendingPrintCallback(mockCallback);
+
+                    printingController.startPendingPrint();
+
+                    // The callback should have been invoked immediately because print failed.
+                    Mockito.verify(mockCallback, Mockito.times(1)).run();
+                    Assert.assertFalse(printingController.isBusy());
+                    Assert.assertTrue(printingController.hasPrintingFinished());
+                });
+    }
+
+    /**
+     * Test to verify that calling startPendingPrint() when already busy does not clobber the
+     * in-flight job's state or invoke callbacks prematurely.
+     */
+    @Test
+    @SmallTest
+    @Feature({"Printing"})
+    public void testStartPendingPrintWhenBusyDoesNotClobberState() throws Throwable {
+        WebPageStation page = mActivityTestRule.startOnUrl(URL);
+        Tab tab = page.getTab();
+        WindowAndroid window = tab.getWindowAndroid();
+
+        PrintManagerDelegate successfulPrintManager =
+                new PrintManagerDelegate() {
+                    @Override
+                    public boolean print(
+                            String printJobName,
+                            PrintDocumentAdapter documentAdapter,
+                            @Nullable PrintAttributes attributes) {
+                        return true;
+                    }
+                };
+
+        Runnable pendingCallback = Mockito.mock(Runnable.class);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    PrintingControllerImpl printingController =
+                            (PrintingControllerImpl) PrintingControllerImpl.getInstance(window);
+                    printingController.startPrint(new TabPrinter(tab), successfulPrintManager);
+                    Assert.assertTrue(printingController.isBusy());
+
+                    // Calling startPendingPrint while busy should be a safe no-op.
+                    printingController.setPendingPrintCallback(pendingCallback);
+                    printingController.startPendingPrint();
+
+                    // The controller should remain busy with the original job.
+                    Assert.assertTrue(printingController.isBusy());
+                    Mockito.verify(pendingCallback, Mockito.never()).run();
+
+                    // Cleanup
+                    printingController.onActivityDestroyed();
+                });
+    }
+
+    /**
+     * Test to verify that if the Activity is finishing, calling startPendingPrint() will
+     * immediately invoke the pending print callback and not start printing.
+     */
+    @Test
+    @SmallTest
+    @Feature({"Printing"})
+    public void testStartPendingPrintWhenActivityIsFinishing() throws Throwable {
+        WebPageStation page = mActivityTestRule.startOnUrl(URL);
+        Tab tab = page.getTab();
+        WindowAndroid window = tab.getWindowAndroid();
+        Activity activity = window.getActivity().get();
+        Assert.assertNotNull(activity);
+
+        PrintManagerDelegate failIfCalledPrintManager =
+                new PrintManagerDelegate() {
+                    @Override
+                    public boolean print(
+                            String printJobName,
+                            PrintDocumentAdapter documentAdapter,
+                            @Nullable PrintAttributes attributes) {
+                        Assert.fail("print() must not be called for a finishing Activity.");
+                        return false;
+                    }
+                };
+
+        Runnable mockCallback = Mockito.mock(Runnable.class);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    PrintingControllerImpl printingController =
+                            (PrintingControllerImpl) PrintingControllerImpl.getInstance(window);
+                    printingController.setPendingPrint(
+                            new TabPrinter(tab), failIfCalledPrintManager, -1, -1);
+                    printingController.setPendingPrintCallback(mockCallback);
+
+                    activity.finish();
+                    Assert.assertTrue(activity.isFinishing());
+
+                    printingController.startPendingPrint();
+
+                    // The callback should have been invoked immediately because the Activity is
+                    // finishing.
+                    Mockito.verify(mockCallback, Mockito.times(1)).run();
+                    Assert.assertFalse(printingController.isBusy());
+                    Assert.assertTrue(printingController.hasPrintingFinished());
+
+                    // Cleanup
+                    printingController.onActivityDestroyed();
+                });
     }
 }

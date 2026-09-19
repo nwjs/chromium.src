@@ -118,10 +118,9 @@ class PwcApiBinderBrowserTest : public InProcessBrowserTest {
 };
 
 // The qualifying frame -- the primary main frame of a PrivilegedWebContents
-// committed over HTTPS to a capability origin, running in an origin-keyed
-// process -- binds the bridge. When origin-keyed processes are unavailable
-// (the CQ runs isolation-variant configurations), the same frame is instead
-// silently refused, mirroring the production gate exactly.
+// committed over HTTPS to a capability origin -- binds the bridge. Privileged
+// navigations force an origin-keyed process in every configuration, so the
+// gate's origin-keyed requirement always holds for a qualifying frame.
 IN_PROC_BROWSER_TEST_F(PwcApiBinderBrowserTest, BindsQualifyingMainFrame) {
   const GURL capability = https_server_.GetURL("a.test", "/cap.html");
   const GURL nav_only = https_server_.GetURL("b.test", "/sorry.html");
@@ -130,12 +129,7 @@ IN_PROC_BROWSER_TEST_F(PwcApiBinderBrowserTest, BindsQualifyingMainFrame) {
   content::WebContents* web_contents = privileged->web_contents();
 
   ASSERT_TRUE(content::NavigateToURL(web_contents, capability));
-  if (content::SiteIsolationPolicy::
-          IsProcessIsolationForOriginAgentClusterEnabled()) {
-    ExpectBindSucceeds(web_contents->GetPrimaryMainFrame());
-  } else {
-    ExpectBindSilentlyDropped(web_contents->GetPrimaryMainFrame());
-  }
+  ExpectBindSucceeds(web_contents->GetPrimaryMainFrame());
 }
 
 // A main frame committed to a navigation-only (non-capability) origin -- the
@@ -199,12 +193,13 @@ class PwcApiBinderNoOriginIsolationBrowserTest
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-// A fully qualifying frame whose process did not actually receive origin
-// isolation must not get the bridge. This is not renderer-controllable, so
-// the receiver is silently dropped and the renderer stays alive -- the page
-// keeps working without capabilities.
+// Where OAC process isolation is unavailable (low-end Android, or site
+// isolation turned off), privileged frames are origin-keyed directly through
+// their AgentClusterKey, so the qualifying frame still runs in an
+// origin-keyed process and the bind succeeds -- the gate's requirement holds
+// without a special case.
 IN_PROC_BROWSER_TEST_F(PwcApiBinderNoOriginIsolationBrowserTest,
-                       QualifyingFrameRefusedWithoutOriginKeyedProcess) {
+                       QualifyingFrameBindsWithoutOACProcessIsolation) {
   ASSERT_FALSE(content::SiteIsolationPolicy::
                    IsProcessIsolationForOriginAgentClusterEnabled());
   const GURL capability = https_server_.GetURL("a.test", "/cap.html");
@@ -214,7 +209,7 @@ IN_PROC_BROWSER_TEST_F(PwcApiBinderNoOriginIsolationBrowserTest,
   content::WebContents* web_contents = privileged->web_contents();
 
   ASSERT_TRUE(content::NavigateToURL(web_contents, capability));
-  ExpectBindSilentlyDropped(web_contents->GetPrimaryMainFrame());
+  ExpectBindSucceeds(web_contents->GetPrimaryMainFrame());
 }
 
 // An ordinary tab (not a PrivilegedWebContents) must not receive the bridge,
@@ -244,13 +239,6 @@ IN_PROC_BROWSER_TEST_F(PwcApiBinderBrowserTest, OrdinaryTabKilled) {
 // must keep the bridge.) The receiver here is held browser-side, so it isolates
 // the "no proactive drop" behavior from the renderer-side teardown.
 IN_PROC_BROWSER_TEST_F(PwcApiBinderBrowserTest, BridgeSurvivesMainFrameNav) {
-  // The initial bind only succeeds in an origin-keyed process; in a
-  // configuration without origin-keyed processes there is nothing to observe
-  // across the navigation.
-  if (!content::SiteIsolationPolicy::
-          IsProcessIsolationForOriginAgentClusterEnabled()) {
-    GTEST_SKIP() << "origin-keyed processes unavailable";
-  }
   const GURL capability = https_server_.GetURL("a.test", "/cap.html");
   const GURL capability2 = https_server_.GetURL("a.test", "/cap2.html");
   const GURL nav_only = https_server_.GetURL("b.test", "/sorry.html");
@@ -303,6 +291,59 @@ IN_PROC_BROWSER_TEST_F(PwcApiBinderBrowserTest,
   // origin, HTTPS, outermost main frame of the PWC), so this exercises
   // exactly the lifecycle tier of the gate.
   ExpectBindSilentlyDropped(old_frame.get());
+}
+
+// IsCapabilityQualifiedFrame() mirrors the gate as a pure predicate: true
+// only for the fully qualifying main frame, false for a subframe, an
+// ordinary tab, and a navigation-only origin -- and, having no side effects,
+// it never terminates a renderer.
+IN_PROC_BROWSER_TEST_F(PwcApiBinderBrowserTest, QualifiedFramePredicate) {
+  const GURL capability = https_server_.GetURL("a.test", "/cap.html");
+  const GURL nav_only = https_server_.GetURL("b.test", "/sorry.html");
+  const GURL subframe_url = https_server_.GetURL("c.test", "/sub.html");
+  std::unique_ptr<PrivilegedWebContents> privileged =
+      MakePrivileged(capability, nav_only);
+  content::WebContents* web_contents = privileged->web_contents();
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents, capability));
+  content::RenderFrameHost* main_frame = web_contents->GetPrimaryMainFrame();
+  if (content::SiteIsolationPolicy::
+          IsProcessIsolationForOriginAgentClusterEnabled()) {
+    EXPECT_TRUE(IsCapabilityQualifiedFrame(main_frame));
+  }
+
+  // A subframe of the PWC -- even on the capability origin -- does not
+  // qualify, and the predicate does not kill its renderer.
+  ASSERT_TRUE(content::ExecJs(web_contents, content::JsReplace(R"(
+    new Promise((resolve) => {
+      const f = document.createElement('iframe');
+      f.src = $1;
+      f.onload = () => resolve(true);
+      document.body.appendChild(f);
+    })
+  )",
+                                                               subframe_url)));
+  content::RenderFrameHost* subframe =
+      content::ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0);
+  ASSERT_TRUE(subframe);
+  EXPECT_FALSE(IsCapabilityQualifiedFrame(subframe));
+  EXPECT_TRUE(subframe->GetProcess()->IsInitializedAndNotDead());
+
+  // An ordinary tab at the capability URL does not qualify.
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), capability));
+  content::RenderFrameHost* tab_frame = browser()
+                                            ->tab_strip_model()
+                                            ->GetActiveWebContents()
+                                            ->GetPrimaryMainFrame();
+  EXPECT_FALSE(IsCapabilityQualifiedFrame(tab_frame));
+  EXPECT_TRUE(tab_frame->GetProcess()->IsInitializedAndNotDead());
+
+  // The PWC main frame on a navigation-only origin does not qualify.
+  ASSERT_TRUE(content::NavigateToURL(web_contents, nav_only));
+  content::RenderFrameHost* nav_only_frame =
+      web_contents->GetPrimaryMainFrame();
+  EXPECT_FALSE(IsCapabilityQualifiedFrame(nav_only_frame));
+  EXPECT_TRUE(nav_only_frame->GetProcess()->IsInitializedAndNotDead());
 }
 
 }  // namespace

@@ -33,7 +33,6 @@
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
-#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -90,11 +89,19 @@ bool ShouldCreateAppWindowForAppName(Profile* profile,
 
 sessions::LiveTabContext* GetLiveTabContext(BrowserWindowInterface* browser) {
   return browser && !browser->IsDeleteScheduled()
-             ? browser->GetFeatures().live_tab_context()
+             ? BrowserLiveTabContext::From(browser)
              : nullptr;
 }
 
 }  // namespace
+
+DEFINE_USER_DATA(BrowserLiveTabContext);
+
+// static
+BrowserLiveTabContext* BrowserLiveTabContext::From(
+    BrowserWindowInterface* browser) {
+  return Get(browser->GetUnownedUserDataHost());
+}
 
 BrowserLiveTabContext::BrowserLiveTabContext(BrowserWindowInterface* browser,
                                              TabStripModel* tab_strip_model,
@@ -103,7 +110,8 @@ BrowserLiveTabContext::BrowserLiveTabContext(BrowserWindowInterface* browser,
                                              BrowserWindowInterface::Type type,
                                              const std::string& app_name,
                                              SessionID session_id)
-    : browser_(CHECK_DEREF(browser)),
+    : scoped_unowned_user_data_(browser->GetUnownedUserDataHost(), *this),
+      browser_(CHECK_DEREF(browser)),
       tab_strip_model_(CHECK_DEREF(tab_strip_model)),
       profile_(CHECK_DEREF(profile)),
       base_window_(CHECK_DEREF(base_window)),
@@ -351,7 +359,7 @@ sessions::LiveTab* BrowserLiveTabContext::AddRestoredTab(
       // It's possible a tab's group was deleted or was unsaved before this tab
       // was restored. In that case, if the local group didn't become saved add
       // the visual metadata and save it manually.
-      browser->GetFeatures().live_tab_context()->SetVisualDataForGroup(
+      BrowserLiveTabContext::From(browser)->SetVisualDataForGroup(
           group_id.value(), tab.group_visual_data.value());
       tab_group_service->SaveGroup(
           tab_groups::SavedTabGroupUtils::CreateSavedTabGroupFromLocalId(
@@ -364,7 +372,7 @@ sessions::LiveTab* BrowserLiveTabContext::AddRestoredTab(
     group_id = saved_group->local_group_id();
 
     if (group_id) {
-      Browser* source_browser =
+      BrowserWindowInterface* source_browser =
           tab_groups::SavedTabGroupUtils::GetBrowserWithTabGroupId(
               group_id.value());
       if (original_session_type == sessions::tab_restore::Type::GROUP) {
@@ -489,23 +497,21 @@ sessions::LiveTabContext* BrowserLiveTabContext::Create(
   create_params->initial_workspace = workspace;
   create_params->user_title = user_title;
 
-  if (tabs::IsVerticalTabsFeatureEnabled()) {
-    if (extra_data.contains(
-            tabs::VerticalTabStripStateController::kCollapsedKey)) {
-      create_params->vertical_tab_strip_collapsed =
-          extra_data.at(tabs::VerticalTabStripStateController::kCollapsedKey) ==
-          "true";
-    }
+  if (extra_data.contains(
+          tabs::VerticalTabStripStateController::kCollapsedKey)) {
+    create_params->vertical_tab_strip_collapsed =
+        extra_data.at(tabs::VerticalTabStripStateController::kCollapsedKey) ==
+        "true";
+  }
 
-    if (extra_data.contains(
-            tabs::VerticalTabStripStateController::kUncollapsedWidthKey)) {
-      int uncollapsed_width = 0;
-      if (base::StringToInt(
-              extra_data.at(
-                  tabs::VerticalTabStripStateController::kUncollapsedWidthKey),
-              &uncollapsed_width)) {
-        create_params->vertical_tab_strip_uncollapsed_width = uncollapsed_width;
-      }
+  if (extra_data.contains(
+          tabs::VerticalTabStripStateController::kUncollapsedWidthKey)) {
+    int uncollapsed_width = 0;
+    if (base::StringToInt(
+            extra_data.at(
+                tabs::VerticalTabStripStateController::kUncollapsedWidthKey),
+            &uncollapsed_width)) {
+      create_params->vertical_tab_strip_uncollapsed_width = uncollapsed_width;
     }
   }
 
@@ -521,10 +527,10 @@ sessions::LiveTabContext* BrowserLiveTabContext::Create(
     }
   }
 
-  Browser* browser = CreateBrowserWindow(std::move(*create_params))
-                         ->GetBrowserForMigrationOnly();
+  BrowserWindowInterface* browser =
+      CreateBrowserWindow(std::move(*create_params));
 
-  return browser->GetFeatures().live_tab_context();
+  return BrowserLiveTabContext::From(browser);
 }
 
 // static

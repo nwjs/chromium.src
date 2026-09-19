@@ -16,6 +16,8 @@ import {isRTL} from '//resources/js/util.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 
+import type {ContentBrowserProxy} from '../content/content_browser_proxy.js';
+import {ContentBrowserProxyImpl} from '../content/content_browser_proxy.js';
 import {ContentController, ContentType} from '../content/content_controller.js';
 import type {ContentListener, ContentState} from '../content/content_controller.js';
 import {LineFocusController} from '../content/line_focus_controller.js';
@@ -24,15 +26,16 @@ import {NodeStore} from '../content/node_store.js';
 import {DEFAULT_SETTINGS, LineFocusType} from '../content/read_anything_types.js';
 import type {LineFocusMovement, LineFocusStyle, SettingsPrefs} from '../content/read_anything_types.js';
 import {SelectionController} from '../content/selection_controller.js';
+import type {AudioBrowserProxy} from '../read_aloud/audio_browser_proxy.js';
+import {AudioBrowserProxyImpl} from '../read_aloud/audio_browser_proxy.js';
 import type {LanguageToastElement} from '../read_aloud/language_toast.js';
 import type {Segment} from '../read_aloud/read_aloud_types.js';
 import {SpeechController} from '../read_aloud/speech_controller.js';
 import type {SpeechListener} from '../read_aloud/speech_controller.js';
-import {TextSegmenter} from '../read_aloud/text_segmenter.js';
 import {VoiceLanguageController} from '../read_aloud/voice_language_controller.js';
 import type {VoiceLanguageListener} from '../read_aloud/voice_language_controller.js';
 import {VoiceNotificationManager} from '../read_aloud/voice_notification_manager.js';
-import {getWordCount, isDistilledByReadability, minOverflowLengthToScroll} from '../shared/common.js';
+import {getWordCount, isDistilledByReadability} from '../shared/common.js';
 import {isPlayPauseShortcut} from '../shared/keyboard_util.js';
 import {ReadAnythingLogger, TimeFrom} from '../shared/read_anything_logger.js';
 
@@ -40,6 +43,8 @@ import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
 import {AppStyleUpdater} from './app_style_updater.js';
 import type {ReadAnythingToolbarElement} from './read_anything_toolbar.js';
+import type {VisualBrowserProxy} from './visual_browser_proxy.js';
+import {VisualBrowserProxyImpl} from './visual_browser_proxy.js';
 
 const AppElementBase = WebUiListenerMixinLit(CrLitElement);
 
@@ -92,7 +97,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
       lineFocusMovement_: {type: Number},
       isDocsLoadMoreButtonVisible_: {type: Boolean},
       hasValidSelection_: {type: Boolean},
-      showLineFocusNewBadge_: {type: Boolean},
+      isReadAnythingPinned_: {type: Boolean},
     };
   }
 
@@ -105,7 +110,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
 
   protected accessor isDocsLoadMoreButtonVisible_: boolean = false;
   protected accessor hasValidSelection_: boolean = false;
-  protected isImmersiveEnabled_: boolean = false;
+  protected accessor isReadAnythingPinned_: boolean = false;
   protected isReadAnythingImprovedUiEnabled_: boolean = false;
 
   // If the speech engine is considered "loaded." If it is, we should display
@@ -145,6 +150,12 @@ export class AppElement extends AppElementBase implements SpeechListener,
   private speechController_: SpeechController = SpeechController.getInstance();
   private contentController_: ContentController =
       ContentController.getInstance();
+  private contentBrowserProxy_: ContentBrowserProxy =
+      ContentBrowserProxyImpl.getInstance();
+  private visualBrowserProxy_: VisualBrowserProxy =
+      VisualBrowserProxyImpl.getInstance();
+  private audioBrowserProxy_: AudioBrowserProxy =
+      AudioBrowserProxyImpl.getInstance();
   private selectionController_: SelectionController =
       SelectionController.getInstance();
   private lineFocusController_: LineFocusController =
@@ -153,15 +164,12 @@ export class AppElement extends AppElementBase implements SpeechListener,
 
   protected accessor isSpeechActive_: boolean = false;
   protected accessor isAudioCurrentlyPlaying_: boolean = false;
-  // TODO(crbug.com/543113387): Remove this when the WebUI new badge supports
-  // auto-disappearing logic itself.
-  protected accessor showLineFocusNewBadge_: boolean = false;
 
   protected accessor presentationState_: number = 0;
 
   isImmersiveMode(): boolean {
     return this.presentationState_ ===
-        chrome.readingMode.inImmersiveOverlayPresentationState;
+        this.visualBrowserProxy_.getInImmersiveOverlayPresentationState();
   }
 
   constructor() {
@@ -170,34 +178,29 @@ export class AppElement extends AppElementBase implements SpeechListener,
     this.styleUpdater_ = new AppStyleUpdater(this);
     this.nodeStore_.clear();
     ColorChangeUpdater.forDocument().start();
-    TextSegmenter.getInstance().updateLanguage(
-        chrome.readingMode.baseLanguageForSpeech);
     this.contentState_ = this.contentController_.getState();
-    if (chrome.readingMode.isReadabilityEnabled) {
+    if (this.contentBrowserProxy_.isReadabilityEnabled()) {
       this.contentController_.configureTrustedTypes();
     }
-    this.isImmersiveEnabled_ = chrome.readingMode.isImmersiveEnabled;
     this.isReadAnythingImprovedUiEnabled_ =
-        chrome.readingMode.isReadAnythingImprovedUiEnabled;
+        this.visualBrowserProxy_.isReadAnythingImprovedUiEnabled();
   }
 
   override connectedCallback() {
     super.connectedCallback();
 
     // onConnected should always be called first in connectedCallback to ensure
-    // we're not blocking onConnected on anything else during WebUI setup.
-    if (chrome.readingMode) {
-      chrome.readingMode.onConnected();
-    }
+    // onConnected is not blocked on anything else during WebUI setup.
+    this.contentBrowserProxy_.onConnected();
 
     // Request the presentation state to determine whether we should use the UI
     // for immersive mode.
-    chrome.readingMode.sendGetPresentationStateRequest();
+    this.visualBrowserProxy_.sendGetPresentationStateRequest();
     // Push ShowUI() callback to the event queue to allow deferred rendering
     // to take place.
-    setTimeout(() => chrome.readingMode.shouldShowUi(), 0);
+    setTimeout(() => this.visualBrowserProxy_.shouldShowUi(), 0);
     this.styleUpdater_.setMaxLineWidth();
-    if (chrome.readingMode.isLineFocusEnabled) {
+    if (this.visualBrowserProxy_.isLineFocusEnabled()) {
       window.addEventListener('resize', this.onWindowResize_.bind(this));
       this.$.containerParent.addEventListener('mousemove', mouseEvent => {
         this.lineFocusController_.onMouseMove(mouseEvent.clientY);
@@ -222,17 +225,17 @@ export class AppElement extends AppElementBase implements SpeechListener,
     this.showLoading();
 
     this.settingsPrefs_ = {
-      letterSpacing: chrome.readingMode.letterSpacing,
-      lineSpacing: chrome.readingMode.lineSpacing,
-      theme: chrome.readingMode.colorTheme,
-      speechRate: chrome.readingMode.speechRate,
-      font: chrome.readingMode.fontName,
-      highlightGranularity: chrome.readingMode.highlightGranularity,
-      linksEnabled: chrome.readingMode.linksEnabled,
-      imagesEnabled: chrome.readingMode.imagesEnabled,
+      letterSpacing: this.visualBrowserProxy_.getLetterSpacing(),
+      lineSpacing: this.visualBrowserProxy_.getLineSpacing(),
+      theme: this.visualBrowserProxy_.getColorTheme(),
+      speechRate: this.audioBrowserProxy_.getSpeechRate(),
+      font: this.visualBrowserProxy_.getFontName(),
+      highlightGranularity: this.audioBrowserProxy_.getHighlightGranularity(),
+      linksEnabled: this.visualBrowserProxy_.isLinksEnabled(),
+      imagesEnabled: this.visualBrowserProxy_.isImagesEnabled(),
     };
 
-    chrome.readingMode.sendPinStateRequest();
+    this.visualBrowserProxy_.sendPinStateRequest();
 
     document.onselectionchange = () => {
       // When Read Aloud is playing, user-selection is disabled on the Read
@@ -255,111 +258,43 @@ export class AppElement extends AppElementBase implements SpeechListener,
     // Pass copy commands to main page. Copy commands will not work if they are
     // disabled on the main page.
     document.oncopy = () => {
-      chrome.readingMode.onCopy();
+      this.contentBrowserProxy_.onCopy();
       return false;
     };
 
     document.onkeydown = this.onKeyDown_.bind(this);
 
-    /////////////////////////////////////////////////////////////////////
-    // Called by ReadAnythingAppController via callback router. //
-    /////////////////////////////////////////////////////////////////////
-    chrome.readingMode.updateContent = () => {
-      this.updateContent();
-    };
-
-    chrome.readingMode.updateLinks = () => {
-      this.updateLinks_();
-    };
-
-    chrome.readingMode.updateImages = () => {
-      this.updateImages_();
-    };
-
-    chrome.readingMode.onImageDownloaded = (nodeId) => {
-      this.contentController_.onImageDownloaded(nodeId);
-    };
-
-    chrome.readingMode.updateSelection = () => {
+    this.contentBrowserProxy_.onAnchorsReadyForReadability.addListener(
+        this.onReadabilityAnchorsReady_.bind(this));
+    this.contentBrowserProxy_.onMainFrameSameDocumentNavigation.addListener(
+        this.onMainFrameSameDocumentNavigation_.bind(this));
+    this.contentBrowserProxy_.onRenderedTextMappingReady.addListener(
+        this.onRenderedTextMappingReady_.bind(this));
+    this.contentBrowserProxy_.updateImages.addListener(
+        this.updateImages_.bind(this));
+    this.contentBrowserProxy_.updateLinks.addListener(
+        this.updateLinks_.bind(this));
+    this.contentBrowserProxy_.updateSelection.addListener(() => {
       this.selectionController_.updateSelection(
           this.getSelection(), this.$.container);
-    };
+    });
+    this.contentBrowserProxy_.updateContent.addListener(
+        this.updateContent.bind(this));
+    this.contentBrowserProxy_.showLoading.addListener(
+        this.showLoading.bind(this));
+    this.visualBrowserProxy_.onPinStateReceived.addListener(
+        (pinState: boolean) => {
+          this.isReadAnythingPinned_ = pinState;
+        });
+    this.visualBrowserProxy_.onPresentationStateReceived.addListener(
+        this.onPresentationStateReceived_.bind(this));
+    this.visualBrowserProxy_.restoreSettingsFromPrefs.addListener(
+        this.restoreSettingsFromPrefs_.bind(this));
+    this.audioBrowserProxy_.languageChanged.addListener(
+        this.languageChanged.bind(this));
+    this.audioBrowserProxy_.setPlayOnOpen.addListener(
+        this.setPlayOnOpen.bind(this));
 
-    chrome.readingMode.updateVoicePackStatus =
-        (lang: string, status: string) => {
-          this.voiceLanguageController_.updateLanguageStatus(lang, status);
-        };
-
-    chrome.readingMode.showLoading = () => {
-      this.showLoading();
-    };
-
-    chrome.readingMode.showEmpty = () => {
-      this.contentController_.setEmpty();
-    };
-
-    chrome.readingMode.restoreSettingsFromPrefs = () => {
-      this.restoreSettingsFromPrefs_();
-    };
-
-    chrome.readingMode.onShouldShowLineFocusNewBadgeResponse = (show) => {
-      this.showLineFocusNewBadge_ = show;
-    };
-
-    chrome.readingMode.languageChanged = () => {
-      this.languageChanged();
-    };
-
-    chrome.readingMode.onLockScreen = () => {
-      this.speechController_.onLockScreen();
-    };
-
-    chrome.readingMode.onAnchorsReadyForReadability = () => {
-      this.onReadabilityAnchorsReady_();
-    };
-
-    chrome.readingMode.readingModeWillClose = () => {
-      this.speechController_.onReadingModeWillClose();
-    };
-
-    chrome.readingMode.onTtsEngineInstalled = () => {
-      this.voiceLanguageController_.onTtsEngineInstalled();
-    };
-
-    chrome.readingMode.onTabMuteStateChange = (muted: boolean) => {
-      this.speechController_.onTabMuteStateChange(muted);
-    };
-
-    chrome.readingMode.onNodeWillBeDeleted = (nodeId: number) => {
-      this.contentController_.onNodeWillBeDeleted(nodeId);
-    };
-
-    chrome.readingMode.onPresentationStateReceived =
-        (presentationState: number) => {
-          // TODO (crbug.com/450950100): The Read Anything app should determine
-          // which content to display based on the presentation state.
-          this.presentationState_ = presentationState;
-          this.logger_.setHidden(
-              presentationState ===
-              chrome.readingMode.inHiddenPresentationState);
-        };
-
-    chrome.readingMode.onPinStateReceived = (pinState: boolean) => {
-      this.$.toolbar.isReadAnythingPinned = pinState;
-    };
-
-    chrome.readingMode.onRenderedTextMappingReady = () => {
-      this.contentController_.onRenderedTextMappingReady();
-    };
-
-    chrome.readingMode.onMainFrameSameDocumentNavigation = (url: string) => {
-      assert(this.shadowRoot);
-      this.contentController_.scrollToAnchor(url, this.shadowRoot);
-    };
-
-    chrome.readingMode.setPlayOnOpen = (playOnOpen: boolean) => {
-      this.setPlayOnOpen(playOnOpen);
-    };
   }
 
   override disconnectedCallback() {
@@ -400,7 +335,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected onSettingsClosed_() {
-    if (chrome.readingMode.isLineFocusEnabled) {
+    if (this.visualBrowserProxy_.isLineFocusEnabled()) {
       this.lineFocusController_.onAllMenusClose();
     }
     if (this.$.settingsOverlay) {
@@ -412,21 +347,19 @@ export class AppElement extends AppElementBase implements SpeechListener,
     this.selectionController_.onScroll();
     this.speechController_.onScroll();
     // Add fading effect to Immersive Mode text when scrolling.
-    if (this.isImmersiveEnabled_) {
-      const fontSize = Number.parseInt(window.getComputedStyle(this.$.container)
-                                           .getPropertyValue('font-size'));
-      // Add fade to scroller after the first line of text to avoid fading the
-      // top of the text.
-      this.$.containerScroller.scrollTop > fontSize ?
-          this.$.containerScroller.classList.add('fade') :
-          this.$.containerScroller.classList.remove('fade');
-    }
+    const fontSize = Number.parseInt(window.getComputedStyle(this.$.container)
+                                         .getPropertyValue('font-size'));
+    // Add fade to scroller after the first line of text to avoid fading the
+    // top of the text.
+    this.$.containerScroller.scrollTop > fontSize ?
+        this.$.containerScroller.classList.add('fade') :
+        this.$.containerScroller.classList.remove('fade');
     this.onTextLocationsChange_();
   }
 
   protected onContainerScrollend_() {
     this.nodeStore_.estimateWordsSeenWithDelay();
-    if (chrome.readingMode.isLineFocusEnabled) {
+    if (this.visualBrowserProxy_.isLineFocusEnabled()) {
       this.lineFocusController_.onScrollEnd(this.$.containerScroller.scrollTop);
     }
   }
@@ -436,13 +369,11 @@ export class AppElement extends AppElementBase implements SpeechListener,
     this.speechController_.resetForNewContent();
   }
 
-  // TODO: crbug.com/40927698 - Handle focus changes for speech, including
-  // updating speech state.
   updateContent() {
-    this.willDrawAgainSoon_ = chrome.readingMode.requiresDistillation;
+    this.willDrawAgainSoon_ = this.contentBrowserProxy_.requiresDistillation();
     this.isDocsLoadMoreButtonVisible_ =
-        chrome.readingMode.isDocsLoadMoreButtonVisible;
-    this.hasValidSelection_ = chrome.readingMode.hasValidSelection;
+        this.contentBrowserProxy_.isDocsLoadMoreButtonVisible();
+    this.hasValidSelection_ = this.contentBrowserProxy_.hasValidSelection();
 
     // Remove all children from container. Use `replaceChildren` rather than
     // setting `innerHTML = ''` in order to remove all listeners, too.
@@ -465,7 +396,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
       const wordCount = (wordCountContainer && wordCountContainer.textContent) ?
           getWordCount(wordCountContainer.textContent) :
           0;
-      chrome.readingMode.onDistilled(wordCount);
+      this.contentBrowserProxy_.onDistilled(wordCount);
       if (wordCountContainer && wordCountContainer instanceof Element) {
         this.logger_.logDistilledPageStructure(wordCountContainer);
       }
@@ -493,12 +424,30 @@ export class AppElement extends AppElementBase implements SpeechListener,
     this.contentController_.updateImages(this.shadowRoot);
   }
 
+  private onMainFrameSameDocumentNavigation_(url: string) {
+    assert(this.shadowRoot);
+    this.contentController_.scrollToAnchor(url, this.shadowRoot);
+  }
+
+  private onRenderedTextMappingReady_() {
+    this.contentController_.onRenderedTextMappingReady();
+    this.selectionController_.updateSelection(
+        this.getSelection(), this.$.container);
+  }
+
   private onRenderedTextBlocksAvailable_() {
     this.contentController_.onRenderedTextBlocksAvailable(this.$.container);
   }
 
+  private onPresentationStateReceived_(presentationState: number) {
+    this.presentationState_ = presentationState;
+    this.logger_.setHidden(
+        presentationState ===
+        this.visualBrowserProxy_.getInHiddenPresentationState());
+  }
+
   protected onDocsLoadMoreButtonClick_() {
-    chrome.readingMode.onScrolledToBottom();
+    this.contentBrowserProxy_.onScrolledToBottom();
   }
 
   protected onLanguageMenuOpen_() {
@@ -535,7 +484,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
 
   ///////////////////////// LineFocusListener methods //////////////////////////
   onLineFocusVisualPositionChange(newTop: number, newHeight: number): void {
-    if (!chrome.readingMode.isLineFocusEnabled) {
+    if (!this.visualBrowserProxy_.isLineFocusEnabled()) {
       return;
     }
     this.styleUpdater_.setLineFocusPos(newTop, newHeight);
@@ -543,7 +492,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
 
   onLineFocusContentPositionChange(
       newTop: number, newHeight: number, newFocalPoint: number): void {
-    if (!chrome.readingMode.isLineFocusEnabled) {
+    if (!this.visualBrowserProxy_.isLineFocusEnabled()) {
       return;
     }
 
@@ -566,7 +515,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   onNeedScrollForLineFocus(scrollDiff: number, instant: boolean = false): void {
-    if (!chrome.readingMode.isLineFocusEnabled) {
+    if (!this.visualBrowserProxy_.isLineFocusEnabled()) {
       return;
     }
 
@@ -576,7 +525,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   onNeedScrollToTop(): void {
-    if (!chrome.readingMode.isLineFocusEnabled ||
+    if (!this.visualBrowserProxy_.isLineFocusEnabled() ||
         this.$.containerScroller.scrollTop === 0) {
       return;
     }
@@ -585,7 +534,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   onLineFocusModesChanged(): void {
-    if (!chrome.readingMode.isLineFocusEnabled) {
+    if (!this.visualBrowserProxy_.isLineFocusEnabled()) {
       return;
     }
     this.updateLineFocusState_();
@@ -595,7 +544,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   onScrollBufferForLineFocusChange(needsBuffer: boolean): void {
-    if (!chrome.readingMode.isLineFocusEnabled) {
+    if (!this.visualBrowserProxy_.isLineFocusEnabled()) {
       return;
     }
 
@@ -615,7 +564,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
 
   onContentStateChange(): void {
     this.contentState_ = this.contentController_.getState();
-    if (chrome.readingMode.isLineFocusEnabled) {
+    if (this.visualBrowserProxy_.isLineFocusEnabled()) {
       const lineFocusTypeForStyling =
           (this.contentState_.type === ContentType.HAS_CONTENT) ?
           this.lineFocusController_.getCurrentLineFocusType() :
@@ -641,14 +590,14 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   onWordBoundary(segments: Segment[]): void {
-    if (chrome.readingMode.isLineFocusEnabled) {
+    if (this.visualBrowserProxy_.isLineFocusEnabled()) {
       this.lineFocusController_.onWordBoundary(segments);
     }
   }
 
   onIsSpeechActiveChange(): void {
     this.isSpeechActive_ = this.speechController_.isSpeechActive();
-    if (chrome.readingMode.linksEnabled &&
+    if (this.visualBrowserProxy_.isLinksEnabled() &&
         !this.speechController_.isTemporaryPause()) {
       this.updateLinks_();
     }
@@ -704,7 +653,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected onReadabilityAnchorsReady_() {
-    if (chrome.readingMode.isReadabilityEnabled) {
+    if (this.contentBrowserProxy_.isReadabilityEnabled()) {
       this.contentController_.updateAnchorsForReadability(this.shadowRoot);
     }
   }
@@ -714,34 +663,29 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   private restoreSettingsFromPrefs_() {
-    this.voiceLanguageController_.restoreFromPrefs();
     this.settingsPrefs_ = {
-      letterSpacing: chrome.readingMode.letterSpacing,
-      lineSpacing: chrome.readingMode.lineSpacing,
-      theme: chrome.readingMode.colorTheme,
-      speechRate: chrome.readingMode.speechRate,
-      font: chrome.readingMode.fontName,
-      highlightGranularity: chrome.readingMode.highlightGranularity,
-      linksEnabled: chrome.readingMode.linksEnabled,
-      imagesEnabled: chrome.readingMode.imagesEnabled,
+      letterSpacing: this.visualBrowserProxy_.getLetterSpacing(),
+      lineSpacing: this.visualBrowserProxy_.getLineSpacing(),
+      theme: this.visualBrowserProxy_.getColorTheme(),
+      speechRate: this.audioBrowserProxy_.getSpeechRate(),
+      font: this.visualBrowserProxy_.getFontName(),
+      highlightGranularity: this.audioBrowserProxy_.getHighlightGranularity(),
+      linksEnabled: this.visualBrowserProxy_.isLinksEnabled(),
+      imagesEnabled: this.visualBrowserProxy_.isImagesEnabled(),
     };
     this.styleUpdater_.setAllTextStyles();
-    if (chrome.readingMode.isLineFocusEnabled) {
+    if (this.visualBrowserProxy_.isLineFocusEnabled()) {
       this.lineFocusController_.restoreFromPrefs(
-          chrome.readingMode.lastNonDisabledLineFocus,
-          chrome.readingMode.isLineFocusOn, this.$.container,
+          this.visualBrowserProxy_.getLastNonDisabledLineFocus(),
+          this.visualBrowserProxy_.isLineFocusOn(), this.$.container,
           this.$.appFlexParent.clientHeight);
-      this.setLineFocusStyle_();
     }
-    // TODO: crbug.com/40927698 - Remove this call. Using this.settingsPrefs_
-    // should replace this direct call to the toolbar.
-    this.$.toolbar.restoreSettingsFromPrefs();
   }
 
   protected onLineSpacingChange_() {
     this.settingsPrefs_ = {
       ...this.settingsPrefs_,
-      lineSpacing: chrome.readingMode.lineSpacing,
+      lineSpacing: this.visualBrowserProxy_.getLineSpacing(),
     };
     this.styleUpdater_.setLineSpacing();
     this.onTextLocationsChange_();
@@ -750,7 +694,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   protected onLetterSpacingChange_() {
     this.settingsPrefs_ = {
       ...this.settingsPrefs_,
-      letterSpacing: chrome.readingMode.letterSpacing,
+      letterSpacing: this.visualBrowserProxy_.getLetterSpacing(),
     };
     this.styleUpdater_.setLetterSpacing();
     this.onTextLocationsChange_();
@@ -759,7 +703,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   protected onFontChange_() {
     this.settingsPrefs_ = {
       ...this.settingsPrefs_,
-      font: chrome.readingMode.fontName,
+      font: this.visualBrowserProxy_.getFontName(),
     };
     this.styleUpdater_.setFont();
     this.onTextLocationsChange_();
@@ -772,8 +716,8 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected onThemeChange_(event: CustomEvent<{data: number}>) {
-    if (chrome.readingMode.isReadAnythingImprovedUiEnabled && event.detail &&
-        event.detail.data !== undefined) {
+    if (this.visualBrowserProxy_.isReadAnythingImprovedUiEnabled() &&
+        event.detail && event.detail.data !== undefined) {
       this.settingsPrefs_ = {
         ...this.settingsPrefs_,
         theme: event.detail.data,
@@ -788,16 +732,6 @@ export class AppElement extends AppElementBase implements SpeechListener,
     }
   }
 
-  protected onResetToolbar_() {
-    this.styleUpdater_.resetToolbar();
-  }
-
-  protected onToolbarOverflow_(event: CustomEvent<{overflowLength: number}>) {
-    const shouldScroll =
-        (event.detail.overflowLength >= minOverflowLengthToScroll);
-    this.styleUpdater_.overflowToolbar(shouldScroll);
-  }
-
   protected onHighlightChange_(event: CustomEvent<{data: number}>) {
     this.speechController_.onHighlightGranularityChange(event.detail.data);
     // Apply highlighting changes to the DOM.
@@ -805,14 +739,14 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected onCloseAllMenus_() {
-    if (chrome.readingMode.isLineFocusEnabled) {
+    if (this.visualBrowserProxy_.isLineFocusEnabled()) {
       this.lineFocusController_.onAllMenusClose();
     }
   }
 
   protected onLineFocusStyleChange_(
       event: CustomEvent<{data: LineFocusStyle}>) {
-    if (chrome.readingMode.isLineFocusEnabled) {
+    if (this.visualBrowserProxy_.isLineFocusEnabled()) {
       this.lineFocusController_.onStyleChange(
           event.detail.data, this.$.container,
           this.$.appFlexParent.clientHeight);
@@ -821,7 +755,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected onLineFocusToggleChange_(event: CustomEvent<{data: boolean}>) {
-    if (chrome.readingMode.isLineFocusEnabled) {
+    if (this.visualBrowserProxy_.isLineFocusEnabled()) {
       this.lineFocusController_.toggle(
           event.detail.data, this.$.container,
           this.$.appFlexParent.clientHeight);
@@ -842,7 +776,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
 
   protected onLineFocusMovementChange_(
       event: CustomEvent<{data: LineFocusMovement}>) {
-    if (chrome.readingMode.isLineFocusEnabled) {
+    if (this.visualBrowserProxy_.isLineFocusEnabled()) {
       this.lineFocusController_.onMovementChange(
           event.detail.data, this.$.container,
           this.$.appFlexParent.clientHeight);
@@ -853,7 +787,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   private setLineFocusStyle_() {
-    if (!chrome.readingMode.isLineFocusEnabled) {
+    if (!this.visualBrowserProxy_.isLineFocusEnabled()) {
       return;
     }
     if (this.computeHasContent()) {
@@ -865,18 +799,16 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   private onTextLocationsChange_() {
-    if (chrome.readingMode.isLineFocusEnabled) {
+    if (this.visualBrowserProxy_.isLineFocusEnabled()) {
       this.lineFocusController_.onTextLocationsChange(
           this.$.container, this.$.appFlexParent.clientHeight);
     }
   }
 
   languageChanged() {
-    this.pageLanguage_ = chrome.readingMode.baseLanguageForSpeech;
-    this.voiceLanguageController_.onPageLanguageChanged();
+    this.pageLanguage_ = this.audioBrowserProxy_.getBaseLanguageForSpeech();
     // Update the font to ensure the font is valid for the page language.
     this.styleUpdater_.setFont();
-    TextSegmenter.getInstance().updateLanguage(this.pageLanguage_);
   }
 
   protected computeHasContent(): boolean {
@@ -890,7 +822,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected computeIsLineFocusShowing_(): boolean {
-    return chrome.readingMode.isLineFocusEnabled &&
+    return this.visualBrowserProxy_.isLineFocusEnabled() &&
         this.lineFocusController_.isEnabled() &&
         (this.contentState_.type === ContentType.HAS_CONTENT ||
          this.contentState_.type === ContentType.LOADING);
@@ -944,17 +876,13 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected getImmersiveClass_(): string {
-    if (!this.isImmersiveEnabled_) {
-      return '';
-    }
-
     const immersiveClass = 'immersive';
     return this.isImmersiveMode() ? `${immersiveClass} full-page` :
                                     immersiveClass;
   }
 
   protected getLineFocusClass_(): string {
-    if (!chrome.readingMode.isLineFocusEnabled ||
+    if (!this.visualBrowserProxy_.isLineFocusEnabled() ||
         !this.lineFocusController_.isEnabled() ||
         this.contentState_.type !== ContentType.HAS_CONTENT) {
       return '';

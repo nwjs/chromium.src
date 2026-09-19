@@ -8,6 +8,7 @@ load("@chromium-luci//builder_config.star", "builder_config")
 load("@chromium-luci//builders.star", "os")
 load("@chromium-luci//consoles.star", "consoles")
 load("@chromium-luci//gn_args.star", "gn_args")
+load("@chromium-luci//gpu.star", shared_gpu = "gpu")
 load("@chromium-luci//targets.star", "targets")
 load("@chromium-luci//try.star", "try_")
 load("//lib/gpu.star", "gpu")
@@ -901,33 +902,6 @@ try_.builder(
         "ci/android-cronet-x86-dbg",
         "ci/android-cronet-x86-dbg-nougat-tests",
     ],
-    gn_args = "ci/android-cronet-x86-dbg",
-    contact_team_email = "cronet-team@google.com",
-    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-)
-
-try_.builder(
-    name = "android-cronet-code-coverage-native",
-    mirrors = ["ci/android-cronet-code-coverage-native"],
-    gn_args = "ci/android-cronet-code-coverage-native",
-    contact_team_email = "cronet-team@google.com",
-    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-)
-
-try_.builder(
-    name = "android-cronet-code-coverage-java",
-    mirrors = ["ci/android-cronet-code-coverage-java"],
-    gn_args = "ci/android-cronet-code-coverage-java",
-    contact_team_email = "cronet-team@google.com",
-    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-)
-
-try_.builder(
-    name = "android-cronet-x86-dbg-marshmallow-tests",
-    mirrors = [
-        "ci/android-cronet-x86-dbg",
-        "ci/android-cronet-x86-dbg-marshmallow-tests",
-    ],
     # Replicates "ci/android-cronet-x86-dbg", with code coverage related
     # arguments appended.
     gn_args = gn_args.config(
@@ -954,6 +928,22 @@ try_.builder(
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
     use_clang_coverage = True,
     use_java_coverage = True,
+)
+
+try_.builder(
+    name = "android-cronet-code-coverage-native",
+    mirrors = ["ci/android-cronet-code-coverage-native"],
+    gn_args = "ci/android-cronet-code-coverage-native",
+    contact_team_email = "cronet-team@google.com",
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
+    name = "android-cronet-code-coverage-java",
+    mirrors = ["ci/android-cronet-code-coverage-java"],
+    gn_args = "ci/android-cronet-code-coverage-java",
+    contact_team_email = "cronet-team@google.com",
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -1477,7 +1467,7 @@ try_.builder(
     contact_team_email = "chrome-gpu-team@google.com",
 )
 
-gpu.try_.linux_optional_builder(
+shared_gpu.try_.linux_optional_builder(
     name = "android_optional_gpu_tests_rel",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     description_html = "Runs GPU tests on Pixel 4 devices. Only automatically added to CLs that touch GPU-related files.",
@@ -1498,9 +1488,10 @@ gpu.try_.linux_optional_builder(
     },
     main_list_view = "try",
     max_concurrent_builds = 10,
+    service_account = gpu.try_.SERVICE_ACCOUNT,
 )
 
-gpu.try_.linux_optional_builder(
+shared_gpu.try_.linux_optional_builder(
     name = "gpu-fyi-cq-android-arm64",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     description_html = "Runs GPU tests on Pixel 6/10 devices. Only automatically added to CLs that touch GPU-related files.",
@@ -1523,6 +1514,7 @@ gpu.try_.linux_optional_builder(
     },
     main_list_view = "try",
     max_concurrent_builds = 10,
+    service_account = gpu.try_.SERVICE_ACCOUNT,
 )
 
 try_.builder(

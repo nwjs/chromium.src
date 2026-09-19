@@ -140,6 +140,7 @@ TEST_F(ChromeSigninClientSignoutTest, GetOAuthConsumerForContextualTasks) {
 
   // Scopes from chromium source
   EXPECT_THAT(scopes, testing::Contains(GaiaConstants::kClearCutOAuth2Scope));
+  EXPECT_THAT(scopes, testing::Contains(GaiaConstants::kDriveOAuth2Scope));
   EXPECT_THAT(scopes, testing::Contains(GaiaConstants::kLensOAuth2Scope));
 
   // Scopes from FeatureParam
@@ -166,11 +167,34 @@ TEST_F(ChromeSigninClientSignoutTest,
 
   // Scopes from chromium source
   EXPECT_THAT(scopes, testing::Contains(GaiaConstants::kClearCutOAuth2Scope));
+  EXPECT_THAT(scopes, testing::Contains(GaiaConstants::kDriveOAuth2Scope));
   EXPECT_THAT(scopes, testing::Contains(GaiaConstants::kLensOAuth2Scope));
 
   // Scopes from FeatureParam
   EXPECT_THAT(scopes, testing::Contains("https://example.com/scope1"));
   EXPECT_THAT(scopes, testing::Contains("https://example.com/scope2"));
+}
+
+TEST_F(ChromeSigninClientSignoutTest,
+       GetOAuthConsumerForContextualTasks_DriveOAuthScopeDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{contextual_tasks::kContextualTasks},
+      /*disabled_features=*/{
+          contextual_tasks::kContextualTasksDriveOAuthScope});
+
+  signin::OAuthConsumer consumer = client_->GetOAuthConsumerFromId(
+      signin::OAuthConsumerId::kContextualTasks);
+  EXPECT_EQ(consumer.GetName(),
+            signin::oauth_consumer_name::kContextualTasksName);
+
+  signin::ScopeSet scopes = consumer.GetScopes();
+
+  // Scopes from chromium source
+  EXPECT_THAT(scopes, testing::Contains(GaiaConstants::kClearCutOAuth2Scope));
+  EXPECT_THAT(scopes, testing::Contains(GaiaConstants::kLensOAuth2Scope));
+  EXPECT_THAT(scopes, testing::Not(
+                          testing::Contains(GaiaConstants::kDriveOAuth2Scope)));
 }
 
 class ChromeSigninClientSignoutSourceTest
@@ -242,6 +266,8 @@ bool IsAlwaysAllowedSignoutSources(
     case signin_metrics::ProfileSignout::
         kUserClickedSignoutFromUserPolicyNotificationDialog:
     case signin_metrics::ProfileSignout::kSignoutDuringProfileDeletion:
+    case signin_metrics::ProfileSignout::
+        kUserDeclinedEnterpriseSignalsDisclaimer:
     case signin_metrics::ProfileSignout::
         kUserDeclinedEnterpriseManagementDisclaimer:
       return true;
@@ -344,6 +370,7 @@ const signin_metrics::ProfileSignout kSignoutSources[] = {
     signin_metrics::ProfileSignout::kSignoutFromCanSignInToChromeCapability,
     signin_metrics::ProfileSignout::
         kUserTappedUndoRightAfterSignInFromAutofillAndPasswords,
+    signin_metrics::ProfileSignout::kUserDeclinedEnterpriseSignalsDisclaimer,
 };
 
 // kNumberOfObsoleteSignoutSources should be updated when a ProfileSignout

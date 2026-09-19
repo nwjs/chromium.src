@@ -8,6 +8,7 @@ import static org.chromium.content_public.browser.HostZoomMap.AVAILABLE_ZOOM_FAC
 
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.MathUtils;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.content_public.browser.HostZoomMap;
@@ -36,7 +37,7 @@ public class PageZoomManager {
      *     direction from the current zoom factor.
      */
     @VisibleForTesting
-    public int decrementZoomLevel() {
+    int decrementZoomLevel() {
         // When decreasing zoom, "snap" to the greatest preset value that is less than the current.
         double currentZoomFactor = getZoomLevel();
         int index = PageZoomUtils.getNextIndex(true, currentZoomFactor);
@@ -55,7 +56,7 @@ public class PageZoomManager {
      *     direction from the current zoom factor.
      */
     @VisibleForTesting
-    public int incrementZoomLevel() {
+    int incrementZoomLevel() {
         // When increasing zoom, "snap" to the smallest preset value that is more than the current.
         double currentZoomFactor = getZoomLevel();
         int index = PageZoomUtils.getNextIndex(false, currentZoomFactor);
@@ -66,9 +67,14 @@ public class PageZoomManager {
         return index;
     }
 
+    /** Resets the zoom level of the current WebContents to the default zoom level. */
+    void resetZoomLevel() {
+        setZoomLevel(getDefaultZoomLevel());
+    }
+
     /** Returns the zoom level of the current WebContents. */
     @VisibleForTesting
-    public double getZoomLevel() {
+    double getZoomLevel() {
         WebContents webContents = mDelegate.getWebContents();
         if (webContents == null) {
             return 0.00;
@@ -78,13 +84,13 @@ public class PageZoomManager {
 
     /** Returns the default zoom level of the current Profile. */
     @VisibleForTesting
-    public double getDefaultZoomLevel() {
+    double getDefaultZoomLevel() {
         return HostZoomMap.getDefaultZoomLevel(mDelegate.getBrowserContextHandle());
     }
 
     /** Returns the WebContents of the current tab. */
     @VisibleForTesting
-    public @Nullable WebContents getWebContents() {
+    @Nullable WebContents getWebContents() {
         return mDelegate.getWebContents();
     }
 
@@ -94,7 +100,7 @@ public class PageZoomManager {
      * @param newZoomLevel The new zoom level to set the current WebContents to.
      */
     @VisibleForTesting
-    public void setZoomLevel(double newZoomLevel) {
+    void setZoomLevel(double newZoomLevel) {
         WebContents webContents = mDelegate.getWebContents();
         assert webContents != null;
         HostZoomMap.setZoomLevel(webContents, newZoomLevel);
@@ -129,13 +135,29 @@ public class PageZoomManager {
         return mDelegate.isCurrentTabNull();
     }
 
+    /** Returns true if page zoom is supported for the current tab. */
+    public boolean isPageZoomSupported() {
+        return mDelegate.isPageZoomSupported();
+    }
+
+    /**
+     * Returns true if the zoom level is default. Returns true if current tab is null or page zoom
+     * is not supported.
+     */
+    public boolean isZoomLevelDefault() {
+        if (isCurrentTabNull() || !isPageZoomSupported()) {
+            return true;
+        }
+        return Math.abs(getZoomLevel() - getDefaultZoomLevel()) < MathUtils.EPSILON;
+    }
+
     /**
      * Returns true if the window/activity for this manager currently has window focus, the current
      * tab is not a native page, the overflow menu is not showing, and the zoom event host matches
      * the current/pending tab.
      */
-    public boolean canShowPopupWindow(String eventHost) {
-        if (!mDelegate.canShowPopupWindow()) return false;
+    public boolean canShowPopupWindow(@Nullable String eventHost) {
+        if (!isPageZoomSupported() || !mDelegate.canShowPopupWindow()) return false;
 
         WebContents webContents = getWebContents();
         if (webContents == null) return false;

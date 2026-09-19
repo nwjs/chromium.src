@@ -194,8 +194,8 @@ TEST(FormatTest, TypeSpecifierPointer) {
 
 TEST(FormatTest, TypeSpecifierFloat) {
   EXPECT_EQ("3.141592653589793", Format("{}", 3.141592653589793));
-  EXPECT_EQ("3.141592653589793", Format("{:g}", 3.141592653589793));
-  EXPECT_EQ("3.141592653589793", Format("{:G}", 3.141592653589793));
+  EXPECT_EQ("3.14159", Format("{:g}", 3.141592653589793));
+  EXPECT_EQ("3.14159", Format("{:G}", 3.141592653589793));
 
   EXPECT_EQ("3.141592653589793", Format("{:}", 3.141592653589793));
   EXPECT_EQ("3.141590", Format("{:f}", 3.14159));
@@ -233,6 +233,14 @@ TEST(FormatTest, TypeSpecifierFloat) {
   EXPECT_EQ("3", Format("{:.1}", 3.14159));
   EXPECT_EQ("0.567", Format("{:.6g}", 0.567));
   EXPECT_EQ("150001", Format("{:.6g}", 150000.5));
+  // crbug.com/548859820
+  EXPECT_EQ(
+      "1797693134862315708145274237317043567980705675258449965989174768031572"
+      "6078002853876058955863276687817154045895351438246423432132688946418276"
+      "8467546703537516986049910576551282076245490090389328944075868508455133"
+      "9423045832369032229481658085593321233482747978262041447231687381771809"
+      "19299881250404026184124858368.000",
+      Format("{:.3f}", 1.7976931348623157e308));
 }
 
 TEST(FormatTest, TypeSpecifierDeathTest) {
@@ -240,6 +248,7 @@ TEST(FormatTest, TypeSpecifierDeathTest) {
   FormatArg str_args[] = {FormatArg(StringView("abc"))};
   FormatArg ptr_args[] = {FormatArg(static_cast<const void*>(nullptr))};
   FormatArg double_args[] = {FormatArg(3.14)};
+  FormatArg bool_args[] = {FormatArg(true)};
 
   // String argument with integer/pointer/float type specifiers
   EXPECT_DEATH_IF_SUPPORTED(VFormat("{:d}", FormatArgs(str_args)), "");
@@ -276,6 +285,14 @@ TEST(FormatTest, TypeSpecifierDeathTest) {
   EXPECT_DEATH_IF_SUPPORTED(VFormat("{:p}", FormatArgs(double_args)), "");
   EXPECT_DEATH_IF_SUPPORTED(VFormat("{:P}", FormatArgs(double_args)), "");
 
+  // Bool argument with char/pointer/float type specifiers
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:c}", FormatArgs(bool_args)), "");
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:p}", FormatArgs(bool_args)), "");
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:P}", FormatArgs(bool_args)), "");
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:f}", FormatArgs(bool_args)), "");
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:e}", FormatArgs(bool_args)), "");
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:g}", FormatArgs(bool_args)), "");
+
   // Unsupported type specifier
   EXPECT_DEATH_IF_SUPPORTED(VFormat("{:z}", FormatArgs(int_args)), "");
 
@@ -285,9 +302,90 @@ TEST(FormatTest, TypeSpecifierDeathTest) {
   EXPECT_DEATH_IF_SUPPORTED(VFormat("{:.2s}", FormatArgs(str_args)), "");
   EXPECT_DEATH_IF_SUPPORTED(VFormat("{:.2}", FormatArgs(str_args)), "");
   EXPECT_DEATH_IF_SUPPORTED(VFormat("{:.2p}", FormatArgs(ptr_args)), "");
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:.2}", FormatArgs(bool_args)), "");
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:.2s}", FormatArgs(bool_args)), "");
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:.2d}", FormatArgs(bool_args)), "");
 
   // Invalid precision specifier
   EXPECT_DEATH_IF_SUPPORTED(VFormat("{:.}", FormatArgs(double_args)), "");
+
+  // Large precision that exceeds the buffer size (512 bytes)
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:.1000f}", FormatArgs(double_args)), "");
+}
+
+TEST(FormatTest, Character) {
+  // UChar with no type specifies
+  EXPECT_EQ("a", Format("{}", 'a'));
+  EXPECT_EQ("A", Format("{}", static_cast<LChar>('A')));
+  EXPECT_EQ("b", Format("{}", static_cast<UChar>('b')));
+
+  // c type specifier
+  EXPECT_EQ("C", Format("{:c}", 'C'));
+  EXPECT_EQ("D", Format("{:c}", 68));   // int (mapped to int64_t)
+  EXPECT_EQ("E", Format("{:c}", 69u));  // unsigned int (mapped to uint64_t)
+
+  // UChar with d, x, X types
+  EXPECT_EQ("65", Format("{:d}", static_cast<UChar>('A')));
+  EXPECT_EQ("41", Format("{:x}", static_cast<UChar>('A')));
+  EXPECT_EQ("   41", Format("{:5x}", static_cast<UChar>('A')));
+  EXPECT_EQ("00041", Format("{:05x}", static_cast<UChar>('A')));
+
+  // Large code points
+  // U+10437 (Deseret Small Letter O) -> D801 DC37
+  EXPECT_EQ(String(Vector<UChar>{0xD801, 0xDC37}), Format("{:c}", 0x10437));
+
+  // Max valid code point
+  EXPECT_EQ(String(Vector<UChar>{0xDBFF, 0xDFFF}), Format("{:c}", 0x10FFFF));
+}
+
+TEST(FormatTest, CharacterDeathTest) {
+  FormatArg uchar_args[] = {FormatArg(static_cast<UChar>('A'))};
+  FormatArg int_args[] = {FormatArg(65)};
+
+  // Width and precision are invalid for 'c' and UChar with no type
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:5c}", FormatArgs(int_args)), "");
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:.2c}", FormatArgs(int_args)), "");
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:5}", FormatArgs(uchar_args)), "");
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:.2}", FormatArgs(uchar_args)), "");
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:5c}", FormatArgs(uchar_args)), "");
+
+  // Out of bounds values
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:c}", FormatArgs({FormatArg(-1)})), "");
+  EXPECT_DEATH_IF_SUPPORTED(VFormat("{:c}", FormatArgs({FormatArg(0x110000)})),
+                            "");
+}
+
+TEST(FormatTest, Boolean) {
+  EXPECT_EQ("true", Format("{}", true));
+  EXPECT_EQ("false", Format("{}", false));
+  EXPECT_EQ("true", Format("{:}", true));
+  EXPECT_EQ("false", Format("{:}", false));
+  EXPECT_EQ("true", Format("{:s}", true));
+  EXPECT_EQ("false", Format("{:s}", false));
+
+  // Width and padding with string formatting
+  EXPECT_EQ("true  ", Format("{:6}", true));
+  EXPECT_EQ("false ", Format("{:6}", false));
+  EXPECT_EQ("true  ", Format("{:6s}", true));
+  EXPECT_EQ("false ", Format("{:6s}", false));
+  EXPECT_EQ("true", Format("{:2}", true));
+  EXPECT_EQ("false", Format("{:2}", false));
+
+  // Integer formatting (d, x, X)
+  EXPECT_EQ("1", Format("{:d}", true));
+  EXPECT_EQ("0", Format("{:d}", false));
+  EXPECT_EQ("1", Format("{:x}", true));
+  EXPECT_EQ("0", Format("{:x}", false));
+  EXPECT_EQ("1", Format("{:X}", true));
+  EXPECT_EQ("0", Format("{:X}", false));
+
+  // Width and padding with integer formatting
+  EXPECT_EQ("  1", Format("{:3d}", true));
+  EXPECT_EQ("  0", Format("{:3d}", false));
+  EXPECT_EQ("001", Format("{:03d}", true));
+  EXPECT_EQ("000", Format("{:03d}", false));
+  EXPECT_EQ("001", Format("{:03x}", true));
+  EXPECT_EQ("000", Format("{:03X}", false));
 }
 
 }  // namespace blink

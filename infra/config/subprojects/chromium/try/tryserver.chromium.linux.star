@@ -8,6 +8,7 @@ load("@chromium-luci//builder_config.star", "builder_config")
 load("@chromium-luci//builders.star", "os")
 load("@chromium-luci//consoles.star", "consoles")
 load("@chromium-luci//gn_args.star", "gn_args")
+load("@chromium-luci//gpu.star", shared_gpu = "gpu")
 load("@chromium-luci//html.star", "linkify", "linkify_builder")
 load("@chromium-luci//targets.star", "targets")
 load("@chromium-luci//try.star", "try_")
@@ -26,9 +27,9 @@ try_.defaults.set(
     execution_timeout = try_constants.DEFAULT_EXECUTION_TIMEOUT,
     experiments = {
         "chromium_tests.resultdb_module": 100,
-        "luci.buildbucket.run_in_turboci": 25,
+        "luci.buildbucket.run_in_turboci": 100,
     },
-    orchestrator_cores = 2,
+    orchestrator_cores = "2|4",
     orchestrator_siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
     service_account = try_constants.DEFAULT_SERVICE_ACCOUNT,
     siso_keep_going = siso.KEEP_GOING,
@@ -142,6 +143,7 @@ try_.builder(
 
 try_.builder(
     name = "linux-annotator-rel",
+    description_html = "Runs tests for the Network Traffic Annotation Auditor on Linux, mirroring linux-annotator-rel.",
     mirrors = ["ci/linux-annotator-rel"],
     gn_args = gn_args.config(
         configs = [
@@ -150,6 +152,7 @@ try_.builder(
             "no_symbols",
         ],
     ),
+    contact_team_email = "cbe-compliance@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -1118,7 +1121,7 @@ try_.builder(
     contact_team_email = "chrome-gpu-team@google.com",
 )
 
-gpu.try_.linux_optional_builder(
+shared_gpu.try_.linux_optional_builder(
     name = "linux_optional_gpu_tests_rel",
     branch_selector = branches.selector.LINUX_BRANCHES,
     description_html = ("Runs GPU tests on Linux machines with NVIDIA GTX 1660 and Intel UHD 630 GPUs. " +
@@ -1144,6 +1147,7 @@ gpu.try_.linux_optional_builder(
     ),
     main_list_view = "try",
     max_concurrent_builds = 7,
+    service_account = gpu.try_.SERVICE_ACCOUNT,
 )
 
 # This builder is different from try/linux-js-code-coverage builder below as

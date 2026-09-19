@@ -75,6 +75,15 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kBeforeFirstRunDesktopRefreshSurvey);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
+// This feature flag is used as a subset of the original code that was behind
+// `kSyncEnableBookmarksInTransportMode` that introduced changes that are not
+// directly related to Transport Mode. Mostly the changes are Ui-visible and
+// will be migrated to be using this flag instead. This will allow to run
+// a Finch study on Cros and launch independently of TransportMode on Cros. The
+// flag is enabled by default on Windows/Mac/Linux.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kBookmarksMigrateUiChanges);
+
 #if BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kBoundSessionCredentialsKillSwitch);
@@ -94,9 +103,6 @@ extern const base::FeatureParam<std::string>
 // Feature flag to enable caching identities in ios_internal.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kCacheIdentityListInChrome);
-// Feature flag to prefetch and cache account capabilities.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kEnableACPrefetch);
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -106,20 +112,16 @@ BASE_DECLARE_FEATURE(kCctSignInPrompt);
 
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kChromeAndroidIdentitySurveyBookmarkPromo);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(
+    double,
+    kChromeAndroidIdentitySurveyBookmarkPromoProbability);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kChromeAndroidIdentitySurveyFirstRun);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(double,
                            kChromeAndroidIdentitySurveyFirstRunProbability);
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kChromeAndroidIdentitySurveyWeb);
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE_PARAM(double, kChromeAndroidIdentitySurveyWebProbability);
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kChromeAndroidIdentitySurveyNtpSigninButton);
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE_PARAM(
-    double,
-    kChromeAndroidIdentitySurveyNtpSigninButtonProbability);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kChromeAndroidIdentitySurveyNtpAccountAvatarTap);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -132,11 +134,15 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(double,
                            kChromeAndroidIdentitySurveyNtpPromoProbability);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kChromeAndroidIdentitySurveyBookmarkPromo);
+BASE_DECLARE_FEATURE(kChromeAndroidIdentitySurveyNtpSigninButton);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(
     double,
-    kChromeAndroidIdentitySurveyBookmarkPromoProbability);
+    kChromeAndroidIdentitySurveyNtpSigninButtonProbability);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kChromeAndroidIdentitySurveyWeb);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(double, kChromeAndroidIdentitySurveyWebProbability);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -268,10 +274,15 @@ BASE_DECLARE_FEATURE(kDiceLinkedAccounts);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-// If enabled, disables feedback for U18 users on desktop platforms.
-// The iOS version is kDisableFeedbackForIneligibleUsers flag.
+// Controls whether the First Run animations are disabled or not. If the feature
+// is enabled, animations in the First Run are disabled, otherwise they're
+// enabled. It should be only used for the testing purposes (e.g. pixel tests)
+// and always disabled by default.
+//
+// NOTE: The tests must setup this feature in advance before the First Run flow
+// starts, otherwise the animations will start.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kDisableU18FeedbackDesktop);
+BASE_DECLARE_FEATURE(kDisableFirstRunAnimationsForTesting);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_IOS)
@@ -292,7 +303,11 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
                            kAccountPreviewData429RateLimitDuration);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
+extern const base::FeatureParam<bool> kAccountPreviewDataPersistAccounts;
+
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnableAccountPreviewEntityPreviews);
+
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnableAccountPreviewPreferredAccount);
 // Feature parameters for quartile classification thresholds of sync data
@@ -326,8 +341,6 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(
     base::TimeDelta,
     kAccountPreviewPreferredAccountSingleAccountPromoFetchTimeout);
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-extern const base::FeatureParam<bool> kAccountPreviewDataPersistAccounts;
 
 #if BUILDFLAG(IS_ANDROID)
 // Enables the use of 1P app account information on Android in preferred account
@@ -337,6 +350,12 @@ BASE_DECLARE_FEATURE(kEnableAccountPreviewUseAppAccount);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
                            kAccountPreviewAppAccountExpirationDuration);
+#endif
+
+#if BUILDFLAG(IS_IOS)
+// Feature flag to prefetch and cache account capabilities.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnableACPrefetch);
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -462,6 +481,17 @@ enum class SeamlessSigninPromoType {
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 extern const base::FeatureParam<SeamlessSigninPromoType>
     kSeamlessSigninPromoType;
+enum class SeamlessSigninStringType {
+  // Strings with "Sign in to Chrome" in the title and "Continue as" in the
+  // primary button
+  kContinueButton,
+  // Strings with "Sign in to Chrome" in the description and "Sign in as" in the
+  // primary button
+  kSigninButton,
+};
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+extern const base::FeatureParam<SeamlessSigninStringType>
+    kSeamlessSigninStringType;
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -472,8 +502,6 @@ extern const base::FeatureParam<base::TimeDelta>
     kSearchAIModePromoPageLoadDelay;
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 extern const base::FeatureParam<base::TimeDelta> kSearchAIModePromoFrequency;
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kSearchAIModeSignInPromoSelfDismissal);
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -502,16 +530,6 @@ BASE_DECLARE_FEATURE(kFetchAccountInfoOnRestart);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // This feature controls running visually refreshed first run and profile
-// creation flows for users outside of the search engine choice regions. To
-// enable the refresh in search engine choice screen regions,
-// `kFirstRunDesktopChoiceScreenRefresh` needs to be enabled as well.
-//
-// Clients should never use this feature directly to determine if the
-// refresh is enabled, they should use `IsFirstRunDesktopRefreshEnabled()`
-// instead.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kFirstRunDesktopRefresh);
-// This feature controls running visually refreshed first run and profile
 // creation flows, including the choice screen, for users in search engine
 // choice screen regions. This feature is no-op if `kFirstRunDesktopRefresh` is
 // disabled.
@@ -521,15 +539,19 @@ BASE_DECLARE_FEATURE(kFirstRunDesktopRefresh);
 // instead.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kFirstRunDesktopChoiceScreenRefresh);
-// Controls whether the First Run animations are disabled or not. If the feature
-// is enabled, animations in the First Run are disabled, otherwise they're
-// enabled. It should be only used for the testing purposes (e.g. pixel tests)
-// and always disabled by default.
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// This feature controls running visually refreshed first run and profile
+// creation flows for users outside of the search engine choice regions. To
+// enable the refresh in search engine choice screen regions,
+// `kFirstRunDesktopChoiceScreenRefresh` needs to be enabled as well.
 //
-// NOTE: The tests must setup this feature in advance before the First Run flow
-// starts, otherwise the animations will start.
+// Clients should never use this feature directly to determine if the
+// refresh is enabled, they should use `IsFirstRunDesktopRefreshEnabled()`
+// instead.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kDisableFirstRunAnimationsForTesting);
+BASE_DECLARE_FEATURE(kFirstRunDesktopRefresh);
 // A helper function to determine if the first run desktop refresh is enabled
 // (see `kFirstRunDesktopRefresh` and `kFirstRunDesktopChoiceScreenRefresh`
 // flags).
@@ -573,10 +595,6 @@ BASE_DECLARE_FEATURE(kFirstRunDesktopRefreshSurvey);
 // instead.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kFirstRunDesktopRevamp);
-// Killswitch for the sound experience in the first run desktop revamp.
-// This feature is no-op if `kFirstRunDesktopRevamp` is disabled.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kFirstRunDesktopRevampSound);
 // A helper function to determine if the first run desktop revamp is enabled
 // (see `kFirstRunDesktopRevamp`, `kFirstRunDesktopRefresh` and
 // `kFirstRunDesktopChoiceScreenRefresh` flags).
@@ -593,6 +611,13 @@ bool IsFirstRunDesktopRevampEnabled(bool is_in_search_engine_choice_region);
 // survey.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kFirstRunDesktopRevampNoFeatureShowcaseSurvey);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// Killswitch for the sound experience in the first run desktop revamp.
+// This feature is no-op if `kFirstRunDesktopRevamp` is disabled.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kFirstRunDesktopRevampSound);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -619,6 +644,9 @@ BASE_DECLARE_FEATURE(kFirstRunFeatureShowcaseGeminiStep);
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kForceHistoryOptInScreen);
+#endif  // BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kForceShowWebSigninLoadingDialog);
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -657,7 +685,9 @@ BASE_DECLARE_FEATURE(kHandleMdmErrorsForDasherAccounts);
 // Killswitch for ignoring X-Chrome-Manage-Accounts header in subframes.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kIgnoreChromeManageAccountsInSubframes);
+#endif
 
+#if BUILDFLAG(IS_IOS)
 // Feature flag to ignore invalid grant errors in AuthenticationService.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kIgnoreInvalidGrantError);
@@ -691,10 +721,14 @@ BASE_DECLARE_FEATURE(kMagiChromeSignInExperimentsBatch1);
 // IdentityManager.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kMakeIdentityManagerSourceOfAccounts);
+#endif  // BUILDFLAG(IS_ANDROID)
 
+#if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kMakeIdentityManagerSourceOfAccountsPart2);
+#endif  // BUILDFLAG(IS_ANDROID)
 
+#if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kMigrateAccountManagerDelegate);
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -729,6 +763,28 @@ BASE_DECLARE_FEATURE(kPreFirstRunDesktopRefresh);
 // `kFirstRunDesktopRefresh` and `kFirstRunDesktopChoiceScreenRefresh` flags).
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 bool IsPreFirstRunDesktopRefreshEnabled();
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// A HaTS survey flag for the survey to gather user feedback after the changes
+// introduced with `kPreFirstRunDesktopRefresh` for users who are not eligible
+// for the Feature Showcase.
+//
+// NOTE: Only signed-in (excluding enterprise) users are eligible for this
+// survey.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kPreFirstRunDesktopRefreshNoFeatureShowcaseSurvey);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// A HaTS survey flag for the survey to gather user feedback after the changes
+// introduced with `kPreFirstRunDesktopRefresh` for users who are eligible for
+// the Feature Showcase.
+//
+// NOTE: Only signed-in (excluding enterprise) users are eligible for this
+// survey.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kPreFirstRunDesktopRefreshSurvey);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -768,6 +824,18 @@ BASE_DECLARE_FEATURE(kReadSupportsWalletPrivatePassesInAutofillCapability);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kRestrictDeviceManagementServiceOAuthScope);
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kSearchAIModeSignInPromoSelfDismissal);
+#endif
+
+#if BUILDFLAG(IS_ANDROID)
+// Opens a desktop-like profile menu from the toolbar sign-in button on Desktop
+// Android.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kSigninButtonProfileMenu);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 // Enables the new visual design for the profile switch interception bubble,
 // aligning it with the V2 style used for new profiles. Used in
@@ -817,21 +885,29 @@ BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
 
 // Feature flag used for testing purposes only:
 //
-// Set this flag to force the flow on any platform.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kSigninWindows10DepreciationStateForTesting);
 // Set this flag to force the flow off on Windows 10 (a lot of bots run on
 // Windows 10) - to avoid having generic tests having a per platform
 // expectations.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kSigninWindows10DepreciationStateBypassForTesting);
+// Set this flag to force the flow on any platform.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kSigninWindows10DepreciationStateForTesting);
 COMPONENT_EXPORT(SIGNIN_SWITCHES) bool IsSigninWindows10DepreciationState();
+
+#if BUILDFLAG(IS_ANDROID)
+// Feature to allow deleting browser data to android desktop users.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kSignOutDeletesBrowsingData);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID)
 // Feature to show "Sign out of Chrome" string to android desktop users.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kSignOutOfChrome);
+#endif  // BUILDFLAG(IS_ANDROID)
 
+#if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kSkipCheckForAccountManagementOnSignin);
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -865,10 +941,14 @@ BASE_DECLARE_FEATURE(kSupportErrorsInProfilePicker);
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kSupportForcedSigninPolicy);
+#endif  // BUILDFLAG(IS_ANDROID)
 
+#if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kSupportWebSigninAddSession);
+#endif  // BUILDFLAG(IS_ANDROID)
 
+#if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kSwitchToIncognitoInSettings);
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -879,14 +959,6 @@ BASE_DECLARE_FEATURE(kSwitchToIncognitoInSettings);
 // TODO(crbug.com/40943550): Remove this.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kSyncEnableBookmarksInTransportMode);
-// This feature flag is used as a subset of the original code that was behind
-// `kSyncEnableBookmarksInTransportMode` that introduced changes that are not
-// directly related to Transport Mode. Mostly the changes are Ui-visible and
-// will be migrated to be using this flag instead. This will allow to run
-// a Finch study on Cros and launch independently of TransportMode on Cros. The
-// flag is enabled by default on Windows/Mac/Linux.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kBookmarksMigrateUiChanges);
 
 #if BUILDFLAG(IS_CHROMEOS)
 // If enabled, undoes the effect of kChromeOsUseConsentLevelSigninForNewUsers
@@ -900,20 +972,6 @@ BASE_DECLARE_FEATURE(kUndoChromeOsUseConsentLevelSignin);
 // accepting account management.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kUserPolicyFetchRequiresAcceptance);
-#endif  // BUILDFLAG(IS_ANDROID)
-
-#if BUILDFLAG(IS_ANDROID)
-enum class SeamlessSigninStringType {
-  // Strings with "Sign in to Chrome" in the title and "Continue as" in the
-  // primary button
-  kContinueButton,
-  // Strings with "Sign in to Chrome" in the description and "Sign in as" in the
-  // primary button
-  kSigninButton,
-};
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-extern const base::FeatureParam<SeamlessSigninStringType>
-    kSeamlessSigninStringType;
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // keep-sorted end

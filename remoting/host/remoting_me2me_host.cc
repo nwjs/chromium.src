@@ -115,7 +115,6 @@
 #include "remoting/host/security_key/security_key_auth_handler.h"
 #include "remoting/host/session_policies_from_dict.h"
 #include "remoting/host/shutdown_watchdog.h"
-#include "remoting/host/test_echo_extension.h"
 #include "remoting/host/usage_stats_consent.h"
 #include "remoting/host/zombie_host_detector.h"
 #include "remoting/proto/control.pb.h"
@@ -185,7 +184,6 @@
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_LINUX)
-#include "remoting/base/crash/crash_reporting_crashpad.h"
 #include "remoting/host/host_wtmpdb_logger.h"
 #endif  // BUILDFLAG(IS_LINUX)
 
@@ -666,9 +664,18 @@ HostProcess::HostProcess(std::unique_ptr<ChromotingHostContext> context,
       exit_code_out_(exit_code_out),
       shutdown_watchdog_(shutdown_watchdog) {
 #if BUILDFLAG(REMOTING_MULTI_PROCESS)
-  enable_peer_connection_process_ =
-      multi_process_ && base::CommandLine::ForCurrentProcess()->HasSwitch(
-                            kEnablePeerConnectionProcessSwitch);
+#if BUILDFLAG(IS_LINUX)
+  enable_peer_connection_process_ = multi_process_;
+#elif BUILDFLAG(IS_WIN)
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          kUsePeerConnectionProcessSwitch)) {
+    std::string switch_value =
+        base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+            kUsePeerConnectionProcessSwitch);
+    enable_peer_connection_process_ =
+        multi_process_ && (switch_value == "true" || switch_value == "1");
+  }
+#endif
 #endif
 
   // TODO(zijiehe):
@@ -2197,8 +2204,6 @@ void HostProcess::StartHost() {
                           base::Unretained(this)),
       &local_session_policies_provider_);
 
-  host_->AddExtension(std::make_unique<TestEchoExtension>());
-
 #if BUILDFLAG(IS_LINUX)
   const base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   if (cmd_line->HasSwitch(kEnableWtmpdb)) {
@@ -2446,21 +2451,6 @@ int HostProcessMain(bool multi_process) {
     return kInitializationFailed;
   }
 
-#if BUILDFLAG(IS_LINUX)
-  // Log and cleanup the crash database. We do this after a short delay so that
-  // the crash database has a chance to be updated properly if we just got
-  // relaunched after a crash.
-  // TODO(garykac): When Crashpad is enabled for the network process on Windows
-  // we will need to enable this code on Windows as well.
-  if (IsUsageStatsAllowed()) {
-    scoped_refptr<base::SequencedTaskRunner> task_runner_crashdb =
-        base::ThreadPool::CreateSequencedTaskRunner(
-            {base::MayBlock(), base::TaskPriority::BEST_EFFORT});
-    task_runner_crashdb->PostDelayedTask(
-        FROM_HERE, base::BindOnce(&LogAndCleanupCrashDatabase),
-        base::Seconds(3));
-  }
-#endif  // defined(REMOTING_ENABLE_CRASH_REPORTING)
 
   // NetworkChangeNotifier must be initialized after SingleThreadTaskExecutor.
   std::unique_ptr<net::NetworkChangeNotifier> network_change_notifier(

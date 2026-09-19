@@ -170,7 +170,7 @@ def _EnumerateReports():
       if apk == 'TrichromeGoogle':
         versions = [v for v in versions if _VersionMajor(v) >= 126]
       elif apk in ('AndroidWebview.apk', 'Chrome.apk'):
-        versions = [v for v in versions if _VersionMajor(v) >= 150]
+        versions = [v for v in versions if _VersionMajor(v) >= 151]
       else:
         continue
     if apk == 'Chrome.apk':
@@ -186,7 +186,7 @@ def _EnumerateReports():
     # Switched to high-end only.
     if cpu == 'arm_64':
       versions = [v for v in versions if _VersionMajor(v) < 127]
-    elif cpu == 'high-arm_64':
+    elif cpu == 'high-arm_64' and apk == 'TrichromeGoogle':
       # crbug.com/531774881
       versions = [v for v in versions if _VersionMajor(v) < 149]
 
@@ -203,10 +203,7 @@ class Report(collections.namedtuple('Report', 'cpu,apk,version')):
       and _VersionMajor(self.version) < 91
     ):
       template = '{version}/{cpu}/for-signing-only/{apk}.size'
-    elif self.cpu == 'high-arm_64' and self.apk in (
-      'AndroidWebview.apk',
-      'TrichromeGoogle',
-    ):
+    elif self.cpu == 'high-arm_64' and self.apk == 'TrichromeGoogle':
       template = '{version}/{cpu}/{apk}6432.size'
     else:
       template = '{version}/{cpu}/{apk}.size'
@@ -258,18 +255,17 @@ def _DownloadSizeFiles(base_url, reports):
     shutil.rmtree(temp_dir)
 
 
-def _WriteMilestonesJson(path):
-  with open(path, 'w') as out_file:
-    # TODO(agrieve): Record the full list of reports rather than three arrays
-    #    so that the UI can prevent selecting non-existent entries.
-    pushed_reports_obj = {
-      'pushed': {
-        'apk': _DESIRED_APKS,
-        'cpu': _DESIRED_CPUS,
-        'version': _DESIRED_VERSIONS,
-      },
-    }
-    json.dump(pushed_reports_obj, out_file, sort_keys=True, indent=2)
+def _WriteMilestonesJson(path, reports):
+  with open(path, 'w', encoding='utf-8', newline='') as out_file:
+    pushed = [
+      {
+        'cpu': r.cpu,
+        'version': r.version,
+        'apk': r.apk,
+      }
+      for r in sorted(reports)
+    ]
+    json.dump({'pushed': pushed}, out_file, indent=2)
 
 
 def _BuildOneReport(report, output_directory, size_file_directory):
@@ -321,11 +317,13 @@ def main():
     for r in reports_to_make:
       _BuildOneReport(r, staging_dir, sizes_dir)
 
-    _WriteMilestonesJson(os.path.join(staging_dir, 'milestones.json'))
+    _WriteMilestonesJson(
+      os.path.join(staging_dir, 'milestones.json'), reports_to_make
+    )
 
     if args.sync:
       subprocess.check_call(
-        [_GSUTIL, '-m', 'rsync', '-r', staging_dir, _PUSH_URL]
+        [_GSUTIL, '-m', 'rsync', '-c', '-r', staging_dir, _PUSH_URL]
       )
       milestones_json = _PUSH_URL + 'milestones.json'
       # The main index.html page has no authentication code, so make .json file

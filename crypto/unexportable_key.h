@@ -127,7 +127,8 @@ struct CRYPTO_EXPORT AttestationStatement {
     // TODO(crbug.com/406190025): Make this generic once we use the
     // crypto::sign algorithms.
     // `signature` is the signature over `statement` signed using the Secure
-    // Enclave attestation key.
+    // Enclave attestation key in raw IEEE P1363 format (concatenation of
+    // big-endian `r` and `s`, 64 bytes for P-256).
     kSecureEnclave,
   };
   Format format = kTpm;
@@ -204,8 +205,10 @@ class CRYPTO_EXPORT UnexportableKeyProvider {
   // to |GenerateSigningKeySlowly|.
   //
   // Note: on Windows, calling this function may trigger a synchronous load of
-  // `ncrypt.dll`. Therefore, to avoid blocking the UI thread (and potentially
-  // causing hangs), this function should be called on a background thread.
+  // `ncrypt.dll`. This loading happens only once per process lifetime.
+  // Therefore, it is acceptable to call this function on the UI thread after it
+  // has been invoked at least once (e.g., during initialization on a background
+  // thread) to avoid blocking the UI thread and causing potential hangs.
   virtual std::optional<SignatureVerifier::SignatureAlgorithm> SelectAlgorithm(
       base::span<const SignatureVerifier::SignatureAlgorithm>
           acceptable_algorithms) = 0;

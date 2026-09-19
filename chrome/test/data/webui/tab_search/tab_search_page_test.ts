@@ -7,7 +7,7 @@ import 'chrome://tab-search.top-chrome/tab_search.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {MetricsReporterImpl} from 'chrome://resources/js/metrics_reporter/metrics_reporter.js';
 import type {ProfileData, RecentlyClosedTab, Tab, TabSearchItemElement, TabSearchPageElement} from 'chrome://tab-search.top-chrome/tab_search.js';
-import {SEARCH_QUERY_MAX_LENGTH, SplitTabLayout, SplitViewData, TabGroupColor, TabSearchApiProxyImpl, TabSearchUserAction} from 'chrome://tab-search.top-chrome/tab_search.js';
+import {SEARCH_QUERY_MAX_LENGTH, SearchApiProxyImpl, SplitTabLayout, SplitViewData, TabGroupColor, TabSearchApiProxyImpl, TabSearchUserAction} from 'chrome://tab-search.top-chrome/tab_search.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertGT, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {keyDownOn} from 'chrome://webui-test/keyboard_mock_interactions.js';
 import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
@@ -16,6 +16,7 @@ import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.
 
 import {createProfileData, createTab, generateSampleDataFromSiteNames, generateSampleRecentlyClosedTabs, generateSampleRecentlyClosedTabsFromSiteNames, generateSampleTabsFromSiteNames, SAMPLE_RECENTLY_CLOSED_DATA, SAMPLE_WINDOW_HEIGHT, sampleToken} from './tab_search_test_data.js';
 import {initLoadTimeDataWithDefaults} from './tab_search_test_helper.js';
+import {TestSearchApiProxy} from './test_search_api_proxy.js';
 import {TestTabSearchApiProxy} from './test_tab_search_api_proxy.js';
 
 suite('TabSearchAppTest', () => {
@@ -60,6 +61,7 @@ suite('TabSearchAppTest', () => {
     testProxy = new TestTabSearchApiProxy();
     testProxy.setProfileData(sampleData);
     TabSearchApiProxyImpl.setInstance(testProxy);
+    SearchApiProxyImpl.setInstance(new TestSearchApiProxy());
 
     tabSearchPage = document.createElement('tab-search-page');
     tabSearchPage.availableHeight = 500;
@@ -937,18 +939,14 @@ suite('TabSearchAppTest', () => {
       }),
     ];
 
-    await setupTest(
-        createProfileData({
-          windows: [{
-            active: true,
-            isHostWindow: true,
-            height: SAMPLE_WINDOW_HEIGHT,
-            tabs,
-          }],
-        }),
-        {
-          splitViewTabRestoreEnabled: true,
-        });
+    await setupTest(createProfileData({
+      windows: [{
+        active: true,
+        isHostWindow: true,
+        height: SAMPLE_WINDOW_HEIGHT,
+        tabs,
+      }],
+    }));
 
     assertEquals(2, queryRows().length);
 
@@ -972,23 +970,19 @@ suite('TabSearchAppTest', () => {
 
   test('process recently closed split view into a single row', async () => {
     const token = sampleToken(2n, 2n);
-    await setupTest(
-        createProfileData({
-          recentlyClosedSplitViews: [{
-            sessionId: 200,
-            id: token,
-            tabCount: 2,
-            lastActiveTime: {internalValue: 0n},
-            lastActiveElapsedText: '3 mins ago',
-            tabUrls: ['https://google.com', 'https://paypal.com'],
-            layout: SplitTabLayout.kSideBySide,
-            groupId: null,
-          }],
-          recentlyClosedSectionExpanded: true,
-        }),
-        {
-          splitViewTabRestoreEnabled: true,
-        });
+    await setupTest(createProfileData({
+      recentlyClosedSplitViews: [{
+        sessionId: 200,
+        id: token,
+        tabCount: 2,
+        lastActiveTime: {internalValue: 0n},
+        lastActiveElapsedText: '3 mins ago',
+        tabUrls: ['https://google.com', 'https://paypal.com'],
+        layout: SplitTabLayout.kSideBySide,
+        groupId: null,
+      }],
+      recentlyClosedSectionExpanded: true,
+    }));
 
     await tabSearchPage.$.tabsList.ensureAllDomItemsAvailable();
 
@@ -1040,19 +1034,15 @@ suite('TabSearchAppTest', () => {
       title: 'Work Group',
     }];
 
-    await setupTest(
-        createProfileData({
-          windows: [{
-            active: true,
-            isHostWindow: true,
-            height: SAMPLE_WINDOW_HEIGHT,
-            tabs,
-          }],
-          tabGroups,
-        }),
-        {
-          splitViewTabRestoreEnabled: true,
-        });
+    await setupTest(createProfileData({
+      windows: [{
+        active: true,
+        isHostWindow: true,
+        height: SAMPLE_WINDOW_HEIGHT,
+        tabs,
+      }],
+      tabGroups,
+    }));
 
     assertEquals(1, queryRows().length);
 
@@ -1117,18 +1107,14 @@ suite('TabSearchAppTest', () => {
       }),
     ];
 
-    await setupTest(
-        createProfileData({
-          windows: [{
-            active: true,
-            isHostWindow: true,
-            height: SAMPLE_WINDOW_HEIGHT,
-            tabs,
-          }],
-        }),
-        {
-          splitViewTabRestoreEnabled: true,
-        });
+    await setupTest(createProfileData({
+      windows: [{
+        active: true,
+        isHostWindow: true,
+        height: SAMPLE_WINDOW_HEIGHT,
+        tabs,
+      }],
+    }));
 
     assertEquals(1, queryRows().length);
 
@@ -1162,18 +1148,14 @@ suite('TabSearchAppTest', () => {
       }),
     ];
 
-    await setupTest(
-        createProfileData({
-          windows: [{
-            active: true,
-            isHostWindow: true,
-            height: SAMPLE_WINDOW_HEIGHT,
-            tabs,
-          }],
-        }),
-        {
-          splitViewTabRestoreEnabled: true,
-        });
+    await setupTest(createProfileData({
+      windows: [{
+        active: true,
+        isHostWindow: true,
+        height: SAMPLE_WINDOW_HEIGHT,
+        tabs,
+      }],
+    }));
 
     await tabSearchPage.$.tabsList.ensureAllDomItemsAvailable();
 

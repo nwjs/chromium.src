@@ -184,6 +184,13 @@ export interface MetricsBrowserProxy {
   recordExtensionState(): void;
   recordCount(umaName: string, count: number): void;
   recordBoolean(umaName: string, value: boolean): void;
+  updateWordsSeen(wordsSeen: number): void;
+  updateWordsHeard(wordsHeard: number): void;
+  startLineFocusSession(): void;
+  incrementLineFocusKeyboardLines(): void;
+  incrementLineFocusSpeechLines(): void;
+  addLineFocusScrollDistance(distance: number): void;
+  addLineFocusMouseDistance(distance: number): void;
 }
 
 export class MetricsBrowserProxyImpl implements MetricsBrowserProxy {
@@ -197,6 +204,26 @@ export class MetricsBrowserProxyImpl implements MetricsBrowserProxy {
 
   recordLineFocusSession() {
     chrome.readingMode.logLineFocusSession();
+  }
+
+  startLineFocusSession(): void {
+    chrome.readingMode.startLineFocusSession();
+  }
+
+  incrementLineFocusKeyboardLines(): void {
+    chrome.readingMode.incrementLineFocusKeyboardLines();
+  }
+
+  incrementLineFocusSpeechLines(): void {
+    chrome.readingMode.incrementLineFocusSpeechLines();
+  }
+
+  addLineFocusScrollDistance(distance: number): void {
+    chrome.readingMode.addLineFocusScrollDistance(distance);
+  }
+
+  addLineFocusMouseDistance(distance: number): void {
+    chrome.readingMode.addLineFocusMouseDistance(distance);
   }
 
   recordLineFocusToggled(enabled: boolean): void {
@@ -288,6 +315,14 @@ export class MetricsBrowserProxyImpl implements MetricsBrowserProxy {
 
   recordBoolean(umaName: string, value: boolean) {
     chrome.metricsPrivate.recordBoolean(umaName, value);
+  }
+
+  updateWordsSeen(wordsSeen: number): void {
+    chrome.readingMode.updateWordsSeen(wordsSeen);
+  }
+
+  updateWordsHeard(wordsHeard: number): void {
+    chrome.readingMode.updateWordsHeard(wordsHeard);
   }
 
   static getInstance(): MetricsBrowserProxy {

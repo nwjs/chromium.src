@@ -149,6 +149,11 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(
       kFacilitatedPaymentsEwallet, /*default_value=*/true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  // The eWallet account linking pref is a profile pref but not synced across
+  // devices since users may prefer to have a different value for it on
+  // different devices.
+  registry->RegisterBooleanPref(kFacilitatedPaymentsEwalletAccountLinking,
+                                /*default_value=*/true);
   registry->RegisterBooleanPref(
       kFacilitatedPaymentsPix, /*default_value=*/true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
@@ -191,6 +196,10 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterIntegerPref(kAutofillSilentUpdatesToWorkAddress, 0);
   registry->RegisterIntegerPref(
       kAutofillAutocompleteLabelSensitiveMigrationGeneration, 0);
+
+  registry->RegisterBooleanPref(
+      kAutofillWalletReminderNoticeShown, false,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
 
   // Deprecated prefs registered for migration.
   registry->RegisterBooleanPref(kAutofillEnabledDeprecated, true);
@@ -259,10 +268,6 @@ bool IsAutofillProfileManaged(const PrefService* prefs) {
 
 bool IsAutofillCreditCardManaged(const PrefService* prefs) {
   return prefs->IsManagedPreference(kAutofillCreditCardEnabled);
-}
-
-bool IsAutofillTypesBlockedManaged(const PrefService* prefs) {
-  return prefs->IsManagedPreference(kAutofillTypesBlocked);
 }
 
 bool IsAutofillProfileEnabled(const PrefService* prefs) {
@@ -523,6 +528,22 @@ bool IsFacilitatedPaymentsEwalletEnabled(const PrefService* prefs) {
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 
+void SetFacilitatedPaymentsEwalletAccountLinking(PrefService* prefs,
+                                                 bool value) {
+#if BUILDFLAG(IS_ANDROID)
+  prefs->SetBoolean(kFacilitatedPaymentsEwalletAccountLinking, value);
+#endif  // BUILDFLAG(IS_ANDROID)
+}
+
+bool IsFacilitatedPaymentsEwalletAccountLinkingEnabled(
+    const PrefService* prefs) {
+#if BUILDFLAG(IS_ANDROID)
+  return prefs->GetBoolean(kFacilitatedPaymentsEwalletAccountLinking);
+#else
+  return false;
+#endif  // BUILDFLAG(IS_ANDROID)
+}
+
 void SetFacilitatedPaymentsPix(PrefService* prefs, bool value) {
 #if BUILDFLAG(IS_ANDROID)
   prefs->SetBoolean(kFacilitatedPaymentsPix, value);
@@ -599,4 +620,15 @@ bool AmountExtractionAiTermsSeen(const PrefService* prefs) {
              features::kAutofillEnableAiBasedAmountExtraction) &&
          prefs->GetBoolean(kAutofillAmountExtractionAiTermsSeen);
 }
+
+void SetHasShownWalletReminderNotice(PrefService* prefs) {
+  if (prefs) {
+    prefs->SetBoolean(kAutofillWalletReminderNoticeShown, true);
+  }
+}
+
+bool HasShownWalletReminderNotice(const PrefService* prefs) {
+  return prefs && prefs->GetBoolean(kAutofillWalletReminderNoticeShown);
+}
+
 }  // namespace autofill::prefs

@@ -19,11 +19,14 @@
 #include "base/sampling_heap_profiler/poisson_allocation_sampler.h"
 #include "base/synchronization/lock.h"
 #include "base/thread_annotations.h"
+#include "base/threading/platform_thread.h"
 #include "base/threading/thread_id_name_manager.h"
 #include "base/types/id_type.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 
 namespace base {
+
+class SamplingHeapChurnProfiler;
 
 // The class implements sampling profiling of native memory heap.
 // It uses PoissonAllocationSampler to aggregate the heap allocations and
@@ -52,6 +55,8 @@ class BASE_EXPORT SamplingHeapProfiler
     const char* context = nullptr;
     // Name of the thread that made the sampled allocation.
     const char* thread_name = nullptr;
+    // Thread ID that made the sampled allocation.
+    PlatformThreadId tid = kInvalidThreadId;
     // Call stack of PC addresses responsible for the allocation.
     // RAW_PTR_EXCLUSION: executable addresses are never in PA partitions
     RAW_PTR_EXCLUSION std::vector<const void*> stack;
@@ -108,6 +113,8 @@ class BASE_EXPORT SamplingHeapProfiler
   // Returns a subspan of `frames` holding the captured frames. The top-most
   // frame is at the front of the returned span.
   span<const void*> CaptureStackTrace(span<const void*> frames);
+
+  SamplingHeapChurnProfiler& churn_profiler() { return *churn_profiler_; }
 
   static void Init();
   static SamplingHeapProfiler* Get();
@@ -176,6 +183,8 @@ class BASE_EXPORT SamplingHeapProfiler
 
   // Which unwinder to use.
   std::atomic<StackUnwinder> unwinder_{StackUnwinder::kDefault};
+
+  std::unique_ptr<SamplingHeapChurnProfiler> churn_profiler_;
 
   friend class NoDestructor<SamplingHeapProfiler>;
   friend class SamplingHeapProfilerTest;

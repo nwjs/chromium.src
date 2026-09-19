@@ -87,6 +87,10 @@ class ComposeboxQueryController
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/lens/histograms.xml:ComposeboxImageUploadType)
 
+  using GetAuthHeadersCallback = base::RepeatingCallback<void(
+      std::optional<size_t>,
+      base::OnceCallback<void(std::vector<std::string>)>)>;
+
   ComposeboxQueryController(
       signin::IdentityManager* identity_manager,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
@@ -96,7 +100,8 @@ class ComposeboxQueryController
       variations::VariationsClient* variations_client,
       std::unique_ptr<
           contextual_search::ContextualSearchContextController::ConfigParams>
-          config_params);
+          config_params,
+      GetAuthHeadersCallback get_auth_headers_callback);
   ~ComposeboxQueryController() override;
 
   // ContextualSearchContextController:
@@ -146,12 +151,19 @@ class ComposeboxQueryController
 
   static bool HasC2paMetadata(base::span<const uint8_t> bytes);
 
+  // Checks if the MIME type matches a supported C2PA MIME type (JPEG, PNG,
+  // WebP, HEIC, HEIF).
+  static bool IsSupportedC2paMimeType(
+      std::optional<std::string_view> mime_type);
+
   // Computes whether the image qualifies for C2PA bypass based on feature
-  // flags, dimensions, and metadata. Returns an ImageData proto if successful.
+  // flags, MIME type, dimensions, and metadata. Returns an ImageData proto if
+  // successful.
   static std::optional<lens::ImageData> MaybeCreateC2paBypassImageData(
       base::span<const uint8_t> original_image_bytes,
       int width,
-      int height);
+      int height,
+      std::optional<std::string_view> mime_type_string = std::nullopt);
 
   uint16_t get_num_context_uploading() {
     return static_cast<uint16_t>(pending_context_uploads_.size());
@@ -304,6 +316,7 @@ class ComposeboxQueryController
       std::optional<std::string> page_title,
       std::optional<std::string> file_name,
       UploadImageType image_type,
+      std::optional<std::string> mime_type_string,
       RequestBodyProtoCreatedCallback callback);
 
   // Returns the EndpointFetcher to use with the given params. Protected to
@@ -440,7 +453,8 @@ class ComposeboxQueryController
   using OAuthHeadersCreatedCallback =
       base::OnceCallback<void(std::vector<std::string>)>;
   std::unique_ptr<signin::PrimaryAccountAccessTokenFetcher>
-  CreateOAuthHeadersAndContinue(OAuthHeadersCreatedCallback callback);
+  CreateAuthHeadersAndContinue(std::optional<size_t> auth_user_index,
+                               OAuthHeadersCreatedCallback callback);
 
   // Gets an OAuth token for the cluster info request and proceeds with sending
   // a LensOverlayServerClusterInfoRequest to get the cluster info.
@@ -480,6 +494,7 @@ class ComposeboxQueryController
       std::optional<std::string> page_title,
       std::optional<std::string> file_name,
       UploadImageType image_type,
+      std::optional<std::string> mime_type_string,
       scoped_refptr<base::RefCountedData<std::vector<uint8_t>>>
           original_image_data,
       const SkBitmap& bitmap);
@@ -680,6 +695,8 @@ class ComposeboxQueryController
 
   // Owned by the Profile, and thus guaranteed to outlive this instance.
   const raw_ptr<TemplateURLService> template_url_service_;
+
+  GetAuthHeadersCallback get_auth_headers_callback_;
 
   // Owned by the Profile, and thus guaranteed to outlive this instance.
   const raw_ptr<variations::VariationsClient> variations_client_;

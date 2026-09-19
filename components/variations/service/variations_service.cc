@@ -47,6 +47,7 @@
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
+#include "components/variations/experiment_group_ids.h"
 #include "components/variations/field_trial_internals_utils.h"
 #include "components/variations/pref_names.h"
 #include "components/variations/proto/study.pb.h"
@@ -443,7 +444,9 @@ VariationsService::VariationsService(
           std::make_unique<VariationsSeedStore>(
               local_state,
               MaybeImportFirstRunSeed(client_.get(), local_state),
-              /*signature_verification_enabled=*/true,
+              /*signature_verification_enabled_on_load=*/
+              client_->EnableSignatureVerificationOnLoad(),
+              /*signature_verification_enabled_on_receive=*/true,
               std::make_unique<VariationsSafeSeedStore>(
                   local_state,
                   client_.get()->GetVariationsSeedFileDir(),
@@ -1197,7 +1200,7 @@ ApplyRuntimeMutableChangesResult VariationsService::ApplyRuntimeMutableChanges(
   // TODO(crbug.com/482450020): Support runtime mutability for Google web
   // studies. For now, disallow applying a runtime experiment if it has a
   // Google web experiment ID.
-  if (VariationsSeedProcessor::HasGoogleWebExperimentId(experiment)) {
+  if (HasGoogleWebExperimentId(experiment)) {
     return kRuntimeExperimentHasGoogleWebId;
   }
 
@@ -1385,15 +1388,21 @@ ApplyRuntimeMutableChangesResult VariationsService::ApplyRuntimeMutableChanges(
   for (const auto& feature_name : feature_names) {
     DVLOG(1) << "VariationsService: Applying runtime override to disable "
              << "feature: " << feature_name;
-    bool result = feature_list->UpdateRuntimeMutableFeatureState(
+    auto update = feature_list->PrepareRuntimeMutableFeatureStateUpdate(
         base::PassKey<VariationsService>(), study.name(), group_name,
         feature_name, base::FeatureList::OVERRIDE_DISABLE_FEATURE);
-    DCHECK(result);
-    if (!result) {
+    DCHECK(update.has_value());
+    if (!update.has_value()) {
       // This should never happen, but if it does, we're in a bad state
       // where only a subset features may have been runtime overridden.
       return kUpdateFeatureStateFailed;
     }
+    // TODO(crbug.com/536852124): Rather than calling these callbacks here,
+    // put `update` into a container, so that all pre-mutation callbacks can
+    // be called, then all mutation callbacks, then all postmutation callbacks.
+    update->RunPreMutationCallback();
+    update->UpdateState();
+    update->RunPostMutationCallback();
   }
   // TODO(crbug.com/482450632): Clean up overridden trial's variation IDs, and
   // register any new ones from the new trial.

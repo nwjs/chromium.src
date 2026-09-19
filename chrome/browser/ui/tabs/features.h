@@ -21,26 +21,15 @@ BASE_DECLARE_FEATURE(kSessionRestoreShowThrobberOnVisible);
 
 // Allows split tabs to be arranged top/bottom.
 BASE_DECLARE_FEATURE(kSplitViewHorizontal);
-// When enabled, creating a new split tab through the context menu will open a
-// submenu to select the split's orientation.
+// When enabled, creating a new split tab through the tab and link context menus
+// will open a submenu to select the split's orientation.
 BASE_DECLARE_FEATURE_PARAM(bool, kSplitViewHorizontalDirectAccess);
-
-// Whether or not a split view should restore together.
-BASE_DECLARE_FEATURE(kSplitViewTabRestore);
+// When enabled, creating a new split tab through the tab context menu will open
+// a submenu to select the split's orientation.
+BASE_DECLARE_FEATURE_PARAM(bool, kSplitViewHorizontalDirectTabAccess);
 
 // Enables CJK word boundary detection in Tab Search.
 BASE_DECLARE_FEATURE(kTabSearchCjkWordBoundary);
-
-// This feature will be used for the LE rollout of Vertical Tabs. It will have
-// an earlier min version than kVerticalTabsLaunch.
-BASE_DECLARE_FEATURE(kVerticalTabs);
-
-// This will be used for the full launch of Vertical Tabs with an updated min
-// version.
-BASE_DECLARE_FEATURE(kVerticalTabsLaunch);
-BASE_DECLARE_FEATURE_PARAM(bool, kVerticalTabsToggleInTabContextMenu);
-
-BASE_DECLARE_FEATURE(kVerticalTabsPreviewBadge);
 
 BASE_DECLARE_FEATURE(kVerticalTabsNewBadge);
 
@@ -92,15 +81,17 @@ BASE_DECLARE_FEATURE(kBackToOpener);
 
 BASE_DECLARE_FEATURE(kTabStripUnification);
 
-BASE_DECLARE_FEATURE(kMigrateEverythingMenuPinnedToTabstrip);
+BASE_DECLARE_FEATURE(kNewHorizontalPinnedTabStyling);
 
 bool IsSplitViewHorizontalIndirectAccessEnabled();
 
-bool IsVerticalTabsFeatureEnabled();
+bool IsSplitViewHorizontalDirectAccessEnabledForTab();
 
 bool IsVerticalTabsExpandOnHoverFeatureEnabled();
 
 bool IsExpandOnHoverClickDelayEnabled();
+
+bool IsNewHorizontalPinnedTabStylingEnabled();
 
 }  // namespace tabs
 

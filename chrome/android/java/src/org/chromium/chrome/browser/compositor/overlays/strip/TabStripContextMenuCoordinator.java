@@ -18,15 +18,11 @@ import android.view.View;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ContextUtils;
-import org.chromium.base.version_info.VersionInfo;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.bookmarks.BookmarkAllTabsHandler;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabContextMenuCoordinator.TabStripLayoutType;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabStripMenuMetricsUtils.StripMenuAction;
-import org.chromium.chrome.browser.feedback.FeedbackPolicyManager;
-import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherFactory;
-import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.glic.GlicHelper;
 import org.chromium.chrome.browser.glic.GlicUtils;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
@@ -66,7 +62,6 @@ import java.util.function.BooleanSupplier;
  */
 @NullMarked
 public class TabStripContextMenuCoordinator {
-    @VisibleForTesting static final String FEEDBACK_CATEGORY_SUFFIX = ".tabstrip";
 
     private final Context mContext;
     private final TabModel mTabModel;
@@ -213,27 +208,27 @@ public class TabStripContextMenuCoordinator {
         // Add "Reopen closed tab/tabs/group" option.
         @RecentlyClosedEntryType
         int recentlyClosedEntryType = mTabModel.getMostRecentlyClosedEntryType();
-        if (recentlyClosedEntryType != RecentlyClosedEntryType.NONE) {
-            int titleRes = R.string.menu_reopen_closed_tab;
-            if (recentlyClosedEntryType == RecentlyClosedEntryType.TABS) {
-                titleRes = R.string.menu_reopen_closed_tabs;
-            } else if (recentlyClosedEntryType == RecentlyClosedEntryType.GROUP) {
-                titleRes = R.string.menu_reopen_closed_group;
-            }
-            itemList.add(
-                    new ListItemBuilder()
-                            .withTitleRes(titleRes)
-                            .withMenuId(R.id.reopen_closed_entry)
-                            .withIsIncognito(false)
-                            .build());
+        int titleRes = R.string.menu_reopen_closed_tab;
+        if (recentlyClosedEntryType == RecentlyClosedEntryType.TABS) {
+            titleRes = R.string.menu_reopen_closed_tabs;
+        } else if (recentlyClosedEntryType == RecentlyClosedEntryType.GROUP) {
+            titleRes = R.string.menu_reopen_closed_group;
         }
+        itemList.add(
+                new ListItemBuilder()
+                        .withTitleRes(titleRes)
+                        .withMenuId(R.id.reopen_closed_entry)
+                        .withIsIncognito(false)
+                        .withEnabled(recentlyClosedEntryType != RecentlyClosedEntryType.NONE)
+                        .build());
         // Add "Bookmark all tabs" option.
-        if (!isIncognito && mTabModel.getCount() > 1) {
+        if (!isIncognito) {
             itemList.add(
                     new ListItemBuilder()
                             .withTitleRes(R.string.menu_bookmark_all_tabs)
                             .withMenuId(R.id.bookmark_all_tabs)
                             .withIsIncognito(false)
+                            .withEnabled(mTabModel.getCount() > 1)
                             .build());
         }
         // Add "Name window" option.
@@ -249,7 +244,7 @@ public class TabStripContextMenuCoordinator {
         Profile profile = mTabModel.getProfile();
         if (profile != null) {
             profile = profile.getOriginalProfile();
-            if (GlicEnabling.isEnabledForProfile(profile)) {
+            if (GlicUtils.isTabStripGlicSupported(profile)) {
                 itemList.add(BasicListMenu.buildMenuDivider(isIncognito));
 
                 boolean isPinned = GlicUtils.isButtonPinnedToTabStrip(profile);
@@ -298,17 +293,8 @@ public class TabStripContextMenuCoordinator {
                             .withEnabled(enabled)
                             .build();
             itemList.add(item);
-
-            // Add "Send feedback" option
-            if (FeedbackPolicyManager.getInstance().isUserFeedbackAllowed()) {
-                itemList.add(
-                        new ListItemBuilder()
-                                .withTitleRes(R.string.send_feedback_about_tab_strip)
-                                .withMenuId(R.id.send_feedback_about_tab_strip_menu_id)
-                                .withIsIncognito(isIncognito)
-                                .build());
-            }
         }
+
         // Add "Task Manager" option with divider.
         if (TaskManager.isEnabled()) {
             itemList.add(BasicListMenu.buildMenuDivider(isIncognito));
@@ -354,7 +340,9 @@ public class TabStripContextMenuCoordinator {
                         StripMenuAction.TOGGLE_TAB_LAYOUT, mTabStripLayout);
                 boolean isEnablingVerticalTabs = mTabStripLayout == TabStripLayoutType.HORIZONTAL;
                 VerticalTabUtils.recordLayoutToggle(
-                        LayoutSwitchEntryPoint.TAB_STRIP_CONTEXT_MENU, isEnablingVerticalTabs);
+                        mContext,
+                        LayoutSwitchEntryPoint.TAB_STRIP_CONTEXT_MENU,
+                        isEnablingVerticalTabs);
                 if (mContext instanceof MenuOrKeyboardActionController controller) {
                     controller.onMenuOrKeyboardAction(
                             R.id.toggle_tab_layout_menu_id, /* fromMenu= */ false);
@@ -377,40 +365,9 @@ public class TabStripContextMenuCoordinator {
                         StripMenuAction.TASK_MANAGER, mTabStripLayout);
                 TaskManager taskManager = TaskManagerFactory.createTaskManager();
                 taskManager.launch(ContextUtils.getApplicationContext());
-            } else if (model.get(MENU_ITEM_ID) == R.id.send_feedback_about_tab_strip_menu_id) {
-                TabStripMenuMetricsUtils.recordStripMenuUserAction(
-                        StripMenuAction.SEND_FEEDBACK, mTabStripLayout);
-                Activity activity = mWindowAndroid.getActivity().get();
-                if (activity != null && profile != null) {
-                    String categoryTag = getFeedbackCategoryTag();
-                    HelpAndFeedbackLauncherFactory.getForProfile(profile)
-                            .showFeedback(activity, /* url= */ null, categoryTag);
-                }
             }
             assumeNonNull(mMenuWindow).dismiss();
         };
-    }
-
-    /**
-     * Returns the appropriate feedback category tag to send with the feedback request. A Listnr
-     * allowlisted category tag is required when sending feedback otherwise Listnr will drop the
-     * request silently.
-     */
-    @VisibleForTesting
-    @Nullable String getFeedbackCategoryTag() {
-        String prefix;
-        if (VersionInfo.isCanaryBuild()) {
-            prefix = "com.chrome.canary";
-        } else if (VersionInfo.isDevBuild()) {
-            prefix = "com.chrome.dev";
-        } else if (VersionInfo.isBetaBuild()) {
-            prefix = "com.chrome.beta";
-        } else if (VersionInfo.isStableBuild()) {
-            prefix = "com.android.chrome";
-        } else {
-            return null;
-        }
-        return prefix + FEEDBACK_CATEGORY_SUFFIX;
     }
 
     /**

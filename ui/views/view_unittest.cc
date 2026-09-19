@@ -43,11 +43,12 @@
 #include "ui/base/metadata/metadata_types.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/compositor_switches.h"
-#include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animation_element.h"
 #include "ui/compositor/layer_animation_observer.h"
 #include "ui/compositor/layer_animation_sequence.h"
 #include "ui/compositor/layer_animator.h"
+#include "ui/compositor/layer_not_drawn.h"
+#include "ui/compositor/layer_textured.h"
 #include "ui/compositor/paint_context.h"
 #include "ui/compositor/test/draw_waiter_for_test.h"
 #include "ui/compositor/test/test_layers.h"
@@ -6348,6 +6349,27 @@ TEST_F(ViewLayerTest, RemoveLayerFromRegionsWhenNoViewLayer) {
   view->RemoveLayerFromRegions(layer.get());
 }
 
+TEST_F(ViewLayerTest, ReorderChildLayersWithUnparentedRegionLayer) {
+  View root;
+  root.SetPaintToLayer();
+
+  View* v1 = root.AddChildView(std::make_unique<View>());
+  View* v2 = root.AddChildView(std::make_unique<View>());
+  v1->SetPaintToLayer();
+  v2->SetPaintToLayer();
+
+  auto layer = std::make_unique<ui::LayerTextured>();
+  v2->AddLayerToRegion(layer.get(), LayerRegion::kBelow);
+
+  // Detach the region layer from the root layer tree while keeping it in v2's
+  // regions. Reordering views triggers layer reordering and should safely
+  // ignore unparented region layers rather than attempting to stack them
+  // relative to the root layer.
+  root.layer()->Remove(layer.get());
+
+  root.ReorderChildView(v1, 1);
+}
+
 // View::OrphanLayers() captures a bare ui::Layer* `parent` local and loops
 // over GetLayersInOrder() calling parent->Remove(layer) on each iteration.
 // Layer::Remove() synchronously calls StopAnimatingProperty(BOUNDS), which
@@ -7882,6 +7904,22 @@ TEST_F(ViewTest, GetViewByElementId) {
   EXPECT_EQ(child2, const_root->GetViewByElementId(kUniqueElementId2));
   EXPECT_EQ(nullptr, const_root->GetViewByElementId(kUnusedElementId));
   EXPECT_EQ(child1, const_root->GetViewByElementId(kDuplicateElementId));
+}
+
+// Verifies that PillBackground dynamically computes corner radii to render
+// pill/capsule shapes without crashing.
+TEST_F(ViewTest, PillBackground) {
+  auto view = std::make_unique<View>();
+  view->SetSize(gfx::Size(100, 30));
+  view->SetBackground(CreatePillBackground(SK_ColorBLUE));
+  EXPECT_NE(nullptr, view->GetBackground());
+
+  gfx::Canvas canvas(gfx::Size(100, 30), 1.0f, /*is_opaque=*/false);
+  EXPECT_NO_FATAL_FAILURE(view->GetBackground()->Paint(&canvas, view.get()));
+
+  // Test with logical theme ColorId.
+  view->SetBackground(CreatePillBackground(ui::kColorSysBaseContainerElevated));
+  EXPECT_NE(nullptr, view->GetBackground());
 }
 
 }  // namespace views

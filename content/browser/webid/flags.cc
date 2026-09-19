@@ -83,6 +83,10 @@ bool IsNavigationInterceptionEnabled() {
   return base::FeatureList::IsEnabled(features::kFedCmNavigationInterception);
 }
 
+bool IsFedCmIdentityHandlerEnabled() {
+  return base::FeatureList::IsEnabled(features::kFedCmIdentityHandler);
+}
+
 bool IsEmbedderInitiatedLoginEnabled() {
   return base::FeatureList::IsEnabled(features::kFedCmEmbedderInitiatedLogin);
 }
@@ -93,6 +97,11 @@ bool IsFedCmAmbientUIEnabled() {
 
 bool IsFedCmNativeIdPsEnabled() {
   return base::FeatureList::IsEnabled(features::kFedCmNativeIdPs);
+}
+
+bool IsActiveModeMultipleIdentityProvidersEnabled() {
+  return base::FeatureList::IsEnabled(
+      features::kFedCmActiveModeMultipleIdentityProviders);
 }
 
 }  // namespace content::webid

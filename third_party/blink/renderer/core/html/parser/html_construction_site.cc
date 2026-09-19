@@ -228,6 +228,7 @@ static inline void Insert(HTMLConstructionSiteTask& task) {
       patch->Apply(task);
     } else {
       task.parent = template_element->InsertionTarget();
+      task.next_child = nullptr;
     }
     // If the Document was detached in the middle of parsing, The template
     // element won't be able to initialize its contents, so bail out.
@@ -287,8 +288,29 @@ static inline void ExecuteInsertTextTask(HTMLConstructionSiteTask& task) {
   Insert(task);
 }
 
+// See https://github.com/whatwg/html/pull/12709
+// Direct children of the Document or disconnected nodes cannot be removed.
+// This state can change during parser operations, e.g. by iframe pagehide
+// events. Returns true if the child was removed.
+static inline bool RemoveChildIfValidForRemoval(
+    HTMLConstructionSiteTask& task) {
+  auto* parent_doc = DynamicTo<Document>(task.parent.Get());
+  if ((parent_doc && parent_doc->documentElement()) ||
+      task.child->ContainsIncludingHostElements(*task.parent)) {
+    if (task.child->parentNode()) {
+      task.child->parentNode()->ParserRemoveChild(*task.child);
+    }
+    return true;
+  }
+  return false;
+}
+
 static inline void ExecuteReparentTask(HTMLConstructionSiteTask& task) {
   DCHECK_EQ(task.operation, HTMLConstructionSiteTask::kReparent);
+
+  if (RemoveChildIfValidForRemoval(task)) {
+    return;
+  }
 
   task.parent->ParserAppendChild(task.child);
 }
@@ -298,18 +320,7 @@ static inline void ExecuteInsertAlreadyParsedChildTask(
   DCHECK_EQ(task.operation,
             HTMLConstructionSiteTask::kInsertAlreadyParsedChild);
 
-  // See https://github.com/whatwg/html/pull/12709
-  if (Document* parentDoc = DynamicTo<Document>(task.parent.Get())) {
-    if (parentDoc->documentElement()) {
-      if (task.child->parentNode()) {
-        task.child->parentNode()->ParserRemoveChild(*task.child);
-      }
-      return;
-    }
-  } else if (task.child->ContainsIncludingHostElements(*task.parent)) {
-    if (task.child->parentNode()) {
-      task.child->parentNode()->ParserRemoveChild(*task.child);
-    }
+  if (RemoveChildIfValidForRemoval(task)) {
     return;
   }
 
@@ -935,8 +946,8 @@ namespace {
 ProcessingInstruction* CreateProcessingInstructionFromToken(
     AtomicHTMLToken* token,
     Document& document) {
-  UseCounter::CountWebDXFeature(
-      document, WebDXFeature::kDRAFT_HTMLProcessingInstructions);
+  UseCounter::CountWebDXFeature(document,
+                                WebDXFeature::kHtmlProcessingInstructions);
   return MakeGarbageCollected<ProcessingInstruction>(
       document, token->ProcessingInstructionTarget(),
       token->ProcessingInstructionData());
@@ -1174,7 +1185,8 @@ void HTMLConstructionSite::InsertHTMLTemplateElement(
       }
     }
 
-    if (!patch_target.empty() && !patch->is_buffered()) {
+    if (!patch_target.empty() && !patch->is_buffered() &&
+        !patch->IsExternal()) {
       return;
     }
 
@@ -1292,6 +1304,7 @@ void HTMLConstructionSite::InsertTextNode(const StringView& string,
       patch->Apply(dummy_task);
     } else {
       dummy_task.parent = template_element->InsertionTarget();
+      dummy_task.next_child = nullptr;
     }
     // If the Document was detached in the middle of parsing, the template
     // element won't be able to initialize its contents, so bail out.
@@ -1721,7 +1734,9 @@ void HTMLConstructionSite::FindFosterSite(HTMLConstructionSiteTask& task) {
   // 2.5
   if (ContainerNode* parent = last_table->GetElement()->parentNode()) {
     task.parent = parent;
-    task.next_child = last_table->GetElement();
+    if (!IsA<HTMLTemplateElement>(parent)) {
+      task.next_child = last_table->GetElement();
+    }
     return;
   }
 

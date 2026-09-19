@@ -80,6 +80,7 @@ source_set("platform_browser_tests") {
     "//chrome/test:test_support",
     "//components/omnibox/browser",
     "//components/page_load_metrics/browser",
+    "//components/page_load_metrics/browser:test_support",
   ]
 
   if (use_blink) {
@@ -176,6 +177,7 @@ if (!is_android) {
       "//chrome/test:test_support",
       "//components/embedder_support",
       "//components/no_state_prefetch/browser",
+      "//components/omnibox/browser:test_support",
       "//components/privacy_sandbox:features",
       "//components/security_state/content",
       "//components/ukm:test_support",

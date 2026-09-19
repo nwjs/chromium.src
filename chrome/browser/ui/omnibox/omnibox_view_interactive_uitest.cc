@@ -34,17 +34,20 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_closer.h"
+#include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/url_constants.h"
@@ -52,6 +55,7 @@
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/search_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chrome/test/interaction/webcontents_interaction_test_util.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_utils.h"
 #include "components/bookmarks/test/bookmark_test_helpers.h"
@@ -180,6 +184,8 @@ const int kCtrlOrCmdMask = ui::EF_COMMAND_DOWN;
 const int kCtrlOrCmdMask = ui::EF_CONTROL_DOWN;
 #endif
 
+DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kWebUIToolbarId);
+
 }  // namespace
 
 class OmniboxViewTest : public InProcessBrowserTest {
@@ -205,10 +211,19 @@ class OmniboxViewTest : public InProcessBrowserTest {
                                            signin::ConsentLevel::kSignin);
     identity_test_env()->SetRefreshTokenForPrimaryAccount();
     identity_test_env()->SetAutomaticIssueOfAccessTokens(true);
+
+    if (features::IsWebUILocationBarEnabled()) {
+      webui_toolbar_wc_util_ = WebContentsInteractionTestUtil::ForNonTabWebView(
+          ToolbarButtonProvider::From(browser())
+              ->GetWebUIToolbarViewForTesting()
+              ->GetWebViewForTesting(),
+          kWebUIToolbarId);
+    }
   }
 
   void TearDownOnMainThread() override {
     mock_contextual_tasks_service_ = nullptr;
+    webui_toolbar_wc_util_.reset();
     InProcessBrowserTest::TearDownOnMainThread();
   }
 
@@ -229,7 +244,7 @@ class OmniboxViewTest : public InProcessBrowserTest {
                 base::Unretained(this)));
   }
 
-  static void GetOmniboxViewForBrowser(const Browser* browser,
+  static void GetOmniboxViewForBrowser(const BrowserWindowInterface* browser,
                                        OmniboxView** omnibox_view) {
     const BrowserWindow* window = BrowserWindow::FromBrowser(browser);
     ASSERT_TRUE(window);
@@ -256,10 +271,57 @@ class OmniboxViewTest : public InProcessBrowserTest {
   }
 
   omnibox::OmniboxPopupCloser* GetOmniboxPopupCloser() {
-    return browser()->GetFeatures().omnibox_popup_closer();
+    return omnibox::OmniboxPopupCloser::From(browser());
   }
 
-  static void SendKeyForBrowser(const Browser* browser,
+  void WaitTillPopupOpen() {
+    EXPECT_TRUE(base::test::RunUntil(
+        [&]() { return GetOmniboxController()->IsPopupOpen(); }));
+
+    // With WebUILocationBar, we also need the WebUI part to realize it's
+    // open; sadly it seems to get some difficulty getting the mojo message
+    // about it received when the test is blasting it with keypresses
+    // simultaneously to popup trying to startup; so this resorts to
+    // waiting for it explicitly.
+    if (webui_toolbar_wc_util_) {
+      EXPECT_TRUE(base::test::RunUntil([&]() {
+        WebContentsInteractionTestUtil::DeepQuery location_bar(
+            {"toolbar-app", "location-bar"});
+        return webui_toolbar_wc_util_
+            ->EvaluateAt(location_bar,
+                         "(el) => el.classList.contains('popup-open')")
+            .GetBool();
+      }));
+    }
+  }
+
+  void WaitTillKeywordMode() {
+    EXPECT_TRUE(base::test::RunUntil([&]() {
+      return GetOmniboxEditModel()->keyword_state() == KeywordState::kKeyword;
+    }));
+
+    if (webui_toolbar_wc_util_) {
+      // For WebUILocationBar, wait for it to show the selected keyword chip.
+      // This is actually masking over a real bug risk --- both the browser and
+      // typing are trying to write to the omnibox here, and the scheme used to
+      // resolve races can only let one win, but we basically want both to win
+      // --- the keyword prefix should be removed and characters appended.
+      // Fortunately, users don't quite type as fast
+      // as ui_test_utils::SendKeyPressSync.
+      EXPECT_TRUE(base::test::RunUntil([&]() {
+        WebContentsInteractionTestUtil::DeepQuery location_bar(
+            {"toolbar-app", "location-bar"});
+        return webui_toolbar_wc_util_
+            ->EvaluateAt(
+                location_bar,
+                "(el) => el.shadowRoot.querySelector('selected-keyword') "
+                "!== null")
+            .GetBool();
+      }));
+    }
+  }
+
+  static void SendKeyForBrowser(const BrowserWindowInterface* browser,
                                 ui::KeyboardCode key,
                                 int modifiers) {
     ASSERT_TRUE(ui_test_utils::SendKeyPressSync(
@@ -279,7 +341,7 @@ class OmniboxViewTest : public InProcessBrowserTest {
     }
   }
 
-  void ExpectBrowserClosed(Browser* browser,
+  void ExpectBrowserClosed(BrowserWindowInterface* browser,
                            ui::KeyboardCode key,
                            int modifiers) {
     ui_test_utils::BrowserDestroyedObserver observer(browser);
@@ -299,17 +361,17 @@ class OmniboxViewTest : public InProcessBrowserTest {
   }
 
   void WaitForTabOpenOrClose(int expected_tab_count) {
-    int tab_count = browser()->tab_strip_model()->count();
+    int tab_count = browser()->GetTabStripModel()->count();
     if (tab_count == expected_tab_count) {
       return;
     }
 
     while (!HasFailure() &&
-           browser()->tab_strip_model()->count() != expected_tab_count) {
+           browser()->GetTabStripModel()->count() != expected_tab_count) {
       content::RunMessageLoop();
     }
 
-    ASSERT_EQ(expected_tab_count, browser()->tab_strip_model()->count());
+    ASSERT_EQ(expected_tab_count, browser()->GetTabStripModel()->count());
   }
 
   void WaitForAutocompleteControllerDone() {
@@ -477,6 +539,9 @@ class OmniboxViewTest : public InProcessBrowserTest {
 
   // Non-owning pointer.
   raw_ptr<TestLocationBarModel> test_location_bar_model_ = nullptr;
+
+  // If the WebUI location bar is enabled, this is used to communicate with it.
+  std::unique_ptr<WebContentsInteractionTestUtil> webui_toolbar_wc_util_;
 };
 
 // Test if ctrl-* accelerators are workable in omnibox.
@@ -485,7 +550,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, DISABLED_BrowserAccelerators) {
   OmniboxView* omnibox_view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxView(&omnibox_view));
 
-  int tab_count = browser()->tab_strip_model()->count();
+  int tab_count = browser()->GetTabStripModel()->count();
 
   // Create a new Tab.
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
@@ -493,13 +558,13 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, DISABLED_BrowserAccelerators) {
 
   // Select the first Tab.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_1, kCtrlOrCmdMask));
-  ASSERT_EQ(0, browser()->tab_strip_model()->active_index());
+  ASSERT_EQ(0, browser()->GetTabStripModel()->active_index());
 
   chrome::FocusLocationBar(browser());
 
   // Select the second Tab.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_2, kCtrlOrCmdMask));
-  ASSERT_EQ(1, browser()->tab_strip_model()->active_index());
+  ASSERT_EQ(1, browser()->GetTabStripModel()->active_index());
 
   chrome::FocusLocationBar(browser());
 
@@ -540,7 +605,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, DISABLED_BrowserAccelerators) {
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewTest, PopupAccelerators) {
   // Create a popup.
-  Browser* popup = CreateBrowserForPopup(browser()->GetProfile());
+  BrowserWindowInterface* popup =
+      CreateBrowserForPopup(browser()->GetProfile());
   ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(popup));
   OmniboxView* omnibox_view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxViewForBrowser(popup, &omnibox_view));
@@ -576,32 +642,27 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, PopupAccelerators) {
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewTest, BackspaceInKeywordMode) {
-  chrome::FocusLocationBar(browser());
   OmniboxView* omnibox_view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxView(&omnibox_view));
 
   // Trigger keyword hint mode.
   ASSERT_NO_FATAL_FAILURE(SendKeySequence(kSearchKeywordKeys));
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return GetOmniboxEditModel()->is_keyword_hint(); }));
+  ASSERT_TRUE(GetOmniboxEditModel()->is_keyword_hint());
   ASSERT_EQ(kSearchKeyword, GetOmniboxEditModel()->keyword());
 
   // Trigger keyword mode.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_TAB, 0));
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return !GetOmniboxEditModel()->is_keyword_hint(); }));
+  ASSERT_FALSE(GetOmniboxEditModel()->is_keyword_hint());
   ASSERT_EQ(kSearchKeyword, GetOmniboxEditModel()->keyword());
 
   // Backspace without search text should bring back keyword hint mode.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_BACK, 0));
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return GetOmniboxEditModel()->is_keyword_hint(); }));
+  ASSERT_TRUE(GetOmniboxEditModel()->is_keyword_hint());
   ASSERT_EQ(kSearchKeyword, GetOmniboxEditModel()->keyword());
 
   // Trigger keyword mode again.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_TAB, 0));
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return !GetOmniboxEditModel()->is_keyword_hint(); }));
+  ASSERT_FALSE(GetOmniboxEditModel()->is_keyword_hint());
   ASSERT_EQ(kSearchKeyword, GetOmniboxEditModel()->keyword());
 
   // Input something as search text.
@@ -705,12 +766,12 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, ClearUserTextAfterBackgroundCommit) {
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url1));
   omnibox_view->SetUserText(u"foo");
   content::WebContents* contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   // Create another tab in the foreground.
   ASSERT_TRUE(AddTabAtIndex(1, url1, ui::PAGE_TRANSITION_TYPED));
-  EXPECT_EQ(2, browser()->tab_strip_model()->count());
-  EXPECT_EQ(1, browser()->tab_strip_model()->active_index());
+  EXPECT_EQ(2, browser()->GetTabStripModel()->count());
+  EXPECT_EQ(1, browser()->GetTabStripModel()->active_index());
 
   // Navigate in the first tab, currently in the background.
   GURL url2("data:text/html,page2");
@@ -721,7 +782,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, ClearUserTextAfterBackgroundCommit) {
 
   // Switch back to the first tab.  The user text should be cleared, and the
   // omnibox should have the new URL.
-  browser()->tab_strip_model()->ActivateTabAt(
+  browser()->GetTabStripModel()->ActivateTabAt(
       0, TabStripUserGestureDetails(
              TabStripUserGestureDetails::GestureType::kOther));
   EXPECT_EQ(ASCIIToUTF16(url2.spec()), omnibox_view->GetText());
@@ -732,7 +793,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, AltEnter) {
   ASSERT_NO_FATAL_FAILURE(GetOmniboxView(&omnibox_view));
 
   omnibox_view->SetUserText(chrome::kChromeUIHistoryURL16);
-  int tab_count = browser()->tab_strip_model()->count();
+  int tab_count = browser()->GetTabStripModel()->count();
   // alt-Enter opens a new tab.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_RETURN, ui::EF_ALT_DOWN));
   ASSERT_NO_FATAL_FAILURE(WaitForTabOpenOrClose(tab_count + 1));
@@ -773,7 +834,6 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, DISABLED_EnterToSearch) {
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewTest, EscapeToDefaultMatch) {
-  chrome::FocusLocationBar(browser());
   OmniboxView* omnibox_view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxView(&omnibox_view));
 
@@ -795,10 +855,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, EscapeToDefaultMatch) {
       GetOmniboxController()->autocomplete_controller()->result().size();
   while (GetOmniboxEditModel()->GetPopupSelection().line < size - 1) {
     ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_DOWN, 0));
-    ASSERT_TRUE(base::test::RunUntil([&]() {
-      return old_selected_line !=
-             GetOmniboxEditModel()->GetPopupSelection().line;
-    }));
+    ASSERT_NE(old_selected_line,
+              GetOmniboxEditModel()->GetPopupSelection().line);
     if (old_text != omnibox_view->GetText()) {
       break;
     }
@@ -808,10 +866,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, EscapeToDefaultMatch) {
 
   // Escape shall revert back to the default match item.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_ESCAPE, 0));
-  ASSERT_TRUE(base::test::RunUntil([&]() {
-    return old_text == omnibox_view->GetText() &&
-           old_selected_line == GetOmniboxEditModel()->GetPopupSelection().line;
-  }));
+  EXPECT_EQ(old_text, omnibox_view->GetText());
+  EXPECT_EQ(old_selected_line, GetOmniboxEditModel()->GetPopupSelection().line);
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewTest,
@@ -1176,7 +1232,6 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, DISABLED_DeleteItem) {
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewTest, TabAcceptKeyword) {
-  chrome::FocusLocationBar(browser());
   OmniboxView* omnibox_view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxView(&omnibox_view));
 
@@ -1184,22 +1239,19 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, TabAcceptKeyword) {
 
   // Trigger keyword hint mode.
   ASSERT_NO_FATAL_FAILURE(SendKeySequence(kSearchKeywordKeys));
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return GetOmniboxEditModel()->is_keyword_hint(); }));
+  ASSERT_TRUE(GetOmniboxEditModel()->is_keyword_hint());
   ASSERT_EQ(text, GetOmniboxEditModel()->keyword());
   ASSERT_EQ(text, omnibox_view->GetText());
 
   // Trigger keyword mode by tab.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_TAB, 0));
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return !GetOmniboxEditModel()->is_keyword_hint(); }));
+  ASSERT_FALSE(GetOmniboxEditModel()->is_keyword_hint());
   ASSERT_EQ(text, GetOmniboxEditModel()->keyword());
   ASSERT_TRUE(omnibox_view->GetText().empty());
 
   // Revert to keyword hint mode.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_BACK, 0));
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return GetOmniboxEditModel()->is_keyword_hint(); }));
+  ASSERT_TRUE(GetOmniboxEditModel()->is_keyword_hint());
   ASSERT_EQ(text, GetOmniboxEditModel()->keyword());
   ASSERT_EQ(text, omnibox_view->GetText());
 
@@ -1208,42 +1260,37 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, TabAcceptKeyword) {
 
   // Trigger keyword mode by tab.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_TAB, 0));
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return !GetOmniboxEditModel()->is_keyword_hint(); }));
+  ASSERT_FALSE(GetOmniboxEditModel()->is_keyword_hint());
   ASSERT_EQ(text, GetOmniboxEditModel()->keyword());
   ASSERT_TRUE(omnibox_view->GetText().empty());
 
   // Revert to keyword hint mode with SHIFT+TAB.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_TAB, ui::EF_SHIFT_DOWN));
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return GetOmniboxEditModel()->is_keyword_hint(); }));
+  ASSERT_TRUE(GetOmniboxEditModel()->is_keyword_hint());
   ASSERT_EQ(text, GetOmniboxEditModel()->keyword());
   ASSERT_EQ(text, omnibox_view->GetText());
   ASSERT_TRUE(ui_test_utils::IsViewFocused(browser(), VIEW_ID_OMNIBOX));
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewTest, PersistKeywordModeOnTabSwitch) {
-  chrome::FocusLocationBar(browser());
   OmniboxView* omnibox_view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxView(&omnibox_view));
 
   // Trigger keyword hint mode.
   ASSERT_NO_FATAL_FAILURE(SendKeySequence(kSearchKeywordKeys));
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return GetOmniboxEditModel()->is_keyword_hint(); }));
+  ASSERT_TRUE(GetOmniboxEditModel()->is_keyword_hint());
   ASSERT_EQ(kSearchKeyword, GetOmniboxEditModel()->keyword());
 
   // Trigger keyword mode.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_TAB, 0));
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return !GetOmniboxEditModel()->is_keyword_hint(); }));
+  ASSERT_FALSE(GetOmniboxEditModel()->is_keyword_hint());
   ASSERT_EQ(kSearchKeyword, GetOmniboxEditModel()->keyword());
 
   // Create a new tab.
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
 
   // Switch back to the first tab.
-  browser()->tab_strip_model()->ActivateTabAt(
+  browser()->GetTabStripModel()->ActivateTabAt(
       0, TabStripUserGestureDetails(
              TabStripUserGestureDetails::GestureType::kOther));
 
@@ -1256,10 +1303,10 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, PersistKeywordModeOnTabSwitch) {
   ASSERT_NO_FATAL_FAILURE(SendKeySequence(kSearchTextKeys));
 
   // Switch to the second tab and back to the first.
-  browser()->tab_strip_model()->ActivateTabAt(
+  browser()->GetTabStripModel()->ActivateTabAt(
       1, TabStripUserGestureDetails(
              TabStripUserGestureDetails::GestureType::kOther));
-  browser()->tab_strip_model()->ActivateTabAt(
+  browser()->GetTabStripModel()->ActivateTabAt(
       0, TabStripUserGestureDetails(
              TabStripUserGestureDetails::GestureType::kOther));
 
@@ -1299,11 +1346,9 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, UndoRedo) {
   OmniboxView* omnibox_view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxView(&omnibox_view));
 
-  ASSERT_TRUE(base::test::RunUntil([&]() {
-    return omnibox_view->GetText() == url::kAboutBlankURL16 &&
-           omnibox_view->IsSelectAll();
-  }));
   std::u16string old_text = omnibox_view->GetText();
+  EXPECT_EQ(url::kAboutBlankURL16, old_text);
+  EXPECT_TRUE(omnibox_view->IsSelectAll());
 
   // Delete the text, then undo.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_BACK, 0));
@@ -1442,9 +1487,9 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest,
   ASSERT_NE(match, nullptr);
 
   TestOmniboxNavigationObserver omnibox_observer(
-      browser()->tab_strip_model()->GetActiveWebContents());
+      browser()->GetTabStripModel()->GetActiveWebContents());
   content::TestNavigationObserver observer(
-      browser()->tab_strip_model()->GetActiveWebContents(), 1);
+      browser()->GetTabStripModel()->GetActiveWebContents(), 1);
 
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_RETURN, 0));
   observer.Wait();
@@ -1469,9 +1514,9 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest,
   ASSERT_NE(match, nullptr);
 
   TestOmniboxNavigationObserver omnibox_observer(
-      browser()->tab_strip_model()->GetActiveWebContents());
+      browser()->GetTabStripModel()->GetActiveWebContents());
   content::TestNavigationObserver observer(
-      browser()->tab_strip_model()->GetActiveWebContents(), 1);
+      browser()->GetTabStripModel()->GetActiveWebContents(), 1);
 
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_RETURN, 0));
   observer.Wait();
@@ -1654,10 +1699,7 @@ class SiteSearchPolicyOmniboxViewTest
     : public OmniboxViewTest,
       public ::testing::WithParamInterface<std::optional<bool>> {
  public:
-  SiteSearchPolicyOmniboxViewTest() {
-    scoped_feature_list_.InitAndEnableFeature(
-        omnibox::kEnableSiteSearchAllowUserOverridePolicy);
-  }
+  SiteSearchPolicyOmniboxViewTest() = default;
   ~SiteSearchPolicyOmniboxViewTest() override = default;
 
   base::Value CreateSiteSearchPolicyValue(bool featured) {
@@ -1678,9 +1720,6 @@ class SiteSearchPolicyOmniboxViewTest
   }
 
   std::optional<bool> is_allow_user_override() const { return GetParam(); }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Verifies that keyword search works when `SiteSearchSettings` policy is set.
@@ -1709,11 +1748,14 @@ IN_PROC_BROWSER_TEST_P(SiteSearchPolicyOmniboxViewTest,
 
   // Trigger keyword hint mode.
   ASSERT_NO_FATAL_FAILURE(SendKeySequence(kSiteSearchPolicyKeywordKeys));
-  EXPECT_TRUE(GetOmniboxEditModel()->is_keyword_hint());
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return GetOmniboxEditModel()->is_keyword_hint(); }));
   EXPECT_EQ(GetOmniboxEditModel()->keyword(), kSiteSearchPolicyKeyword);
 
   // Trigger keyword mode.
+  WaitTillPopupOpen();
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_TAB, 0));
+  WaitTillKeywordMode();
   EXPECT_FALSE(GetOmniboxEditModel()->is_keyword_hint());
   EXPECT_EQ(GetOmniboxEditModel()->keyword(), kSiteSearchPolicyKeyword);
 
@@ -1722,12 +1764,13 @@ IN_PROC_BROWSER_TEST_P(SiteSearchPolicyOmniboxViewTest,
   ASSERT_NO_FATAL_FAILURE(WaitForAutocompleteControllerDone());
   EXPECT_TRUE(GetOmniboxController()->IsPopupOpen());
 
-  EXPECT_EQ(GetOmniboxController()
-                ->autocomplete_controller()
-                ->result()
-                .default_match()
-                ->destination_url.spec(),
-            kSiteSearchPolicyTextURL);
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return GetOmniboxController()
+               ->autocomplete_controller()
+               ->result()
+               .default_match()
+               ->destination_url.spec() == kSiteSearchPolicyTextURL;
+  }));
 }
 
 // Verifies that keyword search works when `SiteSearchSettings` policy defines
@@ -1760,8 +1803,13 @@ IN_PROC_BROWSER_TEST_P(SiteSearchPolicyOmniboxViewTest, FeaturedPolicyKeyword) {
   EXPECT_FALSE(GetOmniboxEditModel()->is_keyword_hint());
   EXPECT_EQ(GetOmniboxEditModel()->keyword(), u"");
 
+  // Popup must be open, or else Tab won't trigger the keyword, but just
+  // traverse focus.
+  WaitTillPopupOpen();
+
   // Trigger keyword mode.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_TAB, 0));
+  WaitTillKeywordMode();
   EXPECT_FALSE(GetOmniboxEditModel()->is_keyword_hint());
   EXPECT_EQ(GetOmniboxEditModel()->keyword(),
             kSiteSearchPolicyKeywordWithAtPrefix);
@@ -1771,12 +1819,13 @@ IN_PROC_BROWSER_TEST_P(SiteSearchPolicyOmniboxViewTest, FeaturedPolicyKeyword) {
   ASSERT_NO_FATAL_FAILURE(WaitForAutocompleteControllerDone());
   EXPECT_TRUE(GetOmniboxController()->IsPopupOpen());
 
-  EXPECT_EQ(GetOmniboxController()
-                ->autocomplete_controller()
-                ->result()
-                .default_match()
-                ->destination_url.spec(),
-            kSiteSearchPolicyTextURL);  // ...?q=ABC
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return GetOmniboxController()
+               ->autocomplete_controller()
+               ->result()
+               .default_match()
+               ->destination_url.spec() == kSiteSearchPolicyTextURL;
+  }));  // ...?q=ABC
 }
 
 // Verifies that featured search engine is shown with starter pack on "@" state
@@ -1806,8 +1855,10 @@ IN_PROC_BROWSER_TEST_P(SiteSearchPolicyOmniboxViewTest,
 
   // Trigger keyword mode.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_2, ui::EF_SHIFT_DOWN));
+  WaitTillPopupOpen();
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_DOWN, /*modifiers=*/0));
   EXPECT_FALSE(GetOmniboxEditModel()->is_keyword_hint());
+  WaitTillKeywordMode();
   EXPECT_EQ(GetOmniboxEditModel()->keyword(),
             kSiteSearchPolicyKeywordWithAtPrefix);
 
@@ -1816,12 +1867,13 @@ IN_PROC_BROWSER_TEST_P(SiteSearchPolicyOmniboxViewTest,
   ASSERT_NO_FATAL_FAILURE(WaitForAutocompleteControllerDone());
   EXPECT_TRUE(GetOmniboxController()->IsPopupOpen());
 
-  EXPECT_EQ(GetOmniboxController()
-                ->autocomplete_controller()
-                ->result()
-                .default_match()
-                ->destination_url.spec(),
-            kSiteSearchPolicyTextURL);
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return GetOmniboxController()
+               ->autocomplete_controller()
+               ->result()
+               .default_match()
+               ->destination_url.spec() == kSiteSearchPolicyTextURL;
+  }));
 }
 
 INSTANTIATE_TEST_SUITE_P(All,
@@ -1867,13 +1919,13 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewAiModeTest,
   // Wait for navigation to complete. We expect it to navigate to chess://aim/
   // or similar URL.
   content::TestNavigationObserver observer(
-      browser()->tab_strip_model()->GetActiveWebContents());
+      browser()->GetTabStripModel()->GetActiveWebContents());
   observer.Wait();
 
   // Verify that the navigation occurred to an 'aim' URL and check session
   // transfer.
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   GURL current_url = web_contents->GetLastCommittedURL();
   EXPECT_TRUE(current_url.spec().find("q=test+query") != std::string::npos);
 

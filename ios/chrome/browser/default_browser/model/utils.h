@@ -17,6 +17,8 @@ class TimeDelta;
 }  // namespace base
 @protocol PictureInPictureCommands;
 
+enum class DefaultBrowserPromoOverflowMenuType;
+
 // Enum for the different types of default browser modal promo. These are stored
 // as values, if adding a new one, make sure to add it at the end.
 typedef NS_ENUM(NSUInteger, DefaultPromoType) {
@@ -56,6 +58,18 @@ enum class IOSDefaultBrowserVideoPromoAction {
   kTertiaryActionTapped = 3,
   kMaxValue = kTertiaryActionTapped,
 };
+
+// Enum actions for the IOS.DefaultBrowserPromo.OverflowMenu UMA metrics.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(IOSDefaultBrowserPromoOverflowMenuAction)
+enum class IOSDefaultBrowserPromoOverflowMenuAction {
+  kNoAction = 0,
+  kHidden = 1,
+  kTapped = 2,
+  kMaxValue = kTapped,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/ios/enums.xml:IOSDefaultBrowserPromoOverflowMenuAction)
 
 // Enum actions for the IOS.DefaultBrowserBannerPromo.PromoSessionEnded UMA
 // metrics.
@@ -127,6 +141,18 @@ void RecordDefaultBrowserBlueDotFirstDisplay();
 
 // Returns true if the default browser blue dot should be shown.
 bool ShouldTriggerDefaultBrowserHighlightFeature(
+    feature_engagement::Tracker* tracker);
+
+// Returns true if the default browser promo should be shown in the
+// overflow menu. Uses FET and tracks active menus using `UserData` in a
+// multi-window environment.
+bool ShouldShowDefaultBrowserPromoOverflowMenu(
+    DefaultBrowserPromoOverflowMenuType type,
+    feature_engagement::Tracker* tracker);
+
+// Dismisses the default browser promo overflow menu FET feature and cleans up
+// active tracking data across windows if no active menus remain.
+void DismissDefaultBrowserPromoOverflowMenu(
     feature_engagement::Tracker* tracker);
 
 // Returns the number of times the user has seen and interacted with the

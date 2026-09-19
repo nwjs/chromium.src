@@ -465,7 +465,8 @@ DesktopMediaPickerDialogView::DesktopMediaPickerDialogView(
               ? params.web_contents->GetPrimaryMainFrame()->GetGlobalId()
               : content::GlobalRenderFrameHostId()),
       parent_(parent),
-      dialog_open_time_(base::TimeTicks::Now()) {
+      dialog_open_time_(base::TimeTicks::Now()),
+      on_picker_destroying_(std::move(params.on_picker_destroying)) {
   CHECK(!params.force_audio_checkboxes_to_default_checked ||
         !params.exclude_system_audio);
   RecordAction(base::UserMetricsAction("GetDisplayMedia.ShowDialog"));
@@ -663,6 +664,9 @@ DesktopMediaPickerDialogView::DesktopMediaPickerDialogView(
   if (request_source_ == RequestSource::kGlic) {
     description_label_->SetText(
         l10n_util::GetStringUTF16(IDS_GLIC_SCREEN_PICKER_DESCRIPTION));
+  } else if (request_source_ == RequestSource::kSearchbox) {
+    description_label_->SetText(
+        l10n_util::GetStringUTF16(IDS_SEARCHBOX_PICKER_DESCRIPTION));
   }
 
   DCHECK(!categories_.empty());
@@ -734,6 +738,9 @@ DesktopMediaPickerDialogView::DesktopMediaPickerDialogView(
 }
 
 DesktopMediaPickerDialogView::~DesktopMediaPickerDialogView() {
+  if (on_picker_destroying_) {
+    std::move(on_picker_destroying_).Run();
+  }
 #if BUILDFLAG(IS_WIN)
   if (!pip_exclusion_session_id_) {
     return;

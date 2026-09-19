@@ -62,13 +62,16 @@ source_set("impl") {
     "//chrome/browser/infobars",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/resources/infobar_internals:resources",
+    "//chrome/browser/ssl",
     "//chrome/browser/ui",
     "//chrome/browser/ui:collected_cookies_infobar_delegate",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/page_info",
+    "//chrome/browser/ui/startup",
     "//chrome/browser/ui/views/site_data",
     "//components/infobars/content",
+    "//components/infobars/core",
     "//content/public/browser",
   ]
 
@@ -106,6 +109,7 @@ source_set("impl") {
       "//chrome/browser/extensions/api/debugger",
       "//chrome/browser/extensions/api/messaging",
       "//chrome/browser/themes",
+      "//chrome/browser/ui/extensions",
       "//extensions/browser",
       "//extensions/common",
     ]

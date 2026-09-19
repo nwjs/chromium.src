@@ -1504,8 +1504,17 @@ void LayerTreeImpl::SetBrowserControlsParams(
   UpdateViewportContainerSizes();
 
   if (IsActiveTree()) {
+    // Without TreeAnimationsInViz, the Viz display tree mirrors browser
+    // controls ratios produced by the renderer. Do not initialize a local
+    // height-change animation because it will never be ticked and its
+    // animation bounds would clamp the incoming renderer ratios.
+    const bool can_animate_browser_controls =
+        !settings().trees_in_viz_in_viz_process ||
+        settings().TreeAnimationsInVizInVizProcess();
+
     host_impl_->browser_controls_manager()->OnBrowserControlsParamsChanged(
-        params.animate_browser_controls_height_changes);
+        params.animate_browser_controls_height_changes &&
+        can_animate_browser_controls);
   }
 }
 
@@ -1873,7 +1882,8 @@ bool LayerTreeImpl::UpdateDrawProperties(
   TRACE_EVENT2("cc,benchmark", "LayerTreeImpl::UpdateDrawProperties::Occlusion",
                "IsActive", IsActiveTree(), "SourceFrameNumber",
                source_frame_number_);
-  OcclusionTracker occlusion_tracker(RootRenderSurface()->content_rect());
+  OcclusionTracker occlusion_tracker(RootRenderSurface()->content_rect(),
+                                     &property_trees()->effect_tree());
   occlusion_tracker.set_minimum_tracking_size(
       settings().minimum_occlusion_tracking_size);
 
@@ -1979,6 +1989,14 @@ const RenderSurfaceList& LayerTreeImpl::GetRenderSurfaceList() const {
   // If this assert triggers, then the list is dirty.
   DCHECK(!needs_update_draw_properties_);
   return render_surface_list_;
+}
+
+RenderSurfaceImpl* LayerTreeImpl::GetRenderSurface(int effect_id) {
+  return property_trees_.effect_tree_mutable().GetRenderSurface(effect_id);
+}
+
+const RenderSurfaceImpl* LayerTreeImpl::GetRenderSurface(int effect_id) const {
+  return property_trees_.effect_tree().GetRenderSurface(effect_id);
 }
 
 const Region& LayerTreeImpl::UnoccludedScreenSpaceRegion() const {

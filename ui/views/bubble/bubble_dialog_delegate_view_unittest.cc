@@ -1228,7 +1228,7 @@ TEST_F(BubbleDialogDelegateViewTest, ClientViewIsPaintedToLayer) {
 
   auto* client_view_layer = bubble_widget->client_view()->layer();
   EXPECT_TRUE(client_view_layer);
-  EXPECT_EQ(client_view_layer->type(), ui::LAYER_TEXTURED);
+  EXPECT_TRUE(client_view_layer->AsTextured());
 }
 
 TEST_F(BubbleDialogDelegateViewTest, AlertAccessibleEvent) {
@@ -1717,38 +1717,6 @@ TEST_F(BubbleDialogDelegateViewTest, SizeToContentsDuringDestruction) {
   bubble_widget->AddObserver(&observer);
 
   // This will trigger OnWidgetDestroying synchronously.
-  bubble_widget->CloseNow();
-}
-
-TEST_F(BubbleDialogDelegateViewTest, AccessibleWindowTitle) {
-  std::unique_ptr<Widget> anchor_widget = CreateTestWidget(
-      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
-  TestBubbleDialogDelegateView* bubble_delegate =
-      new TestBubbleDialogDelegateView(anchor_widget->GetContentsView());
-
-  Widget* bubble_widget =
-      BubbleDialogDelegateView::CreateBubble(bubble_delegate);
-
-  // When showing the title in the bubble frame, GetAccessibleWindowTitle()
-  // returns an empty string to prevent screen readers from announcing it twice.
-  EXPECT_FALSE(bubble_delegate->GetWindowTitle().empty());
-  EXPECT_TRUE(bubble_delegate->ShouldShowWindowTitle());
-  EXPECT_TRUE(bubble_delegate->GetAccessibleWindowTitle().empty());
-
-  // When not showing the title in the bubble frame, GetAccessibleWindowTitle()
-  // returns the window title so that screen readers still announce it.
-  bubble_delegate->set_should_show_window_title(false);
-  EXPECT_EQ(bubble_delegate->GetAccessibleWindowTitle(),
-            bubble_delegate->GetWindowTitle());
-
-  // An explicit accessible title should always take precedence, even when
-  // showing the title in the bubble frame.
-  bubble_delegate->set_should_show_window_title(true);
-  const std::u16string kCustomAccessibleTitle = u"Custom Title";
-  bubble_delegate->SetAccessibleTitle(kCustomAccessibleTitle);
-  EXPECT_EQ(bubble_delegate->GetAccessibleWindowTitle(),
-            kCustomAccessibleTitle);
-
   bubble_widget->CloseNow();
 }
 

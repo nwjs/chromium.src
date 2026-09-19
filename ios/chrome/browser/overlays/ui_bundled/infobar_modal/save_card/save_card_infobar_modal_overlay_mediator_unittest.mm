@@ -15,9 +15,9 @@
 #import "components/autofill/core/browser/foundations/autofill_client.h"
 #import "components/autofill/core/browser/metrics/payments/credit_card_save_metrics.h"
 #import "components/autofill/core/browser/payments/test_legal_message_line.h"
-#import "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#import "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #import "components/signin/public/identity_manager/account_info.h"
-#import "ios/chrome/browser/autofill/model/message/save_card_message_with_links.h"
+#import "ios/chrome/browser/autofill/model/message/autofill_legal_message_line.h"
 #import "ios/chrome/browser/infobars/model/infobar_ios.h"
 #import "ios/chrome/browser/infobars/model/infobar_type.h"
 #import "ios/chrome/browser/infobars/model/overlays/browser_agent/interaction_handlers/test/mock_autofill_save_card_infobar_delegate_mobile.h"
@@ -86,8 +86,7 @@ constexpr char kSaveCreditCardPromptResultHistogramStringForServerSave[] =
 @property(nonatomic, copy) NSString* cardNumber;
 @property(nonatomic, copy) NSString* expirationMonth;
 @property(nonatomic, copy) NSString* expirationYear;
-@property(nonatomic, copy)
-    NSMutableArray<SaveCardMessageWithLinks*>* legalMessages;
+@property(nonatomic, copy) NSArray<AutofillLegalMessageLine*>* legalMessages;
 @property(nonatomic, assign) BOOL currentCardSaveAccepted;
 @property(nonatomic, assign) BOOL supportsEditing;
 @property(nonatomic, strong) UIImage* logoIcon;

@@ -8,7 +8,8 @@
 #include "base/containers/flat_set.h"
 #include "base/containers/heap_array.h"
 #include "base/containers/linked_list.h"
-#include "base/memory/memory_pressure_listener.h"
+#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/synchronization/lock.h"
 #include "base/trace_event/memory_dump_provider.h"
 #include "gpu/gpu_gles2_export.h"
@@ -49,7 +50,12 @@ class GPU_GLES2_EXPORT MemoryCache : public base::RefCounted<MemoryCache> {
                                         base::HeapArray<uint8_t> data);
   scoped_refptr<MemoryCacheEntry> Find(std::string_view key);
 
-  void PurgeMemory(base::MemoryPressureLevel memory_pressure_level);
+  // Memory coordinator interface:
+  // Triggers immediate eviction of cache entries down to `memory_limit`.
+  void OnReleaseMemory(int memory_limit);
+  // Updates the target cache size limit non-destructively without forcing
+  // immediate eviction.
+  void OnUpdateMemoryLimit(int memory_limit);
 
   void OnMemoryDump(const std::string& dump_name,
                     base::trace_event::ProcessMemoryDump* pmd);
@@ -79,13 +85,15 @@ class GPU_GLES2_EXPORT MemoryCache : public base::RefCounted<MemoryCache> {
   void InsertEntry(scoped_refptr<MemoryCacheEntry> entry)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  bool CanFitMemoryCacheEntry(size_t data_size) const;
+  bool CanFitMemoryCacheEntry(size_t data_size) const
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   base::Lock mutex_;
   base::flat_set<scoped_refptr<MemoryCacheEntry>> entries_ GUARDED_BY(mutex_);
   base::LinkedList<MemoryCacheEntry> lru_ GUARDED_BY(mutex_);
 
   const size_t max_size_;
+  size_t size_limit_ GUARDED_BY(mutex_) = 0;
   size_t current_size_ GUARDED_BY(mutex_) = 0;
 
   const std::string cache_hit_trace_event_;

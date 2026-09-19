@@ -118,6 +118,7 @@ constexpr char kOuterBoundingBoxKey[] = "outerBoundingBox";
 constexpr char kVisibleBoundingBoxKey[] = "visibleBoundingBox";
 constexpr char kFragmentVisibleBoundingBoxesKey[] =
     "fragmentVisibleBoundingBoxes";
+constexpr char kCssPositionKey[] = "cssPosition";
 constexpr char kIsFocusedDocumentKey[] = "isFocusedDocument";
 
 // Values matching the `RedactedFrameMetadata.Reason` enum in
@@ -764,6 +765,14 @@ void PopulateGeometry(const base::DictValue& geometry_dict,
     }
   }
 
+  if (std::optional<int> css_position =
+          ReadJsNumber(geometry_dict, kCssPositionKey)) {
+    if (optimization_guide::proto::CssPosition_IsValid(*css_position)) {
+      mutable_geometry()->set_css_position(
+          static_cast<optimization_guide::proto::CssPosition>(*css_position));
+    }
+  }
+
   if (const base::ListValue* fragments =
           geometry_dict.FindList(kFragmentVisibleBoundingBoxesKey)) {
     for (const auto& fragment : *fragments) {
@@ -1117,13 +1126,6 @@ void ResolveCrossSiteFrameContent(
       },
       registrar);
 
-  auto placer = base::BindRepeating(
-      [](optimization_guide::proto::ContentNode* parentNode,
-         FrameGrafter::FrameContent unregistered) {
-        *parentNode->add_children_nodes() = std::move(unregistered.content);
-      },
-      apc->mutable_root_node());
-
   GURL main_frame_url(apc->main_frame_data().url());
   net::SchemefulSite main_frame_site(main_frame_url);
 
@@ -1160,7 +1162,14 @@ void ResolveCrossSiteFrameContent(
       },
       include_same_site_only, main_frame_site);
 
-  grafter.ResolveUnregisteredContent(mapping_lookup, placer,
+  // Unregistered/orphan frames (e.g. invisible utility or tracking iframes that
+  // are omitted from the main DOM layout walk) are dropped from the tree to
+  // avoid duplicate node_id=1 collisions.
+  // TODO(crbug.com/549274706): Add support for collecting/preserving redaction
+  // bounding boxes from orphaned/un-grafted frames, matching desktop
+  // kAnnotatedPageContentRedactionsOnOrphanedFrames behavior.
+  grafter.ResolveUnregisteredContent(mapping_lookup,
+                                     /*placer=*/base::DoNothing(),
                                      unresolved_handler);
 }
 

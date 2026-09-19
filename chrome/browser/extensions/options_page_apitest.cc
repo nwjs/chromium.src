@@ -4,7 +4,12 @@
 
 #include <stddef.h>
 
+#include <string>
+
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/strings/stringprintf.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
@@ -22,6 +27,15 @@ static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
 namespace extensions {
 namespace {
+
+// `kPreventExtensionResourceFetchAcrossIsolatedWorlds` is declared in
+// `third_party/blink/renderer/platform/loader/fetch/resource.h`. Because
+// `chrome/DEPS` forbids browser-side code from importing renderer-internal
+// headers under `third_party/blink/renderer/` (only `third_party/blink/public/`
+// is permitted), the feature is defined locally here so it can be enabled via
+// `base::test::ScopedFeatureList` and propagated to renderer processes.
+BASE_FEATURE(kPreventExtensionResourceFetchAcrossIsolatedWorlds,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Waits for a tab to be added to the tab list. Proceeds immediately if the tab
 // was added before the call to Wait().
@@ -140,6 +154,89 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest,
                     GURL("chrome://extensions?options=" + extension->id())));
   ASSERT_TRUE(listener.WaitUntilSatisfied());
   ASSERT_EQ("embedded", listener.message());
+}
+
+// Test fixture that enables the
+// `kPreventExtensionResourceFetchAcrossIsolatedWorlds` feature for testing
+// cross-world extension resource fetch behavior in extensions tests.
+class ExtensionOptionsPreloadTest : public ExtensionBrowserTest {
+ public:
+  ExtensionOptionsPreloadTest() {
+    // Feature overrides in browser tests must be initialized in the fixture
+    // constructor rather than inside the test method because
+    // `base::FeatureList` is sealed as immutable during browser startup before
+    // `content::BrowserTestBase::ProxyRunTestOnMainThreadLoop()` executes, and
+    // initializing here ensures the feature flag is passed to child renderer
+    // processes.
+    scoped_feature_list_.InitAndEnableFeature(
+        kPreventExtensionResourceFetchAcrossIsolatedWorlds);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// Verifies that preloading a script resource in an extension page (such as an
+// options page) via `<link rel="modulepreload">` executes the script
+// successfully and does not trigger a cross-world extension resource mismatch
+// console warning when
+// `kPreventExtensionResourceFetchAcrossIsolatedWorlds` is enabled.
+IN_PROC_BROWSER_TEST_F(ExtensionOptionsPreloadTest,
+                       ModulePreloadMismatchWarningInOptionsPage) {
+  // Set up a test extension containing an options page with a `<link
+  // rel="modulepreload">` element and a `<script type="module">` tag.
+  TestExtensionDir test_dir;
+  static constexpr char kManifest[] =
+      R"({
+           "manifest_version": 3,
+           "name": "Cross-World Preload Mismatch Repro",
+           "version": "1.0",
+           "options_page": "options.html"
+         })";
+  static constexpr char kOptionsHtml[] =
+      R"(<!DOCTYPE html>
+         <html>
+         <head>
+             <title>Preload Test</title>
+             <!-- Preloading an extension resource -->
+             <link rel="modulepreload" href="script.js">
+             <!-- Executing the script -->
+             <script type="module" src="script.js"></script>
+         </head>
+         <body>
+             <h1>Preload Test</h1>
+         </body>
+         </html>)";
+  static constexpr char kScriptJs[] =
+      R"(chrome.test.sendMessage("script executed");)";
+  test_dir.WriteManifest(kManifest);
+  test_dir.WriteFile(FILE_PATH_LITERAL("options.html"), kOptionsHtml);
+  test_dir.WriteFile(FILE_PATH_LITERAL("script.js"), kScriptJs);
+
+  // Set up a message listener to wait for the script to execute.
+  ExtensionTestMessageListener listener("script executed");
+
+  // Load the unpacked extension into the browser.
+  const Extension* extension = LoadExtension(test_dir.UnpackedPath());
+  ASSERT_TRUE(extension);
+
+  // Set up a console observer on the active web contents to monitor for any
+  // cross-world extension resource mismatch warning.
+  content::WebContents* web_contents = GetActiveWebContents();
+  content::WebContentsConsoleObserver console_observer(web_contents);
+  console_observer.SetPattern(
+      "*is found, but is not used because it is a cross-world extension "
+      "resource mismatch.*");
+
+  // Navigate the browser to the extension's options page.
+  ASSERT_TRUE(
+      NavigateToURL(web_contents, extension->GetResourceURL("options.html")));
+
+  // Verify that the script successfully executes.
+  EXPECT_TRUE(listener.WaitUntilSatisfied());
+
+  // Verify that no cross-world mismatch warning was logged to the console.
+  EXPECT_TRUE(console_observer.messages().empty());
 }
 
 }  // namespace extensions

@@ -62,6 +62,7 @@
 #include "chrome/common/webui_url_constants.h"
 #include "components/application_locale_storage/application_locale_storage.h"
 #include "components/bookmarks/browser/bookmark_model.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/browser/top_sites.h"
 #include "components/history/core/common/pref_names.h"
@@ -123,7 +124,9 @@
 #include "base/android/jni_android.h"
 #include "chrome/browser/lens/jni_headers/LensSupportStatusHelper_jni.h"
 #else  // BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/contextual_search/contextual_search_service_factory.h"
 #include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
@@ -139,6 +142,7 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/side_panel/history_clusters/history_clusters_side_panel_coordinator.h"
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
+#include "components/contextual_search/contextual_search_service.h"
 #include "components/lens/lens_overlay_invocation_source.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -711,6 +715,14 @@ bool ChromeAutocompleteProviderClient::IsOmniboxNextLensSearchChipEnabled()
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
 
+bool ChromeAutocompleteProviderClient::IsAskGShowChipEnabled() const {
+#if !BUILDFLAG(IS_ANDROID)
+  return IsOmniboxNextAimPopupEnabled() && omnibox::kAskGShowChip.Get();
+#else
+  return false;
+#endif  // !BUILDFLAG(IS_ANDROID)
+}
+
 bool ChromeAutocompleteProviderClient::IsOmniboxNextAimPopupEnabled() const {
 #if !BUILDFLAG(IS_ANDROID)
   return omnibox::IsAimPopupEnabled(profile_);
@@ -790,7 +802,7 @@ bool ChromeAutocompleteProviderClient::OpenJourneys(const std::string& query) {
   }
 
   auto* const history_clusters_side_panel_coordinator =
-      bwi->GetFeatures().history_clusters_side_panel_coordinator();
+      HistoryClustersSidePanelCoordinator::From(bwi);
   if (history_clusters_side_panel_coordinator &&
       history_clusters_side_panel_coordinator->Show(query)) {
     return true;
@@ -803,8 +815,27 @@ bool ChromeAutocompleteProviderClient::OpenJourneys(const std::string& query) {
 
 bool ChromeAutocompleteProviderClient::ShouldOpenCoBrowsePanel() const {
 #if !BUILDFLAG(IS_ANDROID)
-  return omnibox::kAskGCoBrowse.Get()
-      || omnibox::kAskGCoBrowseWithVisualSelection.Get();
+  if (!lens::features::IsLensSidePanelUnificationEnabled() ||
+      !contextual_tasks::IsContextualTasksUIEnabled()) {
+    return false;
+  }
+
+  if (!omnibox::kAskGCoBrowse.Get() &&
+      !omnibox::kAskGCoBrowseWithVisualSelection.Get()) {
+    return false;
+  }
+
+  if (!lens::features::IsLensSidePanelUnificationAllowSignedOut()) {
+    auto* ui_service =
+        contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
+            profile_);
+    if (!ui_service || !ui_service->IsSignedInToBrowserWithValidCredentials() ||
+        !ui_service->CookieJarContainsPrimaryAccount()) {
+      return false;
+    }
+  }
+
+  return true;
 #else
   return false;
 #endif
@@ -823,11 +854,6 @@ void ChromeAutocompleteProviderClient::OpenCoBrowsePanel() {
                          : nullptr;
 
   if (ui_service) {
-    if (auto* lens_controller = LensSearchController::From(tab)) {
-      lens_controller->SetInvocationSource(
-          lens::LensOverlayInvocationSource::kOmniboxPageAction);
-    }
-
     GURL creation_url = ui_service->GetDefaultAiPageUrl();
     auto* tab_helper =
         ContextualSearchWebContentsHelper::GetOrCreateForWebContents(
@@ -835,12 +861,53 @@ void ChromeAutocompleteProviderClient::OpenCoBrowsePanel() {
     std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
         session_handle = tab_helper->TakeSessionHandle();
 
+    if (!session_handle) {
+      auto* contextual_search_service =
+          ContextualSearchServiceFactory::GetForProfile(bwi->GetProfile());
+      if (contextual_search_service) {
+        session_handle = contextual_search_service->CreateSession(
+            omnibox::CreateQueryControllerConfigParams(),
+            // TODO (crbug.com/554084129) - Update
+            // toContextualSearchSource::kOmnibox or something new to decouple
+            // from lens.
+            contextual_search::ContextualSearchSource::kLens,
+            lens::LensOverlayInvocationSource::kOmniboxPageAction);
+      }
+    }
+
+    // Verify enterprise content sharing settings for the session. This is
+    // required before ContextualSearchSessionHandle::CreateContextToken() can
+    // be called (e.g., when Lens Overlay calls this handle concurrently).
+    if (session_handle) {
+      session_handle->CheckSearchContentSharingSettings(
+          bwi->GetProfile()->GetPrefs());
+    }
+
+    if (auto* lens_controller = LensSearchController::From(tab)) {
+      if (omnibox::kAskGCoBrowseWithVisualSelection.Get()) {
+        // Concurrently launch the Lens Overlay alongside the side panel
+        // opening.
+        lens_controller->OpenLensOverlay(
+            lens::LensOverlayInvocationSource::kOmniboxPageAction);
+      } else {
+        lens_controller->SetInvocationSource(
+            lens::LensOverlayInvocationSource::kOmniboxPageAction);
+      }
+    }
     contextual_tasks::StartTaskUiOptions options;
     options.entry_point =
         omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_OMNIBOX_ACTION;
 
     ui_service->StartTaskUiInSidePanel(bwi, tab, creation_url,
                                        std::move(session_handle), options);
+
+    // Focus the side panel so that focus is not left on the omnibox.
+    if (auto* controller =
+            contextual_tasks::ContextualTasksPanelController::From(bwi)) {
+      if (auto* side_panel_contents = controller->GetActiveWebContents()) {
+        side_panel_contents->Focus();
+      }
+    }
   }
 #endif
 }

@@ -621,9 +621,7 @@ void Navigator::DidNavigate(
       navigation_request->browsing_context_group_swap()
           .ShouldClearProxiesOnCommit(),
       navigation_request->commit_params().frame_policy, allow_paint_holding,
-      view_transition_commit_info, navigation_request->GetURL(),
-      is_backward_navigation);
-
+      view_transition_commit_info, is_backward_navigation);
 
   // The main frame, same site, and cross-site navigation checks for user
   // activation mirror the checks in DocumentLoader::CommitNavigation() (note:
@@ -1203,8 +1201,7 @@ void Navigator::NavigateFromFrameProxy(
     bool is_unfenced_top_navigation,
     bool force_new_browsing_instance,
     bool is_container_initiated,
-    bool has_rel_opener,
-    std::optional<std::u16string> embedder_shared_storage_context) {
+    bool has_rel_opener) {
   // |method != "POST"| should imply absence of |post_body|.
   if (method != "POST" && post_body) {
     NOTREACHED();
@@ -1265,8 +1262,7 @@ void Navigator::NavigateFromFrameProxy(
       std::move(blob_url_loader_factory), is_form_submission, has_user_gesture,
       started_by_ad, actual_navigation_start_time, navigation_start_time,
       is_embedder_initiated_fenced_frame_navigation, is_unfenced_top_navigation,
-      force_new_browsing_instance, is_container_initiated, has_rel_opener,
-      embedder_shared_storage_context);
+      force_new_browsing_instance, is_container_initiated, has_rel_opener);
 }
 
 void Navigator::BeforeUnloadCompleted(FrameTreeNode* frame_tree_node,

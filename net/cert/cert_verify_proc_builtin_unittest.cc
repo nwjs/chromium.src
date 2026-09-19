@@ -23,6 +23,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "base/test/values_test_util.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
 #include "components/network_time/time_tracker/time_tracker.h"
@@ -248,6 +249,14 @@ class MockSystemTrustStore : public SystemTrustStore {
     return mock_crs_version_;
   }
 
+  void SetMockSignerSetTimestamp(std::optional<base::Time> timestamp) {
+    mock_signer_set_timestamp_ = timestamp;
+  }
+
+  std::optional<base::Time> signer_set_timestamp() const override {
+    return mock_signer_set_timestamp_;
+  }
+
   void SetMockMtcMetadataUpdateTime(std::optional<base::Time> update_time) {
     mock_mtc_metadata_update_time_ = update_time;
   }
@@ -309,8 +318,8 @@ class MockSystemTrustStore : public SystemTrustStore {
       const bssl::ParsedCertificate& target_cert,
       base::Time current_time,
       const bssl::MTCAnchor* mtc_anchor,
-      base::span<const std::vector<uint8_t>> valid_additional_cosigners)
-      const override {
+      base::span<const std::vector<uint8_t>> valid_additional_cosigners,
+      const NetLogWithSource& net_log) const override {
     got_valid_additional_cosigners_ =
         base::ToVector(valid_additional_cosigners);
     return mock_is_mtc_cosigner_policy_satisfied_;
@@ -350,6 +359,7 @@ class MockSystemTrustStore : public SystemTrustStore {
   bool mock_is_known_mtc_anchor_ = false;
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
   int64_t mock_crs_version_ = 0;
+  std::optional<base::Time> mock_signer_set_timestamp_;
   std::optional<base::Time> mock_mtc_metadata_update_time_;
   std::optional<TrustStoreChrome::MtcAnchorExtraData>
       mock_mtc_anchor_extra_data_;
@@ -593,6 +603,10 @@ class CertVerifyProcBuiltinTest : public ::testing::Test {
 
   void SetMockCRSVersion(int64_t crs_version) {
     mock_system_trust_store_->SetMockCRSVersion(crs_version);
+  }
+
+  void SetMockSignerSetTimestamp(std::optional<base::Time> timestamp) {
+    mock_system_trust_store_->SetMockSignerSetTimestamp(timestamp);
   }
 
   void SetMockMtcMetadataUpdateTime(std::optional<base::Time> update_time) {
@@ -864,7 +878,7 @@ TEST_F(CertVerifyProcBuiltinTest, StandaloneMtcVerification) {
   auto mtc_anchor = std::make_shared<const bssl::MTCAnchor>(
       ca_cosigner.id, ca_cosigner.signature_algorithm,
       x509_util::CreateCryptoBuffer(ca_cosigner.key.ToSubjectPublicKeyInfo()),
-      std::map<uint16_t, std::vector<bssl::TrustedSubtree>>());
+      std::vector<bssl::LogTrustedSubtrees>());
   ASSERT_TRUE(trust_store.AddMTCTrustAnchor(mtc_anchor));
   AddTrustStore(&trust_store);
 
@@ -894,7 +908,7 @@ TEST_F(CertVerifyProcBuiltinTest, StandaloneMtcVerification) {
   mtc_anchor = std::make_shared<const bssl::MTCAnchor>(
       ca_cosigner.id, ca_cosigner.signature_algorithm,
       x509_util::CreateCryptoBuffer(different_key.ToSubjectPublicKeyInfo()),
-      std::map<uint16_t, std::vector<bssl::TrustedSubtree>>());
+      std::vector<bssl::LogTrustedSubtrees>());
   ASSERT_TRUE(trust_store.AddMTCTrustAnchor(mtc_anchor));
   {
     CertVerifyResult verify_result;
@@ -947,7 +961,7 @@ TEST_F(CertVerifyProcBuiltinTest, StandaloneMtcCosignerPolicy) {
   auto mtc_anchor = std::make_shared<const bssl::MTCAnchor>(
       ca_cosigner.id, ca_cosigner.signature_algorithm,
       x509_util::CreateCryptoBuffer(ca_cosigner.key.ToSubjectPublicKeyInfo()),
-      std::map<uint16_t, std::vector<bssl::TrustedSubtree>>());
+      std::vector<bssl::LogTrustedSubtrees>());
   ASSERT_TRUE(trust_store.AddMTCTrustAnchor(mtc_anchor));
   AddTrustStore(&trust_store);
 
@@ -987,6 +1001,7 @@ TEST_F(CertVerifyProcBuiltinTest, StandaloneMtcCosignerPolicy) {
     // MTC with only CA signature should validate successfully when mirror
     // policy is not enforced.
     CertVerifyResult verify_result;
+    RecordingNetLogObserver net_log_observer(NetLogCaptureMode::kDefault);
     NetLogSource verify_net_log_source;
     TestCompletionCallback callback;
     Verify(leaf_with_ca_only.get(), "www.example.com", /*flags=*/0,
@@ -1002,6 +1017,17 @@ TEST_F(CertVerifyProcBuiltinTest, StandaloneMtcCosignerPolicy) {
         mtc_anchor->AsCert()->cert_buffer(),
         verify_result.verified_cert->cert_buffers()[1].get()));
     EXPECT_FALSE(verify_result.is_issued_by_known_root);
+
+    // In the case of locally trusted MTC anchors, the netlog is recorded
+    // directly from PathBuilderDelegateImpl without calling the trust store
+    // IsMtcCosignerPolicySatisfied.
+    auto events = net_log_observer.GetEntriesWithType(
+        NetLogEventType::CERT_MTC_COSIGNER_POLICY_CHECKED);
+    ASSERT_EQ(1u, events.size());
+    EXPECT_THAT(events[0].params, base::test::IsJson(R"({
+      "is_valid": true,
+      "reason": "locally trusted anchor",
+    })"));
   }
 
   {
@@ -1009,6 +1035,7 @@ TEST_F(CertVerifyProcBuiltinTest, StandaloneMtcCosignerPolicy) {
     // successfully when mirror policy is not enforced. The mirror signature is
     // not required, but being present does not affect the result.
     CertVerifyResult verify_result;
+    RecordingNetLogObserver net_log_observer(NetLogCaptureMode::kDefault);
     NetLogSource verify_net_log_source;
     TestCompletionCallback callback;
     Verify(leaf_with_ca_and_mirror.get(), "www.example.com", /*flags=*/0,
@@ -1024,11 +1051,23 @@ TEST_F(CertVerifyProcBuiltinTest, StandaloneMtcCosignerPolicy) {
         mtc_anchor->AsCert()->cert_buffer(),
         verify_result.verified_cert->cert_buffers()[1].get()));
     EXPECT_FALSE(verify_result.is_issued_by_known_root);
+
+    // In the case of locally trusted MTC anchors, the netlog is recorded
+    // directly from PathBuilderDelegateImpl without calling the trust store
+    // IsMtcCosignerPolicySatisfied.
+    auto events = net_log_observer.GetEntriesWithType(
+        NetLogEventType::CERT_MTC_COSIGNER_POLICY_CHECKED);
+    ASSERT_EQ(1u, events.size());
+    EXPECT_THAT(events[0].params, base::test::IsJson(R"({
+      "is_valid": true,
+      "reason": "locally trusted anchor",
+    })"));
   }
 
   {
     // MTC with no CA signature should fail regardless.
     CertVerifyResult verify_result;
+    RecordingNetLogObserver net_log_observer(NetLogCaptureMode::kDefault);
     NetLogSource verify_net_log_source;
     TestCompletionCallback callback;
     Verify(leaf_with_mirror_only.get(), "www.example.com", /*flags=*/0,
@@ -1036,6 +1075,10 @@ TEST_F(CertVerifyProcBuiltinTest, StandaloneMtcCosignerPolicy) {
 
     int error = callback.WaitForResult();
     EXPECT_THAT(error, IsError(ERR_CERT_AUTHORITY_INVALID));
+    EXPECT_EQ(0u, net_log_observer
+                      .GetEntriesWithType(
+                          NetLogEventType::CERT_MTC_COSIGNER_POLICY_CHECKED)
+                      .size());
   }
 
   // Second round of tests, with KnownMtcAnchor=true.
@@ -1050,6 +1093,7 @@ TEST_F(CertVerifyProcBuiltinTest, StandaloneMtcCosignerPolicy) {
     SetMockIsMtcCosignerPolicySatisfied(false);
 
     CertVerifyResult verify_result;
+    RecordingNetLogObserver net_log_observer(NetLogCaptureMode::kDefault);
     NetLogSource verify_net_log_source;
     TestCompletionCallback callback;
     Verify(leaf_with_ca_only.get(), "www.example.com", /*flags=*/0,
@@ -1059,6 +1103,13 @@ TEST_F(CertVerifyProcBuiltinTest, StandaloneMtcCosignerPolicy) {
     EXPECT_THAT(error, IsError(ERR_CERT_AUTHORITY_INVALID));
     EXPECT_EQ(std::vector<std::vector<uint8_t>>{},
               TakeLastValidAdditionalCosigners());
+    // Since the trust store IsMtcCosignerPolicySatisfied is mocked and this is
+    // a known anchor, the CERT_MTC_COSIGNER_POLICY_CHECKED netlog is not
+    // recorded. (Those cases are tested in trust_store_chrome_unittest.cc.)
+    EXPECT_EQ(0u, net_log_observer
+                      .GetEntriesWithType(
+                          NetLogEventType::CERT_MTC_COSIGNER_POLICY_CHECKED)
+                      .size());
   }
   {
     // MTC validation should succeed when mirror policy is enforced and
@@ -1101,17 +1152,25 @@ TEST_F(CertVerifyProcBuiltinTest, MtcLogNumberLimits) {
     int min_log_number;
     int expected_result_for_local_root;
     int expected_result_for_known_root;
+    bool load_landmark_data = true;
   } testcases[] = {
       // A log number of zero is not allowed. This should always fail (it's
       // enforced by the boringssl side of MTC verification.)
+      // MTCAnchor doesn't allow loading of trusted landmarks with log number 0
+      // (we assume the trusted infrastructure supplying the landmark data will
+      // never supply such data so it fails at load time rather than
+      // verification time), so for this test case we don't try to import
+      // the landmark data.
       {.log_number = 0,
        .min_log_number = 0,
        .expected_result_for_local_root = ERR_CERT_AUTHORITY_INVALID,
-       .expected_result_for_known_root = ERR_CERT_AUTHORITY_INVALID},
+       .expected_result_for_known_root = ERR_CERT_AUTHORITY_INVALID,
+       .load_landmark_data = false},
       {.log_number = 0,
        .min_log_number = 1,
        .expected_result_for_local_root = ERR_CERT_AUTHORITY_INVALID,
-       .expected_result_for_known_root = ERR_CERT_AUTHORITY_INVALID},
+       .expected_result_for_known_root = ERR_CERT_AUTHORITY_INVALID,
+       .load_landmark_data = false},
 
       // min_log_number doesn't explicitly require known root since it comes
       // from the MtcAnchorExtraData (in practice that data will only be
@@ -1182,7 +1241,8 @@ TEST_F(CertVerifyProcBuiltinTest, MtcLogNumberLimits) {
     auto mtc_anchor = std::make_shared<const bssl::MTCAnchor>(
         ca_cosigner.id, ca_cosigner.signature_algorithm,
         x509_util::CreateCryptoBuffer(ca_cosigner.key.ToSubjectPublicKeyInfo()),
-        mtc_log.GetPerLogLandmarkSubtreeHashes());
+        test.load_landmark_data ? mtc_log.GetPerLogLandmarkSubtreeHashes()
+                                : std::vector<bssl::LogTrustedSubtrees>());
     ASSERT_TRUE(trust_store.AddMTCTrustAnchor(mtc_anchor));
     AddTrustStore(&trust_store);
 
@@ -2943,37 +3003,50 @@ TEST_F(CertVerifyProcBuiltinTest, ChromeRootStoreVersionNetLog) {
 
   for (const bool has_crs_ver : {false, true}) {
     SCOPED_TRACE(has_crs_ver);
-    for (const bool has_mtc_metadata_time : {false, true}) {
-      SCOPED_TRACE(has_mtc_metadata_time);
+    for (const bool has_signerset_timestamp : {false, true}) {
+      SCOPED_TRACE(has_signerset_timestamp);
+      for (const bool has_mtc_metadata_time : {false, true}) {
+        SCOPED_TRACE(has_mtc_metadata_time);
 
-      const int64_t expected_crs_ver = has_crs_ver ? 42 : 0;
+        const int64_t expected_crs_ver = has_crs_ver ? 42 : 0;
 
-      SetMockCRSVersion(expected_crs_ver);
-      SetMockMtcMetadataUpdateTime(
-          has_mtc_metadata_time
-              ? std::make_optional(
-                    base::Time::FromMillisecondsSinceUnixEpoch(987000))
-              : std::nullopt);
+        SetMockCRSVersion(expected_crs_ver);
+        SetMockSignerSetTimestamp(
+            has_signerset_timestamp
+                ? std::make_optional(
+                      base::Time::FromMillisecondsSinceUnixEpoch(1234000))
+                : std::nullopt);
+        SetMockMtcMetadataUpdateTime(
+            has_mtc_metadata_time
+                ? std::make_optional(
+                      base::Time::FromMillisecondsSinceUnixEpoch(987000))
+                : std::nullopt);
 
-      RecordingNetLogObserver net_log_observer(NetLogCaptureMode::kDefault);
-      CertVerifyResult verify_result;
-      NetLogSource verify_net_log_source;
-      TestCompletionCallback verify_callback;
-      Verify(chain.get(), "www.example.com",
-             /*flags=*/0, &verify_result, &verify_net_log_source,
-             verify_callback.callback());
-      EXPECT_THAT(verify_callback.WaitForResult(), IsOk());
-      auto events = net_log_observer.GetEntriesWithType(
-          NetLogEventType::CERT_VERIFY_PROC_CHROME_ROOT_STORE_VERSION);
-      if (!has_crs_ver && !has_mtc_metadata_time) {
-        ASSERT_EQ(0U, events.size());
-      } else {
-        ASSERT_EQ(1U, events.size());
-        ASSERT_TRUE(events[0].HasParams());
-        EXPECT_EQ(expected_crs_ver, events[0].params.FindInt("version_major"));
-        EXPECT_EQ(
-            has_mtc_metadata_time ? std::make_optional(987) : std::nullopt,
-            events[0].params.FindInt("mtc_metadata_update_time"));
+        RecordingNetLogObserver net_log_observer(NetLogCaptureMode::kDefault);
+        CertVerifyResult verify_result;
+        NetLogSource verify_net_log_source;
+        TestCompletionCallback verify_callback;
+        Verify(chain.get(), "www.example.com",
+               /*flags=*/0, &verify_result, &verify_net_log_source,
+               verify_callback.callback());
+        EXPECT_THAT(verify_callback.WaitForResult(), IsOk());
+        auto events = net_log_observer.GetEntriesWithType(
+            NetLogEventType::CERT_VERIFY_PROC_CHROME_ROOT_STORE_VERSION);
+        if (!has_crs_ver && !has_signerset_timestamp &&
+            !has_mtc_metadata_time) {
+          ASSERT_EQ(0U, events.size());
+        } else {
+          ASSERT_EQ(1U, events.size());
+          ASSERT_TRUE(events[0].HasParams());
+          EXPECT_EQ(expected_crs_ver,
+                    events[0].params.FindInt("version_major"));
+          EXPECT_EQ(
+              has_signerset_timestamp ? std::make_optional(1234) : std::nullopt,
+              events[0].params.FindInt("signer_set_timestamp"));
+          EXPECT_EQ(
+              has_mtc_metadata_time ? std::make_optional(987) : std::nullopt,
+              events[0].params.FindInt("mtc_metadata_update_time"));
+        }
       }
     }
   }

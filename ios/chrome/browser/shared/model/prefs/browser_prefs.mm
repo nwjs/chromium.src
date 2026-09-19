@@ -146,6 +146,7 @@
 #import "ios/chrome/browser/voice/model/voice_search_prefs_registration.h"
 #import "ios/chrome/browser/web/model/font_size/font_size_tab_helper.h"
 #import "ios/chrome/browser/welcome_back/model/welcome_back_prefs.h"
+#import "ios/chrome/common/app_group/app_group_constants.h"
 #import "ios/components/cookie_util/cookie_constants.h"
 #import "ios/web/common/features.h"
 #import "ui/base/l10n/l10n_util.h"
@@ -313,6 +314,8 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   registry->RegisterStringPref(prefs::kLastUsedProfile, std::string());
   registry->RegisterBooleanPref(prefs::kLegacyProfileHidden, false);
   registry->RegisterDictionaryPref(prefs::kLegacyProfileMap);
+  registry->RegisterDictionaryPref(prefs::kSceneSessionIdentifierMap);
+  registry->RegisterStringPref(prefs::kLastConnectedSceneIdentifier, "");
 
   [MemoryDebuggerManager registerLocalState:registry];
   [IncognitoReauthSceneAgent registerLocalState:registry];
@@ -491,9 +494,6 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   registry->RegisterTimePref(prefs::kLensOverlayLastPresented, base::Time());
 
   registry->RegisterBooleanPref(prefs::kWidgetsForMultiProfile, false);
-
-  // Deprecated 09/2025.
-  registry->RegisterBooleanPref(prefs::kBottomOmnibox, false);
 
   // Deprecated 01/2026.
   registry->RegisterListPref(kMagicStackSafetyCheckNotificationsShown);
@@ -739,6 +739,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
       enterprise_reporting::kLastSignalsUploadSucceededTimestamp, base::Time());
   registry->RegisterStringPref(
       enterprise_reporting::kLastSignalsUploadSucceededConfig, std::string());
+  registry->RegisterListPref(
+      enterprise_reporting::kSecuritySignalsClientCertificatesSelectors);
 
   // Register prefs related to Enterprise Isolated Mode.
   enterprise_isolated_mode::RegisterProfilePrefs(registry);
@@ -1008,9 +1010,6 @@ void MigrateObsoleteLocalStatePrefs(PrefService* prefs) {
   prefs->ClearPref(
       prefs::kIosMagicStackSegmentationParcelTrackingImpressionsSinceFreshness);
 
-  // Added 09/2025.
-  RenameBooleanPref(omnibox::kIsOmniboxInBottomPosition, prefs::kBottomOmnibox,
-                    prefs);
   // Added 01/2026.
   prefs->ClearPref(kMagicStackSafetyCheckNotificationsShown);
   prefs->ClearPref(kBottomOmniboxByDefault);
@@ -1135,4 +1134,9 @@ void MigrateObsoleteUserDefault() {
   [defaults removeObjectForKey:@"userHasInteractedWithTailoredFullscreenPromo"];
   [defaults removeObjectForKey:@"userHasInteractedWithFirstRunPromo"];
   [defaults removeObjectForKey:@"lastTimeUserInteractedWithFullscreenPromo"];
+
+  // Added 06/2026.
+  NSUserDefaults* shared_defaults = app_group::GetGroupUserDefaults();
+  [shared_defaults removeObjectForKey:@"SuggestedItems"];
+  [shared_defaults removeObjectForKey:@"SuggestedItemsLastModificationDate"];
 }

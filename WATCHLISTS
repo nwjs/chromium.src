@@ -25,9 +25,6 @@
                   '|isimpledom' \
                   '|liblouis'
     },
-    'accessibility_annotator': {
-      'filepath': 'accessibility_annotator'
-    },
     'accessibility_component_extensions': {
       'filepath': 'chrome/browser/resources/chromeos/accessibility'
     },
@@ -2581,10 +2578,8 @@
                       'je_julie.kim@chromium.org',
                       'josiahk+watch@chromium.org',
                       'kyungjunlee+watcha11y@google.com',
-                      'nektar+watch@chromium.org',
                       'yuzo+watch@chromium.org',
                       'francisjp+watcha11y@google.com'],
-    'accessibility_annotator': ['accessibility-annotator-reviews@google.com'],
     'accessibility_component_extensions': ['anastasi+watch@google.com',
                                            'hirokisato+watch@chromium.org',
                                            'katie+watch@chromium.org',
@@ -2593,8 +2588,7 @@
                                    'katie+watch@chromium.org'],
       'accessibility_minimal_core': ['kbabbitt@microsoft.com',
         'lucasradaelli+watch@google.com'],
-    'accessibility_reading': ['jatapiaro+watch-readinga11y@google.com',
-                              'lwinston+watch-readinga11y@google.com',
+    'accessibility_reading': ['lwinston+watch-readinga11y@google.com',
                               'trewin+watch@google.com'],
     'accessibility_service': ['hirokisato+watch@chromium.org',
                               'katie+watch@chromium.org'],
@@ -2623,7 +2617,8 @@
     'android_magic_stack': ['hanxi+watch@chromium.org'],
     'android_ntp': ['hanxi+watch@chromium.org'],
     'android_ntp_customization': ['hanxi+watch@chromium.org'],
-    'android_omnibox': ['ender+watch@chromium.org'],
+    'android_omnibox': ['ender+watch@chromium.org',
+                        'skym+watch@chromium.org'],
     'android_search_widget': ['yusufo+watch@chromium.org'],
     'android_side_panel': ['clhager@google.com',
                            'linyuh+watch@google.com',
@@ -2724,7 +2719,6 @@
     'binary_size': ['agrieve+watch@chromium.org'],
     'blink': ['blink-reviews@chromium.org'],
     'blink_accessibility': ['je_julie.kim@chromium.org',
-                            'nektar@chromium.org',
                             'blink-reviews-a11y@chromium.org'],
     'blink_animation': ['alexis.menard@intel.com',
                         'gerchiko@microsoft.com',
@@ -2732,8 +2726,7 @@
     'blink_audio': ['hongchan@chromium.org', 'mjwilson@chromium.org'],
     'blink_battery_status': [],
     'blink_bindings': ['blink-reviews-bindings@chromium.org',
-                       'haraken@chromium.org',
-                       'kubo@igalia.com'],
+                       'haraken@chromium.org'],
     'blink_bindings_serialization': ['jbroman+watch@chromium.org'],
     'blink_bluetooth': ['mattreynolds+watch@chromium.org',
                         'odejesush+watch@chromium.org'],

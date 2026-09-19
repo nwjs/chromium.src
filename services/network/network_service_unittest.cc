@@ -180,11 +180,6 @@ class NetworkServiceBoostIOThreadTest : public testing::Test {
     std::vector<base::test::FeatureRef> disabled_features;
     (enable_feature ? enabled_features : disabled_features)
         .push_back(webrtc::features::kWebRTCBoostMediaIOThreads);
-#if BUILDFLAG(IS_LINUX)
-    // Constructing a NetworkService with a registry would otherwise install a
-    // NetworkChangeNotifier factory, which is only allowed once per process.
-    disabled_features.push_back(net::features::kAddressTrackerLinuxIsProxied);
-#endif
     // The feature list must be initialized before TaskEnvironment starts
     // ThreadPool threads that may query it.
     scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
@@ -730,7 +725,7 @@ TEST_F(NetworkServiceTest, DnsClientEnableDisable) {
                                        /*dns_over_https_config=*/{},
                                        /*additional_dns_types_enabled=*/true,
                                        /*fallback_doh_nameservers=*/{});
-  EXPECT_TRUE(dns_client_ptr->CanUseInsecureDnsTransactions());
+  EXPECT_TRUE(dns_client_ptr->CanUseInsecureDnsTransactions(std::nullopt));
   EXPECT_EQ(net::SecureDnsMode::kOff,
             dns_client_ptr->GetEffectiveConfig().secure_dns_mode);
 
@@ -740,7 +735,7 @@ TEST_F(NetworkServiceTest, DnsClientEnableDisable) {
                                        /*dns_over_https_config=*/{},
                                        /*additional_dns_types_enabled=*/true,
                                        /*fallback_doh_nameservers=*/{});
-  EXPECT_FALSE(dns_client_ptr->CanUseInsecureDnsTransactions());
+  EXPECT_FALSE(dns_client_ptr->CanUseInsecureDnsTransactions(std::nullopt));
   EXPECT_EQ(net::SecureDnsMode::kOff,
             dns_client_ptr->GetEffectiveConfig().secure_dns_mode);
 
@@ -750,7 +745,7 @@ TEST_F(NetworkServiceTest, DnsClientEnableDisable) {
                                        /*dns_over_https_config=*/{},
                                        /*additional_dns_types_enabled=*/true,
                                        /*fallback_doh_nameservers=*/{});
-  EXPECT_FALSE(dns_client_ptr->CanUseInsecureDnsTransactions());
+  EXPECT_FALSE(dns_client_ptr->CanUseInsecureDnsTransactions(std::nullopt));
   EXPECT_EQ(net::SecureDnsMode::kAutomatic,
             dns_client_ptr->GetEffectiveConfig().secure_dns_mode);
 
@@ -760,7 +755,7 @@ TEST_F(NetworkServiceTest, DnsClientEnableDisable) {
       *net::DnsOverHttpsConfig::FromString("https://foo/"),
       /*additional_dns_types_enabled=*/true,
       /*fallback_doh_nameservers=*/{});
-  EXPECT_FALSE(dns_client_ptr->CanUseInsecureDnsTransactions());
+  EXPECT_FALSE(dns_client_ptr->CanUseInsecureDnsTransactions(std::nullopt));
   EXPECT_EQ(net::SecureDnsMode::kAutomatic,
             dns_client_ptr->GetEffectiveConfig().secure_dns_mode);
 }
@@ -782,7 +777,8 @@ TEST_F(NetworkServiceTest, HandlesAdditionalDnsQueryTypesEnableDisable) {
                                        /*dns_over_https_config=*/{},
                                        /*additional_dns_types_enabled=*/true,
                                        /*fallback_doh_nameservers=*/{});
-  EXPECT_TRUE(dns_client_ptr->CanQueryAdditionalTypesViaInsecureDns());
+  EXPECT_TRUE(
+      dns_client_ptr->CanQueryAdditionalTypesViaInsecureDns(std::nullopt));
 
   service()->ConfigureStubHostResolver(net::InsecureDnsMode::kEnabledBuiltIn,
                                        /*happy_eyeballs_v3_enabled=*/false,
@@ -790,7 +786,8 @@ TEST_F(NetworkServiceTest, HandlesAdditionalDnsQueryTypesEnableDisable) {
                                        /*dns_over_https_config=*/{},
                                        /*additional_dns_types_enabled=*/false,
                                        /*fallback_doh_nameservers=*/{});
-  EXPECT_FALSE(dns_client_ptr->CanQueryAdditionalTypesViaInsecureDns());
+  EXPECT_FALSE(
+      dns_client_ptr->CanQueryAdditionalTypesViaInsecureDns(std::nullopt));
 }
 
 TEST_F(NetworkServiceTest, HappyEyeballsV3EnableDisable) {
@@ -1587,6 +1584,7 @@ class NetworkServiceTestWithService : public testing::Test {
   mojom::NetworkContext* context() { return network_context_.get(); }
 
  protected:
+  base::test::ScopedFeatureList scoped_features_;
   base::test::TaskEnvironment task_environment_;
   std::unique_ptr<NetworkService> service_;
 
@@ -1597,8 +1595,6 @@ class NetworkServiceTestWithService : public testing::Test {
   mojo::Remote<mojom::URLLoader> loader_;
 
   net::TestNetLogManager net_log_manager_;
-
-  base::test::ScopedFeatureList scoped_features_;
 };
 
 // Verifies that loading a URL through the network service's mojo interface

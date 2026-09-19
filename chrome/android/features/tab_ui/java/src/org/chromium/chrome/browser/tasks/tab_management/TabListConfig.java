@@ -8,6 +8,7 @@ import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabUnderlineManager;
+import org.chromium.chrome.browser.tabmodel.TabClosingSource;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListLayoutType;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
 import org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.VerticalTabHoverCardController.TabHoverCardListener;
@@ -44,11 +45,29 @@ public class TabListConfig {
     /** Whether the tab list supports shrink-to-close animations on tab removal. */
     public final boolean supportsShrinkCloseAnimation;
 
+    /**
+     * Whether the component delays adding tabs to the model when created from switcher/group UI
+     * until after the switcher or dialog finishes hiding.
+     */
+    public final boolean supportsDelayedTabAddition;
+
+    /**
+     * Whether the tab list items support a context click listener (e.g. mouse right click).
+     * Defaults to false; enabled for Tab Switcher Grid and Dialogs where context clicks trigger tab
+     * item context actions.
+     */
+    public final boolean supportsTabContextClick;
+
+    /** The {@link TabClosingSource} to attribute when tabs or tab groups are closed. */
+    public final @TabClosingSource int tabClosingSource;
+
+    // TODO(crbug.com/509226293): Revisit if vertical tabs specific fields like
+    // railCollapseStateSupplier should be decoupled or moved to a dedicated mediator.
     /** Supplier for the rail collapse state in vertical tabs, or null if not supported. */
     public final @Nullable NonNullObservableSupplier<@RailCollapseState Integer>
             railCollapseStateSupplier;
 
-    /** Listener for tab hover card events, or null if not supported. */
+    /** Listener for tab and tab group hover card events, or null if not supported. */
     public final @Nullable TabHoverCardListener tabHoverCardListener;
 
     /** Manager for active tab underline indicators (e.g. for Glic), or null if not supported. */
@@ -61,6 +80,9 @@ public class TabListConfig {
         supportsModifierMultiSelect = builder.mSupportsModifierMultiSelect;
         supportsTabLoadingState = builder.mSupportsTabLoadingState;
         supportsShrinkCloseAnimation = builder.mSupportsShrinkCloseAnimation;
+        supportsDelayedTabAddition = builder.mSupportsDelayedTabAddition;
+        supportsTabContextClick = builder.mSupportsTabContextClick;
+        tabClosingSource = builder.mTabClosingSource;
         railCollapseStateSupplier = builder.mRailCollapseStateSupplier;
         tabHoverCardListener = builder.mTabHoverCardListener;
         tabUnderlineManager = builder.mTabUnderlineManager;
@@ -74,6 +96,9 @@ public class TabListConfig {
         private boolean mSupportsModifierMultiSelect;
         private boolean mSupportsTabLoadingState;
         private boolean mSupportsShrinkCloseAnimation;
+        private boolean mSupportsDelayedTabAddition;
+        private boolean mSupportsTabContextClick;
+        private @TabClosingSource int mTabClosingSource;
         private @Nullable NonNullObservableSupplier<@RailCollapseState Integer>
                 mRailCollapseStateSupplier;
         private @Nullable TabHoverCardListener mTabHoverCardListener;
@@ -137,6 +162,38 @@ public class TabListConfig {
         }
 
         /**
+         * Sets whether the component delays adding tabs to the model when created from
+         * switcher/group UI.
+         *
+         * @param supportsDelayedTabAddition Whether to delay tab addition until post-hiding.
+         * @return The {@link Builder} instance.
+         */
+        public Builder setSupportsDelayedTabAddition(boolean supportsDelayedTabAddition) {
+            mSupportsDelayedTabAddition = supportsDelayedTabAddition;
+            return this;
+        }
+
+        /**
+         * @param supportsTabContextClick Whether tab list items support context click listeners.
+         * @return The {@link Builder} instance.
+         */
+        public Builder setSupportsTabContextClick(boolean supportsTabContextClick) {
+            mSupportsTabContextClick = supportsTabContextClick;
+            return this;
+        }
+
+        /**
+         * Sets the {@link TabClosingSource} for tab closures initiated from this tab list.
+         *
+         * @param tabClosingSource The {@link TabClosingSource}.
+         * @return The {@link Builder} instance.
+         */
+        public Builder setTabClosingSource(@TabClosingSource int tabClosingSource) {
+            mTabClosingSource = tabClosingSource;
+            return this;
+        }
+
+        /**
          * @param railCollapseStateSupplier Supplier for rail collapse state, or null.
          * @return The {@link Builder} instance.
          */
@@ -148,7 +205,7 @@ public class TabListConfig {
         }
 
         /**
-         * @param tabHoverCardListener Listener for tab hover card events, or null.
+         * @param tabHoverCardListener Listener for tab and tab group hover card events, or null.
          * @return The {@link Builder} instance.
          */
         public Builder setTabHoverCardListener(

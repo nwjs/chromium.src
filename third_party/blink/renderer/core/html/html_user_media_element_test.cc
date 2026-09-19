@@ -85,7 +85,7 @@ class HTMLUserMediaElementTest : public PageTestBase {
 
  protected:
   ScopedTestingPlatformSupport<LocalePlatformSupport> platform_support_;
-  ScopedUserMediaElementLegacyForTest legacy_enabled_{true};
+  ScopedUserMediaElementLegacyForTest legacy_enabled_{false};
 };
 
 TEST_F(HTMLUserMediaElementTest, BranchingLogicBasedOnTypeAttribute) {
@@ -94,12 +94,8 @@ TEST_F(HTMLUserMediaElementTest, BranchingLogicBasedOnTypeAttribute) {
   // Default state (New capability mode)
   EXPECT_FALSE(element->IsLegacyMode());
 
-  // Set type to simulate legacy mode
+  // Setting type should not change the element to legacy mode.
   element->setAttribute(html_names::kTypeAttr, AtomicString("camera"));
-  EXPECT_TRUE(element->IsLegacyMode());
-
-  // Remove type to revert to new capability mode
-  element->removeAttribute(html_names::kTypeAttr);
   EXPECT_FALSE(element->IsLegacyMode());
 }
 
@@ -110,7 +106,6 @@ TEST_F(HTMLUserMediaElementTest, StartRequestOnClick) {
           *GetDocument().domWindow());
 
   auto* element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
-  element->ApplyDefaultConstraints();  // Initialize standard mode
 
   HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
       init_map;
@@ -145,7 +140,6 @@ TEST_F(HTMLUserMediaElementTest, OnConstraintsSetTriggersRequest) {
           *GetDocument().domWindow());
 
   auto* element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
-  element->ApplyDefaultConstraints();
 
   // Initialize status to ASK
   HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
@@ -179,7 +173,6 @@ TEST_F(HTMLUserMediaElementTest, NoRequestWhenNoPermissionGranted) {
           *GetDocument().domWindow());
 
   auto* element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
-  element->ApplyDefaultConstraints();
 
   // Initialize status to ASK (not granted)
   HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
@@ -203,7 +196,6 @@ TEST_F(HTMLUserMediaElementTest, DoNotStartRequestTwiceOnClick) {
           *GetDocument().domWindow());
 
   auto* element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
-  element->ApplyDefaultConstraints();
 
   // Initialize and grant both permissions.
   HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
@@ -234,9 +226,51 @@ TEST_F(HTMLUserMediaElementTest, DoNotStartRequestTwiceOnClick) {
   ::testing::Mock::VerifyAndClearExpectations(provider);
 }
 
-TEST_F(HTMLUserMediaElementTest, GrantedText) {
+TEST_F(HTMLUserMediaElementTest, GrantedTextStandardMode) {
+  // Case 1: Camera initialized as GRANTED, Mic as ASK -> shows standard string
   auto* element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
-  // Case 1: Camera only - No Constraints (Legacy)
+  HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
+      init_map_camera_only;
+  init_map_camera_only.insert(mojom::blink::PermissionName::VIDEO_CAPTURE,
+                              mojom::blink::PermissionStatus::GRANTED);
+  init_map_camera_only.insert(mojom::blink::PermissionName::AUDIO_CAPTURE,
+                              mojom::blink::PermissionStatus::ASK);
+  element->OnPermissionStatusInitialized(init_map_camera_only);
+  EXPECT_EQ(element->permission_text_span_for_testing()->innerText(),
+            kCameraMicrophoneString);
+
+  // Case 2: Microphone initialized as GRANTED, Camera as ASK -> shows standard
+  // string
+  element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
+  HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
+      init_map_mic_only;
+  init_map_mic_only.insert(mojom::blink::PermissionName::AUDIO_CAPTURE,
+                           mojom::blink::PermissionStatus::GRANTED);
+  init_map_mic_only.insert(mojom::blink::PermissionName::VIDEO_CAPTURE,
+                           mojom::blink::PermissionStatus::ASK);
+  element->OnPermissionStatusInitialized(init_map_mic_only);
+  EXPECT_EQ(element->permission_text_span_for_testing()->innerText(),
+            kCameraMicrophoneString);
+
+  // Case 3: Both GRANTED -> still shows standard string (granted appearance
+  // disabled in standard mode)
+  element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
+  HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
+      init_map_both;
+  init_map_both.insert(mojom::blink::PermissionName::VIDEO_CAPTURE,
+                       mojom::blink::PermissionStatus::GRANTED);
+  init_map_both.insert(mojom::blink::PermissionName::AUDIO_CAPTURE,
+                       mojom::blink::PermissionStatus::GRANTED);
+  element->OnPermissionStatusInitialized(init_map_both);
+  EXPECT_EQ(element->permission_text_span_for_testing()->innerText(),
+            kCameraMicrophoneString);
+}
+
+TEST_F(HTMLUserMediaElementTest, GrantedTextLegacyMode) {
+  ScopedUserMediaElementLegacyForTest legacy_enabled(true);
+
+  // Case 1: Camera only
+  auto* element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
   element->setAttribute(html_names::kTypeAttr, AtomicString("camera"));
   HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
       init_map_camera;
@@ -246,23 +280,7 @@ TEST_F(HTMLUserMediaElementTest, GrantedText) {
   EXPECT_EQ(element->permission_text_span_for_testing()->innerText(),
             kCameraAllowedString);
 
-  // Case 2: Standard mode (requires both) - Camera initialized as GRANTED, Mic
-  // as ASK (not both, so not allowed text)
-  element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
-  element->ApplyDefaultConstraints();
-  HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
-      init_map_camera_only_granted;
-  init_map_camera_only_granted.insert(
-      mojom::blink::PermissionName::VIDEO_CAPTURE,
-      mojom::blink::PermissionStatus::GRANTED);
-  init_map_camera_only_granted.insert(
-      mojom::blink::PermissionName::AUDIO_CAPTURE,
-      mojom::blink::PermissionStatus::ASK);
-  element->OnPermissionStatusInitialized(init_map_camera_only_granted);
-  EXPECT_EQ(element->permission_text_span_for_testing()->innerText(),
-            kCameraMicrophoneString);
-
-  // Case 3: Microphone only - No Constraints (Legacy)
+  // Case 2: Microphone only
   element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
   element->setAttribute(html_names::kTypeAttr, AtomicString("microphone"));
   HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
@@ -273,21 +291,7 @@ TEST_F(HTMLUserMediaElementTest, GrantedText) {
   EXPECT_EQ(element->permission_text_span_for_testing()->innerText(),
             kMicrophoneAllowedString);
 
-  // Case 4: Standard mode - Microphone initialized as GRANTED, Camera as ASK
-  // (not allowed text)
-  element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
-  element->ApplyDefaultConstraints();
-  HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
-      init_map_mic_only_granted;
-  init_map_mic_only_granted.insert(mojom::blink::PermissionName::AUDIO_CAPTURE,
-                                   mojom::blink::PermissionStatus::GRANTED);
-  init_map_mic_only_granted.insert(mojom::blink::PermissionName::VIDEO_CAPTURE,
-                                   mojom::blink::PermissionStatus::ASK);
-  element->OnPermissionStatusInitialized(init_map_mic_only_granted);
-  EXPECT_EQ(element->permission_text_span_for_testing()->innerText(),
-            kCameraMicrophoneString);
-
-  // Case 5: Camera and Microphone - No Constraints (Legacy)
+  // Case 3: Camera and Microphone
   element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
   element->setAttribute(html_names::kTypeAttr,
                         AtomicString("camera microphone"));
@@ -300,14 +304,6 @@ TEST_F(HTMLUserMediaElementTest, GrantedText) {
   element->OnPermissionStatusInitialized(init_map_both);
   EXPECT_EQ(element->permission_text_span_for_testing()->innerText(),
             kCameraMicrophoneAllowedString);
-
-  // Case 6: Camera and Microphone - With Constraints (Standard always both, not
-  // allowed text even if granted)
-  element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
-  element->ApplyDefaultConstraints();
-  element->OnPermissionStatusInitialized(init_map_both);
-  EXPECT_EQ(element->permission_text_span_for_testing()->innerText(),
-            kCameraMicrophoneString);
 }
 
 TEST_F(HTMLUserMediaElementTest,
@@ -316,7 +312,6 @@ TEST_F(HTMLUserMediaElementTest,
   MockUserMediaRequestProvider::CreateAndProvideTo(*GetDocument().domWindow());
 
   auto* element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
-  element->ApplyDefaultConstraints();
 
   // Initialize status to ASK.
   HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
@@ -360,7 +355,6 @@ TEST_F(HTMLUserMediaElementTest, ClickWhenStyleIsInvalidFiresError) {
   MockUserMediaRequestProvider::CreateAndProvideTo(*GetDocument().domWindow());
 
   auto* element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
-  element->ApplyDefaultConstraints();  // Initialize before append
 
   // Initialize status to ASK.
   HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
@@ -419,7 +413,6 @@ TEST_F(HTMLUserMediaElementTest, UntrustedClickFiresError) {
 
   // Do NOT bypass security.
   auto* element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
-  element->ApplyDefaultConstraints();
 
   EXPECT_EQ(element->error(), nullptr);
 
@@ -439,6 +432,7 @@ TEST_F(HTMLUserMediaElementTest, UntrustedClickFiresError) {
 }
 
 TEST_F(HTMLUserMediaElementTest, LegacyModeDoesNotRequestMediaStream) {
+  ScopedUserMediaElementLegacyForTest legacy_enabled(true);
   ScopedBypassPepcSecurityForTestingForTest bypass_pepc(true);
   MockUserMediaRequestProvider* provider =
       MockUserMediaRequestProvider::CreateAndProvideTo(*GetDocument().domWindow());
@@ -471,11 +465,12 @@ TEST_F(HTMLUserMediaElementTest, TypeAttributeIgnoredWhenLegacyDisabled) {
   auto* element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
 
   EXPECT_FALSE(element->IsLegacyMode());
+  EXPECT_EQ(element->GetPermissionDescriptors().size(), 2U);
 
   // Set type, should be ignored.
   element->setAttribute(html_names::kTypeAttr, AtomicString("camera"));
   EXPECT_FALSE(element->IsLegacyMode());
-  EXPECT_TRUE(element->GetPermissionDescriptors().empty());
+  EXPECT_EQ(element->GetPermissionDescriptors().size(), 2U);
 }
 
 TEST_F(HTMLUserMediaElementTest, NonSecureContextBlocked) {
@@ -492,7 +487,6 @@ TEST_F(HTMLUserMediaElementTest, NonSecureContextBlocked) {
           *GetDocument().domWindow());
 
   auto* element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
-  element->ApplyDefaultConstraints();
 
   HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
       init_map;
@@ -521,7 +515,6 @@ TEST_F(HTMLUserMediaElementTest, MissingTransientUserActivationBlocked) {
           *GetDocument().domWindow());
 
   auto* element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
-  element->ApplyDefaultConstraints();
 
   HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
       init_map;

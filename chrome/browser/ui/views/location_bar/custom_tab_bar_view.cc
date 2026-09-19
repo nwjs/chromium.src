@@ -15,6 +15,7 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/page_info/page_info_dialog.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
@@ -245,7 +246,7 @@ CustomTabBarView::CustomTabBarView(BrowserView* browser_view,
       .SetCrossAxisAlignment(views::LayoutAlignment::kStretch)
       .SetInteriorMargin(interior_margin);
 
-  browser_->tab_strip_model()->AddObserver(this);
+  browser_->GetTabStripModel()->AddObserver(this);
 }
 
 CustomTabBarView::~CustomTabBarView() = default;

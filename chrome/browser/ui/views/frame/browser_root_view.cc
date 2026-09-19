@@ -25,6 +25,7 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -258,7 +259,7 @@ void BrowserRootView::OnDragEntered(const ui::DropTargetEvent& event) {
 
   // Avoid crashing while the tab strip is being initialized or is empty.
   content::WebContents* web_contents =
-      browser_view_->browser()->tab_strip_model()->GetActiveWebContents();
+      browser_view_->browser()->GetTabStripModel()->GetActiveWebContents();
   if (!web_contents) {
     return;
   }
@@ -445,7 +446,7 @@ void BrowserRootView::PaintChildren(const views::PaintInfo& paint_info) {
   const int x = std::round(browser_bounds.x() * scale);
   const int width = std::round(browser_bounds.width() * scale);
 
-  TabStripModel* model = browser_view_->browser()->tab_strip_model();
+  TabStripModel* model = browser_view_->browser()->GetTabStripModel();
   std::vector<tabs::TabInterface*> active_tabs = model->GetForegroundTabs();
   for (tabs::TabInterface* active_tab : active_tabs) {
     views::View* tab_view = browser_view_->tab_strip_view()->GetTabAnchorView(

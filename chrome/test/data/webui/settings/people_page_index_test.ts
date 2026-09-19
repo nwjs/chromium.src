@@ -7,11 +7,8 @@ import 'chrome://settings/lazy_load.js';
 
 import type {SettingsPeoplePageIndexElement} from 'chrome://settings/settings.js';
 import {loadTimeData, PrefsBrowserProxy, PrefService, resetRouterForTesting, Router, routes, SignedInState, StatusAction, SyncBrowserProxyImpl} from 'chrome://settings/settings.js';
-// </if>
-
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
-import {microtasksFinished} from 'chrome://webui-test/test_util.js';
+import {eventToPromise} from 'chrome://webui-test/test_util.js';
 
 import {TestPrefsBrowserProxy} from './test_prefs_browser_proxy.js';
 import {TestSyncBrowserProxy} from './test_sync_browser_proxy.js';
@@ -88,15 +85,18 @@ suite('PeoplePageIndex', function() {
 
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     index = document.createElement('settings-people-page-index');
+    const whenViewEntered = eventToPromise('view-enter-finish', index);
     document.body.appendChild(index);
-    return flushTasks();
+    await whenViewEntered;
   }
 
-  setup(function() {
+  setup(async function() {
+    // <if expr="is_chromeos">
     loadTimeData.overrideValues({
       replaceSyncPromosWithSignInPromos: false,
     });
     resetRouterForTesting();
+    // </if>
 
     // Set SignedInState.SIGNED_IN otherwise navigating to routes.SYNC_ADVANCED
     // would automatically redirect to routes.SYNC.
@@ -108,7 +108,7 @@ suite('PeoplePageIndex', function() {
     };
 
     Router.getInstance().navigateTo(routes.BASIC);
-    return createPeoplePageIndex();
+    await createPeoplePageIndex();
   });
 
   function assertActiveView(id: string) {
@@ -121,26 +121,31 @@ suite('PeoplePageIndex', function() {
     assertEquals(routes.BASIC, Router.getInstance().getCurrentRoute());
     assertActiveView('parent');
 
+    // <if expr="is_chromeos">
+    let whenEntered = eventToPromise('view-enter-finish', index);
     Router.getInstance().navigateTo(routes.SYNC);
-    await microtasksFinished();
+    await whenEntered;
     assertActiveView('sync');
 
+    whenEntered = eventToPromise('view-enter-finish', index);
     Router.getInstance().navigateTo(routes.SYNC_ADVANCED);
-    await microtasksFinished();
+    await whenEntered;
     assertActiveView('syncControls');
+    // </if>
 
     // <if expr="not is_chromeos">
     Router.getInstance().navigateTo(routes.IMPORT_DATA);
-    await microtasksFinished();
     assertActiveView('parent');
 
+    let whenEntered = eventToPromise('view-enter-finish', index);
     Router.getInstance().navigateTo(routes.MANAGE_PROFILE);
-    await microtasksFinished();
+    await whenEntered;
     assertActiveView('manageProfile');
     // </if>
 
+    whenEntered = eventToPromise('view-enter-finish', index);
     Router.getInstance().navigateTo(routes.PEOPLE);
-    await microtasksFinished();
+    await whenEntered;
     assertActiveView('parent');
   });
 
@@ -175,12 +180,14 @@ suite('PeoplePageIndex', function() {
     resetRouterForTesting();
     await createPeoplePageIndex();
 
+    let whenEntered = eventToPromise('view-enter-finish', index);
     Router.getInstance().navigateTo(routes.ACCOUNT);
-    await microtasksFinished();
+    await whenEntered;
     assertActiveView('account');
 
+    whenEntered = eventToPromise('view-enter-finish', index);
     Router.getInstance().navigateTo(routes.GOOGLE_SERVICES);
-    await microtasksFinished();
+    await whenEntered;
     assertActiveView('googleServices');
   });
 

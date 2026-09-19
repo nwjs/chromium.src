@@ -16,6 +16,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static org.hamcrest.CoreMatchers.allOf;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -39,6 +40,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -51,6 +53,7 @@ import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.PayloadCallbackHelper;
+import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManager;
@@ -58,6 +61,7 @@ import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManagerFactory
 import org.chromium.chrome.browser.autofill.settings.AutofillAndPasswordsFragment.AutofillSettingsReferrer;
 import org.chromium.chrome.browser.autofill.settings.AutofillAndPasswordsFragment.YourSavedInfoDataCategory;
 import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsFragment;
+import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsReferrer;
 import org.chromium.chrome.browser.autofill.settings.personal_context.AutofillPersonalContextFragment;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncher;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherFactory;
@@ -87,6 +91,7 @@ import org.chromium.components.policy.test.annotations.Policies;
 import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.signin.test.util.TestAccounts;
+import org.chromium.ui.base.DeviceFormFactor;
 
 /** Tests for {@link AutofillAndPasswordsFragment}. */
 @RunWith(ChromeJUnit4ClassRunner.class)
@@ -177,6 +182,7 @@ public class AutofillAndPasswordsFragmentTest {
 
     @Test
     @SmallTest
+    @Restriction(DeviceFormFactor.PHONE) // Tablets and desktops don't have a help button or menu.
     public void testHelpMenuTriggersAutofillHelp() {
         mSettingsTestRule.startSettingsActivity();
 
@@ -319,6 +325,7 @@ public class AutofillAndPasswordsFragmentTest {
 
         mSettingsTestRule.startSettingsActivity(createFragmentArgs());
 
+        onView(withId(R.id.signin_promo_view_container)).check(matches(isDisplayed()));
         onView(withId(R.id.signin_promo_primary_button)).perform(click());
 
         verify(mAutofillAndPasswordsSigninCoordinator).startSigninFlow(any());
@@ -527,6 +534,14 @@ public class AutofillAndPasswordsFragmentTest {
         mSettingsTestRule.startSettingsActivity();
 
         testItemClick(R.string.autofill_settings_title, AutofillOptionsFragment.class);
+
+        ArgumentCaptor<Bundle> bundleCaptor = ArgumentCaptor.forClass(Bundle.class);
+        verify(mSettingsNavigation)
+                .startSettings(
+                        any(), eq(AutofillOptionsFragment.class), bundleCaptor.capture(), eq(true));
+        assertEquals(
+                AutofillOptionsReferrer.AUTOFILL_AND_PASSWORDS_FRAGMENT,
+                bundleCaptor.getValue().getInt(AutofillOptionsFragment.AUTOFILL_OPTIONS_REFERRER));
     }
 
     @Test
@@ -537,6 +552,14 @@ public class AutofillAndPasswordsFragmentTest {
         mSettingsTestRule.startSettingsActivity();
 
         testItemClick(R.string.autofill_options_title, AutofillOptionsFragment.class);
+
+        ArgumentCaptor<Bundle> bundleCaptor = ArgumentCaptor.forClass(Bundle.class);
+        verify(mSettingsNavigation)
+                .startSettings(
+                        any(), eq(AutofillOptionsFragment.class), bundleCaptor.capture(), eq(true));
+        assertEquals(
+                AutofillOptionsReferrer.AUTOFILL_AND_PASSWORDS_FRAGMENT,
+                bundleCaptor.getValue().getInt(AutofillOptionsFragment.AUTOFILL_OPTIONS_REFERRER));
     }
 
     @Test

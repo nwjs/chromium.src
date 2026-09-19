@@ -76,10 +76,6 @@ class ClientSessionTest : public testing::Test {
   // that require it.
   base::RunLoop run_loop_;
 
-  // HostExtensions to pass when creating the ClientSession. Caller retains
-  // ownership of the HostExtensions themselves.
-  std::vector<raw_ptr<HostExtension, VectorExperimental>> extensions_;
-
   SessionPolicies initial_local_policies_;
   LocalSessionPoliciesProvider local_session_policies_provider_;
 
@@ -150,8 +146,7 @@ void ClientSessionTest::CreateClientSession(
 
   client_session_ = std::make_unique<ClientSession>(
       &session_event_handler_, std::move(session), &mock_peer_session_factory_,
-      desktop_environment_options_, extensions_,
-      &local_session_policies_provider_);
+      desktop_environment_options_, &local_session_policies_provider_);
 }
 
 void ClientSessionTest::CreateClientSession() {
@@ -185,7 +180,7 @@ TEST_F(ClientSessionTest,
 
   EXPECT_CALL(
       *mock_peer_session_,
-      Start(_, _, _, _,
+      Start(_, _, _,
             testing::Field(&SessionPolicies::allow_file_transfer, std::nullopt),
             _));
 
@@ -200,7 +195,7 @@ TEST_F(ClientSessionTest,
   CreateClientSession();
 
   EXPECT_CALL(*mock_peer_session_,
-              Start(_, _, _, _,
+              Start(_, _, _,
                     testing::Field(&SessionPolicies::allow_file_transfer,
                                    std::optional<bool>(true)),
                     _));
@@ -216,7 +211,7 @@ TEST_F(ClientSessionTest,
   CreateClientSession();
 
   EXPECT_CALL(*mock_peer_session_,
-              Start(_, _, _, _,
+              Start(_, _, _,
                     testing::Field(&SessionPolicies::allow_file_transfer,
                                    std::optional<bool>(false)),
                     _));
@@ -236,7 +231,7 @@ TEST_F(ClientSessionTest, ApplyPoliciesFromRemotePolicies) {
   CreateClientSession();
 
   EXPECT_CALL(*mock_peer_session_,
-              Start(_, _, _, _,
+              Start(_, _, _,
                     testing::AllOf(
                         testing::Field(&SessionPolicies::allow_file_transfer,
                                        std::optional<bool>(false)),
@@ -257,8 +252,8 @@ TEST_F(ClientSessionTest, ForwardHostSessionOptions1) {
   CreateClientSession(std::move(session));
 
   SessionOptions options;
-  EXPECT_CALL(*mock_peer_session_, Start(_, _, _, _, _, _))
-      .WillOnce(testing::SaveArg<5>(&options));
+  EXPECT_CALL(*mock_peer_session_, Start(_, _, _, _, _))
+      .WillOnce(testing::SaveArg<4>(&options));
 
   ConnectClientSession();
   EXPECT_EQ(options.detect_updated_region, true);
@@ -274,8 +269,8 @@ TEST_F(ClientSessionTest, ForwardHostSessionOptions2) {
   CreateClientSession(std::move(session));
 
   SessionOptions options;
-  EXPECT_CALL(*mock_peer_session_, Start(_, _, _, _, _, _))
-      .WillOnce(testing::SaveArg<5>(&options));
+  EXPECT_CALL(*mock_peer_session_, Start(_, _, _, _, _))
+      .WillOnce(testing::SaveArg<4>(&options));
 
   ConnectClientSession();
   EXPECT_EQ(options.detect_updated_region, false);
@@ -297,8 +292,8 @@ TEST_F(ClientSessionTest, ForwardHostSessionOptionsAllFields) {
   CreateClientSession(std::move(session));
 
   SessionOptions options;
-  EXPECT_CALL(*mock_peer_session_, Start(_, _, _, _, _, _))
-      .WillOnce(testing::SaveArg<5>(&options));
+  EXPECT_CALL(*mock_peer_session_, Start(_, _, _, _, _))
+      .WillOnce(testing::SaveArg<4>(&options));
 
   ConnectClientSession();
   EXPECT_EQ(options.detect_updated_region, true);
@@ -320,11 +315,32 @@ TEST_F(ClientSessionTest, ForwardHostSessionOptionsIgnoresUnsupportedKey) {
   CreateClientSession(std::move(session));
 
   SessionOptions options;
-  EXPECT_CALL(*mock_peer_session_, Start(_, _, _, _, _, _))
-      .WillOnce(testing::SaveArg<5>(&options));
+  EXPECT_CALL(*mock_peer_session_, Start(_, _, _, _, _))
+      .WillOnce(testing::SaveArg<4>(&options));
 
   ConnectClientSession();
   EXPECT_EQ(options.detect_updated_region, true);
+}
+
+TEST_F(ClientSessionTest, AppliesSessionPoliciesToDesktopEnvironmentOptions) {
+  SessionPolicies remote_policies;
+  remote_policies.curtain_required = true;
+  remote_policies.allow_webauthn_forwarding = true;
+  remote_policies.allow_gnubby_forwarding = false;
+
+  desktop_environment_options_.set_enable_remote_webauthn(true);
+  desktop_environment_options_.set_enable_security_key(true);
+
+  CreateClientSession();
+
+  DesktopEnvironmentOptions options;
+  EXPECT_CALL(*mock_peer_session_, Start(_, _, _, _, _))
+      .WillOnce(testing::SaveArg<2>(&options));
+
+  ConnectClientSession(&remote_policies);
+  EXPECT_TRUE(options.enable_curtaining());
+  EXPECT_TRUE(options.enable_remote_webauthn());
+  EXPECT_FALSE(options.enable_security_key());
 }
 
 TEST_F(
@@ -378,6 +394,42 @@ TEST_F(ClientSessionTest, DisconnectsIfOnSessionPoliciesReceivedReturnsError) {
 
   EXPECT_FALSE(client_session_->is_authenticated());
   EXPECT_EQ(session_->error(), ErrorCode::DISALLOWED_BY_POLICY);
+}
+
+TEST_F(ClientSessionTest, DisconnectsAfterMaxSessionDurationIsReached) {
+  SessionPolicies policies;
+  policies.maximum_session_duration = base::Hours(10);
+  CreateClientSession();
+
+  EXPECT_CALL(*mock_peer_session_,
+              DisconnectSession(ErrorCode::MAX_SESSION_LENGTH, _, _));
+  EXPECT_CALL(*mock_peer_session_, DisconnectSession(ErrorCode::OK, _, _))
+      .Times(testing::AnyNumber());
+
+  ConnectClientSession(&policies);
+  EXPECT_TRUE(client_session_->is_authenticated());
+
+  task_environment_.FastForwardBy(*policies.maximum_session_duration);
+}
+
+TEST_F(ClientSessionTest, MaximumSessionDurationIsClampedTo30Minutes) {
+  SessionPolicies policies;
+  policies.maximum_session_duration = base::Minutes(10);
+  CreateClientSession();
+
+  ConnectClientSession(&policies);
+  EXPECT_TRUE(client_session_->is_authenticated());
+
+  // Advancing by 20 minutes should not disconnect the session since 10 minutes
+  // is clamped to the minimum duration of 30 minutes.
+  task_environment_.FastForwardBy(base::Minutes(20));
+
+  EXPECT_CALL(*mock_peer_session_,
+              DisconnectSession(ErrorCode::MAX_SESSION_LENGTH, _, _));
+  EXPECT_CALL(*mock_peer_session_, DisconnectSession(ErrorCode::OK, _, _))
+      .Times(testing::AnyNumber());
+
+  task_environment_.FastForwardBy(base::Minutes(10));
 }
 
 }  // namespace remoting

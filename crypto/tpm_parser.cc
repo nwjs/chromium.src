@@ -46,9 +46,8 @@ SignatureErrorOr<void> MapSignatureParseResult(SignatureParseResult result) {
   NOTREACHED();
 }
 
-TpmParseErrorOr<void> MapParseResult(ParseResult result,
-                                     uint32_t tpm_response_code) {
-  switch (result) {
+TpmParseErrorOr<void> MapResponseStatus(const ResponseStatus& status) {
+  switch (status.result) {
     case ParseResult::Ok:
       return base::ok();
     case ParseResult::BufferTooSmall:
@@ -59,7 +58,7 @@ TpmParseErrorOr<void> MapParseResult(ParseResult result,
           TpmParseError(TpmParseError::Type::kTrailingBytes));
     case ParseResult::TpmErrorResponse:
       return base::unexpected(TpmParseError(
-          TpmParseError::Type::kTpmErrorResponse, tpm_response_code));
+          TpmParseError::Type::kTpmErrorResponse, status.tpm_response_code));
     case ParseResult::BadMagicNumber:
       return base::unexpected(
           TpmParseError(TpmParseError::Type::kBadMagicNumber));
@@ -140,28 +139,100 @@ SignatureErrorOr<void> VerifyEcdsaSignature(
   return base::ok();
 }
 
+std::optional<SignatureAlgorithms> ToSignatureAlgorithms(
+    sign::SignatureKind kind) {
+  switch (kind) {
+    case sign::SignatureKind::RSA_PKCS1_SHA256:
+      return SignatureAlgorithms{.sig_alg = TPM_ALG_RSASSA,
+                                 .hash_alg = TPM_ALG_SHA256};
+    case sign::SignatureKind::RSA_PKCS1_SHA384:
+      return SignatureAlgorithms{.sig_alg = TPM_ALG_RSASSA,
+                                 .hash_alg = TPM_ALG_SHA384};
+    case sign::SignatureKind::RSA_PKCS1_SHA512:
+      return SignatureAlgorithms{.sig_alg = TPM_ALG_RSASSA,
+                                 .hash_alg = TPM_ALG_SHA512};
+    case sign::SignatureKind::RSA_PSS_SHA256:
+      return SignatureAlgorithms{.sig_alg = TPM_ALG_RSAPSS,
+                                 .hash_alg = TPM_ALG_SHA256};
+    case sign::SignatureKind::RSA_PSS_SHA384:
+      return SignatureAlgorithms{.sig_alg = TPM_ALG_RSAPSS,
+                                 .hash_alg = TPM_ALG_SHA384};
+    case sign::SignatureKind::RSA_PSS_SHA512:
+      return SignatureAlgorithms{.sig_alg = TPM_ALG_RSAPSS,
+                                 .hash_alg = TPM_ALG_SHA512};
+    case sign::SignatureKind::ECDSA_SHA256:
+      return SignatureAlgorithms{.sig_alg = TPM_ALG_ECDSA,
+                                 .hash_alg = TPM_ALG_SHA256};
+    case sign::SignatureKind::ECDSA_SHA384:
+      return SignatureAlgorithms{.sig_alg = TPM_ALG_ECDSA,
+                                 .hash_alg = TPM_ALG_SHA384};
+    case sign::SignatureKind::ECDSA_SHA512:
+      return SignatureAlgorithms{.sig_alg = TPM_ALG_ECDSA,
+                                 .hash_alg = TPM_ALG_SHA512};
+    default:
+      return std::nullopt;
+  }
+}
+
 }  // namespace
 
-std::vector<uint8_t> BuildCertifyCommand(uint32_t object_handle,
-                                         uint32_t sign_handle,
-                                         base::span<const uint8_t> challenge) {
+std::vector<uint8_t> BuildCertifyCommand(
+    uint32_t object_handle,
+    uint32_t sign_handle,
+    base::span<const uint8_t> qualifying_data) {
   return base::ToVector(build_certify_command(
-      object_handle, sign_handle, base::SpanToRustSlice(challenge)));
+      object_handle, sign_handle, base::SpanToRustSlice(qualifying_data)));
 }
 
 TpmParseErrorOr<CertifyResponse> ParseCertifyResponse(
     base::span<const uint8_t> response_blob,
-    base::span<const uint8_t> challenge) {
-  RawCertifyResponse raw_response = parse_certify_response(
-      base::SpanToRustSlice(response_blob), base::SpanToRustSlice(challenge));
+    base::span<const uint8_t> expected_extra_data) {
+  RawCertifyResponse raw_response =
+      parse_certify_response(base::SpanToRustSlice(response_blob),
+                             base::SpanToRustSlice(expected_extra_data));
 
-  return MapParseResult(raw_response.result, raw_response.tpm_response_code)
-      .transform([&] {
-        return CertifyResponse{
-            .statement = base::ToVector(raw_response.statement),
-            .signature = base::ToVector(raw_response.signature),
-        };
+  return MapResponseStatus(raw_response.status).transform([&] {
+    return CertifyResponse{
+        .statement = base::ToVector(raw_response.statement),
+        .signature = base::ToVector(raw_response.signature),
+    };
+  });
+}
+
+std::optional<std::vector<uint8_t>> BuildCreateAikCommand(
+    uint32_t parent_handle,
+    sign::SignatureKind kind) {
+  return ToSignatureAlgorithms(kind).transform(
+      [parent_handle](const auto& algs) {
+        return base::ToVector(build_create_aik_command(
+            parent_handle, algs.sig_alg, algs.hash_alg));
       });
+}
+
+TpmParseErrorOr<CreateResponse> ParseCreateResponse(
+    base::span<const uint8_t> response_blob) {
+  RawCreateResponse raw_response =
+      parse_create_response(base::SpanToRustSlice(response_blob));
+
+  return MapResponseStatus(raw_response.status).transform([&] {
+    return CreateResponse{
+        .out_private = base::ToVector(raw_response.out_private),
+        .out_public = base::ToVector(raw_response.out_public),
+    };
+  });
+}
+
+std::vector<uint8_t> BuildFlushContextCommand(uint32_t handle) {
+  return base::ToVector(build_flush_context_command(handle));
+}
+
+TpmParseErrorOr<FlushContextResponse> ParseFlushContextResponse(
+    base::span<const uint8_t> response_blob) {
+  ResponseStatus status =
+      parse_flush_context_response(base::SpanToRustSlice(response_blob));
+
+  return MapResponseStatus(status).transform(
+      [] { return FlushContextResponse{}; });
 }
 
 std::vector<uint8_t> BuildHashCommand(base::span<const uint8_t> data,
@@ -176,13 +247,65 @@ TpmParseErrorOr<HashResponse> ParseHashResponse(
   RawHashResponse raw_response =
       parse_hash_response(base::SpanToRustSlice(response_blob));
 
-  return MapParseResult(raw_response.result, raw_response.tpm_response_code)
-      .transform([&] {
-        return HashResponse{
-            .digest = base::ToVector(raw_response.digest),
-            .validation_ticket = base::ToVector(raw_response.validation_ticket),
-        };
-      });
+  return MapResponseStatus(raw_response.status).transform([&] {
+    return HashResponse{
+        .digest = base::ToVector(raw_response.digest),
+        .validation_ticket = base::ToVector(raw_response.validation_ticket),
+    };
+  });
+}
+
+std::vector<uint8_t> BuildHashSequenceStartCommand(TpmAlg hash_alg) {
+  return base::ToVector(build_hash_sequence_start_command(hash_alg));
+}
+
+TpmParseErrorOr<HashSequenceStartResponse> ParseHashSequenceStartResponse(
+    base::span<const uint8_t> response_blob) {
+  RawHashSequenceStartResponse raw_response =
+      parse_hash_sequence_start_response(base::SpanToRustSlice(response_blob));
+
+  return MapResponseStatus(raw_response.status).transform([&] {
+    return HashSequenceStartResponse{
+        .sequence_handle = raw_response.sequence_handle,
+    };
+  });
+}
+
+std::vector<uint8_t> BuildSequenceCompleteCommand(
+    uint32_t sequence_handle,
+    base::span<const uint8_t> data,
+    TpmRh hierarchy) {
+  return base::ToVector(build_sequence_complete_command(
+      sequence_handle, base::SpanToRustSlice(data), hierarchy));
+}
+
+TpmParseErrorOr<SequenceCompleteResponse> ParseSequenceCompleteResponse(
+    base::span<const uint8_t> response_blob) {
+  RawHashResponse raw_response =
+      parse_sequence_complete_response(base::SpanToRustSlice(response_blob));
+
+  return MapResponseStatus(raw_response.status).transform([&] {
+    return SequenceCompleteResponse{
+        .digest = base::ToVector(raw_response.digest),
+        .validation_ticket = base::ToVector(raw_response.validation_ticket),
+    };
+  });
+}
+
+std::vector<uint8_t> BuildSequenceUpdateCommand(
+    uint32_t sequence_handle,
+    base::span<const uint8_t> data) {
+  return base::ToVector(build_sequence_update_command(
+      sequence_handle, base::SpanToRustSlice(data)));
+}
+
+TpmParseErrorOr<SequenceUpdateResponse> ParseSequenceUpdateResponse(
+    base::span<const uint8_t> response_blob) {
+  ResponseStatus status =
+      parse_sequence_update_response(base::SpanToRustSlice(response_blob));
+
+  return MapResponseStatus(status).transform(
+      [] { return SequenceUpdateResponse{}; });
 }
 
 std::vector<uint8_t> BuildSignCommand(
@@ -201,12 +324,11 @@ TpmParseErrorOr<SignResponse> ParseSignResponse(
   RawSignResponse raw_response =
       parse_sign_response(base::SpanToRustSlice(response_blob));
 
-  return MapParseResult(raw_response.result, raw_response.tpm_response_code)
-      .transform([&] {
-        return SignResponse{
-            .signature = base::ToVector(raw_response.signature),
-        };
-      });
+  return MapResponseStatus(raw_response.status).transform([&] {
+    return SignResponse{
+        .signature = base::ToVector(raw_response.signature),
+    };
+  });
 }
 
 std::optional<std::vector<uint8_t>> ParseTpmSignature(

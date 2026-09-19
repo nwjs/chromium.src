@@ -97,10 +97,36 @@ import Foundation
                 username: basicAuth.userName?.value ?? "",
                 password: basicAuth.password?.value ?? "",
                 note: note,
-                creationDate: nil
+                creationDate: item.created
               ))
           case .passkey(let passkey):
             stats.passkeyCount += 1
+            var hmacSecret: Data? = nil
+            var hmacSecretAlgorithm: String? = nil
+            var largeBlob: Data? = nil
+            var largeBlobUncompressedSize: NSNumber? = nil
+            #if compiler(>=6.3)
+              if #available(iOS 26.4, *) {
+                if let hmacCred = passkey.fido2Extensions?.hmacCredentials {
+                  if !hmacCred.credentialWithUV.isEmpty {
+                    hmacSecret = hmacCred.credentialWithUV
+                  } else if !hmacCred.credentialWithoutUV.isEmpty {
+                    hmacSecret = hmacCred.credentialWithoutUV
+                  }
+                  if hmacSecret != nil {
+                    if hmacCred.algorithm == .sha256 {
+                      hmacSecretAlgorithm = "sha256"
+                    } else {
+                      hmacSecretAlgorithm = "unsupported"
+                    }
+                  }
+                }
+                if let lb = passkey.fido2Extensions?.largeBlob {
+                  largeBlob = lb.data
+                  largeBlobUncompressedSize = NSNumber(value: lb.uncompressedSize)
+                }
+              }
+            #endif
             passkeys.append(
               CredentialExchangePasskey(
                 credentialId: passkey.credentialID,
@@ -109,7 +135,11 @@ import Foundation
                 userDisplayName: passkey.userDisplayName,
                 userId: passkey.userHandle,
                 privateKey: passkey.key,
-                creationDate: nil))
+                creationDate: item.created,
+                hmacSecret: hmacSecret,
+                hmacSecretAlgorithm: hmacSecretAlgorithm,
+                largeBlob: largeBlob,
+                largeBlobUncompressedSize: largeBlobUncompressedSize))
           case .address:
             stats.addressCount += 1
           case .apiKey:

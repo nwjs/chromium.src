@@ -11,6 +11,7 @@
 #include "ash/test/ash_test_base.h"
 #include "ash/wm/desks/desks_util.h"
 #include "base/i18n/rtl.h"
+#include "base/i18n/test/scoped_rtl_for_testing.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/icu_test_util.h"
 #include "chromeos/ui/base/window_properties.h"
@@ -21,6 +22,7 @@
 #include "ui/aura/window_tree_host.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animator.h"
+#include "ui/compositor/layer_test_api.h"
 #include "ui/compositor/test/test_utils.h"
 #include "ui/gfx/animation/animation_test_api.h"
 #include "ui/gfx/color_utils.h"
@@ -28,6 +30,7 @@
 #include "ui/views/test/test_views.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/window/caption_button_layout_constants.h"
 #include "ui/views/window/frame_view.h"
 #include "ui/wm/core/window_util.h"
 
@@ -44,7 +47,56 @@ namespace ash {
 
 using chromeos::AppType;
 
+namespace {
+
 using DefaultFrameHeaderTest = AshTestBase;
+
+class LayerDestroyedChecker : public ui::LayerObserver {
+ public:
+  explicit LayerDestroyedChecker(ui::Layer* layer) { layer->AddObserver(this); }
+  LayerDestroyedChecker(const LayerDestroyedChecker&) = delete;
+  LayerDestroyedChecker& operator=(const LayerDestroyedChecker&) = delete;
+  ~LayerDestroyedChecker() override = default;
+
+  void LayerDestroyed(ui::Layer* layer) override {
+    layer->RemoveObserver(this);
+    destroyed_ = true;
+  }
+  bool destroyed() const { return destroyed_; }
+
+ private:
+  bool destroyed_ = false;
+};
+
+// A class to wait until the frame header is painted.
+class FramePaintWaiter : public ui::CompositorObserver {
+ public:
+  explicit FramePaintWaiter(aura::Window* window)
+      : frame_header_(
+            FrameHeader::Get(Widget::GetWidgetForNativeWindow(window))) {
+    frame_header_->view()->GetWidget()->GetCompositor()->AddObserver(this);
+  }
+  FramePaintWaiter(const FramePaintWaiter&) = delete;
+  FramePaintWaiter& operator=(FramePaintWaiter&) = delete;
+  ~FramePaintWaiter() override {
+    frame_header_->view()->GetWidget()->GetCompositor()->RemoveObserver(this);
+  }
+
+  // ui::CompositorObserver:
+  void OnCompositingDidCommit(ui::Compositor* compositor) override {
+    if (frame_header_->painted_for_testing()) {
+      run_loop_.Quit();
+    }
+  }
+
+  void Wait() { run_loop_.Run(); }
+
+ private:
+  base::RunLoop run_loop_;
+  raw_ptr<FrameHeader> frame_header_ = nullptr;
+};
+
+}  // namespace
 
 // Ensure the title text is vertically aligned with the window icon.
 TEST_F(DefaultFrameHeaderTest, TitleIconAlignment) {
@@ -95,10 +147,56 @@ TEST_F(DefaultFrameHeaderTest, MinimumHeaderWidthRTL) {
       widget.get(), widget->non_client_view()->frame_view(), &container);
   frame_header.LayoutHeader();
   int ltr_minimum_width = frame_header.GetMinimumHeaderWidth();
-  base::i18n::SetRTLForTesting(true);
+  base::i18n::ScopedRTLForTesting scoped_rtl(true);
   frame_header.LayoutHeader();
   int rtl_minimum_width = frame_header.GetMinimumHeaderWidth();
   EXPECT_EQ(ltr_minimum_width, rtl_minimum_width);
+}
+
+// Ensure caption button height is adjusted when painted header height is larger
+// than default button layout size.
+//
+// DefaultFrameHeader uses a fixed button size for both restored and maximized
+// states. SetHeaderHeightForPainting() is used here to test the button-
+// stretching and vertical centering behavior of FrameHeader.
+TEST_F(DefaultFrameHeaderTest, CaptionButtonHeightMatchesPaintedHeight) {
+  auto win0 =
+      CreateWindowWithAppType(AppType::BROWSER, gfx::Rect(0, 0, 500, 500));
+  Widget* widget = Widget::GetWidgetForNativeWindow(win0.get());
+  DefaultFrameHeader* frame_header =
+      static_cast<DefaultFrameHeader*>(FrameHeader::Get(widget));
+  FrameCaptionButtonContainerView* container =
+      frame_header->caption_button_container();
+
+  // By default, container height matches the default button layout size.
+  frame_header->LayoutHeader();
+  EXPECT_EQ(
+      views::GetCaptionButtonLayoutSize(frame_header->GetButtonLayoutSize())
+          .height(),
+      container->bounds().height());
+
+  // When painted height is larger than the default button layout size, the
+  // caption button container and the buttons inside should stretch to match
+  // the painted height.
+  constexpr int kCustomHeaderHeight = 45;
+  frame_header->SetHeaderHeightForPainting(kCustomHeaderHeight);
+  frame_header->LayoutHeader();
+
+  EXPECT_EQ(kCustomHeaderHeight, container->bounds().height());
+
+  FrameCaptionButtonContainerView::TestApi test_api(container);
+  EXPECT_EQ(kCustomHeaderHeight, test_api.close_button()->bounds().height());
+  EXPECT_EQ(kCustomHeaderHeight, test_api.size_button()->bounds().height());
+  EXPECT_EQ(kCustomHeaderHeight, test_api.minimize_button()->bounds().height());
+
+  // Buttons should be vertically centered within the custom header height.
+  const int expected_center_y = kCustomHeaderHeight / 2;
+  EXPECT_NEAR(expected_center_y,
+              test_api.close_button()->bounds().CenterPoint().y(), 1);
+  EXPECT_NEAR(expected_center_y,
+              test_api.size_button()->bounds().CenterPoint().y(), 1);
+  EXPECT_NEAR(expected_center_y,
+              test_api.minimize_button()->bounds().CenterPoint().y(), 1);
 }
 
 // Ensure the right frame colors are used.
@@ -135,54 +233,6 @@ TEST_F(DefaultFrameHeaderTest, FrameColors) {
   EXPECT_EQ(new_new_active, frame_header->GetCurrentFrameColor());
 }
 
-namespace {
-
-class LayerDestroyedChecker : public ui::LayerObserver {
- public:
-  explicit LayerDestroyedChecker(ui::Layer* layer) { layer->AddObserver(this); }
-  LayerDestroyedChecker(const LayerDestroyedChecker&) = delete;
-  LayerDestroyedChecker& operator=(const LayerDestroyedChecker&) = delete;
-  ~LayerDestroyedChecker() override = default;
-
-  void LayerDestroyed(ui::Layer* layer) override {
-    layer->RemoveObserver(this);
-    destroyed_ = true;
-  }
-  bool destroyed() const { return destroyed_; }
-
- private:
-  bool destroyed_ = false;
-};
-
-}  // namespace
-
-// A class to wait until hthe frame header is painted.
-class FramePaintWaiter : public ui::CompositorObserver {
- public:
-  explicit FramePaintWaiter(aura::Window* window)
-      : frame_header_(
-            FrameHeader::Get(Widget::GetWidgetForNativeWindow(window))) {
-    frame_header_->view()->GetWidget()->GetCompositor()->AddObserver(this);
-  }
-  FramePaintWaiter(const FramePaintWaiter&) = delete;
-  FramePaintWaiter& operator=(FramePaintWaiter&) = delete;
-  ~FramePaintWaiter() override {
-    frame_header_->view()->GetWidget()->GetCompositor()->RemoveObserver(this);
-  }
-
-  // ui::CompositorObserver:
-  void OnCompositingDidCommit(ui::Compositor* compositor) override {
-    if (frame_header_->painted_)
-      run_loop_.Quit();
-  }
-
-  void Wait() { run_loop_.Run(); }
-
- private:
-  base::RunLoop run_loop_;
-  raw_ptr<FrameHeader> frame_header_ = nullptr;
-};
-
 TEST_F(DefaultFrameHeaderTest, DeleteDuringAnimation) {
   const auto bounds = gfx::Rect(100, 100);
   auto win0 = CreateWindowWithAppType(AppType::BROWSER, bounds);
@@ -209,7 +259,7 @@ TEST_F(DefaultFrameHeaderTest, DeleteDuringAnimation) {
             2u);
   auto* animating_layer =
       animating_layer_holding_view->layer()->parent()->children()[0].get();
-  EXPECT_EQ(ui::LAYER_TEXTURED, animating_layer->type());
+  EXPECT_TRUE(animating_layer->AsTextured());
   EXPECT_TRUE(animating_layer->name().contains(":Old"));
   EXPECT_TRUE(animating_layer->GetAnimator()->is_animating());
 
@@ -319,7 +369,8 @@ TEST_F(DefaultFrameHeaderTest, AnimateDuringAnimation) {
   win_1.reset();
   EXPECT_TRUE(wm::IsActiveWindow(win_0.get()));
   // Makes sure that the layer has full damaged bounds.
-  EXPECT_TRUE(win_0->layer()->damaged_region().Contains(layer_bounds));
+  ui::LayerTestApi layer_test_api(win_0->layer());
+  EXPECT_TRUE(layer_test_api.damaged_region().Contains(layer_bounds));
 }
 
 }  // namespace ash

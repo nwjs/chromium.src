@@ -48,6 +48,14 @@ source_set("lifetime") {
     ]
   }
 
+  if (is_win || is_mac || is_linux) {
+    public += [ "scheduled_restart_manager.h" ]
+    public_deps += [
+      "//chrome/browser/upgrade_detector",
+      "//ui/base/idle",
+    ]
+  }
+
   if (!is_android && !is_chromeos) {
     public += [ "switch_utils.h" ]
   }
@@ -111,6 +119,7 @@ source_set("impl") {
     deps += [
       "//chrome/browser:app_controller_mac",
       "//chrome/browser:chrome_browser_application_mac",
+      "//chrome/browser:shutdown_watchdog_mac",
       "//ui/views",
     ]
   }
@@ -127,7 +136,10 @@ source_set("impl") {
   }
 
   if (is_win) {
-    deps += [ "//chrome/browser/win" ]
+    deps += [
+      "//chrome/browser/win",
+      "//components/app_launch_prefetch",
+    ]
   }
 
   if (!is_android) {
@@ -150,6 +162,7 @@ source_set("impl") {
       "//chrome/browser/notifications",
       "//chrome/browser/profiles:profile_manager",
       "//chrome/browser/sessions",
+      "//chrome/browser/ui:browser_init_state",
       "//chrome/browser/ui:chrome_pages",
       "//chrome/browser/ui/lens",
       "//chrome/browser/ui/omnibox/omnibox_everywhere",
@@ -161,6 +174,14 @@ source_set("impl") {
       "//components/performance_manager",
       "//components/site_engagement/content",
       "//ui/base/idle",
+    ]
+  }
+
+  if (is_win || is_mac || is_linux) {
+    sources += [ "scheduled_restart_manager.cc" ]
+    deps += [
+      "//chrome/common:constants",
+      "//components/prefs",
     ]
   }
 
@@ -202,8 +223,14 @@ if (!is_android) {
         "//content/test:test_support",
         "//testing/gtest",
       ]
-    } else {
+    }
+
+    if (!is_android && !is_chromeos) {
       sources += [ "switch_utils_unittest.cc" ]
+    }
+
+    if (is_win || is_mac || is_linux) {
+      sources += [ "scheduled_restart_manager_unittest.cc" ]
     }
   }
 
@@ -230,6 +257,7 @@ if (!is_android) {
       "//chrome/browser/ui",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/user_education",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
       "//components/javascript_dialogs",
@@ -242,8 +270,16 @@ if (!is_android) {
       deps += [ "//chrome/browser/background/extensions" ]
     }
 
+    if (is_win) {
+      deps += [ "//components/app_launch_prefetch" ]
+    }
+
     if (!is_chromeos) {
       sources += [ "application_lifetime_browsertest.cc" ]
+    }
+
+    if (is_win || is_mac || is_linux) {
+      sources += [ "scheduled_restart_manager_browsertest.cc" ]
     }
 
     if (is_chromeos) {

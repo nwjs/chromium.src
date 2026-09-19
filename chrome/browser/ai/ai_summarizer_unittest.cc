@@ -21,6 +21,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/fake_manifest_broker.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/scenario_builder.h"
+#include "components/optimization_guide/core/model_execution/test/feature_config_builder.h"
 #include "components/optimization_guide/core/model_execution/test/mock_on_device_capability.h"
 #include "components/optimization_guide/core/model_execution/test/substitution_builder.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
@@ -40,6 +41,8 @@
 #include "third_party/blink/public/mojom/ai/model_streaming_responder.mojom.h"
 
 namespace {
+
+namespace proto = ::optimization_guide::proto;
 
 using ::base::test::TestFuture;
 using ::blink::mojom::AILanguageCode;
@@ -80,8 +83,9 @@ class TestCreateSummarizerClient
     return receiver_.BindNewPipeAndPassRemote();
   }
 
-  void OnResult(
-      mojo::PendingRemote<::blink::mojom::AISummarizer> summarizer) override {
+  void OnResult(mojo::PendingRemote<::blink::mojom::AISummarizer> summarizer,
+                uint64_t context_window) override {
+    context_window_ = context_window;
     result_.SetValue(std::move(summarizer));
   }
 
@@ -92,9 +96,11 @@ class TestCreateSummarizerClient
   }
 
   TestFuture<CreateSummarizerResult>& result() { return result_; }
+  uint64_t context_window() const { return context_window_; }
 
  private:
   TestFuture<CreateSummarizerResult> result_;
+  uint64_t context_window_ = 0;
   mojo::Receiver<blink::mojom::AIManagerCreateSummarizerClient> receiver_{this};
 };
 
@@ -129,21 +135,22 @@ optimization_guide::proto::FeatureTextSafetyConfiguration CreateSafetyConfig() {
   }
   return safety_config;
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif
 
 class AISummarizerTest : public AITestUtils::AITestBase {
  public:
   AISummarizerTest() {
-    scoped_feature_list_.InitAndEnableFeature(
-        blink::features::kAISummarizationAPI);
+    scoped_feature_list_.InitWithFeatures(
+        {blink::features::kAISummarizationAPI,
+         blink::features::kAISummarizationPerformancePreference},
+        {});
   }
 
  protected:
-  optimization_guide::proto::OnDeviceModelExecutionFeatureConfig CreateConfig()
-      override {
-    optimization_guide::proto::OnDeviceModelExecutionFeatureConfig config;
+  proto::SolutionConfig CreateSolution() override {
+    proto::OnDeviceModelExecutionFeatureConfig config;
     config.set_can_skip_text_safety(true);
-    config.set_feature(optimization_guide::proto::ModelExecutionFeature::
+    config.set_feature(proto::ModelExecutionFeature::
                            MODEL_EXECUTION_FEATURE_SUMMARIZE);
 
     auto& input_config = *config.mutable_input_config();
@@ -156,17 +163,15 @@ class AISummarizerTest : public AITestUtils::AITestBase {
 
     auto& output_config = *config.mutable_output_config();
     output_config.set_proto_type(
-        optimization_guide::proto::StringValue().GetTypeName());
+        proto::StringValue().GetTypeName());
     *output_config.mutable_proto_field() = StringValueField();
 
-    return config;
-  }
-
-  optimization_guide::proto::OnDeviceModelExecutionFeatureConfig
-  CreateSafeConfig() {
-    auto config = CreateConfig();
-    config.set_can_skip_text_safety(false);
-    return config;
+    proto::SolutionConfig solution_config;
+    *solution_config.mutable_feature() = config;
+#if !BUILDFLAG(IS_ANDROID)
+    *solution_config.mutable_safety() = CreateSafetyConfig();
+#endif
+    return solution_config;
   }
 
   mojo::Remote<blink::mojom::AISummarizer> GetAISummarizerRemote(
@@ -339,8 +344,8 @@ TEST_F(AISummarizerTest, CreateSummarizerModelNotEligible) {
       {optimization_guide::features::kOnDeviceModelPerformanceParams},
       {on_device_model::features::kOnDeviceModelCpuBackend});
 
-  fake_broker_->service_settings().performance_class =
-      PerformanceClass::kVeryLow;
+  fake_broker_->settings().performance_class =
+      on_device_model::mojom::PerformanceClass::kVeryLow;
 #endif  // BUILDFLAG(IS_ANDROID)
 
   TestCreateSummarizerClient create_summarizer_client;
@@ -354,100 +359,14 @@ TEST_F(AISummarizerTest, CreateSummarizerModelNotEligible) {
             blink::mojom::AIManagerCreateClientError::kUnableToCreateSession);
 }
 
-TEST_F(AISummarizerTest, CreateSummarizerWaitsForBaseModel) {
-  // Uninstall the base model preinstalled by FakeModelBroker during
-  // initialization. uninstall it to verify that CreateSummarizer correctly
-  // waits for the base model to be ready.
-  UnInstallBaseModel();
-
-  TestCreateSummarizerClient create_summarizer_client;
-  GetAIManagerRemote()->CreateSummarizer(
-      create_summarizer_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
-      /*monitor=*/mojo::NullRemote());
-
-  TestFuture<CreateSummarizerResult>& future =
-      create_summarizer_client.result();
-  task_environment()->FastForwardBy(base::Hours(1));
-  EXPECT_FALSE(future.IsReady());
-
-  InstallBaseModel();
-
-  EXPECT_OK(future.Take());
-}
-
-TEST_F(AISummarizerTest, CreateSummarizerWaitsForModelAdaptation) {
-  fake_broker_->model_provider().RemoveModel(
-      optimization_guide::proto::
-          OPTIMIZATION_TARGET_MODEL_EXECUTION_FEATURE_SUMMARIZE);
-
-  TestCreateSummarizerClient create_summarizer_client;
-  GetAIManagerRemote()->CreateSummarizer(
-      create_summarizer_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
-      /*monitor=*/mojo::NullRemote());
-
-  TestFuture<CreateSummarizerResult>& future =
-      create_summarizer_client.result();
-  task_environment()->FastForwardBy(base::Hours(1));
-  EXPECT_FALSE(future.IsReady());
-
-  optimization_guide::FakeAdaptationAsset fake_asset(
-      {.config = CreateConfig()});
-  fake_broker_->UpdateModelAdaptation(fake_asset);
-
-  EXPECT_OK(future.Take());
-}
-
 #if BUILDFLAG(IS_ANDROID)
 // Android doesn't support text safety yet. crbug.com/442914748
 TEST_F(AISummarizerTest, CreateSummarizerWithTextSafetyCheck) {
-  optimization_guide::FakeAdaptationAsset fake_asset(
-      {.config = CreateSafeConfig()});
-  fake_broker_->UpdateModelAdaptation(fake_asset);
-
-  TestCreateSummarizerClient create_summarizer_client;
-  GetAIManagerRemote()->CreateSummarizer(
-      create_summarizer_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
-      /*monitor=*/mojo::NullRemote());
-
-  CreateSummarizerResult result = create_summarizer_client.result().Take();
-  EXPECT_FALSE(result.has_value());
-  EXPECT_EQ(result.error().error,
-            blink::mojom::AIManagerCreateClientError::kUnableToCreateSession);
-}
-#else
-TEST_F(AISummarizerTest, CreateSummarizerWaitsForTextSafetyModel) {
-  optimization_guide::FakeAdaptationAsset fake_asset(
-      {.config = CreateSafeConfig()});
-  fake_broker_->UpdateModelAdaptation(fake_asset);
-
-  TestCreateSummarizerClient create_summarizer_client;
-  GetAIManagerRemote()->CreateSummarizer(
-      create_summarizer_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
-      /*monitor=*/mojo::NullRemote());
-
-  TestFuture<CreateSummarizerResult>& future =
-      create_summarizer_client.result();
-  task_environment()->FastForwardBy(base::Hours(1));
-  EXPECT_FALSE(future.IsReady());
-
-  optimization_guide::FakeSafetyModelAsset safety_asset(CreateSafetyConfig());
-  fake_broker_->UpdateSafetyModel(safety_asset);
-
-  EXPECT_OK(future.Take());
-}
-
-TEST_F(AISummarizerTest, CreateSummarizerSafetyConfigNotAvailable) {
-  optimization_guide::FakeAdaptationAsset fake_asset(
-      {.config = CreateSafeConfig()});
-  fake_broker_->UpdateModelAdaptation(fake_asset);
-  // Provide a safety asset that does not support summarizer.
-  optimization_guide::FakeSafetyModelAsset safety_asset([] {
-    auto safety_config = CreateSafetyConfig();
-    safety_config.set_feature(
-        optimization_guide::proto::MODEL_EXECUTION_FEATURE_TEST);
-    return safety_config;
+  SetSolutionConfig([&]() {
+    auto solution_config = CreateSolution();
+    solution_config.mutable_feature()->set_can_skip_text_safety(false);
+    return solution_config;
   }());
-  fake_broker_->UpdateSafetyModel(safety_asset);
 
   TestCreateSummarizerClient create_summarizer_client;
   GetAIManagerRemote()->CreateSummarizer(
@@ -464,12 +383,13 @@ TEST_F(AISummarizerTest, CreateSummarizerSafetyConfigNotAvailable) {
 TEST_F(AISummarizerTest, CreateSummarizerUnableToCalculateTokenSize) {
   // Incorrect `request_base_name` cause session to fail constructing input
   // string and checking token size.
-  auto config = CreateConfig();
-  auto& input_config = *config.mutable_input_config();
-  input_config.set_request_base_name("InvalidRequestBaseName");
-
-  optimization_guide::FakeAdaptationAsset fake_asset({.config = config});
-  fake_broker_->UpdateModelAdaptation(fake_asset);
+  SetSolutionConfig([&]() {
+    auto solution_config = CreateSolution();
+    solution_config.mutable_feature()
+        ->mutable_input_config()
+        ->set_request_base_name("InvalidRequestBaseName");
+    return solution_config;
+  }());
 
   TestCreateSummarizerClient create_summarizer_client;
   auto options = GetDefaultOptions();
@@ -555,6 +475,17 @@ TEST_F(AISummarizerTest, InputLimitExceededError) {
             blink::mojom::kWritingAssistanceMaxInputTokenSize);
 }
 
+TEST_F(AISummarizerTest, ContextWindowUsesContextLimit) {
+  TestCreateSummarizerClient client;
+  GetAIManagerRemote()->CreateSummarizer(client.BindNewPipeAndPassRemote(),
+                                         GetDefaultOptions(),
+                                         /*monitor=*/mojo::NullRemote());
+  CreateSummarizerResult result = client.result().Take();
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(client.context_window(),
+            blink::mojom::kWritingAssistanceMaxInputTokenSize);
+}
+
 TEST_F(AISummarizerTest, SummarizeMultipleResponse) {
   auto summarizer_remote = GetAISummarizerRemote();
 
@@ -612,11 +543,11 @@ TEST_F(AISummarizerTest, Priority) {
 
 // Android doesn't support text safety yet. crbug.com/442914748
 TEST_F(AISummarizerTest, TextSafetyInput) {
-  optimization_guide::FakeAdaptationAsset fake_asset(
-      {.config = CreateSafeConfig()});
-  fake_broker_->UpdateModelAdaptation(fake_asset);
-  optimization_guide::FakeSafetyModelAsset safety_asset(CreateSafetyConfig());
-  fake_broker_->UpdateSafetyModel(safety_asset);
+  SetSolutionConfig([&]() {
+    auto solution_config = CreateSolution();
+    solution_config.mutable_feature()->set_can_skip_text_safety(false);
+    return solution_config;
+  }());
 
   SetExecuteResult({"hi"});
   auto summarizer_remote = GetAISummarizerRemote();
@@ -632,11 +563,11 @@ TEST_F(AISummarizerTest, TextSafetyInput) {
 }
 
 TEST_F(AISummarizerTest, TextSafetyContext) {
-  optimization_guide::FakeAdaptationAsset fake_asset(
-      {.config = CreateSafeConfig()});
-  fake_broker_->UpdateModelAdaptation(fake_asset);
-  optimization_guide::FakeSafetyModelAsset safety_asset(CreateSafetyConfig());
-  fake_broker_->UpdateSafetyModel(safety_asset);
+  SetSolutionConfig([&]() {
+    auto solution_config = CreateSolution();
+    solution_config.mutable_feature()->set_can_skip_text_safety(false);
+    return solution_config;
+  }());
 
   SetExecuteResult({"hi"});
   auto summarizer_remote = GetAISummarizerRemote();
@@ -651,11 +582,11 @@ TEST_F(AISummarizerTest, TextSafetyContext) {
 }
 
 TEST_F(AISummarizerTest, TextSafetySharedContext) {
-  optimization_guide::FakeAdaptationAsset fake_asset(
-      {.config = CreateSafeConfig()});
-  fake_broker_->UpdateModelAdaptation(fake_asset);
-  optimization_guide::FakeSafetyModelAsset safety_asset(CreateSafetyConfig());
-  fake_broker_->UpdateSafetyModel(safety_asset);
+  SetSolutionConfig([&]() {
+    auto solution_config = CreateSolution();
+    solution_config.mutable_feature()->set_can_skip_text_safety(false);
+    return solution_config;
+  }());
 
   const auto options = blink::mojom::AISummarizerCreateOptions::New(
       "unsafe", blink::mojom::AISummarizerType::kTLDR,
@@ -677,15 +608,14 @@ TEST_F(AISummarizerTest, TextSafetySharedContext) {
 }
 
 TEST_F(AISummarizerTest, TextSafetyOutput) {
-  optimization_guide::FakeAdaptationAsset fake_asset(
-      {.config = CreateSafeConfig()});
-  fake_broker_->UpdateModelAdaptation(fake_asset);
-  optimization_guide::FakeSafetyModelAsset safety_asset([] {
-    auto safety_config = CreateSafetyConfig();
-    safety_config.mutable_partial_output_checks()->set_minimum_tokens(1000);
-    return safety_config;
+  SetSolutionConfig([&]() {
+    auto solution_config = CreateSolution();
+    solution_config.mutable_feature()->set_can_skip_text_safety(false);
+    solution_config.mutable_safety()
+        ->mutable_partial_output_checks()
+        ->set_minimum_tokens(1000);
+    return solution_config;
   }());
-  fake_broker_->UpdateSafetyModel(safety_asset);
 
   // Fake text safety checker looks for the string "unsafe".
   SetExecuteResult({"a", "b", "c", "d", "e", "f", "g", "unsafe", "h"});
@@ -700,16 +630,17 @@ TEST_F(AISummarizerTest, TextSafetyOutput) {
 }
 
 TEST_F(AISummarizerTest, TextSafetyOutputPartial) {
-  optimization_guide::FakeAdaptationAsset fake_asset(
-      {.config = CreateSafeConfig()});
-  fake_broker_->UpdateModelAdaptation(fake_asset);
-  optimization_guide::FakeSafetyModelAsset safety_asset([] {
-    auto safety_config = CreateSafetyConfig();
-    safety_config.mutable_partial_output_checks()->set_minimum_tokens(3);
-    safety_config.mutable_partial_output_checks()->set_token_interval(2);
-    return safety_config;
+  SetSolutionConfig([&]() {
+    auto solution_config = CreateSolution();
+    solution_config.mutable_feature()->set_can_skip_text_safety(false);
+    solution_config.mutable_safety()
+        ->mutable_partial_output_checks()
+        ->set_minimum_tokens(3);
+    solution_config.mutable_safety()
+        ->mutable_partial_output_checks()
+        ->set_token_interval(2);
+    return solution_config;
   }());
-  fake_broker_->UpdateSafetyModel(safety_asset);
 
   // Fake text safety checker looks for the string "unsafe".
   SetExecuteResult({"a", "b", "c", "d", "e", "f", "g", "unsafe", "h"});
@@ -728,10 +659,13 @@ TEST_F(AISummarizerTest, ServiceCrash) {
   SetExecuteResult({"hi"});
 
   auto summarizer_remote = GetAISummarizerRemote();
+  EXPECT_THAT(Summarize(*summarizer_remote, kInputString, kContextString),
+              ElementsAre("hi"));
+
   AITestUtils::TestStreamingResponder responder;
   summarizer_remote->Summarize(kInputString, kContextString,
                                responder.BindRemote());
-  fake_broker_->CrashService();
+  fake_broker_->launcher().CrashService();
 
   EXPECT_FALSE(responder.WaitForCompletion());
   // TODO(crbug.com/494980521): Crashes should be yield kErrorSessionDestroyed.
@@ -748,7 +682,7 @@ TEST_F(AISummarizerTest, CrashRecoveryMeasureInputUsage) {
   auto options = GetDefaultOptions();
   options->shared_context = kSharedContextString;
   auto summarizer_remote = GetAISummarizerRemote(std::move(options));
-  fake_broker_->CrashService();
+  fake_broker_->launcher().CrashService();
 
   base::test::TestFuture<std::optional<uint32_t>> measure_future;
   summarizer_remote->MeasureUsage(kInputString, kContextString,
@@ -833,20 +767,16 @@ TEST_F(AISummarizerTest, CreateOnDeviceAiUserSettingDisabled) {
 #if !BUILDFLAG(IS_ANDROID)
 // Android doesn't support constraints yet. crbug.com/515155969
 TEST_F(AISummarizerTest, DynamicConstraints) {
-  optimization_guide::proto::OnDeviceModelExecutionFeatureConfig config =
-      CreateConfig();
+  SetSolutionConfig([&]() {
+    auto solution_config = CreateSolution();
+    optimization_guide::proto::SummarizeMetadata metadata;
+    metadata.mutable_constraints()->mutable_tldr_constraint()->set_regex(
+        "^TLDR:.*");
 
-  optimization_guide::proto::SummarizeMetadata metadata;
-  metadata.mutable_constraints()->mutable_tldr_constraint()->set_regex(
-      "^TLDR:.*");
-
-  auto* feature_metadata = config.mutable_feature_metadata();
-  feature_metadata->set_type_url(
-      "type.googleapis.com/optimization_guide.proto.SummarizeMetadata");
-  feature_metadata->set_value(metadata.SerializeAsString());
-
-  optimization_guide::FakeAdaptationAsset fake_asset({.config = config});
-  fake_broker_->UpdateModelAdaptation(fake_asset);
+    *solution_config.mutable_feature()->mutable_feature_metadata() =
+        optimization_guide::AnyWrapProto(metadata);
+    return solution_config;
+  }());
 
   SetExecuteResult({"TLDR: Result text"});
 
@@ -862,18 +792,14 @@ TEST_F(AISummarizerTest, DynamicConstraints) {
 }
 
 TEST_F(AISummarizerTest, NoConstraints) {
-  optimization_guide::proto::OnDeviceModelExecutionFeatureConfig config =
-      CreateConfig();
+  SetSolutionConfig([&]() {
+    auto solution_config = CreateSolution();
+    optimization_guide::proto::SummarizeMetadata metadata;
 
-  optimization_guide::proto::SummarizeMetadata metadata;
-
-  auto* feature_metadata = config.mutable_feature_metadata();
-  feature_metadata->set_type_url(
-      "type.googleapis.com/optimization_guide.proto.SummarizeMetadata");
-  feature_metadata->set_value(metadata.SerializeAsString());
-
-  optimization_guide::FakeAdaptationAsset fake_asset({.config = config});
-  fake_broker_->UpdateModelAdaptation(fake_asset);
+    *solution_config.mutable_feature()->mutable_feature_metadata() =
+        optimization_guide::AnyWrapProto(metadata);
+    return solution_config;
+  }());
 
   SetExecuteResult({"Result text"});
 
@@ -885,11 +811,9 @@ TEST_F(AISummarizerTest, NoConstraints) {
 }
 
 TEST_F(AISummarizerTest, NoMetadata) {
-  optimization_guide::proto::OnDeviceModelExecutionFeatureConfig config =
-      CreateConfig();
-
-  optimization_guide::FakeAdaptationAsset fake_asset({.config = config});
-  fake_broker_->UpdateModelAdaptation(fake_asset);
+  SetSolutionConfig([&]() {
+    return CreateSolution();
+  }());
 
   SetExecuteResult({"Result text"});
 
@@ -899,22 +823,11 @@ TEST_F(AISummarizerTest, NoMetadata) {
   EXPECT_THAT(Summarize(*summarizer_remote, kInputString, kContextString),
               ElementsAreArray({"Result text"}));
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
-class AISummarizerManifestTest : public AITestUtils::AITestManifestBase {
+class AISummarizerWithFeatureConfigTest : public AISummarizerTest {
  public:
-  AISummarizerManifestTest() {
-    scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{blink::features::kAISummarizationAPI, {}},
-         {blink::features::kAISummarizationPerformancePreference, {}},
-         {optimization_guide::kOptimizationGuideManifestBroker, {}},
-         {on_device_model::features::kOnDeviceModelLitertLmBackend, {}}},
-        {});
-  }
-
- protected:
-  void SetupManifest() override {
-    optimization_guide::proto::SummarizerFeatureConfig summarizer_cfg;
+  void SetupBroker() override {
+    proto::SummarizerFeatureConfig summarizer_cfg;
     summarizer_cfg.set_default_use_case("summarizer_api");
     (*summarizer_cfg.mutable_preference_use_cases())["speed"] =
         "summarizer_small_expert_model";
@@ -923,92 +836,59 @@ class AISummarizerManifestTest : public AITestUtils::AITestManifestBase {
     (*summarizer_cfg.mutable_experimental_use_cases())["v4"] =
         "summarizer_gemma4";
 
-    optimization_guide::proto::Any any_cfg;
-    any_cfg.set_type_url(
-        "type.googleapis.com/"
-        "optimization_guide.proto.SummarizerFeatureConfig");
-    any_cfg.set_value(summarizer_cfg.SerializeAsString());
+    // Explicit BaseModelRecipeArgs and empty FakeBaseModelAsset::Content are
+    // needed: ScenarioBuilder::AddBaseModel(name) defaults to 100 max_tokens
+    // and non-empty cache weights (1015, 1016, 1017), which causes
+    // FakeOnDeviceModel to emit dummy cache weight response chunks.
+    constexpr uint32_t kDefaultMaxTokens = 8096;
+    proto::SolutionConfig default_solution = CreateSolution();
 
-    constexpr uint32_t kTestMaxTokens = 100u;
-
-    optimization_guide::proto::SolutionConfig solution_config;
-    *solution_config.mutable_feature() = CreateConfig();
-    solution_config.mutable_safety()->set_feature(
-        optimization_guide::proto::ModelExecutionFeature::
-            MODEL_EXECUTION_FEATURE_SUMMARIZE);
-
-    optimization_guide::ScenarioBuilder(
-        fake_manifest_broker_->component_state())
+    fake_broker_ = std::make_unique<optimization_guide::FakeManifestBroker>();
+    optimization_guide::ScenarioBuilder(fake_broker_->component_state())
         .AddBaseModel(
-            "summarizer_gemma4_solution",
+            "base",
             optimization_guide::BaseModelRecipeArgs(
-                optimization_guide::proto::BaseModelRecipe::BACKEND_TYPE_GPU,
-                optimization_guide::proto::BaseModelRecipe::
-                    PERFORMANCE_HINT_HIGHEST_QUALITY,
-                {}, kTestMaxTokens))
+                proto::BaseModelRecipe::BACKEND_TYPE_GPU,
+                proto::BaseModelRecipe::PERFORMANCE_HINT_HIGHEST_QUALITY,
+                {}, kDefaultMaxTokens),
+            optimization_guide::FakeBaseModelAsset::Content{}, "1.0.0.0")
         .AddBaseModel(
-            "summarizer_api_solution",
+            "gemma4_base",
             optimization_guide::BaseModelRecipeArgs(
-                optimization_guide::proto::BaseModelRecipe::BACKEND_TYPE_GPU,
-                optimization_guide::proto::BaseModelRecipe::
-                    PERFORMANCE_HINT_HIGHEST_QUALITY,
-                {}, kTestMaxTokens))
+                proto::BaseModelRecipe::BACKEND_TYPE_GPU,
+                proto::BaseModelRecipe::PERFORMANCE_HINT_HIGHEST_QUALITY,
+                {}, kDefaultMaxTokens),
+            optimization_guide::FakeBaseModelAsset::Content{}, "1.0.0.0")
         .AddBaseModel(
-            "summarizer_small_expert_model_solution",
+            "small_expert_base",
             optimization_guide::BaseModelRecipeArgs(
-                optimization_guide::proto::BaseModelRecipe::BACKEND_TYPE_CPU,
-                optimization_guide::proto::BaseModelRecipe::
-                    PERFORMANCE_HINT_UNSPECIFIED,
-                {}, kTestMaxTokens))
+                proto::BaseModelRecipe::BACKEND_TYPE_CPU,
+                proto::BaseModelRecipe::PERFORMANCE_HINT_UNSPECIFIED,
+                {}, kDefaultMaxTokens),
+            optimization_guide::FakeBaseModelAsset::Content{}, "1.0.0.0")
         .AddSafetyModel("safety")
-        .AddSafeSolution("summarizer_api", "summarizer_api_solution", "safety",
-                         solution_config)
-        .AddSafeSolution("summarizer_small_expert_model",
-                         "summarizer_small_expert_model_solution", "safety",
-                         solution_config)
-        .AddSafeSolution("summarizer_gemma4", "summarizer_gemma4_solution",
-                         "safety", solution_config)
-        .SetFeatureConfig(optimization_guide::DeviceCategory::kGpuHighTier,
-                          "summarizer_api", any_cfg)
+        .AddSafeSolution("summarizer_api", "base", "safety", default_solution)
+        .AddSafeSolution("summarizer_small_expert_model", "small_expert_base",
+                         "safety", default_solution)
+        .AddSafeSolution("summarizer_gemma4", "gemma4_base", "safety",
+                         default_solution)
+        .SetFeatureConfig("summarizer_api",
+                          optimization_guide::AnyWrapProto(summarizer_cfg))
         .Finish();
 
-    fake_manifest_broker_->settings().performance_class =
+    fake_broker_->settings().performance_class =
         on_device_model::mojom::PerformanceClass::kHigh;
+    fake_broker_->Startup();
   }
-
-  optimization_guide::proto::OnDeviceModelExecutionFeatureConfig CreateConfig()
-      override {
-    optimization_guide::proto::OnDeviceModelExecutionFeatureConfig config;
-    config.set_can_skip_text_safety(true);
-    config.set_feature(optimization_guide::proto::ModelExecutionFeature::
-                           MODEL_EXECUTION_FEATURE_SUMMARIZE);
-
-    auto& input_config = *config.mutable_input_config();
-    input_config.set_request_base_name(SummarizeRequest().GetTypeName());
-
-    *input_config.add_execute_substitutions() = FieldSubstitution(
-        "%s", ProtoField({SummarizeRequest::kArticleFieldNumber}));
-    *input_config.add_execute_substitutions() = FieldSubstitution(
-        "%s", ProtoField({SummarizeRequest::kContextFieldNumber}));
-
-    auto& output_config = *config.mutable_output_config();
-    output_config.set_proto_type(
-        optimization_guide::proto::StringValue().GetTypeName());
-    *output_config.mutable_proto_field() = StringValueField();
-
-    return config;
-  }
-
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-TEST_F(AISummarizerManifestTest,
+TEST_F(AISummarizerWithFeatureConfigTest,
        CanCreateAndCreateWithManifestSpeedPreference) {
   auto options = GetDefaultOptions();
   options->preference = blink::mojom::PerformancePreference::kSpeed;
   options->output_language = blink::mojom::AILanguageCode::New("en");
 
-  fake_manifest_broker_->client().RequestAssetsFor(
+  fake_broker_->client().RequestAssetsFor(
       "summarizer_small_expert_model");
   ASSERT_TRUE(base::test::RunUntil([&] {
     base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
@@ -1025,9 +905,11 @@ TEST_F(AISummarizerManifestTest,
 
   auto result = summarizer_client.result().Take();
   EXPECT_TRUE(result.has_value());
+  EXPECT_EQ(summarizer_client.context_window(),
+            blink::mojom::kTinyModelMaxInputTokenSize);
 }
 
-TEST_F(AISummarizerManifestTest,
+TEST_F(AISummarizerWithFeatureConfigTest,
        CanCreateSummarizerWithSpeedPreferenceDownloadable) {
   auto options = GetDefaultOptions();
   options->preference = blink::mojom::PerformancePreference::kSpeed;
@@ -1040,11 +922,12 @@ TEST_F(AISummarizerManifestTest,
             blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
 }
 
-TEST_F(AISummarizerManifestTest, CanCreateAndCreateWithManifestAutoPreference) {
+TEST_F(AISummarizerWithFeatureConfigTest,
+       CanCreateAndCreateWithManifestAutoPreference) {
   // Even if gemma4 assets are available, it shouldn't use it by default.
   // Since summarizer_api is the default use case, and it's not downloaded yet,
   // it should return kDownloadable.
-  fake_manifest_broker_->client().RequestAssetsFor("summarizer_gemma4");
+  fake_broker_->client().RequestAssetsFor("summarizer_gemma4");
 
   auto options = GetDefaultOptions();
 
@@ -1056,7 +939,7 @@ TEST_F(AISummarizerManifestTest, CanCreateAndCreateWithManifestAutoPreference) {
             blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
 
   // Now request assets for summarizer_api, and it should return kAvailable.
-  fake_manifest_broker_->client().RequestAssetsFor("summarizer_api");
+  fake_broker_->client().RequestAssetsFor("summarizer_api");
   ASSERT_TRUE(base::test::RunUntil([&] {
     base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
     GetAIManagerInterface()->CanCreateSummarizer(options.Clone(),
@@ -1075,9 +958,9 @@ TEST_F(AISummarizerManifestTest, CanCreateAndCreateWithManifestAutoPreference) {
 }
 
 // TODO(crbug.com/543507245): Flaky.
-TEST_F(AISummarizerManifestTest,
+TEST_F(AISummarizerWithFeatureConfigTest,
        DISABLED_CanCreateAndCreateWithManifestCapabilityPreference) {
-  fake_manifest_broker_->client().RequestAssetsFor("summarizer_api");
+  fake_broker_->client().RequestAssetsFor("summarizer_api");
   auto options = GetDefaultOptions();
   options->preference = blink::mojom::PerformancePreference::kCapability;
   options->output_language = blink::mojom::AILanguageCode::New("en");
@@ -1099,7 +982,7 @@ TEST_F(AISummarizerManifestTest,
   EXPECT_TRUE(result.has_value());
 }
 
-TEST_F(AISummarizerManifestTest,
+TEST_F(AISummarizerWithFeatureConfigTest,
        CanCreateIncompatibleOptionsForSpeedPreference) {
   // Incompatible because speed preference requires kShort or kMedium length,
   // but we use kLong.
@@ -1115,7 +998,7 @@ TEST_F(AISummarizerManifestTest,
                                                callback.Get());
 }
 
-TEST_F(AISummarizerManifestTest,
+TEST_F(AISummarizerWithFeatureConfigTest,
        CanCreateIncompatibleFormatForSpeedPreference) {
   auto options = GetDefaultOptions();
   options->preference = blink::mojom::PerformancePreference::kSpeed;
@@ -1129,7 +1012,8 @@ TEST_F(AISummarizerManifestTest,
                                                callback.Get());
 }
 
-TEST_F(AISummarizerManifestTest, CanCreateIncompatibleTypeForSpeedPreference) {
+TEST_F(AISummarizerWithFeatureConfigTest,
+       CanCreateIncompatibleTypeForSpeedPreference) {
   auto options = GetDefaultOptions();
   options->preference = blink::mojom::PerformancePreference::kSpeed;
   options->type = blink::mojom::AISummarizerType::kTeaser;
@@ -1142,7 +1026,7 @@ TEST_F(AISummarizerManifestTest, CanCreateIncompatibleTypeForSpeedPreference) {
                                                callback.Get());
 }
 
-TEST_F(AISummarizerManifestTest,
+TEST_F(AISummarizerWithFeatureConfigTest,
        CanCreateIncompatibleOutputLanguageForSpeedPreference) {
   auto options = GetDefaultOptions();
   options->preference = blink::mojom::PerformancePreference::kSpeed;
@@ -1156,7 +1040,7 @@ TEST_F(AISummarizerManifestTest,
                                                callback.Get());
 }
 
-TEST_F(AISummarizerManifestTest,
+TEST_F(AISummarizerWithFeatureConfigTest,
        CanCreateIncompatibleInputLanguageForSpeedPreference) {
   auto options = GetDefaultOptions();
   options->preference = blink::mojom::PerformancePreference::kSpeed;
@@ -1170,7 +1054,7 @@ TEST_F(AISummarizerManifestTest,
                                                callback.Get());
 }
 
-TEST_F(AISummarizerManifestTest,
+TEST_F(AISummarizerWithFeatureConfigTest,
        CanCreateIncompatibleContextLanguageForSpeedPreference) {
   auto options = GetDefaultOptions();
   options->preference = blink::mojom::PerformancePreference::kSpeed;
@@ -1185,7 +1069,7 @@ TEST_F(AISummarizerManifestTest,
                                                callback.Get());
 }
 
-TEST_F(AISummarizerManifestTest,
+TEST_F(AISummarizerWithFeatureConfigTest,
        CanCreateIncompatibleSharedContextForSpeedPreference) {
   auto options = GetDefaultOptions();
   options->preference = blink::mojom::PerformancePreference::kSpeed;
@@ -1199,11 +1083,11 @@ TEST_F(AISummarizerManifestTest,
                                                callback.Get());
 }
 
-TEST_F(AISummarizerManifestTest,
+TEST_F(AISummarizerWithFeatureConfigTest,
        CanCreateSummarizerSpeedPreferenceFeatureDisabled) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {}, {blink::features::kAISummarizationPerformancePreference});
+  scoped_feature_list.InitAndDisableFeature(
+      blink::features::kAISummarizationPerformancePreference);
 
   auto options = GetDefaultOptions();
   options->preference = blink::mojom::PerformancePreference::kSpeed;
@@ -1215,7 +1099,7 @@ TEST_F(AISummarizerManifestTest,
             "Speed preference requested but feature disabled");
 }
 
-TEST_F(AISummarizerManifestTest,
+TEST_F(AISummarizerWithFeatureConfigTest,
        CanCreateSummarizerNoServiceWithManifestBroker) {
   SetupNullOptimizationGuideKeyedService();
 
@@ -1226,7 +1110,8 @@ TEST_F(AISummarizerManifestTest,
                               kUnavailableServiceNotRunning);
 }
 
-TEST_F(AISummarizerManifestTest, CreateIncompatibleOptionsForSpeedPreference) {
+TEST_F(AISummarizerWithFeatureConfigTest,
+       CreateIncompatibleOptionsForSpeedPreference) {
   // Incompatible because speed preference requires kShort or kMedium length,
   // but we use kLong.
   auto options = GetDefaultOptions();
@@ -1243,12 +1128,13 @@ TEST_F(AISummarizerManifestTest, CreateIncompatibleOptionsForSpeedPreference) {
             "Incompatible speed preference options");
 }
 
-TEST_F(AISummarizerManifestTest, SummarizeWithSpeedPreferenceAndContextFails) {
+TEST_F(AISummarizerWithFeatureConfigTest,
+       SummarizeWithSpeedPreferenceAndContextFails) {
   auto options = GetDefaultOptions();
   options->preference = blink::mojom::PerformancePreference::kSpeed;
   options->output_language = blink::mojom::AILanguageCode::New("en");
 
-  fake_manifest_broker_->client().RequestAssetsFor(
+  fake_broker_->client().RequestAssetsFor(
       "summarizer_small_expert_model");
 
   TestCreateSummarizerClient summarizer_client;
@@ -1270,12 +1156,13 @@ TEST_F(AISummarizerManifestTest, SummarizeWithSpeedPreferenceAndContextFails) {
             blink::mojom::ModelStreamingResponseStatus::kErrorInvalidRequest);
 }
 
-TEST_F(AISummarizerManifestTest, InputLimitExceededErrorSpeedPreference) {
+TEST_F(AISummarizerWithFeatureConfigTest,
+       InputLimitExceededErrorSpeedPreference) {
   auto options = GetDefaultOptions();
   options->preference = blink::mojom::PerformancePreference::kSpeed;
   options->output_language = blink::mojom::AILanguageCode::New("en");
 
-  fake_manifest_broker_->client().RequestAssetsFor(
+  fake_broker_->client().RequestAssetsFor(
       "summarizer_small_expert_model");
 
   TestCreateSummarizerClient summarizer_client;
@@ -1289,7 +1176,7 @@ TEST_F(AISummarizerManifestTest, InputLimitExceededErrorSpeedPreference) {
   mojo::Remote<blink::mojom::AISummarizer> summarizer_remote(
       std::move(result.value()));
 
-  fake_manifest_broker_->settings().set_size_in_tokens(
+  fake_broker_->settings().set_size_in_tokens(
       blink::mojom::kTinyModelMaxInputTokenSize + 1);
 
   AITestUtils::TestStreamingResponder responder;
@@ -1303,12 +1190,13 @@ TEST_F(AISummarizerManifestTest, InputLimitExceededErrorSpeedPreference) {
             blink::mojom::kTinyModelMaxInputTokenSize);
 }
 
-TEST_F(AISummarizerManifestTest, CanCreateAndCreateWithManifestGemma4) {
+TEST_F(AISummarizerWithFeatureConfigTest,
+       CanCreateAndCreateWithManifestGemma4) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeatureWithParameters(
       kAIApiFoundationalModel, {{"model_version", "v4"}});
 
-  fake_manifest_broker_->client().RequestAssetsFor("summarizer_gemma4");
+  fake_broker_->client().RequestAssetsFor("summarizer_gemma4");
   ASSERT_TRUE(base::test::RunUntil([&] {
     base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
     ai_manager_->CanCreateSummarizer(GetDefaultOptions(), future.GetCallback());
@@ -1326,19 +1214,21 @@ TEST_F(AISummarizerManifestTest, CanCreateAndCreateWithManifestGemma4) {
   EXPECT_TRUE(result.has_value());
 }
 
-TEST_F(AISummarizerManifestTest, CanCreateBeforeDownloadGemma4) {
+TEST_F(AISummarizerWithFeatureConfigTest,
+       CanCreateBeforeDownloadGemma4) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeatureWithParameters(
       kAIApiFoundationalModel, {{"model_version", "v4"}});
 
   // Assets are requested for summarizer_api, but since gemma4 is the configured
   // model_version, we should get kDownloadable for gemma4.
-  fake_manifest_broker_->client().RequestAssetsFor("summarizer_api");
+  fake_broker_->client().RequestAssetsFor("summarizer_api");
 
   base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
   ai_manager_->CanCreateSummarizer(GetDefaultOptions(), future.GetCallback());
   EXPECT_EQ(future.Get(),
             blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace

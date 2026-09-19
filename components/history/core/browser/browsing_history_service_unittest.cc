@@ -79,19 +79,38 @@ Time OffsetToTimeWithBaseline(base::Time baseline_time, int64_t hour_offset) {
 }
 
 struct TestResult {
+  TestResult(std::string url,
+             int64_t hour_offset,
+             HistoryEntry::EntryType type = HistoryEntry::LOCAL_ENTRY,
+             std::string remote_icon_url_for_uma = "",
+             VisitSource visit_source = VisitSource::SOURCE_BROWSED,
+             bool is_actor_visit = false,
+             std::string client_id = "")
+      : url(std::move(url)),
+        hour_offset(hour_offset),
+        type(type),
+        remote_icon_url_for_uma(std::move(remote_icon_url_for_uma)),
+        visit_source(visit_source),
+        is_actor_visit(is_actor_visit),
+        client_id(client_id.empty() && type == HistoryEntry::REMOTE_ENTRY
+                      ? FakeWebHistoryService::kDefaultClientId
+                      : std::move(client_id)) {}
+
   std::string url;
   int64_t hour_offset;  // Visit time in hours past the baseline time.
   HistoryEntry::EntryType type;
   std::string remote_icon_url_for_uma;
   VisitSource visit_source = VisitSource::SOURCE_BROWSED;
   bool is_actor_visit = false;
+  std::string client_id;
 };
 
 void PrintTo(const TestResult& result, std::ostream* os) {
   *os << "{url: " << result.url << ", hour_offset: " << result.hour_offset
       << ", type: " << result.type
       << ", remote_icon_url_for_uma: " << result.remote_icon_url_for_uma
-      << ", visit_source: " << static_cast<int>(result.visit_source) << "}";
+      << ", visit_source: " << static_cast<int>(result.visit_source)
+      << ", client_id: " << result.client_id << "}";
 }
 
 MATCHER_P2(MatchesHistory, baseline_time, expected, "") {
@@ -102,7 +121,8 @@ MATCHER_P2(MatchesHistory, baseline_time, expected, "") {
          arg.remote_icon_url_for_uma ==
              GURL(expected.remote_icon_url_for_uma) &&
          arg.is_actor_visit ==
-             (expected.visit_source == VisitSource::SOURCE_ACTOR);
+             (expected.visit_source == VisitSource::SOURCE_ACTOR) &&
+         arg.client_id == expected.client_id;
 }
 
 MATCHER_P3(MatchesQueryResult,
@@ -212,9 +232,10 @@ class ReversedWebHistoryService : public TestWebHistoryService {
       base::Time begin,
       base::Time end,
       size_t count,
+      const std::vector<std::string>& client_ids,
       bool* more_results_left) override {
-    auto result = FakeWebHistoryService::GetVisitsBetween(begin, end, count,
-                                                          more_results_left);
+    auto result = FakeWebHistoryService::GetVisitsBetween(
+        begin, end, count, client_ids, more_results_left);
     std::ranges::reverse(result);
     return result;
   }
@@ -287,7 +308,8 @@ class BrowsingHistoryServiceTest : public ::testing::Test {
                                  OffsetToTime(entry.hour_offset), source);
       } else if (entry.type == kRemote) {
         web_history->AddSyncedVisit(entry.url, OffsetToTime(entry.hour_offset),
-                                    entry.remote_icon_url_for_uma);
+                                    entry.remote_icon_url_for_uma,
+                                    entry.client_id);
       } else {
         NOTREACHED();
       }
@@ -367,12 +389,7 @@ class BrowsingHistoryServiceTest : public ::testing::Test {
   std::unique_ptr<TestBrowsingHistoryService> browsing_history_service_;
 };
 
-
 TEST_F(BrowsingHistoryServiceTest, QueryHistoryExcludes404s) {
-  // Allow saving 404 visits to History.
-  base::test::ScopedFeatureList scoped_featurelist;
-  scoped_featurelist.InitAndEnableFeature(history::kVisitedLinksOn404);
-
   // Add a non-404 visit.
   AddHistory({{kUrl1, 1, kLocal}});
 
@@ -426,6 +443,31 @@ TEST_F(BrowsingHistoryServiceTest, QueryHistoryWithAppIdFilter) {
   EXPECT_THAT(QueryHistory(options),
               MatchesQueryResult(baseline_time_, /*reached_beginning*/ true,
                                  std::vector<TestResult>{}));
+}
+
+TEST_F(BrowsingHistoryServiceTest, QueryHistoryWithClientIdFilter) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kWebHistoryUseNewApi);
+
+  ResetService(driver(), nullptr, sync());
+  AddHistory({{kUrl1, 1, kRemote, "", VisitSource::SOURCE_BROWSED, false,
+               "client_1"},
+              {kUrl2, 2, kRemote, "", VisitSource::SOURCE_BROWSED, false,
+               "client_2"},
+              {kUrl3, 3, kRemote, "", VisitSource::SOURCE_BROWSED, false,
+               "client_1"}});
+
+  QueryOptions options;
+  options.client_ids = {"client_1"};
+
+  EXPECT_THAT(QueryHistory(options),
+              MatchesQueryResult(
+                  baseline_time_, /*reached_beginning*/ true,
+                  std::vector<TestResult>{
+                      {kUrl3, 3, kRemote, "", VisitSource::SOURCE_BROWSED,
+                       false, "client_1"},
+                      {kUrl1, 1, kRemote, "", VisitSource::SOURCE_BROWSED,
+                       false, "client_1"}}));
 }
 
 TEST_F(BrowsingHistoryServiceTest, EmptyQueryHistoryJustWeb) {
@@ -555,14 +597,13 @@ TEST_F(BrowsingHistoryServiceTest, QueryHistoryLocalPagingFull) {
   AddHistory({{kUrl1, 1, kLocal}, {kUrl2, 2, kLocal}, {kUrl3, 3, kLocal}});
   // The first query doesn't reach the beginning, since there were just enough
   // local results to fulfill the request and remote hasn't been queried yet.
-  EXPECT_THAT(QueryHistory(3),
-              MatchesQueryResult(baseline_time_,
-                                 /*reached_beginning*/ false,
-                                 std::vector<TestResult>{
-                                     {kUrl3, 3, kLocal},
-                                     {kUrl2, 2, kLocal},
-                                     {kUrl1, 1, kLocal},
-                                 }));
+  EXPECT_THAT(QueryHistory(3), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ false,
+                                                  std::vector<TestResult>{
+                                                      {kUrl3, 3, kLocal},
+                                                      {kUrl2, 2, kLocal},
+                                                      {kUrl1, 1, kLocal},
+                                                  }));
 
   EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
                                                   /*reached_beginning*/ true,
@@ -717,7 +758,6 @@ TEST_F(BrowsingHistoryServiceTest, QueryHistoryPending) {
                                                       {kUrl1, 1, kRemote},
                                                   }));
 }
-
 
 TEST_F(BrowsingHistoryServiceTest, RetryOnRemoteFailureEmpty) {
   web_history()->SetupFakeResponse(false, 0);
@@ -1037,14 +1077,13 @@ TEST_F(BrowsingHistoryServiceTest, GroupSimilarVisits) {
 
   BlockUntilHistoryProcessesPendingRequests();
 
-  EXPECT_THAT(
-      QueryHistory(),
-      MatchesQueryResult(baseline_time_, /*reached_beginning=*/true,
-                         std::vector<TestResult>{
-                             {"http://www.a.com/1", 5, kLocal},
-                             {"http://www.b.com/1", 3, kLocal},
-                             {"http://www.a.com/3", 1, kLocal},
-                         }));
+  EXPECT_THAT(QueryHistory(),
+              MatchesQueryResult(baseline_time_, /*reached_beginning=*/true,
+                                 std::vector<TestResult>{
+                                     {"http://www.a.com/1", 5, kLocal},
+                                     {"http://www.b.com/1", 3, kLocal},
+                                     {"http://www.a.com/3", 1, kLocal},
+                                 }));
 }
 
 TEST_F(BrowsingHistoryServiceTest, ShouldQueryActorVisitsOnly) {

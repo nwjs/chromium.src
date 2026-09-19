@@ -24,6 +24,10 @@
 #include "third_party/perfetto/protos/perfetto/config/chrome/histogram_samples.gen.h"
 #include "third_party/perfetto/protos/perfetto/config/track_event/track_event_config.gen.h"
 
+#if BUILDFLAG(IS_WIN)
+#include "components/tracing/common/etw_stack_sampling_win.h"
+#endif
+
 namespace tracing {
 
 namespace {
@@ -76,10 +80,6 @@ void AddDataSourceConfigs(
   if (stripped_config.IsCategoryGroupEnabled(
           base::trace_event::MemoryDumpManager::kTraceCategory)) {
     AddDataSourceConfig(perfetto_config, kMemoryInstrumentationDataSourceName,
-                        chrome_config_string, privacy_filtering_enabled,
-                        convert_to_legacy_json, json_agent_label_filter,
-                        enable_package_name_filter);
-    AddDataSourceConfig(perfetto_config, kNativeHeapProfilerSourceName,
                         chrome_config_string, privacy_filtering_enabled,
                         convert_to_legacy_json, json_agent_label_filter,
                         enable_package_name_filter);
@@ -244,6 +244,12 @@ void AdaptDataSourceConfig(
     AdaptTrackEventConfig(&track_event_config, privacy_filtering_enabled);
     config->set_track_event_config_raw(track_event_config.SerializeAsString());
   }
+
+#if BUILDFLAG(IS_WIN)
+  if (config->name() == "org.chromium.etw_system") {
+    AddEtwStackSamplingDebugIds(config);
+  }
+#endif
 }
 
 }  // namespace
@@ -255,12 +261,12 @@ base::ByteSize GetDefaultTraceBufferSize() {
   size_t switch_kilobytes;
   if (!switch_value.empty() &&
       base::StringToSizeT(switch_value, &switch_kilobytes)) {
-    return base::KiBU(switch_kilobytes);
+    return base::KiB(switch_kilobytes);
   } else {
     // TODO(eseckler): Reduce the default buffer size after benchmarks set
     // what they require. Should also invest some time to reduce the overhead
     // of begin/end pairs further.
-    return base::MiBU(200);
+    return base::MiB(200);
   }
 }
 

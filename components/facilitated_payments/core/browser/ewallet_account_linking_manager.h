@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/functional/callback.h"
+#include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
 #include "base/values.h"
 #include "components/autofill/core/browser/data_model/payments/ewallet.h"
@@ -19,7 +20,8 @@
 
 namespace payments::facilitated {
 
-// TODO: b/520063014 - Implement strike database for Ewallet.
+class EwalletAccountLinkingStrikeDatabase;
+
 class EwalletAccountLinkingManager : public NativeAccountLinkingHandler {
  public:
   EwalletAccountLinkingManager(
@@ -35,11 +37,18 @@ class EwalletAccountLinkingManager : public NativeAccountLinkingHandler {
   void DismissAndCancel();
 
   // Kicks off the asynchronous account linking network flow.
-  void TriggerAccountLinking();
+  void TriggerAccountLinking(base::OnceCallback<void(AccountLinkingResult)>
+                                 on_account_linking_result_callback);
 
   EwalletAccountLinkingManager(const EwalletAccountLinkingManager&) = delete;
   EwalletAccountLinkingManager& operator=(const EwalletAccountLinkingManager&) =
       delete;
+
+ private:
+  friend class EwalletAccountLinkingManagerTestApi;
+
+  base::OnceCallback<void(AccountLinkingResult)>
+      on_account_linking_result_callback_;
 
  protected:
   // NativeAccountLinkingHandler:
@@ -59,6 +68,10 @@ class EwalletAccountLinkingManager : public NativeAccountLinkingHandler {
   friend class EwalletAccountLinkingManagerTestApi;
 
   const autofill::Ewallet ewallet_creation_option_;
+
+  EwalletAccountLinkingStrikeDatabase* GetOrCreateStrikeDatabase();
+
+  std::unique_ptr<EwalletAccountLinkingStrikeDatabase> strike_database_;
 
   base::WeakPtrFactory<EwalletAccountLinkingManager> weak_ptr_factory_{this};
 };

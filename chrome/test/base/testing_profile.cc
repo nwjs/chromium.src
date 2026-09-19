@@ -35,6 +35,7 @@
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/device_reauth/chrome_device_authenticator_factory.h"
+#include "chrome/browser/enterprise/isolated_mode/isolated_mode_settings_service_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/origin_trials/origin_trials_factory.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
@@ -44,7 +45,6 @@
 #include "chrome/browser/prefs/pref_service_syncable_util.h"
 #include "chrome/browser/profiles/chrome_browser_main_extra_parts_profiles.h"
 #include "chrome/browser/profiles/profile_key.h"
-#include "chrome/browser/profiles/profile_load_tracker_win.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_observer.h"
 #include "chrome/browser/profiles/storage_partition_descriptor.h"
@@ -147,6 +147,10 @@
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "components/account_manager_core/chromeos/account_manager.h"
+#endif
+
+#if BUILDFLAG(IS_WIN)
+#include "chrome/browser/profiles/profile_load_tracker_win.h"
 #endif
 
 namespace {
@@ -281,6 +285,9 @@ TestingProfile::TestingProfile(
 #endif
 {
   set_allows_browser_windows_for_testing(allows_browser_windows);
+  // TestingProfile is not registered with ProfileManager in most unit tests,
+  // but AddKeepAlive() should still work on it without failing CHECK().
+  set_lifecycle_state(LifecycleState::kRegistered);
 #if BUILDFLAG(IS_CHROMEOS)
   user_cloud_policy_manager_ = std::move(policy_manager);
 #else
@@ -523,11 +530,17 @@ void TestingProfile::InitializeProfileType() {
 #endif  // !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
 
   if (IsOffTheRecord()) {
+    if (otr_profile_id_ != OTRProfileID::PrimaryID()) {
+      profile_metrics::SetBrowserProfileType(
+          this, profile_metrics::BrowserProfileType::kOtherOffTheRecordProfile);
+      return;
+    }
+
     profile_metrics::SetBrowserProfileType(
-        this,
-        (otr_profile_id_ == OTRProfileID::PrimaryID())
-            ? profile_metrics::BrowserProfileType::kIncognito
-            : profile_metrics::BrowserProfileType::kOtherOffTheRecordProfile);
+        this, enterprise_isolated_mode::IsolatedModeReplacesIncognito(
+                  original_profile_)
+                  ? profile_metrics::BrowserProfileType::kEnterpriseIsolated
+                  : profile_metrics::BrowserProfileType::kIncognito);
     return;
   }
 

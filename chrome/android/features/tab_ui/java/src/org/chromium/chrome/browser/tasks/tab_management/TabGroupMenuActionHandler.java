@@ -9,12 +9,12 @@ import android.content.Context;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Token;
+import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabGroupUtils;
@@ -89,7 +89,7 @@ public class TabGroupMenuActionHandler {
      */
     public void handleAddToGroupAction(Tab tab) {
         Collection<TabModelSelector> selectors =
-                ChromeFeatureList.sCrossWindowTabGroupOperations.isEnabled()
+                TabGroupUiUtils.isCrossWindowTabGroupOperationsEnabled()
                         ? TabWindowManagerSingleton.getInstance().getAllTabModelSelectors()
                         : null;
         if (!TabGroupUtils.hasTabGroups(mTabModel, selectors)) {
@@ -123,5 +123,26 @@ public class TabGroupMenuActionHandler {
         TabGroupCreationDialogManager manager =
                 new TabGroupCreationDialogManager(mContext, mModalDialogManager, null);
         manager.showDialog(tabGroupId, mTabModel);
+    }
+
+    /**
+     * Handles the "Add to existing group" action for the given tab and group ID.
+     *
+     * @param tab The tab to be added to an existing group.
+     * @param groupId The target tab group ID.
+     * @return Whether the action was handled.
+     */
+    public boolean handleAddToExistingGroupAction(Tab tab, Token groupId) {
+        RecordUserAction.record("MobileMenuAddToExistingGroup");
+        GroupWindowInfo destinationGroup =
+                GroupWindowInfo.forLocalGroup(
+                        mContext, mTabModel, groupId, GroupWindowState.IN_CURRENT);
+        TabGroupUiUtils.addTabsToGroup(
+                mTabModel,
+                List.of(tab),
+                destinationGroup,
+                /* tabMovedCallback= */ null,
+                /* bringToFront= */ true);
+        return true;
     }
 }

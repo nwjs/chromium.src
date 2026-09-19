@@ -29,6 +29,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/mock_callback.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/extensions/api/passwords_private/passwords_private_delegate.h"
@@ -50,6 +51,7 @@
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
 #include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
+#include "components/password_manager/core/browser/password_string.h"
 #include "components/password_manager/core/browser/sharing/mock_password_sender_service.h"
 #include "components/password_manager/core/browser/sharing/password_sharing_recipients_downloader.h"
 #include "components/password_manager/core/browser/sharing/recipients_fetcher_impl.h"
@@ -82,6 +84,7 @@ using api::passwords_private::UrlCollection;
 using device_reauth::ReauthResult;
 using password_manager::PasswordForm;
 using password_manager::PasswordRecipient;
+using password_manager::PasswordString;
 using password_manager::TestPasswordStore;
 using ::testing::_;
 using ::testing::AllOf;
@@ -122,7 +125,7 @@ PasswordForm CreateSampleForm(
   form.signon_realm = "https://abc1.com";
   form.url = GURL("https://abc1.com");
   form.username_value = username;
-  form.password_value = u"test";
+  form.password_value = PasswordString(u"test");
   form.in_store = store;
   return form;
 }
@@ -363,6 +366,64 @@ TEST_F(PasswordsPrivateDelegateImplTest,
   delegate->GetSavedPasswordsList(callback.Get());
 }
 
+TEST_F(PasswordsPrivateDelegateImplTest,
+       GetSavedPasswordsList_CompromisedInfo_FeatureEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      password_manager::features::kPasswordCompromiseWarningInDetailsCard);
+
+  scoped_refptr<PasswordsPrivateDelegateImpl> delegate = CreateDelegate();
+  PasswordForm compromised_password =
+      CreateSampleForm(PasswordForm::Store::kProfileStore);
+  compromised_password
+      .password_issues[password_manager::InsecureType::kLeaked] =
+      password_manager::InsecurityMetadata(
+          base::Time::Now(), password_manager::IsMuted(true),
+          password_manager::TriggerBackendNotification(false));
+
+  SetUpPasswordStores({compromised_password});
+
+  base::MockCallback<PasswordsPrivateDelegate::UiEntriesCallback> callback;
+  EXPECT_CALL(callback, Run(SizeIs(1)))
+      .WillOnce([&](const PasswordsPrivateDelegate::UiEntries& passwords) {
+        ASSERT_TRUE(passwords[0].compromised_info.has_value());
+        EXPECT_THAT(passwords[0].compromised_info->compromise_types,
+                    testing::ElementsAre(
+                        api::passwords_private::CompromiseType::kLeaked));
+        EXPECT_TRUE(passwords[0].compromised_info->is_muted);
+        EXPECT_EQ("https://abc1.com/.well-known/change-password",
+                  passwords[0].change_password_url);
+      });
+
+  delegate->GetSavedPasswordsList(callback.Get());
+}
+
+TEST_F(PasswordsPrivateDelegateImplTest,
+       GetSavedPasswordsList_CompromisedInfo_FeatureDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      password_manager::features::kPasswordCompromiseWarningInDetailsCard);
+
+  scoped_refptr<PasswordsPrivateDelegateImpl> delegate = CreateDelegate();
+  PasswordForm compromised_password =
+      CreateSampleForm(PasswordForm::Store::kProfileStore);
+  compromised_password
+      .password_issues[password_manager::InsecureType::kLeaked] =
+      password_manager::InsecurityMetadata(
+          base::Time::Now(), password_manager::IsMuted(true),
+          password_manager::TriggerBackendNotification(false));
+
+  SetUpPasswordStores({compromised_password});
+
+  base::MockCallback<PasswordsPrivateDelegate::UiEntriesCallback> callback;
+  EXPECT_CALL(callback, Run(SizeIs(1)))
+      .WillOnce([&](const PasswordsPrivateDelegate::UiEntries& passwords) {
+        EXPECT_FALSE(passwords[0].compromised_info.has_value());
+      });
+
+  delegate->GetSavedPasswordsList(callback.Get());
+}
+
 TEST_F(PasswordsPrivateDelegateImplTest, GetPasswordExceptionsList) {
   scoped_refptr<PasswordsPrivateDelegateImpl> delegate = CreateDelegate();
 
@@ -555,7 +616,7 @@ TEST_F(PasswordsPrivateDelegateImplTest,
 TEST_F(PasswordsPrivateDelegateImplTest,
        ChangeCredential_PasswordInAccountStore) {
   PasswordForm profile_form = CreateSampleForm();
-  profile_form.password_value = u"different_pass";
+  profile_form.password_value = PasswordString(u"different_pass");
   PasswordForm account_form = CreateSampleForm();
   account_form.in_store = PasswordForm::Store::kAccountStore;
   SetUpPasswordStores({profile_form, account_form});

@@ -5,8 +5,6 @@
 #include "third_party/blink/renderer/core/layout/inline/inline_box_state.h"
 
 #include "base/containers/adapters.h"
-#include "base/feature_list.h"
-#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/core/layout/box_fragment_builder.h"
 #include "third_party/blink/renderer/core/layout/geometry/logical_offset.h"
 #include "third_party/blink/renderer/core/layout/geometry/logical_size.h"
@@ -278,9 +276,7 @@ bool InlineBoxState::CanAddTextOfStyle(const ComputedStyle& text_style) const {
     return false;
   DCHECK(style);
   if (style == &text_style ||
-      (base::FeatureList::IsEnabled(blink::features::kCSSFontComparisonFix)
-           ? base::ValuesEquivalent(style->GetFont(), text_style.GetFont())
-           : style->GetFont() == text_style.GetFont()) ||
+      base::ValuesEquivalent(style->GetFont(), text_style.GetFont()) ||
       style->GetFont()->PrimaryFont() == text_style.GetFont()->PrimaryFont()) {
     return true;
   }
@@ -522,15 +518,31 @@ void InlineLayoutStateStack::AddBoxFragmentPlaceholder(
         text_scale.scaled_font ? text_scale.scaled_font : box->font.Get();
     if (const auto* font_data = font->PrimaryFont()) {
       const float scale = text_scale.paint_scale;
-      if (scale != 1.0f) {
+      if (is_svg_text_ || scale != 1.0f) [[unlikely]] {
         metrics = font_data->GetFontMetrics().GetFloatFontHeight(baseline_type);
+      } else {
+        metrics = font_data->GetFontMetrics().GetFontHeight(baseline_type);
+      }
+      if (!is_svg_text_ &&
+          RuntimeEnabledFeatures::TextBoxTrimOnInlineBoxEnabled()) {
+        const ComputedStyle& style = *box->style;
+        const bool should_apply_start = style.ShouldTextBoxTrimStart();
+        const bool should_apply_end = style.ShouldTextBoxTrimEnd();
+        if (should_apply_start || should_apply_end) [[unlikely]] {
+          bool should_apply_over = should_apply_start;
+          bool should_apply_under = should_apply_end;
+          if (style.IsFlippedLinesWritingMode()) [[unlikely]] {
+            should_apply_over = should_apply_end;
+            should_apply_under = should_apply_start;
+          }
+          InlineBoxState::AdjustEdges(style, *font, baseline_type,
+                                      should_apply_over, should_apply_under,
+                                      metrics);
+        }
+      }
+      if (scale != 1.0f) [[unlikely]] {
         metrics.ascent *= scale;
         metrics.descent *= scale;
-      } else {
-        metrics =
-            is_svg_text_
-                ? font_data->GetFontMetrics().GetFloatFontHeight(baseline_type)
-                : font_data->GetFontMetrics().GetFontHeight(baseline_type);
       }
     }
 

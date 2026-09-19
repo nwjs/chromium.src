@@ -99,6 +99,19 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="prepareGetCredential request failed."/>
 </enum>
 
+<!-- LINT.IfChange(DeviceAuthorizationFetchResult) -->
+
+<enum name="DeviceAuthorizationFetchResult">
+  <int value="0" label="Success: Keys Fetched"/>
+  <int value="1" label="Success: ReAuth Challenge"/>
+  <int value="2" label="Error: Network / Transport / OAuth Failure"/>
+  <int value="3" label="Error: HTTP Non-200 Status"/>
+  <int value="4" label="Error: Proto Parse Failure"/>
+  <int value="5" label="Error: Fetch Already In Progress"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/webauthn/core/browser/device_authorization/device_authorization_metrics.h:DeviceAuthorizationFetchResultForUMA) -->
+
 <!-- LINT.IfChange(EnclaveManagerActionOutcome) -->
 
 <enum name="EnclaveManagerActionOutcome">
@@ -258,6 +271,14 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="User ID too long"/>
   <int value="4" label="Private key missing"/>
   <int value="5" label="RP ID missing"/>
+  <int value="6" label="Private key invalid"/>
+  <int value="7" label="Private key unsupported algorithm"/>
+  <int value="8" label="Encryption failed"/>
+  <int value="9" label="HMAC secret invalid size"/>
+  <int value="10" label="HMAC secret unsupported algorithm"/>
+  <int value="11" label="Large blob required fields missing"/>
+  <int value="12" label="Large blob compressed size too big"/>
+  <int value="13" label="Large blob uncompressed size too big"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/webauthn/core/browser/import/imported_passkey_checker.h:ImportedPasskeyStatus) -->

@@ -67,6 +67,7 @@
 #include "third_party/blink/public/common/page/content_to_visible_time_request.h"
 #include "third_party/blink/public/mojom/page/page_visibility_state.mojom-shared.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/compositor/layer_solid_color.h"
 #include "ui/display/display_switches.h"
 #include "ui/gfx/geometry/size_conversions.h"
 
@@ -93,7 +94,7 @@
 #include "content/public/browser/context_factory.h"
 #include "third_party/blink/public/common/page/content_to_visible_time_reporter.h"
 #include "ui/compositor/compositor.h"
-#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_test_api.h"
 #include "ui/compositor/recyclable_compositor_mac.h"
 #endif
 
@@ -1694,7 +1695,8 @@ class RenderWidgetHostViewPresentationFeedbackBrowserTest
         : browser_compositor_(browser_compositor) {
       recyclable_compositor_ = std::make_unique<ui::RecyclableCompositorMac>(
           content::GetContextFactory());
-      layer_.SetCompositorForTesting(recyclable_compositor_->compositor());
+      ui::LayerTestApi(&layer_).SetCompositor(
+          recyclable_compositor_->compositor());
     }
 
     ~ScopedParentLayer() {

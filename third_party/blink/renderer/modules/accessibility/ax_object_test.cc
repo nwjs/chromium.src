@@ -15,6 +15,8 @@
 #include "third_party/blink/renderer/core/html/html_dialog_element.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/media/html_media_element.h"
+#include "third_party/blink/renderer/core/html_names.h"
+#include "third_party/blink/renderer/modules/accessibility/ax_node_object.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_object-inl.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_object_cache_impl.h"
 #include "third_party/blink/renderer/modules/accessibility/testing/accessibility_selection_test.h"
@@ -2675,6 +2677,91 @@ TEST_F(AccessibilityTest, PopulateAXRelativeBoundsSanitizesNonFiniteValues) {
 
   // null means identity
   EXPECT_FALSE(bounds.transform);
+}
+
+TEST_F(AccessibilityTest, UnslottedIsInCanvasSubtreeWithoutCanvasTransform) {
+  GetDocument().body()->SetHTMLUnsafeWithoutTrustedTypes(R"HTML(
+    <div id="slotHost">
+      <template shadowrootmode="open">
+        <canvas layoutsubtree>
+          <slot name="slot">
+            <button id="unslotted">fallback</button>
+          </slot>
+        </canvas>
+      </template>
+      <div id="slotted" slot="slot"></div>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+
+  auto* unslotted = GetDocument()
+                        .getElementById(AtomicString("slotHost"))
+                        ->GetShadowRoot()
+                        ->getElementById(AtomicString("unslotted"));
+  AXObject* ax_unslotted =
+      MakeGarbageCollected<AXNodeObject>(unslotted, GetAXObjectCache());
+  EXPECT_FALSE(ax_unslotted->IsInCanvasSubtreeWithoutCanvasTransform());
+  ax_unslotted->Detach();
+
+  auto* slotted = GetDocument().getElementById(AtomicString("slotted"));
+  AXObject* ax_slotted =
+      MakeGarbageCollected<AXNodeObject>(slotted, GetAXObjectCache());
+  EXPECT_TRUE(ax_slotted->IsInCanvasSubtreeWithoutCanvasTransform());
+  ax_slotted->Detach();
+}
+
+TEST_F(AccessibilityTest, DynamicScrollHeightUpdatesScrollMax) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="container" style="overflow: scroll; width: 200px; height: 50px;">
+      <div id="inner" style="height: 100px;">Content</div>
+    </div>
+  )HTML");
+
+  AXObject* container = GetAXObjectByElementId("container");
+  ASSERT_NE(nullptr, container);
+
+  auto& cache = GetAXObjectCache();
+  // Clear any initial serialization queue so we only capture incremental updates.
+  std::vector<ui::AXTreeUpdate> initial_updates;
+  std::vector<ui::AXEvent> events;
+  bool had_end_of_test_event = false;
+  bool had_load_complete_messages = false;
+  if (cache.HasObjectsPendingSerialization()) {
+    ScopedFreezeAXCache freeze(cache);
+    cache.GetUpdatesAndEventsForSerialization(
+        initial_updates, events, had_end_of_test_event,
+        had_load_complete_messages);
+  }
+
+  // Dynamically expand inner content height.
+  GetElementById("inner")->setAttribute(html_names::kStyleAttr,
+                                        AtomicString("height: 1000px;"));
+  UpdateAllLifecyclePhasesForTest();
+
+  // Verify that the container was marked dirty and queued for serialization.
+  ASSERT_TRUE(cache.HasObjectsPendingSerialization());
+
+  std::vector<ui::AXTreeUpdate> updates;
+  events.clear();
+  {
+    ScopedFreezeAXCache freeze(cache);
+    cache.GetUpdatesAndEventsForSerialization(
+        updates, events, had_end_of_test_event, had_load_complete_messages);
+  }
+
+  // Find container node data in the incremental updates.
+  bool found_container_update = false;
+  for (const auto& update : updates) {
+    for (const auto& node : update.nodes) {
+      if (node.id == container->AXObjectID()) {
+        found_container_update = true;
+        EXPECT_EQ(
+            node.GetIntAttribute(ax::mojom::blink::IntAttribute::kScrollYMax),
+            950);
+      }
+    }
+  }
+  EXPECT_TRUE(found_container_update);
 }
 
 }  // namespace test

@@ -26,7 +26,7 @@ import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import {getCss} from './item.css.js';
 import {getHtml} from './item.html.js';
 import {ItemMixin} from './item_mixin.js';
-import {computeInspectableViewLabel, createDummyExtensionInfo, EnableControl, getEnableControl, getEnableToggleAriaLabel, getItemSource, getItemSourceString, isEnabled, sortViews, SourceType, userCanChangeEnablement} from './item_util.js';
+import {canShowOpenReviewPageLink, computeInspectableViewLabel, createDummyExtensionInfo, EnableControl, getEnableControl, getEnableToggleAriaLabel, getItemSource, getItemSourceString, isEnabled, sortViews, SourceType, userCanChangeEnablement} from './item_util.js';
 import {UPLOAD_EXTENSION_TO_ACCOUNT_ITEMS_LIST_PAGE_HISTOGRAM_NAME} from './metrics_util.js';
 import {navigation, Page} from './navigation_helper.js';
 
@@ -34,6 +34,7 @@ export interface ItemDelegate {
   deleteItem(id: string): void;
   deleteItems(ids: string[]): Promise<void>;
   uninstallItem(id: string): Promise<void>;
+  openReviewPage(id: string): Promise<void>;
   setItemEnabled(id: string, isEnabled: boolean): Promise<void>;
   setItemAllowedIncognito(id: string, isAllowedIncognito: boolean): void;
   setItemAllowedUserScripts(id: string, isAllowedUserScripts: boolean): void;
@@ -79,6 +80,9 @@ export class DummyItemDelegate {
     return Promise.resolve();
   }
   uninstallItem(_id: string) {
+    return Promise.resolve();
+  }
+  openReviewPage(_id: string) {
     return Promise.resolve();
   }
   setItemEnabled(_id: string, _isEnabled: boolean) {
@@ -242,6 +246,11 @@ export class ExtensionsItemElement extends ExtensionsItemElementBase {
     this.delegate.deleteItem(this.data.id);
   }
 
+  protected onOpenReviewPageClick_() {
+    assert(this.delegate);
+    this.delegate.openReviewPage(this.data.id);
+  }
+
   protected onEnableToggleChange_() {
     assert(this.delegate);
     this.delegate.setItemEnabled(this.data.id, this.$.enableToggle.checked);
@@ -320,6 +329,9 @@ export class ExtensionsItemElement extends ExtensionsItemElementBase {
     let classes = this.isEnabled_() ? 'enabled' : 'disabled';
     if (this.inDevMode) {
       classes += ' dev-mode';
+    }
+    if (loadTimeData.getBoolean('cwsReviewPromptingEnabled')) {
+      classes += ' review-prompting-enabled';
     }
     return classes;
   }
@@ -453,6 +465,11 @@ export class ExtensionsItemElement extends ExtensionsItemElementBase {
     // the allowlist warning will still be shown in the item detail view.
     return this.hasAllowlistWarning_() && !this.hasSevereWarnings_() &&
         !this.hasMv2DeprecationWarning_();
+  }
+
+  protected showOpenReviewPageLink_(): boolean {
+    return canShowOpenReviewPageLink(this.data) && this.showDescription_() &&
+        !this.showRepairButton_() && !this.showReloadButton_();
   }
 
   protected showErrorsAsWarningsButtonLabel_(): boolean {

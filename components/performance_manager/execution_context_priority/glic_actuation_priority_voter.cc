@@ -6,21 +6,10 @@
 
 #include <utility>
 
-#include "components/performance_manager/public/execution_context/execution_context_registry.h"
+#include "components/performance_manager/public/execution_context/execution_context.h"
 #include "components/performance_manager/public/graph/graph.h"
 
 namespace performance_manager::execution_context_priority {
-
-namespace {
-
-const execution_context::ExecutionContext* GetExecutionContext(
-    const FrameNode* frame_node) {
-  return execution_context::ExecutionContextRegistry::GetFromGraph(
-             frame_node->GetGraph())
-      ->GetExecutionContextForFrameNode(frame_node);
-}
-
-}  // namespace
 
 // static
 const char GlicActuationPriorityVoter::kGlicActuationReason[] =
@@ -50,9 +39,16 @@ void GlicActuationPriorityVoter::OnGlicActuationStateChanged(
       PageLiveStateDecorator::Data::FromPageNode(page_node)
           ->GetGlicActuationState();
 
+  if (state == GlicActuationState::kNone) {
+    for (const FrameNode* main_frame_node : page_node->GetMainFrameNodes()) {
+      voting_channel_.SetVote(main_frame_node, std::nullopt);
+    }
+    return;
+  }
+
   auto* main_frame_node = page_node->GetPrimaryMainFrameNode();
   if (main_frame_node) {
-    UpdateFrameNodeVote(main_frame_node, previous_state, state);
+    UpdateFrameNodeVote(main_frame_node, state);
   }
 }
 
@@ -86,73 +82,52 @@ void GlicActuationPriorityVoter::OnBeforeFrameNodeAdded(
       PageLiveStateDecorator::Data::FromPageNode(pending_page_node)
           ->GetGlicActuationState();
   if (state != GlicActuationState::kNone && frame_node->IsCurrent()) {
-    UpdateFrameNodeVote(frame_node, GlicActuationState::kNone, state);
+    UpdateFrameNodeVote(frame_node, state);
   }
 }
 
 void GlicActuationPriorityVoter::OnBeforeFrameNodeRemoved(
     const FrameNode* frame_node) {
-  if (frame_node->GetParentOrOuterDocument()) {
-    return;
-  }
-  const GlicActuationState state =
-      PageLiveStateDecorator::Data::FromPageNode(frame_node->GetPageNode())
-          ->GetGlicActuationState();
-  if (frame_node->IsCurrent() && state != GlicActuationState::kNone) {
-    voting_channel_.InvalidateVote(GetExecutionContext(frame_node));
-  }
+  voting_channel_.SetVote(frame_node, std::nullopt);
 }
 
 void GlicActuationPriorityVoter::OnCurrentFrameChanged(
     const FrameNode* previous_frame_node,
     const FrameNode* current_frame_node) {
-  const FrameNode* frame_node =
-      current_frame_node ? current_frame_node : previous_frame_node;
-  CHECK(frame_node);
-  if (frame_node->GetParentOrOuterDocument()) {
-    return;
+  if (previous_frame_node) {
+    voting_channel_.SetVote(previous_frame_node, std::nullopt);
   }
-  GlicActuationState state =
-      PageLiveStateDecorator::Data::FromPageNode(frame_node->GetPageNode())
-          ->GetGlicActuationState();
-  if (state == GlicActuationState::kNone) {
+
+  if (!current_frame_node || current_frame_node->GetParentOrOuterDocument()) {
     return;
   }
 
-  if (current_frame_node) {
-    UpdateFrameNodeVote(current_frame_node, GlicActuationState::kNone, state);
-  }
-  if (previous_frame_node) {
-    voting_channel_.InvalidateVote(GetExecutionContext(previous_frame_node));
+  const GlicActuationState state = PageLiveStateDecorator::Data::FromPageNode(
+                                       current_frame_node->GetPageNode())
+                                       ->GetGlicActuationState();
+  if (state != GlicActuationState::kNone) {
+    UpdateFrameNodeVote(current_frame_node, state);
   }
 }
 
 void GlicActuationPriorityVoter::UpdateFrameNodeVote(
     const FrameNode* frame_node,
-    GlicActuationState previous_state,
-    GlicActuationState new_state) {
-  DCHECK_NE(previous_state, new_state);
+    GlicActuationState state) {
   if (frame_node->GetParentOrOuterDocument()) {
     return;
   }
 
-  if (new_state == GlicActuationState::kNone) {
-    voting_channel_.InvalidateVote(GetExecutionContext(frame_node));
+  if (state == GlicActuationState::kNone) {
+    voting_channel_.SetVote(frame_node, std::nullopt);
     return;
   }
 
   const base::Process::Priority priority =
-      (new_state == GlicActuationState::kActuatingOnVisibleTab)
+      (state == GlicActuationState::kActuatingOnVisibleTab)
           ? base::Process::Priority::kUserBlocking
           : base::Process::Priority::kUserVisible;
 
-  const Vote vote(priority, kGlicActuationReason);
-
-  if (previous_state != GlicActuationState::kNone) {
-    voting_channel_.ChangeVote(GetExecutionContext(frame_node), vote);
-  } else {
-    voting_channel_.SubmitVote(GetExecutionContext(frame_node), vote);
-  }
+  voting_channel_.SetVote(frame_node, Vote(priority, kGlicActuationReason));
 }
 
 }  // namespace performance_manager::execution_context_priority

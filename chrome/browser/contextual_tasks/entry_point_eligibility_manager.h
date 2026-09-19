@@ -36,6 +36,10 @@ class EntryPointEligibilityManager {
   // profile. Returns false otherwise.
   static bool IsEligible(Profile* profile);
 
+  // Returns true if the pin button is eligible to be shown for the given
+  // profile. Returns false otherwise.
+  static bool IsPinningEligible(Profile* profile);
+
   // Runs callback when the entry point eligibility changes
   using EntryPointEligibilityChangeCallbackList =
       base::RepeatingCallbackList<void(bool)>;
@@ -43,13 +47,17 @@ class EntryPointEligibilityManager {
       EntryPointEligibilityChangeCallbackList::CallbackType callback);
 
  private:
-  void MaybeNotifyEntryPointEligibilityChanged(bool eligible);
+  // Notifies observers only if the entry point or pinning eligibility has
+  // changed.
+  void MaybeNotifyEntryPointEligibilityChanged();
 
   bool entry_points_are_eligible_ = false;
+  bool is_pinning_eligible_ = false;
   raw_ptr<Profile> profile_ = nullptr;
   ui::ScopedUnownedUserData<EntryPointEligibilityManager>
       scoped_unowned_user_data_;
   base::CallbackListSubscription eligibility_subscription_;
+  base::CallbackListSubscription aim_eligibility_subscription_;
   EntryPointEligibilityChangeCallbackList
       entry_point_eligibility_change_callback_list_;
 };

@@ -53,7 +53,6 @@ import org.mockito.Mock;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.ActivityState;
@@ -61,7 +60,6 @@ import org.chromium.base.CallbackUtils;
 import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.base.supplier.SupplierUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.UserActionTester;
@@ -88,8 +86,6 @@ import org.chromium.ui.modelutil.PropertyModel;
 
 /** Unit tests for {@link TabBottomSheetCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
-@DisabledTest(message = "crbug.com/525121206")
 public class TabBottomSheetCoordinatorUnitTest {
     private static final float FULL_HEIGHT_RATIO = 0.7f;
     private static final float SMALL_SCREEN_HEIGHT_RATIO = 0.9f;
@@ -101,9 +97,6 @@ public class TabBottomSheetCoordinatorUnitTest {
     private static final int LARGE_FLING_DP = 60;
     private static final int SMALL_SCROLL_DP = 40;
     private static final int SMALL_FLING_DP = 5;
-    private static final float HALF_HEIGHT_FRACTION = 0.5f;
-    private static final float HALF_OFFSET_HEIGHT = 500f;
-    private static final float FULL_HEIGHT_FRACTION = 1.0f;
     private static final float EPSILON = 0.001f;
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -325,6 +318,30 @@ public class TabBottomSheetCoordinatorUnitTest {
         TabBottomSheetContent content = mBottomSheetContentArgumentCaptor.getValue();
         assertNotNull(content);
         assertEquals(HeightMode.WRAP_CONTENT, content.getFullHeightRatio(), EPSILON);
+    }
+
+    @Test
+    public void testMaxResizeContentHeightRatio_Default() {
+        simulateShowSuccessAndGetObserver();
+        verify(mMockBottomSheetController)
+                .requestShowContent(mBottomSheetContentArgumentCaptor.capture(), eq(true));
+        TabBottomSheetContent content = mBottomSheetContentArgumentCaptor.getValue();
+        assertNotNull(content);
+        assertEquals(
+                BottomSheetContent.MAX_HEIGHT_RATIO,
+                content.getMaxResizeContentHeightRatio(),
+                EPSILON);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.TAB_BOTTOM_SHEET_FULL_HEIGHT + ":full_height_ratio/0.85")
+    public void testMaxResizeContentHeightRatio_WithCustomFinchParam() {
+        simulateShowSuccessAndGetObserver();
+        verify(mMockBottomSheetController)
+                .requestShowContent(mBottomSheetContentArgumentCaptor.capture(), eq(true));
+        TabBottomSheetContent content = mBottomSheetContentArgumentCaptor.getValue();
+        assertNotNull(content);
+        assertEquals(0.85f, content.getMaxResizeContentHeightRatio(), EPSILON);
     }
 
     @Test
@@ -1132,10 +1149,12 @@ public class TabBottomSheetCoordinatorUnitTest {
                                         invocation.getArgument(2),
                                         invocation.getArgument(3),
                                         invocation.getArgument(4),
-                                        invocation.getArgument(5)))
+                                        invocation.getArgument(5),
+                                        invocation.getArgument(6)))
                 .when(mMockContentProvider)
                 .createContent(
                         any(View.class),
+                        anyFloat(),
                         anyFloat(),
                         anyInt(),
                         anyInt(),
@@ -1162,5 +1181,66 @@ public class TabBottomSheetCoordinatorUnitTest {
                         mCoBrowseViews,
                         mMockSheetEventsCallback,
                         CallbackUtils.emptyRunnable());
+    }
+
+    @Test
+    public void testTryToShowBottomSheet_startsExpanded_ignoresTransientPeek() {
+        ArgumentCaptor<BottomSheetObserver> observerCaptor =
+                ArgumentCaptor.forClass(BottomSheetObserver.class);
+
+        when(mMockBottomSheetController.requestShowContent(
+                        any(BottomSheetContent.class), anyBoolean()))
+                .thenReturn(true);
+
+        mCoordinator.tryToShowBottomSheet(/* animate= */ true, /* startsExpanded= */ true);
+
+        verify(mMockBottomSheetController).addObserver(observerCaptor.capture());
+        BottomSheetObserver observer = observerCaptor.getValue();
+        assertNotNull(observer);
+
+        verify(mMockSheetEventsCallback, times(1)).onBottomSheetOpened(true);
+
+        // Simulate SheetState.PEEK callback (ignored during pending).
+        observer.onSheetStateChanged(SheetState.PEEK, StateChangeReason.NONE);
+        verify(mMockSheetEventsCallback, never()).onBottomSheetOpened(false);
+
+        // Run the posted layout task.
+        ShadowLooper.idleMainLooper();
+        verify(mMockBottomSheetController).expandSheet(anyBoolean());
+
+        // Simulate transition to SheetState.FULL.
+        observer.onSheetStateChanged(SheetState.FULL, StateChangeReason.NONE);
+
+        verify(mMockSheetEventsCallback, times(2)).onBottomSheetOpened(true);
+        verify(mMockSheetEventsCallback, never()).onBottomSheetOpened(false);
+    }
+
+    @Test
+    public void testTryToShowBottomSheet_startsExpanded_heightInsufficient_fallsBackToPeek() {
+        ArgumentCaptor<BottomSheetObserver> observerCaptor =
+                ArgumentCaptor.forClass(BottomSheetObserver.class);
+
+        when(mMockBottomSheetController.requestShowContent(
+                        any(BottomSheetContent.class), anyBoolean()))
+                .thenReturn(true);
+        when(mMockDecorView.getHeight()).thenReturn(0);
+
+        mCoordinator.tryToShowBottomSheet(/* animate= */ true, /* startsExpanded= */ true);
+
+        verify(mMockBottomSheetController).addObserver(observerCaptor.capture());
+        BottomSheetObserver observer = observerCaptor.getValue();
+
+        verify(mMockSheetEventsCallback, times(1)).onBottomSheetOpened(true);
+
+        // Simulate SheetState.PEEK callback (ignored during pending).
+        observer.onSheetStateChanged(SheetState.PEEK, StateChangeReason.NONE);
+        verify(mMockSheetEventsCallback, never()).onBottomSheetOpened(false);
+
+        // Run the posted layout task.
+        ShadowLooper.idleMainLooper();
+        verify(mMockBottomSheetController, never()).expandSheet(anyBoolean());
+
+        // Verify onBottomSheetOpened(false) was called because height was insufficient.
+        verify(mMockSheetEventsCallback).onBottomSheetOpened(false);
     }
 }

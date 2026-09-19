@@ -81,6 +81,7 @@ source_set("impl") {
 
   deps = [
     ":browser_ui",
+    "//chrome/browser/actor/ui/task_list_bubble:controller",
     "//chrome/browser/contextual_tasks",
     "//chrome/browser/tab_list",
     "//chrome/browser/ui/call_to_action",
@@ -93,7 +94,6 @@ source_set("impl") {
       "//chrome/browser:primitives",
       "//chrome/browser/actor",
       "//chrome/browser/actor/ui",
-      "//chrome/browser/actor/ui/task_list_bubble:controller",
       "//chrome/browser/glic",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/themes",
@@ -148,6 +148,7 @@ if (!is_android) {
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/user_education",
+      "//chrome/browser/ui/views/frame:contents_web_view",
       "//components/contextual_tasks/public:feature_list",
       "//components/feature_engagement/public",
     ]
@@ -191,6 +192,7 @@ source_set("glow_impl") {
       "tab_underline_view.cc",
     ]
     deps += [
+      "//chrome/browser/dictation",
       "//chrome/browser/glic/resources:browser_resources",
       "//chrome/browser/themes",
       "//chrome/browser/ui:ui_features",
@@ -212,7 +214,6 @@ if (!is_android) {
       ":browser_ui",
       ":impl",
       "//base/test:test_support",
-      "//chrome/browser",
       "//chrome/browser:global_features",
       "//chrome/browser/actor:test_support",
       "//chrome/browser/glic",
@@ -258,6 +259,7 @@ if (!is_android) {
       "//chrome/browser/ui:browser_element_identifiers",
       "//chrome/browser/ui/tabs/alert:tab_alert",
       "//chrome/browser/ui/views/frame",
+      "//chrome/browser/ui/views/tabs:tab_strip",
       "//chrome/browser/ui/views/tabs/glic",
       "//chrome/browser/ui/views/tabs/tab",
       "//chrome/common:chrome_features",

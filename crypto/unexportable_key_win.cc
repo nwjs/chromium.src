@@ -43,6 +43,7 @@
 #include "crypto/tpm_parser.h"
 #include "crypto/unexportable_key.h"
 #include "crypto/unexportable_key_metrics.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "third_party/boringssl/src/include/openssl/ec.h"
 
@@ -598,15 +599,31 @@ bool IsTbsAvailable() {
   return is_available;
 }
 
-TPMOperation TpmCommandToOperation(tpm::TpmCommand command) {
+// Maps a TPM operation (represented by a TPM command) to a TPMOperation enum.
+//
+// NOTE: Right now only restricted signing keys directly issue commands to the
+// TPM. Regular signing keys are completely supported by the higher level NCrypt
+// library. The mapping here needs to be changed should this cease to be the
+// case.
+std::optional<TPMOperation> TpmCommandToOperation(tpm::TpmCommand command) {
   switch (command) {
     case tpm::TpmCommand::kCertify:
       return TPMOperation::kKeyCertification;
+    case tpm::TpmCommand::kCreate:
+      return TPMOperation::kNewAttestationKeyCreation;
     case tpm::TpmCommand::kSign:
-      return TPMOperation::kMessageSigning;
+      return TPMOperation::kRestrictedMessageSigning;
+
     case tpm::TpmCommand::kHash:
+    case tpm::TpmCommand::kHashSequenceStart:
+    case tpm::TpmCommand::kSequenceComplete:
+    case tpm::TpmCommand::kSequenceUpdate:
       return TPMOperation::kMessageHashing;
+    case tpm::TpmCommand::kFlushContext:
+      return std::nullopt;
   }
+
+  NOTREACHED();
 }
 
 void LogTpmExtractPropertyResult(
@@ -617,7 +634,9 @@ void LogTpmExtractPropertyResult(
       absl::StrFormat("Crypto.TPMOperation.Win.Tpm%vExtractProperty.Result",
                       command),
       status);
-  LogTPMOperationError(TpmCommandToOperation(command), status, algorithm);
+  if (auto op = TpmCommandToOperation(command)) {
+    LogTPMOperationError(*op, status, algorithm);
+  }
 }
 
 std::optional<TBS_HCONTEXT> GetTbsContext(
@@ -680,7 +699,8 @@ std::optional<std::vector<uint8_t>> SubmitTbsCommand(
   if (tbs_result != TBS_SUCCESS) {
     base::UmaHistogramSparse("Crypto.TPMOperation.Win.TbsSubmitCommand.Error",
                              tbs_result);
-    LogTPMOperationError(TpmCommandToOperation(command), tbs_result, algorithm);
+    ASSIGN_OR_RETURN(TPMOperation op, TpmCommandToOperation(command));
+    LogTPMOperationError(op, tbs_result, algorithm);
     return std::nullopt;
   }
 
@@ -689,7 +709,8 @@ std::optional<std::vector<uint8_t>> SubmitTbsCommand(
 }
 
 template <typename T>
-void RecordTpmParseMetrics(const tpm::TpmParseErrorOr<T>& parsed_or_error) {
+std::optional<T> ToOptionalAndRecordParseMetrics(
+    tpm::TpmParseErrorOr<T> parsed_or_error) {
   auto parse_error = parsed_or_error.error_or(
       tpm::TpmParseError(tpm::kNoTpmParseErrorForMetrics));
   base::UmaHistogramEnumeration(
@@ -699,6 +720,7 @@ void RecordTpmParseMetrics(const tpm::TpmParseErrorOr<T>& parsed_or_error) {
       absl::StrFormat("Crypto.TPMOperation.Win.Tpm%vResponse.TpmResponseCode",
                       T::kCommand),
       parse_error.tpm_error_code.value_or(0));
+  return base::OptionalFromExpected(std::move(parsed_or_error));
 }
 
 // Maximum buffer size for a TPM2B_MAX_BUFFER structure (e.g. TPM2_Hash data
@@ -708,6 +730,107 @@ constexpr size_t kMaxTpmHashBufferSize = 1024;
 // Maximum expected response buffer size for TPM commands (e.g. TPM2_Sign and
 // TPM2_Certify).
 constexpr size_t kMaxTpmResponseSize = 4096;
+
+// Holds the digest and validation ticket produced by hashing data with the TPM.
+struct HashResult {
+  std::vector<uint8_t> digest;
+  std::vector<uint8_t> validation_ticket;
+};
+
+// Hashes data using either single-shot TPM2_Hash (if data <= 1024 bytes) or
+// streaming TPM sequence commands (TPM2_HashSequenceStart, TPM2_SequenceUpdate,
+// TPM2_SequenceComplete) for larger buffers.
+std::optional<HashResult> HashDataSlowly(
+    TBS_HCONTEXT h_context,
+    base::span<const uint8_t> data,
+    tpm::TpmAlg hash_alg,
+    tpm::TpmRh hierarchy,
+    SignatureVerifier::SignatureAlgorithm algorithm) {
+  if (data.size() <= kMaxTpmHashBufferSize) {
+    std::vector<uint8_t> hash_cmd =
+        tpm::BuildHashCommand(data, hash_alg, hierarchy);
+
+    ASSIGN_OR_RETURN(
+        std::vector<uint8_t> hash_resp,
+        SubmitTbsCommand(h_context, tpm::TpmCommand::kHash, hash_cmd,
+                         kMaxTpmResponseSize, algorithm));
+
+    ASSIGN_OR_RETURN(
+        tpm::HashResponse hash_parsed,
+        ToOptionalAndRecordParseMetrics(tpm::ParseHashResponse(hash_resp)));
+
+    return HashResult{
+        .digest = std::move(hash_parsed.digest),
+        .validation_ticket = std::move(hash_parsed.validation_ticket),
+    };
+  }
+
+  // Multi-part hashing sequence for payloads larger than 1024 bytes.
+  // 1. TPM2_HashSequenceStart
+  std::vector<uint8_t> start_cmd = tpm::BuildHashSequenceStartCommand(hash_alg);
+
+  ASSIGN_OR_RETURN(
+      std::vector<uint8_t> start_resp,
+      SubmitTbsCommand(h_context, tpm::TpmCommand::kHashSequenceStart,
+                       start_cmd, kMaxTpmResponseSize, algorithm));
+
+  ASSIGN_OR_RETURN(tpm::HashSequenceStartResponse start_parsed,
+                   ToOptionalAndRecordParseMetrics(
+                       tpm::ParseHashSequenceStartResponse(start_resp)));
+
+  uint32_t sequence_handle = start_parsed.sequence_handle;
+
+  // TPM2_HashSequenceStart allocates a transient sequence handle in the TPM's
+  // volatile memory. If an error occurs before the sequence completes, we
+  // must flush the context via TPM2_FlushContext to prevent leaking limited
+  // TPM RAM resources (which would eventually cause TPM_RC_MEMORY /
+  // TPM_RC_HANDLES). On success, TPM2_SequenceComplete automatically frees the
+  // handle, so we cancel the cleanup guard.
+  absl::Cleanup flush_guard = [h_context, sequence_handle, algorithm] {
+    if (auto resp =
+            SubmitTbsCommand(h_context, tpm::TpmCommand::kFlushContext,
+                             tpm::BuildFlushContextCommand(sequence_handle),
+                             kMaxTpmResponseSize, algorithm)) {
+      ToOptionalAndRecordParseMetrics(tpm::ParseFlushContextResponse(*resp));
+    }
+  };
+
+  // 2. Loop TPM2_SequenceUpdate for all chunks while remaining > 1024 bytes.
+  base::span<const uint8_t> remaining = data;
+  while (remaining.size() > kMaxTpmHashBufferSize) {
+    auto chunk = remaining.take_first<kMaxTpmHashBufferSize>();
+
+    std::vector<uint8_t> update_cmd =
+        tpm::BuildSequenceUpdateCommand(sequence_handle, chunk);
+
+    ASSIGN_OR_RETURN(
+        std::vector<uint8_t> update_resp,
+        SubmitTbsCommand(h_context, tpm::TpmCommand::kSequenceUpdate,
+                         update_cmd, kMaxTpmResponseSize, algorithm));
+
+    RETURN_IF_ERROR(ToOptionalAndRecordParseMetrics(
+        tpm::ParseSequenceUpdateResponse(update_resp)));
+  }
+
+  // 3. TPM2_SequenceComplete with remaining data (<= 1024 bytes).
+  std::vector<uint8_t> complete_cmd =
+      tpm::BuildSequenceCompleteCommand(sequence_handle, remaining, hierarchy);
+
+  ASSIGN_OR_RETURN(
+      std::vector<uint8_t> complete_resp,
+      SubmitTbsCommand(h_context, tpm::TpmCommand::kSequenceComplete,
+                       complete_cmd, kMaxTpmResponseSize, algorithm));
+
+  ASSIGN_OR_RETURN(tpm::SequenceCompleteResponse complete_parsed,
+                   ToOptionalAndRecordParseMetrics(
+                       tpm::ParseSequenceCompleteResponse(complete_resp)));
+
+  std::move(flush_guard).Cancel();
+  return HashResult{
+      .digest = std::move(complete_parsed.digest),
+      .validation_ticket = std::move(complete_parsed.validation_ticket),
+  };
+}
 
 // AttestationKeyWin wraps an Attestation Identity Key (AIK) on Windows. Given
 // the lack of support for restricted TPM signing keys in the Windows NCrypt
@@ -738,15 +861,7 @@ class AttestationKeyWin : public WinKeyImpl<UnexportableAttestationKey> {
                      GetTpmPlatformHandle(GetNCryptKeyHandle(),
                                           tpm::TpmCommand::kSign, Algorithm()));
 
-    // TPM2_Hash command has a strict 1024-byte data limit.
-    // TODO(crbug.com/530828835): Support larger payloads via multi-part hashing
-    // using TPM2_HashSequenceStart, TPM2_SequenceUpdate, and
-    // TPM2_SequenceComplete.
-    if (data.size() > kMaxTpmHashBufferSize) {
-      return std::nullopt;
-    }
-
-    // 3. Submit TPM2_Hash Command
+    // 3. Determine TPM algorithm ID
     tpm::TpmAlg tpm_alg_id = tpm::TPM_ALG_NULL;
     switch (Algorithm()) {
       case SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256:
@@ -756,8 +871,9 @@ class AttestationKeyWin : public WinKeyImpl<UnexportableAttestationKey> {
         // Windows Platform Crypto Provider (PCP) and NCrypt AIK providers
         // restrict ECDSA attestation key signature hashing to SHA-1
         // (tpm::TPM_ALG_SHA1) rather than SHA-256, even when the key algorithm
-        // is NIST P-256 (ECDSA_SHA256). We must instruct TPM2_Hash to generate
-        // a SHA-1 ticket so the TPM2_Sign command succeeds.
+        // is NIST P-256 (ECDSA_SHA256). We must instruct TPM2_Hash /
+        // TPM2_HashSequenceStart to generate a SHA-1 ticket so the TPM2_Sign
+        // command succeeds.
         //
         // TODO(crbug.com/531590259): Actually support ECDSA_SHA256 keys by
         // implementing key creation in the TPM. If TPM-native key creation is
@@ -769,27 +885,16 @@ class AttestationKeyWin : public WinKeyImpl<UnexportableAttestationKey> {
         return std::nullopt;
     }
 
+    // 4. Hash Data (single-shot or streaming sequence)
     // Attestation Identity Keys (AIKs) in Windows Platform Crypto Provider
     // (PCP) belong to the Endorsement hierarchy (`TPM_RH_ENDORSEMENT`),
     // unlike standard storage keys which use `TPM_RH_OWNER`. Therefore, the
-    // ticket produced by TPM2_Hash MUST specify the endorsement hierarchy
-    // handle so that TPM2_Sign can consume it for an attestation key.
-    std::vector<uint8_t> hash_cmd =
-        tpm::BuildHashCommand(data, tpm_alg_id, tpm::TPM_RH_ENDORSEMENT);
-
-    ASSIGN_OR_RETURN(
-        std::vector<uint8_t> hash_resp,
-        SubmitTbsCommand(h_context, tpm::TpmCommand::kHash, hash_cmd,
-                         kMaxTpmHashBufferSize, Algorithm()));
-
-    // 4. Parse TPM2_Hash Response
-    const tpm::TpmParseErrorOr<tpm::HashResponse> hash_parsed_or_error =
-        tpm::ParseHashResponse(hash_resp);
-    RecordTpmParseMetrics(hash_parsed_or_error);
-
-    ASSIGN_OR_RETURN(tpm::HashResponse hash_parsed,
-                     std::move(hash_parsed_or_error),
-                     [](const auto&) { return std::nullopt; });
+    // ticket produced by TPM2_Hash / TPM2_SequenceComplete MUST specify the
+    // endorsement hierarchy handle so that TPM2_Sign can consume it for an
+    // attestation key.
+    ASSIGN_OR_RETURN(HashResult hash_result,
+                     HashDataSlowly(h_context, data, tpm_alg_id,
+                                    tpm::TPM_RH_ENDORSEMENT, Algorithm()));
 
     // 5. Submit TPM2_Sign Command
     // Attestation Identity Keys (AIKs) are restricted signing keys whose
@@ -802,8 +907,8 @@ class AttestationKeyWin : public WinKeyImpl<UnexportableAttestationKey> {
     // always need to pass NULL anyway, as the low-level Rust API can just
     // always write it unconditionally.
     std::vector<uint8_t> sign_cmd = tpm::BuildSignCommand(
-        sign_handle, hash_parsed.digest, tpm::TPM_ALG_NULL, tpm_alg_id,
-        hash_parsed.validation_ticket);
+        sign_handle, hash_result.digest, tpm::TPM_ALG_NULL, tpm_alg_id,
+        hash_result.validation_ticket);
 
     ASSIGN_OR_RETURN(
         std::vector<uint8_t> sign_resp,
@@ -811,13 +916,9 @@ class AttestationKeyWin : public WinKeyImpl<UnexportableAttestationKey> {
                          kMaxTpmResponseSize, Algorithm()));
 
     // 6. Parse TPM2_Sign Response
-    const tpm::TpmParseErrorOr<tpm::SignResponse> sign_parsed_or_error =
-        tpm::ParseSignResponse(sign_resp);
-    RecordTpmParseMetrics(sign_parsed_or_error);
-
-    ASSIGN_OR_RETURN(tpm::SignResponse sign_parsed,
-                     std::move(sign_parsed_or_error),
-                     [](const auto&) { return std::nullopt; });
+    ASSIGN_OR_RETURN(
+        tpm::SignResponse sign_parsed,
+        ToOptionalAndRecordParseMetrics(tpm::ParseSignResponse(sign_resp)));
 
     // 7. Normalize signature format (DER for ECDSA, raw for RSA)
     return tpm::ParseTpmSignature(sign_parsed.signature);
@@ -857,8 +958,9 @@ class AttestationKeyWin : public WinKeyImpl<UnexportableAttestationKey> {
                              Algorithm()));
 
     // 3. Construct Command
+    const auto qualifying_data = hash::Sha256(challenge);
     std::vector<uint8_t> cmd =
-        tpm::BuildCertifyCommand(object_handle, sign_handle, challenge);
+        tpm::BuildCertifyCommand(object_handle, sign_handle, qualifying_data);
 
     // 4. Submit Command
     ASSIGN_OR_RETURN(std::vector<uint8_t> resp,
@@ -866,12 +968,9 @@ class AttestationKeyWin : public WinKeyImpl<UnexportableAttestationKey> {
                                       kMaxTpmResponseSize, Algorithm()));
 
     // 5. Parse in Rust by going through the C++ shim.
-    const tpm::TpmParseErrorOr<tpm::CertifyResponse> parsed_or_error =
-        tpm::ParseCertifyResponse(resp, challenge);
-    RecordTpmParseMetrics(parsed_or_error);
-
-    ASSIGN_OR_RETURN(tpm::CertifyResponse parsed, std::move(parsed_or_error),
-                     [](const auto&) { return std::nullopt; });
+    ASSIGN_OR_RETURN(tpm::CertifyResponse parsed,
+                     ToOptionalAndRecordParseMetrics(
+                         tpm::ParseCertifyResponse(resp, qualifying_data)));
 
     // 6. Verify in C++. C++ supports a wider range of signature algorithms than
     // Rust.

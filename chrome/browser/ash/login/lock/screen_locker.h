@@ -80,11 +80,6 @@ class ScreenLocker
 
   ~ScreenLocker() override;
 
-  // Returns the default instance if it has been created.
-  // DEPRECATED: Use ScreenLockerController::Get().screen_locker() instead.
-  // TODO(crbug.com/539761804): Replace callers and remove this.
-  static ScreenLocker* default_screen_locker();
-
   // Returns true if the lock UI has been confirmed as displayed.
   bool locked() const { return locked_; }
 
@@ -110,16 +105,6 @@ class ScreenLocker
   // Returns the users to show on the lock screen UI. Will be a subset of
   // `users()`.
   user_manager::UserList GetUsersToShow() const;
-
-  // Show the screen locker.
-  // DEPRECATED: Use ScreenLockerController::Get().ShowLockScreen() instead.
-  // TODO(crbug.com/539761804): Replace callers and remove this.
-  static void Show();
-
-  // Hide the screen locker.
-  // DEPRECATED: Use ScreenLockerController::Get().HideLockScreen() instead.
-  // TODO(crbug.com/539761804): Replace callers and remove this.
-  static void Hide();
 
   // Returns true if authentication is enabled on the lock screen for the given
   // user.

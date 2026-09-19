@@ -13,11 +13,12 @@
 #include "base/functional/function_ref.h"
 #include "chrome/browser/ash/app_mode/kiosk_app.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chromeos/ash/components/policy/device_local_account/device_local_account_type.h"
 #include "components/account_id/account_id.h"
 #include "components/policy/core/common/cloud/test/policy_builder.h"
 #include "url/gurl.h"
+
+class BrowserWindowInterface;
 
 namespace user_manager {
 class User;
@@ -109,17 +110,17 @@ void WaitNetworkScreen();
 [[nodiscard]] bool PressBailoutAccelerator();
 
 // Opens accessibility settings, waits to make sure the `KioskSystemSession`
-// does not close it, and returns the corresponding `Browser`.
+// does not close it, and returns the corresponding `BrowserWindowInterface`.
 //
 // Checks if `KioskSystemSession` closes the browser, or if it is null.
-Browser* OpenA11ySettings(const user_manager::User& user);
+BrowserWindowInterface* OpenA11ySettings(const user_manager::User& user);
 
 // Waits for the next new browser window to be created and returns true if
 // `KioskSystemSession` decides to close it.
 [[nodiscard]] bool DidKioskCloseNewWindow();
 
 // Waits for a browser window to be hidden.
-[[nodiscard]] bool DidKioskHideNewWindow(Browser* browser);
+[[nodiscard]] bool DidKioskHideNewWindow(BrowserWindowInterface* browser);
 
 // Closes the window of the given `app`.
 void CloseAppWindow(const KioskApp& app);
@@ -139,13 +140,13 @@ AccountId CreateDeviceLocalAccountId(std::string_view account_id,
                                      policy::DeviceLocalAccountType type);
 
 // Opens a new browser window including navigation to the provided `url`.
-Browser& CreateRegularBrowser(Profile& profile, const GURL& url);
+BrowserWindowInterface& CreateRegularBrowser(Profile& profile, const GURL& url);
 
 // Opens a new popup browser window navigating to `url` belonging to the
 // provided `app_name`.
-Browser& CreatePopupBrowser(Profile& profile,
-                            const std::string& app_name,
-                            const GURL& url);
+BrowserWindowInterface& CreatePopupBrowser(Profile& profile,
+                                           const std::string& app_name,
+                                           const GURL& url);
 
 }  // namespace ash::kiosk::test
 

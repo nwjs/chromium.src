@@ -80,6 +80,7 @@ chromium-metrics-reviews@google.com.
   <variant name="OpenGlicSettingsPage"/>
   <variant name="OpenOsPermissionSettingsMenu"/>
   <variant name="OpenPasswordManagerSettingsPage"/>
+  <variant name="OpenPinnedTabPicker"/>
   <variant name="PauseActorTask"/>
   <variant name="PerformActions"/>
   <variant name="PinTabs"/>
@@ -1014,19 +1015,14 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Glic.Host.WebClientState.{Event}"
-    enum="GlicDetailedWebClientState" expires_after="2027-02-07">
+<histogram name="Glic.Host.WebClientLifecycleEvent"
+    enum="GlicWebClientLifecycleEvent" expires_after="2027-02-07">
   <owner>harringtond@chromium.org</owner>
   <owner>carlosk@chromium.org</owner>
-  <summary>Records the web client state according to the host. {Event}</summary>
-  <token key="Event">
-    <variant name="AtOneMinute"
-        summary="Recorded one minute after loading the webview."/>
-    <variant name="OnCommit" summary="Recorded before commit on the webview."/>
-    <variant name="OnDestroy"
-        summary="Recorded before the webview is destroyed."/>
-    <variant name="OnLoadTimeOut" summary="Recorded when loading times out."/>
-  </token>
+  <summary>
+    Records web client lifecycle events (creation, initialization,
+    disconnection).
+  </summary>
 </histogram>
 
 <histogram name="Glic.Host.WebClientUnresponsiveState"
@@ -1238,7 +1234,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.InputModesUsed" enum="GlicInputModesUsed"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -1705,7 +1701,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.TurnCount{Profile}" units="count"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -1719,7 +1715,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.UninterruptedActiveDuration" units="ms"
-    expires_after="2026-10-04">
+    expires_after="2027-10-04">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -1910,6 +1906,27 @@ chromium-metrics-reviews@google.com.
   <token key="Visibility" variants="Visibility"/>
 </histogram>
 
+<histogram name="Glic.Invoke.Duration" units="ms" expires_after="2027-06-01">
+  <owner>wry@chromium.org</owner>
+  <owner>glic-dev@google.com</owner>
+  <summary>
+    Records the duration of a Glic invocation, measured from when the invocation
+    handler is started until it completes (successfully or not).
+  </summary>
+</histogram>
+
+<histogram name="Glic.Invoke.Duration.{InvocationSource}" units="ms"
+    expires_after="2027-06-01">
+  <owner>wry@chromium.org</owner>
+  <owner>glic-dev@google.com</owner>
+  <summary>
+    Records the duration of a Glic invocation, measured from when the invocation
+    handler is started until it completes (successfully or not), sliced by the
+    invocation source.
+  </summary>
+  <token key="InvocationSource" variants="GlicInvocationSource"/>
+</histogram>
+
 <histogram name="Glic.Invoke.InvocationSource" enum="GlicInvocationSource"
     expires_after="2027-06-01">
   <owner>vollick@chromium.org</owner>
@@ -2018,7 +2035,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.NavigationCapture.{FeatureEnabledStatus}"
-    enum="GeminiNavigationCaptureResult" expires_after="2026-11-29">
+    enum="GeminiNavigationCaptureResult" expires_after="2027-02-14">
   <owner>andreaxg@google.com</owner>
   <owner>basiaz@google.com</owner>
   <summary>
@@ -2441,16 +2458,19 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram name="Glic.Prewarming.ChecksResult"
+<histogram name="Glic.Prewarming.ChecksResult.{Trigger}"
     enum="GlicPrewarmingChecksResult" expires_after="2027-01-31">
-  <owner>dullweber@chromium.org</owner>
-  <owner>vollick@chromium.org</owner>
-  <owner>jbroman@chromium.org</owner>
+  <owner>bryantchandler@chromium.org</owner>
+  <owner>chrome-glic@google.com</owner>
   <summary>
-    Records the reason why Glic preloading was or was not attempted. Recorded
-    each time we try to preload if the user has Glic enabled and went through
-    the FRE.
+    Records the reason why Glic preloading was or was not attempted for trigger
+    {Trigger}. Recorded each time we try to preload.
   </summary>
+  <token key="Trigger">
+    <variant name="Iph" summary="iph"/>
+    <variant name="Nudge" summary="contextual nudge"/>
+    <variant name="Startup" summary="startup"/>
+  </token>
 </histogram>
 
 <histogram name="Glic.PrewarmingFre.{PrewarmDisposition}PreloadFreForSource"
@@ -2642,7 +2662,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Response.Segmentation" enum="GlicResponseSegmentation"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>iwells@google.com</owner>
   <owner>erikchen@chromium.org</owner>
   <summary>
@@ -2772,17 +2792,6 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram name="Glic.Selection.HasSiteExceptions" enum="Boolean"
-    expires_after="2026-12-31">
-  <owner>wusirui@google.com</owner>
-  <owner>naai-xfn@google.com</owner>
-  <summary>
-    Recorded when the GlicKeyedService for a profile is created. Recorded once
-    per profile initialization. This logs whether the profile has at least one
-    blocked origin site exception for the inline cue.
-  </summary>
-</histogram>
-
 <histogram name="Glic.Selection.InlineCueMenuEnabled" enum="BooleanEnabled"
     expires_after="2026-12-31">
   <owner>wusirui@google.com</owner>
@@ -2806,6 +2815,28 @@ chromium-metrics-reviews@google.com.
     <variant name="PostFre" summary="User has accepted the FRE"/>
     <variant name="PreFre" summary="User has not accepted the FRE"/>
   </token>
+</histogram>
+
+<histogram name="Glic.Selection.RemovedDefaultBlockedSitesCount" units="sites"
+    expires_after="2026-12-31">
+  <owner>wusirui@google.com</owner>
+  <owner>naai-xfn@google.com</owner>
+  <summary>
+    Recorded when the GlicKeyedService for a profile is created. Recorded once
+    per profile initialization. This logs the number of default-blocked sites
+    unblocked (removed) by the user for the inline cue.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Selection.SiteExceptionsCount" units="exceptions"
+    expires_after="2026-12-31">
+  <owner>wusirui@google.com</owner>
+  <owner>naai-xfn@google.com</owner>
+  <summary>
+    Recorded when the GlicKeyedService for a profile is created. Recorded once
+    per profile initialization. This logs the number of blocked origin site
+    exceptions for the inline cue.
+  </summary>
 </histogram>
 
 <histogram name="Glic.Selection.WidgetClicked.SelectionLength.{FreState}"
@@ -3175,7 +3206,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Turn.Actuation.IsRetry" enum="Boolean"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>qinmin@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -3186,7 +3217,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Turn.Actuation.ResponseStartTime" units="ms"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -3225,7 +3256,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Turn.Duration.{Model}" units="ms"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -3239,7 +3270,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Turn.InvocationSource" enum="GlicInvocationSource"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -3259,8 +3290,19 @@ chromium-metrics-reviews@google.com.
   <token key="AttachedTabCount" variants="AttachedTabCount"/>
 </histogram>
 
+<histogram name="Glic.Turn.PromptType" enum="GlicPromptType"
+    expires_after="2027-03-01">
+  <owner>basiaz@google.com</owner>
+  <owner>birnie@google.com</owner>
+  <summary>
+    Recorded when user input is submitted for a turn in a Glic instance.
+    Indicates the submission prompt type (e.g. typed text, zero state
+    suggestions, auto prompt, audio).
+  </summary>
+</histogram>
+
 <histogram name="Glic.Turn.ResponseStartTime" units="ms"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -3270,7 +3312,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Turn.ResponseStartTime.InputMode.{Mode}" units="ms"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -3284,7 +3326,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Turn.ResponseStartTime.{TabContext}" units="ms"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -3305,7 +3347,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Turn.ResponseStopTime.{Cause}" units="ms"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -3320,7 +3362,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Turn.Source" enum="GlicTurnSource"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -3451,10 +3493,25 @@ chromium-metrics-reviews@google.com.
   <owner>cuianthony@chromium.org</owner>
   <owner>glic-dev@google.com</owner>
   <summary>
-    The zoom action taken by the user using keyboard shortcuts. Recorded when
-    the user presses the zoom in, zoom out, or reset zoom keyboard shortcuts
-    while the Glic panel is focused.
+    The zoom action taken by the user in the Glic UI. Recorded when the user
+    presses the zoom in, zoom out, or reset zoom keyboard shortcuts while the
+    Glic panel is focused, or uses scroll controls to zoom.
   </summary>
+</histogram>
+
+<histogram name="Glic.ZoomAction.{GlicZoomSourceModifier}"
+    enum="GlicZoomAction" expires_after="2027-01-24">
+  <owner>cuianthony@chromium.org</owner>
+  <owner>glic-dev@google.com</owner>
+  <summary>
+    The zoom action taken by the user on the Glic UI. Recorded for
+    {GlicZoomSourceModifier}.
+  </summary>
+  <token key="GlicZoomSourceModifier">
+    <variant name="Hotkey" summary="hotkeys without the Shift modifier"/>
+    <variant name="HotkeyWithShift" summary="hotkeys with the Shift modifier"/>
+    <variant name="Scroll" summary="scrolling (e.g. using mouse wheel)"/>
+  </token>
 </histogram>
 
 <histogram name="Glic.ZoomLevel.{Suffix}" units="%" expires_after="2027-01-31">

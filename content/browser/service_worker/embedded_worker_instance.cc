@@ -26,6 +26,7 @@
 #include "content/browser/network/cross_origin_embedder_policy_reporter.h"
 #include "content/browser/process_lock.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
+#include "content/browser/renderer_preferences_util.h"
 #include "content/browser/security/dip/document_isolation_policy_reporter.h"
 #include "content/browser/service_worker/service_worker_consts.h"
 #include "content/browser/service_worker/service_worker_content_settings_proxy_impl.h"
@@ -403,7 +404,7 @@ void EmbeddedWorkerInstance::Start(
   DCHECK(context_->wrapper()->browser_context() ||
          process_manager->IsShutdown());
   params->renderer_preferences = blink::RendererPreferences();
-  GetContentClient()->browser()->UpdateRendererPreferencesForWorker(
+  UpdateRendererPreferencesForWorkerHelper(
       context_->wrapper()->browser_context(), &params->renderer_preferences);
 
   {
@@ -1162,30 +1163,34 @@ void EmbeddedWorkerInstance::BindCacheStorageInternal() {
     return;
   }
 
-  for (auto& request : pending_cache_storage_requests_) {
-    mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
-        coep_reporter_remote;
-    if (coep_reporter_) {
-      coep_reporter_->Clone(
-          coep_reporter_remote.InitWithNewPipeAndPassReceiver());
+  while (!pending_cache_storage_requests_.empty()) {
+    std::vector<CacheStorageRequest> requests;
+    requests.swap(pending_cache_storage_requests_);
+    for (auto& request : requests) {
+      mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
+          coep_reporter_remote;
+      if (coep_reporter_) {
+        coep_reporter_->Clone(
+            coep_reporter_remote.InitWithNewPipeAndPassReceiver());
+      }
+
+      mojo::PendingRemote<network::mojom::DocumentIsolationPolicyReporter>
+          dip_reporter_remote;
+      if (dip_reporter_) {
+        dip_reporter_->Clone(
+            dip_reporter_remote.InitWithNewPipeAndPassReceiver());
+      }
+
+      auto* rph = RenderProcessHost::FromID(process_id());
+      if (!rph) {
+        return;
+      }
+
+      rph->BindCacheStorage(*coep, std::move(coep_reporter_remote), *dip,
+                            std::move(dip_reporter_remote), request.bucket,
+                            std::move(request.receiver));
     }
-
-    mojo::PendingRemote<network::mojom::DocumentIsolationPolicyReporter>
-        dip_reporter_remote;
-    if (dip_reporter_) {
-      dip_reporter_->Clone(
-          dip_reporter_remote.InitWithNewPipeAndPassReceiver());
-    }
-
-    auto* rph = RenderProcessHost::FromID(process_id());
-    if (!rph)
-      return;
-
-    rph->BindCacheStorage(*coep, std::move(coep_reporter_remote), *dip,
-                          std::move(dip_reporter_remote), request.bucket,
-                          std::move(request.receiver));
   }
-  pending_cache_storage_requests_.clear();
 }
 
 mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>

@@ -6,6 +6,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/check.h"
@@ -13,12 +14,10 @@
 #include "base/containers/to_vector.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback_helpers.h"
-#include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/types/expected_macros.h"
 #include "chrome/browser/file_select_helper.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_features.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/update/isolated_web_app_update_check_and_prepare_task.h"
 #include "chrome/browser/web_applications/isolated_web_apps/update/isolated_web_app_update_manager.h"
@@ -38,8 +37,11 @@
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/browser/uninstall_result_code.h"
 #include "components/webapps/isolated_web_apps/types/iwa_origin.h"
+#include "components/webapps/isolated_web_apps/types/iwa_version.h"
 #include "components/webapps/isolated_web_apps/types/source.h"
 #include "components/webapps/isolated_web_apps/types/storage_location.h"
+#include "components/webapps/isolated_web_apps/types/update_channel.h"
+#include "components/webapps/isolated_web_apps/types/update_check_and_prepare_result.h"
 #include "content/public/browser/file_select_listener.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
@@ -172,6 +174,36 @@ bool UpdateFound(web_app::IwaUpdateCheckAndPrepareSuccess status) {
   }
 }
 
+std::string UpdateCheckAndPrepareErrorToString(
+    web_app::IwaUpdateCheckAndPrepareError error) {
+  switch (error) {
+    case web_app::IwaUpdateCheckAndPrepareError::kUpdateManifestDownloadFailed:
+      return "Failed to download update manifest.";
+    case web_app::IwaUpdateCheckAndPrepareError::kUpdateManifestInvalidJson:
+      return "Update manifest contains invalid JSON.";
+    case web_app::IwaUpdateCheckAndPrepareError::kUpdateManifestInvalidManifest:
+      return "Invalid update manifest format.";
+    case web_app::IwaUpdateCheckAndPrepareError::
+        kUpdateManifestNoApplicableVersion:
+      return "No applicable version found in update manifest.";
+    case web_app::IwaUpdateCheckAndPrepareError::kIwaNotInstalled:
+      return "App not found.";
+    case web_app::IwaUpdateCheckAndPrepareError::
+        kPinnedVersionNotFoundInUpdateManifest:
+      return "Pinned version not found in update manifest.";
+    case web_app::IwaUpdateCheckAndPrepareError::kDowngradeNotAllowed:
+      return "Version downgrade is not allowed.";
+    case web_app::IwaUpdateCheckAndPrepareError::kDownloadPathCreationFailed:
+      return "Failed to create download path.";
+    case web_app::IwaUpdateCheckAndPrepareError::kBundleDownloadError:
+      return "Failed to download web bundle.";
+    case web_app::IwaUpdateCheckAndPrepareError::kUpdateDryRunFailed:
+      return "Update dry run failed.";
+    case web_app::IwaUpdateCheckAndPrepareError::kSystemShutdown:
+      return "Operation aborted.";
+  }
+}
+
 }  // namespace
 
 class IwaDevPageHandler::LocalBundleSelectListener
@@ -203,7 +235,17 @@ class IwaDevPageHandler::LocalBundleSelectListener
     auto& file = *files[0];
     // `params.need_local_path` is true so the result should be a native file.
     CHECK(file.is_native_file());
-    std::move(callback_).Run(file.get_native_file()->file_path);
+
+    const base::FilePath& file_path = file.get_native_file()->file_path;
+    if (!file_path.MatchesExtension(FILE_PATH_LITERAL(".swbn"))) {
+      std::move(callback_).Run(base::unexpected(
+          mojo_base::mojom::Error::New(mojo_base::mojom::Code::kInvalidArgument,
+                                       "Invalid file type. Please select a "
+                                       "Signed Web Bundle (.swbn) file.")));
+      return;
+    }
+
+    std::move(callback_).Run(file_path);
   }
 
   void FileSelectionCanceled() override {
@@ -396,6 +438,64 @@ void IwaDevPageHandler::OnLocalBundleSelectedForUpdate(
                      std::move(callback));
 }
 
+void IwaDevPageHandler::SetUpdateChannel(const std::string& app_id,
+                                         const std::string& update_channel,
+                                         SetUpdateChannelCallback callback) {
+  ASSIGN_OR_RETURN(
+      web_app::UpdateChannel channel,
+      web_app::UpdateChannel::Create(update_channel), [&](auto) {
+        std::move(callback).Run(base::unexpected(mojo_base::mojom::Error::New(
+            mojo_base::mojom::Code::kInvalidArgument,
+            "Invalid update channel provided.")));
+      });
+
+  provider_->scheduler().ScheduleCallbackWithResult(
+      "IwaDevPageHandler::SetUpdateChannel",
+      web_app::AppLockDescription(app_id),
+      base::BindOnce(
+          [](const webapps::AppId& app_id, web_app::UpdateChannel channel,
+             web_app::AppLock& lock, base::DictValue&)
+              -> base::expected<std::monostate, mojo_base::mojom::ErrorPtr> {
+            const web_app::WebApp* iwa = lock.registrar().GetAppById(
+                app_id, web_app::WebAppFilter::IsDevModeIsolatedApp());
+            if (!iwa) {
+              return base::unexpected(mojo_base::mojom::Error::New(
+                  mojo_base::mojom::Code::kNotFound, "App not found."));
+            }
+
+            const web_app::IsolationData& isolation_data =
+                *iwa->isolation_data();
+            if (!isolation_data.update_manifest_url()) {
+              return base::unexpected(mojo_base::mojom::Error::New(
+                  mojo_base::mojom::Code::kFailedPrecondition,
+                  "App was not installed from an update manifest."));
+            }
+
+            if (isolation_data.update_channel() == channel) {
+              return std::monostate();
+            }
+
+            {
+              // ScopedRegistryUpdate commits on destruction before observers
+              // are notified.
+              web_app::ScopedRegistryUpdate update =
+                  lock.sync_bridge().BeginUpdate();
+              update->UpdateApp(app_id)->SetIsolationData(
+                  web_app::IsolationData::Builder(isolation_data)
+                      .SetUpdateChannel(std::move(channel))
+                      .Build());
+            }
+            lock.install_manager().NotifyWebAppManifestUpdated(app_id);
+            return std::monostate();
+          },
+          app_id, std::move(channel)),
+      std::move(callback),
+      /*arg_for_shutdown=*/
+      base::expected<std::monostate, mojo_base::mojom::ErrorPtr>(
+          base::unexpected(mojo_base::mojom::Error::New(
+              mojo_base::mojom::Code::kAborted, "Operation aborted."))));
+}
+
 void IwaDevPageHandler::UpdateDevProxyInstalledApp(
     const std::string& app_id,
     UpdateDevProxyInstalledAppCallback callback) {
@@ -404,6 +504,7 @@ void IwaDevPageHandler::UpdateDevProxyInstalledApp(
 
 void IwaDevPageHandler::UpdateManifestInstalledApp(
     const std::string& app_id,
+    iwa_dev::mojom::UpdateManifestOptionsPtr options,
     UpdateManifestInstalledAppCallback callback) {
   if (manifest_update_requests_.contains(app_id)) {
     std::move(callback).Run(base::unexpected(mojo_base::mojom::Error::New(
@@ -427,6 +528,17 @@ void IwaDevPageHandler::UpdateManifestInstalledApp(
     return;
   }
 
+  std::optional<web_app::IwaVersion> pinned_version;
+  if (options->pinned_version) {
+    ASSIGN_OR_RETURN(
+        pinned_version, web_app::IwaVersion::Create(*options->pinned_version),
+        [&](auto) {
+          std::move(callback).Run(base::unexpected(mojo_base::mojom::Error::New(
+              mojo_base::mojom::Code::kInvalidArgument,
+              "Invalid pinned version provided.")));
+        });
+  }
+
   manifest_update_requests_.emplace(app_id, std::move(callback));
 
   provider_->isolated_web_app_update_manager().DiscoverAndPrepareUpdate(
@@ -435,8 +547,8 @@ void IwaDevPageHandler::UpdateManifestInstalledApp(
       /*update_channel=*/
       isolation_data.update_channel().value_or(
           web_app::UpdateChannel::default_channel()),
-      /*allow_downgrades=*/false,
-      /*pinned_version=*/std::nullopt,
+      /*allow_downgrades=*/options->allow_downgrades,
+      /*pinned_version=*/std::move(pinned_version),
       /*dev_mode=*/true);
 }
 
@@ -451,8 +563,7 @@ void IwaDevPageHandler::OnUpdateDiscoverAndPrepareTaskCompleted(
           std::move(*callback).Run(
               base::unexpected(mojo_base::mojom::Error::New(
                   mojo_base::mojom::Code::kInvalidArgument,
-                  web_app::IsolatedWebAppUpdateCheckAndPrepareTask::
-                      ErrorToString(error))));
+                  UpdateCheckAndPrepareErrorToString(error))));
         }
       });
 

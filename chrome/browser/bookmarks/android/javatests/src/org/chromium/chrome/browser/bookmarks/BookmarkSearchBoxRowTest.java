@@ -8,7 +8,6 @@ import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
-import static androidx.test.espresso.matcher.ViewMatchers.withChild;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 
 import static org.hamcrest.CoreMatchers.is;
@@ -67,10 +66,10 @@ import org.chromium.ui.test.util.BlankUiTestActivity;
 /** Non-render tests for {@link BookmarkSearchBoxRow}. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @Batch(Batch.PER_CLASS)
-// TODO(crbug.com/428056054): The top content is blocked by system UI on B+.
+// TODO(crbug.com/428281174): The top content is blocked by system UI on B+.
 @DisableIf.Build(
         sdk_is_greater_than = Build.VERSION_CODES.VANILLA_ICE_CREAM,
-        message = "crbug.com/428056054")
+        message = "crbug.com/428281174")
 public class BookmarkSearchBoxRowTest {
     /** Needed because CoreMatchers.equalTo does not correctly handle CharSequences. */
     private static Matcher<CharSequence> withText(CharSequence text) {
@@ -206,7 +205,7 @@ public class BookmarkSearchBoxRowTest {
         CriteriaHelper.pollUiThread(() -> checkThat(mEditText.hasFocus(), is(false)));
         verifyNoInteractions(mFocusChangeCallback);
 
-        ThreadUtils.runOnUiThreadBlocking(() -> mEditText.requestFocus());
+        ThreadUtils.runOnUiThreadBlocking(() -> mEditText.performClick());
         verify(mFocusChangeCallback).onResult(true);
 
         ThreadUtils.runOnUiThreadBlocking(() -> mEditText.clearFocus());
@@ -236,18 +235,8 @@ public class BookmarkSearchBoxRowTest {
 
     @Test
     @MediumTest
-    public void testTapSearchRowLayoutClearsSearchFocus() {
-        ThreadUtils.runOnUiThreadBlocking(() -> mEditText.requestFocus());
-        verify(mFocusChangeCallback).onResult(true);
-
-        onView(withId(R.id.bookmark_toolbar)).perform(click());
-        verify(mFocusChangeCallback).onResult(false);
-    }
-
-    @Test
-    @MediumTest
     public void testTogglingChipDoesNotClearSearchFocus() {
-        ThreadUtils.runOnUiThreadBlocking(() -> mEditText.requestFocus());
+        ThreadUtils.runOnUiThreadBlocking(() -> mEditText.performClick());
         verify(mFocusChangeCallback).onResult(true);
 
         onView(withId(R.id.shopping_filter_chip)).perform(click());
@@ -255,16 +244,6 @@ public class BookmarkSearchBoxRowTest {
 
         onView(withId(R.id.shopping_filter_chip)).perform(click());
         verify(mFocusChangeCallback, never()).onResult(false);
-    }
-
-    @Test
-    @MediumTest
-    public void testTapFilterLayoutClearsSearchFocus() {
-        ThreadUtils.runOnUiThreadBlocking(() -> mEditText.requestFocus());
-        verify(mFocusChangeCallback).onResult(true);
-
-        onView(withChild(withId(R.id.shopping_filter_chip))).perform(click());
-        verify(mFocusChangeCallback).onResult(false);
     }
 
     @Test

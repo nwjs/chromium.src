@@ -5,6 +5,7 @@
 import("//components/enterprise/buildflags/buildflags.gni")
 import("//components/safe_browsing/buildflags.gni")
 import("//extensions/buildflags/buildflags.gni")
+import("//printing/buildflags/buildflags.gni")
 
 source_set("enterprise") {
   public = [
@@ -39,6 +40,8 @@ source_set("enterprise") {
     "reporting/real_time_report_controller_delegate.h",
     "reporting/real_time_report_generator_delegate.h",
     "signals/profile_signals_collector.h",
+    "signals/user_delegate_impl.h",
+    "signals/user_permission_service_factory.h",
     "signin/interstitials/managed_profile_required_controller_client.h",
     "signin/interstitials/managed_profile_required_page.h",
     "util/affiliation.h",
@@ -51,6 +54,7 @@ source_set("enterprise") {
     "//chrome/browser:main_extra_parts",
     "//chrome/browser/enterprise/browser_management:management_identity",
     "//chrome/browser/enterprise/core",
+    "//chrome/browser/enterprise/isolated_mode",
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile_util",
     "//chrome/browser/signin",
@@ -73,7 +77,7 @@ source_set("enterprise") {
     "//components/enterprise/watermarking",
     "//components/keyed_service/content",
     "//components/keyed_service/core",
-    "//components/os_crypt/async/browser",
+    "//components/os_crypt/browser",
     "//components/policy/core/browser",
     "//components/policy/core/common",
     "//components/prefs",
@@ -99,27 +103,6 @@ source_set("enterprise") {
     "//url",
   ]
 
-  if (!is_android) {
-    public_deps += [
-      "//chrome/browser/ui/browser_window",
-      "//chrome/browser/ui/tabs:tab_strip_model_observer",
-      "//chrome/browser/ui/webui/signin:signin_utils",
-      "//chrome/browser/upgrade_detector:build_state_observer",
-      "//ui/message_center/public/cpp",
-      "//ui/views",
-    ]
-    public += [
-      "data_protection/data_protection_ui_controller.h",
-      "reporting/browser_report_generator_desktop.h",
-      "reporting/report_generator_desktop.h",
-      "reporting/report_scheduler_desktop.h",
-      "reporting/reporting_delegate_factory_desktop.h",
-      "signals/client_certificate_fetcher.h",
-      "signals/context_info_fetcher.h",
-      "signals/device_info_fetcher.h",
-    ]
-  }
-
   if (safe_browsing_mode != 0) {
     public_deps += [
       "//components/safe_browsing/content/browser:safe_browsing_blocking_page",
@@ -140,6 +123,40 @@ source_set("enterprise") {
       "reporting/report_scheduler_android.h",
       "reporting/reporting_delegate_factory_android.h",
     ]
+  } else {
+    public_deps += [
+      "//chrome/browser/enterprise/connectors/device_trust/signals",
+      "//chrome/browser/enterprise/connectors/device_trust/signals/decorators/common",
+      "//chrome/browser/ui:idle_bubble",
+      "//chrome/browser/ui:idle_dialog",
+      "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/tabs:tab_strip_model_observer",
+      "//chrome/browser/ui/webui/signin:signin_utils",
+      "//chrome/browser/upgrade_detector:build_state_observer",
+      "//components/device_signals/core/browser",
+      "//components/device_signals/core/common",
+      "//components/enterprise/device_trust",
+      "//components/enterprise/device_trust/core:device_trust_connector_service",
+      "//components/enterprise/device_trust/core:metrics",
+      "//components/enterprise/device_trust/core/attestation",
+      "//ui/message_center/public/cpp",
+      "//ui/views",
+    ]
+    public += [
+      "connectors/device_trust/device_trust_connector_service_factory.h",
+      "connectors/device_trust/device_trust_service_factory.h",
+      "connectors/device_trust/navigation_throttle.h",
+      "connectors/device_trust/signals/decorators/common/context_signals_decorator.h",
+      "connectors/device_trust/signals/signals_service_factory.h",
+      "data_protection/data_protection_ui_controller.h",
+      "reporting/browser_report_generator_desktop.h",
+      "reporting/report_generator_desktop.h",
+      "reporting/report_scheduler_desktop.h",
+      "reporting/reporting_delegate_factory_desktop.h",
+      "signals/client_certificate_fetcher.h",
+      "signals/context_info_fetcher.h",
+      "signals/device_info_fetcher.h",
+    ]
   }
 
   if (is_chromeos) {
@@ -158,15 +175,21 @@ source_set("enterprise") {
     public_deps += [
       "//components/enterprise/browser/groups",
       "//components/enterprise/browser/groups:features",
+      "//components/enterprise/idle",
     ]
 
     public += [
       "groups/enterprise_groups_handler_factory.h",
+      "idle/action.h",
+      "idle/action_runner.h",
+      "idle/idle_service.h",
+      "idle/idle_service_factory.h",
       "remote_commands/clear_browsing_data_job.h",
       "remote_commands/job_profile_picker.h",
       "remote_commands/user_remote_commands_factory.h",
       "remote_commands/user_remote_commands_service.h",
       "remote_commands/user_remote_commands_service_factory.h",
+      "signals/signals_aggregator_factory.h",
     ]
   }
 
@@ -240,44 +263,6 @@ source_set("enterprise") {
     }
   }
 
-  if (is_linux || is_win || is_mac || is_chromeos || is_android) {
-    public += [
-      "signals/user_delegate_impl.h",
-      "signals/user_permission_service_factory.h",
-    ]
-  }
-
-  if (is_linux || is_win || is_mac || is_chromeos) {
-    public += [
-      "connectors/device_trust/device_trust_connector_service_factory.h",
-      "connectors/device_trust/device_trust_service_factory.h",
-      "connectors/device_trust/navigation_throttle.h",
-      "connectors/device_trust/signals/decorators/common/context_signals_decorator.h",
-      "connectors/device_trust/signals/signals_service_factory.h",
-    ]
-    public_deps += [
-      "//chrome/browser/enterprise/connectors/device_trust/signals",
-      "//chrome/browser/enterprise/connectors/device_trust/signals/decorators/common",
-      "//components/device_signals/core/browser",
-      "//components/device_signals/core/common",
-      "//components/enterprise/device_trust",
-      "//components/enterprise/device_trust/core:device_trust_connector_service",
-      "//components/enterprise/device_trust/core:metrics",
-      "//components/enterprise/device_trust/core/attestation",
-    ]
-  }
-
-  if (is_linux || is_win || is_mac || is_android) {
-    public += [
-      "idle/action.h",
-      "idle/action_runner.h",
-      "idle/idle_service.h",
-      "idle/idle_service_factory.h",
-      "signals/signals_aggregator_factory.h",
-    ]
-    public_deps += [ "//components/enterprise/idle" ]
-  }
-
   if (enterprise_cloud_content_analysis || is_android ||
       safe_browsing_mode == 1) {
     public += [
@@ -288,16 +273,16 @@ source_set("enterprise") {
         [ "//components/enterprise/connectors/core:cloud_content_scanning" ]
   }
 
-  if (is_linux || is_win || is_mac || is_chromeos) {
+  if (is_linux || is_win || is_mac || is_chromeos || is_android) {
     public += [
-      "reporting/realtime_event_upload_helper_desktop.h",
+      "reporting/realtime_event_upload_helper.h",
       "reporting/saas_usage/navigation_handle_data_delegate.h",
       "reporting/saas_usage/saas_usage_navigation_observer.h",
-      "reporting/saas_usage/saas_usage_report_factory_desktop.h",
-      "reporting/saas_usage/saas_usage_report_scheduler_delegate_desktop.h",
-      "reporting/saas_usage/saas_usage_report_uploader_desktop.h",
+      "reporting/saas_usage/saas_usage_report_factory_delegate_impl.h",
+      "reporting/saas_usage/saas_usage_report_scheduler_delegate_impl.h",
+      "reporting/saas_usage/saas_usage_report_uploader_impl.h",
       "reporting/saas_usage/saas_usage_reporting_controller_factory.h",
-      "reporting/saas_usage/saas_usage_reporting_delegate_factory_desktop.h",
+      "reporting/saas_usage/saas_usage_reporting_delegate_factory_impl.h",
     ]
   }
 
@@ -309,6 +294,7 @@ source_set("enterprise") {
       "profile_management/oidc_auth_response_capture_navigation_throttle.h",
       "profile_management/profile_management_features.h",
       "profile_management/profile_management_navigation_throttle.h",
+      "remote_commands/cbcm_remote_commands_factory.h",
       "remote_commands/extension_update_check_job.h",
       "remote_commands/rotate_attestation_credential_job.h",
       "reporting/browser_launch/browser_launch_event_uploader_desktop.h",
@@ -333,10 +319,7 @@ source_set("enterprise") {
       "webstore/chrome_web_store_navigation_throttle.h",
       "webstore/features.h",
     ]
-  }
-
-  if (!is_android && !is_chromeos) {
-    public += [ "remote_commands/cbcm_remote_commands_factory.h" ]
+    public_deps += [ "//chrome/browser/ui:idle_dialog" ]
   }
 
   if (is_linux || is_chromeos) {
@@ -379,6 +362,9 @@ source_set("enterprise") {
       "reporting/extension_request/extension_request_policy_handler.h",
       "reporting/extension_request/extension_request_report_generator.h",
     ]
+    if (is_android) {
+      public += [ "reporting/extension_request/extension_request_notification_handler_android.h" ]
+    }
     public_deps += [
       "//extensions/common",
       "//ui/message_center/public/cpp",
@@ -453,15 +439,14 @@ source_set("impl") {
     "reporting/real_time_report_controller_delegate.cc",
     "reporting/real_time_report_generator_delegate.cc",
     "signals/profile_signals_collector.cc",
+    "signals/user_delegate_impl.cc",
+    "signals/user_permission_service_factory.cc",
     "signin/interstitials/managed_profile_required_controller_client.cc",
     "signin/interstitials/managed_profile_required_page.cc",
     "util/affiliation.cc",
     "util/managed_browser_utils.cc",
   ]
 
-  if (!is_android && !is_chromeos) {
-    sources += [ "remote_commands/cbcm_remote_commands_factory.cc" ]
-  }
   public_deps = [
     ":enterprise",
     "//chrome/browser:browser_public_dependencies",
@@ -516,6 +501,7 @@ source_set("impl") {
     "//components/enterprise/content",
     "//components/enterprise/core",
     "//components/enterprise/data_protection",
+    "//components/enterprise/device_trust/core:metrics",
     "//components/enterprise/encryption/cache",
     "//components/enterprise/net",
     "//components/guest_view/browser",
@@ -538,33 +524,6 @@ source_set("impl") {
     "//ui/message_center/public/cpp",
   ]
 
-  if (!is_android) {
-    sources += [
-      "data_protection/data_protection_ui_controller.cc",
-      "reporting/browser_report_generator_desktop.cc",
-      "reporting/report_generator_desktop.cc",
-      "reporting/report_scheduler_desktop.cc",
-      "reporting/reporting_delegate_factory_desktop.cc",
-      "signals/client_certificate_fetcher.cc",
-      "signals/context_info_fetcher.cc",
-      "signals/device_info_fetcher.cc",
-    ]
-    deps += [
-      "//chrome/browser/lifetime",
-      "//chrome/browser/search_engine_choice",
-      "//chrome/browser/sync",
-      "//chrome/browser/themes",
-      "//chrome/browser/ui/signin",
-      "//chrome/browser/ui/tabs:tab_strip",
-      "//chrome/browser/ui/tabs:tabs_public",
-      "//chrome/browser/ui/webui/signin:signin_utils",
-      "//chrome/browser/ui/window_feature_controller",
-      "//chrome/common/themes:autogenerated_theme_util",
-      "//components/constrained_window",
-      "//components/web_modal",
-    ]
-  }
-
   if (is_android) {
     sources += [
       "platform_auth/entra_provider_android.cc",
@@ -583,6 +542,49 @@ source_set("impl") {
       "//components/enterprise/device_attestation/android",
       "//components/enterprise/device_attestation/android:jni_headers",
     ]
+  } else {
+    sources += [
+      "connectors/device_trust/device_trust_connector_service_factory.cc",
+      "connectors/device_trust/device_trust_service_factory.cc",
+      "connectors/device_trust/navigation_throttle.cc",
+      "connectors/device_trust/signals/decorators/common/context_signals_decorator.cc",
+      "connectors/device_trust/signals/signals_service_factory.cc",
+      "data_protection/data_protection_ui_controller.cc",
+      "reporting/browser_report_generator_desktop.cc",
+      "reporting/report_generator_desktop.cc",
+      "reporting/report_scheduler_desktop.cc",
+      "reporting/reporting_delegate_factory_desktop.cc",
+      "signals/client_certificate_fetcher.cc",
+      "signals/context_info_fetcher.cc",
+      "signals/device_info_fetcher.cc",
+    ]
+    deps += [
+      "//chrome/browser/enterprise/connectors/device_trust:features",
+      "//chrome/browser/enterprise/connectors/device_trust/key_management/core/persistence",
+      "//chrome/browser/enterprise/connectors/device_trust/signals",
+      "//chrome/browser/enterprise/connectors/device_trust/signals/decorators/common",
+      "//chrome/browser/lifetime",
+      "//chrome/browser/search_engine_choice",
+      "//chrome/browser/sync",
+      "//chrome/browser/themes",
+      "//chrome/browser/ui/signin",
+      "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/tabs:tabs_public",
+      "//chrome/browser/ui/views/device_signals_consent",
+      "//chrome/browser/ui/webui/signin:signin_utils",
+      "//chrome/browser/ui/window_feature_controller",
+      "//chrome/common/themes:autogenerated_theme_util",
+      "//components/constrained_window",
+      "//components/device_signals/core/browser",
+      "//components/device_signals/core/common",
+      "//components/enterprise/device_trust",
+      "//components/enterprise/device_trust/core:device_trust_connector_service",
+      "//components/enterprise/device_trust/core:device_trust_service",
+      "//components/enterprise/device_trust/core:metrics",
+      "//components/enterprise/device_trust/core/attestation",
+      "//components/enterprise/device_trust/core/attestation:types",
+      "//components/web_modal",
+    ]
   }
 
   if (is_chromeos) {
@@ -597,7 +599,6 @@ source_set("impl") {
       "signals/signals_aggregator_factory.cc",
       "signals/system_signals_service_host_factory.cc",
     ]
-    deps += [ "//chrome/services/system_signals/public/cpp/browser" ]
     deps += [
       "//chrome/browser/ash/app_list/arc",
       "//chrome/browser/ash/arc:arc_util",
@@ -607,6 +608,7 @@ source_set("impl") {
       "//chrome/browser/ash/profiles",
       "//chrome/browser/ash/settings",
       "//chrome/browser/enterprise/connectors/device_trust/attestation/ash",
+      "//chrome/services/system_signals/public/cpp/browser",
       "//chromeos/ash/components/browser_context_helper",
       "//chromeos/ash/components/install_attributes",
       "//chromeos/ash/components/network",
@@ -616,16 +618,20 @@ source_set("impl") {
       "//components/device_signals/core/browser/ash",
       "//ui/strings:ui_strings__strings_grit",
     ]
-  }
-
-  if (!is_chromeos) {
+  } else {
     sources += [
       "groups/enterprise_groups_handler_factory.cc",
+      "idle/action.cc",
+      "idle/action_runner.cc",
+      "idle/idle_service.cc",
+      "idle/idle_service_factory.cc",
       "remote_commands/clear_browsing_data_job.cc",
       "remote_commands/user_remote_commands_factory.cc",
       "remote_commands/user_remote_commands_service.cc",
       "remote_commands/user_remote_commands_service_factory.cc",
+      "signals/signals_aggregator_factory.cc",
     ]
+    deps += [ "//components/enterprise/idle" ]
   }
 
   if (is_mac || is_win || is_android) {
@@ -684,6 +690,9 @@ source_set("impl") {
         "//chrome/browser/ui/toasts/api:toasts",
       ]
     }
+    if (enable_print_preview) {
+      deps += [ "//chrome/browser/printing" ]
+    }
   }
 
   if (enterprise_client_certificates) {
@@ -712,49 +721,6 @@ source_set("impl") {
         "//net",
       ]
     }
-  }
-
-  if (is_linux || is_win || is_mac || is_chromeos || is_android) {
-    sources += [
-      "signals/user_delegate_impl.cc",
-      "signals/user_permission_service_factory.cc",
-    ]
-    deps += [ "//components/enterprise/device_trust/core:metrics" ]
-  }
-
-  if (is_linux || is_win || is_mac || is_chromeos) {
-    sources += [
-      "connectors/device_trust/device_trust_connector_service_factory.cc",
-      "connectors/device_trust/device_trust_service_factory.cc",
-      "connectors/device_trust/navigation_throttle.cc",
-      "connectors/device_trust/signals/decorators/common/context_signals_decorator.cc",
-      "connectors/device_trust/signals/signals_service_factory.cc",
-    ]
-    deps += [
-      "//chrome/browser/enterprise/connectors/device_trust:features",
-      "//chrome/browser/enterprise/connectors/device_trust/key_management/core/persistence",
-      "//chrome/browser/enterprise/connectors/device_trust/signals",
-      "//chrome/browser/enterprise/connectors/device_trust/signals/decorators/common",
-      "//chrome/browser/ui/views/device_signals_consent",
-      "//components/device_signals/core/browser",
-      "//components/device_signals/core/common",
-      "//components/enterprise/device_trust",
-      "//components/enterprise/device_trust/core:device_trust_connector_service",
-      "//components/enterprise/device_trust/core:metrics",
-      "//components/enterprise/device_trust/core/attestation",
-      "//components/enterprise/device_trust/core/attestation:types",
-    ]
-  }
-
-  if (is_linux || is_win || is_mac || is_android) {
-    sources += [
-      "idle/action.cc",
-      "idle/action_runner.cc",
-      "idle/idle_service.cc",
-      "idle/idle_service_factory.cc",
-      "signals/signals_aggregator_factory.cc",
-    ]
-    deps += [ "//components/enterprise/idle" ]
   }
 
   if (enterprise_cloud_content_analysis || is_android ||
@@ -790,16 +756,16 @@ source_set("impl") {
         [ "//chrome/browser/enterprise/connectors/analysis:sdk_manager" ]
   }
 
-  if (is_linux || is_win || is_mac || is_chromeos) {
+  if (is_linux || is_win || is_mac || is_chromeos || is_android) {
     sources += [
-      "reporting/realtime_event_upload_helper_desktop.cc",
+      "reporting/realtime_event_upload_helper.cc",
       "reporting/saas_usage/navigation_handle_data_delegate.cc",
       "reporting/saas_usage/saas_usage_navigation_observer.cc",
-      "reporting/saas_usage/saas_usage_report_factory_desktop.cc",
-      "reporting/saas_usage/saas_usage_report_scheduler_delegate_desktop.cc",
-      "reporting/saas_usage/saas_usage_report_uploader_desktop.cc",
+      "reporting/saas_usage/saas_usage_report_factory_delegate_impl.cc",
+      "reporting/saas_usage/saas_usage_report_scheduler_delegate_impl.cc",
+      "reporting/saas_usage/saas_usage_report_uploader_impl.cc",
       "reporting/saas_usage/saas_usage_reporting_controller_factory.cc",
-      "reporting/saas_usage/saas_usage_reporting_delegate_factory_desktop.cc",
+      "reporting/saas_usage/saas_usage_reporting_delegate_factory_impl.cc",
     ]
 
     deps += [ "//components/enterprise/device_trust/core:device_trust_service" ]
@@ -813,6 +779,7 @@ source_set("impl") {
       "profile_management/oidc_auth_response_capture_navigation_throttle.cc",
       "profile_management/profile_management_features.cc",
       "profile_management/profile_management_navigation_throttle.cc",
+      "remote_commands/cbcm_remote_commands_factory.cc",
       "remote_commands/rotate_attestation_credential_job.cc",
       # NW: already built in the browser_launch_reporting static_library which
       # impl deps on; the whole-archive solink for libnw.so pulls in both copies
@@ -867,6 +834,9 @@ source_set("impl") {
       "reporting/extension_request/extension_request_policy_handler.cc",
       "reporting/extension_request/extension_request_report_generator.cc",
     ]
+    if (is_android) {
+      sources += [ "reporting/extension_request/extension_request_notification_handler_android.cc" ]
+    }
     deps += [
       "//chrome/browser/extensions",
       "//components/vector_icons",
@@ -897,10 +867,7 @@ if (!is_android) {
     testonly = true
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
-    sources = [
-      "reporting/saas_usage/saas_usage_browsertest.cc",
-      "util/managed_browser_utils_browsertest.cc",
-    ]
+    sources = [ "util/managed_browser_utils_browsertest.cc" ]
 
     deps = [
       ":impl",

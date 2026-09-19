@@ -68,6 +68,8 @@ BASE_FEATURE(kWebuiRefresh2026, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kAppMenuGlowUp, base::FEATURE_DISABLED_BY_DEFAULT);
 // Enables the redesigned Settings 2026 refresh features and search UX.
 BASE_FEATURE(kSettingsRefresh2026, base::FEATURE_DISABLED_BY_DEFAULT);
+// Enables search in the app Chrome menu.
+BASE_FEATURE(kChroMenuSearch, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsTabStripDeclutterEnabled() {
   return base::FeatureList::IsEnabled(kDesktopGlowUp) ||
@@ -185,7 +187,14 @@ BASE_FEATURE(kProcessIsolationSettings, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
 
 BASE_FEATURE(kRealboxVirtualFocusNavigation, base::FEATURE_DISABLED_BY_DEFAULT);
-
+BASE_FEATURE(kOmniboxPopupVirtualFocusNavigation,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlayVirtualFocusNavigation,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kOmniboxEverywhereVirtualFocusNavigation,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kWebuiBrowserVirtualFocusNavigation,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSplitViewTabDraggingUpdates, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(base::TimeDelta,
@@ -323,9 +332,20 @@ BASE_FEATURE(kLensOverlayHomeworkPageActionFocusOptimization,
 BASE_FEATURE(kPageActionAnchoredMessageEasyDismiss,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kPageActionAnchoredMessageActiveTabOnly,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kAiModePageActionOptimization, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPageActionsPrioritySelector, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kPageActionsPrioritySelectorProductMessagingController,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPageActionsElevatedToolbar, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsPageActionsElevatedToolbarEnabled() {
+  return base::FeatureList::IsEnabled(kPageActionsElevatedToolbar);
+}
 
 BASE_FEATURE(kByDateHistoryInSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -493,6 +513,13 @@ BASE_FEATURE_PARAM(std::string,
                    &kAiOverlayDialog,
                    "mock_json_path",
                    "");
+BASE_FEATURE_PARAM(bool,
+                   kAiOverlayDialogUsesActor,
+                   &kAiOverlayDialog,
+                   "ai_overlay_dialog_uses_actor",
+                   false);
+BASE_FEATURE(kAiOverlayDisableNavigationContext,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTabGroupsFocusing, base::FEATURE_DISABLED_BY_DEFAULT);
 

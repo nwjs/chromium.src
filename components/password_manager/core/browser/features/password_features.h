@@ -41,11 +41,6 @@ BASE_DECLARE_FEATURE(kActorLoginSyncsPasswordPermissions);
 BASE_DECLARE_FEATURE(kActorLoginQualityLogs);
 #endif  // !BUILDFLAG(IS_IOS)
 
-#if BUILDFLAG(IS_ANDROID)
-// Enables filling of OTPs received via SMS on Android.
-BASE_DECLARE_FEATURE(kAndroidSmsOtpFilling);
-#endif  // BUILDFLAG(IS_ANDROID)
-
 // Enables using clientside form classifier predictions for password forms.
 BASE_DECLARE_FEATURE(kApplyClientsideModelPredictionsForPasswordTypes);
 
@@ -112,6 +107,9 @@ BASE_DECLARE_FEATURE(kEnablePasswordManagerMojoApiPhase2);
 
 // Enables the Desktop Trusted Vault unlock UI flow.
 BASE_DECLARE_FEATURE(kTrustedVaultDesktopUnlock);
+
+// Enables the Desktop Passkey unlock promo card UI flow.
+BASE_DECLARE_FEATURE(kPasskeyUnlockPromo);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 // Cross domain credential data is not previewed by the manual fallback
@@ -166,6 +164,12 @@ BASE_DECLARE_FEATURE(kPassDeletionOriginToAndroidBackend);
 extern const base::FeatureParam<int> kPassDeletionOriginMinGmsVersion;
 #endif  // BUILDFLAG(IS_ANDROID)
 
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
+// Enables displaying a warning banner for compromised credentials in the
+// password details card.
+BASE_DECLARE_FEATURE(kPasswordCompromiseWarningInDetailsCard);
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+
 // Populate the `date_last_filled` timestamp for passwords.
 BASE_DECLARE_FEATURE(kPasswordDateLastFilled);
 
@@ -178,6 +182,13 @@ BASE_DECLARE_FEATURE(kPasswordFormGroupedAffiliations);
 // Enables logging the content of chrome://password-manager-internals to the
 // terminal.
 BASE_DECLARE_FEATURE(kPasswordManagerLogToTerminal);
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
+// Enables the OnDeviceEncryptionMetricsReporter service which tracks
+// on-device encryption states of passwords and passkeys and records
+// readiness metrics.
+BASE_DECLARE_FEATURE(kPasswordManagerOnDeviceEncryptionMetricsReporter);
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 // Performs additional security checks wrt. the triggering frame before adding
 // the "Select password" entry to the context menu.
@@ -219,6 +230,11 @@ BASE_DECLARE_FEATURE(kSkipUndecryptablePasswords);
 
 // Starts passwords resync when undecryptable passwords are detected.
 BASE_DECLARE_FEATURE(kTriggerPasswordResyncWhenUndecryptablePasswordsDetected);
+
+// Killswitch: When enabled, unifies the leak checkup dialog variations into a
+// single checkup dialog and removes the check for whether the credential was
+// saved on the current site.
+BASE_DECLARE_FEATURE(kUnifiedPasswordLeakDialog);
 
 // The feature enables the use of detached Widget during password change
 // to which WebContents is attached. This helps to resolve the problem

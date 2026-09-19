@@ -26,7 +26,6 @@ import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.app.tab_activity_glue.ReparentingTabsTask;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
@@ -130,7 +129,7 @@ import java.util.Set;
 
     @Override
     public void onForegroundBrowserProcessInitialized() {
-        if (!ChromeFeatureList.sSessionRestoreAfterCrash.isEnabled()) return;
+        if (!MultiWindowUtils.isSessionRestoreAfterCrashEnabled()) return;
 
         // If a ChromeTabbedActivity has already initialized, immediate crash recovery was already
         // evaluated / handled. Do not set a pending crash recovery state.
@@ -243,9 +242,10 @@ import java.util.Set;
         // Reparent tabs to the activity associated with the specified instance if it is alive. If
         // the instance does not have a live activity, restore it in a new activity to reparent the
         // tabs into.
-        if (destActivity != null) {
+        if (destActivity instanceof ChromeTabbedActivity tabbedActivity
+                && !tabbedActivity.isActivityFinishingOrDestroyed()) {
             mTabReparentingDelegate.reparentTabsToExistingWindow(
-                    (ChromeTabbedActivity) destActivity,
+                    tabbedActivity,
                     tabs,
                     destTabIndex,
                     destGroupTabId,
@@ -346,9 +346,10 @@ import java.util.Set;
 
         Activity sourceActivity = MultiWindowUtils.getActivityById(tabGroupMetadata.sourceWindowId);
         Activity destActivity = MultiWindowUtils.getActivityById(destWindowId);
-        if (destActivity != null) {
+        if (destActivity instanceof ChromeTabbedActivity tabbedActivity
+                && !tabbedActivity.isActivityFinishingOrDestroyed()) {
             mTabReparentingDelegate.reparentTabGroupToExistingWindow(
-                    (ChromeTabbedActivity) destActivity,
+                    tabbedActivity,
                     tabGroupMetadata,
                     destTabIndex,
                     bringToFront);

@@ -11,12 +11,13 @@
 
 #include "base/containers/span.h"
 #include "base/gtest_prod_util.h"
-#include "third_party/blink/renderer/core/ad_tracker/ad_script_identifier.h"
 #include "third_party/blink/renderer/core/ad_tracker/monkey_patchable_api.h"
 #include "third_party/blink/renderer/core/ad_tracker/script_initiation_monitor.h"
 #include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
+#include "third_party/blink/renderer/platform/loader/fetch/ad_tagging_utils.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -33,11 +34,17 @@ class ExecutionContext;
 class LazyStackTrace;
 class LocalFrame;
 
+enum class ScriptAncestryTrackerType : uint8_t {
+  kAd = 0,
+  kExtension = 1,
+  kMaxValue = kExtension,
+};
+
 // ScriptAncestryTracker provides the common functionality for classes (such as
 // AdTracker) that need to keep track of a subset of "marked" scripts and the
 // scripts that were later loaded by those marked scripts, transitively. It's
 // designed to operate on a local root frame and its local descendants. In
-// addition, it provides the useful `IsMarkedScriptInStack` function which
+// addition, it provides the useful `GetMarkedScriptInStack` function which
 // can be called to determine if a marked script is in the current V8 sync+async
 // stack.
 //
@@ -76,6 +83,8 @@ class CORE_EXPORT ScriptAncestryTracker
   ScriptAncestryTracker& operator=(const ScriptAncestryTracker&) = delete;
   virtual ~ScriptAncestryTracker();
 
+  virtual ScriptAncestryTrackerType GetTrackerType() const = 0;
+
   // ScriptInitiationMonitor::Observer overrides:
   void WillExecuteScript(ExecutionContext& execution_context,
                          v8::Local<v8::Context> v8_context,
@@ -95,11 +104,26 @@ class CORE_EXPORT ScriptAncestryTracker
                           LazyStackTrace& stack_trace) override;
   void DidStartAsyncTask(probe::AsyncTaskContext* task_context) override;
   void DidFinishAsyncTask(probe::AsyncTaskContext* task_context) override;
+  void DidCreateFrame(LocalFrame* frame, LazyStackTrace& stack_trace) override;
+  void DidSwapFrame(LocalFrame* old_frame, LocalFrame* new_frame) override;
 
-  // Returns true if the script at the top of isolate's
-  // stack is a marked script (or bottom, depending on `StackType`). `kTopOnly`
-  // is generally best since it's directly triggering blink native code, but you
-  // may want to call `kBottomOnly` if you truly only care about that frame.
+  // Returns true if `frame` was created by a marked script, descended from a
+  // marked frame, or otherwise marked by the subclass tracker.
+  virtual bool IsMarkedFrame(const LocalFrame* frame) const;
+
+  // Returns the script ID of the marked script that initiated the creation of
+  // `frame`, or an empty `V8ScriptId` if not created by a marked script or if
+  // provenance is unavailable.
+  V8ScriptId GetInitiatingScriptId(const LocalFrame* frame) const;
+
+  // Returns true if `execution_context` is hosted within a marked frame.
+  bool IsMarkedExecutionContext(ExecutionContext* execution_context) const;
+
+  // Returns the script ID if the script at the top of isolate's
+  // stack is a marked script (or bottom, depending on `StackType`), or
+  // std::nullopt otherwise. `kTopOnly` is generally best since it's directly
+  // triggering blink native code, but you may want to call `kBottomOnly` if you
+  // truly only care about that frame.
   //
   // When `ignore_monkey_patch` is specified, a heuristic is enabled to mitigate
   // inaccurate stack tagging caused by API monkey patching (i.e., the immediate
@@ -115,20 +139,17 @@ class CORE_EXPORT ScriptAncestryTracker
   //
   // Note: This function is not idempotent when `ignore_monkey_patch` is used,
   // as it tracks the first call to an API within a synchronous task.
-  //
-  // Output Parameters:
-  // - `out_script`: if non-null and there is a marked script in the
-  //   stack, this will be populated with the marked script's id.
-  bool IsMarkedScriptInStack(
+  std::optional<V8ScriptId> GetMarkedScriptInStack(
       StackType stack_type,
       LazyStackTrace& stack_trace,
-      std::optional<V8ScriptId>* out_script = nullptr,
       MonkeyPatchableApi ignore_monkey_patch = MonkeyPatchableApi::kNone);
 
   virtual void Shutdown();
   void Trace(Visitor*) const override;
 
  protected:
+  virtual bool HasMarkedFrames() const { return !marked_frames_.empty(); }
+
   // Called by the base class to check if a specific script ID is a marked
   // script belonging to the subclass's tracking domain (e.g., ad scripts,
   // extension scripts).
@@ -226,6 +247,9 @@ class CORE_EXPORT ScriptAncestryTracker
   // Tracks active monkey-patched API calls in the current task scope to ensure
   // the ignore-monkey-patch heuristic only applies once per task.
   HashSet<MonkeyPatchableApi> monkey_patch_calls_in_scope_;
+
+  // Tracks frames created by marked scripts (or descendant frames).
+  HeapHashMap<WeakMember<LocalFrame>, V8ScriptId> marked_frames_;
 
   friend class AdTrackerTest;
   friend class ScriptAncestryTrackerTest;

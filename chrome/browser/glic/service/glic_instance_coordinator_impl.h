@@ -34,13 +34,14 @@
 #include "chrome/browser/glic/service/glic_onboarding_tracker.h"
 #include "chrome/browser/glic/service/metrics/glic_instance_coordinator_metrics.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_observer.h"
+
+class BrowserWindowInterface;
 
 namespace tabs {
 class TabInterface;
@@ -107,8 +108,13 @@ class GlicInstanceCoordinatorImpl
                                      bool enabled) override;
   bool IsInvoking(const GlicInstanceImpl* instance) const override;
   void CancelInvoke(GlicInstanceImpl* instance) override;
-  void OnInvoked() override;
-  void OnUserInputSubmitted() override;
+  // TODO(crbug.com/545714879): Remove OnInvoked, OnUserInputSubmitted, and
+  // OnFreOptInShown delegate overrides when GlicOnboardingTracker is refactored
+  // to free-standing profile helper functions.
+  void OnInvoked(mojom::InvocationSource source,
+                 ukm::SourceId source_id) override;
+  void OnUserInputSubmitted(ukm::SourceId source_id) override;
+  void OnFreOptInShown(ukm::SourceId source_id) override;
   std::unique_ptr<WebUIContentsContainer> CreateWebUIContentsContainer()
       override;
 
@@ -156,7 +162,7 @@ class GlicInstanceCoordinatorImpl
   void Toggle(BrowserWindowInterface* browser,
               bool prevent_close,
               mojom::InvocationSource source) override;
-  bool MaybeStartInitialWarming() override;
+  bool MaybeStartWarming(GlicWarmingTrigger trigger) override;
   // Shuts down all hosts. Only call it before destruction of the instance
   // coordinator.
   void Shutdown() override;

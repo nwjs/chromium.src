@@ -15,13 +15,15 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/resource_coordinator/lifecycle_unit_state.mojom-shared.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/performance_controls/memory_saver_bubble_observer.h"
 #include "chrome/browser/ui/performance_controls/performance_controls_metrics.h"
 #include "chrome/browser/ui/performance_controls/test_support/memory_saver_browser_test_mixin.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-#include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
+#include "chrome/browser/ui/views/page_action/page_action_view_interface.h"
+#include "chrome/browser/ui/views/page_action/test_support/page_action_test_accessor.h"
 #include "chrome/browser/ui/views/performance_controls/memory_saver_resource_view.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/branded_strings.h"
@@ -44,7 +46,7 @@
 #include "ui/views/widget/widget.h"
 
 namespace {
-constexpr base::ByteSize kMemorySavings = base::MiBU(100);
+constexpr base::ByteSize kMemorySavings = base::MiB(100);
 }  // namespace
 
 class StubMemorySaverBubbleObserver : public MemorySaverBubbleObserver {
@@ -80,7 +82,7 @@ class MemorySaverBubbleViewTest
 
   void AddNewTab(base::ByteSize memory_savings,
                  mojom::LifecycleUnitDiscardReason discard_reason) {
-    TabStripModel* tab_strip_model = browser()->tab_strip_model();
+    TabStripModel* tab_strip_model = browser()->GetTabStripModel();
     if (tab_strip_model->count() == 1 &&
         (tab_strip_model->GetWebContentsAt(0)
              ->GetLastCommittedURL()
@@ -107,7 +109,7 @@ class MemorySaverBubbleViewTest
       mojom::LifecycleUnitDiscardReason reason =
           ::mojom::LifecycleUnitDiscardReason::PROACTIVE;
       content::WebContents* const old_contents =
-          browser()->tab_strip_model()->GetWebContentsAt(tab_index);
+          browser()->GetTabStripModel()->GetWebContentsAt(tab_index);
       if (auto* old_usage =
               performance_manager::user_tuning::UserPerformanceTuningManager::
                   PreDiscardResourceUsage::FromWebContents(old_contents)) {
@@ -118,7 +120,7 @@ class MemorySaverBubbleViewTest
       TryDiscardTabAt(tab_index);
 
       content::WebContents* const new_contents =
-          browser()->tab_strip_model()->GetWebContentsAt(tab_index);
+          browser()->GetTabStripModel()->GetWebContentsAt(tab_index);
       if (auto* new_usage =
               performance_manager::user_tuning::UserPerformanceTuningManager::
                   PreDiscardResourceUsage::FromWebContents(new_contents)) {
@@ -131,18 +133,17 @@ class MemorySaverBubbleViewTest
     }
   }
 
-  IconLabelBubbleView* GetPageActionIconView(Browser* b = nullptr) {
+  page_actions::PageActionViewInterface* GetPageActionView(
+      BrowserWindowInterface* b = nullptr) {
     if (!b) {
       b = browser();
     }
     auto* provider =
         BrowserView::GetBrowserViewForBrowser(b)->toolbar_button_provider();
-    return page_actions::GetIconLabelBubbleViewForTesting(
-        provider->GetPageActionViewInterface(kActionShowMemorySaverChip),
-        kActionShowMemorySaverChip);
+    return provider->GetPageActionViewInterface(kActionShowMemorySaverChip);
   }
 
-  views::View* GetBubbleView(Browser* b = nullptr) {
+  views::View* GetBubbleView(BrowserWindowInterface* b = nullptr) {
     if (!b) {
       b = browser();
     }
@@ -153,7 +154,8 @@ class MemorySaverBubbleViewTest
   }
 
   template <class T>
-  T* GetMatchingView(ui::ElementIdentifier identifier, Browser* b = nullptr) {
+  T* GetMatchingView(ui::ElementIdentifier identifier,
+                     BrowserWindowInterface* b = nullptr) {
     views::View* bubble_view = GetBubbleView(b);
     if (!bubble_view || !bubble_view->GetWidget()) {
       return nullptr;
@@ -165,13 +167,11 @@ class MemorySaverBubbleViewTest
         identifier, context);
   }
 
-  void ClickPageActionChip(Browser* b = nullptr) {
-    auto* view = GetPageActionIconView(b);
-
-    ui::MouseEvent e(ui::EventType::kMousePressed, gfx::Point(), gfx::Point(),
-                     ui::EventTimeForNow(), 0, 0);
-    views::test::ButtonTestApi test_api(view);
-    test_api.NotifyClick(e);
+  void ClickPageActionChip(BrowserWindowInterface* b = nullptr) {
+    if (!b) {
+      b = browser();
+    }
+    page_actions::PageActionTestAccessor(b, kActionShowMemorySaverChip).Click();
   }
 
   base::HistogramTester histogram_tester_;
@@ -205,7 +205,7 @@ IN_PROC_BROWSER_TEST_F(MemorySaverBubbleViewTest,
   // Open bubble
   StubMemorySaverBubbleObserver observer;
   auto* bubble = MemorySaverBubbleView::ShowBubble(
-      browser(), views::BubbleAnchor(GetPageActionIconView()), &observer);
+      browser(), GetPageActionView()->GetBubbleAnchor(), &observer);
   ASSERT_NE(GetBubbleView(), nullptr);
 
   // Close bubble
@@ -233,12 +233,12 @@ IN_PROC_BROWSER_TEST_F(MemorySaverBubbleViewTest,
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
 IN_PROC_BROWSER_TEST_F(MemorySaverBubbleViewTest,
                        ShowDialogWithoutExcludeSiteButtonInGuestMode) {
-  Browser* guest_browser = CreateGuestBrowser();
+  BrowserWindowInterface* guest_browser = CreateGuestBrowser();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(guest_browser,
                                            GetURL("foo.com", "/title1.html")));
 
   content::WebContents* const contents =
-      guest_browser->tab_strip_model()->GetActiveWebContents();
+      guest_browser->GetTabStripModel()->GetActiveWebContents();
   performance_manager::user_tuning::UserPerformanceTuningManager::
       PreDiscardResourceUsage::CreateForWebContents(
           contents, kMemorySavings,
@@ -261,27 +261,36 @@ IN_PROC_BROWSER_TEST_F(MemorySaverBubbleViewTest,
 IN_PROC_BROWSER_TEST_F(MemorySaverBubbleViewTest,
                        ShouldCollapseChipAfterNavigatingTabsWithDialogOpen) {
   AddNewTab(kMemorySavings, ::mojom::LifecycleUnitDiscardReason::PROACTIVE);
-  TabStripModel* tab_strip_model = browser()->tab_strip_model();
+  TabStripModel* tab_strip_model = browser()->GetTabStripModel();
   EXPECT_EQ(2, tab_strip_model->count());
 
   tab_strip_model->ActivateTabAt(0);
   SetTabDiscardState(1, true);
   tab_strip_model->ActivateTabAt(1);
   content::WaitForLoadStop(tab_strip_model->GetWebContentsAt(1));
-  EXPECT_TRUE(base::test::RunUntil(
-      [&]() { return GetPageActionIconView()->ShouldShowLabel(); }));
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return page_actions::PageActionTestAccessor(browser(),
+                                                kActionShowMemorySaverChip)
+        .IsChipVisible();
+  }));
 
   SetTabDiscardState(0, true);
 
   tab_strip_model->SelectNextTab();
   content::WaitForLoadStop(tab_strip_model->GetWebContentsAt(0));
-  EXPECT_TRUE(base::test::RunUntil(
-      [&]() { return GetPageActionIconView()->ShouldShowLabel(); }));
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return page_actions::PageActionTestAccessor(browser(),
+                                                kActionShowMemorySaverChip)
+        .IsChipVisible();
+  }));
 
   ClickPageActionChip();
   tab_strip_model->SelectPreviousTab();
-  EXPECT_TRUE(base::test::RunUntil(
-      [&]() { return !GetPageActionIconView()->ShouldShowLabel(); }));
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return !page_actions::PageActionTestAccessor(browser(),
+                                                 kActionShowMemorySaverChip)
+                .IsChipVisible();
+  }));
 }
 
 // The memory savings should be rendered within the resource view.
@@ -334,12 +343,11 @@ INSTANTIATE_TEST_SUITE_P(
     All,
     MemorySaverBubbleViewSavingsTest,
     ::testing::Values(
-        std::tuple{base::MiBU(50), IDS_MEMORY_SAVER_DIALOG_SMALL_SAVINGS_LABEL},
-        std::tuple{base::MiBU(100),
+        std::tuple{base::MiB(50), IDS_MEMORY_SAVER_DIALOG_SMALL_SAVINGS_LABEL},
+        std::tuple{base::MiB(100),
                    IDS_MEMORY_SAVER_DIALOG_MEDIUM_SAVINGS_LABEL},
-        std::tuple{base::MiBU(150),
+        std::tuple{base::MiB(150),
                    IDS_MEMORY_SAVER_DIALOG_MEDIUM_SAVINGS_LABEL},
-        std::tuple{base::MiBU(600),
-                   IDS_MEMORY_SAVER_DIALOG_LARGE_SAVINGS_LABEL},
-        std::tuple{base::MiBU(900),
+        std::tuple{base::MiB(600), IDS_MEMORY_SAVER_DIALOG_LARGE_SAVINGS_LABEL},
+        std::tuple{base::MiB(900),
                    IDS_MEMORY_SAVER_DIALOG_VERY_LARGE_SAVINGS_LABEL}));

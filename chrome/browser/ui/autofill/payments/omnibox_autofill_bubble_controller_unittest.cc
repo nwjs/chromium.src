@@ -18,7 +18,7 @@
 #include "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/browser/ui/payments/payments_ui_closed_reasons.h"
 #include "components/tabs/public/mock_tab_interface.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -236,7 +236,8 @@ TEST_P(OmniboxAutofillBubbleControllerClosedReasonTest, OnBubbleClosed) {
   controller_->OnBubbleClosed(mapping.closed_reason);
 }
 
-TEST_F(OmniboxAutofillBubbleControllerTest, OnBubbleClosed_CollapsesChip) {
+TEST_F(OmniboxAutofillBubbleControllerTest,
+       OnBubbleClosed_SuggestionNotAccepted_CollapsesChip) {
   page_actions::MockPageActionController mock_page_action_controller;
   OmniboxAutofillPageActionController page_action_controller(
       mock_tab_interface_, mock_page_action_controller);
@@ -248,6 +249,21 @@ TEST_F(OmniboxAutofillBubbleControllerTest, OnBubbleClosed_CollapsesChip) {
       .Times(1);
 
   controller_->OnBubbleClosed(PaymentsUiClosedReason::kClosed);
+}
+
+TEST_F(OmniboxAutofillBubbleControllerTest,
+       OnBubbleClosed_SuggestionAccepted_DoesNotCollapseChip) {
+  page_actions::MockPageActionController mock_page_action_controller;
+  OmniboxAutofillPageActionController page_action_controller(
+      mock_tab_interface_, mock_page_action_controller);
+
+  EXPECT_CALL(mock_page_action_controller, Show(kActionAutofillPayment))
+      .Times(0);
+  EXPECT_CALL(mock_page_action_controller,
+              HideSuggestionChip(kActionAutofillPayment))
+      .Times(0);
+
+  controller_->OnBubbleClosed(PaymentsUiClosedReason::kAccepted);
 }
 
 INSTANTIATE_TEST_SUITE_P(

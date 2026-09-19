@@ -78,15 +78,17 @@ class SaveUpdateAddressProfileFlowManager;
 class AutofillMessageController;
 class AutofillDialogController;
 class TouchToFillAutofillController;
+class EmailVerificationBottomSheetBridge;
 #endif
 
-class ActorKeyMetricsRecorder;
+class ActorAutofillManager;
 class AutofillAiPersonalContextAccessManager;
 class AutofillOptimizationGuideDecider;
 class EmailVerificationPopupController;
 class EmailVerifierDelegate;
 class FormFieldData;
 class OtpFieldDetector;
+class OtpMetricsTracker;
 class ChromeOtpPhishGuardDelegate;
 class LogRouter;
 enum class SuggestionType;
@@ -231,7 +233,8 @@ class ChromeAutofillClient : public ContentAutofillClient {
       const base::flat_set<EntityTypeName>& saved_entities,
       const FieldTypeSet& triggering_field_types) final;
   bool IsTabInActorMode() const final;
-  ActorKeyMetricsRecorder* GetActorKeyMetricsRecorder() final;
+  ActorAutofillManager* GetActorAutofillManager() final;
+  int64_t GetNavigationId() const final;
   bool IsAutofillEnabled() const final;
   bool IsAutofillProfileEnabled() const final;
   bool IsAutofillTypeBlockedByPolicy(
@@ -247,8 +250,6 @@ class ChromeAutofillClient : public ContentAutofillClient {
       final;
 
   const AutofillAblationStudy& GetAblationStudy() const final;
-
-  bool IsAndroidLargeFormFactor() const final;
 
 #if BUILDFLAG(IS_ANDROID)
   // The AutofillSnackbarController is used to show a snackbar notification
@@ -357,6 +358,7 @@ class ChromeAutofillClient : public ContentAutofillClient {
       override;
 
   OtpFieldDetector* GetOtpFieldDetector() override;
+  OtpMetricsTracker* GetOtpMetricsTracker() override;
   OtpPhishGuardDelegate* GetOtpPhishGuardDelegate() override;
 
   FormPredictionsTracker* GetFormPredictionsTracker() override;
@@ -441,6 +443,8 @@ class ChromeAutofillClient : public ContentAutofillClient {
       autofill_snackbar_controller_impl_;
   std::unique_ptr<TouchToFillAutofillController>
       touch_to_fill_autofill_controller_;
+  std::unique_ptr<EmailVerificationBottomSheetBridge>
+      email_verification_bottom_sheet_bridge_;
 #else   // BUILDFLAG(IS_ANDROID)
   std::unique_ptr<AutofillFieldPromoController>
       autofill_field_promo_controller_;
@@ -453,20 +457,15 @@ class ChromeAutofillClient : public ContentAutofillClient {
 
   ContentIdentityCredentialDelegate identity_credential_delegate_;
   std::unique_ptr<OtpFieldDetector> otp_field_detector_;
+  std::unique_ptr<OtpMetricsTracker> otp_metrics_tracker_;
   std::unique_ptr<EmailVerifierDelegate> email_verifier_delegate_;
   std::unique_ptr<ChromeOtpPhishGuardDelegate> otp_phish_guard_delegate_;
 
   // Removes the subscription when the `ChromeAutofillClient` is destroyed.
   base::CallbackListSubscription actor_task_state_changed_subscription_;
 
-  // Responsible for keeping track if (and which) actor is interacting with
-  // the current tab. When present, some parts of Autofill may behave
-  // differently. There can be at most one actor on a given tab. If there is no
-  // actor interacting with the current tab it is `std::nullopt`.
-  std::optional<actor::TaskId> active_actor_task_;
-
   std::unique_ptr<FormPredictionsTracker> form_predictions_tracker_;
-  std::unique_ptr<ActorKeyMetricsRecorder> actor_key_metrics_recorder_;
+  std::unique_ptr<ActorAutofillManager> actor_autofill_manager_;
 
   AtMemoryCopyPasteObserver at_memory_copy_paste_observer_{this};
 

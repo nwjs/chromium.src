@@ -33,6 +33,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.omnibox.OmniboxMetrics;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
+import org.chromium.chrome.browser.omnibox.suggestions.SelectionController.TraversalMode;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.ui.base.KeyNavigationUtil;
@@ -80,7 +81,7 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
     private @Px int mBaseBottomPadding;
     private @Px int mBaseTopPadding;
     private final HeaderDecoration mHeaderDecoration;
-    private @SelectionController.Mode int mSelectionMode;
+    private @TraversalMode int mSelectionMode;
 
     /**
      * Interface that will receive notifications when the user is interacting with an item on the
@@ -292,6 +293,7 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
      * Constructs a new list designed for containing omnibox suggestions.
      *
      * @param context Context used for contained views.
+     * @param attrs Attribute set from layout inflation.
      */
     public OmniboxSuggestionsDropdown(Context context, AttributeSet attrs) {
         this(context, attrs, new SuggestionLayoutScrollListener(context));
@@ -330,7 +332,7 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
             mLayoutScrollListener = suggestionLayoutScrollListener;
             setLayoutManager(mLayoutScrollListener);
 
-            mSelectionMode = SelectionController.Mode.WRAPPING_WITH_SENTINEL;
+            mSelectionMode = TraversalMode.WRAPPING_WITH_SENTINEL;
             mSelectionController =
                     new RecyclerViewSelectionController(mLayoutScrollListener, mSelectionMode);
             addOnChildAttachStateChangeListener(mSelectionController);
@@ -475,7 +477,7 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
      *
      * @param mode The selection mode to use.
      */
-    public void setSelectionMode(@SelectionController.Mode int mode) {
+    public void setSelectionMode(@TraversalMode int mode) {
         mSelectionMode = mode;
         mSelectionController.setSelectionMode(mSelectionMode);
         mSelectionController.reset();
@@ -535,6 +537,7 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
     }
 
     /**
+     * @param index Position index of the rendered zero-suggest item.
      * @return The Suggestion view at specific index.
      */
     public @Nullable View getDropdownItemViewForTest(int index) {

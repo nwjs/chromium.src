@@ -58,6 +58,7 @@ extern const base::FeatureParam<AddContextButtonVariant>
     kWebUIOmniboxAimPopupAddContextButtonVariantParam;
 extern const base::FeatureParam<bool> kHideClassicContextButton;
 BASE_DECLARE_FEATURE(kAiModeEntryPointAlwaysNavigates);
+BASE_DECLARE_FEATURE(kOmniboxEverywhereFre);
 BASE_DECLARE_FEATURE(kAiModeSpaceDoesNotActivate);
 BASE_DECLARE_FEATURE(kWebUIOmniboxDisableCaretColorAnimation);
 BASE_DECLARE_FEATURE(kWebUIOmniboxAimPopupDisableAnimation);
@@ -148,9 +149,14 @@ bool IsAimPopupFeatureEnabled();
 bool IsAimPopupEnabled(Profile* profile);
 bool ShouldShowAimContextMenuOption(Profile* profile);
 
+// Returns true if the Omnibox Everywhere feature is eligible for the given
+// `profile`. This checks the base::Feature flag, that the profile is valid and
+// not off-the-record, and that Google is the default search provider.
+bool IsOmniboxEverywhereEligible(Profile* profile);
+
 // Returns true if the Omnibox Everywhere feature is fully enabled for the given
-// `profile`. This checks both the base::Feature flag and that Google is the
-// default search provider.
+// `profile`. This checks that the profile is eligible and that the feature has
+// not been disabled by user preference.
 bool IsOmniboxEverywhereEnabled(Profile* profile);
 
 // Returns true if search content sharing is permitted by enterprise policy.

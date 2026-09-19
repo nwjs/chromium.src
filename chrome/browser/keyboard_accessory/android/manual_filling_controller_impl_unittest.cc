@@ -21,6 +21,7 @@
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/autofill/content/browser/test_autofill_client_injector.h"
 #include "components/autofill/content/browser/test_content_autofill_client.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -143,21 +144,35 @@ class ManualFillingControllerTest : public ChromeRenderViewHostTestHarness {
 };
 
 TEST_F(ManualFillingControllerTest, ShowsAccessoryForAutofillOnSearchField) {
+  base::test::ScopedFeatureList feature_list(
+      autofill::features::kAutofillEnableKeyboardAccessoryOnSearchFields);
+
   FocusFieldAndClearExpectations(FocusedFieldType::kFillableSearchField);
+
+  EXPECT_CALL(*view(),
+              Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(false),
+                   IsContentEditable(false)));
+  controller()->UpdateSourceAvailability(FillingSource::PASSWORD_FALLBACKS,
+                                         /*has_suggestions=*/true);
+  testing::Mock::VerifyAndClearExpectations(view());
 
   EXPECT_CALL(*view(),
               Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(true),
                    IsContentEditable(false)));
-  controller()->UpdateSourceAvailability(FillingSource::PASSWORD_FALLBACKS,
-                                         /*has_suggestions=*/true);
   controller()->UpdateSourceAvailability(FillingSource::AUTOFILL,
                                          /*has_suggestions=*/true);
   testing::Mock::VerifyAndClearExpectations(view());
 
-  // Hiding autofill hides the accessory because fallbacks alone don't provide
-  // sufficient value and might be confusing.
-  EXPECT_CALL(*view(), Hide());
+  // Hiding autofill doesn't hide the accessory because fallbacks are still
+  // available.
+  EXPECT_CALL(*view(), Hide()).Times(0);
+  EXPECT_CALL(*view(), Show).Times(0);
   controller()->UpdateSourceAvailability(FillingSource::AUTOFILL,
+                                         /*has_suggestions=*/false);
+  testing::Mock::VerifyAndClearExpectations(view());
+
+  EXPECT_CALL(*view(), Hide());
+  controller()->UpdateSourceAvailability(FillingSource::PASSWORD_FALLBACKS,
                                          /*has_suggestions=*/false);
 }
 
@@ -182,7 +197,7 @@ TEST_F(ManualFillingControllerTest,
   EXPECT_CALL(*view(), OnItemsAvailable(filled_passwords_sheet()))
       .Times(AnyNumber());
   EXPECT_CALL(*view(),
-              Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(true),
+              Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(false),
                    IsContentEditable(false)));
 
   NotifyPasswordSourceObserver(IsFillingSourceAvailable(true));
@@ -333,10 +348,21 @@ TEST_F(ManualFillingControllerTest,
   FocusFieldAndClearExpectations(FocusedFieldType::kFillablePasswordField);
 
   EXPECT_CALL(*view(),
-              Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(true),
+              Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(false),
                    IsContentEditable(false)));
 
   controller()->UpdateSourceAvailability(FillingSource::PASSWORD_FALLBACKS,
+                                         /*has_suggestions=*/true);
+}
+
+TEST_F(ManualFillingControllerTest,
+       ShowsAccessoryWhenAutofillSourceAvailableOnCredentialFields) {
+  FocusFieldAndClearExpectations(FocusedFieldType::kFillablePasswordField);
+
+  EXPECT_CALL(*view(),
+              Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(true),
+                   IsContentEditable(false)));
+  controller()->UpdateSourceAvailability(FillingSource::AUTOFILL,
                                          /*has_suggestions=*/true);
 }
 
@@ -483,7 +509,7 @@ TEST_F(ManualFillingControllerTest, LogsHistogramOnOptionSelected) {
 // Tests that focusing a contenteditable element shows the keyboard accessory.
 TEST_F(ManualFillingControllerTest, ShowsAccessoryForContentEditableField) {
   EXPECT_CALL(*view(),
-              Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(true),
+              Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(false),
                    IsContentEditable(true)));
 
   controller()->NotifyFocusedInputChanged(
@@ -504,7 +530,7 @@ TEST_F(ManualFillingControllerTest,
       .WillRepeatedly(Return(kTestSheet));
   EXPECT_CALL(*view(), OnItemsAvailable(kTestSheet)).Times(AtLeast(1));
   EXPECT_CALL(*view(),
-              Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(true),
+              Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(false),
                    IsContentEditable(true)));
 
   NotifyAtMemorySourceObserver(IsFillingSourceAvailable(true));
@@ -515,7 +541,7 @@ TEST_F(ManualFillingControllerTest,
 TEST_F(ManualFillingControllerTest,
        HidesAccessoryWhenFocusLeavesContentEditable) {
   EXPECT_CALL(*view(),
-              Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(true),
+              Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(false),
                    IsContentEditable(true)));
 
   controller()->NotifyFocusedInputChanged(
@@ -555,7 +581,7 @@ TEST_F(ManualFillingControllerTest,
   EXPECT_CALL(*view(), OnItemsAvailable(kTestCreditCardSheet)).Times(0);
   EXPECT_CALL(*view(), OnItemsAvailable(kTestAtMemorySheet)).Times(AtLeast(1));
   EXPECT_CALL(*view(),
-              Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(true),
+              Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(false),
                    IsContentEditable(true)));
 
   controller()->UpdateSourceAvailability(FillingSource::PASSWORD_FALLBACKS,
@@ -586,7 +612,7 @@ TEST_F(ManualFillingControllerTest,
   // Focus contenteditable: address sheet is suppressed.
   EXPECT_CALL(*view(), OnItemsAvailable(kTestAddressSheet)).Times(0);
   EXPECT_CALL(*view(),
-              Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(true),
+              Show(WaitForKeyboard(true), ShouldShowOnLargeFormFactor(false),
                    IsContentEditable(true)));
   controller()->NotifyFocusedInputChanged(
       kFocusedFieldId, FocusedFieldType::kContenteditableField);

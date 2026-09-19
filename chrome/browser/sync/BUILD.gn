@@ -22,7 +22,6 @@ source_set("sync") {
     "device_info_sync_client_impl.cc",
     "device_info_sync_client_impl.h",
     "device_info_sync_service_factory.cc",
-    "device_info_sync_service_factory.h",
     "glue/extensions_activity_monitor.cc",
     "glue/extensions_activity_monitor.h",
     "glue/sync_start_util.cc",
@@ -92,7 +91,6 @@ source_set("sync") {
     "//chrome/app:generated_resources",
     "//chrome/app:generated_resources_grit",
     "//chrome/browser:browser_process",
-    "//chrome/browser/accessibility_annotator",
     "//chrome/browser/bookmarks",
     "//chrome/browser/collaboration",
     "//chrome/browser/consent_auditor",
@@ -118,6 +116,7 @@ source_set("sync") {
     "//chrome/browser/ui/toolbar",
     "//chrome/browser/webauthn",
     "//chrome/browser/webdata_services",
+    "//components/tabs:public",
 
     # TODO(crbug.com/374910357): Investigate for a better dependency injection.
     "//chrome/browser/account_settings",
@@ -154,6 +153,8 @@ source_set("sync") {
     "//components/password_manager/core/browser/password_store:password_store_interface",
     "//components/password_manager/core/browser/sharing",
     "//components/performance_manager",
+    "//components/personal_context/core",
+    "//components/personal_context/core:features",
     "//components/privacy_sandbox:privacy_sandbox_prefs",
     "//components/saved_tab_groups/public",
     "//components/send_tab_to_self",
@@ -298,7 +299,10 @@ source_set("sync") {
 # to pick up the implementations. The reason for this target separation is
 # because KeyedServiceFactories mix the interface and implementation.
 source_set("factories") {
-  sources = [ "sync_service_factory.h" ]
+  sources = [
+    "device_info_sync_service_factory.h",
+    "sync_service_factory.h",
+  ]
   public_deps = [
     ":data_type_store_service_factory",
     "//base",
@@ -340,12 +344,16 @@ source_set("unit_tests") {
     "//components/sync:test_support",
     "//components/sync/base",
     "//components/sync_device_info:test_support",
+    "//components/tabs:public",
+    "//components/tabs:test_support",
+    "//components/themes/cross_device",
     "//components/variations",
     "//components/variations:test_support",
     "//content/test:test_support",
     "//google_apis",
     "//testing/gmock",
     "//testing/gtest",
+    "//ui/base/unowned_user_data",
     "//ui/webui:buildflags",
     "//url",
   ]
@@ -409,6 +417,7 @@ if (!is_android) {
       "//chrome/browser/resource_coordinator",
       "//chrome/browser/translate",
       "//chrome/browser/ui",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/sync",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",

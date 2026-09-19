@@ -6,16 +6,22 @@ import("../build_webui_tests.gni")
 
 build_webui_tests("build") {
   cc_test_files = [ "organizer_panel_browsertest.cc" ]
-  files = [ "app_test.ts" ]
+  files = [
+    "app_test.ts",
+    "open_tabs_delegate_test.ts",
+    "organizer_list_section_item_test.ts",
+    "organizer_list_section_test.ts",
+    "organizer_list_test.ts",
+    "test_section_delegate.ts",
+  ]
 
-  ts_path_mappings =
-      [ "chrome://organizer-panel.top-chrome/*|" +
-        rebase_path(
-            "$root_gen_dir/chrome/browser/resources/organizer_panel/tsc/*",
-            target_gen_dir) ]
+  ts_path_mappings = [ "chrome://organizer-panel.top-chrome/organizer_panel.js|" + rebase_path(
+                           "$root_gen_dir/chrome/browser/resources/organizer_panel/tsc/organizer_panel.d.ts",
+                           target_gen_dir) ]
 
   ts_deps = [
     "//chrome/browser/resources/organizer_panel:build_ts",
+    "//third_party/lit/v3_0:build_ts",
     "//ui/webui/resources/cr_elements:build_ts",
     "//ui/webui/resources/js:build_ts",
   ]

@@ -40,6 +40,7 @@ if (toolkit_views) {
       "permission_prompt_bubble_view_factory.h",
       "permission_prompt_chip.h",
       "permission_prompt_desktop.h",
+      "permission_prompt_factory.h",
       "permission_prompt_quiet_icon.h",
     ]
 
@@ -140,6 +141,8 @@ if (toolkit_views) {
       "//chrome/browser/ui/views:layout_provider",
       "//chrome/browser/ui/views:sub_apps_permission_explanation",
       "//chrome/browser/ui/views:title_origin_label",
+      "//chrome/browser/ui/views/extensions:extensions_container_views",
+      "//chrome/browser/ui/views/frame:contents_web_view",
       "//chrome/browser/ui/views/infobars",
       "//chrome/browser/ui/views/location_bar",
       "//chrome/browser/ui/views/omnibox",
@@ -156,10 +159,11 @@ if (toolkit_views) {
       "//ui/views",
     ]
 
-    if (enable_extensions) {
+    if (enable_extensions_core) {
       deps += [
         "//chrome/browser/extensions",
         "//chrome/browser/ui/extensions",
+        "//chrome/browser/ui/views/extensions:extensions_views_utils",
         "//chrome/browser/ui/views/frame:toolbar_button_provider",
       ]
     }
@@ -239,6 +243,7 @@ if (toolkit_views) {
         "//chrome/browser/permissions",
         "//chrome/browser/policy:test_support",
         "//chrome/browser/ui/browser_web_contents_delegate",
+        "//chrome/browser/ui/views:content_setting_bubble_contents",
         "//chrome/browser/ui/views/infobars",
         "//chrome/browser/ui/views/page_info",
         "//chrome/browser/ui/views/permissions/chip",

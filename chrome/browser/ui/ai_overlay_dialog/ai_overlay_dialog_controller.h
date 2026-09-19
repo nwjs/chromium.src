@@ -5,6 +5,8 @@
 #ifndef CHROME_BROWSER_UI_AI_OVERLAY_DIALOG_AI_OVERLAY_DIALOG_CONTROLLER_H_
 #define CHROME_BROWSER_UI_AI_OVERLAY_DIALOG_AI_OVERLAY_DIALOG_CONTROLLER_H_
 
+#include <memory>
+
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
@@ -13,10 +15,6 @@
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "ui/base/class_property.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
-
-namespace views {
-class WebView;
-}  // namespace views
 
 class HostContentSettingsMap;
 
@@ -41,16 +39,17 @@ class AiOverlayDialogController : public content::WebContentsDelegate {
       delete;
   ~AiOverlayDialogController() override;
 
+
   // Shows the transparent overlay above the browser window.
-  void ShowOverlay();
+  virtual void ShowOverlay() = 0;
 
   // Hides the overlay.
-  void HideOverlay();
+  virtual void HideOverlay() = 0;
 
   // Toggles the overlay visibility.
   void ToggleOverlay();
 
-  bool IsOverlayShowing() const;
+  virtual bool IsOverlayShowing() const = 0;
 
   // content::WebContentsDelegate:
   void RequestMediaAccessPermission(
@@ -60,8 +59,6 @@ class AiOverlayDialogController : public content::WebContentsDelegate {
   bool CheckMediaAccessPermission(content::RenderFrameHost* render_frame_host,
                                   const url::Origin& security_origin,
                                   blink::mojom::MediaStreamType type) override;
-  void ResizeDueToAutoResize(content::WebContents* source,
-                             const gfx::Size& new_size) override;
 
   bool input_captions_visible() const { return input_captions_visible_; }
   void SetInputCaptionsVisible(bool visible);
@@ -86,9 +83,10 @@ class AiOverlayDialogController : public content::WebContentsDelegate {
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
 
- private:
-  views::WebView* GetActiveOverlayWebView() const;
+ protected:
+  BrowserWindowInterface* browser() const { return browser_; }
 
+ private:
   raw_ptr<BrowserWindowInterface> browser_;
 
   ui::ScopedUnownedUserData<AiOverlayDialogController>

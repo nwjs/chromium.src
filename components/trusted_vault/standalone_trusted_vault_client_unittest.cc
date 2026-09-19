@@ -22,6 +22,7 @@
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
 #include "base/test/bind.h"
+#include "base/test/run_until.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "build/build_config.h"
@@ -31,6 +32,7 @@
 #include "components/trusted_vault/securebox.h"
 #include "components/trusted_vault/standalone_trusted_vault_server_constants.h"
 #include "components/trusted_vault/test/fake_security_domains_server.h"
+#include "components/trusted_vault/test/fake_security_domains_url_loader_factory.h"
 #include "components/trusted_vault/trusted_vault_client.h"
 #include "components/trusted_vault/trusted_vault_server_constants.h"
 #include "components/trusted_vault/trusted_vault_throttling_connection_impl.h"
@@ -38,10 +40,6 @@
 #include "crypto/apple/scoped_fake_keychain_v2.h"
 #endif
 #include "google_apis/gaia/gaia_id.h"
-#include "net/test/embedded_test_server/embedded_test_server.h"
-#include "net/test/embedded_test_server/http_request.h"
-#include "net/test/embedded_test_server/http_response.h"
-#include "services/network/test/test_shared_url_loader_factory.h"
 #include "services/network/test/test_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -56,11 +54,12 @@ using testing::IsEmpty;
 using testing::SizeIs;
 
 constexpr char kTestEmail[] = "test@gmail.com";
+constexpr char kTestServerUrl[] = "http://trusted-vault.test";
 
 #if BUILDFLAG(IS_MAC)
 constexpr char kKeychainAccessGroupPrefix[] = "test-access-group-prefix";
-const std::string kKeychainAccessGroup(
-    base::StrCat({kKeychainAccessGroupPrefix, ".com.google.common.folsom"}));
+constexpr char kKeychainAccessGroup[] =
+    "test-access-group-prefix.com.google.common.folsom";
 // On Mac, both the physical device recovery factor and the iCloud Keychain
 // recovery factor are registered by default.
 constexpr int kDefaultExpectedMemberCount = 2;
@@ -95,7 +94,8 @@ class MockTrustedVaultClientObserver : public TrustedVaultClient::Observer {
 //    - All test interactions occur through the public TrustedVaultClient
 //      interface.
 //    - RPC calls to SecurityDomainsService are intercepted and faked at the
-//      TrustedVaultConnection boundary using FakeSecurityDomainsServer.
+//      TrustedVaultConnection boundary using FakeSecurityDomainsServer and
+//      FakeSecurityDomainsURLLoaderFactory (in-memory, no real TCP sockets).
 //    - Persistent protobuf serialization (trusted_vault.pb) is exercised
 //      against a real disk directory using base::ScopedTempDir.
 //
@@ -106,34 +106,27 @@ class MockTrustedVaultClientObserver : public TrustedVaultClient::Observer {
 // factors, helpers, etc.) for relevant user scenarios.
 class StandaloneTrustedVaultClientTest : public testing::Test {
  public:
-  StandaloneTrustedVaultClientTest()
-      : task_environment_(base::test::TaskEnvironment::MainThreadType::IO,
-                          base::test::TaskEnvironment::TimeSource::MOCK_TIME),
-        test_server_(net::EmbeddedTestServer::TYPE_HTTP) {}
-
+  StandaloneTrustedVaultClientTest() = default;
   ~StandaloneTrustedVaultClientTest() override = default;
 
   void SetUp() override {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-    ASSERT_TRUE(test_server_.InitializeAndListen());
 
+    const GURL test_server_url(kTestServerUrl);
     fake_security_domains_server_ =
-        std::make_unique<FakeSecurityDomainsServer>(test_server_.base_url());
-    test_server_.RegisterRequestHandler(base::BindRepeating(
-        &FakeSecurityDomainsServer::HandleRequest,
-        base::Unretained(fake_security_domains_server_.get())));
-    test_server_.StartAcceptingConnections();
+        std::make_unique<FakeSecurityDomainsServer>(test_server_url);
+    url_loader_factory_ =
+        base::MakeRefCounted<FakeSecurityDomainsURLLoaderFactory>(
+            fake_security_domains_server_.get(), test_server_url);
 
     base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
         kTrustedVaultServiceURLSwitch,
-        FakeSecurityDomainsServer::GetServerURL(test_server_.base_url())
-            .spec());
+        FakeSecurityDomainsServer::GetServerURL(test_server_url).spec());
 
     identity_test_env_.SetAutomaticIssueOfAccessTokens(true);
   }
 
   void TearDown() override {
-    ASSERT_TRUE(test_server_.ShutdownAndWaitUntilComplete());
     base::CommandLine::ForCurrentProcess()->RemoveSwitch(
         kTrustedVaultServiceURLSwitch);
     // Make sure to run all pending deletions.
@@ -147,7 +140,7 @@ class StandaloneTrustedVaultClientTest : public testing::Test {
 #endif
         SecurityDomainId::kChromeSync,
         /*base_dir=*/temp_dir_.GetPath(), identity_test_env_.identity_manager(),
-        base::MakeRefCounted<network::TestSharedURLLoaderFactory>());
+        url_loader_factory_);
   }
 
   CoreAccountInfo MakeAccountAvailable(const std::string& email) {
@@ -205,10 +198,11 @@ class StandaloneTrustedVaultClientTest : public testing::Test {
 #if BUILDFLAG(IS_MAC)
   crypto::apple::ScopedFakeKeychainV2 fake_keychain_{kKeychainAccessGroup};
 #endif
-  base::test::TaskEnvironment task_environment_;
-  net::EmbeddedTestServer test_server_;
+  base::test::TaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   base::ScopedTempDir temp_dir_;
   std::unique_ptr<FakeSecurityDomainsServer> fake_security_domains_server_;
+  scoped_refptr<FakeSecurityDomainsURLLoaderFactory> url_loader_factory_;
   signin::IdentityTestEnvironment identity_test_env_;
 };
 
@@ -258,16 +252,8 @@ TEST_F(StandaloneTrustedVaultClientTest,
   EXPECT_THAT(FetchKeys(client.get(), account_info), ElementsAre(kServerKey));
 }
 
-// TODO(crbug.com/543720939): Flaky on Mac.
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_ShouldFollowKeyRotationOnUserEnrolment \
-  DISABLED_ShouldFollowKeyRotationOnUserEnrolment
-#else
-#define MAYBE_ShouldFollowKeyRotationOnUserEnrolment \
-  ShouldFollowKeyRotationOnUserEnrolment
-#endif
 TEST_F(StandaloneTrustedVaultClientTest,
-       MAYBE_ShouldFollowKeyRotationOnUserEnrolment) {
+       ShouldFollowKeyRotationOnUserEnrolment) {
   std::unique_ptr<StandaloneTrustedVaultClient> client = CreateClient();
   CoreAccountInfo account_info = MakeAccountAvailable(kTestEmail);
   WaitForIdle(client.get());
@@ -305,16 +291,8 @@ TEST_F(StandaloneTrustedVaultClientTest,
   EXPECT_TRUE(fake_security_domains_server_->AllMembersHaveKey(new_epoch_key));
 }
 
-// TODO(crbug.com/544711435): Flaky on Mac.
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_ShouldResolveErrorAndRegisterFactorsAfterFollowingKeyRotation \
-  DISABLED_ShouldResolveErrorAndRegisterFactorsAfterFollowingKeyRotation
-#else
-#define MAYBE_ShouldResolveErrorAndRegisterFactorsAfterFollowingKeyRotation \
-  ShouldResolveErrorAndRegisterFactorsAfterFollowingKeyRotation
-#endif
 TEST_F(StandaloneTrustedVaultClientTest,
-       MAYBE_ShouldResolveErrorAndRegisterFactorsAfterFollowingKeyRotation) {
+       ShouldResolveErrorAndRegisterFactorsAfterFollowingKeyRotation) {
   const std::vector<uint8_t> kLocalKeyV1 = {1, 1, 1, 1};
   const std::vector<uint8_t> kRemoteKeyV2 = {2, 2, 2, 2};
   const int kLocalEpochV1 = 1;

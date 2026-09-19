@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "ash/constants/ash_features.h"
+#include "ash/constants/ash_pref_names.h"
 #include "ash/constants/webui_url_constants.h"
 #include "ash/public/cpp/audio_config_service.h"
 #include "ash/public/cpp/bluetooth_config_service.h"
@@ -160,7 +161,7 @@ namespace ash::settings {
 // static
 void OSSettingsUI::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
-  registry->RegisterBooleanPref(prefs::kSyncOsWallpaper, false);
+  registry->RegisterBooleanPref(ash::prefs::kSyncOsWallpaper, false);
 }
 
 OSSettingsUI::OSSettingsUI(content::WebUI* web_ui)
@@ -395,9 +396,7 @@ void OSSettingsUI::BindInterface(
   auto* provider =
       OsSettingsManagerFactory::GetForProfile(Profile::FromWebUI(web_ui()))
           ->input_device_settings_provider();
-  if (features::IsPeripheralCustomizationEnabled()) {
-    provider->Initialize(web_ui());
-  }
+  provider->Initialize(web_ui());
   provider->BindInterface(std::move(receiver));
 }
 
@@ -418,7 +417,6 @@ void OSSettingsUI::BindInterface(
 void OSSettingsUI::BindInterface(
     mojo::PendingReceiver<::ash::common::mojom::ShortcutInputProvider>
         receiver) {
-  CHECK(features::IsPeripheralCustomizationEnabled());
   auto* shortcut_input_provider =
       OsSettingsManagerFactory::GetForProfile(Profile::FromWebUI(web_ui()))
           ->shortcut_input_provider();

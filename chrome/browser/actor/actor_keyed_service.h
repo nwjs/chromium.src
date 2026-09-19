@@ -41,6 +41,7 @@ class BrowserContext;
 }  // namespace content
 
 namespace actor {
+class AggregatedJournalFileSerializer;
 namespace ui {
 class ActorUiStateManagerInterface;
 }
@@ -193,6 +194,13 @@ class ActorKeyedService : public KeyedService,
       TaskVisibilityChangedCallback callback);
   void NotifyTaskVisibilityChanged(ActorTask& task);
 
+  using TaskStepProgressChangedCallback =
+      base::RepeatingCallback<void(ActorTask&, const std::string&)>;
+  base::CallbackListSubscription AddTaskStepProgressChangedCallback(
+      TaskStepProgressChangedCallback callback);
+  void NotifyTaskStepProgressChanged(ActorTask& task,
+                                     const std::string& step_progress);
+
   // Returns the acting task for web_contents. Returns nullptr if acting task
   // does not exist.
   const ActorTask* GetActingActorTaskForWebContents(
@@ -228,6 +236,12 @@ class ActorKeyedService : public KeyedService,
                                 const std::string& glic_trigger_message_id);
   void NotifyBackgroundSetupFailed(const std::string& glic_trigger_message_id);
 
+  using MessageTriggerTaskStoppedCallback =
+      base::RepeatingCallback<void(const std::string&)>;
+  base::CallbackListSubscription AddMessageTriggerTaskStoppedCallback(
+      MessageTriggerTaskStoppedCallback callback);
+  void OnMessageTriggerTaskStopped(const std::string& message_id);
+
 #if BUILDFLAG(IS_ANDROID)
   using EnsureForegroundServiceStartedCallback =
       base::RepeatingCallback<void(const std::string&)>;
@@ -258,6 +272,13 @@ class ActorKeyedService : public KeyedService,
   // ActorTask might be using a SafeRef to this object.
   AggregatedJournal journal_;
 
+  void InitializeTraceRecording(const base::FilePath& trace_path);
+  void OnTraceFilePathResolved(const base::FilePath& resolved_path);
+  void OnTraceFileInitDone(bool success);
+
+  // Serializes journal events to a file when --actor-trace-path is set.
+  std::unique_ptr<AggregatedJournalFileSerializer> trace_file_serializer_;
+
   // download notifier for metrics and the profile observer to help set up the
   // download notifier.
   std::unique_ptr<download::AllDownloadItemNotifier> download_notifier_;
@@ -280,10 +301,16 @@ class ActorKeyedService : public KeyedService,
   base::RepeatingCallbackList<void(ActorTask&)>
       task_visibility_change_callback_list_;
 
+  base::RepeatingCallbackList<void(ActorTask&, const std::string&)>
+      task_step_progress_change_callback_list_;
+
   base::RepeatingCallbackList<void(ActorTask&)>
       task_state_change_callback_list_;
 
   base::ObserverList<BackgroundActuationObserver> observers_;
+
+  base::RepeatingCallbackList<void(const std::string&)>
+      message_trigger_task_stopped_callbacks_;
 
 #if BUILDFLAG(IS_ANDROID)
   base::RepeatingCallbackList<void(const std::string&)>

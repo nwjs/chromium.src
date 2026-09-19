@@ -38,6 +38,7 @@
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
@@ -258,30 +259,39 @@ content::EvalJsResult EvalJsLocal(
   ExecuteScript(host, runner_script);
 
   std::string json;
-  if (!dom_message_queue.WaitForMessage(&json)) {
-    return content::EvalJsResult(base::Value(),
-                                 "Cannot communicate with DOMMessageQueue.");
+  while (dom_message_queue.WaitForMessage(&json)) {
+    auto parsed_json = base::JSONReader::ReadAndReturnValueWithError(
+        json, base::JSON_ALLOW_TRAILING_COMMAS);
+    if (!parsed_json.has_value()) {
+      return content::EvalJsResult(
+          base::Value(), "JSON parse error: " + parsed_json.error().message);
+    }
+
+    if (!parsed_json->is_list() || parsed_json->GetList().size() != 2U ||
+        !parsed_json->GetList()[0].is_string() ||
+        !parsed_json->GetList()[1].is_list() ||
+        parsed_json->GetList()[1].GetList().size() != 2U ||
+        !parsed_json->GetList()[1].GetList()[1].is_string()) {
+      std::ostringstream error_message;
+      error_message << "Received unexpected result: " << *parsed_json;
+      return content::EvalJsResult(base::Value(), error_message.str());
+    }
+
+    if (parsed_json->GetList()[0].GetString() != token) {
+      LOG(WARNING) << "EvalJsLocal received an unexpected message from a "
+                      "previous JS execution. "
+                   << "Expected token: " << token
+                   << ", got: " << parsed_json->GetList()[0].GetString()
+                   << ". Ignoring.";
+      continue;
+    }
+
+    auto& result = parsed_json->GetList()[1].GetList();
+    return content::EvalJsResult(std::move(result[0]), result[1].GetString());
   }
 
-  auto parsed_json = base::JSONReader::ReadAndReturnValueWithError(
-      json, base::JSON_ALLOW_TRAILING_COMMAS);
-  if (!parsed_json.has_value()) {
-    return content::EvalJsResult(
-        base::Value(), "JSON parse error: " + parsed_json.error().message);
-  }
-
-  if (!parsed_json->is_list() || parsed_json->GetList().size() != 2U ||
-      !parsed_json->GetList()[1].is_list() ||
-      parsed_json->GetList()[1].GetList().size() != 2U ||
-      !parsed_json->GetList()[1].GetList()[1].is_string() ||
-      parsed_json->GetList()[0].GetString() != token) {
-    std::ostringstream error_message;
-    error_message << "Received unexpected result: " << *parsed_json;
-    return content::EvalJsResult(base::Value(), error_message.str());
-  }
-  auto& result = parsed_json->GetList()[1].GetList();
-
-  return content::EvalJsResult(std::move(result[0]), result[1].GetString());
+  return content::EvalJsResult(base::Value(),
+                               "Cannot communicate with DOMMessageQueue.");
 }
 
 // As EvalJsLocal but does not wait for a response; errors will appear in the
@@ -740,7 +750,7 @@ std::unique_ptr<WebContentsInteractionTestUtil>
 WebContentsInteractionTestUtil::ForNextTabInAnyBrowser(
     ui::ElementIdentifier page_identifier) {
   return std::make_unique<TabWebContentsInteractionTestUtil>(
-      static_cast<Browser*>(nullptr), page_identifier);
+      static_cast<BrowserWindowInterface*>(nullptr), page_identifier);
 }
 
 // static

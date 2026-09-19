@@ -23,7 +23,6 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/shortcuts/shortcut_icon_generator.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
@@ -332,7 +331,7 @@ class WebAppUpdateDialogBrowserTests : public WebAppBrowserTestBase {
         embedded_https_test_server().GetURL("/web_apps/updating/index.html");
     const webapps::AppId app_id =
         InstallWebAppInNewTabAndClose(browser(), app_url);
-    Browser* app_browser = LaunchWebAppBrowser(app_id);
+    BrowserWindowInterface* app_browser = LaunchWebAppBrowser(app_id);
     EXPECT_NE(app_browser, nullptr);
     // Ensure that the app browser is visible before proceeding. This ensures
     // that all PWA launching processes have finished.

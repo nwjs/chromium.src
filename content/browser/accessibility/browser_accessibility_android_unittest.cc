@@ -18,6 +18,7 @@
 #include "content/public/test/test_content_client.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/accessibility/android/accessibility_state.h"
 #include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/accessibility/platform/ax_unique_id.h"
 #include "ui/accessibility/platform/browser_accessibility_manager.h"
@@ -81,6 +82,12 @@ class MockContentClient : public TestContentClient {
         return u"On";
       case IDS_AX_TOGGLE_BUTTON_OFF:
         return u"Off";
+      case IDS_AX_COMBOBOX_EXPANDED_AUTOCOMPLETE_X_OPTIONS_AVAILABLE:
+        return u"$1 options available";
+      case IDS_AX_COMBOBOX_EXPANDED_AUTOCOMPLETE_DEFAULT:
+        return u"Options available";
+      case IDS_AX_COMBOBOX_EXPANDED:
+        return u"Expanded";
       default:
         return std::u16string();
     }
@@ -262,11 +269,11 @@ TEST_F(BrowserAccessibilityAndroidTest, TestRetargetFocusable) {
   EXPECT_FALSE(root_obj->IsLeaf());
   EXPECT_TRUE(root_obj->CanFireEvents());
   ui::BrowserAccessibility* para_obj = root_obj->PlatformGetChild(0);
-  EXPECT_FALSE(para_obj->IsLeaf());
+  EXPECT_TRUE(para_obj->IsLeaf());
   EXPECT_TRUE(para_obj->CanFireEvents());
   ui::BrowserAccessibility* text_obj = manager->GetFromID(111);
   EXPECT_TRUE(text_obj->IsLeaf());
-  EXPECT_TRUE(text_obj->CanFireEvents());
+  EXPECT_FALSE(text_obj->CanFireEvents());
   ui::BrowserAccessibility* updated =
       manager->RetargetBrowserAccessibilityForEvents(
           text_obj, RetargetEventType::RetargetEventTypeBlinkHover);
@@ -1614,10 +1621,16 @@ TEST_F(BrowserAccessibilityAndroidTest, TestJavaNodeCache_AttributeChange) {
 
   BrowserAccessibilityManagerAndroid* android_manager =
       ToBrowserAccessibilityManagerAndroid(manager.get());
+  auto* root_node =
+      static_cast<BrowserAccessibilityAndroid*>(manager->GetFromID(1));
+  auto* button_node =
+      static_cast<BrowserAccessibilityAndroid*>(manager->GetFromID(2));
+  int32_t root_unique_id = root_node->GetUniqueId();
+  int32_t button_unique_id = button_node->GetUniqueId();
   const auto& actual = android_manager->nodes_already_cleared_for_test();
   EXPECT_EQ(2, actual.size());
-  EXPECT_TRUE(actual.contains(1));
-  EXPECT_TRUE(actual.contains(2));
+  EXPECT_TRUE(actual.contains(root_unique_id));
+  EXPECT_TRUE(actual.contains(button_unique_id));
 
   ui::AXUpdatesAndEvents updates_and_events;
   updates_and_events.updates.resize(1);
@@ -1629,8 +1642,8 @@ TEST_F(BrowserAccessibilityAndroidTest, TestJavaNodeCache_AttributeChange) {
   manager->OnAccessibilityEvents(updates_and_events);
 
   EXPECT_EQ(2, actual.size());
-  EXPECT_TRUE(actual.contains(1));
-  EXPECT_TRUE(actual.contains(2));
+  EXPECT_TRUE(actual.contains(root_unique_id));
+  EXPECT_TRUE(actual.contains(button_unique_id));
 }
 
 // TODO(crbug.com/541249028): Re-enable once flakiness is fixed.
@@ -1774,6 +1787,72 @@ TEST_F(BrowserAccessibilityAndroidTest,
 
   EXPECT_EQ(u"Label Text", node->GetAndroidSupplementalDescription());
   EXPECT_TRUE(node->GetTextContentUTF16().empty());
+}
+
+TEST_F(BrowserAccessibilityAndroidTest,
+       RelatedElementMapsToTextWhenSamsungTalkBackEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/
+      {features::kAccessibilityPopulateSupplementalDescriptionApi},
+      /*disabled_features=*/{features::kAccessibilityLabeledBy});
+
+  ui::ScopedSamsungTalkBackForTesting scoped_samsung_talkback(true);
+
+  ui::AXTreeUpdate tree;
+  tree.root_id = 1;
+  tree.nodes.resize(2);
+
+  tree.nodes[0].id = 1;
+  tree.nodes[0].child_ids = {2};
+
+  tree.nodes[1].id = 2;
+  tree.nodes[1].role = ax::mojom::Role::kButton;
+  tree.nodes[1].SetName("Label Text");
+  tree.nodes[1].SetNameFrom(ax::mojom::NameFrom::kRelatedElement);
+  tree.nodes[1].AddIntListAttribute(ax::mojom::IntListAttribute::kLabelledbyIds,
+                                    {99});
+
+  std::unique_ptr<ui::BrowserAccessibilityManager> manager(
+      BrowserAccessibilityManagerAndroid::Create(
+          tree, node_id_delegate_, test_browser_accessibility_delegate_.get()));
+
+  BrowserAccessibilityAndroid* node = static_cast<BrowserAccessibilityAndroid*>(
+      manager->GetBrowserAccessibilityRoot()->PlatformGetChild(0));
+
+  EXPECT_EQ(u"", node->GetAndroidSupplementalDescription());
+  EXPECT_EQ(u"Label Text", node->GetTextContentUTF16());
+}
+
+TEST_F(BrowserAccessibilityAndroidTest,
+       AttributeNameMapsToTextWhenSamsungTalkBackEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kAccessibilityPopulateSupplementalDescriptionApi);
+
+  ui::ScopedSamsungTalkBackForTesting scoped_samsung_talkback(true);
+
+  ui::AXTreeUpdate tree;
+  tree.root_id = 1;
+  tree.nodes.resize(2);
+
+  tree.nodes[0].id = 1;
+  tree.nodes[0].child_ids = {2};
+
+  tree.nodes[1].id = 2;
+  tree.nodes[1].role = ax::mojom::Role::kGenericContainer;
+  tree.nodes[1].SetName("Attribute Name");
+  tree.nodes[1].SetNameFrom(ax::mojom::NameFrom::kAttribute);
+
+  std::unique_ptr<ui::BrowserAccessibilityManager> manager(
+      BrowserAccessibilityManagerAndroid::Create(
+          tree, node_id_delegate_, test_browser_accessibility_delegate_.get()));
+
+  BrowserAccessibilityAndroid* node = static_cast<BrowserAccessibilityAndroid*>(
+      manager->GetBrowserAccessibilityRoot()->PlatformGetChild(0));
+
+  EXPECT_EQ(u"", node->GetAndroidSupplementalDescription());
+  EXPECT_EQ(u"Attribute Name", node->GetTextContentUTF16());
 }
 
 TEST_F(BrowserAccessibilityAndroidTest, CaptionMapsToLabeledBy) {
@@ -2245,4 +2324,352 @@ TEST_F(BrowserAccessibilityAndroidTest, TestSwitchStateDescription) {
   EXPECT_EQ(u"On", node_b->GetAndroidStateDescription());
 }
 
+TEST_F(BrowserAccessibilityAndroidTest,
+       TestIsLeafFocusableWithNameFromAttributeAndTextChildren) {
+  // Test case 1: Focusable container with aria-label (`NameFrom::kAttribute`)
+  // and static text child. It should be a leaf node (dropping static text
+  // child).
+  ui::AXNodeData text1;
+  text1.id = 11;
+  text1.role = ax::mojom::Role::kStaticText;
+  text1.SetName("Default Text");
+
+  ui::AXNodeData container1;
+  container1.id = 2;
+  container1.role = ax::mojom::Role::kGenericContainer;
+  container1.AddState(ax::mojom::State::kFocusable);
+  container1.SetName("Custom Graph Label");
+  container1.SetNameFrom(ax::mojom::NameFrom::kAttribute);
+  container1.child_ids = {text1.id};
+
+  // Test case 2: Focusable container with aria-label (`NameFrom::kAttribute`)
+  // and non-text child (e.g. button). It should NOT be a leaf node.
+  ui::AXNodeData button;
+  button.id = 12;
+  button.role = ax::mojom::Role::kButton;
+  button.SetName("Child Button");
+
+  ui::AXNodeData container2;
+  container2.id = 3;
+  container2.role = ax::mojom::Role::kGenericContainer;
+  container2.AddState(ax::mojom::State::kFocusable);
+  container2.SetName("Container with Button");
+  container2.SetNameFrom(ax::mojom::NameFrom::kAttribute);
+  container2.child_ids = {button.id};
+
+  // Test case 3: Focusable container without aria-label and only static text
+  // child. It should also be a leaf node.
+  ui::AXNodeData text3;
+  text3.id = 13;
+  text3.role = ax::mojom::Role::kStaticText;
+  text3.SetName("Only Tabindex Text");
+
+  ui::AXNodeData container3;
+  container3.id = 4;
+  container3.role = ax::mojom::Role::kGenericContainer;
+  container3.AddState(ax::mojom::State::kFocusable);
+  container3.child_ids = {text3.id};
+
+  // Test case 4: Focusable list item with aria-label (`NameFrom::kAttribute`)
+  // and list marker child. It should NOT be a leaf node (list marker child is
+  // not dropped).
+  ui::AXNodeData marker4;
+  marker4.id = 14;
+  marker4.role = ax::mojom::Role::kListMarker;
+  marker4.SetName("1. ");
+
+  ui::AXNodeData text4;
+  text4.id = 15;
+  text4.role = ax::mojom::Role::kStaticText;
+  text4.SetName("List item text");
+
+  ui::AXNodeData container4;
+  container4.id = 5;
+  container4.role = ax::mojom::Role::kListItem;
+  container4.AddState(ax::mojom::State::kFocusable);
+  container4.SetName("Custom Item Label");
+  container4.SetNameFrom(ax::mojom::NameFrom::kAttribute);
+  container4.child_ids = {marker4.id, text4.id};
+
+  ui::AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {container1.id, container2.id, container3.id,
+                    container4.id};
+
+  std::unique_ptr<ui::BrowserAccessibilityManager> manager(
+      BrowserAccessibilityManagerAndroid::Create(
+          MakeAXTreeUpdateForTesting(root, container1, text1, container2,
+                                     button, container3, text3, container4,
+                                     marker4, text4),
+          node_id_delegate_, test_browser_accessibility_delegate_.get()));
+
+  auto* node1 = static_cast<BrowserAccessibilityAndroid*>(
+      manager->GetFromID(container1.id));
+  ASSERT_NE(nullptr, node1);
+  EXPECT_TRUE(node1->IsLeaf());
+  EXPECT_EQ(0U, node1->PlatformChildCount());
+
+  auto* node2 = static_cast<BrowserAccessibilityAndroid*>(
+      manager->GetFromID(container2.id));
+  ASSERT_NE(nullptr, node2);
+  EXPECT_FALSE(node2->IsLeaf());
+  EXPECT_EQ(1U, node2->PlatformChildCount());
+
+  auto* node3 = static_cast<BrowserAccessibilityAndroid*>(
+      manager->GetFromID(container3.id));
+  ASSERT_NE(nullptr, node3);
+  EXPECT_TRUE(node3->IsLeaf());
+  EXPECT_EQ(0U, node3->PlatformChildCount());
+
+  auto* node4 = static_cast<BrowserAccessibilityAndroid*>(
+      manager->GetFromID(container4.id));
+  ASSERT_NE(nullptr, node4);
+  EXPECT_FALSE(node4->IsLeaf());
+  EXPECT_EQ(2U, node4->PlatformChildCount());
+}
+
+TEST_F(BrowserAccessibilityAndroidTest,
+       TestListBoxOptionInterestingWithoutFocusability) {
+  ui::AXNodeData option;
+  option.id = 2;
+  option.role = ax::mojom::Role::kListBoxOption;
+  option.SetName("Aspirin 500mg");
+
+  ui::AXNodeData listbox;
+  listbox.id = 10;
+  listbox.role = ax::mojom::Role::kListBox;
+  listbox.child_ids = {option.id};
+
+  ui::AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {listbox.id};
+
+  std::unique_ptr<ui::BrowserAccessibilityManager> manager(
+      BrowserAccessibilityManagerAndroid::Create(
+          MakeAXTreeUpdateForTesting(root, listbox, option), node_id_delegate_,
+          test_browser_accessibility_delegate_.get()));
+
+  auto* option_node =
+      static_cast<BrowserAccessibilityAndroid*>(manager->GetFromID(option.id));
+  ASSERT_NE(nullptr, option_node);
+  EXPECT_TRUE(option_node->IsInterestingOnAndroid());
+}
+
+TEST_F(BrowserAccessibilityAndroidTest,
+       TestListBoxOptionComputeIsLeafWithChildren) {
+  ui::AXNodeData text_node;
+  text_node.id = 3;
+  text_node.role = ax::mojom::Role::kStaticText;
+  text_node.SetName("Ibuprofen 200mg");
+
+  ui::AXNodeData option;
+  option.id = 2;
+  option.role = ax::mojom::Role::kListBoxOption;
+  option.SetName("Ibuprofen 200mg");
+  option.SetNameFrom(ax::mojom::NameFrom::kContents);
+  option.child_ids = {text_node.id};
+
+  ui::AXNodeData listbox;
+  listbox.id = 10;
+  listbox.role = ax::mojom::Role::kListBox;
+  listbox.child_ids = {option.id};
+
+  ui::AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {listbox.id};
+
+  std::unique_ptr<ui::BrowserAccessibilityManager> manager(
+      BrowserAccessibilityManagerAndroid::Create(
+          MakeAXTreeUpdateForTesting(root, listbox, option, text_node),
+          node_id_delegate_, test_browser_accessibility_delegate_.get()));
+
+  auto* option_node =
+      static_cast<BrowserAccessibilityAndroid*>(manager->GetFromID(option.id));
+  ASSERT_NE(nullptr, option_node);
+  EXPECT_TRUE(option_node->IsLeaf());
+}
+
+TEST_F(BrowserAccessibilityAndroidTest,
+       TestComboboxWithAriaControlsToPortalListboxExpandedText) {
+  ui::AXNodeData opt1;
+  opt1.id = 11;
+  opt1.role = ax::mojom::Role::kListBoxOption;
+  opt1.SetName("Aspirin 500mg");
+
+  ui::AXNodeData opt2;
+  opt2.id = 12;
+  opt2.role = ax::mojom::Role::kListBoxOption;
+  opt2.SetName("Ibuprofen 200mg");
+
+  ui::AXNodeData opt3;
+  opt3.id = 13;
+  opt3.role = ax::mojom::Role::kListBoxOption;
+  opt3.SetName("Paracetamol 500mg");
+
+  ui::AXNodeData listbox;
+  listbox.id = 10;
+  listbox.role = ax::mojom::Role::kListBox;
+  listbox.child_ids = {opt1.id, opt2.id, opt3.id};
+  listbox.AddIntAttribute(ax::mojom::IntAttribute::kSetSize, 3);
+
+  ui::AXNodeData combobox;
+  combobox.id = 2;
+  combobox.role = ax::mojom::Role::kComboBoxSelect;
+  combobox.AddState(ax::mojom::State::kExpanded);
+  combobox.AddIntListAttribute(ax::mojom::IntListAttribute::kControlsIds,
+                               {listbox.id});
+
+  ui::AXNodeData portal_container;
+  portal_container.id = 9;
+  portal_container.role = ax::mojom::Role::kGenericContainer;
+  portal_container.child_ids = {listbox.id};
+
+  ui::AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {combobox.id, portal_container.id};
+
+  std::unique_ptr<ui::BrowserAccessibilityManager> manager(
+      BrowserAccessibilityManagerAndroid::Create(
+          MakeAXTreeUpdateForTesting(root, combobox, portal_container, listbox,
+                                     opt1, opt2, opt3),
+          node_id_delegate_, test_browser_accessibility_delegate_.get()));
+
+  auto* combobox_node = static_cast<BrowserAccessibilityAndroid*>(
+      manager->GetFromID(combobox.id));
+  ASSERT_NE(nullptr, combobox_node);
+  EXPECT_EQ(u"3 options available", combobox_node->GetComboboxExpandedText());
+}
+
+TEST_F(BrowserAccessibilityAndroidTest,
+       TestListBoxOptionWithAttributeNameIsLeaf) {
+  ui::AXNodeData text_node;
+  text_node.id = 3;
+  text_node.role = ax::mojom::Role::kStaticText;
+  text_node.SetName("Aspirin 500mg");
+
+  ui::AXNodeData option;
+  option.id = 2;
+  option.role = ax::mojom::Role::kListBoxOption;
+  option.AddState(ax::mojom::State::kFocusable);
+  option.SetName("Aspirin 500mg");
+  option.SetNameFrom(ax::mojom::NameFrom::kAttribute);
+  option.child_ids = {text_node.id};
+
+  ui::AXNodeData listbox;
+  listbox.id = 10;
+  listbox.role = ax::mojom::Role::kListBox;
+  listbox.child_ids = {option.id};
+
+  ui::AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {listbox.id};
+
+  std::unique_ptr<ui::BrowserAccessibilityManager> manager(
+      BrowserAccessibilityManagerAndroid::Create(
+          MakeAXTreeUpdateForTesting(root, listbox, option, text_node),
+          node_id_delegate_, test_browser_accessibility_delegate_.get()));
+
+  auto* option_node =
+      static_cast<BrowserAccessibilityAndroid*>(manager->GetFromID(option.id));
+  ASSERT_NE(nullptr, option_node);
+  EXPECT_TRUE(option_node->IsLeaf());
+}
+
+TEST_F(BrowserAccessibilityAndroidTest,
+       TestMenuItemCheckBoxAndRadioInterestingAndLeaf) {
+  ui::AXNodeData cb_text;
+  cb_text.id = 3;
+  cb_text.role = ax::mojom::Role::kStaticText;
+  cb_text.SetName("Auto Save");
+
+  ui::AXNodeData menu_item_cb;
+  menu_item_cb.id = 2;
+  menu_item_cb.role = ax::mojom::Role::kMenuItemCheckBox;
+  menu_item_cb.SetName("Auto Save");
+  menu_item_cb.SetNameFrom(ax::mojom::NameFrom::kContents);
+  menu_item_cb.child_ids = {cb_text.id};
+
+  ui::AXNodeData radio_text;
+  radio_text.id = 5;
+  radio_text.role = ax::mojom::Role::kStaticText;
+  radio_text.SetName("Dark Theme");
+
+  ui::AXNodeData menu_item_radio;
+  menu_item_radio.id = 4;
+  menu_item_radio.role = ax::mojom::Role::kMenuItemRadio;
+  menu_item_radio.SetName("Dark Theme");
+  menu_item_radio.SetNameFrom(ax::mojom::NameFrom::kContents);
+  menu_item_radio.child_ids = {radio_text.id};
+
+  ui::AXNodeData menu;
+  menu.id = 10;
+  menu.role = ax::mojom::Role::kMenu;
+  menu.child_ids = {menu_item_cb.id, menu_item_radio.id};
+
+  ui::AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {menu.id};
+
+  std::unique_ptr<ui::BrowserAccessibilityManager> manager(
+      BrowserAccessibilityManagerAndroid::Create(
+          MakeAXTreeUpdateForTesting(root, menu, menu_item_cb, cb_text,
+                                     menu_item_radio, radio_text),
+          node_id_delegate_, test_browser_accessibility_delegate_.get()));
+
+  auto* cb_node = static_cast<BrowserAccessibilityAndroid*>(
+      manager->GetFromID(menu_item_cb.id));
+  ASSERT_NE(nullptr, cb_node);
+  EXPECT_TRUE(cb_node->IsInterestingOnAndroid());
+  EXPECT_TRUE(cb_node->IsLeaf());
+
+  auto* radio_node = static_cast<BrowserAccessibilityAndroid*>(
+      manager->GetFromID(menu_item_radio.id));
+  ASSERT_NE(nullptr, radio_node);
+  EXPECT_TRUE(radio_node->IsInterestingOnAndroid());
+  EXPECT_TRUE(radio_node->IsLeaf());
+}
+
+TEST_F(BrowserAccessibilityAndroidTest, TestTreeItemInterestingAndLeaf) {
+  ui::AXNodeData text_node;
+  text_node.id = 3;
+  text_node.role = ax::mojom::Role::kStaticText;
+  text_node.SetName("Documents");
+
+  ui::AXNodeData tree_item;
+  tree_item.id = 2;
+  tree_item.role = ax::mojom::Role::kTreeItem;
+  tree_item.AddState(ax::mojom::State::kFocusable);
+  tree_item.SetName("Documents");
+  tree_item.SetNameFrom(ax::mojom::NameFrom::kContents);
+  tree_item.child_ids = {text_node.id};
+
+  ui::AXNodeData tree;
+  tree.id = 10;
+  tree.role = ax::mojom::Role::kTree;
+  tree.child_ids = {tree_item.id};
+
+  ui::AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {tree.id};
+
+  std::unique_ptr<ui::BrowserAccessibilityManager> manager(
+      BrowserAccessibilityManagerAndroid::Create(
+          MakeAXTreeUpdateForTesting(root, tree, tree_item, text_node),
+          node_id_delegate_, test_browser_accessibility_delegate_.get()));
+
+  auto* item_node = static_cast<BrowserAccessibilityAndroid*>(
+      manager->GetFromID(tree_item.id));
+  ASSERT_NE(nullptr, item_node);
+  EXPECT_TRUE(item_node->IsInterestingOnAndroid());
+  EXPECT_TRUE(item_node->IsLeaf());
+}
+
 }  // namespace content
+

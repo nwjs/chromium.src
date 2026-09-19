@@ -55,6 +55,10 @@ AX_BASE_EXPORT BASE_DECLARE_FEATURE(
     kAccessibilityPruneRedundantInlineConnectivity);
 AX_BASE_EXPORT bool IsAccessibilityPruneRedundantInlineConnectivityEnabled();
 
+// Check AXNodeIDs sent over Mojo
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityCheckAXNodeIDs);
+AX_BASE_EXPORT bool IsAccessibilityCheckAXNodeIDsEnabled();
+
 // Enables the addition of text formatting information to the Android
 // AccessibilityNodeInfo accessibility tree.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityTextFormatting);
@@ -187,6 +191,14 @@ AX_BASE_EXPORT BASE_DECLARE_FEATURE(kUiaEventOptimization);
 // technologies.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kUiaMathMlSupport);
 AX_BASE_EXPORT bool IsUiaMathMlSupportEnabled();
+
+// Group location-changed events by sending a single location changed event
+// on the root of the subtree containing all location-change events. This
+// feature-flag is enabled by default as a kill-switch for the event semantics
+// change.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(
+    kAccessibilityGroupLocationChangeByCommonAncestor);
+AX_BASE_EXPORT bool IsAccessibilityGroupLocationChangeByCommonAncestorEnabled();
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -294,10 +306,6 @@ AX_BASE_EXPORT bool IsReadAloudNativeEnabled();
 // tools/methods to fix the AXTree. This is not available on Android.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAXTreeFixing);
 AX_BASE_EXPORT bool IsAXTreeFixingEnabled();
-
-// Enable Immersive Mode for Read Anything.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kImmersiveReadAnything);
-AX_BASE_EXPORT bool IsImmersiveReadAnythingEnabled();
 
 // Identify and annotate the main node of the AXTree where one was not already
 // provided.

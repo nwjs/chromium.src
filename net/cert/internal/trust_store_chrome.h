@@ -5,7 +5,6 @@
 #ifndef NET_CERT_INTERNAL_TRUST_STORE_CHROME_H_
 #define NET_CERT_INTERNAL_TRUST_STORE_CHROME_H_
 
-#include <map>
 #include <optional>
 #include <vector>
 
@@ -32,6 +31,8 @@ class SignerSet;
 }
 
 namespace net {
+
+class NetLogWithSource;
 
 // Represents a ConstraintSet for compiled-in version of the root store.
 // This is a separate struct from ChromeRootCertConstraints since the in-memory
@@ -306,30 +307,7 @@ class NET_EXPORT ChromeRootStoreMtcMetadata {
     MtcAnchorData& operator=(const MtcAnchorData& other);
     MtcAnchorData& operator=(MtcAnchorData&& other);
 
-    std::vector<uint8_t> log_id;
-
-    // The landmark info isn't needed in the verifier, but keep track of it so
-    // that it can be displayed in the root store UI.
-    std::vector<uint8_t> landmark_base_id;
-    uint64_t landmark_min_inclusive;
-    uint64_t landmark_max_inclusive;
-
-    std::vector<bssl::TrustedSubtree> trusted_subtrees;
-
-    // The revocation map key is the end index (exclusive) and the value is the
-    // start index (inclusive).
-    base::flat_map<uint64_t, uint64_t> revoked_indices;
-  };
-
-  struct NET_EXPORT Plants05AnchorData {
-    Plants05AnchorData();
-    ~Plants05AnchorData();
-    Plants05AnchorData(const Plants05AnchorData& other);
-    Plants05AnchorData(Plants05AnchorData&& other);
-    Plants05AnchorData& operator=(const Plants05AnchorData& other);
-    Plants05AnchorData& operator=(Plants05AnchorData&& other);
-
-    std::map<uint16_t, std::vector<bssl::TrustedSubtree>> trusted_subtrees;
+    std::vector<bssl::LogTrustedSubtrees> trusted_subtrees;
 
     struct LogLandmarkRange {
       uint16_t log_number;
@@ -359,21 +337,13 @@ class NET_EXPORT ChromeRootStoreMtcMetadata {
   mtc_anchor_data() const {
     return mtc_anchor_data_;
   }
-  const absl::flat_hash_map<std::vector<uint8_t>, Plants05AnchorData>&
-  plants05_anchor_data() const {
-    return plants05_anchor_data_;
-  }
   base::Time update_time() const { return update_time_; }
 
  private:
   ChromeRootStoreMtcMetadata();
 
-  // Map from a Merkle Tree Anchor log_id to the data for that anchor.
-  // Used only for the MTC experiment logs.
+  // Map from a CA ID to the MtcAnchorData for that anchor.
   absl::flat_hash_map<std::vector<uint8_t>, MtcAnchorData> mtc_anchor_data_;
-  // Map from a CA ID to the Plants05AnchorData for that anchor.
-  absl::flat_hash_map<std::vector<uint8_t>, Plants05AnchorData>
-      plants05_anchor_data_;
   base::Time update_time_;
 };
 
@@ -504,12 +474,15 @@ class NET_EXPORT TrustStoreChrome : public bssl::TrustStore {
   base::span<const ChromeRootCertConstraints> GetConstraintsForCert(
       const bssl::CertPathBuilderResultPath* path) const;
 
-  // Returns additional data about the MTC anchor with log id `log_id`, or null
+  // Returns additional data about the MTC anchor with CA id `ca_id`, or null
   // if the anchor isn't known or has no additional data.
   const MtcAnchorExtraData* GetMTCAnchorData(
-      base::span<const uint8_t> log_id) const;
+      base::span<const uint8_t> ca_id) const;
 
   int64_t version() const { return version_; }
+  std::optional<base::Time> signer_set_timestamp() const {
+    return signer_set_timestamp_;
+  }
   std::optional<base::Time> mtc_metadata_update_time() const {
     return mtc_metadata_update_time_;
   }
@@ -529,7 +502,8 @@ class NET_EXPORT TrustStoreChrome : public bssl::TrustStore {
       const bssl::ParsedCertificate& target_cert,
       base::Time current_time,
       const bssl::MTCAnchor* mtc_anchor,
-      base::span<const std::vector<uint8_t>> valid_additional_cosigners) const;
+      base::span<const std::vector<uint8_t>> valid_additional_cosigners,
+      const NetLogWithSource& net_log) const;
 
   // Parses a string specifying constraint overrides, in the format expected by
   // the `kTestCrsConstraintsSwitch` command line switch.
@@ -564,8 +538,8 @@ class NET_EXPORT TrustStoreChrome : public bssl::TrustStore {
 
   bssl::TrustStoreInMemory trust_store_;
 
-  // Map from log_id to additional data for the MTC anchor with the
-  // matching log id. This stores data that isn't handled in bssl:MTCAnchor.
+  // Map from ca_id to additional data for the MTC anchor with the
+  // matching CA id. This stores data that isn't handled in bssl:MTCAnchor.
   absl::flat_hash_map<std::vector<uint8_t>,
                       MtcAnchorExtraData,
                       base::TransparentHashAs<base::span<const uint8_t>>,
@@ -586,7 +560,10 @@ class NET_EXPORT TrustStoreChrome : public bssl::TrustStore {
 
   int64_t version_;
 
-  base::Time signer_set_timestamp_;
+  // The SignerSet timestamp may be nullopt if MTCs are not enabled.
+  // TODO(crbug.com/548727801): make this non-optional when MTCs are no longer
+  // feature-gated.
+  std::optional<base::Time> signer_set_timestamp_;
   absl::flat_hash_map<std::vector<uint8_t>,
                       Signer,
                       base::TransparentHashAs<base::span<const uint8_t>>,

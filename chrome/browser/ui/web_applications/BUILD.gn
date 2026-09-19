@@ -100,7 +100,11 @@ source_set("launch_utils") {
 
 source_set("impl") {
   sources = []
-  deps = [ "//chrome/browser/ui/browser_window:create_browser_window" ]
+  deps = [
+    "//chrome/browser/banners",
+    "//chrome/browser/ui:browser_window_state",
+    "//chrome/browser/ui/browser_window:create_browser_window",
+  ]
 
   if (!is_android) {
     sources += [ "web_app_dialog_utils.cc" ]
@@ -176,11 +180,14 @@ source_set("impl") {
       "//chrome/browser/notifications",
       "//chrome/browser/permissions",
       "//chrome/browser/policy:policy_util",
+      "//chrome/browser/ui:browser_init_state",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/extensions",
       "//chrome/browser/ui/profiles",
       "//chrome/browser/ui/tabs:tab_menu",
       "//chrome/browser/ui/views/web_apps:web_app_blocked_migration_infobar_delegate",
+      "//chrome/browser/ui/views/web_apps:web_app_update_review_dialog",
+      "//chrome/browser/ui/window_feature_controller",
       "//chrome/browser/ui/window_metadata",
       "//chrome/browser/web_applications:features",
       "//chrome/browser/web_applications/app_service",
@@ -191,6 +198,7 @@ source_set("impl") {
       "//components/omnibox/browser:vector_icons",
       "//components/security_state/content",
       "//components/services/app_service",
+      "//components/tabs:public",
       "//ui/native_window_tracker",
     ]
     if (is_chromeos) {
@@ -228,8 +236,6 @@ source_set("unit_tests") {
   deps = [
     ":launch_utils",
     ":web_applications",
-    "//chrome/browser",
-    "//chrome/browser/ui",
     "//chrome/browser/web_applications",
     "//chrome/browser/web_applications:web_app_test",
     "//chrome/browser/web_applications:web_applications_test_support",
@@ -291,6 +297,7 @@ source_set("browser_tests") {
     "//chrome/browser/preloading:test_support",
     "//chrome/browser/shortcuts",
     "//chrome/browser/themes",
+    "//chrome/browser/ui:tab_ui_helper",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_ui_controller",
     "//chrome/browser/ui/browser_web_contents_delegate",
@@ -339,7 +346,10 @@ source_set("browser_tests") {
   }
 
   if (!is_android) {
-    deps += [ "//chrome/browser/ui/window_feature_controller" ]
+    deps += [
+      "//chrome/browser/ui:browser_init_state",
+      "//chrome/browser/ui/window_feature_controller",
+    ]
   }
 }
 
@@ -385,6 +395,10 @@ source_set("app_service_browser_tests") {
     "//components/webapps/browser:test_support",
     "//components/webapps/common",
   ]
+
+  if (!is_android) {
+    deps += [ "//chrome/browser/ui:browser_init_state" ]
+  }
 
   if (is_chromeos) {
     deps += [

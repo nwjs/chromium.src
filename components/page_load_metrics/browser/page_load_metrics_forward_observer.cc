@@ -171,7 +171,12 @@ void PageLoadMetricsForwardObserver::OnTimingUpdate(
     const mojom::PageLoadTiming& timing) {}
 
 // Soft navigations only happen in outermost top-level documents.
-void PageLoadMetricsForwardObserver::OnSoftNavigation() {}
+
+void PageLoadMetricsForwardObserver::OnSoftNavigationFirstContentfulPaint(
+    const mojom::SoftNavigationMetrics& soft_navigation_metrics) {}
+
+void PageLoadMetricsForwardObserver::OnSoftNavigationCompleted(
+    const SoftNavigationData& soft_navigation_data) {}
 
 void PageLoadMetricsForwardObserver::OnSoftNavigationLargestContentfulPaint(
     uint64_t num_soft_lcps) {}
@@ -361,6 +366,14 @@ void PageLoadMetricsForwardObserver::OnLoadedResource(
   parent_observer_->OnLoadedResource(extra_request_complete_info);
 }
 
+void PageLoadMetricsForwardObserver::DidLoadResourceFromMemoryCache(
+    const MemoryResourceLoadInfo& memory_resource_load_info) {
+  if (!parent_observer_) {
+    return;
+  }
+  parent_observer_->DidLoadResourceFromMemoryCache(memory_resource_load_info);
+}
+
 void PageLoadMetricsForwardObserver::FrameReceivedUserActivation(
     content::RenderFrameHost* render_frame_host) {
   if (!parent_observer_)
@@ -431,14 +444,6 @@ void PageLoadMetricsForwardObserver::OnStorageAccessed(
     return;
   parent_observer_->OnStorageAccessed(url, first_party_url, blocked_by_policy,
                                       access_type);
-}
-
-void PageLoadMetricsForwardObserver::OnPrefetchLikely() {
-  // This event is delivered only for the primary page.
-  // TODO(crbug.com/40895492): Investigate whether this should truly be
-  // unreachable. Note that all NOTREACHED()s were made non-fatal in this file,
-  // they are not all necessarily hit.
-  DUMP_WILL_BE_NOTREACHED();
 }
 
 void PageLoadMetricsForwardObserver::DidActivatePrerenderedPage(

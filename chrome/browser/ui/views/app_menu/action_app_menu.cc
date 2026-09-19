@@ -8,78 +8,59 @@
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
-#include "chrome/browser/ui/views/app_menu/app_menu_action_helper.h"
-#include "chrome/browser/ui/views/app_menu/app_menu_section_action_item.h"
+#include "chrome/browser/ui/views/app_menu/action_app_menu_footer_view.h"
+#include "chrome/browser/ui/views/app_menu/action_app_menu_manager.h"
+#include "chrome/browser/ui/views/app_menu/action_app_menu_zoom_view.h"
+#include "chrome/browser/ui/views/app_menu/block_menu_entry_button.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "ui/actions/actions.h"
+#include "ui/base/models/image_model.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
+#include "ui/menus/simple_menu_model.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/menu_button_controller.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/menu/submenu_view.h"
+#include "ui/views/layout/box_layout_view.h"
+#include "ui/views/layout/layout_provider.h"
 #include "ui/views/style/typography.h"
 #include "ui/views/style/typography_provider.h"
+
+namespace {
+
+ui::ImageModel StandardizeMenuIconSize(const ui::ImageModel& icon) {
+  if (icon.IsVectorIcon()) {
+    const ui::VectorIconModel& vector_model = icon.GetVectorIcon();
+    if (vector_model.icon_size() != ui::SimpleMenuModel::kDefaultIconSize) {
+      return ui::ImageModel::FromVectorIcon(
+          *vector_model.vector_icon(), vector_model.color(),
+          ui::SimpleMenuModel::kDefaultIconSize, vector_model.badge_icon());
+    }
+  }
+  return icon;
+}
+
+}  // namespace
 
 ActionAppMenu::ActionAppMenu(BrowserWindowInterface* browser_window_interface,
                              base::RepeatingClosure on_menu_closed_callback)
     : browser_window_interface_(browser_window_interface),
-      on_menu_closed_callback_(std::move(on_menu_closed_callback)) {
-  CreateMenuHierarchy(app_menu::GetAppMenuRoot(browser_window_interface));
+      on_menu_closed_callback_(std::move(on_menu_closed_callback)),
+      menu_manager_(
+          std::make_unique<ActionAppMenuManager>(browser_window_interface)) {
+  menu_manager_->CreateMenuHierarchy();
 }
 
 ActionAppMenu::~ActionAppMenu() {
   command_to_action_map_.clear();
-  app_menu::GetAppMenuRoot(browser_window_interface_)->ResetActionList();
-}
-
-void ActionAppMenu::CreateMenuHierarchy(actions::ActionItem* root) {
-  std::optional<ui::ColorId> your_chrome_background =
-      kColorAppMenuYourChromeBackground;
-  std::optional<ui::ColorId> tools_actions_background =
-      kColorAppMenuToolsAndActionsBackground;
-
-  // Chrome Heading (Your Chrome)
-
-  std::unique_ptr<actions::BaseAction> your_chrome_heading =
-      app_menu::CreateAppMenuSectionActionItem(
-          l10n_util::GetStringUTF16(IDS_APP_MENU_YOUR_CHROME_HEADER),
-          app_menu::DisplayType::kRow, your_chrome_background);
-
-  auto* chrome_ptr = root->AddChild(std::move(your_chrome_heading));
-
-  // Your Chrome Children Setup
-  chrome_ptr->AddChild(app_menu::CreateAppMenuIndirectActionItem(
-      kActionShowPasswordManager, app_menu::DisplayType::kRow,
-      your_chrome_background));
-
-  chrome_ptr->AddChild(app_menu::CreateAppMenuIndirectActionItem(
-      kActionShowHistory, app_menu::DisplayType::kRow, your_chrome_background));
-
-  chrome_ptr->AddChild(app_menu::CreateAppMenuIndirectActionItem(
-      kActionManageExtensions, app_menu::DisplayType::kRow,
-      your_chrome_background));
-
-  // Tools and Actions Heading
-  std::unique_ptr<actions::BaseAction> tools_actions_heading =
-      app_menu::CreateAppMenuSectionActionItem(
-          l10n_util::GetStringUTF16(IDS_APP_MENU_TOOLS_AND_ACTIONS_HEADER),
-          app_menu::DisplayType::kRow, tools_actions_background);
-
-  auto* tools_actions_ptr = root->AddChild(std::move(tools_actions_heading));
-
-  // Tools and Actions Setup
-  tools_actions_ptr->AddChild(app_menu::CreateAppMenuIndirectActionItem(
-      kActionPrint, app_menu::DisplayType::kRow, tools_actions_background));
-
-  tools_actions_ptr->AddChild(app_menu::CreateAppMenuIndirectActionItem(
-      kActionFind, app_menu::DisplayType::kRow, tools_actions_background));
+  menu_manager_->GetAppMenuRoot()->ResetActionList();
 }
 
 void ActionAppMenu::RunMenu(views::MenuButtonController* host) {
@@ -89,7 +70,7 @@ void ActionAppMenu::RunMenu(views::MenuButtonController* host) {
   root_ = root.get();
 
   const auto* provider = ChromeLayoutProvider::Get();
-  PopulateMenu(root_, app_menu::GetAppMenuRoot(browser_window_interface_));
+  PopulateMenu(root_, menu_manager_->GetAppMenuRoot());
 
   root_->set_children_use_full_width(true);
   views::SubmenuView* submenu = root_->CreateSubmenu();
@@ -121,11 +102,12 @@ bool ActionAppMenu::IsShowing() const {
 
 void ActionAppMenu::ExecuteCommand(int id, int mouse_event_flags) {
   auto action_iterator = command_to_action_map_.find(id);
-  // Check if key exists in the map before invoking the action.
-  // If the key does not exist, .find() returns command_to_action_map_.end()
-  if (action_iterator != command_to_action_map_.end()) {
-    action_iterator->second->InvokeAction();
-  }
+  CHECK(action_iterator != command_to_action_map_.end());
+
+  actions::ActionItem* action_ptr = action_iterator->second->GetActionItem();
+  CHECK(action_ptr);
+
+  action_ptr->InvokeAction();
 }
 
 void ActionAppMenu::OnMenuClosed(views::MenuItemView* menu) {
@@ -133,7 +115,7 @@ void ActionAppMenu::OnMenuClosed(views::MenuItemView* menu) {
   if (on_menu_closed_callback_) {
     on_menu_closed_callback_.Run();
   }
-  app_menu::GetAppMenuRoot(browser_window_interface_)->ResetActionList();
+  menu_manager_->GetAppMenuRoot()->ResetActionList();
 }
 
 const gfx::FontList* ActionAppMenu::GetLabelFontList(int id) const {
@@ -154,81 +136,198 @@ std::optional<SkColor> ActionAppMenu::GetLabelColor(int id) const {
 }
 
 void ActionAppMenu::PopulateMenu(views::MenuItemView* view_parent,
-                                 actions::ActionItem* action_item) {
-  const auto& children = action_item->GetChildren().children();
-  const size_t child_count = children.size();
+                                 actions::BaseAction* base_action_item) {
+  const auto& children_action_items =
+      base_action_item->GetChildren().children();
+  const size_t child_count = children_action_items.size();
+
+  for (size_t i = 0; i < child_count; ++i) {
+    actions::BaseAction* const child_base = children_action_items[i].get();
+    actions::ActionItem* const child_ptr = child_base->GetActionItem();
+    if (!child_ptr) {
+      continue;
+    }
+
+    const ActionAppMenuManager::DisplayType display_type =
+        child_ptr->GetProperty(ActionAppMenuManager::kDisplayTypeKey);
+
+    if (display_type == ActionAppMenuManager::DisplayType::kFooter) {
+      PopulateFooter(view_parent, child_ptr);
+    } else if (display_type == ActionAppMenuManager::DisplayType::kBlock) {
+      PopulateBlockMenuItem(view_parent, child_ptr);
+    } else if (display_type == ActionAppMenuManager::DisplayType::kDivider) {
+      view_parent->AppendSeparator();
+    } else if (display_type == ActionAppMenuManager::DisplayType::kSection) {
+      auto* section_header_menu_item =
+          view_parent->AppendTitle(std::u16string(child_ptr->GetText()));
+      ConfigureSectionHeader(section_header_menu_item);
+      // Recursively call using the same parent to keep the children in
+      // the same menu section as the header.
+      PopulateMenu(view_parent, child_base);
+    } else {
+      auto* const menu_item = AppendMenuItem(child_base, view_parent);
+      ConfigureMenuItem(menu_item, child_base, i == 0, i == child_count - 1);
+      if (child_ptr->GetActionId() == kActionZoomSubmenu) {
+        menu_item->AddChildView(std::make_unique<ActionAppMenuZoomView>(
+            browser_window_interface_, &action_view_controller_,
+            command_to_action_map_, child_base));
+      } else {
+        // Recursively populate the menu with the base action item's children.
+        PopulateMenu(menu_item, child_base);
+      }
+    }
+  }
+}
+
+views::MenuItemView* ActionAppMenu::AppendMenuItem(
+    actions::BaseAction* base_action_item,
+    views::MenuItemView* parent_menu_item) {
+  actions::ActionItem* action_item = base_action_item->GetActionItem();
+  CHECK(action_item);
+  std::optional<actions::ActionId> action_id = action_item->GetActionId();
+  const int command_id = action_id.value_or(next_id_++);
+
+  // Even though the zoom menu item has children, it should not be treated
+  // as a submenu because its children are laid out within the same top
+  // level menu item.
+  const bool is_zoom_menu_item =
+      action_item->GetActionId() == kActionZoomSubmenu;
+  const bool has_children =
+      !is_zoom_menu_item && !base_action_item->GetChildren().children().empty();
+
+  views::MenuItemView* menu_item =
+      has_children ? parent_menu_item->AppendSubMenu(
+                         command_id, std::u16string(action_item->GetText()))
+                   : parent_menu_item->AppendMenuItem(command_id);
+
+  action_view_controller_.CreateActionViewRelationship(
+      menu_item, action_item->GetAsWeakPtr());
+  command_to_action_map_[command_id] = action_item;
+  return menu_item;
+}
+
+void ActionAppMenu::ConfigureSectionHeader(
+    views::MenuItemView* header_menu_item) {
+  header_menu_item->SetEnabled(false);
+  header_menu_item->set_vertical_margin(
+      views::LayoutProvider::Get()->GetDistanceMetric(
+          DISTANCE_ACTION_APP_MENU_HEADER_VERTICAL_MARGIN));
+}
+
+void ActionAppMenu::ConfigureMenuItem(views::MenuItemView* menu_item,
+                                      actions::BaseAction* child_base,
+                                      bool is_first_item,
+                                      bool is_last_item) {
+  if (std::u16string* text_override =
+          child_base->GetProperty(ActionAppMenuManager::kTextOverrideKey)) {
+    menu_item->SetTitle(*text_override);
+  }
+
+  actions::ActionItem* const action_item = child_base->GetActionItem();
+  CHECK(action_item);
+  if (ui::ImageModel* icon_override =
+          child_base->GetProperty(ActionAppMenuManager::kIconOverrideKey)) {
+    menu_item->SetIcon(StandardizeMenuIconSize(*icon_override));
+  } else if (!action_item->GetImage().IsEmpty()) {
+    menu_item->SetIcon(StandardizeMenuIconSize(action_item->GetImage()));
+  }
+
+  // Display shortcut text if the ActionItem has one.
+  const ui::Accelerator& accel = action_item->GetAccelerator();
+  if (accel.key_code() != ui::VKEY_UNKNOWN) {
+    menu_item->SetMinorText(accel.GetShortcutText());
+  }
 
   const auto* provider = ChromeLayoutProvider::Get();
 
-  for (size_t i = 0; i < child_count; ++i) {
-    actions::ActionItem* child_ptr = children[i]->GetActionItem();
-    // If the child is a section action item, append it as a MenuItem that
-    // represents a section header.
-    if (actions::IsActionClass<AppMenuSectionActionItem>(child_ptr)) {
-      auto* header_menu_item =
-          view_parent->AppendTitle(std::u16string(child_ptr->GetText()));
-      header_menu_item->SetEnabled(false);
-      header_menu_item->set_vertical_margin(8);
-      // Recursive call using the same parent to keep the children in
-      // the same menu section as the header.
-      PopulateMenu(view_parent, child_ptr);
-    } else {
-      // Otherwise, append it as a MenuItemView that represents an action item.
-      std::optional<actions::ActionId> action_id = child_ptr->GetActionId();
-      CHECK(action_id.has_value());
+  // Set the border radius depending on the position a menu item has in
+  // its section.
+  const int top_radius =
+      is_first_item ? provider->GetDistanceMetric(
+                          DISTANCE_ACTION_APP_MENU_CONTAINER_CORNER_RADIUS)
+                    : 0;
+  const int top_padding =
+      is_first_item
+          ? provider->GetDistanceMetric(
+                DISTANCE_ACTION_APP_MENU_ITEM_FIRST_TOP_PADDING)
+          : provider->GetDistanceMetric(
+                DISTANCE_ACTION_APP_MENU_ITEM_DEFAULT_VERTICAL_MARGIN);
 
-      auto* menu_item = view_parent->AppendMenuItem(action_id.value());
-      action_view_controller_.CreateActionViewRelationship(
-          menu_item, child_ptr->GetAsWeakPtr());
-      command_to_action_map_[action_id.value()] = child_ptr;
-
-      // Set the border radius depending on the position a menu item has in
-      // its section.
-      int top_radius =
-          (i == 0) ? provider->GetDistanceMetric(
+  const int bottom_radius =
+      is_last_item ? provider->GetDistanceMetric(
                          DISTANCE_ACTION_APP_MENU_CONTAINER_CORNER_RADIUS)
                    : 0;
-      int top_padding =
-          (i == 0) ? provider->GetDistanceMetric(
-                         DISTANCE_ACTION_APP_MENU_ITEM_FIRST_TOP_PADDING)
+
+  const int bottom_padding =
+      is_last_item ? provider->GetDistanceMetric(
+                         DISTANCE_ACTION_APP_MENU_ITEM_LAST_BOTTOM_PADDING)
                    : provider->GetDistanceMetric(
                          DISTANCE_ACTION_APP_MENU_ITEM_DEFAULT_VERTICAL_MARGIN);
 
-      int bottom_radius =
-          (i == child_count - 1)
-              ? provider->GetDistanceMetric(
-                    DISTANCE_ACTION_APP_MENU_CONTAINER_CORNER_RADIUS)
-              : 0;
+  menu_item->SetBorder(views::CreateEmptyBorder(
+      provider->GetInsetsMetric(INSETS_ACTION_APP_MENU_ITEM)));
 
-      int bottom_padding =
-          (i == child_count - 1)
-              ? provider->GetDistanceMetric(
-                    DISTANCE_ACTION_APP_MENU_ITEM_LAST_BOTTOM_PADDING)
-              : provider->GetDistanceMetric(
-                    DISTANCE_ACTION_APP_MENU_ITEM_DEFAULT_VERTICAL_MARGIN);
+  const ui::ColorId container_color =
+      action_item->GetProperty(ActionAppMenuManager::kContainerColorKey);
 
-      menu_item->SetBorder(views::CreateEmptyBorder(
-          provider->GetInsetsMetric(INSETS_ACTION_APP_MENU_ITEM)));
-
-      // Display shortcut text if the ActionItem has one.
-      ui::Accelerator accel = child_ptr->GetAccelerator();
-      if (accel.key_code() != ui::VKEY_UNKNOWN) {
-        menu_item->SetMinorText(accel.GetShortcutText());
-      }
-
-      // Get the styling from the ActionItem and apply it to its menu item.
-      const ui::ColorId container_color =
-          child_ptr->GetProperty(app_menu::kAppMenuContainerColorKey);
-      if (container_color != ui::kColorMenuBackground) {
-        menu_item->SetContainerStyle(container_color, top_radius, bottom_radius,
-                                     top_padding, bottom_padding);
-        // Apply darker hover selection states matching section theme.
-        menu_item->SetSelectedColorId(ui::kColorSysStateHoverOnSubtle);
-      }
-
-      // Recursively populate the menu item with the ActionItem's children.
-      // This creates any submenu items.
-      PopulateMenu(menu_item, child_ptr);
-    }
+  // Get the styling from the ActionItem and apply it to its menu item.
+  if (container_color != ui::kColorMenuBackground) {
+    menu_item->SetContainerStyle(container_color, top_radius, bottom_radius,
+                                 top_padding, bottom_padding);
+    // Apply darker hover selection states matching section theme.
+    menu_item->SetSelectedColorId(ui::kColorSysStateHoverOnSubtle);
   }
+}
+
+void ActionAppMenu::PopulateFooter(views::MenuItemView* view_parent,
+                                   actions::ActionItem* footer_action_item) {
+  auto* footer_item = view_parent->AppendMenuItem(0);
+  footer_item->SetTriggerActionWithNonIconChildViews(false);
+  footer_item->set_children_use_full_width(true);
+
+  footer_item->AddChildView(std::make_unique<ActionAppMenuFooterView>(
+      footer_action_item, &action_view_controller_, &command_to_action_map_));
+}
+
+void ActionAppMenu::PopulateBlockMenuItem(
+    views::MenuItemView* view_parent,
+    actions::ActionItem* block_action_item) {
+  auto* block_item = view_parent->AppendMenuItem(0);
+  block_item->SetTriggerActionWithNonIconChildViews(false);
+  block_item->set_children_use_full_width(true);
+
+  const auto* provider = ChromeLayoutProvider::Get();
+  auto row_view = std::make_unique<views::BoxLayoutView>();
+  row_view->SetOrientation(views::BoxLayout::Orientation::kHorizontal);
+  row_view->SetCrossAxisAlignment(
+      views::BoxLayout::CrossAxisAlignment::kStretch);
+  row_view->SetInsideBorderInsets(
+      provider->GetInsetsMetric(INSETS_ACTION_APP_MENU_BLOCK_ROW));
+  row_view->SetBetweenChildSpacing(
+      provider->GetDistanceMetric(DISTANCE_ACTION_APP_MENU_BLOCK_ROW_SPACING));
+  row_view->SetDefaultFlex(1);
+
+  for (const auto& block_child : block_action_item->GetChildren().children()) {
+    actions::ActionItem* block_child_ptr = block_child->GetActionItem();
+    std::optional<actions::ActionId> action_id = block_child_ptr->GetActionId();
+    CHECK(action_id.has_value());
+
+    auto button = std::make_unique<BlockMenuEntryButton>();
+    action_view_controller_.CreateActionViewRelationship(
+        button.get(), block_child_ptr->GetAsWeakPtr());
+    command_to_action_map_[action_id.value()] = block_child_ptr;
+
+    if (std::u16string* text_override =
+            block_child->GetProperty(ActionAppMenuManager::kTextOverrideKey)) {
+      button->SetText(*text_override);
+    }
+
+    if (ui::ImageModel* icon_override =
+            block_child->GetProperty(ActionAppMenuManager::kIconOverrideKey)) {
+      button->SetImageModel(*icon_override);
+    }
+
+    row_view->AddChildView(std::move(button));
+  }
+  block_item->AddChildView(std::move(row_view));
 }

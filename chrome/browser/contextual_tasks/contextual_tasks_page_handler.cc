@@ -9,16 +9,23 @@
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/single_thread_task_runner.h"
+#include "base/time/time.h"
 #include "base/uuid.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
+#include "chrome/browser/actor/actor_actions_runner.h"
+#include "chrome/browser/actor/actor_proto_conversion.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
 #include "chrome/browser/contextual_tasks/ai_mode_context_library_converter.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks.mojom-shared.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_context_service.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
+#include "chrome/browser/contextual_tasks/smart_tab_sharing_metrics.h"
 #include "chrome/browser/feedback/public/feedback_source.h"
 #include "chrome/browser/feedback/show_feedback_page.h"
 #include "chrome/browser/global_features.h"
@@ -26,17 +33,17 @@
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
+#include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #endif
-#include "base/task/single_thread_task_runner.h"
-#include "chrome/browser/ui/navigator/browser_navigator.h"
-#include "chrome/browser/ui/navigator/browser_navigator_params.h"
-#include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/common/pref_names.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/application_locale_storage/application_locale_storage.h"
 #include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/contextual_tasks/public/context_decoration_params.h"
@@ -50,8 +57,11 @@
 #include "components/omnibox/browser/searchbox.mojom.h"
 #include "components/omnibox/common/composebox_features.h"
 #include "components/omnibox/common/logger.h"
+#include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "components/prefs/pref_service.h"
+#include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_id.h"
+#include "components/tab_groups/tab_group_visual_data.h"
 #include "components/tabs/public/tab_handle_factory.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_context.h"
@@ -283,6 +293,9 @@ void ContextualTasksPageHandler::OnCookieSyncCompleted() {
 }
 
 void ContextualTasksPageHandler::GetThreadUrl(GetThreadUrlCallback callback) {
+  // Re-sync active tab auto-suggestion down to the WebUI for the fresh thread.
+  web_ui_controller_->SyncAutoSuggestedTabContext();
+
   std::optional<base::Uuid> task_id = web_ui_controller_->GetTaskId();
   if (task_id.has_value()) {
     std::move(callback).Run(
@@ -553,6 +566,10 @@ void ContextualTasksPageHandler::OnWebviewMessage(
                     ->GetLastCommittedOrigin()
               : url::Origin());
     }
+  } else if (aim_to_client_message.has_execute_actions() &&
+             base::FeatureList::IsEnabled(
+                 contextual_tasks::kContextualTasksScriptTools)) {
+    OnReceivedExecuteActions(aim_to_client_message.execute_actions());
   }
 }
 
@@ -603,15 +620,6 @@ void ContextualTasksPageHandler::OnboardingTooltipDismissed() {
   prefs->SetInteger(
       contextual_tasks::kContextualTasksSessionCountPostOnboarding, 0);
 #endif  // !BUILDFLAG(IS_ANDROID)
-}
-
-void ContextualTasksPageHandler::LensSearchTooltipDismissed() {
-  PrefService* prefs = web_ui_controller_->GetProfile()->GetPrefs();
-  int count = prefs->GetInteger(
-      contextual_tasks::kContextualTasksLensSearchTooltipDismissedCount);
-  prefs->SetInteger(
-      contextual_tasks::kContextualTasksLensSearchTooltipDismissedCount,
-      count + 1);
 }
 
 void ContextualTasksPageHandler::AskGTooltipDismissed() {
@@ -721,6 +729,11 @@ void ContextualTasksPageHandler::OnReceivedUpdatedThreadContextLibrary(
   std::vector<contextual_tasks::UrlResource> committed_context =
       contextual_tasks::ConvertAiModeContextToUrlResources(message,
                                                            submitted_context);
+  bool is_history_loading = web_ui_controller_->is_history_thread_loading();
+  if (is_history_loading) {
+    web_ui_controller_->set_is_history_thread_loading(false);
+  }
+
   if (committed_context.empty()) {
     return;
   }
@@ -738,8 +751,7 @@ void ContextualTasksPageHandler::OnReceivedUpdatedThreadContextLibrary(
   // Populate restored tabs in the composebox.
   if (contextual_tasks_service_ &&
       base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox) &&
-      web_ui_controller_->is_history_thread_loading()) {
-    web_ui_controller_->set_is_history_thread_loading(false);
+      is_history_loading) {
     contextual_tasks_service_->GetContextForTask(
         *task_id, {},
         std::make_unique<contextual_tasks::ContextDecorationParams>(),
@@ -755,12 +767,19 @@ void ContextualTasksPageHandler::OnReceivedUpdatedThreadContextLibrary(
                 for (const auto& item : context_items) {
                   if (item->is_tab() && item->get_tab()->has_chrome_tab_data) {
                     auto tab_info = searchbox::mojom::TabInfo::New();
-                    tab_info->tab_id = item->get_tab()->tab_id;
                     tab_info->url = item->get_tab()->url;
                     tab_info->title = item->get_tab()->title;
-                    tab_info->tab_id =
+                    int32_t handle =
                         tabs::SessionMappedTabHandleFactory::GetInstance()
                             .GetHandleForSessionId(item->get_tab()->tab_id);
+                    if (handle != tabs::TabHandle::NullValue) {
+                      tab_info->tab_id = handle;
+                    } else if (SessionID::IsValidValue(
+                                   item->get_tab()->tab_id)) {
+                      tab_info->tab_id = item->get_tab()->tab_id;
+                    } else {
+                      tab_info->tab_id = tabs::TabHandle::NullValue;
+                    }
                     tabs.push_back(std::move(tab_info));
                   }
                 }
@@ -880,6 +899,10 @@ void ContextualTasksPageHandler::OnContextMenuOpened() {
 void ContextualTasksPageHandler::NotifySmartTabSharingTryItIphResult(
     bool accepted) {
 #if !BUILDFLAG(IS_ANDROID)
+  contextual_tasks::LogPromoInteraction(
+      accepted ? contextual_tasks::SmartTabSharingPromoAction::kPromoAccepted
+               : contextual_tasks::SmartTabSharingPromoAction::kPromoDismissed);
+
   auto* tracker = feature_engagement::TrackerFactory::GetForBrowserContext(
       web_ui_controller_->GetProfile());
   if (tracker) {
@@ -1029,6 +1052,40 @@ void ContextualTasksPageHandler::OnLogoPointerDown() {
 }
 
 void ContextualTasksPageHandler::CreateNewThread() {
+  if (contextual_tasks::IsContextualTasksSidePanelRearchitectureEnabled()) {
+    if (!panel_controller_) {
+      return;
+    }
+    content::WebContents* target_contents =
+        panel_controller_->GetActiveWebContents();
+    if (!target_contents) {
+      return;
+    }
+
+    std::optional<base::Uuid> task_id;
+    if (auto current_task = panel_controller_->GetCurrentTask()) {
+      task_id = current_task->GetTaskId();
+    } else if (auto* helper =
+                   ContextualSearchWebContentsHelper::FromWebContents(
+                       target_contents)) {
+      task_id = helper->task_id();
+    }
+
+    GURL url = task_id.has_value()
+                   ? ui_service_->GetDefaultAiPageUrlForTask(task_id.value())
+                   : ui_service_->GetDefaultAiPageUrl();
+    url = ui_service_->AddRequiredSidePanelUrlChanges(url, target_contents);
+
+    content::NavigationController::LoadURLParams params(url);
+    params.transition_type = ui::PAGE_TRANSITION_AUTO_TOPLEVEL;
+    target_contents->GetController().LoadURLWithParams(params);
+
+    if (web_ui_controller_) {
+      web_ui_controller_->SetThreadTitle(std::nullopt);
+    }
+    return;
+  }
+
   std::optional<base::Uuid> task_id = web_ui_controller_->GetTaskId();
   GURL url;
   if (task_id.has_value()) {
@@ -1041,4 +1098,73 @@ void ContextualTasksPageHandler::CreateNewThread() {
     params.transition_type = ui::PAGE_TRANSITION_AUTO_TOPLEVEL;
     inner_contents->GetController().LoadURLWithParams(params);
   }
+}
+
+void ContextualTasksPageHandler::OnReceivedExecuteActions(
+    const lens::ExecuteActions& execute_actions) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(base::FeatureList::IsEnabled(
+      contextual_tasks::kContextualTasksScriptTools));
+
+  if (!actor::ValidateActionsAreScriptTools(execute_actions.actions())) {
+    LOG(ERROR) << "ExecuteActions contained non-ScriptTool actions.";
+    SendActionsResult(actor::BuildErrorActionsResult(
+        actor::mojom::ActionResultCode::kArgumentsInvalid, std::nullopt));
+    return;
+  }
+
+  // Find the tab ID of the tab shared/associated with the current task.
+  SessionID shared_tab_id = SessionID::InvalidValue();
+  std::optional<base::Uuid> current_task_id = web_ui_controller_->GetTaskId();
+  if (current_task_id.has_value()) {
+    std::vector<SessionID> tab_ids =
+        contextual_tasks_service_->GetTabsAssociatedWithTask(*current_task_id);
+    if (!tab_ids.empty()) {
+      shared_tab_id = tab_ids.front();
+    }
+  }
+
+  if (!shared_tab_id.is_valid()) {
+    LOG(ERROR) << "ExecuteActions could not find a valid tab ID for task.";
+    SendActionsResult(actor::BuildErrorActionsResult(
+        actor::mojom::ActionResultCode::kTabWentAway, std::nullopt));
+    return;
+  }
+
+  int32_t shared_tab_handle_value =
+      tabs::SessionMappedTabHandleFactory::GetInstance().GetHandleForSessionId(
+          shared_tab_id.id());
+
+  actor::TaskSourceInfo source_info(
+      actor::TaskSourceInfo::Client::kContextualTasks,
+      current_task_id->AsLowercaseString());
+
+  actions_runner_ = std::make_unique<actor::ActorActionsRunner>(
+      *web_ui_controller_->GetProfile(), std::move(source_info),
+      execute_actions.actions(),
+      base::BindOnce(&ContextualTasksPageHandler::OnActionsComplete,
+                     weak_ptr_factory_.GetWeakPtr()),
+      shared_tab_handle_value);
+  actions_runner_->Start();
+}
+
+void ContextualTasksPageHandler::OnActionsComplete() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!actions_runner_) {
+    return;
+  }
+  std::unique_ptr<optimization_guide::proto::ActionsResult> result =
+      actions_runner_->TakeResult();
+  if (result) {
+    SendActionsResult(*result);
+  }
+  actions_runner_.reset();
+}
+
+void ContextualTasksPageHandler::SendActionsResult(
+    const optimization_guide::proto::ActionsResult& result) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  lens::ClientToAimMessage message;
+  message.mutable_actions_result()->mutable_actions_result()->CopyFrom(result);
+  PostAimMessage(message);
 }

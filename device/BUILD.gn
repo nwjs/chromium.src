@@ -181,7 +181,6 @@ test("device_unittests") {
       "fido/ble_adapter_manager_unittest.cc",
       "fido/cable/v2_discovery_unittest.cc",
       "fido/cable/v2_handshake_unittest.cc",
-      "fido/cbor_extract_unittest.cc",
       "fido/cbor_util_unittest.cc",
       "fido/credential_management_handler_unittest.cc",
       "fido/ctap_request_unittest.cc",
@@ -462,6 +461,14 @@ test("device_unittests") {
         "vr/openxr/openxr_view_configuration_unittest.cc",
       ]
       deps += [ "//third_party/openxr:openxr_core_headers" ]
+
+      if (is_linux) {
+        # The Linux OpenXR unittests link the OpenXR loader, which is only
+        # visible to //device/vr/*. They live in a dedicated source_set under
+        # //device/vr so it can own that dependency, keeping device_unittests
+        # itself free of it.
+        deps += [ "//device/vr:openxr_linux_unittests" ]
+      }
     }
 
     defines = [ "DEVICE_VR_IMPLEMENTATION" ]

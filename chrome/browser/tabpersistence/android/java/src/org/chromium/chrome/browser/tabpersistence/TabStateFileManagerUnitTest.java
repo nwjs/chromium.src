@@ -18,7 +18,6 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.StreamUtil;
 import org.chromium.base.Token;
@@ -45,7 +44,6 @@ import java.nio.channels.FileChannel;
 
 /** Unit tests for {@link TabStateFileManager}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class TabStateFileManagerUnitTest {
     private static final byte[] CONTENTS_STATE_BYTES = new byte[] {1, 2, 3};
     private static final long TIMESTAMP = 10L;
@@ -194,12 +192,13 @@ public class TabStateFileManagerUnitTest {
         Assert.assertEquals(32, TabLaunchTypeAtCreation.FROM_LINK_CREATING_NEW_WINDOW);
         Assert.assertEquals(33, TabLaunchTypeAtCreation.FROM_TIPS_NOTIFICATIONS);
         Assert.assertEquals(34, TabLaunchTypeAtCreation.FROM_TAB_LIST_INTERFACE_BACKGROUND);
+        Assert.assertEquals(35, TabLaunchTypeAtCreation.FROM_SESSION_STARTUP_WITH_URLS_PREF);
         // Note this should be the total number of TabLaunchTypeAtCreation values including
         // SIZE and UNKNOWN so it should be equal to the last value +3.
         Assert.assertEquals(
                 "Need to increment 1 to expected value each time a LaunchTypeAtCreation "
                         + "is added. Also need to add any new LaunchTypeAtCreation to this test.",
-                37,
+                38,
                 TabLaunchTypeAtCreation.names.length);
     }
 
@@ -210,7 +209,7 @@ public class TabStateFileManagerUnitTest {
                         + " FlatBufferTabStateSerializer#getLaunchTypeFromFlatBuffer,"
                         + " FlatBufferTabStateSerializer#getLaunchTypeToFlatBuffer"
                         + " and this test file.",
-                35,
+                36,
                 TabLaunchType.SIZE);
     }
 
@@ -373,6 +372,14 @@ public class TabStateFileManagerUnitTest {
                 FlatBufferTabStateSerializer.getLaunchTypeFromFlatBuffer(
                         TabLaunchTypeAtCreation.FROM_TIPS_NOTIFICATIONS));
         Assert.assertEquals(
+                TabLaunchType.FROM_TAB_LIST_INTERFACE_BACKGROUND,
+                FlatBufferTabStateSerializer.getLaunchTypeFromFlatBuffer(
+                        TabLaunchTypeAtCreation.FROM_TAB_LIST_INTERFACE_BACKGROUND));
+        Assert.assertEquals(
+                TabLaunchType.FROM_SESSION_STARTUP_WITH_URLS_PREF,
+                FlatBufferTabStateSerializer.getLaunchTypeFromFlatBuffer(
+                        TabLaunchTypeAtCreation.FROM_SESSION_STARTUP_WITH_URLS_PREF));
+        Assert.assertEquals(
                 TabLaunchType.UNSET,
                 FlatBufferTabStateSerializer.getLaunchTypeFromFlatBuffer(
                         TabLaunchTypeAtCreation.UNKNOWN));
@@ -512,6 +519,14 @@ public class TabStateFileManagerUnitTest {
                 TabLaunchTypeAtCreation.FROM_TIPS_NOTIFICATIONS,
                 FlatBufferTabStateSerializer.getLaunchTypeToFlatBuffer(
                         TabLaunchType.FROM_TIPS_NOTIFICATIONS));
+        Assert.assertEquals(
+                TabLaunchTypeAtCreation.FROM_TAB_LIST_INTERFACE_BACKGROUND,
+                FlatBufferTabStateSerializer.getLaunchTypeToFlatBuffer(
+                        TabLaunchType.FROM_TAB_LIST_INTERFACE_BACKGROUND));
+        Assert.assertEquals(
+                TabLaunchTypeAtCreation.FROM_SESSION_STARTUP_WITH_URLS_PREF,
+                FlatBufferTabStateSerializer.getLaunchTypeToFlatBuffer(
+                        TabLaunchType.FROM_SESSION_STARTUP_WITH_URLS_PREF));
         Assert.assertEquals(
                 TabLaunchTypeAtCreation.UNSET,
                 FlatBufferTabStateSerializer.getLaunchTypeToFlatBuffer(TabLaunchType.UNSET));

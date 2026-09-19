@@ -8,8 +8,6 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType.ACTIVE;
 import static org.chromium.chrome.browser.share.ShareDelegate.ShareOrigin.TAB_STRIP_CONTEXT_MENU;
 import static org.chromium.chrome.browser.tabmodel.TabGroupUtils.createNewGroupForTabs;
-import static org.chromium.chrome.browser.tabmodel.TabGroupUtils.mergeTabsToDest;
-import static org.chromium.chrome.browser.tasks.tab_management.GroupWindowState.IN_CURRENT_CLOSING;
 import static org.chromium.ui.listmenu.BasicListMenu.buildMenuDivider;
 
 import android.app.Activity;
@@ -53,7 +51,6 @@ import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tabmodel.TabClosingSource;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabClosureParamsUtils;
-import org.chromium.chrome.browser.tabmodel.TabGroupTitleUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupUtils.TabGroupCreationCallback;
 import org.chromium.chrome.browser.tabmodel.TabList;
@@ -63,8 +60,9 @@ import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 import org.chromium.chrome.browser.tabwindow.TabWindowManagerUtils;
 import org.chromium.chrome.browser.tabwindow.WindowId;
 import org.chromium.chrome.browser.tasks.tab_management.GroupWindowChecker;
-import org.chromium.chrome.browser.tasks.tab_management.GroupWindowState;
+import org.chromium.chrome.browser.tasks.tab_management.GroupWindowInfo;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupListBottomSheetCoordinator;
+import org.chromium.chrome.browser.tasks.tab_management.TabGroupUiUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabShareUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabStripReorderingHelper;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -81,8 +79,7 @@ import org.chromium.components.browser_ui.widget.ListItemBuilder;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.browser_ui.widget.list_view.ListViewTouchTracker;
 import org.chromium.components.collaboration.CollaborationService;
-import org.chromium.components.embedder_support.util.UrlConstants;
-import org.chromium.components.tab_group_sync.SavedTabGroup;
+import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -367,7 +364,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
             } else if (menuId == R.id.toggle_tab_layout_menu_id) {
                 boolean isEnablingVerticalTabs = tabStripLayout == TabStripLayoutType.HORIZONTAL;
                 VerticalTabUtils.recordLayoutToggle(
-                        LayoutSwitchEntryPoint.TAB_CONTEXT_MENU, isEnablingVerticalTabs);
+                        activity, LayoutSwitchEntryPoint.TAB_CONTEXT_MENU, isEnablingVerticalTabs);
                 if (activity instanceof MenuOrKeyboardActionController controller) {
                     controller.onMenuOrKeyboardAction(
                             R.id.toggle_tab_layout_menu_id, /* fromMenu= */ false);
@@ -663,7 +660,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         // Need to check list is non-empty before calling addAll; otherwise we get assertion error.
         if (!reorderItems.isEmpty()) itemList.addAll(reorderItems);
         itemList.add(buildMenuDivider(isIncognito));
-        if (!ChromeFeatureList.sAndroidContextMenuDisabledMenuItems.isEnabled()
+        if (ChromeFeatureList.sAndroidContextMenuDisabledMenuItems.isEnabled()
                 && ShareUtils.shouldEnableShare(tabs.get(0))) {
             // Share is only available for single tab selection.
             itemList.add(createShareItem(isIncognito));
@@ -759,10 +756,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
     private ListItem createMoveToTabGroupItem(List<Tab> tabs, boolean isIncognito) {
         // Available tab groups.
         @Nullable Token groupToNotBeIncluded = tabs.get(0).getTabGroupId();
-        List<ListItem> potentialGroups =
-                isIncognito
-                        ? getIncognitoTabGroups(tabs, groupToNotBeIncluded)
-                        : getRegularTabGroups(tabs, groupToNotBeIncluded);
+        List<ListItem> potentialGroups = getTabGroups(tabs, groupToNotBeIncluded, isIncognito);
 
         if (potentialGroups.isEmpty()) {
             String title =
@@ -801,9 +795,8 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         submenuItems.addAll(potentialGroups);
 
         String title =
-                mActivity
-                        .getResources()
-                        .getQuantityString(R.plurals.add_tab_to_group_menu_item, tabs.size());
+                TabGroupUiUtils.getAddToGroupMenuItemTitle(
+                        mActivity, groupToNotBeIncluded, tabs.size());
         return new ListItemBuilder()
                 .withTitle(title)
                 .withIsIncognito(isIncognito)
@@ -922,10 +915,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
             GURL url = tab.getUrl();
             if (url.isEmpty()) continue;
 
-            String scheme = url.getScheme();
-            boolean isChromeScheme =
-                    UrlConstants.CHROME_SCHEME.equals(scheme)
-                            || UrlConstants.CHROME_NATIVE_SCHEME.equals(scheme);
+            boolean isChromeScheme = UrlUtilities.isChromeScheme(url);
 
             if (isChromeScheme && tab.getWebContents() == null) continue;
 
@@ -1114,122 +1104,60 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         }
     }
 
-    private List<ListItem> getRegularTabGroups(
-            List<Tab> tabs, @Nullable Token groupToNotBeIncluded) {
+    private List<ListItem> getTabGroups(
+            List<Tab> tabs, @Nullable Token groupToNotBeIncluded, boolean isIncognito) {
         GroupWindowChecker windowChecker =
-                new GroupWindowChecker(mTabGroupSyncService, getTabModel());
-        List<SavedTabGroup> sortedTabGroups =
-                windowChecker.getSortedGroupList(
-                        groupWindowState ->
-                                groupWindowState != IN_CURRENT_CLOSING
-                                        && groupWindowState != GroupWindowState.HIDDEN,
-                        (a, b) -> Long.compare(b.updateTimeMs, a.updateTimeMs));
+                new GroupWindowChecker(mActivity, mTabGroupSyncService, getTabModel());
+        List<GroupWindowInfo> sortedTabGroups = windowChecker.getDefaultSortedGroupList();
 
         List<ListItem> result = new ArrayList<>();
 
         Set<Integer> activeInstanceIds = MultiWindowUtils.getUsableInstanceIds(ACTIVE);
-        for (SavedTabGroup tabGroup : sortedTabGroups) {
+        for (GroupWindowInfo tabGroup : sortedTabGroups) {
             if (tabGroup.localId == null) continue;
-            if (Objects.equals(groupToNotBeIncluded, tabGroup.localId.tabGroupId)) {
+            if (Objects.equals(groupToNotBeIncluded, tabGroup.localId)) {
                 continue;
             }
-            Token groupId = tabGroup.localId.tabGroupId;
+            Token groupId = tabGroup.localId;
 
             TabWindowManager tabWindowManager = TabWindowManagerSingleton.getInstance();
             @WindowId int windowId = tabWindowManager.findWindowIdForTabGroup(groupId);
-            assumeNonNull(mMultiInstanceManager);
-            boolean isGroupInCurrentWindow =
-                    windowId == mMultiInstanceManager.getCurrentInstanceId();
             if (!activeInstanceIds.contains(windowId)) {
                 continue; // Skip groups w/o active window.
             }
 
-            @Nullable Integer firstTabInGroupTabId = tabGroup.savedTabs.get(0).localId;
-            assert firstTabInGroupTabId != null : "Tab groups shouldn't be empty";
             String label =
                     TabWindowManagerUtils.getTabGroupTitleInAnyWindow(
-                            mActivity, tabWindowManager, groupId, /* isIncognito= */ false);
+                            mActivity, tabWindowManager, groupId, isIncognito);
             // If no title could be found nor could a default be generated, skip the group
             if (label == null) continue;
             @TabGroupColorId
             int colorId =
                     TabWindowManagerUtils.getTabGroupColorInAnyWindow(
-                            tabWindowManager, groupId, /* isIncognito= */ false);
+                            tabWindowManager, groupId, isIncognito);
+            @IdRes
+            int menuId =
+                    isIncognito
+                            ? R.id.add_to_group_incognito_sub_menu_id
+                            : R.id.add_to_group_sub_menu_id;
             OnClickListener clickListener =
                     (v) -> {
-                        recordMenuAction(
-                                R.id.add_to_group_sub_menu_id,
-                                tabs.size() > 1,
-                                false,
-                                mTabStripLayout);
-                        if (isGroupInCurrentWindow) {
-                            // If the tab is already in the current window,
-                            // then just merge it to the group.
-                            mergeTabsToDest(
-                                    tabs,
-                                    firstTabInGroupTabId,
-                                    getTabModel(),
-                                    /* tabMovedCallback= */ null);
-                        } else {
-                            ungroupTabs(tabs);
-                            mMultiInstanceOrchestrator.moveTabsToWindowByIdChecked(
-                                    windowId,
-                                    tabs,
-                                    /* destTabIndex= */ TabList.INVALID_TAB_INDEX,
-                                    /* destGroupTabId= */ firstTabInGroupTabId,
-                                    /* bringToFront= */ true);
-                        }
+                        recordMenuAction(menuId, tabs.size() > 1, isIncognito, mTabStripLayout);
+                        TabGroupUiUtils.addTabsToGroup(
+                                getTabModel(),
+                                tabs,
+                                tabGroup,
+                                /* tabMovedCallback= */ null,
+                                /* bringToFront= */ true);
                     };
             result.add(
                     new ListItemBuilder()
                             .withTitle(label)
                             .withClickListener(clickListener)
-                            .withIsIncognito(false)
+                            .withIsIncognito(isIncognito)
                             .withStartIconDrawable(
                                     TabGroupUtils.createColorDrawableForMenu(
-                                            mActivity,
-                                            colorId,
-                                            /* isIncognito= */ false,
-                                            mCircleSize))
-                            .withStartIconWidth(mCircleSize)
-                            .withShouldTintIcon(false)
-                            .build());
-        }
-        return result;
-    }
-
-    private List<ListItem> getIncognitoTabGroups(
-            List<Tab> tabs, @Nullable Token groupToNotBeIncluded) {
-        List<ListItem> result = new ArrayList<>();
-        for (Token groupId : getTabModel().getAllTabGroupIds()) {
-            if (Objects.equals(groupToNotBeIncluded, groupId)) {
-                continue;
-            }
-
-            int tabIdInGroup = getTabModel().getGroupLastShownTabId(groupId);
-            OnClickListener clickListener =
-                    (v) -> {
-                        recordMenuAction(
-                                R.id.add_to_group_incognito_sub_menu_id,
-                                tabs.size() > 1,
-                                true,
-                                mTabStripLayout);
-                        mergeTabsToDest(
-                                tabs, tabIdInGroup, getTabModel(), /* tabMovedCallback= */ null);
-                    };
-            result.add(
-                    new ListItemBuilder()
-                            .withTitle(
-                                    TabGroupTitleUtils.getDisplayableTitle(
-                                            mActivity, getTabModel(), groupId))
-                            .withClickListener(clickListener)
-                            .withIsIncognito(true)
-                            .withStartIconDrawable(
-                                    TabGroupUtils.createColorDrawableForMenu(
-                                            mActivity,
-                                            getTabModel().getTabGroupColor(groupId),
-                                            /* isIncognito= */ true,
-                                            mCircleSize))
+                                            mActivity, colorId, isIncognito, mCircleSize))
                             .withStartIconWidth(mCircleSize)
                             .withShouldTintIcon(false)
                             .build());
@@ -1301,20 +1229,19 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
     }
 
     private List<ListItem> createReorderItems(AnchorInfo anchorInfo, boolean isIncognito) {
+        boolean isVerticalTabs = mTabStripLayout == TabStripLayoutType.VERTICAL;
+        int moveStartPlural = isVerticalTabs ? R.plurals.move_tabs_up : R.plurals.move_tabs_left;
+        int moveEndPlural = isVerticalTabs ? R.plurals.move_tabs_down : R.plurals.move_tabs_right;
+        int count = anchorInfo.getAllTabIds().size();
         return createReorderItems(
                 anchorInfo,
-                mActivity
-                        .getResources()
-                        .getQuantityString(
-                                R.plurals.move_tabs_left, anchorInfo.getAllTabIds().size()),
-                mActivity
-                        .getResources()
-                        .getQuantityString(
-                                R.plurals.move_tabs_right, anchorInfo.getAllTabIds().size()),
-                isIncognito);
+                mActivity.getResources().getQuantityString(moveStartPlural, count),
+                mActivity.getResources().getQuantityString(moveEndPlural, count),
+                isIncognito,
+                isVerticalTabs);
     }
 
-    /** Ungroups any tabs in {@param tabs} which are currently in a group. */
+    /** Ungroups any tabs in {@code tabs} which are currently in a group. */
     private void ungroupTabs(List<Tab> tabs) {
         List<Tab> groupedTabs = TabGroupUtils.getGroupedTabs(getTabModel(), tabs);
         if (!groupedTabs.isEmpty()) {

@@ -6,7 +6,6 @@
 
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/test_with_browser_view.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "content/public/test/browser_test.h"
 #include "ui/views/test/widget_test.h"
@@ -48,7 +47,7 @@ IN_PROC_BROWSER_TEST_F(SecurityDialogTrackerTest, Basic) {
   // Security dialog is now visible.
   EXPECT_TRUE(tracker->BrowserHasVisibleSecurityDialogs(browser()));
 
-  Browser* new_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* new_browser = CreateBrowser(browser()->GetProfile());
   // No security dialogs under a different browser.
   EXPECT_FALSE(tracker->BrowserHasVisibleSecurityDialogs(new_browser));
 

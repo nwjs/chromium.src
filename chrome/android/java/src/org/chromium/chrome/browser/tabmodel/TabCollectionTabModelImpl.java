@@ -893,8 +893,19 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge {
     public void setActive(boolean active) {
         if (mActive == active) return;
         mActive = active;
+    }
+
+    @Override
+    public void notifyWillActiveStateChange(boolean active) {
         for (TabModelObserver obs : mTabModelObservers) {
-            obs.onActiveChanged(active);
+            obs.onWillActiveStateChange(/* tabModel= */ this, active);
+        }
+    }
+
+    @Override
+    public void notifyDidActiveStateChange(boolean active) {
+        for (TabModelObserver obs : mTabModelObservers) {
+            obs.onDidActiveStateChange(/* tabModel= */ this, active);
         }
     }
 
@@ -1601,6 +1612,15 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge {
             assert tab.getWebContents() != null
                     : "WebContents must be created before adding to a standard tab model if load"
                             + " all tabs at startup is enabled.";
+        } else if (TabModel.isDormantTabModel(mTabModelType)) {
+            assert tab.getWebContents() == null
+                    : "Dormant tab models (archived or headless) must never have WebContents"
+                            + " attached.";
+            assert tab.getTabModelType() == mTabModelType
+                    : "Tab model type mismatch: tab="
+                            + tab.getTabModelType()
+                            + ", model="
+                            + mTabModelType;
         }
     }
 
@@ -2292,8 +2312,11 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge {
         assert tabGroupIdForNewGroup == null
                         || willCreateNewGroup
                         || tabGroupIdForNewGroup.equals(maybeDestinationTabGroupId)
+                        || (!candidateTabGroupIds.isEmpty()
+                                && tabGroupIdForNewGroup.equals(candidateTabGroupIds.get(0)))
                 : "A new tab group ID should not be provided if the merge contains a tab group"
-                        + " unless it matches the destination tab's group ID.";
+                        + " unless it matches the destination tab's group ID or the candidate"
+                        + " group ID.";
 
         // Find a destination tab group ID.
         final Token destinationTabGroupId;

@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <limits>
 #include <list>
@@ -40,6 +41,7 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/numerics/safe_math.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_view_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
@@ -8154,6 +8156,35 @@ void GLES2DecoderImpl::DoBlitFramebufferCHROMIUM(
     state_.EnableDisableFramebufferSRGB(enable_srgb);
   }
 
+  if (workarounds().finish_before_blit_framebuffer_multi_attachment &&
+      draw_framebuffer) {
+    int color_attachment_count = 0;
+    bool need_finish = false;
+    for (uint32_t i = 0; i < group_->max_color_attachments(); ++i) {
+      const Framebuffer::Attachment* attachment =
+          draw_framebuffer->GetAttachment(GL_COLOR_ATTACHMENT0 + i);
+      if (attachment) {
+        ++color_attachment_count;
+        if (color_attachment_count > 1) {
+          need_finish = true;
+          break;
+        }
+        if (attachment->IsTextureAttachment()) {
+          GLuint client_id = attachment->object_name();
+          const TextureRef* texture_ref =
+              texture_manager()->GetTexture(client_id);
+          if (texture_ref && texture_ref->texture()->base_level() > 0) {
+            need_finish = true;
+            break;
+          }
+        }
+      }
+    }
+    if (need_finish) {
+      api()->glFinishFn();
+    }
+  }
+
   api()->glBlitFramebufferFn(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1,
                              dstY1, mask, filter);
 }
@@ -12950,10 +12981,11 @@ error::Error GLES2DecoderImpl::HandleCompressedTexImage2DBucket(
   if (!bucket)
     return error::kInvalidArguments;
   uint32_t image_size = bucket->size();
-  const void* data = bucket->GetData(0, image_size);
-  DCHECK(data || !image_size);
+  base::span<uint8_t> data = bucket->GetDataAsByteSpan(0, image_size);
+  DCHECK_EQ(data.size(), image_size);
   return DoCompressedTexImage(target, level, internal_format, width, height, 1,
-                              border, image_size, data, ContextState::k2D);
+                              border, image_size, data.data(),
+                              ContextState::k2D);
 }
 
 error::Error GLES2DecoderImpl::HandleCompressedTexImage2D(
@@ -13010,10 +13042,10 @@ error::Error GLES2DecoderImpl::HandleCompressedTexImage3DBucket(
   if (!bucket)
     return error::kInvalidArguments;
   uint32_t image_size = bucket->size();
-  const void* data = bucket->GetData(0, image_size);
-  DCHECK(data || !image_size);
+  base::span<uint8_t> data = bucket->GetDataAsByteSpan(0, image_size);
+  DCHECK_EQ(data.size(), image_size);
   return DoCompressedTexImage(target, level, internal_format, width, height,
-                              depth, border, image_size, data,
+                              depth, border, image_size, data.data(),
                               ContextState::k3D);
 }
 
@@ -13077,11 +13109,11 @@ error::Error GLES2DecoderImpl::HandleCompressedTexSubImage3DBucket(
   if (!bucket)
     return error::kInvalidArguments;
   uint32_t image_size = bucket->size();
-  const void* data = bucket->GetData(0, image_size);
-  DCHECK(data || !image_size);
+  base::span<uint8_t> data = bucket->GetDataAsByteSpan(0, image_size);
+  DCHECK_EQ(data.size(), image_size);
   return DoCompressedTexSubImage(target, level, xoffset, yoffset, zoffset,
                                  width, height, depth, format, image_size,
-                                 data, ContextState::k3D);
+                                 data.data(), ContextState::k3D);
 }
 
 error::Error GLES2DecoderImpl::HandleCompressedTexSubImage3D(
@@ -13206,10 +13238,50 @@ error::Error GLES2DecoderImpl::DoCompressedTexImage(
     }
     ScopedPixelUnpackState reset_restore(&state_);
     if (dimension == ContextState::k2D) {
-      api()->glTexImage2DFn(
-          target, level, format_info->decompressed_internal_format, width,
-          height, border, format_info->decompressed_format,
-          format_info->decompressed_type, decompressed_data.data());
+      bool handled = false;
+      if (workarounds().upload_oversized_mip_levels_via_unpack_buffer &&
+          target == GL_TEXTURE_2D && level > 0 &&
+          !state_.bound_pixel_unpack_buffer) {
+        GLsizei level0_width = 0;
+        GLsizei level0_height = 0;
+        GLsizei level0_depth = 0;
+        if (texture->GetLevelSize(target, 0, &level0_width, &level0_height,
+                                  &level0_depth) &&
+            level0_width > 0 && level0_height > 0) {
+          const int slot_w = std::max(
+              1, static_cast<int>(
+                     std::bit_ceil(static_cast<uint32_t>(level0_width))) >>
+                     level);
+          const int slot_h = std::max(
+              1, static_cast<int>(
+                     std::bit_ceil(static_cast<uint32_t>(level0_height))) >>
+                     level);
+          if (width > slot_w || height > slot_h) {
+            GLuint scratch = 0;
+            api()->glGenBuffersARBFn(1, &scratch);
+            api()->glBindBufferFn(GL_PIXEL_UNPACK_BUFFER, scratch);
+            if (!decompressed_data.empty()) {
+              api()->glBufferDataFn(
+                  GL_PIXEL_UNPACK_BUFFER,
+                  decompressed_data.size() * sizeof(decompressed_data[0]),
+                  decompressed_data.data(), GL_STREAM_DRAW);
+            }
+            api()->glTexImage2DFn(
+                target, level, format_info->decompressed_internal_format, width,
+                height, border, format_info->decompressed_format,
+                format_info->decompressed_type, nullptr);
+            api()->glBindBufferFn(GL_PIXEL_UNPACK_BUFFER, 0);
+            api()->glDeleteBuffersARBFn(1, &scratch);
+            handled = true;
+          }
+        }
+      }
+      if (!handled) {
+        api()->glTexImage2DFn(
+            target, level, format_info->decompressed_internal_format, width,
+            height, border, format_info->decompressed_format,
+            format_info->decompressed_type, decompressed_data.data());
+      }
     } else {
       api()->glTexImage3DFn(
           target, level, format_info->decompressed_internal_format, width,
@@ -13218,8 +13290,48 @@ error::Error GLES2DecoderImpl::DoCompressedTexImage(
     }
   } else {
     if (dimension == ContextState::k2D) {
-      api()->glCompressedTexImage2DFn(target, level, internal_format, width,
-                                      height, border, image_size, data);
+      bool handled = false;
+      if (workarounds().upload_oversized_mip_levels_via_unpack_buffer &&
+          target == GL_TEXTURE_2D && level > 0 &&
+          !state_.bound_pixel_unpack_buffer) {
+        GLsizei level0_width = 0;
+        GLsizei level0_height = 0;
+        GLsizei level0_depth = 0;
+        if (texture->GetLevelSize(target, 0, &level0_width, &level0_height,
+                                  &level0_depth) &&
+            level0_width > 0 && level0_height > 0) {
+          const int slot_w = std::max(
+              1, static_cast<int>(
+                     std::bit_ceil(static_cast<uint32_t>(level0_width))) >>
+                     level);
+          const int slot_h = std::max(
+              1, static_cast<int>(
+                     std::bit_ceil(static_cast<uint32_t>(level0_height))) >>
+                     level);
+          if (width > slot_w || height > slot_h) {
+            GLuint scratch = 0;
+            api()->glGenBuffersARBFn(1, &scratch);
+            api()->glBindBufferFn(GL_PIXEL_UNPACK_BUFFER, scratch);
+            // Regardless of whether the user supplied data (data !=
+            // nullptr), the pixel unpack buffer must be allocated
+            // with the expected amount of data.
+            if (image_size > 0) {
+              api()->glBufferDataFn(GL_PIXEL_UNPACK_BUFFER, image_size, data,
+                                    GL_STREAM_DRAW);
+            }
+            api()->glCompressedTexImage2DFn(target, level, internal_format,
+                                            width, height, border, image_size,
+                                            nullptr);
+            api()->glBindBufferFn(GL_PIXEL_UNPACK_BUFFER, 0);
+            api()->glDeleteBuffersARBFn(1, &scratch);
+            handled = true;
+          }
+        }
+      }
+      if (!handled) {
+        api()->glCompressedTexImage2DFn(target, level, internal_format, width,
+                                        height, border, image_size, data);
+      }
     } else {
       api()->glCompressedTexImage3DFn(target, level, internal_format, width,
                                       height, depth, border, image_size, data);
@@ -13371,6 +13483,19 @@ error::Error GLES2DecoderImpl::HandleTexImage3D(uint32_t immediate_data_size,
     return error::kNoError;
   }
 
+  if (target == GL_TEXTURE_3D &&
+      workarounds().lose_gl_context_when_increase_texture_3d_depth &&
+      texture_ref && texture_ref->texture()) {
+    GLsizei current_weight = 0, current_height = 0, current_depth = 0;
+    if (texture_ref->texture()->GetLevelSize(target, level, &current_weight,
+                                             &current_height, &current_depth) &&
+        depth > current_depth) {
+      MarkContextLost(error::kUnknown);
+      group_->LoseContexts(error::kUnknown);
+      return error::kLostContext;
+    }
+  }
+
   PixelStoreParams params;
   Buffer* buffer = state_.bound_pixel_unpack_buffer.get();
   if (buffer) {
@@ -13457,10 +13582,10 @@ error::Error GLES2DecoderImpl::HandleCompressedTexSubImage2DBucket(
   if (!bucket)
     return error::kInvalidArguments;
   uint32_t image_size = bucket->size();
-  const void* data = bucket->GetData(0, image_size);
-  DCHECK(data || !image_size);
-  return DoCompressedTexSubImage(target, level, xoffset, yoffset, 0,
-                                 width, height, 1, format, image_size, data,
+  base::span<uint8_t> data = bucket->GetDataAsByteSpan(0, image_size);
+  DCHECK_EQ(data.size(), image_size);
+  return DoCompressedTexSubImage(target, level, xoffset, yoffset, 0, width,
+                                 height, 1, format, image_size, data.data(),
                                  ContextState::k2D);
 }
 
@@ -14798,7 +14923,7 @@ error::Error GLES2DecoderImpl::HandleGetActiveUniformsiv(
     return error::kNoError;
   }
   GLsizei count = static_cast<GLsizei>(bucket->size() / sizeof(GLuint));
-  const GLuint* indices = bucket->GetDataAs<const GLuint*>(0, bucket->size());
+  base::span<GLuint> indices = bucket->GetDataAsSpan<GLuint>(0, count);
   typedef cmds::GetActiveUniformsiv::Result Result;
   uint32_t checked_size = 0;
   if (!Result::ComputeSize(count).AssignIfValid(&checked_size)) {
@@ -14821,8 +14946,8 @@ error::Error GLES2DecoderImpl::HandleGetActiveUniformsiv(
   }
   GLint activeUniforms = 0;
   program->GetProgramiv(GL_ACTIVE_UNIFORMS, &activeUniforms);
-  for (int i = 0; i < count; i++) {
-    if (UNSAFE_TODO(indices[i]) >= static_cast<GLuint>(activeUniforms)) {
+  for (const GLuint index : indices) {
+    if (index >= static_cast<GLuint>(activeUniforms)) {
       LOCAL_SET_GL_ERROR(GL_INVALID_VALUE,
           "glGetActiveUniformsiv", "index >= active uniforms");
       return error::kNoError;
@@ -14836,7 +14961,8 @@ error::Error GLES2DecoderImpl::HandleGetActiveUniformsiv(
         "glGetActiveUniformsiv", "program not linked");
     return error::kNoError;
   }
-  api()->glGetActiveUniformsivFn(service_id, count, indices, pname, params);
+  api()->glGetActiveUniformsivFn(service_id, count, indices.data(), pname,
+                                 params);
   result->SetNumResults(count);
   return error::kNoError;
 }
@@ -16366,6 +16492,12 @@ void GLES2DecoderImpl::TexStorageImpl(GLenum target,
   // TODO(zmo): We might need to emulate TexStorage using TexImage or
   // CompressedTexImage on Mac OSX where we expose ES3 APIs when the underlying
   // driver is lower than 4.2 and ARB_texture_storage extension doesn't exist.
+  bool reset_base_level =
+      workarounds().reset_tex_storage_base_level && texture->base_level() != 0;
+  if (reset_base_level) {
+    api()->glTexParameteriFn(target, GL_TEXTURE_BASE_LEVEL, 0);
+  }
+
   LOCAL_COPY_REAL_GL_ERRORS_TO_WRAPPER(function_name);
   if (dimension == ContextState::k2D) {
     api()->glTexStorage2DEXTFn(target, levels, compatibility_internal_format,
@@ -16373,6 +16505,11 @@ void GLES2DecoderImpl::TexStorageImpl(GLenum target,
   } else {
     api()->glTexStorage3DFn(target, levels, compatibility_internal_format,
                             width, height, depth);
+  }
+
+  if (reset_base_level) {
+    api()->glTexParameteriFn(target, GL_TEXTURE_BASE_LEVEL,
+                             texture->base_level());
   }
   GLenum error = LOCAL_PEEK_GL_ERROR(function_name);
   if (error != GL_NO_ERROR) {
@@ -17235,11 +17372,12 @@ error::Error GLES2DecoderImpl::HandleSetActiveURLCHROMIUM(
   }
 
   size_t size = url_bucket->size();
-  const char* url_str = url_bucket->GetDataAs<const char*>(0, size);
-  if (!url_str)
+  base::span<const uint8_t> url_bytes = url_bucket->GetDataAsByteSpan(0, size);
+  if (url_bytes.empty()) {
     return error::kInvalidArguments;
+  }
 
-  GURL url(std::string_view(url_str, size));
+  GURL url(base::as_string_view(url_bytes));
   client()->SetActiveURL(std::move(url));
   return error::kNoError;
 }

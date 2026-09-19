@@ -30,7 +30,6 @@ import("//extensions/buildflags/buildflags.gni")
 import("//gpu/vulkan/features.gni")
 import("//media/gpu/args.gni")
 import("//media/media_options.gni")
-import("//mojo/features.gni")
 import("//pdf/features.gni")
 import("//printing/buildflags/buildflags.gni")
 import("//remoting/remoting_enable.gni")
@@ -155,6 +154,12 @@ group("gn_all") {
           "//chrome/browser/ui/color:dump_colors",
           "//chrome/test:browser_tests",
         ]
+        if (!is_chromeos_device) {
+          deps += [
+            "//third_party/chromium-bidi:webdriver_bidi_e2e_tests",
+            "//third_party/chromium-bidi:webdriver_bidi_unittests",
+          ]
+        }
       }
       deps += [
         "//content/nw:nwjs",
@@ -304,7 +309,7 @@ group("gn_all") {
     if (enable_pdf) {
       deps += [
         "//pdf/pdfium/fuzzers",
-        "//third_party/pdfium/testing:pdfium_test",
+        "//third_party/pdfium/testing/pdfium_test",
       ]
     }
 
@@ -855,26 +860,14 @@ group("all_rust") {
   testonly = true
 
   deps = [
-    ":rust_build_tests",
     "//base:base_unittests",  # There is rust stuff in here.
+    "//build/rust/tests",
     "//third_party/cloud_authenticator/processor",
   ]
-
-  # TODO(https://crbug.com/405379314): This fails to build on some iOS ASAN
-  # builders.
-  if (!is_ios || !is_asan) {
-    deps += [ "//testing/rust_gtest_interop:rust_gtest_interop_unittests" ]
-  }
 
   if (!is_cronet_build) {
     deps += [ "//skia" ]
   }
-}
-
-# This group exists to give targets for the waterfall to refer to.
-group("rust_build_tests") {
-  testonly = true
-  deps = [ "//build/rust/tests" ]
 }
 
 # TODO(https://crbug.com/1112776): ensure remoting is functional on Linux builds with
@@ -1614,7 +1607,7 @@ if (!is_ios && !is_android && !is_castos && !is_cronet_build) {
     if (!is_chromeos) {
       data_deps += [ "//v8:v8_shell($v8_snapshot_toolchain)" ]
       if (enable_pdf) {
-        data_deps += [ "//third_party/pdfium/testing:pdfium_test" ]
+        data_deps += [ "//third_party/pdfium/testing/pdfium_test" ]
       }
     }
   }

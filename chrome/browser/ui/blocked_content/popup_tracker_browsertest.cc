@@ -11,11 +11,11 @@
 #include "base/path_service.h"
 #include "base/supports_user_data.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/test_safe_browsing_database_helper.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -29,6 +29,7 @@
 #include "components/content_settings/browser/page_specific_content_settings.h"
 #include "components/safe_browsing/core/browser/db/v4_embedded_test_server_util.h"
 #include "components/safe_browsing/core/browser/db/v4_test_util.h"
+#include "components/safe_browsing/core/common/features.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
@@ -103,7 +104,7 @@ IN_PROC_BROWSER_TEST_F(PopupTrackerBrowserTest, NoPopup_NoTracker) {
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(), embedded_test_server()->GetURL("/title1.html")));
   EXPECT_FALSE(blocked_content::PopupTracker::FromWebContents(
-      browser()->tab_strip_model()->GetActiveWebContents()));
+      browser()->GetTabStripModel()->GetActiveWebContents()));
 
   EXPECT_EQ(0u, GetNumPopupUkmEntries());
 }
@@ -118,19 +119,19 @@ IN_PROC_BROWSER_TEST_F(PopupTrackerBrowserTest,
   navigation_observer.StartWatchingNewWebContents();
 
   EXPECT_TRUE(
-      content::ExecJs(browser()->tab_strip_model()->GetActiveWebContents(),
+      content::ExecJs(browser()->GetTabStripModel()->GetActiveWebContents(),
                       "window.open('/title1.html')"));
   navigation_observer.Wait();
 
-  EXPECT_EQ(2, browser()->tab_strip_model()->count());
+  EXPECT_EQ(2, browser()->GetTabStripModel()->count());
   EXPECT_TRUE(blocked_content::PopupTracker::FromWebContents(
-      browser()->tab_strip_model()->GetActiveWebContents()));
+      browser()->GetTabStripModel()->GetActiveWebContents()));
 
   // Close the popup and check metric.
-  int active_index = browser()->tab_strip_model()->active_index();
+  int active_index = browser()->GetTabStripModel()->active_index();
   content::WebContentsDestroyedWatcher destroyed_watcher(
-      browser()->tab_strip_model()->GetWebContentsAt(active_index));
-  browser()->tab_strip_model()->CloseWebContentsAt(
+      browser()->GetTabStripModel()->GetWebContentsAt(active_index));
+  browser()->GetTabStripModel()->CloseWebContentsAt(
       active_index, TabCloseTypes::CLOSE_USER_GESTURE);
   destroyed_watcher.Wait();
 
@@ -155,13 +156,13 @@ IN_PROC_BROWSER_TEST_F(PopupTrackerBrowserTest,
   navigation_observer.StartWatchingNewWebContents();
 
   EXPECT_TRUE(
-      content::ExecJs(browser()->tab_strip_model()->GetActiveWebContents(),
+      content::ExecJs(browser()->GetTabStripModel()->GetActiveWebContents(),
                       "window.open('/title1.html')"));
   navigation_observer.Wait();
 
-  EXPECT_EQ(2, browser()->tab_strip_model()->count());
+  EXPECT_EQ(2, browser()->GetTabStripModel()->count());
   content::WebContents* popup =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   EXPECT_TRUE(blocked_content::PopupTracker::FromWebContents(popup));
   content::SimulateEndOfPaintHoldingOnPrimaryMainFrame(popup);
 
@@ -172,9 +173,9 @@ IN_PROC_BROWSER_TEST_F(PopupTrackerBrowserTest,
                                          gfx::Vector2dF(0, 15));
 
   // Close the popup and check metric.
-  int active_index = browser()->tab_strip_model()->active_index();
+  int active_index = browser()->GetTabStripModel()->active_index();
   content::WebContentsDestroyedWatcher destroyed_watcher(popup);
-  browser()->tab_strip_model()->CloseWebContentsAt(
+  browser()->GetTabStripModel()->CloseWebContentsAt(
       active_index, TabCloseTypes::CLOSE_USER_GESTURE);
   destroyed_watcher.Wait();
 
@@ -207,7 +208,7 @@ IN_PROC_BROWSER_TEST_F(PopupTrackerBrowserTest,
   content::TestNavigationObserver navigation_observer(nullptr, 1);
   navigation_observer.StartWatchingNewWebContents();
 
-  SimulateKeyPress(browser()->tab_strip_model()->GetActiveWebContents(),
+  SimulateKeyPress(browser()->GetTabStripModel()->GetActiveWebContents(),
                    ui::DomKey::ENTER, ui::DomCode::ENTER, ui::VKEY_RETURN,
                    !is_mac /* control */, false /* shift */, false /* alt */,
                    is_mac /* command */);
@@ -216,7 +217,7 @@ IN_PROC_BROWSER_TEST_F(PopupTrackerBrowserTest,
   EXPECT_EQ(1u, ProfileBrowserCollection::GetForProfile(browser()->GetProfile())
                     ->GetSize());
   content::WebContents* new_contents =
-      browser()->tab_strip_model()->GetWebContentsAt(1);
+      browser()->GetTabStripModel()->GetWebContentsAt(1);
   EXPECT_TRUE(blocked_content::PopupTracker::FromWebContents(new_contents));
 
   // Close the popup and check metric.
@@ -246,7 +247,7 @@ IN_PROC_BROWSER_TEST_F(PopupTrackerBrowserTest,
   content::TestNavigationObserver navigation_observer(nullptr, 1);
   navigation_observer.StartWatchingNewWebContents();
 
-  SimulateKeyPress(browser()->tab_strip_model()->GetActiveWebContents(),
+  SimulateKeyPress(browser()->GetTabStripModel()->GetActiveWebContents(),
                    ui::DomKey::ENTER, ui::DomCode::ENTER, ui::VKEY_RETURN,
                    false /* control */, true /* shift */, false /* alt */,
                    false /* command */);
@@ -281,7 +282,7 @@ IN_PROC_BROWSER_TEST_F(PopupTrackerBrowserTest, AllowlistedPopup_HasTracker) {
   const GURL url =
       embedded_test_server()->GetURL("/popup_blocker/popup-window-open.html");
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
 
   // Is blocked by the popup blocker.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
@@ -301,8 +302,8 @@ IN_PROC_BROWSER_TEST_F(PopupTrackerBrowserTest, AllowlistedPopup_HasTracker) {
 
   // Close the popup and check metric.
   content::WebContentsDestroyedWatcher destroyed_watcher(
-      browser()->tab_strip_model()->GetActiveWebContents());
-  browser()->tab_strip_model()->CloseAllTabs();
+      browser()->GetTabStripModel()->GetActiveWebContents());
+  browser()->GetTabStripModel()->CloseAllTabs();
   destroyed_watcher.Wait();
 
   auto* entry = ExpectAndGetEntry(url);
@@ -322,16 +323,26 @@ IN_PROC_BROWSER_TEST_F(PopupTrackerBrowserTest, NoOpener_NoTracker) {
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   content::WebContents* new_contents =
-      browser()->tab_strip_model()->GetWebContentsAt(1);
+      browser()->GetTabStripModel()->GetWebContentsAt(1);
 
   EXPECT_FALSE(blocked_content::PopupTracker::FromWebContents(new_contents));
   EXPECT_EQ(0u, GetNumPopupUkmEntries());
 }
 
 // Tests for the subresource_filter popup blocker.
-class SafeBrowsingPopupTrackerBrowserTest : public PopupTrackerBrowserTest {
+class SafeBrowsingPopupTrackerBrowserTest
+    : public PopupTrackerBrowserTest,
+      public ::testing::WithParamInterface<bool> {
  public:
-  SafeBrowsingPopupTrackerBrowserTest() = default;
+  SafeBrowsingPopupTrackerBrowserTest() {
+    if (UseV5()) {
+      scoped_feature_list_.InitAndEnableFeature(
+          safe_browsing::kLocalListsUseSBv5);
+    } else {
+      scoped_feature_list_.InitAndDisableFeature(
+          safe_browsing::kLocalListsUseSBv5);
+    }
+  }
 
   SafeBrowsingPopupTrackerBrowserTest(
       const SafeBrowsingPopupTrackerBrowserTest&) = delete;
@@ -339,6 +350,8 @@ class SafeBrowsingPopupTrackerBrowserTest : public PopupTrackerBrowserTest {
       const SafeBrowsingPopupTrackerBrowserTest&) = delete;
 
   ~SafeBrowsingPopupTrackerBrowserTest() override = default;
+
+  bool UseV5() const { return GetParam(); }
 
   void SetUp() override {
     database_helper_ = CreateTestDatabase();
@@ -369,10 +382,13 @@ class SafeBrowsingPopupTrackerBrowserTest : public PopupTrackerBrowserTest {
   }
 
   void ConfigureAsList(const GURL& url,
-                       const safe_browsing::ListIdentifier& list_identifier) {
+                       const safe_browsing::ListIdentifier& list_identifier,
+                       safe_browsing::V5::ThreatType threat_type,
+                       bool is_warn_only) {
     safe_browsing::ThreatMetadata metadata;
-    database_helper_->AddFullHashToDbAndFullHashCache(url, list_identifier,
-                                                      metadata);
+    database_helper_->AddFullHashToDbAndFullHashCache(
+        url, list_identifier, metadata, threat_type, is_warn_only,
+        browser()->GetProfile());
   }
 
   TestSafeBrowsingDatabaseHelper* database_helper() {
@@ -381,34 +397,37 @@ class SafeBrowsingPopupTrackerBrowserTest : public PopupTrackerBrowserTest {
 
  private:
   std::unique_ptr<TestSafeBrowsingDatabaseHelper> database_helper_;
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Pop-ups closed before navigation has finished will receive no safe browsing
 // status.
-IN_PROC_BROWSER_TEST_F(SafeBrowsingPopupTrackerBrowserTest,
+IN_PROC_BROWSER_TEST_P(SafeBrowsingPopupTrackerBrowserTest,
                        PopupClosedBeforeNavigationFinished_LoggedAsNoValue) {
   const GURL first_url = embedded_test_server()->GetURL("/title1.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), first_url));
 
   const GURL unsafe_url = embedded_test_server()->GetURL("/slow");
-  ConfigureAsList(unsafe_url, safe_browsing::GetUrlSocEngId());
+  ConfigureAsList(unsafe_url, safe_browsing::GetUrlSocEngId(),
+                  safe_browsing::V5::ThreatType::SOCIAL_ENGINEERING,
+                  /*is_warn_only=*/false);
 
   content::TestNavigationObserver navigation_observer(nullptr, 1);
   navigation_observer.StartWatchingNewWebContents();
 
   EXPECT_TRUE(
-      content::ExecJs(browser()->tab_strip_model()->GetActiveWebContents(),
+      content::ExecJs(browser()->GetTabStripModel()->GetActiveWebContents(),
                       "window.open('/slow?1000')"));
 
-  EXPECT_EQ(2, browser()->tab_strip_model()->count());
+  EXPECT_EQ(2, browser()->GetTabStripModel()->count());
   content::WebContents* popup =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   EXPECT_TRUE(blocked_content::PopupTracker::FromWebContents(popup));
 
   // Close the popup and check metric.
-  int active_index = browser()->tab_strip_model()->active_index();
+  int active_index = browser()->GetTabStripModel()->active_index();
   content::WebContentsDestroyedWatcher destroyed_watcher(popup);
-  browser()->tab_strip_model()->CloseWebContentsAt(
+  browser()->GetTabStripModel()->CloseWebContentsAt(
       active_index, TabCloseTypes::CLOSE_USER_GESTURE);
   destroyed_watcher.Wait();
 
@@ -419,7 +438,7 @@ IN_PROC_BROWSER_TEST_F(SafeBrowsingPopupTrackerBrowserTest,
           blocked_content::PopupTracker::PopupSafeBrowsingStatus::kNoValue));
 }
 
-IN_PROC_BROWSER_TEST_F(SafeBrowsingPopupTrackerBrowserTest,
+IN_PROC_BROWSER_TEST_P(SafeBrowsingPopupTrackerBrowserTest,
                        SafePopup_LoggedAsSafe) {
   const GURL first_url = embedded_test_server()->GetURL("/title1.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), first_url));
@@ -429,19 +448,19 @@ IN_PROC_BROWSER_TEST_F(SafeBrowsingPopupTrackerBrowserTest,
 
   const GURL second_url = embedded_test_server()->GetURL("/title2.html");
   EXPECT_TRUE(
-      content::ExecJs(browser()->tab_strip_model()->GetActiveWebContents(),
+      content::ExecJs(browser()->GetTabStripModel()->GetActiveWebContents(),
                       "window.open('/title2.html')"));
   navigation_observer.Wait();
 
-  EXPECT_EQ(2, browser()->tab_strip_model()->count());
+  EXPECT_EQ(2, browser()->GetTabStripModel()->count());
   content::WebContents* popup =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   EXPECT_TRUE(blocked_content::PopupTracker::FromWebContents(popup));
 
   // Close the popup and check metric.
-  int active_index = browser()->tab_strip_model()->active_index();
+  int active_index = browser()->GetTabStripModel()->active_index();
   content::WebContentsDestroyedWatcher destroyed_watcher(popup);
-  browser()->tab_strip_model()->CloseWebContentsAt(
+  browser()->GetTabStripModel()->CloseWebContentsAt(
       active_index, TabCloseTypes::CLOSE_USER_GESTURE);
   destroyed_watcher.Wait();
 
@@ -452,42 +471,49 @@ IN_PROC_BROWSER_TEST_F(SafeBrowsingPopupTrackerBrowserTest,
           blocked_content::PopupTracker::PopupSafeBrowsingStatus::kSafe));
 }
 
-IN_PROC_BROWSER_TEST_F(SafeBrowsingPopupTrackerBrowserTest,
+IN_PROC_BROWSER_TEST_P(SafeBrowsingPopupTrackerBrowserTest,
                        PhishingPopup_LoggedAsUnsafe) {
   const GURL first_url = embedded_test_server()->GetURL("/title1.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), first_url));
 
-  // Associate each domain with a separate safe browsing ListIdentifier to
-  // exercise the set of lists.
-  std::vector<std::pair<std::string, safe_browsing::ListIdentifier>>
-      domain_list_pairs = {
-          {"a.com", safe_browsing::GetUrlSocEngId()},
-          {"b.com", safe_browsing::GetUrlSubresourceFilterId()}};
+  // Associate each domain with a separate safe browsing ListIdentifier and
+  // ThreatType to exercise the set of lists.
+  struct DomainListThreatType {
+    std::string hostname;
+    safe_browsing::ListIdentifier list_id;
+    safe_browsing::V5::ThreatType threat_type;
+  };
+  std::vector<DomainListThreatType> domain_list_pairs = {
+      {"a.com", safe_browsing::GetUrlSocEngId(),
+       safe_browsing::V5::ThreatType::SOCIAL_ENGINEERING},
+      {"b.com", safe_browsing::GetUrlSubresourceFilterId(),
+       safe_browsing::V5::ThreatType::BETTER_ADS_VIOLATION}};
 
   // For each pair, configure the local safe browsing database and open a
   // pop-up to the url.
   for (const auto& domain_list_pair : domain_list_pairs) {
-    const GURL unsafe_url =
-        embedded_test_server()->GetURL(domain_list_pair.first, "/title2.html");
-    ConfigureAsList(unsafe_url, domain_list_pair.second);
+    const GURL unsafe_url = embedded_test_server()->GetURL(
+        domain_list_pair.hostname, "/title2.html");
+    ConfigureAsList(unsafe_url, domain_list_pair.list_id,
+                    domain_list_pair.threat_type, /*is_warn_only=*/false);
 
     content::TestNavigationObserver navigation_observer(nullptr, 1);
     navigation_observer.StartWatchingNewWebContents();
 
     EXPECT_TRUE(
-        content::ExecJs(browser()->tab_strip_model()->GetActiveWebContents(),
+        content::ExecJs(browser()->GetTabStripModel()->GetActiveWebContents(),
                         "window.open('" + unsafe_url.spec() + "')"));
     navigation_observer.Wait();
 
-    EXPECT_EQ(2, browser()->tab_strip_model()->count());
+    EXPECT_EQ(2, browser()->GetTabStripModel()->count());
     content::WebContents* popup =
-        browser()->tab_strip_model()->GetActiveWebContents();
+        browser()->GetTabStripModel()->GetActiveWebContents();
     EXPECT_TRUE(blocked_content::PopupTracker::FromWebContents(popup));
 
     // Close the popup and check metric.
-    int active_index = browser()->tab_strip_model()->active_index();
+    int active_index = browser()->GetTabStripModel()->active_index();
     content::WebContentsDestroyedWatcher destroyed_watcher(popup);
-    browser()->tab_strip_model()->CloseWebContentsAt(
+    browser()->GetTabStripModel()->CloseWebContentsAt(
         active_index, TabCloseTypes::CLOSE_USER_GESTURE);
     destroyed_watcher.Wait();
   }
@@ -504,6 +530,10 @@ IN_PROC_BROWSER_TEST_F(SafeBrowsingPopupTrackerBrowserTest,
   }
 }
 
+INSTANTIATE_TEST_SUITE_P(All,
+                         SafeBrowsingPopupTrackerBrowserTest,
+                         ::testing::Bool());
+
 IN_PROC_BROWSER_TEST_F(PopupTrackerBrowserTest, PopupInTab_IsWindowFalse) {
   const GURL first_url = embedded_test_server()->GetURL("/title1.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), first_url));
@@ -512,19 +542,19 @@ IN_PROC_BROWSER_TEST_F(PopupTrackerBrowserTest, PopupInTab_IsWindowFalse) {
   navigation_observer.StartWatchingNewWebContents();
 
   EXPECT_TRUE(
-      content::ExecJs(browser()->tab_strip_model()->GetActiveWebContents(),
+      content::ExecJs(browser()->GetTabStripModel()->GetActiveWebContents(),
                       "window.open('/title1.html')"));
   navigation_observer.Wait();
 
-  EXPECT_EQ(2, browser()->tab_strip_model()->count());
+  EXPECT_EQ(2, browser()->GetTabStripModel()->count());
   content::WebContents* popup =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   EXPECT_TRUE(blocked_content::PopupTracker::FromWebContents(popup));
 
   // Close the popup and check metric.
-  int active_index = browser()->tab_strip_model()->active_index();
+  int active_index = browser()->GetTabStripModel()->active_index();
   content::WebContentsDestroyedWatcher destroyed_watcher(popup);
-  browser()->tab_strip_model()->CloseWebContentsAt(
+  browser()->GetTabStripModel()->CloseWebContentsAt(
       active_index, TabCloseTypes::CLOSE_USER_GESTURE);
   destroyed_watcher.Wait();
 
@@ -548,7 +578,7 @@ IN_PROC_BROWSER_TEST_F(PopupTrackerBrowserTest,
   content::TestNavigationObserver navigation_observer(nullptr, 1);
   navigation_observer.StartWatchingNewWebContents();
   EXPECT_TRUE(content::ExecJs(
-      browser()->tab_strip_model()->GetActiveWebContents(),
+      browser()->GetTabStripModel()->GetActiveWebContents(),
       "window.open('/title1.html', 'new_window', "
       "'location=yes,height=570,width=520,scrollbars=yes,status=yes')"));
   navigation_observer.Wait();
@@ -591,7 +621,7 @@ IN_PROC_BROWSER_TEST_F(PopupTrackerBrowserTest,
   content::TestNavigationObserver navigation_observer(nullptr, 1);
   navigation_observer.StartWatchingNewWebContents();
   EXPECT_TRUE(content::ExecJs(
-      browser()->tab_strip_model()->GetActiveWebContents(),
+      browser()->GetTabStripModel()->GetActiveWebContents(),
       "window.open('/title1.html', 'new_window', "
       "'location=yes,height=570,width=520,scrollbars=yes,status=yes')"));
   navigation_observer.Wait();
@@ -638,7 +668,7 @@ IN_PROC_BROWSER_TEST_F(PopupTrackerBrowserTest,
 
   // Redirect the popup using /server-redirect twice.
   EXPECT_TRUE(content::ExecJs(
-      browser()->tab_strip_model()->GetActiveWebContents(),
+      browser()->GetTabStripModel()->GetActiveWebContents(),
       "window.open('/server-redirect?/server-redirect?/title1.html',"
       "'new_window', 'location=yes,height=570,width=520,scrollbars=yes,"
       "status=yes')"));
@@ -682,7 +712,7 @@ IN_PROC_BROWSER_TEST_F(PopupTrackerBrowserTest,
 
   // Redirect the popup using /server-redirect twice.
   EXPECT_TRUE(content::ExecJs(
-      browser()->tab_strip_model()->GetActiveWebContents(),
+      browser()->GetTabStripModel()->GetActiveWebContents(),
       "var w = window.open('',"
       "'new_window', 'location=yes,height=570,width=520,scrollbars=yes,"
       "status=yes'); "
@@ -723,7 +753,7 @@ class PopupTrackerPrerenderBrowserTest : public PopupTrackerBrowserTest {
   }
 
   content::WebContents* web_contents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
  private:
@@ -740,13 +770,13 @@ IN_PROC_BROWSER_TEST_F(PopupTrackerPrerenderBrowserTest,
   // Load a prerender url in the popup window.
   const GURL prerender_url = embedded_test_server()->GetURL("/empty.html");
   EXPECT_TRUE(content::ExecJs(
-      browser()->tab_strip_model()->GetActiveWebContents(),
+      browser()->GetTabStripModel()->GetActiveWebContents(),
       "window.open('/popup_blocker/popup-simple-prerender.html')"));
   prerender_helper()->WaitForPrerenderLoadCompletion(prerender_url);
 
-  EXPECT_EQ(2, browser()->tab_strip_model()->count());
+  EXPECT_EQ(2, browser()->GetTabStripModel()->count());
   auto* popup_tracker = blocked_content::PopupTracker::FromWebContents(
-      browser()->tab_strip_model()->GetActiveWebContents());
+      browser()->GetTabStripModel()->GetActiveWebContents());
   EXPECT_NE(popup_tracker, nullptr);
 
   // The PopupTracker should not treat a prerender navigation as a navigation

@@ -44,9 +44,9 @@
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/layout_constants.h"
@@ -98,6 +98,7 @@
 #include "components/sync/base/features.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/test/test_sync_service.h"
+#include "components/user_education/common/user_education_class_properties.h"
 #include "components/user_education/common/user_education_features.h"
 #include "components/user_education/views/help_bubble_view.h"
 #include "content/public/browser/browser_context.h"
@@ -114,6 +115,7 @@
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_unittest_util.h"
 #include "ui/gfx/scoped_animation_duration_scale_mode.h"
+#include "ui/views/controls/button/md_text_button.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/constants/ash_switches.h"
@@ -337,7 +339,7 @@ class AvatarToolbarButtonInterfaceBaseBrowserTest {
   ~AvatarToolbarButtonInterfaceBaseBrowserTest() = default;
 
   AvatarToolbarButtonInterface* GetAvatarToolbarButtonInterface(
-      Browser* browser) {
+      BrowserWindowInterface* browser) {
     if (!browser || !BrowserView::GetBrowserViewForBrowser(browser)) {
       return nullptr;
     }
@@ -346,7 +348,7 @@ class AvatarToolbarButtonInterfaceBaseBrowserTest {
         ->GetAvatarToolbarButtonInterface();
   }
 
-  virtual Browser* GetBrowser() const = 0;
+  virtual BrowserWindowInterface* GetBrowser() const = 0;
 
   // Allows overriding the delay of different events that have a timing
   // duration. Sets the delay to infinite in order to be able to test the
@@ -532,7 +534,7 @@ class AvatarToolbarButtonInterfaceBaseBrowserTest {
   AccountInfo SigninWithImage(const std::u16string& email,
                               const std::u16string& name = u"account_name") {
     AccountInfo account_info = Signin(email, name);
-    AddSignedInImage(account_info.account_id);
+    AddSignedInImage(account_info.GetAccountId());
     return account_info;
   }
 
@@ -638,7 +640,7 @@ class AvatarToolbarButtonInterfaceBaseBrowserTest {
     // Using a default name, this function is not expected to be used if we care
     // about the name.
     AccountInfo account_info = EnableSync(email, u"account_name");
-    AddSignedInImage(account_info.account_id);
+    AddSignedInImage(account_info.GetAccountId());
     return account_info;
   }
 
@@ -833,7 +835,7 @@ class AvatarToolbarButtonInterfaceBaseBrowserTest {
         CHECK(!primary_account.IsEmpty());
         GetBrowser()->GetProfile()->GetPrefs()->SetString(
             prefs::kGoogleServicesLastSyncingGaiaId,
-            primary_account.gaia.ToString());
+            primary_account.GetGaiaId().ToString());
         break;
       }
       case signin::ProfileMenuAvatarButtonPromoInfo::Type::
@@ -893,7 +895,7 @@ class AvatarToolbarButtonBrowserTestBase
       public AvatarToolbarButtonInterfaceBaseBrowserTest {
  protected:
   // AvatarToolbarButtonInterfaceBaseBrowserTest:
-  Browser* GetBrowser() const override { return browser(); }
+  BrowserWindowInterface* GetBrowser() const override { return browser(); }
 
   // InProcessBrowserTest:
   void SetUpOnMainThread() override {
@@ -907,9 +909,8 @@ class AvatarToolbarButtonBrowserTestBase
   void TearDownOnMainThread() override {
     GlobalBrowserCollection::GetInstance()->ForEach(
         [this](BrowserWindowInterface* browser_interface) {
-          Browser* browser = static_cast<Browser*>(browser_interface);
           if (AvatarToolbarButtonInterface* button =
-                  GetAvatarToolbarButtonInterface(browser)) {
+                  GetAvatarToolbarButtonInterface(browser_interface)) {
             button->ClearActiveStateForTesting();
           }
           return true;
@@ -940,13 +941,13 @@ class AvatarToolbarButtonBrowserTest
 
 IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonBrowserTest, IncognitoWindowCount) {
   Profile* profile = browser()->GetProfile();
-  Browser* browser1 = CreateIncognitoBrowser(profile);
+  BrowserWindowInterface* browser1 = CreateIncognitoBrowser(profile);
   AvatarToolbarButtonTestAccessor avatar_accessor1(browser1);
   EXPECT_TRUE(avatar_accessor1.GetEnabled());
   EXPECT_TRUE(avatar_accessor1.GetVisible());
   EXPECT_FALSE(GetWindowCountInAvatarButtonText(browser1).has_value());
 
-  Browser* browser2 = CreateIncognitoBrowser(profile);
+  BrowserWindowInterface* browser2 = CreateIncognitoBrowser(profile);
   EXPECT_EQ(std::optional<int>(2),
             GetWindowCountInAvatarButtonText(browser1,
                                              /*wait_for_number=*/true));
@@ -960,13 +961,13 @@ IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonBrowserTest, IncognitoWindowCount) {
 
 #if !BUILDFLAG(IS_CHROMEOS)
 IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonBrowserTest, GuestWindowCount) {
-  Browser* browser1 = CreateGuestBrowser();
+  BrowserWindowInterface* browser1 = CreateGuestBrowser();
   AvatarToolbarButtonTestAccessor avatar_accessor1(browser1);
   EXPECT_TRUE(avatar_accessor1.GetEnabled());
   EXPECT_TRUE(avatar_accessor1.GetVisible());
   EXPECT_FALSE(GetWindowCountInAvatarButtonText(browser1).has_value());
 
-  Browser* browser2 = CreateGuestBrowser();
+  BrowserWindowInterface* browser2 = CreateGuestBrowser();
   EXPECT_EQ(std::optional<int>(2),
             GetWindowCountInAvatarButtonText(browser1,
                                              /*wait_for_number=*/true));
@@ -1004,7 +1005,7 @@ IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonAshBrowserTest, GuestSession) {
   EXPECT_EQ(AvatarToolbarButtonTestAccessor(browser()).GetText(),
             l10n_util::GetPluralStringFUTF16(IDS_AVATAR_BUTTON_GUEST, 1));
 
-  Browser* browser_2 = CreateBrowser(guest_profile);
+  BrowserWindowInterface* browser_2 = CreateBrowser(guest_profile);
   EXPECT_TRUE(AvatarToolbarButtonTestAccessor(browser_2).GetVisible());
   EXPECT_FALSE(AvatarToolbarButtonTestAccessor(browser_2).GetEnabled());
 
@@ -1030,7 +1031,8 @@ IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonBrowserTest, DefaultBrowser) {
 }
 
 IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonBrowserTest, IncognitoBrowser) {
-  Browser* browser1 = CreateIncognitoBrowser(browser()->GetProfile());
+  BrowserWindowInterface* browser1 =
+      CreateIncognitoBrowser(browser()->GetProfile());
   AvatarToolbarButtonTestAccessor avatar_accessor1(browser1);
   // Incognito browsers always show an enabled avatar button.
   EXPECT_TRUE(avatar_accessor1.GetVisible());
@@ -1044,19 +1046,17 @@ IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonBrowserTest, SigninBrowser) {
   // Create a portal signin browser which will not be the Incognito browser.
   Profile::OTRProfileID profile_id(
       Profile::OTRProfileID::CreateUniqueForCaptivePortal());
-  Browser* browser1 =
-      CreateBrowserWindow(BrowserWindowCreateParams(
-                              browser()->GetProfile()->GetOffTheRecordProfile(
-                                  profile_id,
-                                  /*create_if_needed=*/true),
-                              /*from_user_gesture=*/true))
-          ->GetBrowserForMigrationOnly();
+  BrowserWindowInterface* browser1 = CreateBrowserWindow(
+      BrowserWindowCreateParams(browser()->GetProfile()->GetOffTheRecordProfile(
+                                    profile_id,
+                                    /*create_if_needed=*/true),
+                                /*from_user_gesture=*/true));
   AddBlankTabAndShow(browser1);
   AvatarToolbarButtonTestAccessor avatar_accessor1(browser1);
   // On ChromeOS, captive portal signin windows show a
   // disabled avatar button to indicate that the window is incognito.
   EXPECT_TRUE(avatar_accessor1.GetVisible());
-  EXPECT_FALSE(avatar_accessor1.GetEnabled());
+  EXPECT_TRUE(avatar_accessor1.WaitForEnabled(false));
 }
 #endif
 
@@ -1176,7 +1176,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_EQ(avatar_accessor.GetText(), std::u16string());
 
   // The greeting will only show when the image is loaded.
-  AddSignedInImage(account_info.account_id);
+  AddSignedInImage(account_info.GetAccountId());
   EXPECT_EQ(avatar_accessor.GetText(),
             l10n_util::GetStringFUTF16(IDS_AVATAR_BUTTON_GREETING, name));
 
@@ -1202,7 +1202,7 @@ TEST_WITH_SIGNED_IN_FROM_PRE(
 
   // Creating a new browser while the refresh tokens are already loaded and the
   // name showing should not break/crash.
-  Browser* new_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* new_browser = CreateBrowser(browser()->GetProfile());
   AvatarToolbarButtonTestAccessor new_avatar_accessor(new_browser);
   // Name is expected to be shown while it is still shown on the first browser.
   ASSERT_EQ(avatar_accessor.GetText(),
@@ -1307,13 +1307,12 @@ IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonWithSyncBrowserTest,
   EnableSyncWithImageAndClearGreeting(avatar_button, u"test@gmail.com");
   SimulateBookmarksLimitExceededError();
 
-  EXPECT_FALSE(
-      browser()->GetFeatures().profile_menu_coordinator()->IsShowing());
+  EXPECT_FALSE(ProfileMenuCoordinator::From(browser())->IsShowing());
   avatar_button->ButtonPressed(/*is_source_accelerator=*/false);
   // TODO(crbug.com/478780706) Verifying the presence and functionality of error
   // cards within the profile menu is not easily testable. Consider implementing
   // a test harness for this purpose.
-  EXPECT_TRUE(browser()->GetFeatures().profile_menu_coordinator()->IsShowing());
+  EXPECT_TRUE(ProfileMenuCoordinator::From(browser())->IsShowing());
 }
 #endif
 
@@ -1486,7 +1485,7 @@ IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonBrowserTest, SignedInChangeIcon) {
       "png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAAByTg0kAAAAFElEQVR4nGNk+"
       "M/"
       "wn4GBgRGEAQAA1QMDAwYhywAAAABJRU5ErkJggg==";
-  AddAccountImage(account_info.account_id, updated_image, kUpdatedUrl);
+  AddAccountImage(account_info.GetAccountId(), updated_image, kUpdatedUrl);
 
   EXPECT_TRUE(WaitForIsSignedInImageUsed(true, updated_image, kUpdatedUrl));
 }
@@ -1516,7 +1515,7 @@ IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonBrowserTest, TooltipText) {
   const std::u16string account_name(u"Account name");
   AccountInfo account_info = Signin(u"test@gmail.com", account_name);
 
-  AddSignedInImage(account_info.account_id);
+  AddSignedInImage(account_info.GetAccountId());
 
   EXPECT_TRUE(avatar_accessor.WaitForRenderedTooltipText(account_name));
 
@@ -1546,7 +1545,7 @@ IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonBrowserTest,
 
   EXPECT_EQ(avatar_accessor.GetText(), std::u16string());
 
-  Browser* new_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* new_browser = CreateBrowser(browser()->GetProfile());
   EXPECT_EQ(AvatarToolbarButtonTestAccessor(new_browser).GetText(),
             std::u16string());
 }
@@ -1713,7 +1712,7 @@ IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonBrowserTest,
   SetZeroAvatarDelayForSigninPendingText();
 
   // Open a new browser, this should not crash.
-  Browser* new_browser = CreateBrowser(profile);
+  BrowserWindowInterface* new_browser = CreateBrowser(profile);
   EXPECT_TRUE(AvatarToolbarButtonTestAccessor(new_browser)
                   .WaitForText(l10n_util::GetStringUTF16(
                       IDS_AVATAR_BUTTON_SIGNIN_PAUSED)));
@@ -1729,7 +1728,7 @@ class AvatarToolbarButtonWithInteractiveFeaturePromoBrowserTest
       : InteractiveFeaturePromoTest(UseDefaultTrackerAllowingPromos({})) {}
 
   // AvatarToolbarButtonInterfaceBaseBrowserTest:
-  Browser* GetBrowser() const override { return browser(); }
+  BrowserWindowInterface* GetBrowser() const override { return browser(); }
 
   // InteractiveFeaturePromoTest:
   void SetUpOnMainThread() override {
@@ -2260,7 +2259,7 @@ TEST_WITH_SIGNED_IN_FROM_PRE(IN_PROC_BROWSER_TEST_P,
     ScopedDictPrefUpdate scoped_update(browser()->GetProfile()->GetPrefs(),
                                        "signin.accounts_metadata_dict");
     base::DictValue* account_dict =
-        scoped_update->EnsureDict(account.gaia.ToString());
+        scoped_update->EnsureDict(account.GetGaiaId().ToString());
     account_dict->Set("SyncPromoIdentityPillShownCount", 0);
   }
 
@@ -2358,7 +2357,7 @@ TEST_WITH_SIGNED_IN_FROM_PRE(IN_PROC_BROWSER_TEST_P,
   histogram_tester.ExpectTotalCount(
       "Signin.AvatarPillPromo.DurationBeforeClick",
       /*expected_count=*/1);
-  auto* coordinator = browser()->GetFeatures().profile_menu_coordinator();
+  auto* coordinator = ProfileMenuCoordinator::From(browser());
   ASSERT_NE(coordinator, nullptr);
   EXPECT_TRUE(coordinator->IsShowing());
   EXPECT_TRUE(avatar_accessor.GetText().empty());
@@ -2508,7 +2507,7 @@ TEST_WITH_SIGNED_IN_FROM_PRE(
           CreateZeroOverrideDelayForCrossWindowAnimationReplayForTesting();
   base::HistogramTester histogram_tester;
   Profile* profile = browser()->GetProfile();
-  Browser* browser_1 = browser();
+  BrowserWindowInterface* browser_1 = browser();
   AvatarToolbarButtonInterface* avatar_1 =
       GetAvatarToolbarButtonInterface(browser_1);
   AvatarToolbarButtonTestAccessor avatar_accessor1(browser_1);
@@ -2520,7 +2519,7 @@ TEST_WITH_SIGNED_IN_FROM_PRE(
   // The greeting should be followed by the promo.
   EXPECT_EQ(avatar_accessor1.GetText(), GetExpectedPromoText());
   // Open the second browser before the promo collapses.
-  Browser* browser_2 = CreateBrowser(profile);
+  BrowserWindowInterface* browser_2 = CreateBrowser(profile);
   AvatarToolbarButtonTestAccessor avatar_accessor2(browser_2);
   // The promo should be shown in the second browser as well.
   EXPECT_EQ(avatar_accessor2.GetText(), GetExpectedPromoText());
@@ -2532,6 +2531,106 @@ TEST_WITH_SIGNED_IN_FROM_PRE(
   // The button in both browsers comes back to the normal state.
   EXPECT_TRUE(avatar_accessor1.GetText().empty());
   EXPECT_TRUE(avatar_accessor2.GetText().empty());
+}
+
+// Regression test for crbug.com/532899594.
+// Tests the scenario where a promo is showing in browser 1 with its
+// auto-collapse timer actively running, and browser 2 is opened for the same
+// profile. When browser 2 shows a temporary explicit state and then clears it,
+// browser 2 transitions back to `kNormal`. This verifies that transitioning
+// back to `kNormal` across windows properly cleans up any active promo timers.
+TEST_WITH_SIGNED_IN_FROM_PRE(
+    IN_PROC_BROWSER_TEST_P,
+    MAYBE_AvatarToolbarButtonPromoClickBrowserTest,
+    MultiWindowTransitionToNormalWhilePromoTimerRunning) {
+  SetupRequirementsForPromoType(GetAvatarPromoType());
+
+  base::AutoReset<std::optional<base::TimeDelta>> delay_override_reset =
+      signin_ui_util::
+          CreateZeroOverrideDelayForCrossWindowAnimationReplayForTesting();
+
+  AvatarToolbarButtonInterface* avatar_1 =
+      GetAvatarToolbarButtonInterface(browser());
+  AvatarToolbarButtonTestAccessor avatar_accessor1(browser());
+  ASSERT_EQ(avatar_accessor1.GetText(),
+            l10n_util::GetStringFUTF16(IDS_AVATAR_BUTTON_GREETING,
+                                       test_given_name()));
+  avatar_1->ClearActiveStateForTesting();
+
+  // The greeting should be followed by the promo.
+  EXPECT_EQ(avatar_accessor1.GetText(), GetExpectedPromoText());
+
+  // Open the second browser while the promo is showing in the first browser.
+  BrowserWindowInterface* browser_2 = CreateBrowser(browser()->GetProfile());
+  AvatarToolbarButtonInterface* avatar_2 =
+      GetAvatarToolbarButtonInterface(browser_2);
+  AvatarToolbarButtonTestAccessor avatar_accessor2(browser_2);
+  EXPECT_EQ(avatar_accessor2.GetText(), GetExpectedPromoText());
+
+  // Set an explicit state on browser_2 and then clear it.
+  const std::u16string explicit_text(u"Explicit State");
+  base::ScopedClosureRunner hide_callback = avatar_2->SetExplicitButtonState(
+      explicit_text, /*accessibility_label=*/std::nullopt,
+      /*explicit_action=*/std::nullopt);
+  ASSERT_EQ(avatar_accessor2.GetText(), explicit_text);
+
+  // Clearing the explicit state resets browser_2's state back to normal.
+  // In the buggy code, this would fail invariant checks asserting that promo
+  // timers are stopped when returning to the normal state.
+  hide_callback.RunAndReset();
+
+  EXPECT_TRUE(avatar_accessor1.GetText().empty());
+  EXPECT_TRUE(avatar_accessor2.GetText().empty());
+}
+
+// Regression test for crbug.com/532899594.
+// Tests the scenario where a promo is showing in the avatar button with its
+// auto-collapse timer actively running, and an In-Product Help (IPH) promo
+// bubble is displayed attached to the avatar button.
+// This sets `kHasInProductHelpPromoKey` on the avatar button, which triggers
+// `ShowIdentityNameStateProvider::OnIPHPromoChanged(true)` and transitions
+// the button to `kShowIdentityName`.
+// This verifies that preemption by `kShowIdentityName` while the promo timer
+// is running does not hit invariant assertions or crash.
+TEST_WITH_SIGNED_IN_FROM_PRE(
+    IN_PROC_BROWSER_TEST_P,
+    MAYBE_AvatarToolbarButtonPromoClickBrowserTest,
+    IPHPromoPreemptsActiveAvatarPromoWhileTimerRunning) {
+  SetupRequirementsForPromoType(GetAvatarPromoType());
+
+  AvatarToolbarButtonTestAccessor avatar_accessor(browser());
+  ASSERT_EQ(avatar_accessor.GetText(),
+            l10n_util::GetStringFUTF16(IDS_AVATAR_BUTTON_GREETING,
+                                       test_given_name()));
+  AvatarToolbarButtonInterface* avatar =
+      GetAvatarToolbarButtonInterface(browser());
+  ASSERT_NE(avatar, nullptr);
+  avatar->ClearActiveStateForTesting();
+
+  // The greeting should be followed by the promo.
+  ASSERT_EQ(avatar_accessor.GetText(), GetExpectedPromoText());
+
+  // Simulate an IPH promo bubble attaching to the avatar button.
+  AvatarToolbarButton* avatar_button = static_cast<AvatarToolbarButton*>(
+      BrowserView::GetBrowserViewForBrowser(browser())
+          ->toolbar_button_provider()
+          ->GetAvatarToolbarButtonInterface());
+  ASSERT_NE(avatar_button, nullptr);
+
+  // Setting `kHasInProductHelpPromoKey` triggers `NotifyIPHPromoChanged(true)`.
+  // In the buggy code, this transitions to `kShowIdentityName` while
+  // `collapse_timer_` is still running, which triggers
+  // CHECK(!collapse_timer_.IsRunning()) and crashes.
+  avatar_button->SetProperty(user_education::kHasInProductHelpPromoKey, true);
+
+  // The greeting/identity text should now be shown for the IPH without
+  // crashing.
+  EXPECT_EQ(avatar_accessor.GetText(),
+            l10n_util::GetStringFUTF16(IDS_AVATAR_BUTTON_GREETING,
+                                       test_given_name()));
+
+  // Simulating the IPH promo bubble closing.
+  avatar_button->SetProperty(user_education::kHasInProductHelpPromoKey, false);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -2585,7 +2684,7 @@ IN_PROC_BROWSER_TEST_F(MAYBE_AvatarToolbarButtonSignedOutPromoBrowserTest,
   EXPECT_EQ(avatar_accessor.GetText(),
             l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SIGNIN_PROMO));
 
-  Browser* new_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* new_browser = CreateBrowser(browser()->GetProfile());
   EXPECT_FALSE(avatar->GetStateAndFireSignedOutTriggerDelayTimerForTesting());
   EXPECT_EQ(AvatarToolbarButtonTestAccessor(new_browser).GetText(),
             l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SIGNIN_PROMO));
@@ -2620,7 +2719,7 @@ class
   }
 
   // AvatarToolbarButtonInterfaceBaseBrowserTest
-  Browser* GetBrowser() const override { return browser(); }
+  BrowserWindowInterface* GetBrowser() const override { return browser(); }
 
   // InProcessBrowserTest
   void SetUpBrowserContextKeyedServices(
@@ -2725,7 +2824,7 @@ class AvatarToolbarButtonProfileColorBrowserTest
   }
 
   ProfileThemeColors ComputeProfileThemeColorsForBrowser(
-      Browser* target_browser = nullptr) {
+      BrowserWindowInterface* target_browser = nullptr) {
     target_browser = target_browser ? target_browser : browser();
     return GetCurrentProfileThemeColors(
         *BrowserWindow::FromBrowser(target_browser)->GetColorProvider(),
@@ -3030,7 +3129,8 @@ IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonEnterpriseBadgingBrowserTest,
   enterprise_util::SetUserAcceptedAccountManagement(browser()->GetProfile(),
                                                     true);
 
-  Browser* second_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
   AvatarToolbarButtonTestAccessor second_browser_avatar_accessor(
       second_browser);
   EXPECT_EQ(second_browser_avatar_accessor.GetText(), u"Custom Label");
@@ -3046,7 +3146,8 @@ IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonEnterpriseBadgingBrowserTest,
   enterprise_util::SetUserAcceptedAccountManagement(browser()->GetProfile(),
                                                     true);
 
-  Browser* second_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
   AvatarToolbarButtonTestAccessor second_browser_avatar_accessor(
       second_browser);
   EXPECT_EQ(second_browser_avatar_accessor.GetText(), work_label);
@@ -3221,7 +3322,8 @@ IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonBrowserTest,
   ASSERT_EQ(avatar_accessor.GetText(), std::u16string());
 
   // Browser opened before the error.
-  Browser* opened_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* opened_browser =
+      CreateBrowser(browser()->GetProfile());
   AvatarToolbarButtonTestAccessor opened_browser_avatar_accessor(
       opened_browser);
   ASSERT_EQ(opened_browser_avatar_accessor.GetText(), std::u16string());
@@ -3233,7 +3335,7 @@ IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonBrowserTest,
       l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SIGNIN_PAUSED)));
 
   // New browser opened after the error -- error should be shown directly.
-  Browser* new_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* new_browser = CreateBrowser(browser()->GetProfile());
   AvatarToolbarButtonTestAccessor new_browser_avatar_accessor(new_browser);
   EXPECT_TRUE(new_browser_avatar_accessor.WaitForText(
       l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SIGNIN_PAUSED)));
@@ -3260,7 +3362,8 @@ IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonBrowserTest,
   ASSERT_EQ(avatar_accessor.GetText(), std::u16string());
 
   // Browser opened before the error.
-  Browser* opened_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* opened_browser =
+      CreateBrowser(browser()->GetProfile());
   AvatarToolbarButtonInterface* opened_browser_avatar_button =
       GetAvatarToolbarButtonInterface(opened_browser);
   AvatarToolbarButtonTestAccessor opened_browser_avatar_accessor(
@@ -3278,7 +3381,7 @@ IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonBrowserTest,
 
   // New browser opened after the error and before timer ends -- error is not
   // shown directly.
-  Browser* new_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* new_browser = CreateBrowser(browser()->GetProfile());
   AvatarToolbarButtonInterface* new_browser_avatar_button =
       GetAvatarToolbarButtonInterface(new_browser);
   AvatarToolbarButtonTestAccessor new_browser_avatar_accessor(new_browser);
@@ -3549,7 +3652,8 @@ IN_PROC_BROWSER_TEST_F(
 
   // A new browser within the same session should not show any text as well.
   // Specifically not showing the greeting.
-  Browser* second_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
   EXPECT_TRUE(
       AvatarToolbarButtonTestAccessor(second_browser).GetText().empty());
 }
@@ -3595,7 +3699,8 @@ IN_PROC_BROWSER_TEST_F(
             l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_MAKING_CHROME_YOURS));
 
   // A new browser should also show the message.
-  Browser* second_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
   AvatarToolbarButtonTestAccessor second_avatar_accessor(second_browser);
   EXPECT_EQ(second_avatar_accessor.GetText(),
             l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_MAKING_CHROME_YOURS));
@@ -3627,7 +3732,7 @@ IN_PROC_BROWSER_TEST_F(
       signin::ConsentLevel::kSignin);
 
   // Create a new browser window for the new profile.
-  Browser* browser = CreateBrowser(&profile);
+  BrowserWindowInterface* browser = CreateBrowser(&profile);
   AvatarToolbarButtonInterface* avatar_toolbar_button =
       GetAvatarToolbarButtonInterface(browser);
   AvatarToolbarButtonTestAccessor avatar_accessor(browser);
@@ -4333,6 +4438,57 @@ TEST_WITH_SIGNED_IN_FROM_PRE(IN_PROC_BROWSER_TEST_F,
   // Click the button to trigger a crash in the original code.
   avatar_accessor.Click();
 }
+
+// Regression test for crbug.com/532899594.
+// Tests the scenario where a Batch Upload promo is showing in the avatar button
+// with its auto-collapse timer running. While the promo is displayed, local
+// on-device data is cleared (e.g. uploaded via settings or deleted by the user
+// from chrome://bookmarks), triggering an asynchronous promo recomputation.
+// When the async computation returns `std::nullopt`, the promo collapses back
+// to `kNormal`. This verifies that the promo timer is stopped properly before
+// returning to `kNormal`.
+// TODO(crbug.com/331746545): Check flaky test issue on Windows.
+#if !BUILDFLAG(IS_WIN)
+TEST_WITH_SIGNED_IN_FROM_PRE(
+    IN_PROC_BROWSER_TEST_F,
+    AvatarToolbarButtonAsyncPromoRaceRegressionTest,
+    PromoShowingAsyncPromoResultResolvesToNoPromoRegressionTest) {
+  AvatarToolbarButtonTestAccessor avatar_accessor(browser());
+
+  // Wait for the identity name to show up and then clear it.
+  ASSERT_TRUE(avatar_accessor.WaitForTextNotEqual(std::u16string()));
+  AvatarToolbarButtonInterface* avatar =
+      GetAvatarToolbarButtonInterface(browser());
+  avatar->ClearActiveStateForTesting();
+  ASSERT_TRUE(avatar_accessor.WaitForText(std::u16string()));
+
+  // Specifically enable BatchUploadPromo conditions and disable
+  // HistorySyncPromo.
+  SetHistoryAndTabsSyncingPreference(true);
+  batch_upload_test_helper().SetLocalDataDescriptionForAllAvailableTypes();
+  batch_upload_test_helper().SetReturnDescriptionOnRequest(true);
+
+  // Set infinite promo delay so the collapse timer is actively running.
+  SetInfiniteAvatarDelay(AvatarDelayType::kPromo);
+
+  // Trigger promo fetch.
+  avatar->ForceShowingPromoForTesting();
+  batch_upload_test_helper().FireReturnDescriptionRequest();
+
+  // The BatchUpload promo should now be showing and the collapse timer is
+  // running.
+  ASSERT_TRUE(avatar_accessor.WaitForText(
+      l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_BATCH_UPLOAD_PROMO)));
+
+  // Now clear local data and trigger validation recomputation.
+  batch_upload_test_helper().ClearReturnDescriptions();
+  GetTestSyncService()->FireStateChanged();
+  batch_upload_test_helper().FireReturnDescriptionRequest();
+
+  // The promo should collapse to normal without triggering invariant failures.
+  EXPECT_TRUE(avatar_accessor.WaitForText(std::u16string()));
+}
+#endif  // !BUILDFLAG(IS_WIN)
 
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 

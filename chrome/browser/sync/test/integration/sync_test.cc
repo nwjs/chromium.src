@@ -132,6 +132,7 @@
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/test/base/ui_test_utils.h"
 #include "components/trusted_vault/command_line_switches.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -183,7 +184,7 @@ constexpr auto kAccountId2 =
 class SyncTest::ClosedBrowserObserver : public BrowserCollectionObserver {
  public:
   using OnBrowserRemovedCallback =
-      base::RepeatingCallback<void(Browser* browser)>;
+      base::RepeatingCallback<void(BrowserWindowInterface* browser)>;
 
   explicit ClosedBrowserObserver(OnBrowserRemovedCallback callback)
       : browser_remove_callback_(std::move(callback)) {
@@ -193,7 +194,7 @@ class SyncTest::ClosedBrowserObserver : public BrowserCollectionObserver {
   ~ClosedBrowserObserver() override = default;
 
   void OnBrowserClosed(BrowserWindowInterface* browser) override {
-    browser_remove_callback_.Run(browser->GetBrowserForMigrationOnly());
+    browser_remove_callback_.Run(browser);
   }
 
  private:
@@ -202,6 +203,12 @@ class SyncTest::ClosedBrowserObserver : public BrowserCollectionObserver {
   OnBrowserRemovedCallback browser_remove_callback_;
 };
 #endif
+
+SyncTest::SyncClientState::SyncClientState() = default;
+SyncTest::SyncClientState::~SyncClientState() = default;
+SyncTest::SyncClientState::SyncClientState(SyncClientState&&) = default;
+SyncTest::SyncClientState& SyncTest::SyncClientState::operator=(
+    SyncClientState&&) = default;
 
 SyncTest::SyncTest(TestType test_type)
     : test_type_(test_type),
@@ -455,11 +462,11 @@ bool SyncTest::CreateProfile(int index) {
 }
 
 Profile* SyncTest::GetProfile(int index) const {
-  CHECK(!profiles_.empty()) << "SetupClients() has not yet been called.";
-  CHECK(index >= 0 && index < static_cast<int>(profiles_.size()))
+  CHECK(!clients_.empty()) << "SetupClients() has not yet been called.";
+  CHECK(index >= 0 && index < std::ssize(clients_))
       << "GetProfile(): Index is out of bounds: " << index;
 
-  Profile* profile = profiles_[index];
+  Profile* profile = clients_[index].profile;
   CHECK(profile) << "No profile found at index: " << index;
 
   return profile;
@@ -467,8 +474,12 @@ Profile* SyncTest::GetProfile(int index) const {
 
 std::vector<raw_ptr<Profile, VectorExperimental>> SyncTest::GetAllProfiles() {
   std::vector<raw_ptr<Profile, VectorExperimental>> profiles;
-  for (int i = 0; i < num_clients(); ++i) {
-    profiles.push_back(GetProfile(i));
+  for (const SyncClientState& client : clients_) {
+    // Profile can be null if it was destroyed earlier (e.g. in
+    // OnProfileWillBeDestroyed).
+    if (client.profile) {
+      profiles.push_back(client.profile);
+    }
   }
   return profiles;
 }
@@ -476,48 +487,55 @@ std::vector<raw_ptr<Profile, VectorExperimental>> SyncTest::GetAllProfiles() {
 #if BUILDFLAG(IS_CHROMEOS)
 void SyncTest::SetUsePrimaryUserProfile(bool value) {
   // Must be called early enough.
-  CHECK(profiles_.empty());
+  CHECK(clients_.empty());
   use_primary_user_profile_ = true;
 }
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
-Browser* SyncTest::GetBrowser(int index) {
-  CHECK(!browsers_.empty()) << "SetupClients() has not yet been called.";
-  CHECK(index >= 0 && index < static_cast<int>(browsers_.size()))
-      << "GetBrowser(): Index is out of bounds: " << index;
+BrowserWindowInterface* SyncTest::GetBrowser(int profile_index,
+                                             int window_index) const {
+  CHECK(!clients_.empty()) << "SetupClients() has not yet been called.";
+  CHECK(profile_index >= 0 && profile_index < std::ssize(clients_))
+      << "GetBrowser(): Profile index is out of bounds: " << profile_index;
 
-  Browser* browser = browsers_[index];
-  CHECK(browser);
+  const std::vector<
+      raw_ptr<BrowserWindowInterface, AcrossTasksDanglingUntriaged>>& browsers =
+      clients_[profile_index].browsers;
+  CHECK(window_index >= 0 && window_index < std::ssize(browsers))
+      << "GetBrowser(): Window index is out of bounds: " << window_index
+      << " for profile " << profile_index
+      << ". (Did you forget to call AddBrowser() to create additional "
+         "windows?)";
+
+  BrowserWindowInterface* browser = browsers[window_index];
+  CHECK(browser) << "GetBrowser(): Browser for profile " << profile_index
+                 << " and window " << window_index
+                 << " was not created. Call AddBrowser() explicitly if this "
+                    "test requires a browser window.";
 
   return browser;
 }
 
-Browser* SyncTest::AddBrowser(int profile_index) {
+BrowserWindowInterface* SyncTest::AddBrowser(int profile_index) {
   Profile* profile = GetProfile(profile_index);
-  browsers_.push_back(
-      CreateBrowserWindow(
-          BrowserWindowCreateParams(profile, /*from_user_gesture=*/true))
-          ->GetBrowserForMigrationOnly());
-  profiles_.push_back(profile);
-  CHECK_EQ(browsers_.size(), profiles_.size());
+  BrowserWindowInterface* browser = CreateBrowserWindow(
+      BrowserWindowCreateParams(profile, /*from_user_gesture=*/true));
+  clients_[profile_index].browsers.push_back(browser);
 
-  Browser* browser = browsers_.back();
   chrome::AddSelectedTabWithURL(browser, GetInitialURL(),
                                 ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
   // Show the browser window. Otherwise, the rendering pipeline might not
   // initialize or produce frames (e.g., on Wayland headless bots), which
   // can cause tests relying on hit test data or visual state to time out.
   browser->GetWindow()->Show();
+
   return browser;
 }
 
-void SyncTest::OnBrowserRemoved(Browser* browser) {
-  for (size_t i = 0; i < browsers_.size(); ++i) {
-    if (browsers_[i] == browser) {
-      browsers_[i] = nullptr;
-      break;
-    }
+void SyncTest::OnBrowserRemoved(BrowserWindowInterface* browser) {
+  for (SyncClientState& client : clients_) {
+    std::erase(client.browsers, browser);
   }
 }
 #endif
@@ -529,14 +547,15 @@ SyncServiceImplHarness* SyncTest::GetClient(int index) {
 
 const SyncServiceImplHarness* SyncTest::GetClient(int index) const {
   CHECK(!clients_.empty()) << "SetupClients() has not yet been called.";
-  CHECK(index >= 0 && index < static_cast<int>(clients_.size()))
+  CHECK(index >= 0 && index < std::ssize(clients_))
       << "GetClient(): Index is out of bounds.";
-  return clients_[index].get();
+  return clients_[index].harness.get();
 }
 
 std::vector<SyncServiceImplHarness*> SyncTest::GetSyncClients() {
-  return base::ToVector(clients_,
-                        &std::unique_ptr<SyncServiceImplHarness>::get);
+  return base::ToVector(clients_, [](const SyncClientState& client) {
+    return client.harness.get();
+  });
 }
 
 SyncServiceImpl* SyncTest::GetSyncService(int index) const {
@@ -569,7 +588,6 @@ SyncTest::GetSyncServices() {
 }
 
 bool SyncTest::SetupClients() {
-  CHECK(profiles_.empty());
   CHECK(clients_.empty());
   CHECK_GT(num_clients_, 0) << "num_clients_ incorrectly initialized.";
 
@@ -577,8 +595,6 @@ bool SyncTest::SetupClients() {
       g_browser_process->profile_manager()->GetLastUsedProfile();
 
 #if !BUILDFLAG(IS_ANDROID)
-  CHECK(browsers_.empty());
-
   // Create the browser observer now that GlobalBrowserCollection is available.
   // This cannot be done in the constructor because it runs before browser
   // process initialization.
@@ -589,8 +605,7 @@ bool SyncTest::SetupClients() {
   }
 #endif
 
-  // Create the required number of sync profiles, browsers and clients.
-  profiles_.resize(num_clients_);
+  // Create the required number of sync clients.
   clients_.resize(num_clients_);
 
   auto* cl = base::CommandLine::ForCurrentProcess();
@@ -644,26 +659,32 @@ bool SyncTest::SetupClients() {
 
 void SyncTest::InitializeProfile(int index, Profile* profile) {
   CHECK(profile);
-  CHECK(!profiles_[index]) << " for index " << index;
+  CHECK(index >= 0 && index < std::ssize(clients_));
+  CHECK(!clients_[index].profile) << " for index " << index;
 
-  profiles_[index] = profile;
+  clients_[index].profile = profile;
   profile->AddObserver(this);
 
 #if !BUILDFLAG(IS_ANDROID)
-  browsers_.push_back(
-      CreateBrowserWindow(
-          BrowserWindowCreateParams(profile, /*from_user_gesture=*/true))
-          ->GetBrowserForMigrationOnly());
-  CHECK_EQ(static_cast<size_t>(index), browsers_.size() - 1);
+  CHECK(clients_[index].browsers.empty());
+  // Only the primary client (index 0) gets a browser window by default during
+  // profile initialization. Secondary clients only create browser windows if
+  // explicitly requested via AddBrowser().
+  // This is needed for performance reasons, mostly to reduce flakiness due to
+  // test timeouts during initialization and teardown.
+  if (index == 0) {
+    BrowserWindowInterface* browser = CreateBrowserWindow(
+        BrowserWindowCreateParams(profile, /*from_user_gesture=*/true));
+    clients_[index].browsers.push_back(browser);
 
-  Browser* browser = browsers_.back();
-  chrome::AddSelectedTabWithURL(browser, GetInitialURL(),
-                                ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
+    chrome::AddSelectedTabWithURL(browser, GetInitialURL(),
+                                  ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
 
-  // Show the browser window. Otherwise, the rendering pipeline might not
-  // initialize or produce frames (e.g., on Wayland headless bots), which
-  // can cause tests relying on hit test data or visual state to time out.
-  browser->GetWindow()->Show();
+    // Show the browser window. Otherwise, the rendering pipeline might not
+    // initialize or produce frames (e.g., on Wayland headless bots), which
+    // can cause tests relying on hit test data or visual state to time out.
+    browser->GetWindow()->Show();
+  }
 #endif
 
   if (server_type_ == IN_PROCESS_FAKE_SERVER) {
@@ -680,8 +701,8 @@ void SyncTest::InitializeProfile(int index, Profile* profile) {
           ? SyncServiceImplHarness::SigninType::UI_SIGNIN
           : SyncServiceImplHarness::SigninType::FAKE_SIGNIN;
 
-  CHECK(!clients_[index]);
-  clients_[index] =
+  CHECK(!clients_[index].harness);
+  clients_[index].harness =
       SyncServiceImplHarness::Create(GetProfile(index), signin_type);
   EXPECT_NE(nullptr, GetClient(index)) << "Could not create Client " << index;
 }
@@ -691,7 +712,7 @@ bool SyncTest::SetupSyncInternal(SetupSyncMode setup_mode,
                                  SyncTestAccount account,
                                  bool enable_history_sync_in_transport_mode) {
   // Create sync profiles and clients if they haven't already been created.
-  if (profiles_.empty()) {
+  if (clients_.empty()) {
     if (!SetupClients()) {
       ADD_FAILURE() << "SetupClients() failed.";
       return false;
@@ -891,7 +912,8 @@ void SyncTest::TearDownOnMainThread() {
     fake_server_.reset();
   }
 
-  for (Profile* profile : profiles_) {
+  for (const SyncClientState& client : clients_) {
+    Profile* profile = client.profile;
     // Profile could be removed earlier.
     if (profile) {
       profile->RemoveObserver(this);
@@ -934,26 +956,42 @@ void SyncTest::TearDownOnMainThread() {
     }
   }
 
+#if !BUILDFLAG(IS_ANDROID)
+
+  // Make a copy of browser pointers before calling CloseBrowserAsynchronously,
+  // as closing a browser can synchronously notify observers and modify
+  // clients_[...].browsers.
+  std::vector<BrowserWindowInterface*> browsers_to_close;
+  for (const SyncClientState& client : clients_) {
+    for (BrowserWindowInterface* browser : client.browsers) {
+      if (browser) {
+        browsers_to_close.push_back(browser);
+      }
+    }
+  }
+
+  // Closing all browsers created by this test in parallel rather than
+  // sequentially. Other browsers created outside SyncTest setup should be
+  // closed by the creator of that browser.
+  std::vector<std::unique_ptr<ui_test_utils::BrowserDestroyedObserver>>
+      browser_observers;
+  browser_observers.reserve(browsers_to_close.size());
+  for (BrowserWindowInterface* browser : browsers_to_close) {
+    browser_observers.push_back(
+        std::make_unique<ui_test_utils::BrowserDestroyedObserver>(browser));
+    CloseBrowserAsynchronously(browser);
+  }
+
+  for (const std::unique_ptr<ui_test_utils::BrowserDestroyedObserver>&
+           observer : browser_observers) {
+    observer->Wait();
+  }
+#endif
+
   clients_.clear();
-  // Note: Closing all the browsers (see above) may destroy the Profiles, if
-  // kDestroyProfileOnBrowserClose is enabled. So clear them out here, to make
-  // sure they're not used anymore.
-  profiles_.clear();
   profile_to_fake_gcm_driver_.clear();
   // TODO(crbug.com/40798524): There are various other Profile-related members
   // around like profile_to_*_map_ - those should probably be cleaned up too.
-
-#if !BUILDFLAG(IS_ANDROID)
-  // Closing all browsers created by this test. The calls here block until
-  // they are closed. Other browsers created outside SyncTest setup should be
-  // closed by the creator of that browser.
-  for (Browser* browser : browsers_) {
-    if (browser) {
-      CloseBrowserSynchronously(browser);
-    }
-  }
-  browsers_.clear();
-#endif
 
 // Clean up the browser observer.
 #if !BUILDFLAG(IS_ANDROID)
@@ -975,16 +1013,16 @@ void SyncTest::OnProfileWillBeDestroyed(Profile* profile) {
     profile_to_fake_gcm_driver_.erase(profile);
   }
 
-  for (size_t index = 0; index < profiles_.size(); ++index) {
-    if (profiles_[index] != profile) {
+  for (size_t index = 0; index < clients_.size(); ++index) {
+    if (clients_[index].profile != profile) {
       continue;
     }
 
     CheckForDataTypeFailures(/*client_index=*/index);
-    profiles_[index] = nullptr;
-    clients_[index].reset();
+    clients_[index].profile = nullptr;
+    clients_[index].harness.reset();
 #if !BUILDFLAG(IS_ANDROID)
-    CHECK(!browsers_[index]);
+    CHECK(clients_[index].browsers.empty());
 #endif  // !BUILDFLAG(IS_ANDROID)
   }
 }
@@ -1252,7 +1290,7 @@ std::string SetupSyncModeAsString(SyncTest::SetupSyncMode sync_test_mode) {
 // enabled by default, e.g. HISTORY requires a dedicated opt-in via
 // SyncUserSettings::SetSelectedTypes().
 syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
-  static_assert(67 == syncer::GetNumDataTypes(),
+  static_assert(65 == syncer::GetNumDataTypes(),
                 "Add new types below if they can run in transport mode");
 
 #if BUILDFLAG(IS_ANDROID)

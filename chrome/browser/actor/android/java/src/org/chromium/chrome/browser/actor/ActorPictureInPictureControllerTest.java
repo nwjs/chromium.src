@@ -36,7 +36,6 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.Callback;
@@ -62,7 +61,6 @@ import java.util.function.Supplier;
 
 /** Unit tests for {@link ActorPictureInPictureController}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class ActorPictureInPictureControllerTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private Profile mProfile;
@@ -167,6 +165,9 @@ public class ActorPictureInPictureControllerTest {
 
     @Test
     public void testOnPictureInPictureEvent_Entered_ShowsOverlay() {
+        ActorForegroundServiceManager manager = mock(ActorForegroundServiceManager.class);
+        ActorForegroundServiceManager.setInstanceForTesting(manager);
+
         createMockActorTask(101, "Test Title", ActorTaskState.ACTING);
         mController.onPictureInPictureEvent(PictureInPictureDelegate.Event.ENTERED, null);
 
@@ -174,6 +175,7 @@ public class ActorPictureInPictureControllerTest {
         verify(mMockCoordinator).updateTitle("Test Title");
         verify(mMockCoordinator).updateStatus(ActorTaskState.ACTING);
         verify(mMockCoordinator, never()).destroy();
+        verify(manager).resendWorkingNotifications();
     }
 
     @Test

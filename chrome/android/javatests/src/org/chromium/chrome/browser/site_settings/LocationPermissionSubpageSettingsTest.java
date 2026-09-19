@@ -25,8 +25,7 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.profiles.ProfileManager;
-import org.chromium.chrome.browser.settings.SettingsActivity;
-import org.chromium.chrome.browser.settings.SettingsActivityTestRule;
+import org.chromium.chrome.browser.settings.SettingsTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
@@ -55,8 +54,8 @@ public class LocationPermissionSubpageSettingsTest {
             ChromeTransitTestRules.fastAutoResetCtaActivityRule();
 
     @Rule
-    public SettingsActivityTestRule<LocationPermissionSubpageSettings> mSettingsActivityTestRule =
-            new SettingsActivityTestRule<>(LocationPermissionSubpageSettings.class);
+    public SettingsTestRule<LocationPermissionSubpageSettings> mSettingsTestRule =
+            new SettingsTestRule<>(LocationPermissionSubpageSettings.class);
 
     @Test
     @SmallTest
@@ -74,15 +73,14 @@ public class LocationPermissionSubpageSettingsTest {
 
         Bundle fragmentArgs = new Bundle();
         fragmentArgs.putSerializable(SingleWebsiteSettings.EXTRA_SITE, website);
-        SettingsActivity settingsActivity =
-                mSettingsActivityTestRule.startSettingsActivity(fragmentArgs);
+        mSettingsTestRule.startSettingsActivity(fragmentArgs);
 
         GeolocationSetting allowPreciseSetting =
                 new GeolocationSetting(ContentSetting.ALLOW, ContentSetting.ALLOW);
 
         // Initially the Approximate button should be selected.
         LocationPermissionOptionsPreference preference =
-                mSettingsActivityTestRule
+                mSettingsTestRule
                         .getFragment()
                         .findPreference(LocationPermissionSubpageSettings.RADIO_BUTTON_GROUP_KEY);
         assertTrue(preference.getApproximateButtonForTesting().isChecked());
@@ -113,12 +111,11 @@ public class LocationPermissionSubpageSettingsTest {
 
         Bundle fragmentArgs = new Bundle();
         fragmentArgs.putSerializable(SingleWebsiteSettings.EXTRA_SITE, website);
-        SettingsActivity settingsActivity =
-                mSettingsActivityTestRule.startSettingsActivity(fragmentArgs);
+        mSettingsTestRule.startSettingsActivity(fragmentArgs);
         checkNoWarning();
 
         LocationPermissionOptionsPreference preference =
-                mSettingsActivityTestRule
+                mSettingsTestRule
                         .getFragment()
                         .findPreference(LocationPermissionSubpageSettings.RADIO_BUTTON_GROUP_KEY);
         ThreadUtils.runOnUiThreadBlocking(
@@ -134,7 +131,7 @@ public class LocationPermissionSubpageSettingsTest {
 
     private void checkNoWarning() {
         Preference warning =
-                mSettingsActivityTestRule
+                mSettingsTestRule
                         .getFragment()
                         .findPreference(
                                 LocationPermissionSubpageSettings.PREF_OS_PERMISSIONS_WARNING);
@@ -142,8 +139,7 @@ public class LocationPermissionSubpageSettingsTest {
     }
 
     private void checkHasWarning() {
-        PreferenceScreen preferenceScreen =
-                mSettingsActivityTestRule.getFragment().getPreferenceScreen();
+        PreferenceScreen preferenceScreen = mSettingsTestRule.getFragment().getPreferenceScreen();
         Preference warning =
                 preferenceScreen.getPreference(preferenceScreen.getPreferenceCount() - 1);
         assertEquals(

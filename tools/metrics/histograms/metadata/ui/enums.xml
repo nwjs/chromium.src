@@ -173,6 +173,16 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/browser/ui/waap/waap_ui_metrics_service.cc:InitialWebUIView) -->
 
+<!-- LINT.IfChange(InitialWebUIWindowMetricsManagerBindingStatus) -->
+
+<enum name="InitialWebUIWindowMetricsManagerBindingStatus">
+  <int value="0" label="BoundAtStart"/>
+  <int value="1" label="BoundDeferred"/>
+  <int value="2" label="NeverBound"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/page_load_metrics/observers/initial_webui_page_load_metrics_observer.h:InitialWebUIWindowMetricsManagerBindingStatus) -->
+
 <!-- LINT.IfChange(PinInfoBarUserInteraction) -->
 
 <enum name="PinInfoBarUserInteraction">
@@ -535,6 +545,7 @@ chromium-metrics-reviews@google.com.
   <int value="94"
       label="UMA_FACILITATED_PAYMENTS_PIX_ACCOUNT_LINKING_FAILURE_NOTIFICATION"/>
   <int value="95" label="UMA_GLIC_UNPIN_UNDO"/>
+  <int value="96" label="UMA_GLIC_MIC_DISABLED"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/messages/android/java/src/org/chromium/chrome/browser/ui/messages/snackbar/Snackbar.java:SnackbarIdentifier) -->
@@ -1059,6 +1070,7 @@ chromium-metrics-reviews@google.com.
   <int value="1326111536" label="chrome://new-tab-page/"/>
   <int value="1332050252" label="chrome://borealis-installer/"/>
   <int value="1340926535" label="chrome://network/"/>
+  <int value="1350640659" label="chrome://page-action-internals/"/>
   <int value="1354146226" label="chrome://tab-modal-confirm-dialog/"/>
   <int value="1356087814" label="chrome://add-supervision/"/>
   <int value="1361577626" label="chrome://connectors-internals/"/>
@@ -1199,7 +1211,7 @@ chromium-metrics-reviews@google.com.
   <int value="60" label="Show Chrome Labs"/>
   <int value="61" label="Install PWA"/>
   <int value="62" label="Open in PWA window"/>
-  <int value="63" label="Send to your devices"/>
+  <int value="63" label="Send to your device"/>
   <int value="64" label="Create QR Code"/>
   <int value="65" label="Customize your Chrome"/>
   <int value="66" label="Close this profile"/>

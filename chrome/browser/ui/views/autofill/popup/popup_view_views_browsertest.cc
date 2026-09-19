@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
+#include "build/build_config.h"
 #include "chrome/browser/ui/autofill/autofill_popup_view.h"
 #include "chrome/browser/ui/autofill/mock_autofill_popup_controller.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_bnpl_footnote_view.h"
@@ -584,22 +585,48 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
 }
 
 IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest, InvokeUi_AutofillAi_SubMenu) {
+  Suggestion source_attribution(
+      u"From Photos · Pippi Långstrump · Sweden · LR1234567",
+      SuggestionType::kAutofillAiSourceAttribution);
+  source_attribution.icon = Suggestion::Icon::kSpark;
+
   Suggestion remove_suggestion(
       l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_REMOVE_INFO),
       SuggestionType::kRemoveAutofillAi);
   remove_suggestion.icon = Suggestion::Icon::kClose;
-  PrepareSuggestions({std::move(remove_suggestion)});
+
+  Suggestion manage_suggestion(
+      l10n_util::GetStringUTF16(IDS_AUTOFILL_MANAGE_ENHANCED_AUTOFILL),
+      SuggestionType::kManageEnhancedAutofill);
+  manage_suggestion.icon = Suggestion::Icon::kSettings;
+
+  PrepareSuggestions(
+      {std::move(source_attribution), Suggestion(SuggestionType::kSeparator),
+       std::move(remove_suggestion), std::move(manage_suggestion)});
   ShowAndVerifyUi(/*popup_has_parent=*/true);
 }
 
 IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
                        InvokeUi_AutofillAi_SubMenu_Selected) {
+  Suggestion source_attribution(
+      u"From Photos · Pippi Långstrump · Sweden · LR1234567",
+      SuggestionType::kAutofillAiSourceAttribution);
+  source_attribution.icon = Suggestion::Icon::kSpark;
+
   Suggestion remove_suggestion(
       l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_REMOVE_INFO),
       SuggestionType::kRemoveAutofillAi);
   remove_suggestion.icon = Suggestion::Icon::kClose;
-  PrepareSuggestions({std::move(remove_suggestion)});
-  PrepareSelectedCell(CellIndex{0, CellType::kContent});
+
+  Suggestion manage_suggestion(
+      l10n_util::GetStringUTF16(IDS_AUTOFILL_MANAGE_ENHANCED_AUTOFILL),
+      SuggestionType::kManageEnhancedAutofill);
+  manage_suggestion.icon = Suggestion::Icon::kSettings;
+
+  PrepareSuggestions(
+      {std::move(source_attribution), Suggestion(SuggestionType::kSeparator),
+       std::move(remove_suggestion), std::move(manage_suggestion)});
+  PrepareSelectedCell(CellIndex{3, CellType::kContent});
   ShowAndVerifyUi(/*popup_has_parent=*/true);
 }
 

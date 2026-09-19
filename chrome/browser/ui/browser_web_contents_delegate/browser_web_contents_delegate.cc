@@ -52,6 +52,8 @@
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tab_dialogs.h"
 #include "chrome/browser/ui/tab_modal_confirm_dialog.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "chrome/browser/ui/views/status_bubble_views.h"
@@ -61,7 +63,6 @@
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/webui_url_constants.h"
-#include "components/blocked_content/list_item_position.h"
 #include "components/blocked_content/popup_blocker.h"
 #include "components/blocked_content/popup_tracker.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -72,12 +73,14 @@
 #include "components/headless/console_message_logger/headless_console_message_logger.h"
 #include "components/javascript_dialogs/app_modal_dialog_manager.h"
 #include "components/javascript_dialogs/tab_modal_dialog_manager.h"
+#include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/page_load_metrics/browser/metrics_web_contents_observer.h"
 #include "components/paint_preview/browser/paint_preview_client.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/printing/browser/print_composite_client.h"
 #include "components/split_tabs/split_tab_id.h"
 #include "components/tabs/public/split_tab_data.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/keyboard_event_processing_result.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -101,6 +104,7 @@
 #include "third_party/blink/public/common/manifest/manifest.h"
 #include "third_party/blink/public/common/page/drag_operation.h"
 #include "third_party/blink/public/common/security/protocol_handler_security_level.h"
+#include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
 #include "third_party/blink/public/mojom/frame/fullscreen.mojom.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom.h"
 #include "ui/base/base_window.h"
@@ -418,9 +422,7 @@ void BrowserWebContentsDelegate::SetTopControlsGestureScrollInProgress(
 
 bool BrowserWebContentsDelegate::CanOverscrollContent() {
 #if defined(USE_AURA)
-  return browser_->GetFeatures()
-      .overscroll_pref_manager()
-      ->CanOverscrollContent();
+  return OverscrollPrefManager::From(&browser_.get())->CanOverscrollContent();
 #else
   return false;
 #endif
@@ -471,7 +473,7 @@ bool BrowserWebContentsDelegate::CanDragEnter(
   // external navigation.
   if ((operations_allowed & blink::kDragOperationLink) &&
       chrome::SettingsWindowManager::GetInstance()->IsSettingsBrowser(
-          browser_->GetBrowserForMigrationOnly())) {
+          &browser_.get())) {
     return false;
   }
 #endif
@@ -516,16 +518,12 @@ void BrowserWebContentsDelegate::OnDidBlockNavigation(
     blink::mojom::NavigationBlockedReason reason) {
   if (reason ==
       blink::mojom::NavigationBlockedReason::kRedirectWithNoUserGesture) {
+    tabs::TabInterface* tab =
+        tabs::TabInterface::MaybeGetFromContents(web_contents);
     if (auto* framebust_helper =
-            FramebustBlockTabHelper::FromWebContents(web_contents)) {
-      auto on_click = [](const GURL& url, size_t index, size_t total_elements) {
-        UMA_HISTOGRAM_ENUMERATION(
-            "WebCore.Framebust.ClickThroughPosition",
-            blocked_content::GetListItemPositionFromDistance(index,
-                                                             total_elements));
-      };
+            tab ? FramebustBlockTabHelper::From(tab) : nullptr) {
       framebust_helper->AddBlockedUrl(blocked_url, initiator_origin,
-                                      base::BindOnce(on_click));
+                                      base::NullCallback());
     }
   }
 }
@@ -817,8 +815,7 @@ void BrowserWebContentsDelegate::LoadingStateChanged(
 
 void BrowserWebContentsDelegate::CloseContents(content::WebContents* source) {
   if (unload_controller_->CanCloseContents(source)) {
-    chrome::CloseWebContents(browser_->GetBrowserForMigrationOnly(), source,
-                             true);
+    chrome::CloseWebContents(&browser_.get(), source, true);
   }
 }
 
@@ -1211,6 +1208,12 @@ bool BrowserWebContentsDelegate::GetCanResize() {
   return window_->GetCanResize();
 }
 
+bool BrowserWebContentsDelegate::GetIsAlwaysOnTop() {
+  // TODO(https://crbug.com/546631275): Return true when this browser
+  // represents an always-on-top popup.
+  return false;
+}
+
 bool BrowserWebContentsDelegate::CanUseWindowingControls(
     content::RenderFrameHost* requesting_frame) {
   if (!app_browser_controller_) {
@@ -1521,6 +1524,27 @@ std::string BrowserWebContentsDelegate::GetTitleForMediaControls(
   return app_browser_controller_
              ? app_browser_controller_->GetTitleForMediaControls()
              : std::string();
+}
+
+void BrowserWebContentsDelegate::GetAIPageContent(
+    content::WebContents* web_contents,
+    bool include_actionable_elements,
+    base::OnceCallback<void(const std::string&)> callback) {
+  auto options = include_actionable_elements
+                     ? optimization_guide::ActionableAIPageContentOptions(
+                           /*on_critical_path=*/false)
+                     : optimization_guide::DefaultAIPageContentOptions(
+                           /*on_critical_path=*/false);
+
+  optimization_guide::GetAIPageContent(
+      web_contents, std::move(options),
+      base::BindOnce([](optimization_guide::AIPageContentResultOrError result)
+                         -> std::string {
+        if (!result.has_value()) {
+          return "";
+        }
+        return result->proto.SerializeAsString();
+      }).Then(std::move(callback)));
 }
 
 void BrowserWebContentsDelegate::PrintCrossProcessSubframe(

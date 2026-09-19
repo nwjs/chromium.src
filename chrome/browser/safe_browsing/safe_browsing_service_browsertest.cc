@@ -46,7 +46,6 @@
 #include "chrome/browser/safe_browsing/test_safe_browsing_service.h"
 #include "chrome/browser/safe_browsing/v5_get_hash_protocol_manager_factory.h"
 #include "chrome/browser/safe_browsing/v5_search_hashes_cache_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -492,7 +491,8 @@ class SBSafeBrowsingServiceTestBase : public InProcessBrowserTest {
       auto* cache =
           V5SearchHashesCacheFactory::GetForProfile(browser()->GetProfile());
       CHECK(cache);
-      cache->CacheArtificialV5SearchHashesLookupVerdict(bad_url, threat_type);
+      cache->CacheArtificialV5SearchHashesLookupVerdict(bad_url, threat_type,
+                                                        /*is_warn_only=*/false);
     } else {
       ThreatMetadata metadata;
       FullHashInfo full_hash_info =
@@ -638,7 +638,7 @@ IN_PROC_BROWSER_TEST_P(SBSafeBrowsingServiceTest, MalwareWithAllowlist) {
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
   // There should be an InterstitialPage.
-  WebContents* contents = browser()->tab_strip_model()->GetActiveWebContents();
+  WebContents* contents = browser()->GetTabStripModel()->GetActiveWebContents();
 
   security_interstitials::SecurityInterstitialTabHelper* helper =
       security_interstitials::SecurityInterstitialTabHelper::FromWebContents(
@@ -842,7 +842,7 @@ IN_PROC_BROWSER_TEST_P(SafeBrowsingServiceWithAutoReloadTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
   EXPECT_TRUE(ShowingInterstitialPage());
-  WebContents* contents = browser()->tab_strip_model()->GetActiveWebContents();
+  WebContents* contents = browser()->GetTabStripModel()->GetActiveWebContents();
   auto* reloader = error_page::NetErrorAutoReloader::FromWebContents(contents);
   const std::optional<base::OneShotTimer>& timer =
       reloader->next_reload_timer_for_testing();
@@ -1015,7 +1015,7 @@ IN_PROC_BROWSER_TEST_P(SBSafeBrowsingServiceTest,
 
   // Perform navigations to establish a referrer chain.
   WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), referrer_gurl));
 
   // Navigate from referrer_gurl to landing_page_gurl to create a referrer.

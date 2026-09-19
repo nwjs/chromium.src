@@ -29,6 +29,7 @@
 #include "chrome/browser/profiles/batch_upload/batch_upload_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_entry.h"
+#include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_metrics.h"
@@ -76,6 +77,7 @@
 #include "components/autofill/core/browser/metrics/autofill_settings_metrics.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/account_preview_data_service.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_metrics.h"
@@ -670,7 +672,6 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
       identity_manager->FindExtendedAccountInfo(primary_account_info);
   CoreAccountInfo account_info_for_signin_action = primary_account_info;
 
-
   IdentitySectionParams params;
   params.title = GetProfileIdentifier(entry);
 
@@ -775,8 +776,8 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
       AccountInfo account_info_for_promos =
           signin_ui_util::GetSingleAccountForPromos(
               identity_manager, account_preview_data_service);
-      if (!CanOfferSignin(&profile(), account_info_for_promos.gaia,
-                          account_info_for_promos.email,
+      if (!CanOfferSignin(&profile(), account_info_for_promos.GetGaiaId(),
+                          std::string(account_info_for_promos.GetEmail()),
                           /*allow_account_from_other_profile=*/true)
                .IsOk()) {
         break;
@@ -817,7 +818,7 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
                 preferred_account =
                     account_preview_data_service->GetPreferredAccountForPromo();
             preferred_account.has_value() &&
-            preferred_account->gaia_id == account_info_for_promos.gaia) {
+            preferred_account->gaia_id == account_info_for_promos.GetGaiaId()) {
           if (std::optional<std::string> custom_subtitle =
                   signin::GetAccountPreviewPromoSubtitle(*preferred_account);
               custom_subtitle.has_value() && !custom_subtitle->empty()) {
@@ -830,7 +831,7 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
             syncer::IsReplaceSyncPromosWithSignInPromosEnabled()
                 ? IDS_SETTINGS_PEOPLE_ACCOUNT_AWARE_SIGNIN_ACCOUNT_ROW_SUBTITLE_WITH_EMAIL_WITH_BOOKMARKS
                 : IDS_SETTINGS_PEOPLE_ACCOUNT_AWARE_SIGNIN_ACCOUNT_ROW_SUBTITLE_WITH_EMAIL,
-            base::UTF8ToUTF16(account_info_for_promos.email));
+            base::UTF8ToUTF16(account_info_for_promos.GetEmail()));
       }
       params.button_text = l10n_util::GetStringFUTF16(
           IDS_PROFILES_DICE_WEB_ONLY_SIGNIN_BUTTON,

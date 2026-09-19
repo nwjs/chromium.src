@@ -986,6 +986,49 @@ suite('ContextualTasksAppTest', function() {
         'isFrameLoading should be false');
   });
 
+  test('tracks finished top level navigation', async () => {
+    const proxy = new TestContextualTasksBrowserProxy(fixtureUrl);
+    BrowserProxyImpl.setInstance(proxy);
+    const appElement = document.createElement('contextual-tasks-app');
+    const event = new Event('loadstart');
+    Object.assign(event, {url: fixtureUrl, isTopLevel: true});
+
+    assertFalse(appElement.getHasFinishedTopLevelNavigationForTesting());
+
+    await appElement.onThreadFrameTopLevelNavigationForTesting(event);
+
+    assertTrue(appElement.getHasFinishedTopLevelNavigationForTesting());
+    appElement.onThreadFrameContentLoadForTesting();
+    assertTrue(appElement.getHasFinishedTopLevelNavigationForTesting());
+  });
+
+  test(
+      'tracks finished top level navigation when content load wins race',
+      async () => {
+        const proxy = new TestContextualTasksBrowserProxy(fixtureUrl);
+        const {promise: isAiPagePromise, resolve: resolveIsAiPage} =
+            Promise.withResolvers<{isAiPage: boolean}>();
+        proxy.handler.isAiPage = () => isAiPagePromise;
+        proxy.handler.isZeroState = () => Promise.resolve({isZeroState: false});
+        BrowserProxyImpl.setInstance(proxy);
+        const appElement = document.createElement('contextual-tasks-app');
+        const event = new Event('loadstart');
+        Object.assign(event, {url: fixtureUrl, isTopLevel: true});
+
+        assertFalse(appElement.getHasFinishedTopLevelNavigationForTesting());
+
+        const topLevelNavigationPromise =
+            appElement.onThreadFrameTopLevelNavigationForTesting(event);
+        assertTrue(appElement.getIsFrameLoadingForTesting());
+        appElement.onThreadFrameContentLoadForTesting();
+        assertFalse(appElement.getIsFrameLoadingForTesting());
+        assertFalse(appElement.getHasFinishedTopLevelNavigationForTesting());
+        resolveIsAiPage({isAiPage: true});
+        await topLevelNavigationPromise;
+
+        assertTrue(appElement.getHasFinishedTopLevelNavigationForTesting());
+      });
+
   test('sets isFrameLoading to false when load aborts', async () => {
     const {appElement} =
         await createContextualTasksAppElement(/*url=*/ fixtureUrl);
@@ -1344,11 +1387,11 @@ suite('ContextualTasksAppTest', function() {
         isAskGTooltipDismissCountBelowCap: true,
         askGTooltipSessionImpressionCap: 10,
         askGCoBrowseEnabled: true,
-        isLensSearchTooltipDismissCountBelowCap: true,
-        lensSearchTooltipSessionImpressionCap: 10,
       });
 
-      const result = await createContextualTasksAppElement(/*url=*/ fixtureUrl);
+      const result = await createContextualTasksAppElement(
+          /*url=*/ fixtureUrl, /*setupProxy=*/ undefined,
+          /*waitForInitialLoadStart=*/ false);
       appElement = result.appElement;
 
       mockCrComposebox = {
@@ -1375,6 +1418,50 @@ suite('ContextualTasksAppTest', function() {
         assertFalse(onboardingTooltip.shouldShow);
       }
     });
+
+    test('AskG shows when eligible for omnibox popup button', async () => {
+      appElement.entryPoint_ = 'omnibox_popup_button';
+      appElement.isShownInTab_ = false;
+
+      appElement.updateTooltipVisibilityForTesting();
+      await microtasksFinished();
+
+      assertTrue(appElement.askGTooltipTarget_ !== null);
+
+      const onboardingTooltip =
+          appElement.shadowRoot.querySelector('#onboardingTooltip');
+      if (onboardingTooltip) {
+        assertFalse(onboardingTooltip.shouldShow);
+      }
+    });
+
+    test('AskG shows when eligible in tab mode', async () => {
+      appElement.entryPoint_ = 'omnibox_tab_search';
+      appElement.isShownInTab_ = true;
+
+      appElement.updateTooltipVisibilityForTesting();
+      await microtasksFinished();
+
+      assertTrue(appElement.askGTooltipTarget_ !== null);
+
+      const onboardingTooltip =
+          appElement.shadowRoot.querySelector('#onboardingTooltip');
+      if (onboardingTooltip) {
+        assertFalse(onboardingTooltip.shouldShow);
+      }
+    });
+
+    test(
+        'AskG does not show in tab mode for ineligible entry point',
+        async () => {
+          appElement.entryPoint_ = 'omnibox_action';
+          appElement.isShownInTab_ = true;
+
+          appElement.updateTooltipVisibilityForTesting();
+          await microtasksFinished();
+
+          assertEquals(null, appElement.askGTooltipTarget_);
+        });
 
     test('AskG does not show when feature disabled', async () => {
       loadTimeData.overrideValues({
@@ -1415,61 +1502,6 @@ suite('ContextualTasksAppTest', function() {
       assertTrue(!!onboardingTooltip);
       assertTrue(onboardingTooltip.shouldShow);
     });
-
-    test('Lens shows when AskG is dismissed', async () => {
-      loadTimeData.overrideValues({
-        isAskGTooltipDismissCountBelowCap: false,
-      });
-      const result = await createContextualTasksAppElement(/*url=*/ fixtureUrl);
-      appElement = result.appElement;
-      appElement.$.composebox.getComposebox = () => mockCrComposebox;
-      appElement.entryPoint_ = 'omnibox_action';
-      appElement.isShownInTab_ = false;
-
-      appElement.updateTooltipVisibilityForTesting();
-      await microtasksFinished();
-
-      assertTrue(appElement.lensSearchTooltipTarget_ !== null);
-      assertEquals(null, appElement.askGTooltipTarget_);
-    });
-
-    test(
-        'Lens does not show when AskG is dismissed but wrong entry point',
-        async () => {
-          loadTimeData.overrideValues({
-            isAskGTooltipDismissCountBelowCap: false,
-          });
-          const result =
-              await createContextualTasksAppElement(/*url=*/ fixtureUrl);
-          appElement = result.appElement;
-          appElement.$.composebox.getComposebox = () => mockCrComposebox;
-          appElement.entryPoint_ = 'toolbar';  // Ineligible
-          appElement.isShownInTab_ = false;
-
-          appElement.updateTooltipVisibilityForTesting();
-          await microtasksFinished();
-
-          assertEquals(null, appElement.lensSearchTooltipTarget_);
-        });
-
-    test(
-        'Lens does not show when AskG is dismissed but shown in tab',
-        async () => {
-          loadTimeData.overrideValues({
-            isAskGTooltipDismissCountBelowCap: false,
-          });
-          const result =
-              await createContextualTasksAppElement(/*url=*/ fixtureUrl);
-          appElement = result.appElement;
-          appElement.$.composebox.getComposebox = () => mockCrComposebox;
-          appElement.entryPoint_ = 'omnibox_action';
-          appElement.isShownInTab_ = true;  // Ineligible
-
-          appElement.updateTooltipVisibilityForTesting();
-          await microtasksFinished();
-
-          assertEquals(null, appElement.lensSearchTooltipTarget_);
-        });
   });
   // </if>
 });

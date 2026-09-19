@@ -2,12 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {AudioBrowserProxyImpl} from './audio_browser_proxy.js';
 import type {ReadAloudNode, Segment} from './read_aloud_types.js';
 import {TsReadModelImpl} from './ts_model_impl.js';
 import {V8ModelImpl} from './v8_model_impl.js';
-
-// TODO: crbug.com/440400392- Use TestReadAloudModelBrowserProxy to replace
-// FakeReadingMode.
 
 // Proxy class used to wrap text segmentation calls. This can be used to use
 // different text segmentation approaches via feature flag, such as an
@@ -47,7 +45,7 @@ export interface ReadAloudModelBrowserProxy {
 
 export function getReadAloudModel(): ReadAloudModelBrowserProxy {
   return instance ||
-      (!chrome.readingMode.isPhraseHighlightingEnabled ?
+      (!AudioBrowserProxyImpl.getInstance().isPhraseHighlightingEnabled() ?
            instance = new TsReadModelImpl() :
            instance = new V8ModelImpl());
 }

@@ -11,12 +11,12 @@
 #include "base/check.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
-#include "base/i18n/time_formatting.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/path_service.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
+#include "base/time/time.h"
 #include "remoting/base/branding.h"
 #include "third_party/crashpad/crashpad/client/crash_report_database.h"
 #include "third_party/crashpad/crashpad/client/settings.h"
@@ -25,15 +25,11 @@
 #include "base/base_paths.h"
 #include "base/strings/utf_string_conversions.h"
 #elif BUILDFLAG(IS_LINUX)
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "base/environment.h"
-#include "base/posix/eintr_wrapper.h"
 #include "remoting/base/file_path_util_linux.h"
-#include "remoting/base/passwd_utils.h"
-#include "remoting/base/username.h"
 #endif  // BUILDFLAG(IS_WIN)
 
 namespace remoting {
@@ -50,85 +46,30 @@ const size_t kMaxReportsToLog = 2;
 
 // Maximum number of crash reports to retain in the database. When the database
 // contains more than this number, the oldest ones will be deleted, regardless
-// of |kMaxReportDays|.
+// of `kMaxReportAgeDays`.
 const size_t kMaxReportsToRetain = 20;
 
 // Maximum number of days to keep reports around in the local database.
 const size_t kMaxReportAgeDays = 7;
 
 #if BUILDFLAG(IS_LINUX)
-
-inline base::FilePath GetDaemonProcessCrashpadDatabasePath() {
-  return GetVarLibDir().Append("crashpad.daemon");
-}
-
-inline base::FilePath GetNetworkProcessCrashpadDatabasePath() {
-  return GetVarLibDir().Append("crashpad.network");
-}
-
-inline base::FilePath GetPeerConnectionProcessCrashpadDatabasePath() {
-  return GetVarLibDir().Append("crashpad.peer_connection");
-}
-
-void SetupCrashpadSubdirectory(const base::FilePath& path,
-                               base::cstring_view new_owner = {}) {
-  auto delete_path = [&path]() {
-    if (!base::DeletePathRecursively(path)) {
-      PLOG(FATAL) << "Failed to delete insecure directory " << path;
-    }
-  };
-
-  if (base::PathExists(path) && !base::DirectoryExists(path)) {
-    delete_path();
-  }
-
-  base::File::Error error;
-  // This is no-op if the directory already exists.
-  if (!base::CreateDirectoryAndGetError(path, &error)) {
-    LOG(ERROR) << "Failed to create " << path << ": "
-               << base::File::ErrorToString(error);
-    return;
-  }
-
-  if (!new_owner.empty()) {
-    auto user_info = GetPasswdUserInfo(new_owner);
-    if (!user_info.has_value()) {
-      LOG(ERROR) << "Failed to find user " << new_owner << ": "
-                 << user_info.error();
-      delete_path();
-      return;
-    }
-
-    if (HANDLE_EINTR(
-            chown(path.value().c_str(), user_info->uid, user_info->gid)) != 0) {
-      PLOG(ERROR) << "Failed to chown " << path << " to " << new_owner;
-      delete_path();
-      return;
-    }
-  }
-
-  // Make sure the directory is only accessible by the owner.
-  if (HANDLE_EINTR(chmod(path.value().c_str(), 0700)) != 0) {
-    PLOG(ERROR) << "Failed to chmod " << path;
-    delete_path();
-    return;
-  }
-}
-
-void SetupCrashpadDirectories() {
-  if (getuid() != 0) {
-    // Only the daemon process, which is always run as root, is able to set up
-    // these directories.
-    return;
-  }
-
-  SetupCrashpadSubdirectory(GetDaemonProcessCrashpadDatabasePath());
-  SetupCrashpadSubdirectory(GetNetworkProcessCrashpadDatabasePath(),
-                            GetNetworkProcessUsername());
-  SetupCrashpadSubdirectory(GetPeerConnectionProcessCrashpadDatabasePath(),
-                            GetPeerConnectionProcessUsername());
+inline base::FilePath GetUnifiedCrashpadDatabasePath() {
+  return GetVarLibDir().Append("crashpad");
 }
 #endif  // BUILDFLAG(IS_LINUX)
+
+// Formats a `base::Time` as a UTC string ("YYYY-MM-DD HH:MM:SS UTC").
+// We intentionally avoid `base::TimeFormatHTTP()` (and `//base:i18n` in
+// general) because `remoting_crashpad_handler` is a minimal, standalone binary
+// that does not initialize ICU or package `icudtl.dat`. Using ICU without
+// initialization would cause the handler to crash.
+std::string FormatTime(base::Time time) {
+  base::Time::Exploded exploded;
+  time.UTCExplode(&exploded);
+  return base::StringPrintf("%04d-%02d-%02d %02d:%02d:%02d UTC", exploded.year,
+                            exploded.month, exploded.day_of_month,
+                            exploded.hour, exploded.minute, exploded.second);
+}
 
 }  // namespace
 
@@ -140,15 +81,11 @@ base::FilePath GetCrashpadDatabasePath() {
     return path.Append(kChromotingCrashpadDatabasePath);
 #elif BUILDFLAG(IS_LINUX)
     if (getuid() == 0) {
-      return GetDaemonProcessCrashpadDatabasePath();
+      // Used by the daemon process or the elevated start-host process.
+      return GetUnifiedCrashpadDatabasePath();
     }
-    std::string username = GetUsername();
-    if (username == GetNetworkProcessUsername()) {
-      return GetNetworkProcessCrashpadDatabasePath();
-    }
-    if (username == GetPeerConnectionProcessUsername()) {
-      return GetPeerConnectionProcessCrashpadDatabasePath();
-    }
+    // 4-tier cascading resolution for non-root processes (e.g. single-process
+    // ME2ME host, IT2ME Native Messaging Host).
     std::optional<std::string> xdg_runtime_dir =
         base::Environment::Create()->GetVar("XDG_RUNTIME_DIR");
     if (!xdg_runtime_dir.has_value() || xdg_runtime_dir->empty()) {
@@ -162,6 +99,11 @@ base::FilePath GetCrashpadDatabasePath() {
     base::FilePath xdg_runtime_dir_path(*xdg_runtime_dir);
     if (base::DirectoryExists(xdg_runtime_dir_path)) {
       return xdg_runtime_dir_path.Append("crd_crashpad");
+    }
+
+    base::FilePath config_dir = GetConfigDir();
+    if (!config_dir.empty()) {
+      return config_dir.Append("crashpad");
     }
 
     // Fallback to a unique secure temporary directory if XDG_RUNTIME_DIR is
@@ -195,25 +137,23 @@ CrashpadDatabaseManager::CrashpadDatabaseManager(Logger& logger)
 
 CrashpadDatabaseManager::~CrashpadDatabaseManager() = default;
 
-bool CrashpadDatabaseManager::InitializeCrashpadDatabase() {
-#if BUILDFLAG(IS_LINUX)
-  SetupCrashpadDirectories();
-#endif
-
-  base::FilePath database_path = GetCrashpadDatabasePath();
+bool CrashpadDatabaseManager::InitializeCrashpadDatabase(
+    const base::FilePath& database_path) {
+  base::FilePath target_database_path =
+      database_path.empty() ? GetCrashpadDatabasePath() : database_path;
   base::File::Error error;
-  if (!base::CreateDirectoryAndGetError(database_path, &error)) {
+  if (!base::CreateDirectoryAndGetError(target_database_path, &error)) {
 #if BUILDFLAG(IS_WIN)
     logger_->LogError("Unable to get directory for crash database: " +
-                      base::WideToUTF8(database_path.value()));
+                      base::WideToUTF8(target_database_path.value()));
 #else
     logger_->LogError("Unable to get directory for crash database: " +
-                      database_path.value());
+                      target_database_path.value());
 #endif
     logger_->LogError("File Error: " + base::File::ErrorToString(error));
     return false;
   }
-  database_ = crashpad::CrashReportDatabase::Initialize(database_path);
+  database_ = crashpad::CrashReportDatabase::Initialize(target_database_path);
   if (!database_) {
     logger_->LogError("Unable to initialize crash database");
     return false;
@@ -270,6 +210,7 @@ bool CrashpadDatabaseManager::CleanupCompletedCrashpadReports() {
 // private
 
 bool CrashpadDatabaseManager::LoadCompletedReports() {
+  completed_reports_.clear();
   crashpad::CrashReportDatabase::OperationStatus status =
       database_->GetCompletedReports(&completed_reports_);
   if (status != crashpad::CrashReportDatabase::OperationStatus::kNoError) {
@@ -282,6 +223,7 @@ bool CrashpadDatabaseManager::LoadCompletedReports() {
 }
 
 bool CrashpadDatabaseManager::LoadPendingReports() {
+  pending_reports_.clear();
   crashpad::CrashReportDatabase::OperationStatus status =
       database_->GetPendingReports(&pending_reports_);
   if (status != crashpad::CrashReportDatabase::OperationStatus::kNoError) {
@@ -305,7 +247,7 @@ void CrashpadDatabaseManager::SortCrashReports(
 void CrashpadDatabaseManager::LogCrashReportInfo(
     const crashpad::CrashReportDatabase::Report& report) {
   const std::string& id = report.id;
-  // |id| will only be assigned if the report has been successfully uploaded.
+  // `id` will only be assigned if the report has been successfully uploaded.
   if (id.empty()) {
     logger_->Log("  Crash id: <unassigned>");
   } else {
@@ -317,8 +259,8 @@ void CrashpadDatabaseManager::LogCrashReportInfo(
   logger_->Log("    path: " + report.file_path.value());
 #endif
   logger_->Log("    uuid: " + report.uuid.ToString());
-  logger_->Log("    created: " + base::TimeFormatHTTP(base::Time::FromTimeT(
-                                     report.creation_time)));
+  logger_->Log("    created: " +
+               FormatTime(base::Time::FromTimeT(report.creation_time)));
   std::string uploaded = report.uploaded ? "yes" : "no";
   logger_->Log("    uploaded: " + uploaded + " (attempts: " +
                base::NumberToString(report.upload_attempts) + ")");
@@ -356,7 +298,7 @@ bool CrashpadDatabaseManager::CleanupCrashReports(
     for (size_t i = kMaxReportsToRetain; i < num_reports; ++i) {
       const auto& report = reports[i];
       std::string creation_time =
-          base::TimeFormatHTTP(base::Time::FromTimeT(report.creation_time));
+          FormatTime(base::Time::FromTimeT(report.creation_time));
       logger_->Log("  Deleting crash report: " + report.id + " (" +
                    report.uuid.ToString() + ") " + creation_time);
       auto status = database_->DeleteReport(report.uuid);
@@ -384,7 +326,7 @@ bool CrashpadDatabaseManager::CleanupCrashReports(
                      base::NumberToString(kMaxReportAgeDays) + " days:");
       }
       logger_->Log("  Deleting crash report: " + report.id + " (" +
-                   base::TimeFormatHTTP(created) + ")");
+                   FormatTime(created) + ")");
       auto status = database_->DeleteReport(report.uuid);
       if (status != crashpad::CrashReportDatabase::OperationStatus::kNoError) {
         logger_->LogError("  Unable to delete uploaded crash report: " +
@@ -405,9 +347,9 @@ bool CrashpadDatabaseManager::CleanupCrashReports(
         logger_->Log("Deleting crash reports older than " +
                      base::NumberToString(kMaxReportAgeDays) + " days:");
       }
-      // We need to log |uuid| here because only uploaded reports have an |id|.
+      // We need to log `uuid` here because only uploaded reports have an `id`.
       logger_->Log("  Deleting crash report: " + report.uuid.ToString() + " (" +
-                   base::TimeFormatHTTP(created) + ")");
+                   FormatTime(created) + ")");
       auto status = database_->DeleteReport(report.uuid);
       if (status != crashpad::CrashReportDatabase::OperationStatus::kNoError) {
         logger_->LogError("  Unable to delete old crash report: " +

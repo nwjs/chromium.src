@@ -33,7 +33,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.MAX_TAB_WIDTH_DP;
-import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.MIN_TAB_WIDTH_DP;
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.PINNED_TAB_WIDTH_DP;
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.TAB_GROUP_BOTTOM_INDICATOR_WIDTH_OFFSET;
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.TAB_OVERLAP_WIDTH_DP;
@@ -81,6 +80,7 @@ import org.chromium.base.DeviceInfo;
 import org.chromium.base.MathUtils;
 import org.chromium.base.Token;
 import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SupplierUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -182,7 +182,6 @@ import java.util.stream.IntStream;
 /** Tests for {@link StripLayoutHelper}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(
-        manifest = Config.NONE,
         qualifiers = "sw600dp",
         shadows = {ShadowAppCompatResources.class})
 @DisableFeatures({
@@ -564,7 +563,7 @@ public class StripLayoutHelperTest {
         groupTabs(0, 1, TAB_GROUP_ID_1);
 
         // Verify.
-        String expectedDescription = "1 tab tab group - Tab 1";
+        String expectedDescription = "1 tab tab group - Tab 1 - Expanded";
         StripLayoutView[] views = mStripLayoutHelper.getStripLayoutViewsForTesting();
         assertTrue("First should be a group title.", views[0] instanceof StripLayoutGroupTitle);
         assertEquals(
@@ -581,7 +580,7 @@ public class StripLayoutHelperTest {
         groupTabs(0, 3, TAB_GROUP_ID_1);
 
         // Verify.
-        String expectedDescription = "3 tabs tab group - Tab 1 and 2 other tabs";
+        String expectedDescription = "3 tabs tab group - Tab 1 and 2 other tabs - Expanded";
         StripLayoutView[] views = mStripLayoutHelper.getStripLayoutViewsForTesting();
         assertTrue("First should be a group title.", views[0] instanceof StripLayoutGroupTitle);
         assertEquals(
@@ -599,7 +598,7 @@ public class StripLayoutHelperTest {
         groupTabs(0, 3, TAB_GROUP_ID_1);
 
         // Verify.
-        String expectedDescription = "Group name tab group - Tab 1 and 2 other tabs";
+        String expectedDescription = "Group name tab group - Tab 1 and 2 other tabs - Expanded";
         StripLayoutView[] views = mStripLayoutHelper.getStripLayoutViewsForTesting();
         assertTrue("First should be a group title.", views[0] instanceof StripLayoutGroupTitle);
         assertEquals(
@@ -624,7 +623,7 @@ public class StripLayoutHelperTest {
                         TAB_GROUP_ID_1);
 
         // Verify.
-        String expectedDescription = "Shared 1 tab tab group - Tab 1";
+        String expectedDescription = "Shared 1 tab tab group - Tab 1 - Expanded";
         assertEquals(
                 "A11y description for group title was wrong.",
                 expectedDescription,
@@ -647,7 +646,7 @@ public class StripLayoutHelperTest {
                         TAB_GROUP_ID_1);
 
         // Verify.
-        String expectedDescription = "Shared 3 tabs tab group - Tab 1 and 2 other tabs";
+        String expectedDescription = "Shared 3 tabs tab group - Tab 1 and 2 other tabs - Expanded";
         assertEquals(
                 "A11y description for group title was wrong.",
                 expectedDescription,
@@ -671,7 +670,8 @@ public class StripLayoutHelperTest {
                         TAB_GROUP_ID_1);
 
         // Verify.
-        String expectedDescription = "Shared Group name tab group - Tab 1 and 2 other tabs";
+        String expectedDescription =
+                "Shared Group name tab group - Tab 1 and 2 other tabs - Expanded";
         assertEquals(
                 "A11y description for group title was wrong.",
                 expectedDescription,
@@ -700,7 +700,8 @@ public class StripLayoutHelperTest {
 
         // Verify.
         String expectedDescription =
-                "Shared Group name tab group with new activity - Tab 1 and 2 other tabs";
+                "Shared Group name tab group with new activity - Tab 1 and 2 other tabs -"
+                        + " Collapsed";
         assertEquals(
                 "A11y description for group title was wrong.",
                 expectedDescription,
@@ -779,8 +780,7 @@ public class StripLayoutHelperTest {
         assertTrue(
                 "Tab getting closed should be outside of the visible bounds",
                 tabs[closeTabIndex].getDrawX()
-                        > mStripLayoutHelper.getVisibleRightBound(
-                                /* clampToUnpinnedViews= */ true));
+                        > mStripLayoutHelper.getFullyVisibleRightUnpinnedBound());
 
         final StripLayoutHelper stripLayoutHelperSpy = spy(mStripLayoutHelper);
         closeTabAt(stripLayoutHelperSpy, closeTabIndex);
@@ -812,7 +812,7 @@ public class StripLayoutHelperTest {
         assertTrue(
                 "Tab getting closed should be outside of the visible bounds",
                 tabs[closeTabIndex].getDrawX() + tabs[closeTabIndex].getWidth()
-                        < mStripLayoutHelper.getVisibleLeftBound(/* clampToUnpinnedViews= */ true));
+                        < mStripLayoutHelper.getFullyVisibleLeftUnpinnedBound());
 
         final StripLayoutHelper stripLayoutHelperSpy = spy(mStripLayoutHelper);
         closeTabAt(stripLayoutHelperSpy, closeTabIndex);
@@ -842,8 +842,8 @@ public class StripLayoutHelperTest {
                         .filter(
                                 i ->
                                         tabs[i].getDrawX()
-                                                > mStripLayoutHelper.getVisibleRightBound(
-                                                        /* clampToUnpinnedViews= */ true))
+                                                > mStripLayoutHelper
+                                                        .getFullyVisibleRightUnpinnedBound())
                         .findFirst()
                         .getAsInt();
 
@@ -851,8 +851,7 @@ public class StripLayoutHelperTest {
         assertTrue(
                 "Tab getting closed should be inside of the visible bounds",
                 tabs[closeTabIndex].getDrawX()
-                        <= mStripLayoutHelper.getVisibleRightBound(
-                                /* clampToUnpinnedViews= */ true));
+                        <= mStripLayoutHelper.getFullyVisibleRightUnpinnedBound());
 
         final StripLayoutHelper stripLayoutHelperSpy = spy(mStripLayoutHelper);
         closeTabAt(stripLayoutHelperSpy, closeTabIndex);
@@ -881,7 +880,7 @@ public class StripLayoutHelperTest {
 
         assertEquals(
                 "Tabs should be at minimum width for this test to be valid",
-                MIN_TAB_WIDTH_DP,
+                StripLayoutUtils.getMinTabWidthDp(),
                 mStripLayoutHelper.getUnpinnedTabWidth(),
                 EPSILON);
 
@@ -907,7 +906,10 @@ public class StripLayoutHelperTest {
         StripLayoutTab[] stripTabs = mStripLayoutHelper.getStripLayoutTabsForTesting();
         assertEquals(1, stripTabs.length);
         assertTrue("Tab should be a placeholder.", stripTabs[0].getIsPlaceholder());
-        assertNull("Placeholder alert state should be null.", stripTabs[0].getAlertState());
+        assertEquals(
+                "Placeholder alert state should be NONE.",
+                TabAlert.NONE,
+                stripTabs[0].getAlertState());
 
         // Add a tab with alert state to the tab model and update the tab model in the strip.
         MockTabModel tabModel = new MockTabModel(mProfile, null);
@@ -924,7 +926,7 @@ public class StripLayoutHelperTest {
         assertEquals(1, stripTabs.length);
         assertEquals(
                 "Alert state should be propagated to the former placeholder.",
-                Integer.valueOf(TabAlert.MEDIA_RECORDING),
+                TabAlert.MEDIA_RECORDING,
                 stripTabs[0].getAlertState());
         assertFalse("Tab should no longer be a placeholder.", stripTabs[0].getIsPlaceholder());
     }
@@ -937,19 +939,19 @@ public class StripLayoutHelperTest {
 
         Tab tab0 = mModel.getTabAt(0);
 
-        // Initially alert state should be null.
-        assertNull("Initial alert state should be null.", tabs[0].getAlertState());
+        // Initially alert state should be NONE.
+        assertEquals("Initial alert state should be NONE.", TabAlert.NONE, tabs[0].getAlertState());
 
         // Update to ACTOR_WAITING_ON_USER.
         mStripLayoutHelper.onAlertStateChanged(tab0, TabAlert.ACTOR_WAITING_ON_USER);
         assertEquals(
                 "Alert state should be ACTOR_WAITING_ON_USER.",
-                Integer.valueOf(TabAlert.ACTOR_WAITING_ON_USER),
+                TabAlert.ACTOR_WAITING_ON_USER,
                 tabs[0].getAlertState());
 
-        // Update to null.
-        mStripLayoutHelper.onAlertStateChanged(tab0, null);
-        assertNull("Alert state should be null.", tabs[0].getAlertState());
+        // Update to NONE.
+        mStripLayoutHelper.onAlertStateChanged(tab0, TabAlert.NONE);
+        assertEquals("Alert state should be NONE.", TabAlert.NONE, tabs[0].getAlertState());
     }
 
     @Test
@@ -967,8 +969,8 @@ public class StripLayoutHelperTest {
         mStripLayoutHelper.onAlertStateChanged(tab1, tab1.getAlertState());
 
         // Verify initial state.
-        assertEquals(Integer.valueOf(TabAlert.AUDIO_PLAYING), tabs[0].getAlertState());
-        assertEquals(Integer.valueOf(TabAlert.MEDIA_RECORDING), tabs[1].getAlertState());
+        assertEquals(TabAlert.AUDIO_PLAYING, tabs[0].getAlertState());
+        assertEquals(TabAlert.MEDIA_RECORDING, tabs[1].getAlertState());
 
         // Force rebuild.
         mStripLayoutHelper.setStripLayoutTabsForTesting(new StripLayoutTab[0]);
@@ -982,11 +984,11 @@ public class StripLayoutHelperTest {
         // Verify alert state is persistent.
         assertEquals(
                 "Alert state should be preserved.",
-                Integer.valueOf(TabAlert.AUDIO_PLAYING),
+                TabAlert.AUDIO_PLAYING,
                 newTabs[0].getAlertState());
         assertEquals(
                 "Alert state should be preserved.",
-                Integer.valueOf(TabAlert.MEDIA_RECORDING),
+                TabAlert.MEDIA_RECORDING,
                 newTabs[1].getAlertState());
     }
 
@@ -1900,15 +1902,14 @@ public class StripLayoutHelperTest {
                 STRIP_WIDTH, STRIP_HEIGHT, false, TIMESTAMP, PADDING_LEFT, PADDING_RIGHT, 0f);
         mStripLayoutHelper.updateLayout(TIMESTAMP);
 
-        // Verify mReservedStartMargin is 38.f (BUTTON_TOUCH_TARGET_SIZE_DP (48) - 10.f)
+        // Verify mReservedStartMargin is 38.f (buttonTouchTargetSize (48) - 10.f)
         assertEquals(
                 "Reserved start margin should be 38.f",
                 38.f,
                 mStripLayoutHelper.getReservedStartMarginForTesting(),
                 EPSILON);
 
-        // Verify left fade opaque width: BUTTON_TOUCH_TARGET_SIZE_DP (48) + mButtonSideFadePadding
-        // (8)
+        // Verify left fade opaque width: buttonTouchTargetSize (48) + mButtonSideFadePadding (8)
         assertEquals(
                 "Left fade opaque width should be 56.f",
                 56.f,
@@ -1925,15 +1926,14 @@ public class StripLayoutHelperTest {
                 STRIP_WIDTH, STRIP_HEIGHT, false, TIMESTAMP, PADDING_LEFT, PADDING_RIGHT, 0f);
         mStripLayoutHelper.updateLayout(TIMESTAMP);
 
-        // Verify mReservedStartMargin is 38.f (BUTTON_TOUCH_TARGET_SIZE_DP (48) - 10.f)
+        // Verify mReservedStartMargin is 38.f (buttonTouchTargetSize (48) - 10.f)
         assertEquals(
                 "Reserved start margin should be 38.f",
                 38.f,
                 mStripLayoutHelper.getReservedStartMarginForTesting(),
                 EPSILON);
 
-        // Verify right fade opaque width: BUTTON_TOUCH_TARGET_SIZE_DP (48) + mButtonSideFadePadding
-        // (8)
+        // Verify right fade opaque width: buttonTouchTargetSize (48) + mButtonSideFadePadding (8)
         assertEquals(
                 "Right fade opaque width should be 56.f",
                 56.f,
@@ -3515,6 +3515,50 @@ public class StripLayoutHelperTest {
                 "Bottom indicator end width is incorrect",
                 expectedStartWidth2,
                 groupTitle2.getBottomIndicatorWidth(),
+                EPSILON);
+    }
+
+    @Test
+    public void testCollapsedGroupSpacing() {
+        // Initialize with 3 tabs: Tab 0, Tab 1, Tab 2.
+        initializeTest(false, false, 0, 3);
+        mStripLayoutHelper.onSizeChanged(
+                STRIP_WIDTH, STRIP_HEIGHT, false, TIMESTAMP, PADDING_LEFT, PADDING_RIGHT, 0f);
+
+        // Group Tab 1 (the middle tab).
+        groupTabs(1, 2, TAB_GROUP_ID_1);
+
+        // Collapse the tab group.
+        StripLayoutView[] views = mStripLayoutHelper.getStripLayoutViewsForTesting();
+        assertTrue(views[1] instanceof StripLayoutGroupTitle);
+        StripLayoutGroupTitle groupTitle = (StripLayoutGroupTitle) views[1];
+        mStripLayoutHelper.collapseTabGroupForTesting(groupTitle, true);
+
+        // Force positions to be recomputed.
+        mStripLayoutHelper.updateLayout(TIMESTAMP);
+
+        // The views are now: [Tab 0, GroupTitle, Collapsed Tab 1, Tab 2].
+        StripLayoutTab tab0 = (StripLayoutTab) views[0];
+        StripLayoutTab tab2 = (StripLayoutTab) views[3];
+
+        // Spacing on the left of groupTitle: the distance from tab0's flat end to the start of
+        // groupTitle's bubble.
+        // tab0's flat end = tab0.getIdealX() + tab0.getWidth() - 16.f (FOLIO_FOOT_LENGTH_DP)
+        // groupTitle's bubble start = groupTitle.getPaddedX()
+        float leftSpacing = groupTitle.getPaddedX() - (tab0.getIdealX() + tab0.getWidth() - 16.f);
+
+        // Spacing on the right of groupTitle: the distance from the end of groupTitle's bubble to
+        // tab2's flat start.
+        // groupTitle's bubble end = groupTitle.getPaddedX() + groupTitle.getPaddedWidth()
+        // tab2's flat start = tab2.getIdealX() + 16.f (FOLIO_FOOT_LENGTH_DP)
+        float rightSpacing =
+                (tab2.getIdealX() + 16.f) - (groupTitle.getPaddedX() + groupTitle.getPaddedWidth());
+
+        // Assert: left and right spacings of the collapsed group should be equal / even.
+        assertEquals(
+                "Left and right visual spacing of a collapsed group should be even.",
+                leftSpacing,
+                rightSpacing,
                 EPSILON);
     }
 
@@ -5156,7 +5200,7 @@ public class StripLayoutHelperTest {
                         mWindowAndroid,
                         mActionConfirmationManager,
                         mDataSharingTabManager,
-                        /* tabStripVisibleSupplier= */ () -> true,
+                        /* tabStripVisibleSupplier= */ SupplierUtils.alwaysTrue(),
                         mBottomSheetController,
                         mMultiInstanceManager,
                         ObservableSuppliers.createMonotonic(mShareDelegate),
@@ -5762,8 +5806,6 @@ public class StripLayoutHelperTest {
     @Test
     public void testHandleGroupTitleClick_Collapse() {
         // Initialize with 4 tabs. Group first three tabs.
-        HistogramWatcher histogramWatcher =
-                HistogramWatcher.newSingleRecordWatcher("Android.TabStrip.TabGroupCollapsed", true);
         initializeTest(false, false, 3, 4);
         mStripLayoutHelper.onSizeChanged(
                 STRIP_WIDTH, STRIP_HEIGHT, false, TIMESTAMP, PADDING_LEFT, PADDING_RIGHT, 0f);
@@ -5777,16 +5819,11 @@ public class StripLayoutHelperTest {
         // Verify the proper event was sent to the TabModel.
         verify(mModel)
                 .setTabGroupCollapsed(TAB_GROUP_ID_1, /* isCollapsed= */ true, /* animate= */ true);
-        // Verify we record the correct metric.
-        histogramWatcher.assertExpected("Should record true, since we're collapsing.");
     }
 
     @Test
     public void testHandleGroupTitleClick_Expand() {
         // Initialize with 4 tabs. Group first three tabs.
-        HistogramWatcher histogramWatcher =
-                HistogramWatcher.newSingleRecordWatcher(
-                        "Android.TabStrip.TabGroupCollapsed", false);
         initializeTest(false, false, 3, 4);
         mStripLayoutHelper.onSizeChanged(
                 STRIP_WIDTH, STRIP_HEIGHT, false, TIMESTAMP, PADDING_LEFT, PADDING_RIGHT, 0f);
@@ -5803,8 +5840,6 @@ public class StripLayoutHelperTest {
         verify(mModel)
                 .setTabGroupCollapsed(
                         TAB_GROUP_ID_1, /* isCollapsed= */ false, /* animate= */ true);
-        // Verify we record the correct metric.
-        histogramWatcher.assertExpected("Should record false, since we're expanding.");
     }
 
     @Test

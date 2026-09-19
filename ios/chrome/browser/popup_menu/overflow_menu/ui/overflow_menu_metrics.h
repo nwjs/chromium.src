@@ -61,7 +61,8 @@ enum class IOSOverflowMenuDestination {
   kPriceNotifications = 10,
   kCobalt = 11,
   kLevelUp = 12,
-  kMaxValue = kLevelUp,
+  kDefaultBrowser = 13,
+  kMaxValue = kDefaultBrowser,
 };
 // LINT.ThenChange(
 // /ios/chrome/browser/popup_menu/overflow_menu/public/overflow_menu_constants.h:destination,
@@ -105,7 +106,8 @@ enum class IOSOverflowMenuAction {
   // kSigninDeprecated = 24,  // Deprecated M152.
   kIdentity = 25,
   kCustomizeHomePage = 26,
-  kMaxValue = kCustomizeHomePage,
+  kDefaultBrowser = 27,
+  kMaxValue = kDefaultBrowser,
 };
 // LINT.ThenChange(/ios/chrome/browser/popup_menu/overflow_menu/public/overflow_menu_constants.h:actionType,
 // /tools/metrics/histograms/metadata/ios/enums.xml:IOSOverflowMenuAction)

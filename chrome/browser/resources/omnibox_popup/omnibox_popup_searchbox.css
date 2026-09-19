@@ -94,21 +94,13 @@
 /* TODO(b/511199705): Widget is too wide when dropdown is visible. This is a
    workaround until we fix that. */
 :host([dropdown-is-visible]) {
-  --cr-searchbox-icon-left-position: 12px;
+  --cr-searchbox-icon-container-size: 28px;
+  --cr-searchbox-icon-left-position: 16px;
   --cr-searchbox-icon-right-position: 10px;
   --cr-searchbox-border-radius: 16px;
   --cr-searchbox-width: 100%;
 }
 
-:host([omnibox-popup-debug-enabled_]) cr-searchbox-input::part(searchbox-input) {
-  background-color: lightgreen;
-  color: black;
-}
-
-:host([omnibox-popup-debug-enabled_]) #inputWrapper {
-  --color-location-bar-border-on-mismatch: blue;
-  --cr-focus-outline-color: red;
-}
 
 :host([searchbox-voice-search-enabled_]) {
   --cr-searchbox-voice-search-button-width: var(--cr-searchbox-icon-width);
@@ -220,11 +212,23 @@ cr-searchbox-input::part(icon) {
   -webkit-mask-image: url(//resources/cr_components/searchbox/icons/camera.svg);
 }
 
+:host(:not([use-webkit-search-icons_])) #debugButton {
+  background-image: url(//resources/cr_components/searchbox/icons/dino_cr23_old.svg);
+}
+
 :host([use-webkit-search-icons_]) #voiceSearchButton,
 :host([use-webkit-search-icons_]) #lensSearchButton {
   -webkit-mask-position: center;
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: 21px 21px;
+  background-color: var(--color-searchbox-lens-voice-icon-background);
+}
+
+:host([use-webkit-search-icons_]) #debugButton {
+  -webkit-mask-image: url(//resources/cr_components/searchbox/icons/dino_cr23.svg);
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: var(--cr-searchbox-icon-size-in-searchbox, 16px) var(--cr-searchbox-icon-size-in-searchbox, 16px);
   background-color: var(--color-searchbox-lens-voice-icon-background);
 }
 
@@ -238,12 +242,35 @@ cr-searchbox-dropdown::part(dropdown-content) {
   padding-top: unset;
 }
 
+omnibox-popup-contextual-entrypoint {
+  --contextual-entrypoint-and-carousel-context-menu-container-padding-inline-start: 0;
+}
+
 .searchbox-icon-button-container.lens {
   margin-inline-end: 10px;
 }
 
 .searchbox-icon-button-container.voice {
   margin-inline-end: 4px;
+}
+
+.searchbox-icon-button-container.debug {
+  align-self: center;
+  cursor: pointer;
+  margin-inline-end: 6px;
+  pointer-events: auto;
+}
+
+.searchbox-icon-button-container.debug:hover {
+  background-color: var(--color-omnibox-results-background-hovered);
+}
+
+#debugButton {
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: var(--cr-searchbox-icon-size-in-searchbox, 16px) var(--cr-searchbox-icon-size-in-searchbox, 16px);
+  height: var(--cr-searchbox-icon-size-in-searchbox, 16px);
+  width: var(--cr-searchbox-icon-size-in-searchbox, 16px);
 }
 
 :host([multi-line-enabled]) {
@@ -300,7 +327,7 @@ cr-searchbox-dropdown::part(dropdown-content) {
   inset-inline-start: 6px;
 }
 
-#composeButton[dynamic][has-user-input]::part(compose-icon) {
+:host(:not([aim-button-icon-only_])) #composeButton[dynamic][has-user-input]::part(compose-icon) {
   max-width: 0;
 }
 
@@ -336,6 +363,20 @@ cr-searchbox-dropdown::part(dropdown-content) {
   /* Match width to height (24px) for a 1:1 circular icon button. */
   min-width: var(--cr-button-height);
   width: var(--cr-button-height);
+}
+
+:host([aim-button-icon-only_]) #composeButton::part(compose-icon) {
+  inset-inline-start: unset;
+  opacity: 1;
+  position: static;
+  scale: 1;
+  transform: none;
+  visibility: visible;
+  width: 15px;
+}
+
+:host([aim-button-icon-only_]) #composeButton::part(compose-icon-favicon) {
+  width: 16px;
 }
 
 :host([aim-button-icon-only_]) #composeButton::part(label),

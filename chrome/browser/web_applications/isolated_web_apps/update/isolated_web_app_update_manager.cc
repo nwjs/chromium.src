@@ -443,8 +443,6 @@ void IsolatedWebAppUpdateManager::DelayedStart() {
   // browser session and were created in `IsolatedWebAppUpdateManager::Start`.
   task_queue_.MaybeStartNextTask();
 
-  QueueUpdateDiscoverAndPrepareTasks();
-
   if (base::FeatureList::IsEnabled(features::kIsolatedWebAppFastUpdateCheck)) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
         FROM_HERE,
@@ -453,6 +451,8 @@ void IsolatedWebAppUpdateManager::DelayedStart() {
                                    QueueUpdateDiscoverAndPrepareTasks),
             weak_factory_.GetWeakPtr()),
         base::Minutes(1));
+  } else {
+    QueueUpdateDiscoverAndPrepareTasks();
   }
 }
 
@@ -1124,7 +1124,7 @@ IsolatedWebAppUpdateError IsolatedWebAppUpdateManager::FromDiscoveryTaskError(
       return IsolatedWebAppUpdateError::kIwaNotInstalled;
     case IwaUpdateCheckAndPrepareError::kPinnedVersionNotFoundInUpdateManifest:
       return IsolatedWebAppUpdateError::kPinnedVersionNotFoundInUpdateManifest;
-    case IwaUpdateCheckAndPrepareError::kDowngradetNotAllowed:
+    case IwaUpdateCheckAndPrepareError::kDowngradeNotAllowed:
       return IsolatedWebAppUpdateError::kDowngradeNotAllowed;
     case IwaUpdateCheckAndPrepareError::kDownloadPathCreationFailed:
       return IsolatedWebAppUpdateError::kDownloadPathCreationFailed;

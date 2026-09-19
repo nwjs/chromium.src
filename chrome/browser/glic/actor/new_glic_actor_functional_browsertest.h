@@ -5,13 +5,12 @@
 #ifndef CHROME_BROWSER_GLIC_ACTOR_NEW_GLIC_ACTOR_FUNCTIONAL_BROWSERTEST_H_
 #define CHROME_BROWSER_GLIC_ACTOR_NEW_GLIC_ACTOR_FUNCTIONAL_BROWSERTEST_H_
 
-#include "base/base64.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_test_util.h"
-#include "chrome/browser/glic/test_support/new_glic_api_test.h"
+#include "chrome/browser/glic/test_support/glic_api_test.h"
 #include "components/actor/core/actor_features.h"
 #include "components/actor/public/mojom/actor_types.mojom-forward.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
@@ -72,6 +71,12 @@ class GlicActorFunctionalBrowserTestMixin : public T {
   base::CallbackListSubscription CreateTaskCompletionSubscription(
       TaskId for_task_id,
       TestFuture<ActorTask::State>& future) {
+    ActorTask* existing_task = actor_keyed_service()->GetTask(for_task_id);
+    if (existing_task &&
+        ActorTask::IsCompletedState(existing_task->GetState())) {
+      future.SetValue(existing_task->GetState());
+      return base::CallbackListSubscription();
+    }
     return actor_keyed_service()->AddTaskStateChangedCallback(
         base::BindLambdaForTesting([&future, for_task_id](ActorTask& task) {
           if (task.id() == for_task_id &&

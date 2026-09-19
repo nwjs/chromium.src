@@ -42,10 +42,11 @@
 #include "components/autofill/core/browser/geo/address_i18n.h"
 #include "components/autofill/core/browser/geo/autofill_country.h"
 #include "components/autofill/core/browser/geo/country_names.h"
+#include "components/autofill/core/browser/permissions/autofill_policy_service.h"
 #include "components/autofill/core/browser/studies/autofill_experiments.h"
 #include "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator_util.h"
 #include "components/autofill/core/browser/ui/addresses/autofill_address_util.h"
-#include "components/autofill/core/browser/ui/autofill_resource_utils.h"
+#include "components/autofill/core/browser/ui/autofill_resource_util.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
@@ -696,12 +697,37 @@ PersonalDataManagerAndroid::GetMaskedBankAccounts(JNIEnv* env) {
                                                   type.obj());
 }
 
+bool PersonalDataManagerAndroid::IsAutofillTypeDisabledByEnterprisePolicy(
+    JNIEnv* env,
+    int category) {
+  return AutofillPolicyService::IsAutofillTypeDisabledByEnterprisePolicy(
+      *prefs_, GURL(),
+      static_cast<AutofillClient::AutofillPolicyDataCategory>(category));
+}
+
 bool PersonalDataManagerAndroid::IsAutofillProfileManaged(JNIEnv* env) {
-  return prefs::IsAutofillProfileManaged(prefs_);
+  // `prefs::IsAutofillProfileManaged` checks the legacy boolean policy.
+  // `AutofillPolicyService::IsAutofillTypeDisabledByEnterprisePolicy` checks
+  // the `kAutofillTypesBlocked` policy, which only specifies blocked (disabled)
+  // categories. Therefore, if this method returns true, Autofill profiles
+  // setting will be disabled.
+  return prefs::IsAutofillProfileManaged(prefs_) ||
+         IsAutofillTypeDisabledByEnterprisePolicy(
+             env,
+             static_cast<int>(
+                 AutofillClient::AutofillPolicyDataCategory::kContactInfo));
 }
 
 bool PersonalDataManagerAndroid::IsAutofillCreditCardManaged(JNIEnv* env) {
-  return prefs::IsAutofillCreditCardManaged(prefs_);
+  // `prefs::IsAutofillCreditCardManaged` checks the legacy boolean policy.
+  // `AutofillPolicyService::IsAutofillTypeDisabledByEnterprisePolicy` checks
+  // the `kAutofillTypesBlocked` policy, which only specifies blocked (disabled)
+  // categories. Therefore, if this method returns true, Autofill payment
+  // methods setting will be disabled.
+  return prefs::IsAutofillCreditCardManaged(prefs_) ||
+         IsAutofillTypeDisabledByEnterprisePolicy(
+             env, static_cast<int>(
+                      AutofillClient::AutofillPolicyDataCategory::kPayments));
 }
 
 // Returns the issuer network string according to PaymentRequest spec, or an

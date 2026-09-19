@@ -41,6 +41,7 @@ bool CSSParserLocalContext::PercentagesDependOnUsedValue() const {
       case CSSValueID::kRay:
       case CSSValueID::kView:
         return true;
+      case CSSValueID::kAttr:
       case CSSValueID::kAlpha:
       case CSSValueID::kBlur:
       case CSSValueID::kBrightness:
@@ -55,6 +56,7 @@ bool CSSParserLocalContext::PercentagesDependOnUsedValue() const {
       case CSSValueID::kHsla:
       case CSSValueID::kHueRotate:
       case CSSValueID::kHwb:
+      case CSSValueID::kIf:
       case CSSValueID::kInvert:
       case CSSValueID::kLab:
       case CSSValueID::kLch:
@@ -99,7 +101,8 @@ void CSSParserLocalContext::CheckPercentagesFlagSetOnProperty() const {
   // should ideally be a longhand, some shorthands with custom expansion logic
   // skip generic helpers that update the context. Since percentage dependency
   // flags are only defined on longhands, we skip the check in this case.
-  if (InFunctionContext() || !unresolved_property_name_.has_value() ||
+  if (InFunctionContext() || custom_function_name_ ||
+      !unresolved_property_name_.has_value() ||
       unresolved_property_name_->IsCustomProperty() ||
       unresolved_property_name_->Id() == CSSPropertyID::kInvalid ||
       ResolveCSSPropertyID(unresolved_property_name_->Id()) ==
@@ -113,14 +116,29 @@ void CSSParserLocalContext::CheckPercentagesFlagSetOnProperty() const {
 }
 #endif
 
+const AtomicString CSSParserLocalContext::CustomFunctionName() const {
+  StringBuilder str;
+  if (custom_function_name_) {
+    str.Append(custom_function_name_);
+    str.Append(";");
+  }
+  return str.ToAtomicString();
+}
+
+const AtomicString CSSParserLocalContext::CustomFunctionNameAndCnt() const {
+  StringBuilder str;
+  if (custom_function_name_) {
+    str.Append(custom_function_name_);
+    str.AppendNumber(custom_function_count_);
+    str.Append(";");
+  }
+  return str.ToAtomicString();
+}
+
 const AtomicString CSSParserLocalContext::PropertyName() const {
   StringBuilder str;
   if (unresolved_property_name_.has_value() &&
       unresolved_property_name_->Id() != CSSPropertyID::kInvalid) {
-    if (custom_function_name_) {
-      str.Append(custom_function_name_);
-      str.Append(";");
-    }
     CSSPropertyName resolved_property_name = *unresolved_property_name_;
     if (current_shorthand_ != CSSPropertyID::kInvalid) {
       resolved_property_name = CSSPropertyName(current_shorthand_);

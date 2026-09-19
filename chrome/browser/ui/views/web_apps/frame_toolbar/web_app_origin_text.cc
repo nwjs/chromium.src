@@ -9,6 +9,7 @@
 #include "base/functional/bind.h"
 #include "base/i18n/rtl.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -36,8 +37,8 @@ WebAppOriginText::WebAppOriginText(BrowserWindowInterface* browser)
     : browser_(browser) {
   CHECK(web_app::AppBrowserController::IsWebApp(browser_));
 
-  browser_->tab_strip_model()->AddObserver(this);
-  Observe(browser_->tab_strip_model()->GetActiveWebContents());
+  browser_->GetTabStripModel()->AddObserver(this);
+  Observe(browser_->GetTabStripModel()->GetActiveWebContents());
 
   SetID(VIEW_ID_WEB_APP_ORIGIN_TEXT);
   SetLayoutManager(std::make_unique<views::FillLayout>());

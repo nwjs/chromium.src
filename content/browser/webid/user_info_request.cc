@@ -91,7 +91,7 @@ UserInfoRequest::UserInfoRequest(
       origin_(render_frame_host->GetLastCommittedOrigin()),
       perfetto_track_(CreatePerfettoTrackForFedCM(this)) {
   RenderFrameHost* main_frame = render_frame_host->GetMainFrame();
-  DCHECK(main_frame->IsInPrimaryMainFrame());
+  CHECK(main_frame->IsInPrimaryMainFrame(), base::NotFatalUntil::M158);
   embedding_origin_ = main_frame->GetLastCommittedOrigin();
 
   RenderFrameHost* parent_frame = render_frame_host->GetParentOrOuterDocument();
@@ -199,9 +199,15 @@ void UserInfoRequest::OnAllConfigAndWellKnownFetched(
 void UserInfoRequest::OnAccountsResponseReceived(
     FetchStatus fetch_status,
     IdpNetworkRequestManager::AccountsResponse accounts) {
+  // Speculative guard: UpdateIdpSigninStatus may destroy |this| via observer
+  // callbacks. See crbug.com/548340637.
+  base::WeakPtr<UserInfoRequest> weak_this = weak_ptr_factory_.GetWeakPtr();
   UpdateIdpSigninStatusForAccountsEndpointResponse(
       idp_config_url_, fetch_status, does_idp_have_failing_signin_status_,
       permission_delegate_);
+  if (!weak_this) {
+    return;
+  }
 
   if (fetch_status.parse_status != ParseStatus::kSuccess) {
     CompleteWithError(UserInfoRequestResult::kInvalidAccountsResponse);
@@ -229,7 +235,7 @@ void UserInfoRequest::OnAccountsResponseReceived(
 
 void UserInfoRequest::MaybeReturnAccounts(
     const std::vector<scoped_refptr<IdentityRequestAccount>>& accounts) {
-  DCHECK(!accounts.empty());
+  CHECK(!accounts.empty(), base::NotFatalUntil::M158);
 
   bool has_returning_accounts = false;
   for (const auto& account : accounts) {
@@ -327,7 +333,7 @@ void UserInfoRequest::CompleteWithError(UserInfoRequestResult error) {
 }
 
 void UserInfoRequest::AddDevToolsIssue(UserInfoRequestResult error) {
-  DCHECK_NE(error, UserInfoRequestResult::kSuccess);
+  CHECK_NE(error, UserInfoRequestResult::kSuccess, base::NotFatalUntil::M158);
 
   auto details = blink::mojom::InspectorIssueDetails::New();
   auto user_info_request_details =

@@ -7,6 +7,7 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/user_education/interactive_feature_promo_test.h"
 #include "chrome/test/user_education/interactive_feature_promo_test_common.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
@@ -35,7 +36,7 @@ class SavedTabGroupV2PromoTest : public InteractiveFeaturePromoTest {
           chrome::AddTabAt(browser(), GURL(), 0, true);
           chrome::AddTabAt(browser(), GURL(), 1, true);
           tab_groups::TabGroupId group_id =
-              browser()->tab_strip_model()->AddToNewGroup({0});
+              browser()->GetTabStripModel()->AddToNewGroup({0});
 
           tab_groups::SavedTabGroupUtils::RemoveGroupFromTabstrip(browser(),
                                                                   group_id);

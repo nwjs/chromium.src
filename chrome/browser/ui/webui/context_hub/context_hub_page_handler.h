@@ -69,6 +69,10 @@ class ContextHubPageHandler : public browser::context_hub::mojom::PageHandler,
   void GetAutoTodos(GetAutoTodosCallback callback) override;
   void UpdateAutoTodo(const context_hub::AutoTodoEntry& todo,
                       UpdateAutoTodoCallback callback) override;
+  void ClearFirstPartyAutoTodos(
+      ClearFirstPartyAutoTodosCallback callback) override;
+  void ClearThirdPartyAutoTodos(
+      ClearThirdPartyAutoTodosCallback callback) override;
   void SetTodoFeedback(
       browser::context_hub::mojom::AutoTodoItemFeedbackPtr feedback,
       SetTodoFeedbackCallback callback) override;
@@ -76,11 +80,19 @@ class ContextHubPageHandler : public browser::context_hub::mojom::PageHandler,
                           DeleteTodoFeedbackCallback callback) override;
   void ClearTodoFeedbacks(ClearTodoFeedbacksCallback callback) override;
   void GetTodoFeedbacks(GetTodoFeedbacksCallback callback) override;
+  void GetSaveToMemoryBankContext(
+      GetSaveToMemoryBankContextCallback callback) override;
   void GetAllMemoryBankEntries(
       GetAllMemoryBankEntriesCallback callback) override;
   void DeleteMemoryBankEntries(
       const std::vector<int64_t>& ids,
       DeleteMemoryBankEntriesCallback callback) override;
+  void SaveMemoryBankEntry(
+      browser::context_hub::mojom::MemoryBankEntryAnnotationsPtr annotations,
+      SaveMemoryBankEntryCallback callback) override;
+  void GetAllMemoryBankTags(GetAllMemoryBankTagsCallback callback) override;
+  void GetAllMemoryBankCollections(
+      GetAllMemoryBankCollectionsCallback callback) override;
   void GetTabs(GetTabsCallback callback) override;
   void RetrieveAndGroupTabs(const std::string& user_command,
                             RetrieveAndGroupTabsCallback callback) override;
@@ -94,6 +106,15 @@ class ContextHubPageHandler : public browser::context_hub::mojom::PageHandler,
   void AskGeminiWithContext(const std::string& user_command,
                             const std::vector<int64_t>& memory_bank_entry_ids,
                             AskGeminiWithContextCallback callback) override;
+  void ConfirmAllTabGroups(ConfirmAllTabGroupsCallback callback) override;
+  void GetConfirmedTabGroups(GetConfirmedTabGroupsCallback callback) override;
+  void RemoveConfirmedTabGroup(
+      const base::Uuid& saved_guid,
+      RemoveConfirmedTabGroupCallback callback) override;
+  void CloseConfirmedTabGroup(const base::Uuid& saved_guid,
+                              CloseConfirmedTabGroupCallback callback) override;
+  void RemoveAllConfirmedTabGroups(
+      RemoveAllConfirmedTabGroupsCallback callback) override;
 
  private:
   mojo::Remote<browser::context_hub::mojom::Page> page_;

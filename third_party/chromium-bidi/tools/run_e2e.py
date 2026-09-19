@@ -1,0 +1,95 @@
+#!/usr/bin/env vpython3
+
+#  Copyright 2026 Google LLC.
+#  Copyright (c) Microsoft Corporation.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+
+
+# Used by Chromium targets to run e2e tests.
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--gen-dir", required=True)
+    parser.add_argument("--node-py", required=True)
+    parser.add_argument("--browser-bin", default=None)
+    parser.add_argument("--chromedriver-bin", default=None)
+    args, unknown_args = parser.parse_known_args()
+
+    # The current directory may be the root of the checkout or the build dir (e.g. out/Default).
+    # Use __file__ to reliably find the source directory for chromium-bidi.
+    src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    dst_dir = os.path.abspath(
+        os.path.join(args.gen_dir, "third_party", "chromium-bidi")
+    )
+
+    # Ensure dst_dir exists
+    os.makedirs(dst_dir, exist_ok=True)
+
+    # Copy package.json and node_modules to the gen dir
+    for name in ["package.json", "node_modules"]:
+        src = os.path.join(src_dir, name)
+        dst = os.path.join(dst_dir, name)
+        if os.path.exists(src):
+            if os.path.isdir(src):
+                if os.path.exists(dst):
+                    shutil.rmtree(dst)
+                # Skip .bin/ and broken symlinks to avoid permission errors
+                # on virtual/Cog filesystems. Runtime tests only need library
+                # packages, not CLI binaries.
+                shutil.copytree(
+                    src,
+                    dst,
+                    symlinks=False,
+                    ignore=shutil.ignore_patterns(".bin"),
+                    ignore_dangling_symlinks=True,
+                )
+            else:
+                shutil.copy2(src, dst)
+
+    node_args = unknown_args
+    while node_args and node_args[0] == "--":
+        node_args = node_args[1:]
+    node_dir = os.path.dirname(os.path.abspath(args.node_py))
+    sys.path.insert(0, node_dir)
+    import node
+
+    node_bin = node.GetBinaryPath()
+
+    env = os.environ.copy()
+
+    cmd = [
+        node_bin,
+        os.path.join(src_dir, "tools", "run-e2e.mjs"),
+        "--gen-dir",
+        dst_dir,
+        "--python-bin",
+        os.environ.get("TESTING_PYTHON_BIN", "vpython3"),
+    ]
+    if os.environ.get("TESTING_PYTHON_BIN", "vpython3") == "vpython3":
+        cmd.extend(["--python-spec", os.path.join(src_dir, ".vpython3")])
+    if args.browser_bin:
+        cmd.extend(["--browser-bin", os.path.abspath(args.browser_bin)])
+    if args.chromedriver_bin:
+        cmd.extend(["--chromedriver-bin", os.path.abspath(args.chromedriver_bin)])
+    cmd.extend(node_args)
+    return subprocess.call(cmd, env=env)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

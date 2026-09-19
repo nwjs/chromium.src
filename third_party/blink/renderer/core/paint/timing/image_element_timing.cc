@@ -17,6 +17,7 @@
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/loader/resource/image_resource_content.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
+#include "third_party/blink/renderer/core/paint/timing/element_timing_info.h"
 #include "third_party/blink/renderer/core/paint/timing/element_timing_utils.h"
 #include "third_party/blink/renderer/core/paint/timing/image_paint_timing_detector.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing.h"
@@ -25,6 +26,7 @@
 #include "third_party/blink/renderer/core/svg/svg_image_element.h"
 #include "third_party/blink/renderer/core/timing/dom_window_performance.h"
 #include "third_party/blink/renderer/core/timing/window_performance.h"
+#include "third_party/blink/renderer/platform/graphics/paint/ignore_paint_timing_scope.h"
 #include "third_party/blink/renderer/platform/graphics/paint/property_tree_state.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
@@ -142,6 +144,12 @@ void ImageElementTiming::NotifyImagePaintedInternal(
     return;
   }
 
+  // Do not expose elements which should have effective zero opacity or should
+  // be otherwise ignored (e.g. paint preview).
+  if (IgnorePaintTimingScope::IgnoreDepth()) {
+    return;
+  }
+
   // Since the image is loaded, mark it as recorded now so we don't reconsider
   // it later. If the content has already been recorded, there's nothing to do.
   auto result = recorded_images_.insert(
@@ -190,13 +198,6 @@ void ImageElementTiming::QueueElementTimingInfoForReporingIfNeeded(
     return;
   }
 
-  // Do not expose elements which should have effective zero opacity. We can
-  // afford to call this expensive method because this is only called once per
-  // image annotated with the elementtiming attribute.
-  if (!layout_object.HasNonZeroEffectiveOpacity()) {
-    return;
-  }
-
   RespectImageOrientationEnum respect_orientation =
       layout_object.StyleRef().ImageOrientation();
 
@@ -219,49 +220,44 @@ void ImageElementTiming::QueueElementTimingInfoForReporingIfNeeded(
   const String& image_url = url.ProtocolIsData()
                                 ? image_string.substr(0, kInlineImageMaxChars)
                                 : image_string;
-  if (!element_timings_) {
-    element_timings_ =
-        MakeGarbageCollected<GCedHeapVector<Member<ElementTimingInfo>>>();
-  }
-  element_timings_->emplace_back(MakeGarbageCollected<ElementTimingInfo>(
+  element_timings_.emplace_back(MakeGarbageCollected<ElementTimingInfo>(
       image_url, intersection_rect, load_time, attr,
       cached_image.IntrinsicSize(respect_orientation), id, element));
 }
 
-OptionalPaintTimingCallback ImageElementTiming::TakePaintTimingCallback() {
-  if (!element_timings_) {
-    return std::nullopt;
+HeapVector<Member<ElementTimingInfo>>
+ImageElementTiming::TakeElementTimingsOnPaintFinished() {
+  return std::move(element_timings_);
+}
+
+void ImageElementTiming::OnFramePresented(
+    const HeapVector<Member<ImageRecord>>&,
+    const HeapVector<Member<TextRecord>>&,
+    const GCedHeapVector<Member<ElementTimingInfo>>* element_timings,
+    const DOMPaintTimingInfo& paint_timing_info) {
+  if (!element_timings) {
+    return;
   }
 
-  return BindOnce(
-      [](ImageElementTiming* self,
-         GCedHeapVector<Member<ElementTimingInfo>>* images,
-         const base::TimeTicks&, const DOMPaintTimingInfo& paint_timing_info) {
-        if (!self) {
-          return;
-        }
-        WindowPerformance* performance =
-            DOMWindowPerformance::performance(*self->window_);
-        if (!performance) {
-          return;
-        }
-        for (ElementTimingInfo* painted_image : *images) {
-          if (internal::IsExplicitlyRegisteredForElementTiming(
-                  painted_image->element)) {
-            performance->AddElementTiming(
-                ImagePaintString(), painted_image->url, painted_image->rect,
-                paint_timing_info, painted_image->response_end,
-                painted_image->identifier, painted_image->intrinsic_size,
-                painted_image->id, painted_image->element);
-          }
-          if (self->ContributesToContainerTiming(painted_image->element)) {
-            self->EnsureContainerTiming();
-            self->container_timing_->OnElementPainted(
-                paint_timing_info, painted_image->element, painted_image->rect);
-          }
-        }
-      },
-      WrapWeakPersistent(this), WrapPersistent(element_timings_.Release()));
+  WindowPerformance* performance = DOMWindowPerformance::performance(*window_);
+  // `PaintTiming` guarantees that `performance` is non-null.
+  CHECK(performance);
+
+  for (ElementTimingInfo* painted_image : *element_timings) {
+    if (internal::IsExplicitlyRegisteredForElementTiming(
+            painted_image->element)) {
+      performance->AddElementTiming(
+          ImagePaintString(), painted_image->url, painted_image->rect,
+          paint_timing_info, painted_image->response_end,
+          painted_image->identifier, painted_image->intrinsic_size,
+          painted_image->id, painted_image->element);
+    }
+    if (ContributesToContainerTiming(painted_image->element)) {
+      EnsureContainerTiming();
+      container_timing_->OnElementPainted(
+          paint_timing_info, painted_image->element, painted_image->rect);
+    }
+  }
 }
 
 void ImageElementTiming::NotifyImageRemoved(const LayoutObject& layout_object,
@@ -276,13 +272,13 @@ void ImageElementTiming::EnsureContainerTiming() {
   container_timing_ = ContainerTiming::From(*window_);
 }
 
-bool ImageElementTiming::ContributesToContainerTiming(const Element* element) {
-  return (element && IsContainerTimingEnabled() &&
-          ContainerTiming::ContributesToContainerTiming(element));
+bool ImageElementTiming::ContributesToContainerTiming(Element* element) {
+  return element && IsContainerTimingEnabled() &&
+         ContainerTiming::ContributesToContainerTiming(element);
 }
 
 bool ImageElementTiming::NeededForTiming(const LayoutObject& layout_object) {
-  const auto* element = DynamicTo<Element>(layout_object.GeneratingNode());
+  auto* element = DynamicTo<Element>(layout_object.GeneratingNode());
   return internal::IsExplicitlyRegisteredForElementTiming(element) ||
          ContributesToContainerTiming(element);
 }

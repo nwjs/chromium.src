@@ -530,16 +530,19 @@ void ResourceResponse::SetDecodedBodyLength(int64_t value) {
 
 network::mojom::CrossOriginEmbedderPolicyValue
 ResourceResponse::GetCrossOriginEmbedderPolicy() const {
-  const std::string value =
-      HttpHeaderField(http_names::kLowerCrossOriginEmbedderPolicy).Utf8();
-  using Item = net::structured_headers::Item;
-  const auto item = net::structured_headers::ParseItem(value);
-  if (!item || item->item.Type() != Item::kTokenType) {
+  const AtomicString& value =
+      HttpHeaderField(http_names::kLowerCrossOriginEmbedderPolicy);
+  if (value.IsNull()) {
     return network::mojom::CrossOriginEmbedderPolicyValue::kNone;
   }
-  if (item->item.GetString() == "require-corp") {
+  const auto item = net::structured_headers::ParseItem(value.Utf8());
+  const std::string* token = item ? item->item.GetIfToken() : nullptr;
+  if (!token) {
+    return network::mojom::CrossOriginEmbedderPolicyValue::kNone;
+  }
+  if (*token == "require-corp") {
     return network::mojom::CrossOriginEmbedderPolicyValue::kRequireCorp;
-  } else if (item->item.GetString() == "credentialless") {
+  } else if (*token == "credentialless") {
     return network::mojom::CrossOriginEmbedderPolicyValue::kCredentialless;
   } else {
     return network::mojom::CrossOriginEmbedderPolicyValue::kNone;

@@ -54,6 +54,15 @@ void ApplyChromeRefresh2026ColorOverrides(ui::ColorMixer& mixer) {
   mixer[ui::kColorToolbarSearchFieldBackground] = {ui::kColorSysSurface4};
 }
 
+void ApplyChromeSettingsRefresh2026ColorOverrides(ui::ColorMixer& mixer) {
+  if (!base::FeatureList::IsEnabled(features::kSettingsRefresh2026)) {
+    return;
+  }
+
+  // Settings page colors.
+  mixer[kColorSettingsWebuiPageBackground] = {ui::kColorSysSurface2};
+}
+
 }  // namespace
 
 void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
@@ -176,6 +185,20 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorProfileMenuIdentityInfoSubtitle] = {ui::kColorSysOnSurfaceSubtle};
   mixer[kColorProfileMenuPromoButtonsBackground] = {
       ui::kColorSysTonalContainer};
+
+  // App Menu colors.
+  mixer[kColorAppMenuYourChromeBackground] = {ui::kColorSysTonalContainer};
+  mixer[kColorAppMenuToolsAndActionsBackground] = {
+      ui::kColorSysNeutralContainer};
+  mixer[kColorAppMenuBlockButtonBackground] = {ui::kColorSysSurface};
+  mixer[kColorAppMenuBlockButtonBackgroundHovered] = {
+      ui::kColorSysTonalContainer};
+  mixer[kColorAppMenuBlockButtonBorder] = {ui::kColorSysInversePrimary};
+  mixer[kColorAppMenuBlockButtonForeground] = {ui::kColorSysPrimary};
+  mixer[kColorAppMenuFooterButtonForeground] = {ui::kColorSysPrimary};
+  mixer[kColorAppMenuFooterButtonForegroundHovered] = {ui::kColorSysPrimary};
+  mixer[kColorAppMenuFooterButtonBackgroundHovered] = {
+      ui::kColorSysStateHoverOnSubtle};
 
   // Signin bubble colors. Main background color uses the same color as the
   // profle menu background.
@@ -346,7 +369,7 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
     return;
   }
 
-  mixer[kColorActorUiHandoffButtonBackground] = {ui::kColorSysSurface2};
+  mixer[kColorActorUiHandoffButtonBackground] = {ui::kColorSysSurface};
   mixer[kColorActorUiHandoffButtonBorder] = {ui::kColorSysActorUiBorder};
   mixer[kColorActorUiHandoffButtonForeground] = {ui::kColorSysOnSurface};
   mixer[kColorActorUiOverlayBorder] = {ui::kColorSysActorUiBorder};
@@ -363,9 +386,6 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
       ui::kColorSysOnTonalContainer};
   mixer[kColorAppMenuChipInkDropHover] = {ui::kColorSysStateHoverOnSubtle};
   mixer[kColorAppMenuChipInkDropRipple] = {ui::kColorSysStateRipplePrimary};
-  mixer[kColorAppMenuYourChromeBackground] = {ui::kColorSysTonalContainer};
-  mixer[kColorAppMenuToolsAndActionsBackground] = {
-      ui::kColorSysNeutralContainer};
   mixer[kColorAvatarButtonHighlightSyncPaused] = {
       kColorAvatarButtonHighlightDefault};
   mixer[kColorAvatarButtonHighlightPasskeysLocked] = {
@@ -523,4 +543,5 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
       ui::kColorSysInversePrimary};
 
   ApplyChromeRefresh2026ColorOverrides(mixer);
+  ApplyChromeSettingsRefresh2026ColorOverrides(mixer);
 }

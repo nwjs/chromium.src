@@ -40,7 +40,9 @@ namespace {
 
 class DictationSessionControllerTest : public ChromeRenderViewHostTestHarness {
  public:
-  DictationSessionControllerTest() {
+  DictationSessionControllerTest()
+      : ChromeRenderViewHostTestHarness(
+            base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
     scoped_feature_list_.InitAndEnableFeature(kDictation);
   }
   ~DictationSessionControllerTest() override = default;
@@ -76,6 +78,11 @@ class DictationSessionControllerTest : public ChromeRenderViewHostTestHarness {
     run_loop.Run();
   }
 
+  void FastForwardPastAutoSessionEnd() {
+    task_environment()->FastForwardBy(kAutoSessionEndDelay.Get() +
+                                      base::Milliseconds(1));
+  }
+
  protected:
   base::test::ScopedFeatureList scoped_feature_list_;
   testing::NiceMock<MockSessionControllerDelegate> mock_delegate_;
@@ -94,7 +101,7 @@ TEST_F(DictationSessionControllerTest, StreamAffectsState) {
   EXPECT_EQ(controller_->GetState(), SessionState::kStreamInitializing);
   EXPECT_NE(controller_->attached_stream_provider(), nullptr);
 
-  controller_->EndDictationStream();
+  controller_->EndDictationStream(DictationStreamEndTrigger::kTest);
   EXPECT_EQ(controller_->GetState(), SessionState::kFinalizing);
   EXPECT_EQ(controller_->attached_stream_provider(), nullptr);
 }
@@ -126,8 +133,8 @@ TEST_F(DictationSessionControllerTest, EndStream) {
   controller_->StartDictationStream(EmptyTarget(),
                                     DictationStreamStartTrigger::kSessionStart);
 
-  EXPECT_CALL(*stream_provider_ptr, Stop());
-  controller_->EndDictationStream();
+  EXPECT_CALL(*stream_provider_ptr, Stop(_));
+  controller_->EndDictationStream(DictationStreamEndTrigger::kTest);
 }
 
 // Test that calling EndDictationStream while the controller is in the
@@ -143,8 +150,8 @@ TEST_F(DictationSessionControllerTest, EndStreamDuringInitialization) {
                                     DictationStreamStartTrigger::kSessionStart);
   ASSERT_EQ(controller_->GetState(), SessionState::kStreamInitializing);
 
-  EXPECT_CALL(*stream_provider_ptr, Stop());
-  controller_->EndDictationStream();
+  EXPECT_CALL(*stream_provider_ptr, Stop(_));
+  controller_->EndDictationStream(DictationStreamEndTrigger::kTest);
   EXPECT_EQ(controller_->GetState(), SessionState::kFinalizing);
   EXPECT_EQ(controller_->attached_stream_provider(), nullptr);
 }
@@ -159,7 +166,7 @@ TEST_F(DictationSessionControllerTest, StateChangedCallback) {
 
   controller_->StartDictationStream(EmptyTarget(),
                                     DictationStreamStartTrigger::kSessionStart);
-  controller_->EndDictationStream();
+  controller_->EndDictationStream(DictationStreamEndTrigger::kTest);
 
   EXPECT_THAT(states, testing::ElementsAre(SessionState::kStreamInitializing,
                                            SessionState::kFinalizing));
@@ -265,8 +272,8 @@ TEST_F(DictationSessionControllerTest, FinalizeStreamToComplete) {
   EXPECT_EQ(controller_->GetState(), SessionState::kTranscribing);
 
   // End the stream. It should transition to kFinalizing.
-  EXPECT_CALL(*stream_provider_ptr, Stop());
-  controller_->EndDictationStream();
+  EXPECT_CALL(*stream_provider_ptr, Stop(_));
+  controller_->EndDictationStream(DictationStreamEndTrigger::kTest);
   EXPECT_EQ(controller_->GetState(), SessionState::kFinalizing);
 
   // Transition the finalizing stream to complete.
@@ -299,8 +306,8 @@ TEST_F(DictationSessionControllerTest, FinalizeStreamToFailed) {
   EXPECT_EQ(controller_->GetState(), SessionState::kTranscribing);
 
   // End the stream. It should transition to kFinalizing.
-  EXPECT_CALL(*stream_provider_ptr, Stop());
-  controller_->EndDictationStream();
+  EXPECT_CALL(*stream_provider_ptr, Stop(_));
+  controller_->EndDictationStream(DictationStreamEndTrigger::kTest);
   EXPECT_EQ(controller_->GetState(), SessionState::kFinalizing);
 
   // Transition the finalizing stream to failed.
@@ -331,8 +338,8 @@ TEST_F(DictationSessionControllerTest, StartNewStreamWhileFinalizing) {
       *stream_provider_1_ptr, StreamProvider::StreamState::kInitializing);
 
   // End the first stream. It should transition to kFinalizing.
-  EXPECT_CALL(*stream_provider_1_ptr, Stop());
-  controller_->EndDictationStream();
+  EXPECT_CALL(*stream_provider_1_ptr, Stop(_));
+  controller_->EndDictationStream(DictationStreamEndTrigger::kTest);
   EXPECT_EQ(controller_->GetState(), SessionState::kFinalizing);
   EXPECT_EQ(controller_->attached_stream_provider(), nullptr);
 
@@ -378,8 +385,8 @@ TEST_F(DictationSessionControllerTest, MultipleFinalizingStreams) {
       .WillOnce(Return(std::move(mock_stream_provider_1)));
   controller_->StartDictationStream(EmptyTarget(),
                                     DictationStreamStartTrigger::kSessionStart);
-  EXPECT_CALL(*stream_provider_1_ptr, Stop());
-  controller_->EndDictationStream();
+  EXPECT_CALL(*stream_provider_1_ptr, Stop(_));
+  controller_->EndDictationStream(DictationStreamEndTrigger::kTest);
   EXPECT_EQ(controller_->GetState(), SessionState::kFinalizing);
 
   // Start and end the second stream.
@@ -391,8 +398,8 @@ TEST_F(DictationSessionControllerTest, MultipleFinalizingStreams) {
       .WillOnce(Return(std::move(mock_stream_provider_2)));
   controller_->StartDictationStream(EmptyTarget(),
                                     DictationStreamStartTrigger::kSessionStart);
-  EXPECT_CALL(*stream_provider_2_ptr, Stop());
-  controller_->EndDictationStream();
+  EXPECT_CALL(*stream_provider_2_ptr, Stop(_));
+  controller_->EndDictationStream(DictationStreamEndTrigger::kTest);
   EXPECT_EQ(controller_->GetState(), SessionState::kFinalizing);
 
   // Transition the first stream to complete. The controller should remain
@@ -427,8 +434,8 @@ TEST_F(DictationSessionControllerTest, FinalizingStreamStateChangesIgnored) {
   EXPECT_EQ(controller_->GetState(), SessionState::kStreamInitializing);
 
   // End the stream. It should transition to kFinalizing.
-  EXPECT_CALL(*stream_provider_ptr, Stop());
-  controller_->EndDictationStream();
+  EXPECT_CALL(*stream_provider_ptr, Stop(_));
+  controller_->EndDictationStream(DictationStreamEndTrigger::kTest);
   EXPECT_EQ(controller_->GetState(), SessionState::kFinalizing);
 
   // Transition the finalizing stream to kTranscribing. This should be ignored.
@@ -511,7 +518,7 @@ TEST_F(DictationSessionControllerTest, EndStreamOnFocusNonEditableNode) {
   controller_->StartDictationStream(EmptyTarget(),
                                     DictationStreamStartTrigger::kSessionStart);
 
-  EXPECT_CALL(*stream_provider_ptr, Stop());
+  EXPECT_CALL(*stream_provider_ptr, Stop(_));
   content::FocusedNodeDetails details;
   details.focus_type = blink::mojom::FocusType::kMouse;
   details.editable_level = content::EditableLevel::kNotEditable;
@@ -523,6 +530,11 @@ TEST_F(DictationSessionControllerTest, EndStreamOnFocusNonEditableNode) {
 }
 
 TEST_F(DictationSessionControllerTest, StartNewStreamOnFocusOtherEditableNode) {
+  if (kSessionEndsOnStreamEnd.Get()) {
+    GTEST_SKIP()
+        << "Multiple streams per session are not possible in this config.";
+  }
+
   Target target_1(EmptyTarget());
   auto mock_stream_provider_1 =
       std::make_unique<testing::NiceMock<MockStreamProvider>>();
@@ -533,7 +545,7 @@ TEST_F(DictationSessionControllerTest, StartNewStreamOnFocusOtherEditableNode) {
   controller_->StartDictationStream(EmptyTarget(),
                                     DictationStreamStartTrigger::kSessionStart);
 
-  EXPECT_CALL(*stream_provider_1_ptr, Stop());
+  EXPECT_CALL(*stream_provider_1_ptr, Stop(_));
 
   EXPECT_CALL(*stream_provider_1_ptr, GetTarget())
       .WillRepeatedly(Return(&target_1));
@@ -575,8 +587,8 @@ TEST_F(DictationSessionControllerTest,
   controller_->StartDictationStream(TargetDetails{target_id_1},
                                     DictationStreamStartTrigger::kSessionStart);
 
-  EXPECT_CALL(*stream_provider_1_ptr, Stop());
-  controller_->EndDictationStream();
+  EXPECT_CALL(*stream_provider_1_ptr, Stop(_));
+  controller_->EndDictationStream(DictationStreamEndTrigger::kTest);
   EXPECT_EQ(controller_->GetState(), SessionState::kFinalizing);
 
   // While a stream is finalizing for an element, change focus to the same
@@ -609,7 +621,7 @@ TEST_F(DictationSessionControllerTest,
   controller_->StartDictationStream(TargetDetails{target_id_1},
                                     DictationStreamStartTrigger::kSessionStart);
 
-  EXPECT_CALL(*stream_provider_1_ptr, Stop());
+  EXPECT_CALL(*stream_provider_1_ptr, Stop(_));
   controller_->FinalizeAndShutdown();
   EXPECT_EQ(controller_->GetState(), SessionState::kFinalizing);
 
@@ -645,7 +657,7 @@ TEST_F(DictationSessionControllerTest, ActiveStreamFailureOnErrorCalled) {
 
   EXPECT_CALL(*stream_provider_ptr, GetState())
       .WillRepeatedly(Return(StreamProvider::StreamState::kFailed));
-  EXPECT_CALL(*ui_ptr, OnError(SessionUi::StreamType::kAttached));
+  EXPECT_CALL(*ui_ptr, OnError(SessionUi::StreamType::kAttached, _));
 
   controller_->DidUpdateStreamProviderState(
       *stream_provider_ptr, StreamProvider::StreamState::kTranscribing);
@@ -676,7 +688,7 @@ TEST_F(DictationSessionControllerTest, CompletedStreamFailureOnErrorNotCalled) {
   // Now transition to failed. OnError should not be called.
   EXPECT_CALL(*stream_provider_ptr, GetState())
       .WillRepeatedly(Return(StreamProvider::StreamState::kFailed));
-  EXPECT_CALL(*ui_ptr, OnError(_)).Times(0);
+  EXPECT_CALL(*ui_ptr, OnError(_, _)).Times(0);
 
   controller_->DidUpdateStreamProviderState(
       *stream_provider_ptr, StreamProvider::StreamState::kComplete);
@@ -721,6 +733,7 @@ TEST_F(DictationSessionControllerTest,
 
   controller_->DidUpdateStreamProviderState(
       *stream_provider, StreamProvider::StreamState::kTranscribing);
+  FastForwardPastAutoSessionEnd();
   WaitForPostedTasks();
 
   EXPECT_EQ(controller_, nullptr);
@@ -866,6 +879,109 @@ TEST_F(DictationSessionControllerTest, EscapeEndsActiveStreamElseEndsSession) {
   WaitForPostedTasks();
 
   EXPECT_EQ(controller_, nullptr);
+}
+
+TEST_F(DictationSessionControllerTest,
+       AutoSessionEndDelayedShutdownFiresAfterDelay) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{kDictation,
+        {{"session_ends_on_stream_end", "true"},
+         {"auto_session_end_delay", "750ms"}}}},
+      {});
+
+  controller_->ResetUi();
+
+  controller_->StartDictationStream(EmptyTarget(),
+                                    DictationStreamStartTrigger::kSessionStart);
+  auto* stream_provider = controller_->attached_stream_provider();
+  ASSERT_NE(stream_provider, nullptr);
+
+  EXPECT_CALL(static_cast<MockStreamProvider&>(*stream_provider), GetState())
+      .WillRepeatedly(
+          testing::Return(StreamProvider::StreamState::kTranscribing));
+  controller_->DidUpdateStreamProviderState(
+      *stream_provider, StreamProvider::StreamState::kInitializing);
+  EXPECT_EQ(controller_->GetState(), SessionState::kTranscribing);
+
+  controller_->EndDictationStream(DictationStreamEndTrigger::kTest);
+  EXPECT_EQ(controller_->GetState(), SessionState::kFinalizing);
+
+  EXPECT_CALL(static_cast<MockStreamProvider&>(*stream_provider), GetState())
+      .WillRepeatedly(testing::Return(StreamProvider::StreamState::kComplete));
+  EXPECT_CALL(mock_delegate_, EndSession()).WillOnce([this]() {
+    controller_.reset();
+  });
+
+  controller_->DidUpdateStreamProviderState(
+      *stream_provider, StreamProvider::StreamState::kTranscribing);
+  WaitForPostedTasks();
+
+  // After the stream ends, the session should automatically end after the set
+  // delay.
+  ASSERT_NE(controller_, nullptr);
+  EXPECT_EQ(controller_->GetState(), SessionState::kInactive);
+  EXPECT_TRUE(controller_->is_auto_session_end_timer_running_for_testing());
+  FastForwardPastAutoSessionEnd();
+  EXPECT_EQ(controller_, nullptr);
+}
+
+TEST_F(DictationSessionControllerTest,
+       AutoSessionEndDelayedShutdownCancelledByNewStream) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{kDictation,
+        {{"session_ends_on_stream_end", "true"},
+         {"auto_session_end_delay", "750ms"}}}},
+      {});
+
+  controller_->ResetUi();
+
+  controller_->StartDictationStream(EmptyTarget(),
+                                    DictationStreamStartTrigger::kSessionStart);
+  auto* stream_provider1 = controller_->attached_stream_provider();
+  ASSERT_NE(stream_provider1, nullptr);
+
+  EXPECT_CALL(static_cast<MockStreamProvider&>(*stream_provider1), GetState())
+      .WillRepeatedly(
+          testing::Return(StreamProvider::StreamState::kTranscribing));
+  controller_->DidUpdateStreamProviderState(
+      *stream_provider1, StreamProvider::StreamState::kInitializing);
+  EXPECT_EQ(controller_->GetState(), SessionState::kTranscribing);
+
+  controller_->EndDictationStream(DictationStreamEndTrigger::kTest);
+  EXPECT_EQ(controller_->GetState(), SessionState::kFinalizing);
+
+  EXPECT_CALL(static_cast<MockStreamProvider&>(*stream_provider1), GetState())
+      .WillRepeatedly(testing::Return(StreamProvider::StreamState::kComplete));
+  EXPECT_CALL(mock_delegate_, EndSession()).Times(0);
+
+  controller_->DidUpdateStreamProviderState(
+      *stream_provider1, StreamProvider::StreamState::kTranscribing);
+  WaitForPostedTasks();
+
+  // With the stream ended, we'll automatically end the session after the delay.
+  ASSERT_NE(controller_, nullptr);
+  EXPECT_EQ(controller_->GetState(), SessionState::kInactive);
+  EXPECT_TRUE(controller_->is_auto_session_end_timer_running_for_testing());
+
+  // Advance time, but not enough for the timer to expire.
+  task_environment()->FastForwardBy(base::Milliseconds(300));
+  EXPECT_TRUE(controller_->is_auto_session_end_timer_running_for_testing());
+
+  // Within the delay window, the user starts a new stream.
+  controller_->StartDictationStream(
+      EmptyTarget(), DictationStreamStartTrigger::kHotkeyToggleExistingSession);
+  auto* stream_provider2 = controller_->attached_stream_provider();
+  ASSERT_NE(stream_provider2, nullptr);
+  EXPECT_NE(stream_provider1, stream_provider2);
+  EXPECT_EQ(controller_->GetState(), SessionState::kStreamInitializing);
+
+  // Delayed shutdown should be cancelled.
+  EXPECT_FALSE(controller_->is_auto_session_end_timer_running_for_testing());
+  FastForwardPastAutoSessionEnd();
+  EXPECT_NE(controller_, nullptr);
+  EXPECT_EQ(controller_->attached_stream_provider(), stream_provider2);
 }
 
 }  // namespace

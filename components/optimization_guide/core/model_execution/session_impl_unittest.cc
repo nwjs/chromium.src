@@ -13,6 +13,8 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
+#include "base/strings/strcat.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -25,26 +27,25 @@
 #include "base/uuid.h"
 #include "build/build_config.h"
 #include "components/optimization_guide/core/delivery/model_info.h"
+#include "components/optimization_guide/core/model_execution/manifest_broker/manifest_broker_state.h"
+#include "components/optimization_guide/core/model_execution/manifest_broker/test/fake_manifest_broker.h"
+#include "components/optimization_guide/core/model_execution/manifest_broker/test/manifest_builder.h"
+#include "components/optimization_guide/core/model_execution/manifest_broker/test/scenario_builder.h"
+#include "components/optimization_guide/core/model_execution/manifest_broker/test/test_manifest_asset_manager_component_state.h"
 #include "components/optimization_guide/core/model_execution/model_broker_client.h"
-#include "components/optimization_guide/core/model_execution/model_broker_state.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/core/model_execution/multimodal_message.h"
 #include "components/optimization_guide/core/model_execution/on_device_capability.h"
 #include "components/optimization_guide/core/model_execution/on_device_execution.h"
 #include "components/optimization_guide/core/model_execution/on_device_features.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_access_controller.h"
-#include "components/optimization_guide/core/model_execution/on_device_model_adaptation_loader.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_execution_proto_value_utils.h"
-#include "components/optimization_guide/core/model_execution/on_device_model_metadata.h"
-#include "components/optimization_guide/core/model_execution/on_device_model_service_controller.h"
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
 #include "components/optimization_guide/core/model_execution/performance_class.h"
 #include "components/optimization_guide/core/model_execution/test/fake_model_assets.h"
-#include "components/optimization_guide/core/model_execution/test/fake_model_broker.h"
 #include "components/optimization_guide/core/model_execution/test/feature_config_builder.h"
 #include "components/optimization_guide/core/model_execution/test/request_builder.h"
 #include "components/optimization_guide/core/model_execution/test/response_holder.h"
-#include "components/optimization_guide/core/model_execution/test/test_on_device_model_component_state_manager.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_logger.h"
@@ -52,6 +53,7 @@
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/features/compose.pb.h"
 #include "components/optimization_guide/proto/features/example_for_testing.pb.h"
+#include "components/optimization_guide/proto/manifest.pb.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
 #include "components/optimization_guide/proto/models.pb.h"
 #include "components/optimization_guide/proto/on_device_base_model_metadata.pb.h"
@@ -59,6 +61,7 @@
 #include "components/optimization_guide/proto/redaction.pb.h"
 #include "components/optimization_guide/proto/substitution.pb.h"
 #include "components/optimization_guide/proto/text_safety_model_metadata.pb.h"
+#include "components/optimization_guide/public/mojom/model_broker.mojom-shared.h"
 #include "components/optimization_guide/public/mojom/model_broker.mojom.h"
 #include "components/prefs/testing_pref_service.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -84,21 +87,19 @@ using ::testing::ElementsAreArray;
 using ::testing::IsEmpty;
 using ::testing::ResultOf;
 
-auto UnsafeComposeConfig() {
+auto SimpleComposeConfigForTesting() {
   auto cfg = SimpleComposeConfig();
-  cfg.set_can_skip_text_safety(true);
+  auto* sampling = cfg.mutable_sampling_params();
+  sampling->set_top_k(1);
+  sampling->set_temperature(0);
   return cfg;
 }
 
-// A complete set of assets for the most common case.
-struct StandardAssets {
-  FakeBaseModelAsset::Content base_model_content;
-  FakeAdaptationAsset compose{{
-      .config = SimpleComposeConfig(),
-  }};
-  FakeSafetyModelAsset safety{ComposeSafetyConfig()};
-  FakeLanguageModelAsset language;
-};
+auto UnsafeComposeConfig() {
+  auto cfg = SimpleComposeConfigForTesting();
+  cfg.set_can_skip_text_safety(true);
+  return cfg;
+}
 
 const std::string& GetCheckText(
     const proto::InternalOnDeviceModelExecutionInfo& log) {
@@ -115,19 +116,11 @@ std::string ConcatResponses(const std::vector<std::string>& responses) {
   return concat_responses;
 }
 
-constexpr auto kFeature = mojom::OnDeviceFeature::kCompose;
-
 class SessionImplTest : public testing::Test {
  public:
   void SetUp() override {
     feature_list_.InitWithFeaturesAndParameters(
         {{features::kOptimizationGuideModelExecution, {}},
-         {features::kOptimizationGuideOnDeviceModel,
-          {{"on_device_model_topk", "1"},
-           {"on_device_model_temperature", "0"},
-           {"on_device_model_disable_crash_count", "3"},
-           {"on_device_model_crash_backoff_base_time", "1m"},
-           {"on_device_model_max_crash_backoff_time", "1h"}}},
          {features::kOnDeviceModelPerformanceParams,
           {{"compatible_on_device_performance_classes", "3,4,5,6"},
            {"compatible_low_tier_on_device_performance_classes", "3"}}},
@@ -135,48 +128,62 @@ class SessionImplTest : public testing::Test {
           {{"on_device_model_validation_delay", "0"}}}},
         {});
     // Mark a feature used so the model is eligible to install.
-    model_execution::prefs::RecordFeatureUsage(
-        &broker_.local_state(), mojom::OnDeviceFeature::kCompose);
     model_execution::prefs::RecordFeatureUsage(&broker_.local_state(),
                                                mojom::OnDeviceFeature::kTest);
   }
 
-  struct InitializeParams {
-    std::optional<FakeBaseModelAsset::Content> base_model_content;
-    raw_ptr<FakeSafetyModelAsset> safety;
-    raw_ptr<FakeLanguageModelAsset> language;
-    std::vector<FakeAdaptationAsset*> adaptations;
-    bool instantiate_broker = true;
-  };
+  void Initialize(proto::SolutionConfig solution_config) {
+    if (solution_config.capabilities().empty()) {
+      solution_config.add_capabilities(
+          proto::ON_DEVICE_MODEL_CAPABILITY_IMAGE_INPUT);
+      solution_config.add_capabilities(
+          proto::ON_DEVICE_MODEL_CAPABILITY_AUDIO_INPUT);
+    }
 
-  void Initialize(const InitializeParams& params) {
-    if (params.base_model_content) {
-      broker_.InstallBaseModel(
-          std::make_unique<FakeBaseModelAsset>(*params.base_model_content));
+    // TODO(crbug.com/512149280): Move repetition checker to solution config.
+    // Currently, this is a hardcoded override in IsRepetitionTrackedFeature.
+    if (solution_config.feature().feature() !=
+        proto::MODEL_EXECUTION_FEATURE_PROOFREADER_API) {
+      solution_config.mutable_feature()->set_feature(
+          ToModelExecutionFeatureProto(mojom::OnDeviceFeature::kTest));
     }
-    if (params.safety) {
-      broker_.UpdateSafetyModel(*params.safety);
+    proto::ModelExecutionFeature feature_proto =
+        solution_config.feature().feature();
+    mojom::OnDeviceFeature feature = *ToOnDeviceFeature(feature_proto);
+    std::string use_case = ToUseCaseName(feature);
+    if (solution_config.has_safety()) {
+      solution_config.mutable_safety()->set_feature(feature_proto);
     }
-    if (params.language) {
-      broker_.UpdateLanguageDetectionModel(*params.language);
+
+    ScenarioBuilder builder(broker_.component_state());
+    builder.AddBaseModel(
+        "base_model",
+        BaseModelRecipeArgs(
+            proto::BaseModelRecipe::BACKEND_TYPE_GPU,
+            proto::BaseModelRecipe::PERFORMANCE_HINT_HIGHEST_QUALITY, {},
+            /*max_tokens=*/0),
+        FakeBaseModelAsset::Content{}, "1");
+    if (solution_config.has_safety()) {
+      builder.AddSafetyModel("safety_model");
+      builder.AddSafeSolution(use_case, "base_model", "safety_model",
+                              std::move(solution_config));
+    } else {
+      builder.AddUnsafeSolution(use_case, "base_model",
+                                std::move(solution_config));
     }
-    for (auto* adaptation : params.adaptations) {
-      broker_.UpdateModelAdaptation(*adaptation);
-    }
-    if (params.instantiate_broker) {
-      broker_.GetOrCreateBrokerState();  // Force instantiation.
-      // Wait for configs to be read from disk.
-      task_environment_.RunUntilIdle();
-    }
+    builder.Finish();
+
+    broker_.Startup();
+    broker_.client().RequestAssetsFor(use_case);
+    // Wait for configs and assets to be loaded.
+    task_environment_.RunUntilIdle();
   }
 
-  void Initialize(StandardAssets& assets) {
-    Initialize(InitializeParams{
-        .base_model_content = standard_assets_.base_model_content,
-        .safety = &standard_assets_.safety,
-        .language = &standard_assets_.language,
-        .adaptations = {&standard_assets_.compose},
-    });
+  void Initialize() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfigForTesting();
+    *config.mutable_safety() = ComposeSafetyConfig();
+    Initialize(std::move(config));
   }
 
   void SimulateShutdown() {
@@ -187,22 +194,19 @@ class SessionImplTest : public testing::Test {
 
   std::unique_ptr<OnDeviceSession> CreateSession(
       const SessionConfigParams& params) {
-    return broker_.GetOrCreateBrokerState().StartSession(kFeature, params,
-                                                         logger_.GetWeakPtr());
+    return CreateSession(mojom::OnDeviceFeature::kTest, params);
   }
   std::unique_ptr<OnDeviceSession> CreateSession(
       mojom::OnDeviceFeature feature,
       const SessionConfigParams& params) {
-    return broker_.GetOrCreateBrokerState().StartSession(feature, params,
-                                                         logger_.GetWeakPtr());
+    return broker_.state().StartSession(feature, params, logger_.GetWeakPtr());
   }
 
   void ExpectFailedSession(OnDeviceModelEligibilityReason reason) {
     base::HistogramTester histogram_tester;
     EXPECT_FALSE(CreateSession(SessionConfigParams{}));
     histogram_tester.ExpectUniqueSample(
-        "OptimizationGuide.ModelExecution.OnDeviceModelEligibilityReason."
-        "Compose",
+        "OptimizationGuide.ModelExecution.OnDeviceModelEligibilityReason.Test",
         reason, 1);
   }
 
@@ -215,19 +219,16 @@ class SessionImplTest : public testing::Test {
   }
 
  protected:
-  StandardAssets standard_assets_;
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
-  FakeModelBroker broker_{{
-      .preinstall_base_model = false,
-  }};
+  FakeManifestBroker broker_;
   ResponseHolder response_;
   base::test::ScopedFeatureList feature_list_;
   OptimizationGuideLogger logger_;
 };
 
 TEST_F(SessionImplTest, ScoreBeforeContext) {
-  Initialize(standard_assets_);
+  Initialize();
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
@@ -237,7 +238,7 @@ TEST_F(SessionImplTest, ScoreBeforeContext) {
 }
 
 TEST_F(SessionImplTest, ScorePresentAfterContext) {
-  Initialize(standard_assets_);
+  Initialize();
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
@@ -250,7 +251,7 @@ TEST_F(SessionImplTest, ScorePresentAfterContext) {
 }
 
 TEST_F(SessionImplTest, ScoreAfterExecute) {
-  Initialize(standard_assets_);
+  Initialize();
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
@@ -265,18 +266,17 @@ TEST_F(SessionImplTest, ScoreAfterExecute) {
 }
 
 TEST_F(SessionImplTest, TokenLimits) {
-  auto config = SimpleComposeConfig();
-  config.mutable_input_config()->set_min_context_tokens(5);
-  config.mutable_input_config()->set_max_context_tokens(5);
-  config.mutable_input_config()->set_max_execute_tokens(3);
-  config.mutable_output_config()->set_max_output_tokens(1);
-  FakeAdaptationAsset compose_asset({.config = config});
-  Initialize(InitializeParams{
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &standard_assets_.safety,
-      .language = &standard_assets_.language,
-      .adaptations = {&compose_asset},
-  });
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
+    auto& input_config = *config.mutable_feature()->mutable_input_config();
+    input_config.set_min_context_tokens(5);
+    input_config.set_max_context_tokens(5);
+    input_config.set_max_execute_tokens(3);
+    config.mutable_feature()->mutable_output_config()->set_max_output_tokens(1);
+    *config.mutable_safety() = ComposeSafetyConfig();
+    return config;
+  }());
   auto session = CreateSession(SessionConfigParams{});
   const TokenLimits& limits = session->GetTokenLimits();
   EXPECT_EQ(limits.max_tokens, 10240u);
@@ -287,18 +287,18 @@ TEST_F(SessionImplTest, TokenLimits) {
 }
 
 TEST_F(SessionImplTest, TokenLimitsCapped) {
-  auto config = SimpleComposeConfig();
-  config.mutable_input_config()->set_min_context_tokens(100000);
-  config.mutable_input_config()->set_max_context_tokens(100000);
-  config.mutable_input_config()->set_max_execute_tokens(100000);
-  config.mutable_output_config()->set_max_output_tokens(100000);
-  FakeAdaptationAsset compose_asset({.config = config});
-  Initialize(InitializeParams{
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &standard_assets_.safety,
-      .language = &standard_assets_.language,
-      .adaptations = {&compose_asset},
-  });
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
+    auto& input_config = *config.mutable_feature()->mutable_input_config();
+    input_config.set_min_context_tokens(100000);
+    input_config.set_max_context_tokens(100000);
+    input_config.set_max_execute_tokens(100000);
+    config.mutable_feature()->mutable_output_config()->set_max_output_tokens(
+        100000);
+    *config.mutable_safety() = ComposeSafetyConfig();
+    return config;
+  }());
   auto session = CreateSession(SessionConfigParams{});
   const TokenLimits& limits = session->GetTokenLimits();
   EXPECT_EQ(limits.max_tokens, 10240u);
@@ -309,7 +309,7 @@ TEST_F(SessionImplTest, TokenLimitsCapped) {
 }
 
 TEST_F(SessionImplTest, ExecutionDisconnectUnknown) {
-  Initialize(standard_assets_);
+  Initialize();
   auto session = CreateSession(SessionConfigParams{});
   broker_.settings().set_execute_error(
       on_device_model::mojom::GenerateError::kUnknown);
@@ -320,7 +320,7 @@ TEST_F(SessionImplTest, ExecutionDisconnectUnknown) {
 }
 
 TEST_F(SessionImplTest, ExecutionDisconnectInvalidConstraint) {
-  Initialize(standard_assets_);
+  Initialize();
   auto session = CreateSession(SessionConfigParams{});
   broker_.settings().set_execute_error(
       on_device_model::mojom::GenerateError::kInvalidConstraint);
@@ -331,8 +331,11 @@ TEST_F(SessionImplTest, ExecutionDisconnectInvalidConstraint) {
 }
 
 TEST_F(SessionImplTest, SucceedsWithPassingSafetyChecks) {
-  FakeSafetyModelAsset safety_asset([]() {
-    auto safety_config = ComposeSafetyConfig();
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
+    auto& safety_config = *config.mutable_safety();
+    safety_config.set_feature(proto::MODEL_EXECUTION_FEATURE_COMPOSE);
     safety_config.mutable_safety_category_thresholds()->Add(ForbidUnsafe());
     {
       auto* check = safety_config.add_request_check();
@@ -344,20 +347,13 @@ TEST_F(SessionImplTest, SucceedsWithPassingSafetyChecks) {
       check->mutable_input_template()->Add(
           FieldSubstitution("raw_output_check: %s", StringValueField()));
     }
-    return safety_config;
+    return config;
   }());
-
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &safety_asset,
-      .language = &standard_assets_.language,
-      .adaptations = {&standard_assets_.compose},
-  });
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
 
-  broker_.service_settings().set_execute_result({"safe_output"});
+  broker_.settings().set_execute_result({"safe_output"});
   session->ExecuteModel(PageUrlRequest("safe_url"),
                         response_.GetStreamingCallback());
   ASSERT_TRUE(response_.GetFinalStatus());
@@ -373,8 +369,11 @@ TEST_F(SessionImplTest, SucceedsWithPassingSafetyChecks) {
 }
 
 TEST_F(SessionImplTest, FailsWithFailingRequestSafetyChecks) {
-  FakeSafetyModelAsset safety_asset([]() {
-    auto safety_config = ComposeSafetyConfig();
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
+    auto& safety_config = *config.mutable_safety();
+    safety_config.set_feature(proto::MODEL_EXECUTION_FEATURE_COMPOSE);
     safety_config.mutable_safety_category_thresholds()->Add(ForbidUnsafe());
     {
       auto* check = safety_config.add_request_check();
@@ -386,20 +385,13 @@ TEST_F(SessionImplTest, FailsWithFailingRequestSafetyChecks) {
       check->mutable_input_template()->Add(
           FieldSubstitution("raw_output_check: %s", StringValueField()));
     }
-    return safety_config;
+    return config;
   }());
-
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &safety_asset,
-      .language = &standard_assets_.language,
-      .adaptations = {&standard_assets_.compose},
-  });
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
 
-  broker_.service_settings().set_execute_result({"safe_output"});
+  broker_.settings().set_execute_result({"safe_output"});
   session->ExecuteModel(PageUrlRequest("unsafe_url"),
                         response_.GetStreamingCallback());
   ASSERT_FALSE(response_.GetFinalStatus());
@@ -417,8 +409,11 @@ TEST_F(SessionImplTest, FailsWithFailingRequestSafetyChecks) {
 }
 
 TEST_F(SessionImplTest, FailsWithInvalidRequestSafetyChecks) {
-  FakeSafetyModelAsset safety_asset([]() {
-    auto safety_config = ComposeSafetyConfig();
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
+    auto& safety_config = *config.mutable_safety();
+    safety_config.set_feature(proto::MODEL_EXECUTION_FEATURE_COMPOSE);
     safety_config.mutable_safety_category_thresholds()->Add(ForbidUnsafe());
     {
       auto* check = safety_config.add_request_check();
@@ -430,28 +425,24 @@ TEST_F(SessionImplTest, FailsWithInvalidRequestSafetyChecks) {
       check->mutable_input_template()->Add(
           FieldSubstitution("raw_output_check: %s", StringValueField()));
     }
-    return safety_config;
+    return config;
   }());
-
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &safety_asset,
-      .language = &standard_assets_.language,
-      .adaptations = {&standard_assets_.compose},
-  });
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
 
-  broker_.service_settings().set_execute_result({"safe_output"});
+  broker_.settings().set_execute_result({"safe_output"});
   session->ExecuteModel(PageUrlRequest("safe_url"),
                         response_.GetStreamingCallback());
   ASSERT_FALSE(response_.GetFinalStatus());
 }
 
 TEST_F(SessionImplTest, FailsWithFailingRawOutputSafetyChecks) {
-  FakeSafetyModelAsset safety_asset([]() {
-    auto safety_config = ComposeSafetyConfig();
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
+    auto& safety_config = *config.mutable_safety();
+    safety_config.set_feature(proto::MODEL_EXECUTION_FEATURE_COMPOSE);
     safety_config.mutable_safety_category_thresholds()->Add(ForbidUnsafe());
     {
       auto* check = safety_config.add_request_check();
@@ -463,20 +454,13 @@ TEST_F(SessionImplTest, FailsWithFailingRawOutputSafetyChecks) {
       check->mutable_input_template()->Add(
           FieldSubstitution("raw_output_check: %s", StringValueField()));
     }
-    return safety_config;
+    return config;
   }());
-
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &safety_asset,
-      .language = &standard_assets_.language,
-      .adaptations = {&standard_assets_.compose},
-  });
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
 
-  broker_.service_settings().set_execute_result({"unsafe_output"});
+  broker_.settings().set_execute_result({"unsafe_output"});
   session->ExecuteModel(PageUrlRequest("safe_url"),
                         response_.GetStreamingCallback());
   ASSERT_FALSE(response_.GetFinalStatus());
@@ -494,8 +478,11 @@ TEST_F(SessionImplTest, FailsWithFailingRawOutputSafetyChecks) {
 }
 
 TEST_F(SessionImplTest, FailsWithInvalidRawOutputChecks) {
-  FakeSafetyModelAsset safety_asset([]() {
-    auto safety_config = ComposeSafetyConfig();
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
+    auto& safety_config = *config.mutable_safety();
+    safety_config.set_feature(proto::MODEL_EXECUTION_FEATURE_COMPOSE);
     safety_config.mutable_safety_category_thresholds()->Add(ForbidUnsafe());
     {
       auto* check = safety_config.add_request_check();
@@ -507,20 +494,13 @@ TEST_F(SessionImplTest, FailsWithInvalidRawOutputChecks) {
       check->mutable_input_template()->Add(
           FieldSubstitution("raw_output_check: %s", ProtoField({9999})));
     }
-    return safety_config;
+    return config;
   }());
-
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &safety_asset,
-      .language = &standard_assets_.language,
-      .adaptations = {&standard_assets_.compose},
-  });
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
 
-  broker_.service_settings().set_execute_result({"safe_output"});
+  broker_.settings().set_execute_result({"safe_output"});
   session->ExecuteModel(PageUrlRequest("safe_url"),
                         response_.GetStreamingCallback());
 
@@ -528,8 +508,11 @@ TEST_F(SessionImplTest, FailsWithInvalidRawOutputChecks) {
 }
 
 TEST_F(SessionImplTest, SucceedsWithPassingResponseSafetyCheck) {
-  FakeSafetyModelAsset safety_asset([]() {
-    auto safety_config = ComposeSafetyConfig();
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
+    auto& safety_config = *config.mutable_safety();
+    safety_config.set_feature(proto::MODEL_EXECUTION_FEATURE_COMPOSE);
     {
       auto* check = safety_config.add_response_check();
       auto* i1 = check->add_inputs();
@@ -542,20 +525,13 @@ TEST_F(SessionImplTest, SucceedsWithPassingResponseSafetyCheck) {
       check->mutable_safety_category_thresholds()->Add(ForbidUnsafe());
       check->set_ignore_language_result(true);
     }
-    return safety_config;
+    return config;
   }());
-
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &safety_asset,
-      .language = &standard_assets_.language,
-      .adaptations = {&standard_assets_.compose},
-  });
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
 
-  broker_.service_settings().set_execute_result({"safe_output"});
+  broker_.settings().set_execute_result({"safe_output"});
   session->ExecuteModel(PageUrlRequest("url_very_"),
                         response_.GetStreamingCallback());
   ASSERT_TRUE(response_.GetFinalStatus());
@@ -569,8 +545,11 @@ TEST_F(SessionImplTest, SucceedsWithPassingResponseSafetyCheck) {
 }
 
 TEST_F(SessionImplTest, FailsWithFailingResponseSafetyCheck) {
-  FakeSafetyModelAsset safety_asset([]() {
-    auto safety_config = ComposeSafetyConfig();
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
+    auto& safety_config = *config.mutable_safety();
+    safety_config.set_feature(proto::MODEL_EXECUTION_FEATURE_COMPOSE);
     {
       auto* check = safety_config.add_response_check();
       auto* i1 = check->add_inputs();
@@ -583,20 +562,13 @@ TEST_F(SessionImplTest, FailsWithFailingResponseSafetyCheck) {
       check->mutable_safety_category_thresholds()->Add(ForbidUnsafe());
       check->set_ignore_language_result(true);
     }
-    return safety_config;
+    return config;
   }());
-
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &safety_asset,
-      .language = &standard_assets_.language,
-      .adaptations = {&standard_assets_.compose},
-  });
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
 
-  broker_.service_settings().set_execute_result({"safe_output"});
+  broker_.settings().set_execute_result({"safe_output"});
   session->ExecuteModel(PageUrlRequest("url_un"),
                         response_.GetStreamingCallback());
   ASSERT_FALSE(response_.GetFinalStatus());
@@ -611,8 +583,11 @@ TEST_F(SessionImplTest, FailsWithFailingResponseSafetyCheck) {
 }
 
 TEST_F(SessionImplTest, FailsWithInvalidResponseSafetyCheck) {
-  FakeSafetyModelAsset safety_asset([]() {
-    auto safety_config = ComposeSafetyConfig();
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
+    auto& safety_config = *config.mutable_safety();
+    safety_config.set_feature(proto::MODEL_EXECUTION_FEATURE_COMPOSE);
     {
       auto* check = safety_config.add_response_check();
       auto* i1 = check->add_inputs();
@@ -625,20 +600,13 @@ TEST_F(SessionImplTest, FailsWithInvalidResponseSafetyCheck) {
       check->mutable_safety_category_thresholds()->Add(ForbidUnsafe());
       check->set_ignore_language_result(true);
     }
-    return safety_config;
+    return config;
   }());
-
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &safety_asset,
-      .language = &standard_assets_.language,
-      .adaptations = {&standard_assets_.compose},
-  });
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
 
-  broker_.service_settings().set_execute_result({"safe_output"});
+  broker_.settings().set_execute_result({"safe_output"});
   session->ExecuteModel(PageUrlRequest("url_very_"),
                         response_.GetStreamingCallback());
 
@@ -646,12 +614,7 @@ TEST_F(SessionImplTest, FailsWithInvalidResponseSafetyCheck) {
 }
 
 TEST_F(SessionImplTest, ReturnsErrorOnServiceDisconnect) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      features::kOptimizationGuideOnDeviceModel,
-      {{"on_device_fallback_to_server_on_disconnect", "false"}});
-
-  Initialize(standard_assets_);
+  Initialize();
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
@@ -663,7 +626,7 @@ TEST_F(SessionImplTest, ReturnsErrorOnServiceDisconnect) {
   base::HistogramTester histogram_tester;
   task_environment_.RunUntilIdle();
   histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Compose",
+      "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Test",
       ExecuteModelResult::kDisconnectAndCancel, 1);
 
   ASSERT_TRUE(response_.error());
@@ -671,7 +634,7 @@ TEST_F(SessionImplTest, ReturnsErrorOnServiceDisconnect) {
 }
 
 TEST_F(SessionImplTest, CancelsExecuteOnAddContext) {
-  Initialize(standard_assets_);
+  Initialize();
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
   task_environment_.RunUntilIdle();
@@ -681,7 +644,7 @@ TEST_F(SessionImplTest, CancelsExecuteOnAddContext) {
   base::HistogramTester histogram_tester;
   session->AddContext(UserInputRequest("bar"));
   histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Compose",
+      "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Test",
       ExecuteModelResult::kCancelled, 1);
   task_environment_.RunUntilIdle();
 
@@ -690,7 +653,7 @@ TEST_F(SessionImplTest, CancelsExecuteOnAddContext) {
 }
 
 TEST_F(SessionImplTest, CancelsExecuteOnExecute) {
-  Initialize(standard_assets_);
+  Initialize();
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
 
@@ -706,7 +669,7 @@ TEST_F(SessionImplTest, CancelsExecuteOnExecute) {
 }
 
 TEST_F(SessionImplTest, AddContextDisconnectExecute) {
-  Initialize(standard_assets_);
+  Initialize();
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
   session->AddContext(UserInputRequest("foo"));
@@ -722,7 +685,7 @@ TEST_F(SessionImplTest, AddContextDisconnectExecute) {
                         response_.GetStreamingCallback());
   ASSERT_TRUE(response_.GetFinalStatus());
   histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Compose",
+      "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Test",
       ExecuteModelResult::kUsedOnDevice, 1);
   std::string expected_response =
       ("ctx:foo max:8192"
@@ -731,7 +694,7 @@ TEST_F(SessionImplTest, AddContextDisconnectExecute) {
 }
 
 TEST_F(SessionImplTest, AddContextExecuteDisconnect) {
-  Initialize(standard_assets_);
+  Initialize();
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
   session->AddContext(UserInputRequest("foo"));
@@ -746,7 +709,7 @@ TEST_F(SessionImplTest, AddContextExecuteDisconnect) {
 }
 
 TEST_F(SessionImplTest, AddContextMultipleSessions) {
-  Initialize(standard_assets_);
+  Initialize();
   auto session1 = CreateSession(SessionConfigParams{});
   EXPECT_TRUE(session1);
   session1->AddContext(UserInputRequest("foo"));
@@ -775,8 +738,8 @@ TEST_F(SessionImplTest, AddContextMultipleSessions) {
 }
 
 TEST_F(SessionImplTest, FailsOnGpuBlockedService) {
-  Initialize(standard_assets_);
-  broker_.service_settings().service_disconnect_reason =
+  Initialize();
+  broker_.settings().service_disconnect_reason =
       on_device_model::ServiceDisconnectReason::kGpuBlocked;
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
@@ -790,7 +753,7 @@ TEST_F(SessionImplTest, FailsOnGpuBlockedService) {
     base::HistogramTester histogram_tester;
     session->AddContext(UserInputRequest("baz"));
     histogram_tester.ExpectUniqueSample(
-        "OptimizationGuide.ModelExecution.OnDeviceAddContextResult.Compose",
+        "OptimizationGuide.ModelExecution.OnDeviceAddContextResult.Test",
         SessionImpl::AddContextResult::kUsingServer, 1);
   }
   session->ExecuteModel(PageUrlRequest("2"), response_.GetStreamingCallback());
@@ -799,16 +762,12 @@ TEST_F(SessionImplTest, FailsOnGpuBlockedService) {
 }
 
 TEST_F(SessionImplTest, AddContextInvalidConfig) {
-  FakeAdaptationAsset bad_compose_asset({.config = [] {
-    proto::OnDeviceModelExecutionFeatureConfig config;
-    config.set_can_skip_text_safety(true);
-    config.set_feature(ToModelExecutionFeatureProto(kFeature));
+  Initialize([]() {
+    proto::SolutionConfig config;
+    auto* feature = config.mutable_feature();
+    feature->set_can_skip_text_safety(true);
     return config;
-  }()});
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .adaptations = {&bad_compose_asset},
-  });
+  }());
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
@@ -816,7 +775,7 @@ TEST_F(SessionImplTest, AddContextInvalidConfig) {
     base::HistogramTester histogram_tester;
     session->AddContext(UserInputRequest("foo"));
     histogram_tester.ExpectUniqueSample(
-        "OptimizationGuide.ModelExecution.OnDeviceAddContextResult.Compose",
+        "OptimizationGuide.ModelExecution.OnDeviceAddContextResult.Test",
         SessionImpl::AddContextResult::kFailedConstructingInput, 1);
   }
   task_environment_.RunUntilIdle();
@@ -825,36 +784,32 @@ TEST_F(SessionImplTest, AddContextInvalidConfig) {
     session->ExecuteModel(PageUrlRequest("2"),
                           response_.GetStreamingCallback());
     histogram_tester.ExpectUniqueSample(
-        "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Compose",
+        "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Test",
         ExecuteModelResult::kOnDeviceNotUsed, 1);
   }
   ASSERT_FALSE(response_.GetFinalStatus());
 }
 
 TEST_F(SessionImplTest, ExecuteInvalidConfig) {
-  FakeAdaptationAsset bad_compose_asset({.config = [] {
-    proto::OnDeviceModelExecutionFeatureConfig config;
-    config.set_can_skip_text_safety(true);
-    config.set_feature(ToModelExecutionFeatureProto(kFeature));
+  Initialize([]() {
+    proto::SolutionConfig config;
+    auto* feature = config.mutable_feature();
+    feature->set_can_skip_text_safety(true);
     return config;
-  }()});
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .adaptations = {&bad_compose_asset},
-  });
+  }());
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
   base::HistogramTester histogram_tester;
   session->ExecuteModel(PageUrlRequest("2"), response_.GetStreamingCallback());
   histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Compose",
+      "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Test",
       ExecuteModelResult::kFailedConstructingMessage, 1);
   ASSERT_FALSE(response_.GetFinalStatus());
 }
 
 TEST_F(SessionImplTest, FailOnDisconnectWhileWaitingForExecute) {
-  Initialize(standard_assets_);
+  Initialize();
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
   task_environment_.RunUntilIdle();
@@ -864,13 +819,13 @@ TEST_F(SessionImplTest, FailOnDisconnectWhileWaitingForExecute) {
   base::HistogramTester histogram_tester;
   task_environment_.RunUntilIdle();
   histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Compose",
+      "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Test",
       ExecuteModelResult::kDisconnectAndCancel, 1);
   ASSERT_FALSE(response_.GetFinalStatus());
 }
 
 TEST_F(SessionImplTest, DestroySessionWhileWaitingForResponse) {
-  Initialize(standard_assets_);
+  Initialize();
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
   session->ExecuteModel(PageUrlRequest("foo"),
@@ -880,76 +835,24 @@ TEST_F(SessionImplTest, DestroySessionWhileWaitingForResponse) {
   task_environment_.AdvanceClock(total_time);
   session.reset();
   histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Compose",
+      "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Test",
       ExecuteModelResult::kDestroyedWhileWaitingForResponse, 1);
   histogram_tester.ExpectUniqueTimeSample(
       "OptimizationGuide.ModelExecution."
-      "OnDeviceDestroyedWhileWaitingForResponseTime.Compose",
+      "OnDeviceDestroyedWhileWaitingForResponseTime.Test",
       total_time, 1);
 }
 
-TEST_F(SessionImplTest, DetectsRepeats) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      features::kOptimizationGuideOnDeviceModel,
-      {{"on_device_model_retract_repeats", "false"}});
-
-  base::HistogramTester histogram_tester;
-  FakeAdaptationAsset compose_asset({.config = UnsafeComposeConfig()});
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .adaptations = {&compose_asset},
-  });
-
-  broker_.service_settings().set_execute_result({
-      "some text",
-      " some more repeating text",
-      " some more repeating text",
-      " more stuff",
-  });
-  auto session = CreateSession(SessionConfigParams{});
-  ASSERT_TRUE(session);
-  session->ExecuteModel(UserInputRequest("foo"),
-                        response_.GetStreamingCallback());
-  task_environment_.RunUntilIdle();
-  const std::vector<std::string> expected_responses = {
-      "some text",
-      " some more repeating text",
-  };
-  EXPECT_EQ(*response_.value(),
-            ConcatResponses(expected_responses) + " some more repeating text");
-  EXPECT_THAT(response_.partials(), ElementsAreArray(expected_responses));
-
-  ASSERT_TRUE(response_.model_execution_info());
-  EXPECT_GT(response_.model_execution_info()
-                ->on_device_model_execution_info()
-                .execution_infos_size(),
-            0);
-  EXPECT_TRUE(response_.model_execution_info()
-                  ->on_device_model_execution_info()
-                  .execution_infos(0)
-                  .response()
-                  .on_device_model_service_response()
-                  .has_repeats());
-  histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.ModelExecution.OnDeviceResponseHasRepeats.Compose",
-      true, 1);
-}
 
 TEST_F(SessionImplTest, DetectsRepeatsAndCancelsResponse) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      features::kOptimizationGuideOnDeviceModel,
-      {{"on_device_model_retract_repeats", "true"}});
-
   base::HistogramTester histogram_tester;
-  FakeAdaptationAsset compose_asset({.config = UnsafeComposeConfig()});
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .adaptations = {&compose_asset},
-  });
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = UnsafeComposeConfig();
+    return config;
+  }());
 
-  broker_.service_settings().set_execute_result({
+  broker_.settings().set_execute_result({
       "some text",
       " some more repeating text",
       " some more repeating text",
@@ -977,25 +880,25 @@ TEST_F(SessionImplTest, DetectsRepeatsAndCancelsResponse) {
                   .on_device_model_service_response()
                   .has_repeats());
   histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Compose",
+      "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Test",
       ExecuteModelResult::kResponseHadRepeats, 1);
 }
 
 TEST_F(SessionImplTest, ExcusedFeaturesIgnoreRepeats) {
+  // TODO(crbug.com/512149280): Move repetition checker to solution config.
+  // Currently, this is a hardcoded override in IsRepetitionTrackedFeature.
   // Mark kProofreaderApi as used so the model is eligible.
   model_execution::prefs::RecordFeatureUsage(
       &broker_.local_state(), mojom::OnDeviceFeature::kProofreaderApi);
 
   base::HistogramTester histogram_tester;
-  FakeAdaptationAsset proofreader_asset({.config = [] {
-    auto cfg = UnsafeComposeConfig();
-    cfg.set_feature(proto::MODEL_EXECUTION_FEATURE_PROOFREADER_API);
-    return cfg;
-  }()});
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .adaptations = {&proofreader_asset},
-  });
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = UnsafeComposeConfig();
+    config.mutable_feature()->set_feature(
+        proto::MODEL_EXECUTION_FEATURE_PROOFREADER_API);
+    return config;
+  }());
 
   const std::vector<std::string> expected_responses = {
       "some text",
@@ -1003,7 +906,7 @@ TEST_F(SessionImplTest, ExcusedFeaturesIgnoreRepeats) {
       " some more repeating text",
       " more stuff",
   };
-  broker_.service_settings().set_execute_result(expected_responses);
+  broker_.settings().set_execute_result(expected_responses);
 
   auto session = CreateSession(mojom::OnDeviceFeature::kProofreaderApi,
                                SessionConfigParams{});
@@ -1041,19 +944,14 @@ TEST_F(SessionImplTest, ExcusedFeaturesIgnoreRepeats) {
 }
 
 TEST_F(SessionImplTest, DetectsRepeatsAcrossResponses) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      features::kOptimizationGuideOnDeviceModel,
-      {{"on_device_model_retract_repeats", "false"}});
-
   base::HistogramTester histogram_tester;
-  FakeAdaptationAsset compose_asset({.config = UnsafeComposeConfig()});
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .adaptations = {&compose_asset},
-  });
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = UnsafeComposeConfig();
+    return config;
+  }());
 
-  broker_.service_settings().set_execute_result({
+  broker_.settings().set_execute_result({
       "some text",
       " some more repeating",
       " text",
@@ -1066,15 +964,10 @@ TEST_F(SessionImplTest, DetectsRepeatsAcrossResponses) {
   session->ExecuteModel(UserInputRequest("foo"),
                         response_.GetStreamingCallback());
   task_environment_.RunUntilIdle();
-  const std::vector<std::string> partial_responses = {
-      "some text",
-      " some more repeating",
-      " text",
-      " some more ",
-  };
-  EXPECT_EQ(*response_.value(),
-            ConcatResponses(partial_responses) + "repeating text");
-  EXPECT_THAT(response_.partials(), ElementsAreArray(partial_responses));
+
+  EXPECT_FALSE(response_.value());
+  ASSERT_TRUE(response_.error());
+  EXPECT_EQ(*response_.error(), OnDeviceError::kResponseLowQuality);
 
   ASSERT_TRUE(response_.model_execution_info());
   EXPECT_GT(response_.model_execution_info()
@@ -1089,24 +982,19 @@ TEST_F(SessionImplTest, DetectsRepeatsAcrossResponses) {
                   .has_repeats());
 
   histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.ModelExecution.OnDeviceResponseHasRepeats.Compose",
-      true, 1);
+      "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Test",
+      ExecuteModelResult::kResponseHadRepeats, 1);
 }
 
 TEST_F(SessionImplTest, IgnoresNonRepeatingText) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      features::kOptimizationGuideOnDeviceModel,
-      {{"on_device_model_retract_repeats", "false"}});
-
   base::HistogramTester histogram_tester;
-  FakeAdaptationAsset compose_asset({.config = UnsafeComposeConfig()});
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .adaptations = {&compose_asset},
-  });
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = UnsafeComposeConfig();
+    return config;
+  }());
 
-  broker_.service_settings().set_execute_result({
+  broker_.settings().set_execute_result({
       "some text",
       " some more repeating text",
       " some more non repeating text",
@@ -1138,18 +1026,18 @@ TEST_F(SessionImplTest, IgnoresNonRepeatingText) {
                    .on_device_model_service_response()
                    .has_repeats());
   histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.ModelExecution.OnDeviceResponseHasRepeats.Compose",
+      "OptimizationGuide.ModelExecution.OnDeviceResponseHasRepeats.Test",
       false, 1);
 }
 
 TEST_F(SessionImplTest, WithholdsTrailingNewlinesAcrossResponses) {
-  FakeAdaptationAsset compose_asset({.config = UnsafeComposeConfig()});
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .adaptations = {&compose_asset},
-  });
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = UnsafeComposeConfig();
+    return config;
+  }());
 
-  broker_.service_settings().set_execute_result({
+  broker_.settings().set_execute_result({
       "some text",
       " texts with newlines\n\n",
       "\n",
@@ -1178,13 +1066,13 @@ TEST_F(SessionImplTest, WithholdsTrailingNewlinesAcrossResponses) {
 }
 
 TEST_F(SessionImplTest, WithholdsTrailingNewlinesNoTrailingNewlines) {
-  FakeAdaptationAsset compose_asset({.config = UnsafeComposeConfig()});
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .adaptations = {&compose_asset},
-  });
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = UnsafeComposeConfig();
+    return config;
+  }());
 
-  broker_.service_settings().set_execute_result({
+  broker_.settings().set_execute_result({
       "some text",
       " texts with newlines\n",
       "\n",
@@ -1207,64 +1095,17 @@ TEST_F(SessionImplTest, WithholdsTrailingNewlinesNoTrailingNewlines) {
   EXPECT_THAT(response_.partials(), ElementsAreArray(partial_responses));
 }
 
-TEST_F(SessionImplTest, NoWithholdsTrailingNewlines) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      features::kOptimizationGuideOnDeviceModel,
-      {{"on_device_model_withhold_newlines", "false"}});
-  FakeAdaptationAsset compose_asset({.config = UnsafeComposeConfig()});
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .adaptations = {&compose_asset},
-  });
-
-  broker_.service_settings().set_execute_result({
-      "some text",
-      " texts with newlines\n\n",
-      "\n",
-      "\n\n",
-      "\n",
-      "\n",
-      "\n no trailing newline",
-      "\n more trailing newlines\n\n",
-      "\n\n",
-      "\n",
-      "",
-  });
-  auto session = CreateSession(SessionConfigParams{});
-  ASSERT_TRUE(session);
-  session->ExecuteModel(UserInputRequest("foo"),
-                        response_.GetStreamingCallback());
-  ASSERT_TRUE(response_.GetFinalStatus());
-  const std::vector<std::string> partial_responses = {
-      "some text",
-      " texts with newlines\n\n",
-      "\n",
-      "\n\n",
-      "\n",
-      "\n",
-      "\n no trailing newline",
-      "\n more trailing newlines\n\n",
-      "\n\n",
-      "\n",
-      "",
-  };
-  EXPECT_EQ(*response_.value(), ConcatResponses(partial_responses));
-  EXPECT_THAT(response_.partials(), ElementsAreArray(partial_responses));
-}
 
 TEST_F(SessionImplTest, UsesSessionTopKAndTemperature) {
   // Session sampling params should have precedence over feature ones.
-  auto config = SimpleComposeConfig();
-  config.mutable_sampling_params()->set_top_k(4);
-  config.mutable_sampling_params()->set_temperature(1.5);
-  FakeAdaptationAsset compose_asset({.config = config});
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &standard_assets_.safety,
-      .language = &standard_assets_.language,
-      .adaptations = {&compose_asset},
-  });
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
+    config.mutable_feature()->mutable_sampling_params()->set_top_k(4);
+    config.mutable_feature()->mutable_sampling_params()->set_temperature(1.5);
+    *config.mutable_safety() = ComposeSafetyConfig();
+    return config;
+  }());
 
   const SamplingParams expected_sampling_params{
       .top_k = 3,
@@ -1294,22 +1135,20 @@ TEST_F(SessionImplTest, UsesSessionTopKAndTemperature) {
 
 // Validate that a missing partial output config suppresses partial output.
 TEST_F(SessionImplTest, TsInterval0) {
-  FakeSafetyModelAsset safety_asset([]() {
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
     auto safety_config = ComposeSafetyConfig();
     safety_config.mutable_safety_category_thresholds()->Add(ForbidUnsafe());
-    return safety_config;
+    *config.mutable_safety() = std::move(safety_config);
+    return config;
   }());
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &safety_asset,
-      .adaptations = {&standard_assets_.compose},
-  });
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
 
   const std::vector<std::string> tokens = {"token1", " token2", " token3",
                                            " token4"};
-  broker_.service_settings().set_execute_result(tokens);
+  broker_.settings().set_execute_result(tokens);
   session->ExecuteModel(PageUrlRequest("foo"),
                         response_.GetStreamingCallback());
   task_environment_.RunUntilIdle();
@@ -1320,23 +1159,21 @@ TEST_F(SessionImplTest, TsInterval0) {
 
 // Validate that token interval 1 evaluates all partial output.
 TEST_F(SessionImplTest, TsInterval1) {
-  FakeSafetyModelAsset safety_asset([]() {
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
     auto safety_config = ComposeSafetyConfig();
     safety_config.mutable_safety_category_thresholds()->Add(ForbidUnsafe());
     safety_config.mutable_partial_output_checks()->set_token_interval(1);
-    return safety_config;
+    *config.mutable_safety() = std::move(safety_config);
+    return config;
   }());
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &safety_asset,
-      .adaptations = {&standard_assets_.compose},
-  });
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
 
   const std::vector<std::string> tokens = {"token1", " token2", " token3",
                                            " token4"};
-  broker_.service_settings().set_execute_result(tokens);
+  broker_.settings().set_execute_result(tokens);
   session->ExecuteModel(PageUrlRequest("foo"),
                         response_.GetStreamingCallback());
   task_environment_.RunUntilIdle();
@@ -1347,24 +1184,22 @@ TEST_F(SessionImplTest, TsInterval1) {
 
 // Validate that token interval 3 only evaluates every third and final chunk.
 TEST_F(SessionImplTest, TsInterval3) {
-  FakeSafetyModelAsset safety_asset([]() {
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
     auto safety_config = ComposeSafetyConfig();
     safety_config.mutable_safety_category_thresholds()->Add(ForbidUnsafe());
     safety_config.mutable_partial_output_checks()->set_token_interval(3);
-    return safety_config;
+    *config.mutable_safety() = std::move(safety_config);
+    return config;
   }());
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &safety_asset,
-      .adaptations = {&standard_assets_.compose},
-  });
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
 
   const std::vector<std::string> tokens = {"token1",  " token2", " token3",
                                            " token4", " token5", " token6",
                                            " token7"};
-  broker_.service_settings().set_execute_result(tokens);
+  broker_.settings().set_execute_result(tokens);
   session->ExecuteModel(PageUrlRequest("foo"),
                         response_.GetStreamingCallback());
   task_environment_.RunUntilIdle();
@@ -1378,25 +1213,22 @@ TEST_F(SessionImplTest, TsInterval3) {
 
 // Validate that PartialOutputChecks::minimum_tokens is respected.
 TEST_F(SessionImplTest, MinimumSafetyTokens) {
-  FakeSafetyModelAsset safety_asset([]() {
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
     auto safety_config = ComposeSafetyConfig();
     safety_config.mutable_safety_category_thresholds()->Add(ForbidUnsafe());
     safety_config.mutable_partial_output_checks()->set_minimum_tokens(2);
     safety_config.mutable_partial_output_checks()->set_token_interval(1);
-    return safety_config;
+    *config.mutable_safety() = std::move(safety_config);
+    return config;
   }());
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &safety_asset,
-      .language = &standard_assets_.language,
-      .adaptations = {&standard_assets_.compose},
-  });
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
 
   const std::vector<std::string> tokens = {"token1", " token2", " token3",
                                            " token4"};
-  broker_.service_settings().set_execute_result(tokens);
+  broker_.settings().set_execute_result(tokens);
   session->ExecuteModel(PageUrlRequest("foo"),
                         response_.GetStreamingCallback());
   task_environment_.RunUntilIdle();
@@ -1411,25 +1243,22 @@ TEST_F(SessionImplTest, MinimumSafetyTokens) {
 }
 
 TEST_F(SessionImplTest, WaitUntilCompleteToCancel) {
-  FakeSafetyModelAsset safety_asset([]() {
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
     auto safety_config = ComposeSafetyConfig();
     safety_config.set_only_cancel_unsafe_response_on_complete(true);
     safety_config.mutable_safety_category_thresholds()->Add(ForbidUnsafe());
     safety_config.add_allowed_languages("en");
-    return safety_config;
+    *config.mutable_safety() = std::move(safety_config);
+    return config;
   }());
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &safety_asset,
-      .language = &standard_assets_.language,
-      .adaptations = {&standard_assets_.compose},
-  });
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
 
   const std::vector<std::string> tokens = {"safe", " safe", " lang:en=1.0",
                                            " safe", " unsafe"};
-  broker_.service_settings().set_execute_result(tokens);
+  broker_.settings().set_execute_result(tokens);
   session->ExecuteModel(PageUrlRequest("foo"),
                         response_.GetStreamingCallback());
 
@@ -1461,29 +1290,21 @@ class SessionImplTsIntervalTest : public SessionImplTest,
 
 TEST_P(SessionImplTsIntervalTest, DetectsRepeatsWithSafetyModel) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      features::kOptimizationGuideOnDeviceModel,
-      {{"on_device_model_retract_repeats", "false"}});
-
-  FakeSafetyModelAsset safety_asset([]() {
+  Initialize([&]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
     auto safety_config = ComposeSafetyConfig();
     safety_config.mutable_safety_category_thresholds()->Add(ForbidUnsafe());
     safety_config.mutable_partial_output_checks()->set_token_interval(
         GetParam());
-    return safety_config;
+    *config.mutable_safety() = std::move(safety_config);
+    return config;
   }());
-  Initialize(InitializeParams{
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &safety_asset,
-      .language = &standard_assets_.language,
-      .adaptations = {&standard_assets_.compose},
-  });
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
 
-  broker_.service_settings().set_execute_result({
+  broker_.settings().set_execute_result({
       "some text",
       " some more repeating text",
       " some more repeating text",
@@ -1493,9 +1314,9 @@ TEST_P(SessionImplTsIntervalTest, DetectsRepeatsWithSafetyModel) {
                         response_.GetStreamingCallback());
   task_environment_.RunUntilIdle();
 
-  EXPECT_TRUE(response_.value());
-  EXPECT_EQ(*response_.value(),
-            "some text some more repeating text some more repeating text");
+  EXPECT_FALSE(response_.value());
+  ASSERT_TRUE(response_.error());
+  EXPECT_EQ(*response_.error(), OnDeviceError::kResponseLowQuality);
 
   ASSERT_TRUE(response_.model_execution_info());
   EXPECT_GT(response_.model_execution_info()
@@ -1509,8 +1330,8 @@ TEST_P(SessionImplTsIntervalTest, DetectsRepeatsWithSafetyModel) {
                   .on_device_model_service_response()
                   .has_repeats());
   histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.ModelExecution.OnDeviceResponseHasRepeats.Compose",
-      true, 1);
+      "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Test",
+      ExecuteModelResult::kResponseHadRepeats, 1);
 }
 
 INSTANTIATE_TEST_SUITE_P(SessionImplTsIntervalTests,
@@ -1520,10 +1341,9 @@ INSTANTIATE_TEST_SUITE_P(SessionImplTsIntervalTests,
 TEST_F(SessionImplTest, ImageExecutionSuccess) {
   using RequestProto = ::optimization_guide::proto::ExampleForTestingRequest;
   using NestedProto = ::optimization_guide::proto::ExampleForTestingMessage;
-  proto::OnDeviceModelExecutionFeatureConfig config;
-  config.set_feature(
-      ToModelExecutionFeatureProto(mojom::OnDeviceFeature::kCompose));
-  auto& input_config = *config.mutable_input_config();
+  proto::SolutionConfig solution_config;
+  auto* config = solution_config.mutable_feature();
+  auto& input_config = *config->mutable_input_config();
   input_config.set_request_base_name(
       proto::ExampleForTestingRequest().GetTypeName());
   {
@@ -1544,16 +1364,12 @@ TEST_F(SessionImplTest, ImageExecutionSuccess) {
          ->mutable_proto_field() = ProtoField(
         {RequestProto::kNested2FieldNumber, NestedProto::kMediaFieldNumber});
   }
-  *config.mutable_output_config() = ResponseHolderOutputConfig();
-  FakeAdaptationAsset compose_asset({
-      .config = config,
-  });
-  Initialize(InitializeParams{
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &standard_assets_.safety,
-      .language = &standard_assets_.language,
-      .adaptations = {&compose_asset},
-  });
+  auto* sampling = config->mutable_sampling_params();
+  sampling->set_top_k(1);
+  sampling->set_temperature(0);
+  *config->mutable_output_config() = ResponseHolderOutputConfig();
+  *solution_config.mutable_safety() = ComposeSafetyConfig();
+  Initialize(std::move(solution_config));
   MultimodalMessage request((proto::ExampleForTestingRequest()));
   request.edit()
       .GetMutableMessage(RequestProto::kNested1FieldNumber)
@@ -1602,24 +1418,18 @@ TEST_F(SessionImplTest, KeepInputOnExtension) {
   using Msg = proto::ExampleForTestingMessage;
   // A simple config that includes content from the
   // proto::ExampleForTestingRequest::repeated_field
-  FakeAdaptationAsset compose_asset({
-      .config =
-          []() {
-            proto::OnDeviceModelExecutionFeatureConfig config;
-            config.set_feature(
-                ToModelExecutionFeatureProto(mojom::OnDeviceFeature::kCompose));
-            *config.mutable_input_config() = TestInputConfig(
-                ForEachRepeated(FormatTestMessage()), EmptySubstitution());
-            *config.mutable_output_config() = ResponseHolderOutputConfig();
-            return config;
-          }(),
-  });
-  Initialize(InitializeParams{
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &standard_assets_.safety,
-      .language = &standard_assets_.language,
-      .adaptations = {&compose_asset},
-  });
+  Initialize([]() {
+    proto::SolutionConfig config;
+    auto* feature = config.mutable_feature();
+    auto* sampling = feature->mutable_sampling_params();
+    sampling->set_top_k(1);
+    sampling->set_temperature(0);
+    *feature->mutable_input_config() = TestInputConfig(
+        ForEachRepeated(FormatTestMessage()), EmptySubstitution());
+    *feature->mutable_output_config() = ResponseHolderOutputConfig();
+    *config.mutable_safety() = ComposeSafetyConfig();
+    return config;
+  }());
   base::test::TestFuture<base::expected<size_t, OnDeviceError>>
       set_input_future;
 
@@ -1701,28 +1511,21 @@ TEST_F(SessionImplTest, KeepInputOnExtension) {
 
 TEST_F(SessionImplTest, OmitEmptyInputs) {
   // Avoid calling Append with empty inputs.
-  FakeAdaptationAsset compose_asset({
-      .config =
-          []() {
-            proto::OnDeviceModelExecutionFeatureConfig config;
-            config.set_feature(
-                ToModelExecutionFeatureProto(mojom::OnDeviceFeature::kCompose));
-            auto& input_config = *config.mutable_input_config();
-            input_config.set_request_base_name(
-                proto::ExampleForTestingRequest().GetTypeName());
-            *input_config.add_input_context_substitutions() =
-                EmptySubstitution();
-            *input_config.add_execute_substitutions() = EmptySubstitution();
-            *config.mutable_output_config() = ResponseHolderOutputConfig();
-            return config;
-          }(),
-  });
-  Initialize(InitializeParams{
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &standard_assets_.safety,
-      .language = &standard_assets_.language,
-      .adaptations = {&compose_asset},
-  });
+  Initialize([]() {
+    proto::SolutionConfig config;
+    auto* feature = config.mutable_feature();
+    auto* sampling = feature->mutable_sampling_params();
+    sampling->set_top_k(1);
+    sampling->set_temperature(0);
+    auto& input_config = *feature->mutable_input_config();
+    input_config.set_request_base_name(
+        proto::ExampleForTestingRequest().GetTypeName());
+    *input_config.add_input_context_substitutions() = EmptySubstitution();
+    *input_config.add_execute_substitutions() = EmptySubstitution();
+    *feature->mutable_output_config() = ResponseHolderOutputConfig();
+    *config.mutable_safety() = ComposeSafetyConfig();
+    return config;
+  }());
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
   MultimodalMessage request((proto::ExampleForTestingRequest()));
@@ -1735,16 +1538,14 @@ TEST_F(SessionImplTest, OmitEmptyInputs) {
 }
 
 TEST_F(SessionImplTest, CloneUsesSessionTopKAndTemperature) {
-  auto config = SimpleComposeConfig();
-  config.mutable_sampling_params()->set_top_k(4);
-  config.mutable_sampling_params()->set_temperature(1.5);
-  FakeAdaptationAsset compose_asset({.config = config});
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &standard_assets_.safety,
-      .language = &standard_assets_.language,
-      .adaptations = {&compose_asset},
-  });
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
+    config.mutable_feature()->mutable_sampling_params()->set_top_k(4);
+    config.mutable_feature()->mutable_sampling_params()->set_temperature(1.5);
+    *config.mutable_safety() = ComposeSafetyConfig();
+    return config;
+  }());
 
   const SamplingParams expected_sampling_params{
       .top_k = 3,
@@ -1774,8 +1575,11 @@ TEST_F(SessionImplTest, CloneUsesSessionTopKAndTemperature) {
 }
 
 TEST_F(SessionImplTest, CloneFailsWithFailingRequestSafetyChecks) {
-  FakeSafetyModelAsset safety_asset([]() {
-    auto safety_config = ComposeSafetyConfig();
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfig();
+    auto& safety_config = *config.mutable_safety();
+    safety_config.set_feature(proto::MODEL_EXECUTION_FEATURE_COMPOSE);
     safety_config.mutable_safety_category_thresholds()->Add(ForbidUnsafe());
     {
       auto* check = safety_config.add_request_check();
@@ -1787,22 +1591,15 @@ TEST_F(SessionImplTest, CloneFailsWithFailingRequestSafetyChecks) {
       check->mutable_input_template()->Add(
           FieldSubstitution("raw_output_check: %s", StringValueField()));
     }
-    return safety_config;
+    return config;
   }());
-
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &safety_asset,
-      .language = &standard_assets_.language,
-      .adaptations = {&standard_assets_.compose},
-  });
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
   auto clone = session->Clone();
   EXPECT_TRUE(clone);
 
-  broker_.service_settings().set_execute_result({"safe_output"});
+  broker_.settings().set_execute_result({"safe_output"});
   clone->ExecuteModel(PageUrlRequest("unsafe_url"),
                       response_.GetStreamingCallback());
   ASSERT_FALSE(response_.GetFinalStatus());
@@ -1820,7 +1617,7 @@ TEST_F(SessionImplTest, CloneFailsWithFailingRequestSafetyChecks) {
 }
 
 TEST_F(SessionImplTest, ScoreAfterClone) {
-  Initialize(standard_assets_);
+  Initialize();
 
   base::HistogramTester histogram_tester;
   auto session = CreateSession(SessionConfigParams{});
@@ -1835,7 +1632,7 @@ TEST_F(SessionImplTest, ScoreAfterClone) {
 }
 
 TEST_F(SessionImplTest, AddContextAndClone) {
-  Initialize(standard_assets_);
+  Initialize();
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
   session->AddContext(UserInputRequest("foo"));
@@ -1866,7 +1663,7 @@ TEST_F(SessionImplTest, AddContextAndClone) {
 }
 
 TEST_F(SessionImplTest, CloneBeforeAddContext) {
-  Initialize(standard_assets_);
+  Initialize();
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
 
@@ -1896,7 +1693,7 @@ TEST_F(SessionImplTest, CloneBeforeAddContext) {
 }
 
 TEST_F(SessionImplTest, CancelAddContextAndClone) {
-  Initialize(standard_assets_);
+  Initialize();
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
   session->AddContext(UserInputRequest("foo"));
@@ -1912,7 +1709,7 @@ TEST_F(SessionImplTest, CancelAddContextAndClone) {
 }
 
 TEST_F(SessionImplTest, CloneAddContextDisconnectExecute) {
-  Initialize(standard_assets_);
+  Initialize();
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
   session->AddContext(UserInputRequest("foo"));
@@ -1933,7 +1730,7 @@ TEST_F(SessionImplTest, CloneAddContextDisconnectExecute) {
 }
 
 TEST_F(SessionImplTest, Priority) {
-  Initialize(standard_assets_);
+  Initialize();
 
   auto session = CreateSession(SessionConfigParams{});
   EXPECT_TRUE(session);
@@ -1951,7 +1748,7 @@ TEST_F(SessionImplTest, Priority) {
 }
 
 TEST_F(SessionImplTest, PriorityClone) {
-  Initialize(standard_assets_);
+  Initialize();
 
   auto session = CreateSession(SessionConfigParams{});
   EXPECT_TRUE(session);
@@ -1970,7 +1767,7 @@ TEST_F(SessionImplTest, PriorityClone) {
 }
 
 TEST_F(SessionImplTest, SetInputCallback) {
-  Initialize(standard_assets_);
+  Initialize();
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
@@ -1989,7 +1786,7 @@ TEST_F(SessionImplTest, SetInputCallback) {
 }
 
 TEST_F(SessionImplTest, SetInputCallbackCancelled) {
-  Initialize(standard_assets_);
+  Initialize();
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
@@ -2013,7 +1810,7 @@ TEST_F(SessionImplTest, SetInputCallbackCancelled) {
 }
 
 TEST_F(SessionImplTest, SetInputCallbackError) {
-  Initialize(standard_assets_);
+  Initialize();
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
@@ -2025,7 +1822,7 @@ TEST_F(SessionImplTest, SetInputCallbackError) {
 }
 
 TEST_F(SessionImplTest, TokenCounts) {
-  Initialize(standard_assets_);
+  Initialize();
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
@@ -2040,7 +1837,7 @@ TEST_F(SessionImplTest, TokenCounts) {
 }
 
 TEST_F(SessionImplTest, ResponseConstraintOnExecute) {
-  Initialize(standard_assets_);
+  Initialize();
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
   session->ExecuteModelWithResponseConstraint(
@@ -2055,23 +1852,16 @@ TEST_F(SessionImplTest, ResponseConstraintOnExecute) {
 }
 
 TEST_F(SessionImplTest, ResponseConstraintConfigJson) {
-  FakeAdaptationAsset test_asset({
-      .config =
-          []() {
-            auto config = SimpleComposeConfig();
-            config.mutable_output_config()
-                ->mutable_response_constraint()
-                ->set_json_schema("{ type: \"object\"}");
-            return config;
-          }(),
-  });
-
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &standard_assets_.safety,
-      .language = &standard_assets_.language,
-      .adaptations = {&test_asset},
-  });
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfigForTesting();
+    config.mutable_feature()
+        ->mutable_output_config()
+        ->mutable_response_constraint()
+        ->set_json_schema("{ type: \"object\"}");
+    *config.mutable_safety() = ComposeSafetyConfig();
+    return config;
+  }());
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
@@ -2086,23 +1876,16 @@ TEST_F(SessionImplTest, ResponseConstraintConfigJson) {
 }
 
 TEST_F(SessionImplTest, ResponseConstraintConfigRegex) {
-  FakeAdaptationAsset test_asset({
-      .config =
-          []() {
-            auto config = SimpleComposeConfig();
-            config.mutable_output_config()
-                ->mutable_response_constraint()
-                ->set_regex("[A-Z]*");
-            return config;
-          }(),
-  });
-
-  Initialize({
-      .base_model_content = standard_assets_.base_model_content,
-      .safety = &standard_assets_.safety,
-      .language = &standard_assets_.language,
-      .adaptations = {&test_asset},
-  });
+  Initialize([]() {
+    proto::SolutionConfig config;
+    *config.mutable_feature() = SimpleComposeConfigForTesting();
+    config.mutable_feature()
+        ->mutable_output_config()
+        ->mutable_response_constraint()
+        ->set_regex("[A-Z]*");
+    *config.mutable_safety() = ComposeSafetyConfig();
+    return config;
+  }());
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);

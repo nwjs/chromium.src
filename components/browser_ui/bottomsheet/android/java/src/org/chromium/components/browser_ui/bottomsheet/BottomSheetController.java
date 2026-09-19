@@ -210,6 +210,15 @@ public interface BottomSheetController {
     int getMaxSheetWidth();
 
     /**
+     * @return The maximum allowable height of the bottom sheet in px. This accounts for large form
+     *     factor top gaps and bottom margins. Can be used to measure content or compute height
+     *     ratios in {@link BottomSheetContent#getHalfHeightRatio()} and {@link
+     *     BottomSheetContent#getFullHeightRatio()}.
+     */
+    @Px
+    int getMaxSheetHeight();
+
+    /**
      * Returns the entry point for showing and interacting with scrims. Can be used to customize the
      * bottom sheet's interaction with the scrim if the default behavior is not desired -- fading in
      * behind the sheet as the sheet is expanded.
@@ -278,5 +287,5 @@ public interface BottomSheetController {
      * @param content The content prospectively being shown in the bottom sheet.
      * @return Whether the bottom sheet should use the large form factor UI for the given content.
      */
-    boolean isLargeFormFactorUiEnabled(BottomSheetContent content);
+    boolean isLargeFormFactorUiEnabled(@Nullable BottomSheetContent content);
 }

@@ -50,6 +50,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
+#include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_button_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_field_set_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
@@ -583,14 +584,14 @@ bool LayoutBox::TransformsChangeMayRequireLayout() const {
   return false;
 }
 
-void LayoutBox::WillBeDestroyed() {
+void LayoutBox::WillBeDestroyed(const ComputedStyle* style) {
   NOT_DESTROYED();
 
   ShapeOutsideInfo::RemoveInfo(*this);
 
   DisassociatePhysicalFragments();
 
-  LayoutBoxModelObject::WillBeDestroyed();
+  LayoutBoxModelObject::WillBeDestroyed(style);
 }
 
 void LayoutBox::DisassociatePhysicalFragments() {
@@ -618,7 +619,7 @@ void LayoutBox::WillBeRemovedFromTree() {
   ClearCustomLayoutChild();
 
   // Notify the display-locks that anchors within a sub-tree may disappear.
-  if (Style() && StyleRef().HasOutOfFlowPosition()) {
+  if (StyleRef().HasOutOfFlowPosition()) {
     NotifyContainingDisplayLocksForAnchorPositioning(
         DisplayLocksAffectedByAnchors(), nullptr);
   }
@@ -1152,7 +1153,15 @@ void LayoutBox::UpdateAfterLayout() {
       frame.GetChromeClient().ResizeAfterLayout();
     }
     if (IsScrollContainer()) {
-      GetScrollableArea()->ClampScrollOffsetAfterOverflowChange();
+      auto* scrollable_area = GetScrollableArea();
+      using ClampScope = PaintLayerScrollableArea::DelayScrollOffsetClampScope;
+      if (GetFrameView()->IsAutoSizeModeEnabled() &&
+          RuntimeEnabledFeatures::AutoSizeUsesScrollWidthForOverflowEnabled() &&
+          ClampScope::ClampingIsDelayed()) {
+        ClampScope::SetNeedsClamp(scrollable_area);
+      } else {
+        scrollable_area->ClampScrollOffsetAfterOverflowChange();
+      }
     }
   }
 
@@ -1167,15 +1176,7 @@ void LayoutBox::UpdateAfterLayout() {
   if (IsPositioned())
     GetFrame()->GetInputMethodController().DidLayoutSubtree(*this);
 
-  if (StyleRef().HasColumnRule() && IsFragmentationContextRoot() &&
-      !RuntimeEnabledFeatures::CSSGapDecorationEnabled()) {
-    // Issue full invalidation, in case the number of column rules have changed.
-    // When CSSGapDecoration is enabled, gap decoration invalidation is handled
-    // by BoxPaintInvalidator.
-    ClearNeedsLayoutWithFullPaintInvalidation();
-  } else {
-    ClearNeedsLayout();
-  }
+  ClearNeedsLayout();
 
   // We should notify the display lock that we've done layout on self, and if
   // it's not blocked, on children.
@@ -1202,9 +1203,7 @@ LayoutUnit LayoutBox::OverrideIntrinsicContentInlineSize() const {
     const auto* context = GetDisplayLockContext();
     const bool is_locked = context && context->IsLocked();
     const auto* elem = DynamicTo<Element>(GetNode());
-    const bool is_vt_scope =
-        style.HasSizeContainmentForViewTransitionScope() &&
-        RuntimeEnabledFeatures::ScopedViewTransitionSizeContainmentEnabled();
+    const bool is_vt_scope = style.HasSizeContainmentForViewTransitionScope();
     if (is_locked || is_vt_scope) {
       if (elem) {
         if (const auto inline_size = elem->LastRememberedInlineSize()) {
@@ -1241,9 +1240,7 @@ LayoutUnit LayoutBox::OverrideIntrinsicContentBlockSize() const {
     const auto* context = GetDisplayLockContext();
     const bool is_locked = context && context->IsLocked();
     const auto* elem = DynamicTo<Element>(GetNode());
-    const bool is_vt_scope =
-        style.HasSizeContainmentForViewTransitionScope() &&
-        RuntimeEnabledFeatures::ScopedViewTransitionSizeContainmentEnabled();
+    const bool is_vt_scope = style.HasSizeContainmentForViewTransitionScope();
     if (is_locked || is_vt_scope) {
       if (elem) {
         if (const auto block_size = elem->LastRememberedBlockSize()) {
@@ -2974,6 +2971,16 @@ bool LayoutBox::MapToVisualRectInAncestorSpaceInternal(
 
   if (!visual_rect_flags.Has(VisualRectFlag::kIgnoreFilters)) {
     InflateVisualRectForFilter(transform_state);
+  }
+
+  if (LayoutObject* canvas_layout_object = CanvasForDrawingLayoutObject()) {
+    if (!MapVisualRectToContainer(canvas_layout_object, PhysicalOffset(),
+                                  ancestor, visual_rect_flags,
+                                  transform_state)) {
+      return false;
+    }
+    return canvas_layout_object->MapToVisualRectInAncestorSpaceInternal(
+        ancestor, transform_state, visual_rect_flags);
   }
 
   AncestorSkipInfo skip_info(ancestor, true);

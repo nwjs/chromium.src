@@ -61,6 +61,12 @@ class TabModelObserverJniBridge {
                                      const std::vector<TabAndroid*>& tabs,
                                      bool can_restore);
 
+  void OnTabCloseCommitted(JNIEnv* env,
+                           const std::vector<TabAndroid*>& tabs,
+                           bool is_all_tabs,
+                           bool can_restore,
+                           int source);
+
   void WillAddTab(JNIEnv* env, TabAndroid* tab, int type);
 
   void DidAddTab(JNIEnv* env, TabAndroid* tab, int type, int index);
@@ -95,7 +101,8 @@ class TabModelObserverJniBridge {
 
   void OnTabGroupVisualsChanged(JNIEnv* env, base::Token group_id);
 
-  void OnActiveChanged(JNIEnv* env, bool active);
+  void OnWillActiveStateChange(JNIEnv* env, TabModel* tab_model, bool active);
+  void OnDidActiveStateChange(JNIEnv* env, TabModel* tab_model, bool active);
 
   void AddObserver(TabModelObserver* observer);
   void AddTabListInterfaceObserver(TabListInterfaceObserver* observer);

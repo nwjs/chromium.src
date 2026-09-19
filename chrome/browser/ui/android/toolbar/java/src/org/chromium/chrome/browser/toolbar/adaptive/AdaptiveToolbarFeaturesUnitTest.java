@@ -25,6 +25,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -39,7 +40,6 @@ import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
 
 /** Unit tests for {@link AdaptiveToolbarFeatures}. */
-@Config(manifest = Config.NONE)
 @RunWith(BaseRobolectricTestRunner.class)
 public class AdaptiveToolbarFeaturesUnitTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -126,6 +126,25 @@ public class AdaptiveToolbarFeaturesUnitTest {
     @Config(qualifiers = "sw600dp")
     public void testIsGlicEnabledForAdaptiveToolbar_TabletDisabled() {
         assertFalse(AdaptiveToolbarFeatures.isGlicEnabledForAdaptiveToolbar(mContext, mProfile));
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.GLIC)
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    @Config(qualifiers = "sw600dp")
+    public void testIsGlicEnabledForAdaptiveToolbar_FoldableUnfoldedEnabled() {
+        DeviceInfo.setIsFoldableForTesting(true);
+        assertTrue(AdaptiveToolbarFeatures.isGlicEnabledForAdaptiveToolbar(mContext, mProfile));
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.GLIC)
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testIsGlicEnabledForAdaptiveToolbar_FoldableFoldedEnabled() {
+        DeviceInfo.setIsFoldableForTesting(true);
+        assertTrue(AdaptiveToolbarFeatures.isGlicEnabledForAdaptiveToolbar(mContext, mProfile));
     }
 
     @Test

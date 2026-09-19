@@ -38,7 +38,7 @@
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_constants.h"
-#include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_utils.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_util.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
@@ -46,8 +46,8 @@
 #include "components/autofill/core/browser/data_model/payments/iban.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
-#include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_wallet_utils.h"
-#include "components/autofill/core/browser/integrators/autofill_ai/management_utils.h"
+#include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_wallet_util.h"
+#include "components/autofill/core/browser/integrators/autofill_ai/management_util.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h"
 #include "components/autofill/core/browser/metrics/address_save_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/mandatory_reauth_metrics.h"
@@ -57,7 +57,7 @@
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_flow.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_manager.h"
-#include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
+#include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_util.h"
 #include "components/autofill/core/browser/studies/autofill_experiments.h"
 #include "components/autofill/core/browser/ui/addresses/autofill_address_util.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -68,6 +68,8 @@
 #include "components/consent_auditor/consent_auditor.h"
 #include "components/device_reauth/device_authenticator.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "components/one_time_tokens/core/browser/one_time_token_service.h"
+#include "components/one_time_tokens/core/browser/user_data_processing_consent_states.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/strings/grit/components_branded_strings.h"
 #include "components/strings/grit/components_strings.h"
@@ -125,6 +127,10 @@ static const char kErrorAutofillAiTypeNameOutOfBounds[] =
 static const char kErrorAutofillAiEntityInstanceNotFound[] =
     "The provided Autofill AI entity instance cannot be found.";
 static const char kErrorDeviceAuthUnavailable[] = "Device auth is unvailable";
+constexpr char kErrorOneTimeTokenServiceUnavailable[] =
+    "One-time token service unavailable.";
+constexpr char kErrorConsentFetchFailed[] =
+    "Failed to fetch user data processing consent.";
 
 // Constant to assign a user-verified verification status to the autofill
 // profile.
@@ -136,6 +142,21 @@ constexpr char kFieldTypeKey[] = "field";
 constexpr char kFieldLengthKey[] = "isLongField";
 constexpr char kFieldNameKey[] = "fieldName";
 constexpr char kFieldRequired[] = "isRequired";
+
+autofill_private::UserDataProcessingConsentState ConvertConsentState(
+    one_time_tokens::ConsentState state) {
+  switch (state) {
+    case one_time_tokens::ConsentState::kUndefined:
+      return autofill_private::UserDataProcessingConsentState::kUndefined;
+    case one_time_tokens::ConsentState::kUnknown:
+      return autofill_private::UserDataProcessingConsentState::kUnknown;
+    case one_time_tokens::ConsentState::kEnabled:
+      return autofill_private::UserDataProcessingConsentState::kEnabled;
+    case one_time_tokens::ConsentState::kDisabled:
+      return autofill_private::UserDataProcessingConsentState::kDisabled;
+  }
+  NOTREACHED();
+}
 
 // Serializes the AddressUiComponent a map from string to base::Value().
 base::DictValue AddressUiComponentAsValueMap(
@@ -1624,6 +1645,47 @@ void AutofillPrivateToggleAutofillAiReauthRequirementFunction::
         autofill_client()->GetPrefs(), new_val);
   }
   Respond(NoArguments());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// AutofillPrivateFetchUserDataProcessingConsentFunction
+
+ExtensionFunction::ResponseAction
+AutofillPrivateFetchUserDataProcessingConsentFunction::Run() {
+  autofill::ContentAutofillClient* client = autofill_client();
+  if (!client) {
+    return RespondNow(
+        Error(base::StrCat({"Fetch user data processing consent - ",
+                            kErrorAutofillClientUnavailable})));
+  }
+
+  one_time_tokens::OneTimeTokenService* otp_service =
+      client->GetOneTimeTokenService();
+  if (!otp_service) {
+    return RespondNow(
+        Error(base::StrCat({"Fetch user data processing consent - ",
+                            kErrorOneTimeTokenServiceUnavailable})));
+  }
+
+  otp_service->FetchUserDataProcessingConsent(base::BindOnce(
+      &AutofillPrivateFetchUserDataProcessingConsentFunction::OnConsentFetched,
+      base::RetainedRef(this)));
+  return did_respond() ? AlreadyResponded() : RespondLater();
+}
+
+void AutofillPrivateFetchUserDataProcessingConsentFunction::OnConsentFetched(
+    std::optional<one_time_tokens::UserDataProcessingConsentStates>
+        consent_states) {
+  if (!consent_states) {
+    Respond(Error(base::StrCat(
+        {"Fetch user data processing consent - ", kErrorConsentFetchFailed})));
+    return;
+  }
+
+  autofill_private::UserDataProcessingConsentStates states;
+  states.comms_apps = ConvertConsentState(consent_states->comms_apps);
+  states.google_apps = ConvertConsentState(consent_states->google_apps);
+  Respond(WithArguments(states.ToValue()));
 }
 
 }  // namespace extensions

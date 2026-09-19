@@ -8,8 +8,8 @@
 #include "base/trace_event/trace_event.h"
 #include "chrome/browser/preloading/chrome_preloading.h"
 #include "chrome/browser/preloading/prefetch/search_prefetch/search_prefetch_service.h"
-#include "chrome/browser/preloading/prerender/search_prewarm_progress_service.h"
-#include "chrome/browser/preloading/prerender/search_prewarm_progress_service_factory.h"
+#include "chrome/browser/preloading/prerender/search_preload_progress_service.h"
+#include "chrome/browser/preloading/prerender/search_preload_progress_service_factory.h"
 #include "chrome/browser/preloading/search_preload/search_preload_features.h"
 #include "chrome/browser/preloading/search_preload/search_preload_pipeline.h"
 #include "chrome/browser/preloading/search_preload/search_preload_signal_result.h"
@@ -93,7 +93,7 @@ SearchPreloadPipelineManager::SearchPreloadPipelineManager(
   CHECK(browser_context);
   auto* profile = Profile::FromBrowserContext(browser_context);
   CHECK(profile);
-  auto* service = SearchPrewarmProgressServiceFactory::GetForProfile(profile);
+  auto* service = SearchPreloadProgressServiceFactory::GetForProfile(profile);
   if (!service) {
     return;
   }
@@ -211,6 +211,15 @@ SearchPreloadPipelineManager::OnAutocompleteResultChangedProcessOne(
     return {std::nullopt, std::nullopt};
   }
 
+  if (features::ShouldDsePreload2SuppressForUnsupportedMode(match)) {
+    return {
+        SearchPreloadSignalResult::kNotTriggeredUnsupportedSearchMode,
+        should_prerender
+            ? std::make_optional(
+                  SearchPreloadSignalResult::kNotTriggeredUnsupportedSearchMode)
+            : std::nullopt};
+  }
+
   // Erase to count prefetches.
   EraseNotAlivePipelines();
   // Limit the number of prefetches.
@@ -273,7 +282,8 @@ SearchPreloadPipelineManager::TriggerPreloads(TriggerPreloadsData data) {
           GetWebContents(), data.search_preload_service, data.prefetch_url,
           chrome_preloading_predictor::kDefaultSearchEngine,
           data.no_vary_search_hint,
-          /*is_navigation_likely=*/false);
+          /*is_navigation_likely=*/false,
+          /*should_ignore_saver_modes=*/false);
 
   // Trigger prerender without waiting prefetch.
   //
@@ -371,9 +381,13 @@ bool SearchPreloadPipelineManager::OnNavigationLikely(
           kNotTriggeredOnPressNoSearchProviderOptIn;
     }
 
+    if (features::ShouldDsePreload2SuppressForUnsupportedMode(match)) {
+      return SearchPreloadSignalResult::kNotTriggeredUnsupportedSearchMode;
+    }
+
     // Do not trigger the preload if there is on-going prewarm.
     auto* service =
-        SearchPrewarmProgressServiceFactory::GetForProfile(&profile);
+        SearchPreloadProgressServiceFactory::GetForProfile(&profile);
     if (service && service->ShouldThrottleSearchPreloads()) {
       return SearchPreloadSignalResult::kNotTriggeredThrottledByPrewarm;
     }
@@ -429,6 +443,25 @@ bool SearchPreloadPipelineManager::OnNavigationLikely(
           }
         }(navigation_predictor);
 
+    // We ignore saver modes for on-press navigation prefetching because the
+    // navigation is highly likely to happen soon. The network request will be
+    // sent anyway, so prefetching does not waste resources. Conversely, for
+    // up-or-down arrow key predictions, the confidence is lower, so we strictly
+    // enforce saver mode restrictions.
+    const bool should_ignore_saver_modes = [&] {
+      if (!features::IsDsePreload2IgnoreSaverModesOnPressEnabled()) {
+        return false;
+      }
+
+      switch (navigation_predictor) {
+        case omnibox::mojom::NavigationPredictor::kMouseDown:
+        case omnibox::mojom::NavigationPredictor::kTouchDown:
+          return true;
+        case omnibox::mojom::NavigationPredictor::kUpOrDownArrowButton:
+          return false;
+      }
+    }();
+
     if (!pipelines_.contains(canonical_url)) {
       pipelines_.insert_or_assign(
           canonical_url,
@@ -438,7 +471,7 @@ bool SearchPreloadPipelineManager::OnNavigationLikely(
     return pipelines_[canonical_url]->StartPrefetch(
         GetWebContents(), search_preload_service, prefetch_url, predictor,
         no_vary_search_hint,
-        /*is_navigation_likely=*/true);
+        /*is_navigation_likely=*/true, should_ignore_saver_modes);
   }();
 
   if (signal_result_prefetch.has_value()) {

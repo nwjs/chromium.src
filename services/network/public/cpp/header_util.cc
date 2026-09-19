@@ -6,10 +6,7 @@
 
 #include <map>
 #include <string>
-#include <vector>
 
-#include "base/containers/fixed_flat_map.h"
-#include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -18,8 +15,8 @@
 #include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
 #include "net/http/http_util.h"
+#include "net/shared_dictionary/shared_dictionary_constants.h"
 #include "services/network/public/cpp/cors/cors.h"
-#include "services/network/public/cpp/features.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "url/gurl.h"
 
@@ -63,6 +60,9 @@ const char* kUnsafeHeaders[] = {
     // Semantically a response header, so not useful on requests.
     "Set-Cookie",
 
+    // Compression dictionary transport header managed by the network stack.
+    net::shared_dictionary::kAvailableDictionaryHeaderName,
+
     // TODO(mmenke): Figure out what to do about the remaining headers:
     // Cookie, Date, Expect, Referer, Via.
 };
@@ -73,6 +73,24 @@ bool IsRequestHeaderSafe(std::string_view key, std::string_view value) {
   for (const auto* header : kUnsafeHeaders) {
     if (base::EqualsCaseInsensitiveASCII(header, key))
       return false;
+  }
+
+  // The Accept-Encoding header can be set by the media pipeline (e.g.
+  // "identity;q=1, *;q=0"), but must not be used to negotiate shared
+  // dictionary compression (dcb, dcz) or arbitrary wildcard encodings (*).
+  if (base::EqualsCaseInsensitiveASCII(
+          key, net::HttpRequestHeaders::kAcceptEncoding)) {
+    std::set<std::string> encodings;
+    if (!net::HttpUtil::ParseAcceptEncoding(std::string(value), &encodings)) {
+      return false;
+    }
+    if (encodings.contains(
+            net::shared_dictionary::kSharedBrotliContentEncodingName) ||
+        encodings.contains(
+            net::shared_dictionary::kSharedZstdContentEncodingName) ||
+        encodings.contains("*")) {
+      return false;
+    }
   }
 
   // The Connection header is a comma-separated list of tokens. Per RFC 9110
@@ -122,12 +140,6 @@ bool AreRequestHeadersSafe(const net::HttpRequestHeaders& request_headers) {
 
 bool ContainsForbiddenSecurityHeader(net::HttpRequestHeaders& headers,
                                      std::string* out_forbidden_header_name) {
-  static const bool enabled =
-      base::FeatureList::IsEnabled(features::kRestrictForbiddenSecurityHeaders);
-  if (!enabled) {
-    return false;
-  }
-
   std::map<std::string, std::string> headers_to_truncate;
 
   auto sanitize_and_check_security_header = [&](std::string_view name,

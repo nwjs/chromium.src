@@ -13,6 +13,7 @@
 #import "ios/chrome/browser/shared/coordinator/scene/connection_information.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state_observer.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_ui_provider.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer_bridge.h"
 
 @protocol BrowserProviderInterface;
@@ -21,6 +22,7 @@
 // The controller object for a scene. Reacts to scene state changes.
 @interface SceneController : NSObject <ConnectionInformation,
                                        SceneStateObserver,
+                                       SceneUIProvider,
                                        TabOpening,
                                        WebStateListObserving>
 - (instancetype)init NS_UNAVAILABLE;
@@ -35,9 +37,8 @@
 // YES if the tab grid is the main user interface at the moment.
 @property(nonatomic, readonly, getter=isTabGridVisible) BOOL tabGridVisible;
 
-// Connects the SceneController with `profileState` and `sceneSessionID`.
-- (void)connectWithProfileState:(ProfileState*)profileState
-                 sceneSessionID:(std::string_view)sceneSessionID;
+// Connects the SceneController with `profileState`.
+- (void)setProfileState:(ProfileState*)profileState;
 
 // Handler for the UIWindowSceneDelegate callback with the same selector.
 - (void)performActionForShortcutItem:(UIApplicationShortcutItem*)shortcutItem

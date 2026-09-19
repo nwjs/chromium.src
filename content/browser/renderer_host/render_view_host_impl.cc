@@ -41,6 +41,7 @@
 #include "content/browser/bad_message.h"
 #include "content/browser/dom_storage/session_storage_namespace_impl.h"
 #include "content/browser/fenced_frame/fenced_frame.h"
+#include "content/browser/global_privacy_control_util.h"
 #include "content/browser/gpu/compositor_util.h"
 #include "content/browser/gpu/gpu_data_manager_impl.h"
 #include "content/browser/gpu/gpu_process_host.h"
@@ -285,6 +286,8 @@ void RenderViewHostImpl::GetPlatformSpecificPrefs(
       ui::Clipboard::IsSupportedClipboardBuffer(
           ui::ClipboardBuffer::kSelection);
 #endif
+  prefs->is_global_privacy_control_setting_enabled =
+      IsGlobalPrivacyControlSettingEnabled();
 }
 
 // static
@@ -502,6 +505,9 @@ bool RenderViewHostImpl::CreateRenderView(
           main_rfh->policy_container_host()->CreatePolicyContainerForBlink();
     }
 
+    local_frame_params->initiator_state_token =
+        main_rfh->current_initiator_state_token();
+
     // Populate the sandbox origin token if available.
     if (auto token = main_rfh->GetPage().TakeSandboxOriginTokenForPopup()) {
       local_frame_params->sandbox_origin_token = *token;
@@ -645,8 +651,7 @@ void RenderViewHostImpl::SetFrameTree(FrameTree& frame_tree) {
   render_widget_host_->SetFrameTree(frame_tree);
 }
 
-void RenderViewHostImpl::EnterBackForwardCache(
-    const base::optional_ref<const GURL> navigation_request_url) {
+void RenderViewHostImpl::EnterBackForwardCache() {
   if (!will_enter_back_forward_cache_callback_for_testing_.is_null())
     will_enter_back_forward_cache_callback_for_testing_.Run();
 
@@ -662,8 +667,7 @@ void RenderViewHostImpl::EnterBackForwardCache(
   }
   is_in_back_forward_cache_ = true;
   page_lifecycle_state_manager_->SetIsInBackForwardCache(
-      is_in_back_forward_cache_, /*page_restore_params=*/nullptr,
-      navigation_request_url);
+      is_in_back_forward_cache_, /*page_restore_params=*/nullptr);
 }
 
 void RenderViewHostImpl::PrepareToLeaveBackForwardCache(
@@ -689,8 +693,7 @@ void RenderViewHostImpl::LeaveBackForwardCache(
   }
   is_in_back_forward_cache_ = false;
   page_lifecycle_state_manager_->SetIsInBackForwardCache(
-      is_in_back_forward_cache_, std::move(page_restore_params),
-      /*navigation_request_url=*/std::nullopt);
+      is_in_back_forward_cache_, std::move(page_restore_params));
 }
 
 void RenderViewHostImpl::ActivatePrerenderedPage(

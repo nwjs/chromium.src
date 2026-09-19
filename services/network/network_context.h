@@ -288,6 +288,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       const net::IsolationInfo& isolation_info,
       const net::CookieSettingOverrides& cookie_setting_overrides,
       const net::CookieSettingOverrides& devtools_cookie_setting_overrides,
+      bool prefer_bound_cookie_context,
       mojo::PendingRemote<mojom::CookieAccessObserver> observer) override;
   void GetTrustTokenQueryAnswerer(
       mojo::PendingReceiver<mojom::TrustTokenQueryAnswerer> receiver,
@@ -537,6 +538,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       const base::flat_map<std::string, std::string>& endpoints) override;
   void SendReportsAndRemoveSource(
       const base::UnguessableToken& reporting_source) override;
+  void SendReportsForSource(
+      const base::UnguessableToken& reporting_source) override;
   void QueueReport(
       const std::string& type,
       const std::string& group,
@@ -578,7 +581,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       const std::string& realm,
       LookupProxyAuthCredentialsCallback callback) override;
 #endif
-  void SetSharedDictionaryCacheMaxSize(uint64_t cache_max_size) override;
+  void SetSharedDictionaryCacheMaxSize(
+      std::optional<base::ByteSize> cache_max_size) override;
   void ClearSharedDictionaryCache(
       base::Time start_time,
       base::Time end_time,
@@ -626,9 +630,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
 
   void SetVariationsHeaders(
       variations::mojom::VariationsHeadersPtr variations_headers) override;
-
-  void SetExpectedTargetNetworkForTesting(
-      std::optional<int64_t> target_network) override;
 
   void GetDeviceBoundSessionManager(
       mojo::PendingReceiver<network::mojom::DeviceBoundSessionManager>

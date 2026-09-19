@@ -66,6 +66,7 @@ source_set("impl") {
 
   deps = [
     ":apps",
+    "//build:nwjs_buildflags",
     "//chrome/app:command_ids",
     "//chrome/browser/app_mode",
     "//chrome/browser/devtools",

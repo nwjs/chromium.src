@@ -106,6 +106,10 @@ class IndigoService : public KeyedService,
   base::CallbackListSubscription RegisterLocalEligibilityChangedCallback(
       LocalEligibilityChangedCallback callback);
 
+  base::CallbackListSubscription RegisterPhotoChangedCallback(
+      base::RepeatingClosure callback);
+  void NotifyPhotoChanged();
+
   ApiClient& GetApiClient() const {
     CHECK(api_client_);
     return *api_client_;
@@ -166,11 +170,15 @@ class IndigoService : public KeyedService,
 
   void SetRemoteEligibilityFetcherForTesting(RemoteEligibilityFetcher fetcher);
   void SetPromptsLoadedCallbackForTesting(base::OnceClosure callback);
+  void SetLocalEligibilityForTesting(LocalEligibility eligibility) {
+    last_known_local_eligibility_ = eligibility;
+  }
 
  private:
   LocalEligibility ComputeLocalEligibility() const;
   void UpdateLocalEligibilityAndNotify();
   void OnRemoteEligibilityReceived(
+      base::TimeTicks start_time,
       base::expected<RemoteEligibility, std::string> eligibility_or_error);
   void TriggerRemoteEligibilityFetch();
   void OnPromptsLoaded(base::flat_map<std::string, std::string> prompts);
@@ -183,6 +191,7 @@ class IndigoService : public KeyedService,
   LocalEligibility last_known_local_eligibility_;
   base::RepeatingCallbackList<void(LocalEligibility)>
       local_eligibility_callback_list_;
+  base::RepeatingClosureList photo_changed_callback_list_;
 
   void OnIndigoComponentReady();
 

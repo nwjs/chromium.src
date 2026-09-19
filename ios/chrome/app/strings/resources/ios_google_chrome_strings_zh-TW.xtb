@@ -41,6 +41,7 @@
 <translation id="1580570086594302477">開啟新的 Chrome 無痕分頁。</translation>
 <translation id="1605168141396675642">免去複製的麻煩，直接在 Chrome 中開啟連結。</translation>
 <translation id="1646463005043273333">開啟 Chrome 設定，將 Chrome 設為預設瀏覽器。</translation>
+<translation id="1668930590094369898">將 Chrome 設為預設瀏覽器</translation>
 <translation id="1670609221633730681">Chrome 提示：選擇網址列位置</translation>
 <translation id="1683863426423719967">如要接收 Chrome 的分頁提醒，請前往 iOS 設定開啟通知。</translation>
 <translation id="1759842336958782510">Chrome</translation>
@@ -57,6 +58,7 @@
 <translation id="1973910962341002002">前往「<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />」設定，將「Chrome」切換為開啟</translation>
 <translation id="1984705450038014246">同步處理你的 Chrome 資料</translation>
 <translation id="1987779152850321833">完成下列建議動作，充分運用 Chrome 的各項功能。</translation>
+<translation id="2049569996960148258">隱藏「將 Chrome 設為預設瀏覽器」</translation>
 <translation id="2055826352861631739">在 iPad 上預設使用 Chrome</translation>
 <translation id="2056123005618757196">Google Chrome 操作簡便、安全且速度遠勝以往，讓你事半功倍。</translation>
 <translation id="2120238739383482109">開啟 Chrome 書籤。</translation>
@@ -74,6 +76,7 @@
 <translation id="2427791862912929107">Chrome 的功能可讓你輕鬆管理網際網路數據傳輸和網頁載入速度。
 <ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
 <translation id="2450221499140985490">直接在 Chrome 中開啟訊息和文件的連結。</translation>
+<translation id="2459400997522001951">完成簡單任務，瞭解如何充分運用 Chrome：</translation>
 <translation id="2464852008153767546">{THRESHOLD,plural, =1{如果 Chrome 閒置 {THRESHOLD} 分鐘，就會執行這些動作。影響範圍可能包含歷史記錄和自動填入功能。}other{如果 Chrome 閒置 {THRESHOLD} 分鐘，就會執行這些動作。影響範圍可能包含歷史記錄和自動填入功能。}}</translation>
 <translation id="2561231791489583059">使用 Chrome 做為預設瀏覽器可保護你免於危險網站的威脅，同時確保你的密碼安全無虞</translation>
 <translation id="2574249610672786438">在你所有的裝置上登入帳戶後，不論從何處使用 Chrome 都能查看你的分頁</translation>
@@ -259,6 +262,7 @@
 如需其他會運用資料提升 Chrome 使用體驗的設定，請前往 <ph name="BEGIN_LINK" />Google 服務<ph name="END_LINK" />。</translation>
 <translation id="6922332667202044570">刪除 Chrome 的瀏覽資料。</translation>
 <translation id="6924922227983877439">預設在 Chrome 中開啟連結</translation>
+<translation id="6926395711547387358">將 Chrome 設為預設瀏覽器</translation>
 <translation id="6975725306479268850">選擇使用 Chrome 的自動填入功能</translation>
 <translation id="7001031184470316752">將 Chrome 移到 Dock</translation>
 <translation id="7038674195294813388">在 iOS 中開啟「預設 App」設定，然後依序輕觸「瀏覽器 App」和「Chrome」。</translation>

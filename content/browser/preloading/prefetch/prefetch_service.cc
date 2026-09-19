@@ -832,7 +832,8 @@ PrefetchService::CheckInitialEligibilityOfPrefetch(
     CheckEligibilityParams params) {
   auto prefetch_container = params.prefetch_container_internal;
   if (delegate_) {
-    const auto eligibility_from_delegate = delegate_->IsSomePreloadingEnabled();
+    const auto eligibility_from_delegate = delegate_->IsSomePreloadingEnabled(
+        prefetch_container->request().should_ignore_saver_modes());
     // If pre* actions are disabled then don't prefetch.
     if (eligibility_from_delegate != PreloadingEligibility::kEligible) {
       return std::move(params).Finish(eligibility_from_delegate);
@@ -851,17 +852,6 @@ PrefetchService::CheckInitialEligibilityOfPrefetch(
                                                       .value()
                                                       .GetURL())) {
         return std::move(params).Finish(PreloadingEligibility::kCrossOrigin);
-      }
-    }
-
-    // TODO(crbug.com/40946257): Current code doesn't support PageLoadMetrics
-    // when the prefetch is initiated by browser.
-    if (auto* renderer_initiator_info =
-            prefetch_container->request().GetRendererInitiatorInfo()) {
-      if (auto* rfh = renderer_initiator_info->GetRenderFrameHost()) {
-        if (auto* web_contents = WebContents::FromRenderFrameHost(rfh)) {
-          delegate_->OnPrefetchLikely(web_contents);
-        }
       }
     }
   }
@@ -1830,6 +1820,11 @@ void PrefetchService::OnPrefetchRedirect(
   }
 
   CHECK(scheduler_->IsInActiveSet(*prefetch_container));
+  CHECK(redirect_head);
+
+  if (!prefetch_container->IsDecoy()) {
+    prefetch_container->NotifyPrefetchRedirectResponseReceived(*redirect_head);
+  }
 
   std::optional<PrefetchRedirectResult> failure;
   if (redirect_info.new_method != "GET") {

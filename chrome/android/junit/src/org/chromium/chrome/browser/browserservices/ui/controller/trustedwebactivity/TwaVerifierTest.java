@@ -22,9 +22,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.Promise;
+import org.chromium.base.TriState;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.browserservices.verification.ChromeOriginVerifier;
 import org.chromium.chrome.browser.browserservices.verification.ChromeOriginVerifierFactory;
@@ -39,7 +39,6 @@ import java.util.HashSet;
 
 /** Tests for {@link TwaVerifier}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class TwaVerifierTest {
     private static final String INITIAL_URL = "https://www.initialurl.com/page.html";
     private static final String ADDITIONAL_ORIGIN = "https://www.otherverifiedorigin.com";
@@ -132,7 +131,7 @@ public class TwaVerifierTest {
                 ArgumentCaptor.forClass(OriginVerificationListener.class);
         verify(mOriginVerifier).start(callback.capture(), eq(Origin.create(url)));
 
-        callback.getValue().onOriginVerified(null, null, true, true);
+        callback.getValue().onOriginVerified(null, null, true, TriState.TRUE);
 
         assertTrue(promise.getResult());
 

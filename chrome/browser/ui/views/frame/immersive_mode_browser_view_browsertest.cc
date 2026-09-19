@@ -5,17 +5,17 @@
 #include <cmath>
 #include <memory>
 
+#include "base/functional/function_ref.h"
 #include "base/test/run_until.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/ui/ash/test_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
-#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/views/bubble/webui_bubble_manager.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view_chromeos.h"
@@ -86,16 +86,16 @@ IN_PROC_BROWSER_TEST_P(ImmersiveModeBrowserViewTest,
   // because if the focus is on the omnibox, the tab strip will remain revealed
   // in the immersive fullscreen mode and will interfere with this test waiting
   // for the revealer to be dismissed.
-  browser()->tab_strip_model()->GetActiveWebContents()->Focus();
+  browser()->GetTabStripModel()->GetActiveWebContents()->Focus();
 
   // Create three more tabs plus the existing one that browser tests start with.
   const GURL about_blank(url::kAboutBlankURL);
   ASSERT_TRUE(AddTabAtIndex(0, about_blank, ui::PAGE_TRANSITION_TYPED));
-  browser()->tab_strip_model()->GetActiveWebContents()->Focus();
+  browser()->GetTabStripModel()->GetActiveWebContents()->Focus();
   ASSERT_TRUE(AddTabAtIndex(0, about_blank, ui::PAGE_TRANSITION_TYPED));
-  browser()->tab_strip_model()->GetActiveWebContents()->Focus();
+  browser()->GetTabStripModel()->GetActiveWebContents()->Focus();
   ASSERT_TRUE(AddTabAtIndex(0, about_blank, ui::PAGE_TRANSITION_TYPED));
-  browser()->tab_strip_model()->GetActiveWebContents()->Focus();
+  browser()->GetTabStripModel()->GetActiveWebContents()->Focus();
 
   EnterImmersiveFullscreenMode(browser());
 
@@ -198,7 +198,7 @@ IN_PROC_BROWSER_TEST_P(ImmersiveModeBrowserViewTest,
   // because if the focus is on the omnibox, the tab strip will remain revealed
   // in the immersive fullscreen mode and will interfere with this test waiting
   // for the revealer to be dismissed.
-  browser()->tab_strip_model()->GetActiveWebContents()->Focus();
+  browser()->GetTabStripModel()->GetActiveWebContents()->Focus();
 
   EnterImmersiveFullscreenMode(browser());
   EXPECT_FALSE(browser()->GetWindow()->IsMaximized());
@@ -229,7 +229,7 @@ IN_PROC_BROWSER_TEST_P(ImmersiveModeBrowserViewTest,
 IN_PROC_BROWSER_TEST_P(ImmersiveModeBrowserViewTest,
                        TestCaptionButtonsReceiveEventsInAppImmersiveMode) {
   // Open a new app window.
-  Browser* app_browser =
+  BrowserWindowInterface* app_browser =
       CreateBrowserForApp("test_browser_app", browser()->GetProfile());
   auto* const immersive_mode_controller =
       ImmersiveModeController::From(app_browser);
@@ -294,8 +294,7 @@ IN_PROC_BROWSER_TEST_P(ImmersiveModeBrowserViewTest,
   // Make sure the fullscreen control popup doesn't show up.
   ui::MouseEvent mouse_move(ui::EventType::kMouseMoved, gfx::Point(1, 1),
                             gfx::Point(), base::TimeTicks(), 0, 0);
-  auto* const fullscreen_control_host =
-      browser()->GetFeatures().fullscreen_control_host();
+  auto* const fullscreen_control_host = FullscreenControlHost::From(browser());
   ASSERT_NE(fullscreen_control_host, nullptr);
   fullscreen_control_host->OnMouseEvent(mouse_move);
   EXPECT_FALSE(fullscreen_control_host->IsVisible());
@@ -322,8 +321,7 @@ IN_PROC_BROWSER_TEST_P(ImmersiveModeBrowserViewTest,
   // Make sure the fullscreen control popup doesn't show up.
   ui::MouseEvent mouse_move(ui::EventType::kMouseMoved, gfx::Point(1, 1),
                             gfx::Point(), base::TimeTicks(), 0, 0);
-  auto* const fullscreen_control_host =
-      browser()->GetFeatures().fullscreen_control_host();
+  auto* const fullscreen_control_host = FullscreenControlHost::From(browser());
   ASSERT_NE(fullscreen_control_host, nullptr);
   fullscreen_control_host->OnMouseEvent(mouse_move);
   EXPECT_FALSE(fullscreen_control_host->IsVisible());
@@ -415,8 +413,7 @@ IN_PROC_BROWSER_TEST_P(ImmersiveModeBrowserViewTest,
                       immersive_mode_controller)
                       ->controller())
                   .IsRevealLocked());
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return immersive_mode_controller->IsRevealed(); }));
+  EXPECT_TRUE(immersive_mode_controller->IsRevealed());
 
   EXPECT_EQ(anchor_view,
             bubble_manager->bubble_view_for_testing()->GetAnchorView());
@@ -437,24 +434,17 @@ IN_PROC_BROWSER_TEST_P(ImmersiveModeBrowserViewTest,
 class ImmersiveModeBrowserViewVerticalTabsTest
     : public ImmersiveModeBrowserViewTest {
  public:
-  ImmersiveModeBrowserViewVerticalTabsTest() {
-    scoped_feature_list_.InitAndEnableFeature(tabs::kVerticalTabs);
-  }
-
   void SetUpOnMainThread() override {
     ImmersiveModeBrowserViewTest::SetUpOnMainThread();
     tabs::VerticalTabStripStateController::From(browser())
         ->SetVerticalTabsEnabled(true);
     RunScheduledLayouts();
   }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_P(ImmersiveModeBrowserViewVerticalTabsTest,
                        BubbleAnchoredToTabStripDoesNotReveal) {
-  auto verify_no_reveal = [&](Browser* test_browser,
+  auto verify_no_reveal = [&](BrowserWindowInterface* test_browser,
                               std::string_view trace_name) {
     SCOPED_TRACE(trace_name);
     BrowserView* browser_view =
@@ -503,7 +493,7 @@ IN_PROC_BROWSER_TEST_P(ImmersiveModeBrowserViewVerticalTabsTest,
   verify_no_reveal(browser(), "1st browser");
 
   // Create a new browser with VT on, and test it
-  Browser* new_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* new_browser = CreateBrowser(browser()->GetProfile());
   verify_no_reveal(new_browser, "2nd browser");
 }
 

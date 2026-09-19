@@ -66,6 +66,7 @@ if (is_ios) {
 
 if (!is_ios) {
   mojo_ts_files += [
+    "components/omnibox/browser/fusebox_action.mojom-webui.ts",
     "components/omnibox/browser/searchbox.mojom-webui.ts",
     "components/omnibox/composebox/composebox_query.mojom-webui.ts",
   ]
@@ -99,6 +100,11 @@ if (is_chromeos) {
   ]
 }
 
+if (!is_android && !is_ios) {
+  mojo_ts_files +=
+      [ "components/user_education/webui/user_education.mojom-webui.ts" ]
+}
+
 if (is_mac || is_win || is_linux || is_chromeos || is_android) {
   mojo_ts_files += [ "mojo/public/mojom/base/version.mojom-webui.ts" ]
 }
@@ -129,6 +135,12 @@ preprocess_if_expr("copy_mojo_ts") {
     "//url/mojom:url_mojom_origin_ts__generator",
   ]
 
+  if (!is_ios) {
+    deps += [
+      "//components/omnibox/browser:fusebox_action_mojo_bindings_ts__generator",
+    ]
+  }
+
   if (is_chromeos) {
     deps += [
       "//chromeos/ash/components/multidevice/mojom:mojom_ts__generator",
@@ -150,6 +162,10 @@ preprocess_if_expr("copy_mojo_ts") {
       "//ui/events/mojom:mojom_ts__generator",
       "//ui/latency/mojom:mojom_ts__generator",
     ]
+  }
+
+  if (!is_android && !is_ios) {
+    deps += [ "//components/user_education/webui:mojo_bindings_ts__generator" ]
   }
 }
 

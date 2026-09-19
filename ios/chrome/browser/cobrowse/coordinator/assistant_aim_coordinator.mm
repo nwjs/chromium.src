@@ -115,7 +115,7 @@ class AssistantAIMUIStateProvider
   self = [super initWithBaseViewController:viewController browser:browser];
   if (self) {
     _activityReporter =
-        [[ActivityReporter alloc] initWithDomain:ActivityReportDomainCobrowse];
+        [[ActivityReporter alloc] initWithDomain:ActivityReportDomainAssistant];
   }
   return self;
 }
@@ -241,6 +241,7 @@ class AssistantAIMUIStateProvider
 
 - (void)setVisible:(BOOL)visible inMinimizedState:(BOOL)minimized {
   if (visible) {
+    _isHiding = NO;
     [self dismissSnackbars];
     if (_viewController) {
       [_mediator updateContext];
@@ -267,6 +268,10 @@ class AssistantAIMUIStateProvider
     [self dismissAssistantContainerAnimated:YES completion:nil];
     [_activityReporter reportInactive];
   }
+}
+
+- (void)loadIfNecessary {
+  [_mediator loadIfNecessary];
 }
 
 #pragma mark - CobrowseBrowserAgent::UIStateProvider

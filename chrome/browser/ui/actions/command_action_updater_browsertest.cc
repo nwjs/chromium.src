@@ -12,15 +12,17 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/actions/chrome_action_properties.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
 #include "chrome/browser/ui/side_panel/side_panel_enums.h"
-#include "chrome/browser/ui/tabs/features.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "chrome/test/base/ui_test_utils.h"
+#include "components/media_router/browser/media_router_dialog_controller.h"
 #include "content/public/test/browser_test.h"
 #include "ui/actions/actions.h"
 #include "ui/base/class_property.h"
@@ -32,8 +34,7 @@ DEFINE_UI_CLASS_PROPERTY_KEY(int, kTestPropertyKey, -1)
 class CommandActionUpdaterBrowserTest : public InProcessBrowserTest {
  public:
   CommandActionUpdaterBrowserTest() {
-    feature_list_.InitWithFeatures(
-        {features::kUseActionsForBrowserCommands, tabs::kVerticalTabs}, {});
+    feature_list_.InitAndEnableFeature(features::kUseActionsForBrowserCommands);
   }
 
   void SetUpOnMainThread() override {
@@ -306,4 +307,37 @@ IN_PROC_BROWSER_TEST_F(CommandActionUpdaterBrowserTest,
       actions::ActionManager::Get().FindAction(kActionShowDownloads, root);
   ASSERT_TRUE(downloads_action);
   EXPECT_TRUE(downloads_action->GetEnabled());
+}
+
+// Verifies that executing IDC_ROUTE_MEDIA on an app browser window opens the
+// Media Router dialog even though CastBrowserController is not instantiated
+// for app windows.
+IN_PROC_BROWSER_TEST_F(CommandActionUpdaterBrowserTest,
+                       RouteMediaActionInvokedInAppBrowser) {
+  auto params = BrowserWindowCreateParams::CreateForApp(
+      "app", /*trusted_source=*/true, gfx::Rect(), browser()->GetProfile(),
+      /*user_gesture=*/true);
+  BrowserWindowInterface* app_browser = CreateBrowserWindow(std::move(params));
+  ASSERT_TRUE(app_browser);
+
+  ASSERT_TRUE(AddTabAtIndexToBrowser(app_browser, 0, GURL("about:blank"),
+                                     ui::PAGE_TRANSITION_LINK,
+                                     /*check_navigation_success=*/true));
+
+  content::WebContents* web_contents =
+      app_browser->GetTabStripModel()->GetActiveWebContents();
+  ASSERT_TRUE(web_contents);
+
+  media_router::MediaRouterDialogController* dialog_controller =
+      media_router::MediaRouterDialogController::GetOrCreateForWebContents(
+          web_contents);
+  ASSERT_TRUE(dialog_controller);
+  EXPECT_FALSE(dialog_controller->IsShowingMediaRouterDialog());
+
+  chrome::BrowserCommandController::From(app_browser)
+      ->UpdateCommandEnabled(IDC_ROUTE_MEDIA, true);
+  EXPECT_TRUE(chrome::ExecuteCommand(app_browser, IDC_ROUTE_MEDIA));
+  EXPECT_TRUE(dialog_controller->IsShowingMediaRouterDialog());
+
+  dialog_controller->HideMediaRouterDialog();
 }

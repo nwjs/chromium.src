@@ -29,7 +29,6 @@ android_library("java") {
     "java/src/org/chromium/components/browser_ui/notifications/NotificationMetadata.java",
     "java/src/org/chromium/components/browser_ui/notifications/NotificationWrapper.java",
     "java/src/org/chromium/components/browser_ui/notifications/NotificationWrapperBuilder.java",
-    "java/src/org/chromium/components/browser_ui/notifications/NotificationWrapperCompatBuilder.java",
     "java/src/org/chromium/components/browser_ui/notifications/PendingIntentProvider.java",
     "java/src/org/chromium/components/browser_ui/notifications/PendingNotificationTask.java",
     "java/src/org/chromium/components/browser_ui/notifications/StatusBarNotificationAdaptor.java",
@@ -43,6 +42,7 @@ android_library("java") {
     "//base:base_java",
     "//build/android:build_java",
     "//components/browser_ui/util/android:java",
+    "//components/cached_flags:java",
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/androidx:androidx_core_core_java",
     "//third_party/androidx:androidx_media_media_java",
@@ -64,6 +64,7 @@ android_library("utils_java") {
   deps = [
     "//base:base_java",
     "//build/android:build_java",
+    "//components/cached_flags:java",
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/androidx:androidx_core_core_java",
     "//third_party/jni_zero:jni_zero_java",
@@ -81,5 +82,17 @@ android_library("test_support_java") {
     "//base:base_java",
     "//content/public/test/android:content_java_test_support",
     "//third_party/androidx:androidx_annotation_annotation_java",
+  ]
+}
+
+robolectric_library("junit") {
+  sources = [ "junit/src/org/chromium/components/browser_ui/notifications/BitmapUtilsUnitTest.java" ]
+  deps = [
+    ":java",
+    "//base:base_java",
+    "//base:base_java_test_support",
+    "//base:base_junit_test_support",
+    "//third_party/androidx:androidx_test_core_java",
+    "//third_party/junit",
   ]
 }

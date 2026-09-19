@@ -44,7 +44,10 @@ source_set("feature") {
 
   deps = [
     "//base",
+    "//chrome/browser/preloading/prefetch/search_prefetch:field_trial_settings",
+    "//components/omnibox/browser",
     "//components/omnibox/browser:mojo_bindings",
+    "//net",
   ]
 }
 
@@ -59,6 +62,7 @@ source_set("browser_tests") {
     ":search_preload",
     "//base/test:test_support",
     "//chrome/browser/autocomplete",
+    "//chrome/browser/battery",
     "//chrome/browser/preloading",
     "//chrome/browser/preloading:test_support",
     "//chrome/browser/preloading/prefetch:test_support",

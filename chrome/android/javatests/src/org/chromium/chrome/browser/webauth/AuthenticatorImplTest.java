@@ -31,6 +31,7 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.TriState;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Restriction;
@@ -83,8 +84,6 @@ import java.util.Arrays;
     DeviceRestriction.RESTRICTION_TYPE_NON_AUTO
 })
 public class AuthenticatorImplTest {
-    private static final String TAG = "AuthImplTest";
-
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Rule
@@ -150,7 +149,7 @@ public class AuthenticatorImplTest {
 
         CredManSupportProvider.setupForTesting(
                 /* overrideAndroidVersion= */ Build.VERSION_CODES.TIRAMISU,
-                /* overrideForcesGpm= */ false);
+                /* overrideForcesGpm= */ TriState.FALSE);
     }
 
     @After

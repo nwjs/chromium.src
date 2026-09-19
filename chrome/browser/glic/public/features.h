@@ -10,10 +10,12 @@
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "build/build_config.h"
 
 namespace features {
 
 BASE_DECLARE_FEATURE(kGlicAndroidSidePanel);
+BASE_DECLARE_FEATURE(kGlicDragAndDropFileUploadAndroid);
 
 BASE_DECLARE_FEATURE(kGlicClearTurnIdOnPanelWillOpen);
 BASE_DECLARE_FEATURE(kGlicChromeStatusIcon);
@@ -36,7 +38,6 @@ BASE_DECLARE_FEATURE(kGlicOnboardingMetricsMigration);
 
 BASE_DECLARE_FEATURE(kGlicSelectionPrompt);
 extern const base::FeatureParam<bool> kGlicSelectionPromptUpdatesOnly;
-extern const base::FeatureParam<std::string> kGlicSelectionTopCueOnlyList;
 extern const base::FeatureParam<bool> kGlicSelectionShowCopyButtons;
 extern const base::FeatureParam<bool> kGlicSelectionAutoSendPrompt;
 extern const base::FeatureParam<std::string> kGlicSelectionPromptCta;
@@ -46,6 +47,8 @@ extern const base::FeatureParam<bool> kGlicSelectionPromptInlineFulfillment;
 extern const base::FeatureParam<std::string>
     kGlicSelectionPromptInlinePromptTemplate;
 extern const base::FeatureParam<bool> kGlicSelectionPromptSkills;
+extern const base::FeatureParam<std::string> kGlicSelectionDefaultBlockedSites;
+base::flat_set<std::string> GetGlicSelectionDefaultBlockedSites();
 
 BASE_DECLARE_FEATURE(kGlicCreateTabAdjacent);
 
@@ -112,6 +115,8 @@ extern const base::FeatureParam<int> kGlicReloadMaxLoadingTimeMs;
 
 BASE_DECLARE_FEATURE(kGlicContextualCueingV2AutoSubmit);
 
+BASE_DECLARE_FEATURE(kGlicMessageFirstFreForContextualCue);
+
 BASE_DECLARE_FEATURE(kGlicWebDragAndDropFileUpload);
 
 BASE_DECLARE_FEATURE(kGlicOptInImpressionMetrics);
@@ -141,12 +146,19 @@ BASE_DECLARE_FEATURE(kGlicSparkSettingsAccessibleLabels);
 BASE_DECLARE_FEATURE(kGlicOptInDialogA11yFix);
 BASE_DECLARE_FEATURE(kGlicStructuredYieldMetadata);
 
-BASE_DECLARE_FEATURE(kGlicEnableMojoJs);
 
 BASE_DECLARE_FEATURE(kGlicNoWebview);
+BASE_DECLARE_FEATURE(kGlicDisconnectedWebview);
 
 BASE_DECLARE_FEATURE(kGlicShakeTrigger);
 
+BASE_DECLARE_FEATURE(kGlicAndroidTablet);
+
+BASE_DECLARE_FEATURE(kGlicActionFirstFRE);
+
+BASE_DECLARE_FEATURE(kGlicWarmOnNudge);
+
+BASE_DECLARE_FEATURE(kGlicWarmOnIph);
 }  // namespace features
 
 #endif  // CHROME_BROWSER_GLIC_PUBLIC_FEATURES_H_

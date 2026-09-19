@@ -62,9 +62,9 @@ import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.app.tab_activity_glue.ReparentingTabsTask;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
-import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.LastSessionExitType;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.SessionStartupPolicy;
 import org.chromium.chrome.browser.price_tracking.PriceTrackingFeatures;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
@@ -506,6 +506,33 @@ public class MultiInstanceOrchestratorImplUnitTest {
     }
 
     @Test
+    public void testMoveTabsToWindowByIdChecked_withFinishingActivity() {
+        // Setup.
+        List<Tab> tabs = List.of(mTab1, mTab2);
+        when(mTabbedActivity2.isActivityFinishingOrDestroyed()).thenReturn(true);
+
+        // Act.
+        mMultiInstanceOrchestrator.moveTabsToWindowByIdChecked(
+                DEST_WINDOW_ID,
+                tabs,
+                /* destTabIndex= */ 0,
+                /* destGroupTabId= */ TabList.INVALID_TAB_INDEX,
+                /* bringToFront= */ true);
+
+        // Verify.
+        verify(mTabReparentingDelegate, never())
+                .reparentTabsToExistingWindow(any(), any(), anyInt(), anyInt(), anyBoolean());
+        verify(mTabReparentingDelegate)
+                .reparentTabsToNewWindow(
+                        eq(mTabbedActivity1),
+                        eq(tabs),
+                        eq(DEST_WINDOW_ID),
+                        eq(true),
+                        eq(null),
+                        eq(NewWindowAppSource.TAB_REPARENTING_TO_INSTANCE_WITH_NO_ACTIVITY));
+    }
+
+    @Test
     public void testMoveTabsToWindowByIdChecked_withDestroyedActivity() {
         // Setup.
         List<Tab> tabs = List.of(mTab1, mTab2);
@@ -702,6 +729,26 @@ public class MultiInstanceOrchestratorImplUnitTest {
         verify(mTabReparentingDelegate)
                 .reparentTabGroupToExistingWindow(
                         eq(mTabbedActivity2), eq(mTabGroupMetadata), eq(destTabIndex), eq(true));
+    }
+
+    @Test
+    public void testMoveTabGroupToWindowByIdChecked_withFinishingActivity() {
+        // Setup.
+        when(mTabbedActivity2.isActivityFinishingOrDestroyed()).thenReturn(true);
+
+        // Act.
+        mMultiInstanceOrchestrator.moveTabGroupToWindowByIdChecked(
+                DEST_WINDOW_ID, mTabGroupMetadata, /* destTabIndex= */ 0, /* bringToFront= */ true);
+
+        // Verify that it falls back to moveTabGroupToNewWindow.
+        verify(mTabReparentingDelegate, never())
+                .reparentTabGroupToExistingWindow(any(), any(), anyInt(), anyBoolean());
+        verify(mTabReparentingDelegate)
+                .reparentTabGroupToNewWindow(
+                        mTabGroupMetadata,
+                        DEST_WINDOW_ID,
+                        /* openAdjacently= */ true,
+                        NewWindowAppSource.TAB_REPARENTING_TO_INSTANCE_WITH_NO_ACTIVITY);
     }
 
     @Test
@@ -1123,7 +1170,7 @@ public class MultiInstanceOrchestratorImplUnitTest {
 
     @Test
     @EnableFeatures(ChromeFeatureList.ON_STARTUP_WINDOW_POLICY)
-    public void testOnInitialize_quit_restoresWindows() {
+    public void testOnInitialize_restoreAll_restoresWindows() {
         // Setup.
         ((MultiInstanceOrchestratorImpl) mMultiInstanceOrchestrator).clearAssignmentsForTesting();
         TabbedStartupWindowPolicyDelegate.setInstanceForTesting(null);
@@ -1133,7 +1180,8 @@ public class MultiInstanceOrchestratorImplUnitTest {
                 /* instanceId= */ 0, "https://www.google.com", /* tabCount= */ 1, /* taskId= */ 0);
         MultiWindowTestUtils.createInstance(
                 /* instanceId= */ 1, "https://www.google.com", /* tabCount= */ 1, /* taskId= */ 1);
-        ChromeMultiInstancePersistentStore.writeLastSessionExitType(LastSessionExitType.QUIT);
+        ChromeMultiInstancePersistentStore.writeSessionStartupPolicy(
+                SessionStartupPolicy.RESTORE_ALL);
 
         ActivityManager activityManager = mock(ActivityManager.class);
         doReturn(activityManager).when(mTabbedActivity1).getSystemService(Context.ACTIVITY_SERVICE);
@@ -1145,10 +1193,10 @@ public class MultiInstanceOrchestratorImplUnitTest {
         // Verify.
         verify(mTabbedActivity1).startActivity(any());
         assertEquals(
-                LastSessionExitType.DEFAULT,
-                ChromeMultiInstancePersistentStore.readLastSessionExitType());
+                SessionStartupPolicy.DEFAULT,
+                ChromeMultiInstancePersistentStore.readSessionStartupPolicy());
         assertFalse(
-                "isRecoverable should be cleared when restoring window on launch after quit.",
+                "isRecoverable should be cleared when restoring window on launch.",
                 ChromeMultiInstancePersistentStore.readIsRecoverable(1));
     }
 

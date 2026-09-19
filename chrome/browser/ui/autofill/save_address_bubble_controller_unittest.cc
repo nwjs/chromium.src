@@ -19,7 +19,7 @@
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile_test_api.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/browser/test_utils/test_profiles.h"
 #include "components/autofill/core/browser/ui/addresses/autofill_address_util.h"
 #include "components/strings/grit/components_strings.h"
@@ -134,7 +134,7 @@ TEST_F(SaveAddressBubbleControllerTest, SavingAccountAddress) {
   std::u16string email =
       base::UTF8ToUTF16(GetPrimaryAccountInfoFromBrowserContext(
                             web_contents()->GetBrowserContext())
-                            ->email);
+                            ->GetEmail());
 
   EXPECT_EQ(controller->GetWindowTitle(),
             l10n_util::GetStringUTF16(IDS_AUTOFILL_SAVE_ADDRESS_PROMPT_TITLE));
@@ -166,7 +166,7 @@ TEST_F(SaveAddressBubbleControllerTest, MigrateIntoAccountAddress) {
   std::u16string email =
       base::UTF8ToUTF16(GetPrimaryAccountInfoFromBrowserContext(
                             web_contents()->GetBrowserContext())
-                            ->email);
+                            ->GetEmail());
 
   EXPECT_EQ(controller->GetWindowTitle(),
             l10n_util::GetStringUTF16(
@@ -212,7 +212,7 @@ TEST_F(SaveAddressBubbleControllerTest, CombiningAccountsTypes) {
                 IDS_AUTOFILL_SAVE_IN_ACCOUNT_PROMPT_ADDRESS_SOURCE_NOTICE,
                 base::UTF8ToUTF16(GetPrimaryAccountInfoFromBrowserContext(
                                       web_contents()->GetBrowserContext())
-                                      ->email)));
+                                      ->GetEmail())));
   EXPECT_NE(controller->GetHeaderImages(), std::nullopt);
   EXPECT_TRUE(controller->GetBodyText().empty());
 

@@ -16,6 +16,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "components/contextual_tasks/public/features.h"
+#include "components/contextual_tasks/public/host_override.h"
 #include "components/country_codes/country_codes.h"
 #include "components/omnibox/browser/aim_eligibility_service_features.h"
 #include "components/prefs/testing_pref_service.h"
@@ -240,9 +241,42 @@ TEST_F(AimEligibilityServiceTest, IsAimUrl) {
   EXPECT_FALSE(aim_eligibility_service_->IsAimUrl(
       GURL("https://google.com/feature?a=1&b=2"), std::nullopt));
 
-  // Check that the host override works correctly
+  // Check that the host override works correctly with and without ports
   EXPECT_FALSE(aim_eligibility_service_->IsAimUrl(
-      GURL("https://goo.gl/feature?a=1&b=2"), "goo.gl"));
+      GURL("https://goo.gl/feature?a=1&b=2"),
+      contextual_tasks::HostOverride::FromString("goo.gl")));
+  EXPECT_TRUE(aim_eligibility_service_->IsAimUrl(
+      GURL("https://goo.gl/search?a=1&b=2"),
+      contextual_tasks::HostOverride::FromString("goo.gl")));
+  EXPECT_TRUE(aim_eligibility_service_->IsAimUrl(
+      GURL("https://goo.gl:8888/search?a=1&b=2"),
+      contextual_tasks::HostOverride::FromString("goo.gl:8888")));
+  EXPECT_FALSE(aim_eligibility_service_->IsAimUrl(
+      GURL("https://goo.gl:9999/search?a=1&b=2"),
+      contextual_tasks::HostOverride::FromString("goo.gl:8888")));
+  EXPECT_FALSE(aim_eligibility_service_->IsAimUrl(
+      GURL("https://goo.gl/search?a=1&b=2"),
+      contextual_tasks::HostOverride::FromString("goo.gl:8888")));
+}
+
+TEST_F(AimEligibilityServiceTest, IsAimHost_HostOverrideWithPort) {
+  contextual_tasks::HostOverride override_with_port{"localhost.corp.google.com",
+                                                    8888};
+  EXPECT_TRUE(aim_eligibility_service_->IsAimHost(
+      GURL("https://localhost.corp.google.com:8888/search"),
+      override_with_port));
+  EXPECT_FALSE(aim_eligibility_service_->IsAimHost(
+      GURL("https://localhost.corp.google.com:9999/search"),
+      override_with_port));
+  EXPECT_FALSE(aim_eligibility_service_->IsAimHost(
+      GURL("https://localhost.corp.google.com/search"), override_with_port));
+
+  contextual_tasks::HostOverride override_no_port{"localhost.corp.google.com",
+                                                  std::nullopt};
+  EXPECT_TRUE(aim_eligibility_service_->IsAimHost(
+      GURL("https://localhost.corp.google.com/search"), override_no_port));
+  EXPECT_FALSE(aim_eligibility_service_->IsAimHost(
+      GURL("https://localhost.corp.google.com:8888/search"), override_no_port));
 }
 
 TEST_F(AimEligibilityServiceTest, IsAimUrl_HostWildcard) {
@@ -760,8 +794,8 @@ TEST_F(AimEligibilityServiceTest, CoBrowseUserAgentSuffix) {
   EXPECT_TRUE(ua_value.has_value());
   EXPECT_EQ(*ua_value, "UA with Suffix");
 
-  // 2. Trigger a request with another source (e.g. kUser). Header SHOULD NOT be
-  // present.
+  // 2. Trigger a request with another source (e.g. kUser). Header SHOULD also
+  // be present.
   test_url_loader_factory_.pending_requests()->clear();
   aim_eligibility_service_->StartServerEligibilityRequestForDebugging();
 
@@ -769,7 +803,98 @@ TEST_F(AimEligibilityServiceTest, CoBrowseUserAgentSuffix) {
   const network::ResourceRequest& request2 =
       test_url_loader_factory_.GetPendingRequest(0)->request;
 
-  EXPECT_FALSE(request2.headers.HasHeader("User-Agent"));
+  std::optional<std::string> ua_value2 =
+      request2.headers.GetHeader("User-Agent");
+  EXPECT_TRUE(ua_value2.has_value());
+  EXPECT_EQ(*ua_value2, "UA with Suffix");
+}
+
+TEST_F(AimEligibilityServiceTest, SearchCapabilitiesHeader) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      omnibox::kAimServerEligibilitySendSearchCapabilitiesHeaderEnabled);
+
+  AimEligibilityService::Configuration config;
+  config.search_capabilities_version = "1";
+  CreateService(config);
+
+  // Trigger a request.
+  test_url_loader_factory_.pending_requests()->clear();
+  aim_eligibility_service_->StartServerEligibilityRequestForDebugging();
+
+  ASSERT_EQ(test_url_loader_factory_.NumPending(), 1);
+  const network::ResourceRequest& request =
+      test_url_loader_factory_.GetPendingRequest(0)->request;
+
+  std::optional<std::string> header_value = request.headers.GetHeader(
+      contextual_tasks::kContextualTasksSearchCapabilitiesHeaderName);
+  EXPECT_TRUE(header_value.has_value());
+  EXPECT_EQ(*header_value, "1");
+}
+
+TEST_F(AimEligibilityServiceTest, SearchCapabilitiesHeader_Disabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      omnibox::kAimServerEligibilitySendSearchCapabilitiesHeaderEnabled);
+
+  AimEligibilityService::Configuration config;
+  config.search_capabilities_version = "1";
+  CreateService(config);
+
+  // Trigger a request.
+  test_url_loader_factory_.pending_requests()->clear();
+  aim_eligibility_service_->StartServerEligibilityRequestForDebugging();
+
+  ASSERT_EQ(test_url_loader_factory_.NumPending(), 1);
+  const network::ResourceRequest& request =
+      test_url_loader_factory_.GetPendingRequest(0)->request;
+
+  EXPECT_FALSE(request.headers.HasHeader(
+      contextual_tasks::kContextualTasksSearchCapabilitiesHeaderName));
+}
+
+TEST_F(AimEligibilityServiceTest, SearchCapabilitiesHeader_Empty) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      omnibox::kAimServerEligibilitySendSearchCapabilitiesHeaderEnabled);
+
+  AimEligibilityService::Configuration config;
+  config.search_capabilities_version = "";
+  CreateService(config);
+
+  // Trigger a request.
+  test_url_loader_factory_.pending_requests()->clear();
+  aim_eligibility_service_->StartServerEligibilityRequestForDebugging();
+
+  ASSERT_EQ(test_url_loader_factory_.NumPending(), 1);
+  const network::ResourceRequest& request =
+      test_url_loader_factory_.GetPendingRequest(0)->request;
+
+  EXPECT_FALSE(request.headers.HasHeader(
+      contextual_tasks::kContextualTasksSearchCapabilitiesHeaderName));
+}
+
+TEST_F(AimEligibilityServiceTest, SearchCapabilitiesHeader_CustomVersion) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      omnibox::kAimServerEligibilitySendSearchCapabilitiesHeaderEnabled);
+
+  AimEligibilityService::Configuration config;
+  config.search_capabilities_version = "2.0";
+  CreateService(config);
+
+  // Trigger a request.
+  test_url_loader_factory_.pending_requests()->clear();
+  aim_eligibility_service_->StartServerEligibilityRequestForDebugging();
+
+  ASSERT_EQ(test_url_loader_factory_.NumPending(), 1);
+  const network::ResourceRequest& request =
+      test_url_loader_factory_.GetPendingRequest(0)->request;
+
+  std::optional<std::string> header_value = request.headers.GetHeader(
+      contextual_tasks::kContextualTasksSearchCapabilitiesHeaderName);
+  EXPECT_TRUE(header_value.has_value());
+  EXPECT_EQ(*header_value, "2.0");
 }
 
 TEST_F(AimEligibilityServiceTest, IsFuseboxEligible_FeatureEnabled) {
@@ -803,6 +928,33 @@ TEST_F(AimEligibilityServiceTest, IsFuseboxEligible_FeatureDisabled) {
 
   // Should be true regardless of response if feature is disabled.
   EXPECT_TRUE(aim_eligibility_service_->IsFuseboxEligible());
+}
+
+TEST_F(AimEligibilityServiceTest, IsCsbEligible) {
+  omnibox::AimEligibilityResponse response;
+  response.set_is_eligible(true);
+  response.set_is_contextual_searchbox_eligible(true);
+  aim_eligibility_service_->SetAimEligibilityResponse(std::move(response));
+  EXPECT_TRUE(aim_eligibility_service_->IsCsbEligible());
+
+  omnibox::AimEligibilityResponse response2;
+  response2.set_is_eligible(true);
+  response2.set_is_contextual_searchbox_eligible(false);
+  aim_eligibility_service_->SetAimEligibilityResponse(std::move(response2));
+  EXPECT_FALSE(aim_eligibility_service_->IsCsbEligible());
+
+  // If field is not filled, fall back to IsFuseboxEligible().
+  omnibox::AimEligibilityResponse response3;
+  response3.set_is_eligible(true);
+  response3.set_is_fusebox_eligible(true);
+  aim_eligibility_service_->SetAimEligibilityResponse(std::move(response3));
+  EXPECT_TRUE(aim_eligibility_service_->IsCsbEligible());
+
+  omnibox::AimEligibilityResponse response4;
+  response4.set_is_eligible(true);
+  response4.set_is_fusebox_eligible(false);
+  aim_eligibility_service_->SetAimEligibilityResponse(std::move(response4));
+  EXPECT_FALSE(aim_eligibility_service_->IsCsbEligible());
 }
 
 TEST_F(AimEligibilityServiceTest, IsIetfBcp47) {
@@ -845,4 +997,29 @@ TEST_F(AimEligibilityServiceTest, LogsFuseboxEligibilityHistogram) {
   histogram_tester.ExpectUniqueSample(
       "Omnibox.AimEligibility.EligibilityResponse.is_fusebox_eligible", true,
       1);
+}
+
+TEST_F(AimEligibilityServiceTest, FetchEligibilityWithLocaleChange) {
+  base::HistogramTester histogram_tester;
+  omnibox::AimEligibilityResponse response;
+  response.set_is_eligible(true);
+
+  test_url_loader_factory_.pending_requests()->clear();
+  aim_eligibility_service_->FetchEligibility(
+      AimEligibilityService::RequestSource::kLocaleChange);
+
+  ASSERT_EQ(test_url_loader_factory_.NumPending(), 1);
+  const network::ResourceRequest& request =
+      test_url_loader_factory_.GetPendingRequest(0)->request;
+
+  std::string response_string;
+  response.SerializeToString(&response_string);
+  test_url_loader_factory_.SimulateResponseForPendingRequest(
+      request.url.spec(), response_string, net::HTTP_OK);
+
+  histogram_tester.ExpectUniqueSample(
+      "Omnibox.AimEligibility.EligibilityResponse.LocaleChange.is_eligible",
+      true, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Omnibox.AimEligibility.EligibilityResponse.is_eligible", true, 1);
 }

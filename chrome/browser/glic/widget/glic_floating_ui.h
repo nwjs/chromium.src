@@ -12,6 +12,7 @@
 #include "chrome/browser/glic/common/panel_visibility_dependent_hotkey_manager.h"
 #include "chrome/browser/glic/host/context/glic_screenshot_capturer.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/host/glic_webui.mojom.h"
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/service/glic_ui_embedder.h"
 #include "chrome/browser/glic/widget/browser_conditions.h"
@@ -102,7 +103,7 @@ class GlicFloatingUi : public GlicUiEmbedder,
   void FocusIfOpen() override;
   bool HasFocus() override;
   bool ActivateBrowser() override;
-  void Zoom(mojom::ZoomAction zoom_action) override;
+  void Zoom(mojom::ZoomAction zoom_action, ZoomSource source) override;
   void ShowTitleBarContextMenuAt(gfx::Point event_loc) override;
 #if !BUILDFLAG(IS_ANDROID)
   bool HasSelectionOverlay() override;

@@ -9,13 +9,18 @@ import type {ReadAnythingToolbarElement} from './read_anything_toolbar.js';
 export function getHtml(this: ReadAnythingToolbarElement) {
   // clang-format off
   return html`<!--_html_template_start_-->
-<div id="toolbarContainer" class="${this.getToolbarContainerClass_()}"
+<div id="toolbarContainer" class="immersive-toolbar-container"
     role="toolbar" aria-label="$i18n{readingModeReadAloudToolbarLabel}"
-    tabindex="${this.isImmersiveEnabled_ ? 0 : -1}"
-    @keydown="${this.onToolbarKeydown_}"
-    @reset-toolbar="${this.onResetToolbar_}"
-    @toolbar-overflow="${this.onToolbarOverflow_}">
-    <span id="audio-controls" class="audio-background-${this.getAudioState_()}">
+    tabindex="0"
+    @keydown="${this.onToolbarKeydown_}">
+    ${this.isLineFocusShowing ? html`
+    <cr-button class="toolbar-button" id="line-focus-off"
+      tabindex="-1"
+      @click="${this.onLineFocusOffClick_}">
+      ${this.i18n('turnLineFocusOffTitle')}
+    </cr-button>
+    ` : ''}
+    <span id="audio-controls">
       <span ?hidden="${this.hideSpinner_}">
         <picture class="spinner toolbar-button audio-controls">
           <source media="(prefers-color-scheme: dark)"
@@ -33,8 +38,7 @@ export function getHtml(this: ReadAnythingToolbarElement) {
           tabindex="0"
           @click="${this.onPlayPauseClick_}">
       </cr-icon-button>
-      <span id="granularity-container"
-          class="${this.getGranularityContainerClass_()}">
+      <span id="granularity-container">
         <cr-icon-button id="previousGranularity"
             class="toolbar-button audio-controls"
             ?disabled="${this.shouldDisableGranularityNavButtons_()}"
@@ -54,16 +58,14 @@ export function getHtml(this: ReadAnythingToolbarElement) {
             @click="${this.onNextGranularityClick_}">
         </cr-icon-button>
       </span>
-      ${this.isImmersiveEnabled_ ? html`
-        <cr-button class="toolbar-button" id="rate"
-            tabindex="${this.getRateTabIndex_()}"
-            aria-label="${this.getVoiceSpeedLabel_()}"
-            title="${this.i18n('voiceSpeedLabel')}"
-            aria-haspopup="menu"
-            @click="${this.onShowRateMenuClick_}">
-            ${this.getFormattedSpeechRate_()}
-        </cr-button>
-      ` : ''}
+      <cr-button class="toolbar-button" id="rate"
+          tabindex="${this.getRateTabIndex_()}"
+          aria-label="${this.getVoiceSpeedLabel_()}"
+          title="${this.i18n('voiceSpeedLabel')}"
+          aria-haspopup="menu"
+          @click="${this.onShowRateMenuClick_}">
+          ${this.getFormattedSpeechRate_()}
+      </cr-button>
     </span>
     ${this.isAiPlaybackUiEnabled_ ? html`
     <cr-icon-button class="toolbar-button ${this.isAiPlaybackActive ? 'active'
@@ -79,57 +81,7 @@ export function getHtml(this: ReadAnythingToolbarElement) {
         @click="${this.onAiPlaybackClick_}">
     </cr-icon-button>
     ` : ''}
-    ${this.isLineFocusShowing ? html`
-    <cr-button class="toolbar-button" id="line-focus-off"
-      tabindex="-1"
-      @click="${this.onLineFocusOffClick_}">
-      ${this.i18n('turnLineFocusOffTitle')}
-    </cr-button>
-    ` : ''}
 
-  ${!this.isImmersiveEnabled_ ? html`
-    <cr-button class="toolbar-button" id="rate"
-          tabindex="${this.getRateTabIndex_()}"
-          aria-label="${this.getVoiceSpeedLabel_()}"
-          title="${this.i18n('voiceSpeedLabel')}"
-          aria-haspopup="menu"
-          @click="${this.onShowRateMenuClick_}">
-          ${this.getFormattedSpeechRate_()}
-    </cr-button>
-
-    <cr-icon-button class="toolbar-button" id="voice-selection" tabindex="-1"
-        aria-label="$i18n{voiceSelectionLabel}"
-        title="$i18n{voiceSelectionLabel}"
-        aria-haspopup="menu"
-        iron-icon="${this.webuiRoundedIconsEnabled_
-            ? 'read-anything:voice-selection'
-            : 'read-anything:voice-selection-old'}"
-        @click="${this.onVoiceSelectionMenuClick_}">
-    </cr-icon-button>
-
-    <cr-icon-button class="toolbar-button" id="highlight" tabindex="-1"
-        iron-icon="${this.webuiRoundedIconsEnabled_
-            ? 'read-anything:ink-highlighter-move'
-            : 'read-anything:highlight-on-old'}"
-        title="${this.getHighlightButtonLabel_()}"
-        aria-label="${this.getHighlightButtonLabel_()}"
-        aria-haspopup="menu"
-        @click="${this.onHighlightClick_}">
-    </cr-icon-button>
-
-    <hr class="separator" aria-hidden="true">
-
-    ${this.textStyleToggles_.map((item) => html`
-      <cr-icon-button tabindex="-1" class="toolbar-button"
-          ?disabled="${this.isSpeechActive}"
-          id="${item.id}"
-          aria-label="${item.title}"
-          title="${item.title}"
-          iron-icon="${item.icon}"
-          @click="${this.onToggleButtonClick_}">
-      </cr-icon-button>
-    `)}
-  ` : ''}
   ${this.textStyleOptions_.map((item, index) => html`
     ${item.announceId ? html`
       <div id="${item.announceId}" class="announce-block" aria-live="polite">
@@ -146,74 +98,45 @@ export function getHtml(this: ReadAnythingToolbarElement) {
         @click="${this.onTextStyleMenuButtonClick_}">
     </cr-icon-button>
   `)}
-  ${this.isImmersiveEnabled_ ? html`
-    <cr-icon-button id="more" tabindex="-1" aria-label="$i18n{settingsLabel}"
+  <cr-icon-button id="more" tabindex="-1" aria-label="$i18n{settingsLabel}"
+      class="toolbar-button"
+      title="$i18n{settingsLabel}"
+      aria-haspopup="menu"
+      iron-icon="${this.webuiRoundedIconsEnabled_
+          ? 'read-anything:settings'
+          : 'read-anything:settings-old'}"
+      @click="${this.onMoreOptionsClick_}">
+  </cr-icon-button>
+  ${this.isImmersiveMode ? html`
+    <cr-icon-button id="close" tabindex="-1"
         class="toolbar-button"
-        title="$i18n{settingsLabel}"
-        aria-haspopup="menu"
-        iron-icon="${this.webuiRoundedIconsEnabled_
-            ? 'read-anything:settings'
-            : 'read-anything:settings-old'}"
-        @click="${this.onMoreOptionsClick_}">
+        aria-label="$i18n{readingModeClose}"
+        title="$i18n{readingModeClose}"
+        iron-icon="cr:close"
+        @click="${this.onCloseClick_}">
     </cr-icon-button>
-    ${this.isImmersiveMode ? html`
-      <cr-icon-button id="close" tabindex="-1"
-          class="toolbar-button"
-          aria-label="$i18n{readingModeClose}"
-          title="$i18n{readingModeClose}"
-          iron-icon="cr:close"
-          @click="${this.onCloseClick_}">
-      </cr-icon-button>
-    ` : ''}
-    <settings-menu
-      id="settingsMenu"
-      .settingsPrefs="${this.settingsPrefs}"
-      .isImmersiveMode="${this.isImmersiveMode}"
-      .isReadAnythingPinned="${this.isReadAnythingPinned}"
-      .isSpeechActive="${this.isSpeechActive}"
-      .showLineFocusNewBadge="${this.showLineFocusNewBadge}"
-      @close-submenu-requested="${this.onCloseSubmenuRequested_}"
-      @close-all-menus="${this.onCloseAllMenus_}"
-      @open-settings-submenu="${this.onOpenSettingsSubmenu_}"
-      @translation-requested="${this.onTranslationRequested_}">
-    </settings-menu>
-    <presentation-menu id="presentationMenu"
-      class="settings-submenu"
-      .presentationState="${this.presentationState}"
-      @close-all-menus="${this.onCloseAllMenus_}">
-    </presentation-menu>
-  ` : html`
-    <cr-icon-button id="more" tabindex="-1" aria-label="$i18n{moreOptionsLabel}"
-        class="hidden"
-        title="$i18n{moreOptionsLabel}"
-        aria-haspopup="menu"
-        iron-icon="cr:more-vert"
-        @click="${this.onMoreOptionsClick_}">
-    </cr-icon-button>
-
-    <cr-lazy-render-lit id="moreOptionsMenu" .template='${() => html`
-    <cr-action-menu id="more-options-menu-dialog"
-        @keydown="${this.onToolbarKeydown_}"
-        role-description="$i18n{menu}">
-      ${this.moreOptionsButtons_.map((item, index) => html`
-      <cr-icon-button id="${item.id}" class="more-options-icon"
-          aria-label="${item.ariaLabel}"
-          data-index="${index}"
-          title="${item.ariaLabel}"
-          aria-haspopup="menu"
-          iron-icon="${item.icon}"
-          @click="${this.onTextStyleMenuButtonFromOverflowClick_}">
-      </cr-icon-button>
-      `)}
-    </cr-action-menu>
-    `}'>
-    </cr-lazy-render-lit>
-  `}
+  ` : ''}
+  <settings-menu
+    id="settingsMenu"
+    .settingsPrefs="${this.settingsPrefs}"
+    .isImmersiveMode="${this.isImmersiveMode}"
+    .isReadAnythingPinned="${this.isReadAnythingPinned}"
+    .isSpeechActive="${this.isSpeechActive}"
+    @close-submenu-requested="${this.onCloseSubmenuRequested_}"
+    @close-all-menus="${this.onCloseAllMenus_}"
+    @open-settings-submenu="${this.onOpenSettingsSubmenu_}"
+    @translation-requested="${this.onTranslationRequested_}">
+  </settings-menu>
+  <presentation-menu id="presentationMenu"
+    class="settings-submenu"
+    .presentationState="${this.presentationState}"
+    @close-all-menus="${this.onCloseAllMenus_}">
+  </presentation-menu>
   <cr-lazy-render-lit id="fontSizeMenu" .template='${() => html`
   <cr-action-menu @keydown="${this.onFontSizeMenuKeydown_}"
       accessibility-label="$i18n{fontSizeTitle}"
       role-description="$i18n{menu}"
-      class="${this.isImmersiveEnabled_ ? 'immersive-font-size-menu' : ''}">
+      class="immersive-font-size-menu">
     <cr-icon-button class="font-size" role="menuitem"
         id="font-size-decrease"
         aria-label="$i18n{decreaseFontSizeLabel}"
@@ -246,37 +169,36 @@ export function getHtml(this: ReadAnythingToolbarElement) {
   </rate-menu>
   <highlight-menu
     id="highlightMenu"
-    class="${this.isImmersiveEnabled_ ? 'settings-submenu' : ''}"
-    .nonModal="${this.isImmersiveEnabled_}"
+    class="settings-submenu"
+    .nonModal="${true}"
     .settingsPrefs="${this.settingsPrefs}"
-    @highlight-change="${this.onHighlightChange_}"
     @close-all-menus="${this.onCloseAllMenus_}">
   </highlight-menu>
   <color-menu
       id="colorMenu"
-      class="${this.isImmersiveEnabled_ ? 'settings-submenu' : ''}"
-      .nonModal="${this.isImmersiveEnabled_}"
+      class="settings-submenu"
+      .nonModal="${true}"
       .settingsPrefs="${this.settingsPrefs}"
       @close-all-menus="${this.onCloseAllMenus_}">
   </color-menu>
   <line-spacing-menu
       id="lineSpacingMenu"
-      class="${this.isImmersiveEnabled_ ? 'settings-submenu' : ''}"
-      .nonModal="${this.isImmersiveEnabled_}"
+      class="settings-submenu"
+      .nonModal="${true}"
       .settingsPrefs="${this.settingsPrefs}"
       @close-all-menus="${this.onCloseAllMenus_}">
   </line-spacing-menu>
   <letter-spacing-menu
       id="letterSpacingMenu"
-      class="${this.isImmersiveEnabled_ ? 'settings-submenu' : ''}"
-      .nonModal="${this.isImmersiveEnabled_}"
+      class="settings-submenu"
+      .nonModal="${true}"
       .settingsPrefs="${this.settingsPrefs}"
       @close-all-menus="${this.onCloseAllMenus_}">
   </letter-spacing-menu>
   <font-menu
       id="fontMenu"
-      class="${this.isImmersiveEnabled_ ? 'settings-submenu' : ''}"
-      .nonModal="${this.isImmersiveEnabled_}"
+      class="settings-submenu"
+      .nonModal="${true}"
       .areFontsLoaded="${this.areFontsLoaded_}"
       .settingsPrefs="${this.settingsPrefs}"
       .pageLanguage="${this.pageLanguage}"
@@ -285,8 +207,8 @@ export function getHtml(this: ReadAnythingToolbarElement) {
   </font-menu>
   <line-focus-menu
       id="lineFocusMenu"
-      class="${this.isImmersiveEnabled_ ? 'settings-submenu' : ''}"
-      .nonModal="${this.isImmersiveEnabled_}"
+      class="settings-submenu"
+      .nonModal="${true}"
       .settingsPrefs="${this.settingsPrefs}"
       .lineFocusStyle="${this.lineFocusStyle}"
       .lineFocusEnabled="${this.lineFocusEnabled}"
@@ -301,6 +223,17 @@ export function getHtml(this: ReadAnythingToolbarElement) {
       .presentationState="${this.presentationState}"
       @close-all-menus="${this.onCloseAllMenus_}">
   </appearance-menu>
+  <audio-menu
+      id="audioMenu"
+      class="settings-submenu"
+      non-modal
+      .settingsPrefs="${this.settingsPrefs}"
+      .enabledLangs="${this.enabledLangs}"
+      .availableVoices="${this.availableVoices}"
+      .localeToDisplayName="${this.localeToDisplayName}"
+      .selectedLang="${this.selectedVoice?.lang || ''}"
+      @close-all-menus="${this.onCloseAllMenus_}">
+  </audio-menu>
   <text-menu
       id="textMenu"
       class="settings-submenu"
@@ -308,9 +241,6 @@ export function getHtml(this: ReadAnythingToolbarElement) {
       .settingsPrefs="${this.settingsPrefs}"
       .areFontsLoaded="${this.areFontsLoaded_}"
       .pageLanguage="${this.pageLanguage}"
-      .lineFocusStyle="${this.lineFocusStyle}"
-      .lineFocusEnabled="${this.lineFocusEnabled}"
-      .lineFocusMovement="${this.lineFocusMovement}"
       @close-all-menus="${this.onCloseAllMenus_}">
   </text-menu>
   <media-menu
@@ -322,8 +252,8 @@ export function getHtml(this: ReadAnythingToolbarElement) {
       @close-all-menus="${this.onCloseAllMenus_}">
   </media-menu>
   <voice-selection-menu id="voiceSelectionMenu"
-      class="${this.isImmersiveEnabled_ ? 'settings-submenu' : ''}"
-      .nonModal="${this.isImmersiveEnabled_}"
+      class="settings-submenu"
+      .nonModal="${true}"
       .selectedVoice="${this.selectedVoice}"
       .availableVoices="${this.availableVoices}"
       .enabledLangs="${this.enabledLangs}"

@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "base/containers/fixed_flat_set.h"
+#include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_macros.h"
@@ -27,6 +28,7 @@
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "content/public/browser/web_contents.h"
 
 using autofill::AccessoryAction;
@@ -255,10 +257,6 @@ gfx::NativeView ManualFillingControllerImpl::container_view() const {
   return const_cast<content::WebContents&>(GetWebContents()).GetNativeView();
 }
 
-bool ManualFillingControllerImpl::IsLargeFormFactor() const {
-  return view_->IsLargeFormFactor();
-}
-
 // Returns a weak pointer for this object.
 base::WeakPtr<ManualFillingController>
 ManualFillingControllerImpl::AsWeakPtr() {
@@ -320,9 +318,12 @@ bool ManualFillingControllerImpl::ShouldShowAccessoryForLastFocusedFieldType()
     case FocusedFieldType::kFillableNonSearchField:
       return !available_sources_.empty();
 
-    // Fallbacks aren't really useful on search fields but autocomplete entries
-    // justify showing the accessory.
     case FocusedFieldType::kFillableSearchField:
+      if (base::FeatureList::IsEnabled(
+              autofill::features::
+                  kAutofillEnableKeyboardAccessoryOnSearchFields)) {
+        return !available_sources_.empty();
+      }
       return available_sources_.contains(FillingSource::AUTOFILL);
 
     // Even if there are suggestions, don't show on textareas.
@@ -375,12 +376,6 @@ void ManualFillingControllerImpl::UpdateVisibility() {
             last_focused_field_type_ != FocusedFieldType::kUnfillableElement &&
             last_focused_field_type_ != FocusedFieldType::kUnknown),
         ManualFillingViewInterface::ShouldShowOnLargeFormFactor(
-            last_focused_field_type_ ==
-                FocusedFieldType::kFillableUsernameField ||
-            last_focused_field_type_ ==
-                FocusedFieldType::kFillablePasswordField ||
-            last_focused_field_type_ ==
-                FocusedFieldType::kContenteditableField ||
             available_sources_.contains(FillingSource::AUTOFILL)),
         ManualFillingViewInterface::IsContentEditable(
             last_focused_field_type_ ==

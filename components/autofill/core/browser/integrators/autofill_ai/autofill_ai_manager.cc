@@ -41,14 +41,14 @@
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
-#include "components/autofill/core/browser/field_type_utils.h"
+#include "components/autofill/core/browser/field_type_util.h"
 #include "components/autofill/core/browser/form_processing/autofill_ai/determine_attribute_types.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/foundations/autofill_driver.h"
 #include "components/autofill/core/browser/foundations/autofill_driver_factory.h"
-#include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_import_utils.h"
-#include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_wallet_utils.h"
+#include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_import_util.h"
+#include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_wallet_util.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_logger.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/personal_context_metrics.h"
@@ -56,7 +56,7 @@
 #include "components/autofill/core/browser/ml_model/autofill_ai/autofill_ai_model_executor.h"
 #include "components/autofill/core/browser/network/autofill_ai/autofill_ai_personal_context_access_manager.h"
 #include "components/autofill/core/browser/network/autofill_ai/wallet_pass_access_manager.h"
-#include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
+#include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_util.h"
 #include "components/autofill/core/browser/strike_databases/autofill_ai/autofill_ai_save_strike_database_by_attribute.h"
 #include "components/autofill/core/browser/strike_databases/autofill_ai/autofill_ai_save_strike_database_by_host.h"
 #include "components/autofill/core/browser/strike_databases/autofill_ai/autofill_ai_update_strike_database.h"
@@ -82,36 +82,6 @@
 namespace autofill {
 
 namespace {
-
-bool DidUserExplicitlyAcceptedImportPrompt(
-    AutofillClient::AutofillAiBubbleResult result) {
-  switch (result) {
-    case AutofillClient::AutofillAiBubbleResult::kAccepted:
-    case AutofillClient::AutofillAiBubbleResult::kEditAccepted:
-      return true;
-    case AutofillClient::AutofillAiBubbleResult::kCancelled:
-    case AutofillClient::AutofillAiBubbleResult::kClosed:
-    case AutofillClient::AutofillAiBubbleResult::kUnknown:
-    case AutofillClient::AutofillAiBubbleResult::kNotInteracted:
-    case AutofillClient::AutofillAiBubbleResult::kLostFocus:
-      return false;
-  }
-}
-
-bool DidUserExplicitlyDeclineImportPrompt(
-    AutofillClient::AutofillAiBubbleResult result) {
-  switch (result) {
-    case AutofillClient::AutofillAiBubbleResult::kCancelled:
-    case AutofillClient::AutofillAiBubbleResult::kClosed:
-      return true;
-    case AutofillClient::AutofillAiBubbleResult::kUnknown:
-    case AutofillClient::AutofillAiBubbleResult::kAccepted:
-    case AutofillClient::AutofillAiBubbleResult::kEditAccepted:
-    case AutofillClient::AutofillAiBubbleResult::kNotInteracted:
-    case AutofillClient::AutofillAiBubbleResult::kLostFocus:
-      return false;
-  }
-}
 
 // Given an `entity`, returns the string to use as a strike key for each entry
 // in `entity.type().strike_keys()`.
@@ -204,25 +174,27 @@ bool IsSaveAsynchronous(EntityType type,
 
 void PrefetchAmbientAutofillContext(AutofillClient& client,
                                     AutofillManager& manager) {
-  DenseSet<EntityType> relevant_types;
+  DenseSet<EntityType> types;
   manager.ForEachCachedForm([&](const FormStructure& form) {
-    relevant_types.insert_all(GetRelevantEntityTypesForFields(form.fields()));
+    types.insert_all(GetRelevantEntityTypesForFields(form.fields()));
   });
-  if (relevant_types.empty()) {
+
+  // Filter for allowed types in a separate pass to avoid redundant
+  // `MayPerformAutofillAiAction` calls.
+  for (EntityType type : types) {
+    if (!MayPerformAutofillAiAction(
+            client, AutofillAiAction::kTypeSupportsAmbientAutofillData, type)) {
+      types.erase(type);
+    }
+  }
+
+  if (types.empty()) {
     return;
   }
 
   if (AutofillAiPersonalContextAccessManager* access_manager =
           client.GetAutofillAiPersonalContextAccessManager()) {
-    base::flat_set<EntityType> requested_types(std::from_range, relevant_types);
-    base::EraseIf(requested_types, [&](const EntityType& type) {
-      return !MayPerformAutofillAiAction(
-          client, AutofillAiAction::kTypeSupportsAmbientAutofillData, type);
-    });
-    if (requested_types.empty()) {
-      return;
-    }
-    access_manager->PrefetchContext(requested_types);
+    access_manager->PrefetchContext(types);
   }
 }
 

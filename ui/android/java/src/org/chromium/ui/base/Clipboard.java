@@ -38,20 +38,20 @@ public class Clipboard {
 
     private long mNativeClipboard;
 
+    /** Helper class to hold metadata for a URI shared on the clipboard. */
+    public static class ClipboardUriMetadata {
+        public static final long INVALID_TIMESTAMP = 0;
+        public final Uri uri;
+        public final long timestamp;
+
+        public ClipboardUriMetadata(Uri uri, long timestamp) {
+            this.uri = uri;
+            this.timestamp = timestamp;
+        }
+    }
+
     /** Interface to be implemented for sharing image through FileProvider. */
     public interface ImageFileProvider {
-        /** The helper class to load Clipboard file metadata. */
-        class ClipboardFileMetadata {
-            public static final long INVALID_TIMESTAMP = 0;
-            public final Uri uri;
-            public final long timestamp;
-
-            public ClipboardFileMetadata(Uri uri, long timestamp) {
-                this.uri = uri;
-                this.timestamp = timestamp;
-            }
-        }
-
         /**
          * Saves the given set of image bytes and provides that URI to a callback for sharing the
          * image.
@@ -67,13 +67,12 @@ public class Clipboard {
          * Store the last image uri and its timestamp we put in the sytstem clipboard. On Android O
          * and O_MR1, URI is stored for revoking permissions later.
          *
-         * @param clipboardFileMetadata The metadata needs to be stored.
+         * @param clipboardUriMetadata The metadata needs to be stored.
          */
-        void storeLastCopiedImageMetadata(ClipboardFileMetadata clipboardFileMetadata);
+        void storeLastCopiedImageMetadata(ClipboardUriMetadata clipboardUriMetadata);
 
         /** Get stored the last image uri and its timestamp. */
-        @Nullable
-        ClipboardFileMetadata getLastCopiedImageMetadata();
+        @Nullable ClipboardUriMetadata getLastCopiedImageMetadata();
 
         /**
          * Clear the image uri and its timestamp which are stored by |storeLastCopiedImageMetadata|.
@@ -123,24 +122,21 @@ public class Clipboard {
     }
 
     /**
-     * Emulates the behavior of the now-deprecated
-     * {@link android.text.ClipboardManager#getText()} by invoking
-     * {@link android.content.ClipData.Item#coerceToText(Context)} on the first
-     * item in the clipboard (if any) and returning the result as a string.
-     * <p>
-     * This is quite different than simply calling {@link Object#toString()} on
-     * the clip; consumers of this API should familiarize themselves with the
-     * process described in
-     * {@link android.content.ClipData.Item#coerceToText(Context)} before using
-     * this method.
+     * Emulates the behavior of the now-deprecated {@link android.text.ClipboardManager#getText()}
+     * by invoking {@link android.content.ClipData.Item#coerceToText(Context)} on the first item in
+     * the clipboard (if any) and returning the result as a string.
      *
-     * @return a string representation of the first item on the clipboard, if
-     *         the clipboard currently has an item and coercion of the item into
-     *         a string is possible; otherwise, <code>null</code>
+     * <p>This is quite different than simply calling {@link Object#toString()} on the clip;
+     * consumers of this API should familiarize themselves with the process described in {@link
+     * android.content.ClipData.Item#coerceToText(Context)} before using this method.
+     *
+     * @return a string representation of the first item on the clipboard, if the clipboard
+     *     currently has an item and coercion of the item into a string is possible; otherwise,
+     *     <code>null</code>
      */
     @SuppressWarnings("javadoc")
     @CalledByNative
-    protected @Nullable String getCoercedText() {
+    public @Nullable String getCoercedText() {
         return null;
     }
 

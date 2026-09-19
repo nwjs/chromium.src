@@ -7,16 +7,12 @@
 #include "base/notreached.h"
 #include "build/branding_buildflags.h"
 #include "chrome/app/vector_icons/vector_icons.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/page_action/action_ids.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_ids.h"
-#include "chrome/common/pref_names.h"
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom.h"
 #include "components/omnibox/browser/vector_icons.h"
-#include "components/prefs/pref_service.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/actions/actions.h"
 #include "ui/base/ui_base_features.h"
@@ -280,9 +276,7 @@ ActionItemToPinnedToolbarAction(actions::ActionItem* item) {
                            : kDevicesChromeRefreshOldIcon));
       return toolbar_ui_api::mojom::PinnedToolbarAction::kSendTabToSelf;
     case kActionTaskManager:
-      CHECK_EQ(icon,
-               &(features::IsRoundedIconsEnabled() ? kTableChartIcon
-                                                   : kTaskManagerOldIcon));
+      CHECK_EQ(icon, &vector_icons::kTableChartIcon);
       return toolbar_ui_api::mojom::PinnedToolbarAction::kTaskManager;
     case kActionDevTools:
       CHECK_EQ(icon,

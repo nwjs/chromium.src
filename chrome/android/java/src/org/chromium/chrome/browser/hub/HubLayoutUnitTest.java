@@ -20,7 +20,6 @@ import static org.mockito.ArgumentMatchers.isNotNull;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -44,8 +43,6 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.FrameLayout.LayoutParams;
 
-import androidx.test.ext.junit.rules.ActivityScenarioRule;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -60,6 +57,8 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.ParameterizedRobolectricTestRunner;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameter;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
+import org.robolectric.Robolectric;
+import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
@@ -121,8 +120,7 @@ public class HubLayoutUnitTest {
         return Arrays.asList(new Object[][] {{true}, {false}});
     }
 
-    @Parameter(0)
-    public boolean mIsXrDevice;
+    @Parameter public boolean mIsXrDevice;
 
     private static final int DEFAULT_COLOR = 0xFFABCDEF;
     private static final int INCOGNITO_COLOR = 0xFF001122;
@@ -136,10 +134,6 @@ public class HubLayoutUnitTest {
     private static final long FAKE_TIME = 0L;
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
-
-    @Rule
-    public ActivityScenarioRule<TestActivity> mActivityScenarioRule =
-            new ActivityScenarioRule<>(TestActivity.class);
 
     @Rule public BaseRobolectricTestRule mBaseRule = new BaseRobolectricTestRule();
 
@@ -177,6 +171,7 @@ public class HubLayoutUnitTest {
 
     private UserActionTester mActionTester;
 
+    private ActivityController<TestActivity> mActivityController;
     private Activity mActivity;
     private FrameLayout mFrameLayout;
 
@@ -252,7 +247,7 @@ public class HubLayoutUnitTest {
         when(mPaneManager.getFocusedPaneSupplier()).thenReturn(mPaneSupplier);
         doAnswer(
                         invocation -> {
-                            int paneId = ((Integer) invocation.getArguments()[0]).intValue();
+                            int paneId = (Integer) invocation.getArguments()[0];
                             switch (paneId) {
                                 case PaneId.TAB_SWITCHER:
                                     mPaneSupplier.set(mTabSwitcherPane);
@@ -293,7 +288,8 @@ public class HubLayoutUnitTest {
                 .when(mHubController)
                 .getBackgroundColor(any());
 
-        mActivityScenarioRule.getScenario().onActivity(this::onActivityCreated);
+        mActivityController = Robolectric.buildActivity(TestActivity.class).setup();
+        onActivityCreated(mActivityController.get());
 
         doAnswer(
                         invocation -> {
@@ -360,6 +356,7 @@ public class HubLayoutUnitTest {
     public void tearDown() {
         mHubLayout.destroy();
         mActionTester.tearDown();
+        mActivityController.close();
     }
 
     @Test
@@ -444,9 +441,7 @@ public class HubLayoutUnitTest {
         // Successfully capture a bitmap.
         doCallback(
                         /* index= */ 2,
-                        (Callback<Bitmap> bitmapCallback) -> {
-                            bitmapCallback.onResult(mBitmap);
-                        })
+                        (Callback<Bitmap> bitmapCallback) -> bitmapCallback.onResult(mBitmap))
                 .when(mTabContentManager)
                 .cacheTabThumbnailWithCallback(any(), eq(true), any());
 
@@ -468,18 +463,14 @@ public class HubLayoutUnitTest {
         // Fail to capture a bitmap.
         doCallback(
                         /* index= */ 2,
-                        (Callback<Bitmap> bitmapCallback) -> {
-                            bitmapCallback.onResult(null);
-                        })
+                        (Callback<Bitmap> bitmapCallback) -> bitmapCallback.onResult(null))
                 .when(mTabContentManager)
                 .cacheTabThumbnailWithCallback(any(), eq(true), any());
 
         // Succeed on the NativePage fallback thumbnail attempt.
         doCallback(
                         /* index= */ 1,
-                        (Callback<Bitmap> bitmapCallback) -> {
-                            bitmapCallback.onResult(mBitmap);
-                        })
+                        (Callback<Bitmap> bitmapCallback) -> bitmapCallback.onResult(mBitmap))
                 .when(mTabContentManager)
                 .getEtc1TabThumbnailWithCallback(eq(TAB_ID), any());
 
@@ -500,9 +491,7 @@ public class HubLayoutUnitTest {
         // Fail to capture the bitmap and since this is not a native page there is no fallback.
         doCallback(
                         /* index= */ 2,
-                        (Callback<Bitmap> bitmapCallback) -> {
-                            bitmapCallback.onResult(null);
-                        })
+                        (Callback<Bitmap> bitmapCallback) -> bitmapCallback.onResult(null))
                 .when(mTabContentManager)
                 .cacheTabThumbnailWithCallback(any(), eq(true), any());
 
@@ -571,9 +560,7 @@ public class HubLayoutUnitTest {
         // Succeed on the thumbnail attempt
         doCallback(
                         /* index= */ 1,
-                        (Callback<Bitmap> bitmapCallback) -> {
-                            bitmapCallback.onResult(mBitmap);
-                        })
+                        (Callback<Bitmap> bitmapCallback) -> bitmapCallback.onResult(mBitmap))
                 .when(mTabContentManager)
                 .getEtc1TabThumbnailWithCallback(eq(TAB_ID), any());
 
@@ -593,15 +580,14 @@ public class HubLayoutUnitTest {
         setupHubLayoutAnimatorAndProvider(HubLayoutAnimationType.EXPAND_TAB);
         mPaneSupplier.set(mTabSwitcherPane);
         when(mHubLayoutAnimatorProviderMock.getThumbnailCallback()).thenReturn(mThumbnailCallback);
-        doReturn(mHubLayoutAnimatorProviderMock).when(mHubLayout).createHideAnimatorProvider(any());
+        when(mHubLayout.createHideAnimatorProvider(any()))
+                .thenReturn(mHubLayoutAnimatorProviderMock);
         when(mTab.isNativePage()).thenReturn(true);
 
         // Succeed on the thumbnail attempt
         doCallback(
                         /* index= */ 1,
-                        (Callback<Bitmap> bitmapCallback) -> {
-                            bitmapCallback.onResult(mBitmap);
-                        })
+                        (Callback<Bitmap> bitmapCallback) -> bitmapCallback.onResult(mBitmap))
                 .when(mTabContentManager)
                 .getEtc1TabThumbnailWithCallback(eq(TAB_ID), any());
 

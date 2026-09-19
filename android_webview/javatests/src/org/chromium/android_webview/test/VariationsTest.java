@@ -21,13 +21,23 @@ import org.chromium.android_webview.common.WebViewCachedFlags;
 import org.chromium.android_webview.common.variations.VariationsUtils;
 import org.chromium.android_webview.test.util.VariationsTestUtils;
 import org.chromium.android_webview.variations.VariationsSeedLoader;
+import org.chromium.base.FieldTrialList;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.InMemorySharedPreferences;
+import org.chromium.components.variations.LayerOuterClass.Layer;
+import org.chromium.components.variations.LayerOuterClass.Layer.EntropyMode;
+import org.chromium.components.variations.LayerOuterClass.Layer.LayerMember;
+import org.chromium.components.variations.LayerOuterClass.Layer.LayerMember.SlotRange;
+import org.chromium.components.variations.LayerOuterClass.LayerMemberReference;
 import org.chromium.components.variations.StudyOuterClass.Study;
+import org.chromium.components.variations.StudyOuterClass.Study.ActivationType;
+import org.chromium.components.variations.StudyOuterClass.Study.Channel;
 import org.chromium.components.variations.StudyOuterClass.Study.Experiment;
 import org.chromium.components.variations.StudyOuterClass.Study.Experiment.FeatureAssociation;
+import org.chromium.components.variations.StudyOuterClass.Study.Filter;
+import org.chromium.components.variations.StudyOuterClass.Study.Platform;
 import org.chromium.components.variations.VariationsSeedOuterClass.VariationsSeed;
 import org.chromium.components.variations.VariationsSwitches;
 import org.chromium.components.variations.firstrun.VariationsSeedFetcher.SeedInfo;
@@ -55,22 +65,11 @@ public class VariationsTest extends AwParameterizedTest {
                 };
     }
 
-    private void createAndLoadSeedFile(FeatureAssociation features) throws FileNotFoundException {
+    private void createAndLoadSeedFile(VariationsSeed seed) throws FileNotFoundException {
         // Disable seed verification so we don't reject the fake seed created below.
         VariationsTestUtils.disableSignatureVerificationForTesting();
 
-        // Write a fake seed to disk that will enable a Feature.
-        VariationsSeed seed =
-                VariationsSeed.newBuilder()
-                        .addStudy(
-                                Study.newBuilder()
-                                        .setName("TestStudy")
-                                        .addExperiment(
-                                                Experiment.newBuilder()
-                                                        .setName("default")
-                                                        .setProbabilityWeight(100)
-                                                        .setFeatureAssociation(features)))
-                        .build();
+        // Write a fake seed to disk.
         SeedInfo seedInfo = new SeedInfo();
         seedInfo.signature = "";
         seedInfo.country = "US";
@@ -78,7 +77,11 @@ public class VariationsTest extends AwParameterizedTest {
         seedInfo.date = new Date().getTime();
         seedInfo.seedData = seed.toByteArray();
         FileOutputStream out = new FileOutputStream(VariationsUtils.getNewSeedFile());
-        VariationsUtils.writeSeed(out, seedInfo, -1);
+        VariationsUtils.writeSeed(
+                out,
+                seedInfo,
+                /* lowEntropySource= */ -1,
+                /* limitedEntropyRandomizationSource= */ null);
 
         // Because our tests bypass WebView's glue layer, we need to load the seed manually.
         ThreadUtils.runOnUiThreadBlocking(
@@ -93,16 +96,26 @@ public class VariationsTest extends AwParameterizedTest {
     @MediumTest
     // This flag forces the variations service to load the seed file from disk rather than using
     // fieldtrial_testing_config.json.
-    // TODO(crbug.com/40701727): Reference this via a Java VariationsSwitches class.
     @CommandLineFlags.Add(VariationsSwitches.DISABLE_FIELD_TRIAL_TESTING_CONFIG)
     public void testFeatureEnabled() throws Exception {
         try {
-            FeatureAssociation features =
-                    FeatureAssociation.newBuilder()
-                            .addEnableFeature(AwFeatures.WEBVIEW_TEST_FEATURE)
+            Experiment launchGroup =
+                    Experiment.newBuilder()
+                            .setName("Launched")
+                            .setProbabilityWeight(100)
+                            .setFeatureAssociation(
+                                    FeatureAssociation.newBuilder()
+                                            .addEnableFeature(AwFeatures.WEBVIEW_TEST_FEATURE))
+                            .build();
+            VariationsSeed seed =
+                    VariationsSeed.newBuilder()
+                            .addStudy(
+                                    Study.newBuilder()
+                                            .setName("TestStudy")
+                                            .addExperiment(launchGroup))
                             .build();
             WebViewCachedFlags.initForTesting(new InMemorySharedPreferences());
-            createAndLoadSeedFile(features);
+            createAndLoadSeedFile(seed);
 
             // The seed should be loaded during browser process startup.
             mActivityTestRule.startBrowserProcess();
@@ -122,21 +135,175 @@ public class VariationsTest extends AwParameterizedTest {
     @MediumTest
     // This flag forces the variations service to load the seed file from disk rather than using
     // fieldtrial_testing_config.json.
-    // TODO(crbug.com/40701727): Reference this via a Java VariationsSwitches class.
     @CommandLineFlags.Add(VariationsSwitches.DISABLE_FIELD_TRIAL_TESTING_CONFIG)
     public void testSeedFreshnessHistogramWritten() throws Exception {
         String seedFreshnessHistogramName = "Variations.SeedFreshness";
         try {
+            Experiment defaultGroup =
+                    Experiment.newBuilder()
+                            .setName("default")
+                            .setProbabilityWeight(100)
+                            .setFeatureAssociation(FeatureAssociation.getDefaultInstance())
+                            .build();
+            VariationsSeed seed =
+                    VariationsSeed.newBuilder()
+                            .addStudy(
+                                    Study.newBuilder()
+                                            .setName("TestStudy")
+                                            .addExperiment(defaultGroup))
+                            .build();
             HistogramWatcher histogramExpectation =
                     HistogramWatcher.newSingleRecordWatcher(seedFreshnessHistogramName, 0);
             WebViewCachedFlags.initForTesting(new InMemorySharedPreferences());
-            createAndLoadSeedFile(FeatureAssociation.getDefaultInstance());
+            createAndLoadSeedFile(seed);
 
             // The seed should be loaded during browser process startup.
             mActivityTestRule.startBrowserProcess();
 
             histogramExpectation.assertExpected(
                     "SeedFreshness should have been written to once, with value 0 (<1 minute)");
+        } finally {
+            VariationsTestUtils.deleteSeeds();
+        }
+    }
+
+    @Test
+    @MediumTest
+    // Provides test coverage for some VariationsSeed validation logic related to entropy. See
+    // SeedHasMisconfiguredEntropy().
+    //
+    // A study can use entropy if it has permanent consistency and a weighted group with an
+    // experiment ID. Right now, only low entropy can be used on Android WebView. Studies that use
+    // limited entropy are not yet allowed on Android WebView.
+    @CommandLineFlags.Add(VariationsSwitches.DISABLE_FIELD_TRIAL_TESTING_CONFIG)
+    public void testEntropyConsumingStudies() throws Exception {
+        String limitedStudyName = "LimitedLayerConstrainedStudy";
+        String lowStudyName = "LowLayerConstrainedStudy";
+        String layerlessStudyName = "LayerlessStudy";
+
+        try {
+            Layer limitedLayer =
+                    Layer.newBuilder()
+                            .setId(1)
+                            .setNumSlots(100)
+                            .setEntropyMode(EntropyMode.LIMITED)
+                            .addMembers(
+                                    LayerMember.newBuilder()
+                                            .setId(1)
+                                            .addSlots(
+                                                    SlotRange.newBuilder().setStart(0).setEnd(99)))
+                            .build();
+
+            Layer lowLayer =
+                    Layer.newBuilder()
+                            .setId(2)
+                            .setNumSlots(100)
+                            .setEntropyMode(EntropyMode.LOW)
+                            .addMembers(
+                                    LayerMember.newBuilder()
+                                            .setId(1)
+                                            .addSlots(
+                                                    SlotRange.newBuilder().setStart(0).setEnd(99)))
+                            .build();
+
+            Filter filter =
+                    Filter.newBuilder()
+                            .addChannel(Channel.CANARY)
+                            .addChannel(Channel.DEV)
+                            .addChannel(Channel.BETA)
+                            .addChannel(Channel.STABLE)
+                            .addChannel(Channel.UNKNOWN)
+                            .addPlatform(Platform.PLATFORM_ANDROID_WEBVIEW)
+                            .build();
+
+            Study limitedStudy =
+                    Study.newBuilder()
+                            .setName(limitedStudyName)
+                            .setActivationType(ActivationType.ACTIVATE_ON_STARTUP)
+                            .setFilter(filter)
+                            .setLayer(
+                                    LayerMemberReference.newBuilder()
+                                            .setLayerId(1)
+                                            .addLayerMemberIds(1))
+                            .addExperiment(
+                                    Experiment.newBuilder()
+                                            .setName("Group1")
+                                            .setProbabilityWeight(1)
+                                            .setGoogleWebExperimentId(10001))
+                            .addExperiment(
+                                    Experiment.newBuilder()
+                                            .setName("Group2")
+                                            .setProbabilityWeight(1)
+                                            .setGoogleWebExperimentId(10002))
+                            .build();
+
+            Study lowStudy =
+                    Study.newBuilder()
+                            .setName(lowStudyName)
+                            .setActivationType(ActivationType.ACTIVATE_ON_STARTUP)
+                            .setFilter(filter)
+                            .setLayer(
+                                    LayerMemberReference.newBuilder()
+                                            .setLayerId(2)
+                                            .addLayerMemberIds(1))
+                            .addExperiment(
+                                    Experiment.newBuilder()
+                                            .setName("Group1")
+                                            .setProbabilityWeight(1)
+                                            .setGoogleWebExperimentId(20001))
+                            .addExperiment(
+                                    Experiment.newBuilder()
+                                            .setName("Group2")
+                                            .setProbabilityWeight(1)
+                                            .setGoogleWebExperimentId(20002))
+                            .build();
+
+            Study layerlessStudy =
+                    Study.newBuilder()
+                            .setName(layerlessStudyName)
+                            .setActivationType(ActivationType.ACTIVATE_ON_STARTUP)
+                            .setFilter(filter)
+                            .addExperiment(
+                                    Experiment.newBuilder()
+                                            .setName("Group1")
+                                            .setProbabilityWeight(50)
+                                            .setGoogleWebExperimentId(30001))
+                            .addExperiment(
+                                    Experiment.newBuilder()
+                                            .setName("Group2")
+                                            .setProbabilityWeight(50)
+                                            .setGoogleWebExperimentId(30002))
+                            .build();
+
+            VariationsSeed seed =
+                    VariationsSeed.newBuilder()
+                            .addLayers(limitedLayer)
+                            .addLayers(lowLayer)
+                            .addStudy(limitedStudy)
+                            .addStudy(lowStudy)
+                            .addStudy(layerlessStudy)
+                            .build();
+
+            WebViewCachedFlags.initForTesting(new InMemorySharedPreferences());
+            createAndLoadSeedFile(seed);
+
+            // The seed should be loaded during browser process startup.
+            mActivityTestRule.startBrowserProcess();
+
+            ThreadUtils.runOnUiThreadBlocking(
+                    () -> {
+                        // TODO(crbug.com/532511229): Update the first assertion once the client
+                        // supports limited entropy randomization.
+                        Assert.assertFalse(
+                                "Limited-layer constrained study should not exist",
+                                FieldTrialList.trialExists(limitedStudyName));
+                        Assert.assertTrue(
+                                "Low-layer constrained study should exist",
+                                FieldTrialList.trialExists(lowStudyName));
+                        Assert.assertTrue(
+                                "Layerless study should exist",
+                                FieldTrialList.trialExists(layerlessStudyName));
+                    });
         } finally {
             VariationsTestUtils.deleteSeeds();
         }

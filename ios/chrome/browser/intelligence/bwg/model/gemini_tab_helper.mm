@@ -8,6 +8,7 @@
 #import "base/functional/callback_helpers.h"
 #import "base/memory/weak_ptr.h"
 #import "base/metrics/histogram_functions.h"
+#import "base/metrics/user_metrics.h"
 #import "base/strings/string_number_conversions.h"
 #import "base/strings/string_util.h"
 #import "base/strings/sys_string_conversions.h"
@@ -200,16 +201,25 @@ void GeminiTabHelper::CancelPageContextGeneration() {
   page_loaded_callback_.Reset();
 }
 
-void GeminiTabHelper::ExecuteZeroStateSuggestions(
-    base::OnceCallback<void(NSArray<NSString*>*)> callback) {
+void GeminiTabHelper::FetchZeroStateSuggestions(
+    base::OnceCallback<void(NSArray<ZeroStateSuggestion*>*)> callback) {
   CHECK(IsZeroStateSuggestionsEnabled() ||
         IsZeroStateSuggestionsCentralizationEnabled());
-  if (gemini_contextual_eligibility_ == ContextualEligibility::kIneligible ||
-      !zero_state_suggestions_service_) {
+
+  if (!zero_state_suggestions_service_) {
     std::move(callback).Run(nil);
     return;
   }
 
+  bool is_model_led_eligible =
+      gemini_contextual_eligibility_ != ContextualEligibility::kIneligible;
+
+  zero_state_suggestions_service_->FetchZeroStateSuggestions(
+      std::move(callback), is_model_led_eligible);
+}
+
+void GeminiTabHelper::FetchZeroStateSuggestionsAsStrings(
+    base::OnceCallback<void(NSArray<NSString*>*)> callback) {
   base::OnceCallback<void(NSArray<ZeroStateSuggestion*>*)> conversion_callback =
       base::BindOnce(
           [](base::OnceCallback<void(NSArray<NSString*>*)> result_callback,
@@ -219,8 +229,7 @@ void GeminiTabHelper::ExecuteZeroStateSuggestions(
           },
           std::move(callback));
 
-  zero_state_suggestions_service_->FetchZeroStateSuggestions(
-      std::move(conversion_callback));
+  FetchZeroStateSuggestions(std::move(conversion_callback));
 }
 
 bool GeminiTabHelper::ShouldPreventContextualPanelEntryPoint() {
@@ -509,6 +518,9 @@ void GeminiTabHelper::DidFinishNavigation(
   }
 
   const GURL& current_url = navigation_context->GetUrl().GetWithoutRef();
+  if (IsAimURL(current_url)) {
+    base::RecordAction(base::UserMetricsAction("MobileGeminiPromptSent"));
+  }
   if (previous_main_frame_url_ == current_url) {
     return;
   }
@@ -520,7 +532,8 @@ void GeminiTabHelper::DidFinishNavigation(
 
   latest_load_contextual_cueing_metadata_.reset();
 
-  if (!optimization_guide_decider_ || !current_url.SchemeIsHTTPOrHTTPS()) {
+  if (!optimization_guide_decider_ || !current_url.SchemeIsHTTPOrHTTPS() ||
+      IsGeminiInsightsChipAblationEnabled()) {
     return;
   }
 

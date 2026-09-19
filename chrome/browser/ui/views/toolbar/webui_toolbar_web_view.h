@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/views/toolbar/webui_back_forward_control.h"
 #include "chrome/browser/ui/views/toolbar/webui_battery_saver_control.h"
 #include "chrome/browser/ui/views/toolbar/webui_home_control.h"
+#include "chrome/browser/ui/views/toolbar/webui_overflow_button.h"
 #include "chrome/browser/ui/views/toolbar/webui_performance_intervention_control.h"
 #include "chrome/browser/ui/views/toolbar/webui_pinned_toolbar_actions.h"
 #include "chrome/browser/ui/views/toolbar/webui_reload_control.h"
@@ -47,6 +48,7 @@ class BrowserWindowInterface;
 class ExtensionsContainerViews;
 class MediaToolbarButton;
 class WebUILocationBar;
+class WebUIOverflowButton;
 class WebUIToolbarUI;
 class WebUIToolbarInternalWebView;
 
@@ -124,6 +126,8 @@ class WebUIToolbarControlDelegate {
   virtual void OnFocusRequested(
       toolbar_ui_api::mojom::FocusRequestTarget target) = 0;
 
+  virtual void OverflowButtonClicked(ui::ElementIdentifier identifier) = 0;
+
   virtual std::optional<GURL> ConsumeDroppedUrl(
       const gfx::PointF& drop_position) = 0;
 
@@ -169,10 +173,18 @@ class WebUIToolbarWebView
   const WebUIAppMenuControl* GetAppMenuControl() const {
     return &app_menu_control_;
   }
+  WebUIOverflowButton& overflow_button_for_testing() {
+    return overflow_button_;
+  }
 
   void SetIsMaximizedOrFullscreen(bool maximized_or_fullscreen);
   void SetBackForwardEnabled(int command_id, bool enabled);
   void SetForwardVisible(bool visible);
+
+  // Cleans up UI dependencies and destroys the hosted WebContents.
+  // Called early during window teardown (forwarded via
+  // ToolbarView::DestroyWebUIToolbarWebContents) as well as in the destructor.
+  void DestroyWebContents();
 
   // May be nullptr.
   WebUILocationBar* GetLocationBar() { return location_bar_.get(); }
@@ -188,11 +200,18 @@ class WebUIToolbarWebView
   std::unique_ptr<toolbar_ui_api::IconTableFetcher> GetIconTableFetcher()
       override;
   CommandUpdater* GetCommandUpdater() override;
+  OmniboxController* GetOmniboxController() override;
 
   // ToolbarUIService::ToolbarUIServiceDelegate:
   void HandleContextMenu(toolbar_ui_api::mojom::ContextMenuType menu_type,
                          const gfx::RectF& bounds_in_css_pixels,
                          ui::mojom::MenuSourceType source) override;
+  void ShowOverflowMenu(
+      std::vector<toolbar_ui_api::mojom::OverflowMenuItemPtr> controls,
+      const gfx::RectF& bounds_in_css_pixels,
+      ui::mojom::MenuSourceType source,
+      toolbar_ui_api::mojom::ToolbarUIService::ShowOverflowMenuCallback
+          callback) override;
   void ShowContentSettingsBubble(
       ::toolbar_ui_api::mojom::ContentSettingImageType type,
       bool is_pointer_interaction,
@@ -200,6 +219,10 @@ class WebUIToolbarWebView
           callback) override;
   void OnContentSettingImagePointerDown(
       ::toolbar_ui_api::mojom::ContentSettingImageType type) override;
+  void OnContentSettingImageAnimationEnded(
+      ::toolbar_ui_api::mojom::ContentSettingImageType type) override;
+  void OnPageActionPointerDown(
+      ::toolbar_ui_api::mojom::PageActionId action_id) override;
   void OnPageActionClick(
       ::toolbar_ui_api::mojom::PageActionId action_id,
       ::toolbar_ui_api::mojom::PageActionTrigger trigger,
@@ -224,7 +247,8 @@ class WebUIToolbarWebView
   void MoveExtensionActionBy(const std::string& extension_id,
                              int32_t delta) override;
   void OnLhsChipMousePressed(
-      toolbar_ui_api::mojom::LhsChipIdentifier identifier) override;
+      toolbar_ui_api::mojom::LhsChipIdentifier identifier,
+      bool is_middle_click) override;
   void OnLhsChipClicked(toolbar_ui_api::mojom::LhsChipIdentifier identifier,
                         bool is_mouse_interaction) override;
   void OnLhsChipPointerEntered(
@@ -270,6 +294,7 @@ class WebUIToolbarWebView
       const views::SizeBounds& available_size) const override;
   void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
   void PreferredSizeChanged() override;
+  void OnBlur() override;
 
   // content::WebContentsObserver:
   void DidStartNavigation(
@@ -545,6 +570,11 @@ class WebUIToolbarWebView
   bool RuleEnabledPredicate(int current_flex_order,
                             const views::SizeBounds& bounds);
 
+  // Converts bounding rectangle coordinates in CSS pixels relative to the
+  // viewport origin into absolute screen rectangle coordinates in DIPs.
+  gfx::Rect ConvertBoundsFromCssPixelsToScreenCoords(
+      const gfx::RectF& bounds_in_css_pixels) const;
+
   // Whether all controls are being managed by WebUI.
   const bool is_webui_toolbar_fully_enabled_ =
       features::IsWebUIToolbarFullyEnabled();
@@ -591,6 +621,7 @@ class WebUIToolbarWebView
   WebUIBackForwardControl back_control_;
   WebUIBackForwardControl forward_control_;
   WebUIPinnedToolbarActions pinned_toolbar_actions_;
+  WebUIOverflowButton overflow_button_;
 
   raw_ptr<const base::TickClock> clock_;
   base::OnceClosure did_first_non_empty_paint_callback_;

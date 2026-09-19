@@ -47,6 +47,7 @@
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
+#include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/loader/frame_load_request.h"
@@ -54,6 +55,7 @@
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/weborigin/scheme_registry.h"
@@ -80,6 +82,8 @@ WebWindowFeatures GetWindowFeaturesFromString(const String& feature_string,
 
   const bool explicit_opener_enabled =
       RuntimeEnabledFeatures::RelOpenerBcgDependencyHintEnabled(dom_window);
+  const bool always_on_top_enabled =
+      RuntimeEnabledFeatures::WindowOpenAlwaysOnTopEnabled();
 
   // This code follows the HTML spec, specifically
   // https://html.spec.whatwg.org/C/#concept-window-open-features-tokenize
@@ -165,9 +169,14 @@ WebWindowFeatures GetWindowFeaturesFromString(const String& feature_string,
           StringToInt(value_string, NumberParsingOptions::Loose()).value_or(0);
     }
 
+    const bool attribution_reporting_enabled =
+        dom_window &&
+        RuntimeEnabledFeatures::AttributionReportingEnabled(dom_window);
+
     if (!ui_features_were_disabled && key_string != "noopener" &&
         (!explicit_opener_enabled || key_string != "opener") &&
-        key_string != "noreferrer") {
+        key_string != "noreferrer" &&
+        (!attribution_reporting_enabled || key_string != "attributionsrc")) {
       ui_features_were_disabled = true;
       menu_bar = false;
       status_bar = false;
@@ -206,10 +215,16 @@ WebWindowFeatures GetWindowFeaturesFromString(const String& feature_string,
       window_features.explicit_opener = value;
     } else if (key_string == "noreferrer") {
       window_features.noreferrer = value;
+    } else if (always_on_top_enabled && key_string == "alwaysontop") {
+      window_features.always_on_top = value;
     } else if (key_string == "background") {
       window_features.background = true;
     } else if (key_string == "persistent") {
       window_features.persistent = true;
+    } else if (attribution_reporting_enabled &&
+               key_string == "attributionsrc") {
+      UseCounter::Count(dom_window,
+                        mojom::blink::WebFeature::kAttributionReportingAPIAll);
     }
   }
 

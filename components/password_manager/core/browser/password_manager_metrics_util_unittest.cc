@@ -488,6 +488,73 @@ INSTANTIATE_TEST_SUITE_P(
             /*success=*/false,
         },
     }));
+
+TEST(PasswordManagerMetricsUtil,
+     LogSaveUIDismissalReasonWithSavingBlockedError) {
+  base::HistogramTester histogram_tester;
+
+  LogSaveUIDismissalReason(
+      CLICKED_ACCEPT, /*user_state=*/std::nullopt,
+      /*log_adoption_metric=*/false,
+      /*saving_blocked_error=*/ActionableError::kTrustedVaultKeyNeeded);
+  LogSaveUIDismissalReason(
+      CLICKED_ACCEPT, /*user_state=*/std::nullopt,
+      /*log_adoption_metric=*/false,
+      /*saving_blocked_error=*/ActionableError::kSignInNeeded);
+  LogSaveUIDismissalReason(
+      CLICKED_ACCEPT, /*user_state=*/std::nullopt,
+      /*log_adoption_metric=*/false,
+      /*saving_blocked_error=*/ActionableError::kNeedsPassphrase);
+
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.SaveUIDismissalReason.TrustedVaultError", CLICKED_ACCEPT,
+      1);
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.SaveUIDismissalReason.PendingSignInError",
+      CLICKED_ACCEPT, 1);
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.SaveUIDismissalReason.PassphraseRequiredError",
+      CLICKED_ACCEPT, 1);
+  histogram_tester.ExpectBucketCount("PasswordManager.SaveUIDismissalReason",
+                                     CLICKED_ACCEPT, 3);
+}
+
+TEST(PasswordManagerMetricsUtil, LogSaveWithTrustedVaultErrorOutcome) {
+  base::HistogramTester histogram_tester;
+
+  LogSaveWithTrustedVaultErrorOutcome(
+      SaveWithTrustedVaultErrorOutcome::kSavedSuccessfully);
+  LogSaveWithTrustedVaultErrorOutcome(
+      SaveWithTrustedVaultErrorOutcome::kMessageTimedOut);
+  LogSaveWithTrustedVaultErrorOutcome(
+      SaveWithTrustedVaultErrorOutcome::kUserDismissedPrompt);
+  LogSaveWithTrustedVaultErrorOutcome(
+      SaveWithTrustedVaultErrorOutcome::kDeviceLockCanceled);
+  LogSaveWithTrustedVaultErrorOutcome(
+      SaveWithTrustedVaultErrorOutcome::kNewStoreError);
+  LogSaveWithTrustedVaultErrorOutcome(
+      SaveWithTrustedVaultErrorOutcome::kNeverForThisSite);
+
+  histogram_tester.ExpectBucketCount(
+      "PasswordManager.SaveWithTrustedVaultError.Outcome",
+      SaveWithTrustedVaultErrorOutcome::kSavedSuccessfully, 1);
+  histogram_tester.ExpectBucketCount(
+      "PasswordManager.SaveWithTrustedVaultError.Outcome",
+      SaveWithTrustedVaultErrorOutcome::kMessageTimedOut, 1);
+  histogram_tester.ExpectBucketCount(
+      "PasswordManager.SaveWithTrustedVaultError.Outcome",
+      SaveWithTrustedVaultErrorOutcome::kUserDismissedPrompt, 1);
+  histogram_tester.ExpectBucketCount(
+      "PasswordManager.SaveWithTrustedVaultError.Outcome",
+      SaveWithTrustedVaultErrorOutcome::kDeviceLockCanceled, 1);
+  histogram_tester.ExpectBucketCount(
+      "PasswordManager.SaveWithTrustedVaultError.Outcome",
+      SaveWithTrustedVaultErrorOutcome::kNewStoreError, 1);
+  histogram_tester.ExpectBucketCount(
+      "PasswordManager.SaveWithTrustedVaultError.Outcome",
+      SaveWithTrustedVaultErrorOutcome::kNeverForThisSite, 1);
+}
+
 }  // namespace
 
 }  // namespace password_manager::metrics_util

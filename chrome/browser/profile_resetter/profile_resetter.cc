@@ -45,12 +45,14 @@
 #include "components/language/core/browser/language_prefs.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "components/search_engines/enterprise/enterprise_search_manager.h"
 #include "components/search_engines/search_engines_pref_names.h"
 #include "components/search_engines/template_url_prepopulate_data.h"
 #include "components/search_engines/template_url_service.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/browsing_data_remover.h"
+#include "content/public/browser/storage_partition.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/management_policy.h"
@@ -265,6 +267,10 @@ void ProfileResetter::ResetDefaultSearchEngine() {
     template_url_service_->RepairPrepopulatedSearchEngines();
     template_url_service_->RepairStarterPackEngines();
     template_url_service_->RemoveUserAddedTemplateURLs();
+    // Clearing user overrides restores recommended policy-defined site search
+    // engines that were deleted or modified by the user.
+    prefs->ClearPref(
+        EnterpriseSearchManager::kSiteSearchSettingsOverriddenKeywordsPrefName);
 
     MarkAsDone(DEFAULT_SEARCH_ENGINE);
   } else {
@@ -324,6 +330,11 @@ void ProfileResetter::ResetContentSettings() {
           FileSystemAccessPermissionContextFactory::GetForProfile(profile_)) {
     permission_context->RevokeAllActiveGrants();
   }
+
+  profile_->ForEachLoadedStoragePartition(
+      [](content::StoragePartition* partition) {
+        partition->ClearBluetoothAllowedDevicesMap();
+      });
 
   MarkAsDone(CONTENT_SETTINGS);
 }

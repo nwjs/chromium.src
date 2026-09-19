@@ -38,8 +38,6 @@ export interface SettingsSyncAccountControlElement {
 }
 // </if>
 
-export type SyncAccountControlElement = SettingsSyncAccountControlElement;
-
 // Helper enum to determine which promo type the app should display. Used in the
 // CSS styling, where the string literals are used for attributes matching.
 enum PromoType {
@@ -165,7 +163,7 @@ export class SettingsSyncAccountControlElement extends
   // </if>
   private syncBrowserProxy_: SyncBrowserProxy =
       SyncBrowserProxyImpl.getInstance();
-  protected accessor promoType_: PromoType = PromoType.SYNC;
+  protected accessor promoType_: PromoType = PromoType.SIGNIN;
 
   override connectedCallback() {
     super.connectedCallback();
@@ -184,10 +182,12 @@ export class SettingsSyncAccountControlElement extends
     this.addWebUiListener(
         'profile-avatar-changed', this.handleUpdateAvatar_.bind(this));
 
+    // <if expr="is_chromeos">
     this.promoType_ =
         loadTimeData.getBoolean('replaceSyncPromosWithSignInPromos') ?
         PromoType.SIGNIN :
         PromoType.SYNC;
+    // </if>
   }
 
   override willUpdate(changedProperties: PropertyValues<this>) {
@@ -223,8 +223,7 @@ export class SettingsSyncAccountControlElement extends
       }
     }
 
-    if (changedProperties.has('syncStatus') ||
-        changedPrivateProperties.has('promoType_')) {
+    if (changedProperties.has('syncStatus')) {
       const shouldShowSignInPromo = this.computeShouldShowSignInPromo_();
       if (this.shouldShowSignInPromo_ !== shouldShowSignInPromo) {
         this.shouldShowSignInPromo_ = shouldShowSignInPromo;
@@ -521,30 +520,6 @@ export class SettingsSyncAccountControlElement extends
         assertNotReachedCase(
             this.syncStatus.signedInState, 'Invalid SignedInState');
     }
-  }
-
-  /**
-   * Determines whether the sync button should be hidden, in the case where
-   * `replaceSyncPromosWithSignInPromos` is enabled, the user has sync enabled,
-   * is in sign in paused, or if the property to hide the banner was explicitly
-   * set.
-   */
-  protected shouldHideSyncButton_(): boolean {
-    if (this.promoType_ === PromoType.SIGNIN) {
-      return true;
-    }
-
-    if (this.syncStatus.signedInState === SignedInState.WEB_ONLY_SIGNED_IN) {
-      return true;
-    }
-
-    if (this.syncStatus.statusAction !== StatusAction.NO_ACTION) {
-      return true;
-    }
-
-    return !!this.syncStatus &&
-        (this.isSyncing_() ||
-         this.syncStatus.signedInState === SignedInState.SIGNED_IN_PAUSED);
   }
 
   protected shouldShowTurnOffButton_(): boolean {

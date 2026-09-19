@@ -8,8 +8,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.chromium.net.truth.UrlResponseInfoSubject.assertThat;
 
-import android.os.Build;
-
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 
@@ -36,22 +34,10 @@ import org.chromium.net.CronetTestRule.IgnoreFor;
         reason = "Fallback does not support H2")
 @DoNotBatch(reason = "crbug/1459563")
 public class CronetUrlRequestH2Test {
-    private static final String TAG = CronetUrlRequestH2Test.class.getSimpleName();
-
     @Rule public final CronetTestRule mTestRule = CronetTestRule.withManualEngineStartup();
 
     @Before
     public void setUp() throws Exception {
-        // TODO(crbug/1490552): Fallback to MockCertVerifier when custom CAs are not supported.
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.M) {
-            mTestRule
-                    .getTestFramework()
-                    .applyEngineBuilderPatch(
-                            (builder) -> {
-                                CronetTestUtil.setMockCertVerifierForTesting(
-                                        builder, QuicTestServer.createMockCertVerifier());
-                            });
-        }
         assertThat(Http2TestServer.startHttp2TestServer(mTestRule.getTestFramework().getContext()))
                 .isTrue();
         mTestRule.getTestFramework().startEngine();

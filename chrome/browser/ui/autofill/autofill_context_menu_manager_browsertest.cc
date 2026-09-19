@@ -27,7 +27,8 @@
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_test_util.h"
 #include "chrome/browser/signin/signin_browser_test_base.h"
 #include "chrome/browser/sync/sync_service_factory.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/testing_profile.h"
@@ -38,7 +39,7 @@
 #include "components/autofill/core/browser/foundations/autofill_manager_test_api.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #include "components/autofill/core/browser/foundations/test_autofill_manager_waiter.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_data_test_api.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
@@ -52,6 +53,7 @@
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
 #include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
+#include "components/password_manager/core/browser/password_string.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/personal_context/core/mock_personal_context_eligibility_service.h"
 #include "components/personal_context/core/personal_context_prefs.h"
@@ -260,7 +262,7 @@ class BaseAutofillContextMenuManagerTest : public InProcessBrowserTest {
   }
 
   virtual content::WebContents* web_contents() const {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   virtual Profile* profile() { return browser()->GetProfile(); }
@@ -539,7 +541,7 @@ IN_PROC_BROWSER_TEST_P(PasswordManualFallbackTest,
   password_manager::PasswordStoreWaiter add_waiter(password_store);
   password_manager::PasswordForm existing_form;
   existing_form.username_value = u"username";
-  existing_form.password_value = u"password";
+  existing_form.password_value = password_manager::PasswordString(u"password");
   existing_form.signon_realm = "http://test.com";
   existing_form.url = GURL(existing_form.signon_realm);
   password_store->AddLogin(password_manager::FromPasswordForm(existing_form));
@@ -899,7 +901,7 @@ class PasswordsFallbackWithGuestProfileTest : public PasswordsFallbackTestBase {
   }
 
   content::WebContents* web_contents() const override {
-    return guest_browser_->tab_strip_model()->GetActiveWebContents();
+    return guest_browser_->GetTabStripModel()->GetActiveWebContents();
   }
 
   Profile* profile() override { return guest_browser_->GetProfile(); }
@@ -912,7 +914,7 @@ class PasswordsFallbackWithGuestProfileTest : public PasswordsFallbackTestBase {
 #endif
 
  private:
-  raw_ptr<Browser> guest_browser_ = nullptr;
+  raw_ptr<BrowserWindowInterface> guest_browser_ = nullptr;
 };
 
 // When filling is disabled (for example in guest profiles), manual fallback
@@ -958,7 +960,7 @@ class SelectPasswordFallbackMetricsTest
     password_manager::PasswordStoreWaiter add_waiter(password_store);
     password_manager::PasswordForm form;
     form.username_value = u"username";
-    form.password_value = u"password";
+    form.password_value = password_manager::PasswordString(u"password");
     form.signon_realm = "http://example.com";
     form.url = GURL(form.signon_realm);
     password_store->AddLogin(password_manager::FromPasswordForm(form));
@@ -1069,8 +1071,8 @@ class AtMemoryContextMenuManagerTest
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-// Checks if the context menu model contains the @memory manual fallback entries
-// with correct UI strings. `arg` must be of type `ui::SimpleMenuModel`.
+// Checks if the context menu model contains the AtMemory manual fallback
+// entries with correct UI strings. `arg` must be of type `ui::SimpleMenuModel`.
 testing::AssertionResult ContainsAtMemoryFallback(
     const ui::SimpleMenuModel& arg) {
   for (size_t i = 0; i < arg.GetItemCount(); i++) {
@@ -1108,7 +1110,7 @@ IN_PROC_BROWSER_TEST_F(AtMemoryContextMenuManagerTest,
   form.signon_realm = "http://test.com";
   form.url = GURL(form.signon_realm);
   form.username_value = u"username";
-  form.password_value = u"password";
+  form.password_value = password_manager::PasswordString(u"password");
   password_store->AddLogin(password_manager::FromPasswordForm(form));
   add_waiter.WaitOrReturn();
 
@@ -1152,7 +1154,8 @@ IN_PROC_BROWSER_TEST_F(AtMemoryContextMenuManagerTest,
   ASSERT_FALSE(ContainsAtMemoryFallback(*menu_model()));
 }
 
-// Checks if the context menu model contains ONLY @memory manual fallback entry.
+// Checks if the context menu model contains ONLY AtMemory manual fallback
+// entry.
 testing::AssertionResult ContainsOnlyAtMemoryFallback(
     const ui::SimpleMenuModel& arg) {
   if (arg.GetItemCount() != 2) {

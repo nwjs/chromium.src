@@ -11,12 +11,13 @@
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/logging/stub_log_manager.h"
 #include "components/autofill/core/browser/proto/server.pb.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_data_test_api.h"
 #include "components/autofill/core/common/save_password_progress_logger.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/password_manager/core/browser/password_form.h"
+#include "components/password_manager/core/browser/password_string.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -158,7 +159,7 @@ TEST(SavePasswordProgressLoggerTest, LogPasswordForm) {
   PasswordForm form;
   form.action = GURL("http://example.org/verysecret?verysecret");
   form.password_element = u"pwdelement";
-  form.password_value = u"verysecret";
+  form.password_value = PasswordString(u"verysecret");
   form.username_value = u"verysecret";
   logger.LogPasswordForm(Logger::STRING_MESSAGE, form);
   SCOPED_TRACE(testing::Message()

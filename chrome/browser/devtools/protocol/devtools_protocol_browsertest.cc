@@ -45,6 +45,7 @@
 #include "components/infobars/content/content_infobar_manager.h"
 #include "components/infobars/core/infobar.h"
 #include "components/infobars/core/infobar_delegate.h"
+#include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations.h"
 #include "components/services/app_service/public/cpp/app_launch_params.h"
 #include "content/public/browser/btm_redirect.h"
@@ -60,6 +61,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/btm_service_test_utils.h"
+#include "content/public/test/download_test_observer.h"
 #include "content/public/test/preloading_test_util.h"
 #include "content/public/test/prerender_test_util.h"
 #include "net/base/ip_address.h"
@@ -187,6 +189,72 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, CreateDeleteContext) {
     params.Set("browserContextId", context_id);
     SendCommandSync("Target.disposeBrowserContext", std::move(params));
   }
+}
+
+IN_PROC_BROWSER_TEST_F(
+    DevToolsProtocolTest,
+    DownloadBehaviorOverridesRemainIndependentAcrossBrowserContexts) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const GURL download_url =
+      embedded_test_server()->GetURL("/download-test1.lib");
+
+  AttachToBrowserTarget();
+  const base::DictValue* result =
+      SendCommandSync("Target.createBrowserContext");
+  ASSERT_TRUE(result);
+  const std::string* browser_context_id =
+      result->FindString("browserContextId");
+  ASSERT_TRUE(browser_context_id);
+  const std::string context_id = *browser_context_id;
+
+  content::TestDevToolsProtocolClient older_client;
+  older_client.AttachToBrowserTarget();
+  base::DictValue params;
+  params.Set("behavior", "deny");
+  ASSERT_TRUE(older_client.SendCommandSync("Browser.setDownloadBehavior",
+                                           params.Clone()));
+  // Replacing an override for the same context must not let the old handle
+  // reset the replacement.
+  ASSERT_TRUE(older_client.SendCommandSync("Browser.setDownloadBehavior",
+                                           params.Clone()));
+  params.Set("browserContextId", context_id);
+  ASSERT_TRUE(older_client.SendCommandSync("Browser.setDownloadBehavior",
+                                           std::move(params)));
+
+  {
+    content::DownloadTestObserverTerminal observer(
+        browser()->GetProfile()->GetDownloadManager(), 1,
+        content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_FAIL);
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), download_url));
+    observer.WaitForFinished();
+    EXPECT_EQ(1u, observer.NumDownloadsSeenInState(
+                      download::DownloadItem::CANCELLED));
+  }
+
+  content::TestDevToolsProtocolClient newer_client;
+  newer_client.AttachToBrowserTarget();
+  params = base::DictValue();
+  params.Set("behavior", "deny");
+  ASSERT_TRUE(newer_client.SendCommandSync("Browser.setDownloadBehavior",
+                                           std::move(params)));
+
+  params = base::DictValue();
+  params.Set("browserContextId", context_id);
+  ASSERT_TRUE(
+      SendCommandSync("Target.disposeBrowserContext", std::move(params)));
+  older_client.DetachProtocolClient();
+
+  {
+    content::DownloadTestObserverTerminal observer(
+        browser()->GetProfile()->GetDownloadManager(), 1,
+        content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_FAIL);
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), download_url));
+    observer.WaitForFinished();
+    EXPECT_EQ(1u, observer.NumDownloadsSeenInState(
+                      download::DownloadItem::CANCELLED));
+  }
+
+  newer_client.DetachProtocolClient();
 }
 
 IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
@@ -893,6 +961,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, CreateListDisposeBrowserContext) {
   EXPECT_FALSE(browser_context_ids->contains(first_context_id));
   EXPECT_FALSE(browser_context_ids->contains(second_context_id));
 }
+
 #endif  // BUILDFLAG(IS_ANDROID)
 
 IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
@@ -2968,6 +3037,33 @@ IN_PROC_BROWSER_TEST_F(IsolatedWebMulticastSocketsTest,
 
   Detach();
   agent_host_ = nullptr;
+}
+
+IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, GetAnnotatedPageContent) {
+  constexpr char kPageUrl[] =
+      "data:text/html,<body><h1>Hello APC</h1>"
+      "<p>Test paragraph</p></body>";
+  ASSERT_TRUE(content::NavigateToURL(
+      chrome_test_utils::GetActiveWebContents(this), GURL(kPageUrl)));
+  EXPECT_TRUE(content::WaitForLoadStop(web_contents()));
+
+  Attach();
+  base::DictValue params;
+  params.Set("includeActionableInformation", true);
+  const base::DictValue* result =
+      SendCommandSync("Page.getAnnotatedPageContent", std::move(params));
+  ASSERT_TRUE(result);
+  // Page.pdl defines "content" as a binary parameter. It contains the
+  // base64-encoded serialized AnnotatedPageContent protobuf.
+  const std::string* content_base64 = result->FindString("content");
+  ASSERT_TRUE(content_base64);
+  EXPECT_FALSE(content_base64->empty());
+
+  std::string decoded_proto;
+  ASSERT_TRUE(base::Base64Decode(*content_base64, &decoded_proto));
+  optimization_guide::proto::AnnotatedPageContent apc;
+  ASSERT_TRUE(apc.ParseFromString(decoded_proto));
+  EXPECT_TRUE(apc.has_root_node());
 }
 
 #endif  // !BUILDFLAG(IS_ANDROID)

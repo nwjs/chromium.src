@@ -112,7 +112,7 @@ void FrameHeader::FrameAnimatorView::StartAnimation(base::TimeDelta duration) {
   old_layer->SetTransform(gfx::Transform());
   // Layer in maximized / fullscreen / snapped state is set to
   // opaque, which can prevent resterizing the new layer immediately.
-  if (old_layer->type() != ui::LAYER_SOLID_COLOR) {
+  if (!old_layer->AsSolidColor()) {
     old_layer->SetFillsBoundsOpaquely(false);
   }
 
@@ -486,8 +486,13 @@ void FrameHeader::LayoutHeaderInternal() {
 
   caption_button_container()->UpdateButtonsImageAndTooltip();
 
-  caption_button_container()->SetButtonSize(
-      views::GetCaptionButtonLayoutSize(GetButtonLayoutSize()));
+  gfx::Size button_size =
+      views::GetCaptionButtonLayoutSize(GetButtonLayoutSize());
+  // Ensure buttons fill custom header height if larger than standard size.
+  if (painted_height_ > button_size.height()) {
+    button_size.set_height(painted_height_);
+  }
+  caption_button_container()->SetButtonSize(button_size);
 
   const gfx::Size caption_button_container_size =
       caption_button_container()->GetPreferredSize({});

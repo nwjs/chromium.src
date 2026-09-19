@@ -26,6 +26,9 @@ BASE_FEATURE(kAimServerEligibilitySendCoBrowseUserAgentSuffixEnabled,
 BASE_FEATURE(kAimServerEligibilitySendFullVersionListEnabled,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kAimServerEligibilitySendSearchCapabilitiesHeaderEnabled,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kAimServerEligibilityCustomRetryPolicyEnabled,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -48,6 +51,8 @@ const base::FeatureParam<bool> kRequestOnPrimaryAccountChanges{
     "request_on_primary_account_changes", true};
 
 BASE_FEATURE(kAimUsePecApi, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAimUseSearchboxConfigIconIds, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAimServerEligibilityIncludeClientLocale,
              base::FEATURE_ENABLED_BY_DEFAULT);

@@ -104,6 +104,14 @@ class ThemeService : public KeyedService,
       Profile* profile,
       BrowserThemeProviderDelegate* delegate);
 
+  // Displays the theme installed infobar for `profile` on the last active tab
+  // using the modern centralized infobar framework.
+  static void ShowThemeInstalledInfoBar(
+      Profile* profile,
+      const std::string& theme_name,
+      const std::string& theme_id,
+      std::unique_ptr<ThemeReinstaller> prev_theme_reinstaller);
+
   static void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
 
   ThemeService(Profile* profile, const ThemeHelper& theme_helper);
@@ -182,8 +190,8 @@ class ThemeService : public KeyedService,
   virtual ThemeSyncableService* GetThemeSyncableService() const;
 
   // Gets the ThemeProvider for |profile|. This will be different for an
-  // incognito profile and its original profile, even though both profiles use
-  // the same ThemeService.
+  // incognito or isolated profile and its original profile, even though all
+  // profiles use the same ThemeService.
   //
   // Before using this function, consider if the caller is in a rooted UI tree.
   // If it is, strongly favor referring to the conceptual roots for a

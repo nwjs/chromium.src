@@ -9,6 +9,7 @@
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "components/enterprise/browser/controller/fake_browser_dm_token_storage.h"
+#include "components/enterprise/browser/reporting/saas_usage/saas_usage_reporting_delegate_factory.h"
 #include "components/enterprise/client_certificates/core/certificate_provisioning_service.h"
 #include "components/enterprise/client_certificates/core/features.h"
 #include "components/policy/core/browser/browser_policy_connector_base.h"
@@ -163,17 +164,10 @@ TEST_F(ChromeBrowserCloudManagementControllerAndroidTest, DeferInitialization) {
 }
 
 TEST_F(ChromeBrowserCloudManagementControllerAndroidTest,
-       CreateCertificateProvisioningService_FeatureDisabled) {
+       GetSaasUsageReportingDelegateFactory) {
   ChromeBrowserCloudManagementControllerAndroid delegate;
-  // The test setup using TestingBrowserProcess provides the necessary
-  // dependencies like local_state and a device_management_service, so the
-  // service should be created successfully.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      client_certificates::features::
-          kEnableClientCertificateProvisioningOnAndroid);
-  auto service = delegate.CreateCertificateProvisioningService();
-  EXPECT_EQ(service, nullptr);
+  auto factory = delegate.GetSaasUsageReportingDelegateFactory();
+  EXPECT_NE(factory, nullptr);
 }
 
 }  // namespace policy

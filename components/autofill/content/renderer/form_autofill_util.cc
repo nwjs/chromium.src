@@ -277,10 +277,8 @@ bool IsTextInput(const WebFormControlElement& element) {
   }
   switch (*type) {
     case FormControlType::kContentEditable:
-    case FormControlType::kInputCheckbox:
     case FormControlType::kInputMonth:
     case FormControlType::kInputDate:
-    case FormControlType::kInputRadio:
     case FormControlType::kSelectOne:
     case FormControlType::kTextArea:
       return false;
@@ -298,20 +296,6 @@ bool IsTextInput(const WebFormControlElement& element) {
 
 bool IsSelectElement(const WebFormControlElement& element) {
   return GetAutofillFormControlType(element) == FormControlType::kSelectOne;
-}
-
-// TODO(crbug.com/402071086): Remove when AutofillIgnoreCheckableElements is
-// removed.
-bool IsCheckableElement(const WebFormControlElement& element) {
-  using enum blink::mojom::FormControlType;
-  return element && (element.FormControlTypeForAutofill() == kInputCheckbox ||
-                     element.FormControlTypeForAutofill() == kInputRadio);
-}
-
-// TODO(crbug.com/402071086): Remove when AutofillIgnoreCheckableElements is
-// removed.
-bool IsCheckableElement(const WebElement& element) {
-  return IsCheckableElement(element.DynamicTo<WebInputElement>());
 }
 
 // Returns true if |node| is an element and it is a container type that
@@ -1066,11 +1050,6 @@ std::optional<InferredLabel> InferLabelFromAncestors(
 // string if it could not find a label for `element`.
 std::optional<InferredLabel> InferLabelForElement(
     const WebFormControlElement& element) {
-  if (IsCheckableElement(element)) {
-    if (auto r = InferLabelFromNext(element)) {
-      return r;
-    }
-  }
   if (auto r = InferLabelFromPrevious(element)) {
     return r;
   }
@@ -1282,7 +1261,6 @@ bool ShouldSkipFillField(const FormFieldData::FillData& field,
   // some synthetic select element use a hidden select element.
   if (!IsAccessible(element) || !IsAutofillableElement(element) ||
       !element.IsEnabled() || element.IsReadOnly() ||
-      IsCheckableElement(element) ||
       (!element.IsFocusable() && !IsSelectElement(element))) {
     base::UmaHistogramEnumeration(kSkipReasonHistogram,
                                   SkipReason::kUnfillable);
@@ -1350,9 +1328,6 @@ void FillFormField(const FormFieldData::FillData& data,
     return;
   }
   switch (*type) {
-    case FormControlType::kInputCheckbox:
-    case FormControlType::kInputRadio:
-      return;
     case FormControlType::kContentEditable:
       NOTREACHED();
     case FormControlType::kInputDate:
@@ -1423,9 +1398,6 @@ void PreviewFormField(const FormFieldData::FillData& data,
     return;
   }
   switch (*type) {
-    case FormControlType::kInputCheckbox:
-    case FormControlType::kInputRadio:
-      return;
     case FormControlType::kContentEditable:
       NOTREACHED();
     case FormControlType::kInputDate:
@@ -1641,7 +1613,7 @@ bool IsWebElementVisible(const WebElement& element) {
     return size.width() >= kMinPixelSize && size.height() >= kMinPixelSize;
   };
   return element && element.IsFocusable() &&
-         (IsCheckableElement(element) || HasMinSize(element.GetClientSize()) ||
+         (HasMinSize(element.GetClientSize()) ||
           HasMinSize(element.GetScrollSize()));
 }
 
@@ -2058,8 +2030,6 @@ void WebFormControlElementToFormField(
   field->set_is_readonly(element.IsReadOnly());
 
   if (auto input_element = element.DynamicTo<WebInputElement>()) {
-    SetCheckStatus(field, IsCheckableElement(input_element),
-                   input_element.IsChecked());
     // TODO(crbug.com/316143236): Remove this metric once debugging is complete.
     base::UmaHistogramEnumeration(
         "Autofill.DataList.Events",
@@ -2346,37 +2316,17 @@ std::optional<FormControlType> GetAutofillFormControlType(
   if (!element) {
     return std::nullopt;
   }
-  // We cache this for performance reasons (crbug.com/428506178). This should
-  // not affect tests because the only tests that explicitly set the feature are
-  // two browser tests (form_autofill_util_browsertest.cc and
-  // form_structure_browsertest.cc) whose renderer processes are hopefully never
-  // shared with other tests.
-  static const bool g_autofill_ignore_checkable_elements_enabled =
-      base::FeatureList::IsEnabled(features::kAutofillIgnoreCheckableElements);
-
   // Note that adding a new field type here automatically makes
   // IsAutofillableElement() return true.
   switch (element.FormControlTypeForAutofill()) {
-    case blink::mojom::FormControlType::kInputCheckbox:
-      if (!g_autofill_ignore_checkable_elements_enabled) {
-        return FormControlType::kInputCheckbox;
-      }
-      break;
     case blink::mojom::FormControlType::kInputEmail:
       return FormControlType::kInputEmail;
-    case blink::mojom::FormControlType::kInputHidden:
-      break;
     case blink::mojom::FormControlType::kInputMonth:
       return FormControlType::kInputMonth;
     case blink::mojom::FormControlType::kInputNumber:
       return FormControlType::kInputNumber;
     case blink::mojom::FormControlType::kInputPassword:
       return FormControlType::kInputPassword;
-    case blink::mojom::FormControlType::kInputRadio:
-      if (!g_autofill_ignore_checkable_elements_enabled) {
-        return FormControlType::kInputRadio;
-      }
-      break;
     case blink::mojom::FormControlType::kInputSearch:
       return FormControlType::kInputSearch;
     case blink::mojom::FormControlType::kInputTelephone:
@@ -2397,10 +2347,13 @@ std::optional<FormControlType> GetAutofillFormControlType(
     case blink::mojom::FormControlType::kButtonPopover:
     case blink::mojom::FormControlType::kFieldset:
     case blink::mojom::FormControlType::kInputButton:
+    case blink::mojom::FormControlType::kInputCheckbox:
     case blink::mojom::FormControlType::kInputColor:
     case blink::mojom::FormControlType::kInputDatetimeLocal:
     case blink::mojom::FormControlType::kInputFile:
+    case blink::mojom::FormControlType::kInputHidden:
     case blink::mojom::FormControlType::kInputImage:
+    case blink::mojom::FormControlType::kInputRadio:
     case blink::mojom::FormControlType::kInputRange:
     case blink::mojom::FormControlType::kInputReset:
     case blink::mojom::FormControlType::kInputSubmit:

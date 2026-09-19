@@ -155,6 +155,10 @@ class ProfilePickerHandler : public content::WebUIMessageHandler,
   void OnProfileIsManagedChanged(const base::FilePath& profile_path) override;
   void OnProfileSupervisedUserIdChanged(
       const base::FilePath& profile_path) override;
+  void OnProfileIsGlicEligibleChanged(
+      const base::FilePath& profile_path) override;
+  void OnProfileAiSubscriptionTierUpdated(const base::FilePath& profile_path,
+                                          int tier) override;
 
   // content::WebContentsObserver:
   void DidFirstVisuallyNonEmptyPaint() override;

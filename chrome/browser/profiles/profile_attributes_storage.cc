@@ -947,6 +947,21 @@ void ProfileAttributesStorage::NotifyProfileManagementIdChanged(
   }
 }
 
+void ProfileAttributesStorage::NotifyProfileIsGlicEligibleChanged(
+    const base::FilePath& profile_path) const {
+  for (auto& observer : observer_list_) {
+    observer.OnProfileIsGlicEligibleChanged(profile_path);
+  }
+}
+
+void ProfileAttributesStorage::NotifyProfileAiSubscriptionTierUpdated(
+    const base::FilePath& profile_path,
+    int tier) const {
+  for (auto& observer : observer_list_) {
+    observer.OnProfileAiSubscriptionTierUpdated(profile_path, tier);
+  }
+}
+
 std::string ProfileAttributesStorage::StorageKeyFromProfilePath(
     const base::FilePath& profile_path) const {
   DCHECK_EQ(user_data_dir_, profile_path.DirName());

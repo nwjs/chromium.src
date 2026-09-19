@@ -1440,6 +1440,12 @@ DOMException* AuthenticatorStatusToDOMException(
           DOMExceptionCode::kNotAllowedError,
           "This origin is not permitted to use the "
           "'remoteDesktopClientOverride' extension.");
+    case AuthenticatorStatus::REMOTE_CLIENT_DATA_JSON_INVALID:
+      return MakeGarbageCollected<DOMException>(
+          DOMExceptionCode::kEncodingError,
+          "The 'remoteClientDataJSON' extension input could not be parsed "
+          "as a valid clientDataJSON: missing or invalid 'type', 'origin', "
+          "or 'crossOrigin' field, or the JSON is not well-formed.");
     case AuthenticatorStatus::CERTIFICATE_ERROR:
       return MakeGarbageCollected<DOMException>(
           DOMExceptionCode::kNotAllowedError,
@@ -2529,7 +2535,9 @@ void AuthenticationCredentialsContainer::GetForIdentity(
   auto v8_rp_mode = identity_options.mode();
   rp_mode = mojo::ConvertTo<mojom::blink::RpMode>(v8_rp_mode);
   if (rp_mode == mojom::blink::RpMode::kActive) {
-    if (identity_provider_ptrs.size() > 1u) {
+    if (!blink::RuntimeEnabledFeatures::
+            FedCmActiveModeMultipleIdentityProvidersEnabled(context) &&
+        identity_provider_ptrs.size() > 1u) {
       resolver->Reject(MakeGarbageCollected<DOMException>(
           DOMExceptionCode::kInvalidStateError,
           "Active mode is not currently supported with multiple identity "

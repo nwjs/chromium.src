@@ -14,8 +14,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/resource_coordinator/tab_lifecycle_unit_external.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_sync_service_initialized_observer.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
@@ -152,8 +152,10 @@ MATCHER_P(MatchesTab, expected_url, "") {
 // Creates `num_tabs` tabs and sets their WebContents IDs to match their
 // index with an optional `offset` which is useful if this method is called on
 // multiple browser windows within a single test to prevent duplicate IDs.
-void SetupTabs(Browser* browser, size_t num_tabs, size_t offset = 0u) {
-  TabStripModel* tab_strip_model = browser->tab_strip_model();
+void SetupTabs(BrowserWindowInterface* browser,
+               size_t num_tabs,
+               size_t offset = 0u) {
+  TabStripModel* tab_strip_model = browser->GetTabStripModel();
   ASSERT_TRUE(tab_strip_model);
 
   for (auto i = 0u; i < num_tabs; i++) {
@@ -387,7 +389,7 @@ IN_PROC_BROWSER_TEST_F(TabListBridgeBrowserTest, GetIndexOfTab) {
   EXPECT_EQ(1, tab_list_interface->GetIndexOfTab(tab1->GetHandle()));
   EXPECT_EQ(2, tab_list_interface->GetIndexOfTab(tab2->GetHandle()));
 
-  Browser* new_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* new_browser = CreateBrowser(browser()->GetProfile());
   TabListInterface* new_tab_list_interface = TabListBridge::From(new_browser);
   ASSERT_TRUE(new_tab_list_interface);
 
@@ -523,7 +525,8 @@ IN_PROC_BROWSER_TEST_F(TabListBridgeBrowserTest, MoveTabToWindow) {
   ASSERT_TRUE(source_list_interface);
 
   // Create a second browser.
-  Browser* second_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
   TabListInterface* destination_list_interface =
       TabListInterface::From(second_browser);
   ASSERT_TRUE(destination_list_interface);
@@ -665,11 +668,10 @@ IN_PROC_BROWSER_TEST_F(TabListBridgeBrowserTest,
       /*trusted_source=*/false, gfx::Rect(), browser()->GetProfile(),
       /*user_gesture=*/true);
   // params.window = window2.release();
-  Browser* browser2 =
-      CreateBrowserWindow(std::move(params))->GetBrowserForMigrationOnly();
+  BrowserWindowInterface* browser2 = CreateBrowserWindow(std::move(params));
   ui_test_utils::DeprecatedFakeActivateBrowser(browser2);
 
-  ASSERT_FALSE(browser2->tab_strip_model()->SupportsTabGroups());
+  ASSERT_FALSE(browser2->GetTabStripModel()->SupportsTabGroups());
 
   TabListInterface* tab_list_interface = TabListInterface::From(browser2);
   ASSERT_TRUE(tab_list_interface);
@@ -1164,9 +1166,10 @@ IN_PROC_BROWSER_TEST_F(TabListBridgeBrowserTest, MoveTabGroupToWindow) {
   ASSERT_EQ("0 1 2",
             GetTabStripStateString(source_model, /*annotate_groups=*/true));
 
-  Browser* second_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
   SetupTabs(second_browser, 3, /*offset=*/3);
-  TabStripModel* destination_model = second_browser->tab_strip_model();
+  TabStripModel* destination_model = second_browser->GetTabStripModel();
   ASSERT_TRUE(destination_model);
 
   ASSERT_EQ("3 4 5", GetTabStripStateString(destination_model,
@@ -1201,7 +1204,8 @@ IN_PROC_BROWSER_TEST_F(TabListBridgeBrowserTest,
   // WebContents ID.
   SetupTabs(browser(), 3);
 
-  Browser* second_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
   SetupTabs(second_browser, 3, /*offset=*/3);
 
   TabListInterface* source_list_interface = TabListInterface::From(browser());
@@ -1311,8 +1315,8 @@ IN_PROC_BROWSER_TEST_F(TabListBridgeBrowserTest, Observer_OnTabMoved) {
 IN_PROC_BROWSER_TEST_F(TabListBridgeBrowserTest, IsTabListEditable) {
   // Use two tab lists, which means two browsers.
   Profile* profile = browser()->GetProfile();
-  Browser* browser1 = browser();
-  Browser* browser2 = CreateBrowser(profile);
+  BrowserWindowInterface* browser1 = browser();
+  BrowserWindowInterface* browser2 = CreateBrowser(profile);
 
   TabListInterface* tab_list1 = TabListInterface::From(browser1);
   TabListInterface* tab_list2 = TabListInterface::From(browser2);

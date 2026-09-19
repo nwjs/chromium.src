@@ -85,7 +85,7 @@
 #include "components/autofill/core/browser/foundations/test_autofill_manager_waiter.h"
 #include "components/autofill/core/browser/foundations/test_browser_autofill_manager.h"
 #include "components/autofill/core/browser/foundations/with_test_autofill_client_driver_manager.h"
-#include "components/autofill/core/browser/geo/alternative_state_name_map_test_utils.h"
+#include "components/autofill/core/browser/geo/alternative_state_name_map_test_util.h"
 #include "components/autofill/core/browser/heuristic_source.h"
 #include "components/autofill/core/browser/integrators/at_memory/memory_search_result.h"
 #include "components/autofill/core/browser/integrators/at_memory/mock_at_memory_query_service.h"
@@ -105,7 +105,7 @@
 #include "components/autofill/core/browser/metrics/log_event.h"
 #include "components/autofill/core/browser/metrics/loyalty_cards_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/iban_metrics.h"
-#include "components/autofill/core/browser/metrics/ukm_metrics_test_utils.h"
+#include "components/autofill/core/browser/metrics/ukm_metrics_test_util.h"
 #include "components/autofill/core/browser/ml_model/autofill_ai/mock_autofill_ai_model_cache.h"
 #include "components/autofill/core/browser/ml_model/autofill_ai/mock_autofill_ai_model_executor.h"
 #include "components/autofill/core/browser/payments/amount_extraction_manager.h"
@@ -126,10 +126,10 @@
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_test_helpers.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
-#include "components/autofill/core/browser/test_utils/autofill_form_test_utils.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
-#include "components/autofill/core/browser/test_utils/entity_data_test_utils.h"
-#include "components/autofill/core/browser/test_utils/valuables_data_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_form_test_util.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
+#include "components/autofill/core/browser/test_utils/entity_data_test_util.h"
+#include "components/autofill/core/browser/test_utils/valuables_data_test_util.h"
 #include "components/autofill/core/browser/test_utils/vote_uploads_test_matchers.h"
 #include "components/autofill/core/browser/ui/payments/bubble_show_options.h"
 #include "components/autofill/core/browser/ui/test_autofill_external_delegate.h"
@@ -142,7 +142,7 @@
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/autofill/core/common/autofill_switches.h"
-#include "components/autofill/core/common/autofill_test_utils.h"
+#include "components/autofill/core/common/autofill_test_util.h"
 #include "components/autofill/core/common/autofill_util.h"
 #include "components/autofill/core/common/credit_card_network_identifiers.h"
 #include "components/autofill/core/common/form_data.h"
@@ -157,7 +157,6 @@
 #include "components/personal_context/core/mock_personal_context_eligibility_service.h"
 #include "components/personal_context/core/personal_context_prefs.h"
 #include "components/prefs/pref_service.h"
-#include "components/security_interstitials/core/pref_names.h"
 #include "components/security_state/core/security_state.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/strings/grit/components_strings.h"
@@ -220,7 +219,9 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::SaveArg;
 using ::testing::UnorderedElementsAre;
+using ::testing::ValuesIn;
 using ::testing::VariantWith;
+using ::testing::WithParamInterface;
 using upload_contents_matchers::FieldAutofillTypeIs;
 using upload_contents_matchers::FieldsAre;
 using upload_contents_matchers::FormSignatureIs;
@@ -802,9 +803,7 @@ class MockAmountExtractionManager : public payments::AmountExtractionManager {
   MOCK_METHOD(DenseSet<EligibleFeature>,
               GetEligibleFeatures,
               (bool is_autofill_payments_enabled,
-               bool should_suppress_suggestions,
                const std::vector<Suggestion>& suggestions,
-               FillingProduct filling_product,
                FieldType field_type),
               (const, override));
   MOCK_METHOD(void,
@@ -1411,10 +1410,19 @@ TEST_F(BrowserAutofillManagerAtMemoryTest, AtMemoryTriggersEmptySuggestions) {
   FormData form = CreateTestAddressFormData();
   FormsSeen({form});
 
+#if !BUILDFLAG(IS_ANDROID)
+  EXPECT_CALL(password_delegate(), ShowSuggestions).Times(0);
+#else   // BUILDFLAG(IS_ANDROID)
+  EXPECT_CALL(password_delegate(), ShowKeyboardReplacingSurface).Times(0);
+#endif  // !BUILDFLAG(IS_ANDROID)
+
   // For AtMemory, the manager immediately returns empty suggestions so the UI
   // can show the search bar.
-  OnAskForValuesToFill(form, form.fields()[0],
-                       AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+  OnAskForValuesToFill(
+      form, form.fields()[0],
+      AutofillSuggestionTriggerSource::kAtMemoryContextMenu,
+      PasswordSuggestionRequest({}, form, /*username_field_id=*/{},
+                                /*password_field_id=*/{}));
   external_delegate()->CheckNoSuggestions(form.fields()[0].global_id());
 }
 
@@ -1849,6 +1857,28 @@ TEST_F(BrowserAutofillManagerTest,
   EXPECT_FALSE(external_delegate()->on_suggestions_returned_seen());
 }
 
+// Tests that `GetProfileSuggestions()` does not return AddressOnTyping
+// suggestions.
+TEST_F(BrowserAutofillManagerTest,
+       GetProfileSuggestions_DoesNotReturnAddressOnTypingSuggestions) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kAutofillAddressSuggestionsOnTyping},
+      /*disabled_features=*/{features::kAutofillNewSuggestionGeneration});
+
+  AutofillProfile profile(i18n_model_definition::kLegacyHierarchyCountryCode);
+  profile.SetInfo(ADDRESS_HOME_LINE1, u"sherman wallaby 42 sidney", "en-US");
+  personal_data().test_address_data_manager().AddProfile(profile);
+
+  FormData form =
+      test::GetFormData({.fields = {{.role = UNKNOWN_TYPE, .value = u"she"}}});
+  FormsSeen({form});
+
+  EXPECT_THAT(test_api(autofill_manager())
+                  .GetProfileSuggestions(form, form.fields()[0]),
+              IsEmpty());
+}
+
 // Tests that when `features::kAutofillTrackSelectFieldEdits` is enabled,
 // changing the selection of a <select> control is correctly recorded as a
 // user modification in the UKM metrics.
@@ -1950,77 +1980,6 @@ TEST_F(BrowserAutofillManagerTest,
                                         {suggestions[0], suggestions[1]});
 }
 
-// Test that we return a warning explaining that credit card profile suggestions
-// are unavailable when the page is secure, but the form action URL is valid but
-// not secure.
-TEST_F(BrowserAutofillManagerTest,
-       GetCreditCardSuggestions_SecureContext_FormActionNotHTTPS) {
-  // Set up our form data.
-  FormData form = CreateTestCreditCardFormData(/*is_https=*/true, false);
-  // However we set the action (target URL) to be HTTP after all.
-  form.set_action(GURL("http://myform.com/submit.html"));
-  FormsSeen({form});
-
-  OnAskForValuesToFill(form, form.fields()[0]);
-
-  // Test that we sent the right values (only mixed form warning suggestion).
-  EXPECT_THAT(
-      external_delegate()->suggestions(),
-      ElementsAre(Field(&Suggestion::type, SuggestionType::kMixedFormMessage)));
-
-  // Clear the test credit cards and try again -- we should still show the
-  // mixed form warning.
-  personal_data().test_payments_data_manager().ClearCreditCards();
-  OnAskForValuesToFill(form, form.fields()[0]);
-  EXPECT_THAT(
-      external_delegate()->suggestions(),
-      ElementsAre(Field(&Suggestion::type, SuggestionType::kMixedFormMessage)));
-}
-
-// Test that we return credit card suggestions for secure pages that have an
-// empty form action target URL.
-TEST_F(BrowserAutofillManagerTest,
-       GetCreditCardSuggestions_SecureContext_EmptyFormAction) {
-  // Set up our form data.
-  FormData form =
-      CreateTestCreditCardFormData(/*is_https=*/true, /*use_month_type=*/false);
-  // Clear the form action.
-  form.set_action(GURL());
-  FormsSeen({form});
-
-  OnAskForValuesToFill(form, form.fields()[1]);
-
-  // Test that we returned card suggestions (not blocked by mixed content).
-  EXPECT_THAT(
-      external_delegate()->suggestions(),
-      ElementsAre(Field(&Suggestion::type, SuggestionType::kCreditCardEntry),
-                  Field(&Suggestion::type, SuggestionType::kCreditCardEntry),
-                  Field(&Suggestion::type, SuggestionType::kSeparator),
-                  Field(&Suggestion::type, SuggestionType::kManageCreditCard)));
-}
-
-// Test that we return credit card suggestions for secure pages that have a
-// form action set to "javascript:something".
-TEST_F(BrowserAutofillManagerTest,
-       GetCreditCardSuggestions_SecureContext_JavascriptFormAction) {
-  // Set up our form data.
-  FormData form =
-      CreateTestCreditCardFormData(/*is_https=*/true, /*use_month_type=*/false);
-  // Have the form action be a javascript function (which is a valid URL).
-  form.set_action(GURL("javascript:alert('Hello');"));
-  FormsSeen({form});
-
-  OnAskForValuesToFill(form, form.fields()[1]);
-
-  // Test that we returned card suggestions (not blocked by mixed content).
-  EXPECT_THAT(
-      external_delegate()->suggestions(),
-      ElementsAre(Field(&Suggestion::type, SuggestionType::kCreditCardEntry),
-                  Field(&Suggestion::type, SuggestionType::kCreditCardEntry),
-                  Field(&Suggestion::type, SuggestionType::kSeparator),
-                  Field(&Suggestion::type, SuggestionType::kManageCreditCard)));
-}
-
 // Test that we return profile and credit card suggestions for combined forms.
 TEST_F(BrowserAutofillManagerTest, GetAddressAndCreditCardSuggestions) {
   // Set up our form data.
@@ -2101,22 +2060,12 @@ TEST_F(BrowserAutofillManagerTest, GetAddressAndCreditCardSuggestionsNonHttps) {
 
   // Clear the test credit cards and try again -- we shouldn't return a warning.
   personal_data().test_payments_data_manager().ClearCreditCards();
+  // Set the value of the trigger field to be longer than 3 characters, so that
+  // the "Save and Fill" promo is not shown.
+  cc_number_field.set_value(u"1234");
   OnAskForValuesToFill(form, cc_number_field);
-#if BUILDFLAG(IS_IOS)
-  // On iOS, the Scan Card / Save and Fill promo is enabled by default. Even
-  // though the promo itself doesn't check for secure context, its presence
-  // causes the generic secure context check to replace it with a warning.
-  external_delegate()->CheckSuggestions(
-      cc_number_field.global_id(),
-      {Suggestion(
-          l10n_util::GetStringUTF16(IDS_AUTOFILL_WARNING_INSECURE_CONNECTION),
-          u"", Suggestion::Icon::kNoIcon,
-          SuggestionType::kInsecureContextPaymentDisabledMessage)});
-#else
-  // On other platforms, the promo is not enabled by default, so no suggestions
-  // are generated.
+
   external_delegate()->CheckNoSuggestions(cc_number_field.global_id());
-#endif
 }
 
 TEST_F(BrowserAutofillManagerTest,
@@ -2385,11 +2334,9 @@ TEST_F(BrowserAutofillManagerTest,
       .Times(0);
 #endif
 
-#if BUILDFLAG(IS_IOS)
   // Set the value of the trigger field to be longer than 3 characters, so that
   // the "Save and Fill" promo is not shown.
   test_api(form).field(0).set_value(u"1234");
-#endif
   OnAskForValuesToFill(form, form.fields()[0]);
 
   // Verify that no suggestion is returned.
@@ -2497,7 +2444,7 @@ enum class LogAblationFormType {
 
 class BrowserAutofillManagerLogAblationTest
     : public BrowserAutofillManagerTest,
-      public testing::WithParamInterface<
+      public WithParamInterface<
           std::tuple<LogAblationTestParams, LogAblationFormType>> {};
 
 // Validate that UMA logging works correctly for ablation studies.
@@ -2569,13 +2516,13 @@ TEST_P(BrowserAutofillManagerLogAblationTest, TestLogging) {
   // Simulate retrieving autofill suggestions with the first field as a trigger
   // script. This should emit signals that lead to recorded metrics later on.
   FormFieldData& field = test_api(form).field(0);
-#if BUILDFLAG(IS_IOS)
+
   if (!params.run_with_data_on_file) {
     // Set the field value to > 3 characters to suppress the "Save and Fill"
-    // promo on iOS, ensuring that NO suggestions are generated.
+    // promo, ensuring that NO suggestions are generated.
     field.set_value(u"1234");
   }
-#endif
+
   OnAskForValuesToFill(form, field);
 
   // Simulate user typing into field (due to the ablation we would not fill).
@@ -5522,7 +5469,7 @@ TEST_F(BrowserAutofillManagerTest, PageLanguageGetsCorrectlySet) {
 // not.
 class BrowserAutofillManagerTestPageLanguageDetection
     : public BrowserAutofillManagerTest,
-      public testing::WithParamInterface<bool> {
+      public WithParamInterface<bool> {
  public:
   BrowserAutofillManagerTestPageLanguageDetection() {
     scoped_features_.InitWithFeatures(
@@ -5563,7 +5510,7 @@ INSTANTIATE_TEST_SUITE_P(All,
 // BrowserAutofillManagerTest with different browser profile types.
 class BrowserAutofillManagerProfileMetricsTest
     : public BrowserAutofillManagerTest,
-      public testing::WithParamInterface<profile_metrics::BrowserProfileType> {
+      public WithParamInterface<profile_metrics::BrowserProfileType> {
  public:
   profile_metrics::BrowserProfileType profile_type() { return GetParam(); }
 
@@ -5595,9 +5542,9 @@ TEST_P(BrowserAutofillManagerProfileMetricsTest,
 INSTANTIATE_TEST_SUITE_P(
     All,
     BrowserAutofillManagerProfileMetricsTest,
-    testing::ValuesIn({profile_metrics::BrowserProfileType::kRegular,
-                       profile_metrics::BrowserProfileType::kIncognito,
-                       profile_metrics::BrowserProfileType::kGuest}));
+    ValuesIn({profile_metrics::BrowserProfileType::kRegular,
+              profile_metrics::BrowserProfileType::kIncognito,
+              profile_metrics::BrowserProfileType::kGuest}));
 
 // Tests that autocomplete-related metrics are emitted correctly on form
 // submission.
@@ -5671,65 +5618,6 @@ TEST_F(BrowserAutofillManagerTest, AutocompleteMetrics) {
     histogram_tester.ExpectTotalCount(
         kTypeHistogram + "ServerOrHeuristics." + suffix, 4);
   }
-}
-
-// Test that if a form is mixed content we show a warning instead of any
-// suggestions.
-TEST_F(BrowserAutofillManagerTest, GetSuggestions_MixedForm) {
-  // Set up our form data.
-  FormData form =
-      test::GetFormData({.fields = {{.role = CREDIT_CARD_NAME_FULL}}});
-  form.set_action(GURL("http://myform.com/submit.html"));
-
-  OnAskForValuesToFill(form, form.fields()[0]);
-
-  // Test that we sent the right values to the external delegate.
-  external_delegate()->CheckSuggestions(
-      form.fields().back().global_id(),
-      {Suggestion(l10n_util::GetStringUTF16(IDS_AUTOFILL_WARNING_MIXED_FORM),
-                  u"", Suggestion::Icon::kNoIcon,
-                  SuggestionType::kMixedFormMessage)});
-}
-
-// Test that if a form is mixed content we do not show a warning if the opt out
-// policy is set.
-TEST_F(BrowserAutofillManagerTest, GetSuggestions_MixedFormOptOutPolicy) {
-  // Set pref to disabled.
-  autofill_client().GetPrefs()->SetBoolean(::prefs::kMixedFormsWarningsEnabled,
-                                           false);
-
-  // Set up our form data.
-  FormData form =
-      test::GetFormData({.fields = {{.role = CREDIT_CARD_NAME_FULL}}});
-  form.set_action(GURL("http://myform.com/submit.html"));
-  OnAskForValuesToFill(form, form.fields()[0]);
-
-  // Check there is no warning.
-  EXPECT_FALSE(external_delegate()->on_suggestions_returned_seen());
-}
-
-// Test that we dismiss the mixed form warning if user starts typing.
-TEST_F(BrowserAutofillManagerTest, GetSuggestions_MixedFormUserTyped) {
-  // Set up our form data.
-  FormData form =
-      test::GetFormData({.fields = {{.role = CREDIT_CARD_NAME_FULL}}});
-  form.set_action(GURL("http://myform.com/submit.html"));
-
-  OnAskForValuesToFill(form, form.fields()[0]);
-
-  // Test that we sent the right values to the external delegate.
-  external_delegate()->CheckSuggestions(
-      form.fields().back().global_id(),
-      {Suggestion(l10n_util::GetStringUTF16(IDS_AUTOFILL_WARNING_MIXED_FORM),
-                  u"", Suggestion::Icon::kNoIcon,
-                  SuggestionType::kMixedFormMessage)});
-
-  // Pretend user started typing and make sure we no longer set suggestions.
-  test_api(form).field(0).set_value(u"Michael");
-  test_api(form).field(0).set_properties_mask(
-      form.fields()[0].properties_mask() | kUserTyped);
-  OnAskForValuesToFill(form, form.fields()[0]);
-  external_delegate()->CheckNoSuggestions(form.fields()[0].global_id());
 }
 
 // Test that we don't treat javascript scheme target URLs as mixed forms.
@@ -7363,68 +7251,213 @@ TEST_F(BrowserAutofillManagerTest,
       blocked_fields);
 }
 
-struct SuggestionMergingTestParams {
-  std::string test_name;
-  std::vector<std::pair<SuggestionGenerator::SuggestionDataSource,
-                        std::vector<SuggestionType>>>
-      input;
-  std::vector<SuggestionType> expected_output;
+class BrowserAutofillManagerSuggestionMergingTest
+    : public BrowserAutofillManagerTest {
+ protected:
+  static SuggestionGenerator::ReturnedSuggestions WithAddressFooter(
+      std::vector<Suggestion> suggestions) {
+    suggestions.emplace_back(SuggestionType::kSeparator);
+    suggestions.emplace_back(SuggestionType::kManageAddress);
+    return {SuggestionGenerator::SuggestionDataSource::kAddress,
+            std::move(suggestions)};
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillMergeAddressAndAutocompleteEmailSuggestions};
 };
 
-class BrowserAutofillManagerSuggestionMergingTest
-    : public BrowserAutofillManagerTest,
-      public testing::WithParamInterface<SuggestionMergingTestParams> {};
-
-TEST_P(BrowserAutofillManagerSuggestionMergingTest, MergingLogic) {
-  const SuggestionMergingTestParams& params = GetParam();
-  FormData form = test::GetFormData(
+// Tests that the merging logic forwards the address suggestions if there are no
+// other suggestions that they can be merged with.
+TEST_F(BrowserAutofillManagerSuggestionMergingTest, AddressOnly) {
+  const FormData form = test::GetFormData(
       {.fields = {{.label = u"Field",
                    .form_control_type = FormControlType::kInputText}}});
-
-  std::vector<SuggestionGenerator::ReturnedSuggestions> returned_suggestions =
-      base::ToVector(params.input, [&](const auto& pair) {
-        const auto& [product, types] = pair;
-        std::vector<Suggestion> suggestions = base::ToVector(
-            types, [](SuggestionType type) { return Suggestion(type); });
-        return SuggestionGenerator::ReturnedSuggestions({product, suggestions});
-      });
 
   test_api(autofill_manager())
       .OnIndividualSuggestionsGenerated(
           form, form.fields()[0],
-          AutofillSuggestionTriggerSource::kFormControlElementClicked, {},
-          base::TimeTicks::Now(), std::move(returned_suggestions));
+          AutofillSuggestionTriggerSource::kFormControlElementClicked,
+          base::TimeTicks::Now(),
+          {WithAddressFooter({Suggestion(SuggestionType::kAddressEntry)})});
 
-  std::vector<SuggestionType> actual_types =
-      base::ToVector(external_delegate()->suggestions(), &Suggestion::type);
-  EXPECT_EQ(actual_types, params.expected_output)
-      << "Failed for case: " << params.test_name;
+  EXPECT_THAT(external_delegate()->suggestions(),
+              SuggestionVectorIdsAre(SuggestionType::kAddressEntry,
+                                     SuggestionType::kSeparator,
+                                     SuggestionType::kManageAddress));
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    BrowserAutofillManagerSuggestionMergingTest,
-    BrowserAutofillManagerSuggestionMergingTest,
-    testing::ValuesIn(std::vector<SuggestionMergingTestParams>{
-        {.test_name = "AddressOnly",
-         .input = {{SuggestionGenerator::SuggestionDataSource::kAddress,
-                    {SuggestionType::kAddressEntry}}},
-         .expected_output = {SuggestionType::kAddressEntry}},
-        {.test_name = "AddressAndIdentity",
-         .input =
-             {{SuggestionGenerator::SuggestionDataSource::kAddress,
-               {SuggestionType::kAddressEntry}},
-              {SuggestionGenerator::SuggestionDataSource::kIdentityCredential,
-               {SuggestionType::kWebauthnCredential}}},
-         .expected_output = {SuggestionType::kWebauthnCredential,
-                             SuggestionType::kAddressEntry}},
-        {.test_name = "AddressAndPasskey",
-         .input = {{SuggestionGenerator::SuggestionDataSource::kAddress,
-                    {SuggestionType::kAddressEntry}},
-                   {SuggestionGenerator::SuggestionDataSource::kPasskey,
-                    {SuggestionType::kWebauthnCredential}}},
-         .expected_output = {SuggestionType::kAddressEntry,
-                             SuggestionType::kWebauthnCredential}},
-    }));
+// Tests that address and identity suggestions are merged, with identity
+// suggestions coming first.
+TEST_F(BrowserAutofillManagerSuggestionMergingTest, AddressAndIdentity) {
+  const FormData form = test::GetFormData(
+      {.fields = {{.label = u"Field",
+                   .form_control_type = FormControlType::kInputText}}});
+
+  const std::vector<SuggestionGenerator::ReturnedSuggestions> input = {
+      WithAddressFooter({Suggestion(SuggestionType::kAddressEntry)}),
+      {SuggestionGenerator::SuggestionDataSource::kIdentityCredential,
+       {Suggestion(SuggestionType::kWebauthnCredential)}}};
+
+  test_api(autofill_manager())
+      .OnIndividualSuggestionsGenerated(
+          form, form.fields()[0],
+          AutofillSuggestionTriggerSource::kFormControlElementClicked,
+          base::TimeTicks::Now(), input);
+
+  EXPECT_THAT(external_delegate()->suggestions(),
+              SuggestionVectorIdsAre(SuggestionType::kWebauthnCredential,
+                                     SuggestionType::kAddressEntry,
+                                     SuggestionType::kSeparator,
+                                     SuggestionType::kManageAddress));
+}
+
+// Tests that address and passkey suggestions can be merged, with address
+// suggestions coming first.
+TEST_F(BrowserAutofillManagerSuggestionMergingTest, AddressAndPasskey) {
+  const FormData form = test::GetFormData(
+      {.fields = {{.label = u"Field",
+                   .form_control_type = FormControlType::kInputText}}});
+
+  const std::vector<SuggestionGenerator::ReturnedSuggestions> input = {
+      WithAddressFooter({Suggestion(SuggestionType::kAddressEntry)}),
+      {SuggestionGenerator::SuggestionDataSource::kPasskey,
+       {Suggestion(SuggestionType::kWebauthnCredential)}}};
+
+  test_api(autofill_manager())
+      .OnIndividualSuggestionsGenerated(
+          form, form.fields()[0],
+          AutofillSuggestionTriggerSource::kFormControlElementClicked,
+          base::TimeTicks::Now(), input);
+
+  EXPECT_THAT(external_delegate()->suggestions(),
+              SuggestionVectorIdsAre(SuggestionType::kAddressEntry,
+                                     SuggestionType::kSeparator,
+                                     SuggestionType::kManageAddress,
+                                     SuggestionType::kWebauthnCredential));
+}
+
+// Tests that address and autocomplete suggestions can be merged for email
+// fields if there are valid email addresses in the autocomplete entries.
+TEST_F(BrowserAutofillManagerSuggestionMergingTest,
+       AddressAndAutocomplete_EmailField) {
+  const FormData form = test::GetFormData(
+      {.fields = {{.label = u"Field",
+                   .form_control_type = FormControlType::kInputText}}});
+  autofill_manager().AddSeenForm(form, {EMAIL_ADDRESS});
+
+  const std::vector<SuggestionGenerator::ReturnedSuggestions> input = {
+      WithAddressFooter({test::CreateAutofillSuggestion(
+          SuggestionType::kAddressEntry, u"Mail@example.com")}),
+      {SuggestionGenerator::SuggestionDataSource::kAutocomplete,
+       {// This autocomplete entry will be filtered out because it is not a
+        // valid email format.
+        test::CreateAutofillSuggestion(SuggestionType::kAutocompleteEntry,
+                                       u"xyz"),
+        // This autocomplete entry is a valid and unique suggestion and should
+        // be added to the address entries.
+        test::CreateAutofillSuggestion(SuggestionType::kAutocompleteEntry,
+                                       u"example@mail.org"),
+        // This autocomplete entry will be filtered out because it is
+        // (case-insensitive) equal to an existing suggestion.
+        test::CreateAutofillSuggestion(SuggestionType::kAutocompleteEntry,
+                                       u"mail@example.com")}}};
+
+  test_api(autofill_manager())
+      .OnIndividualSuggestionsGenerated(
+          form, form.fields()[0],
+          AutofillSuggestionTriggerSource::kFormControlElementClicked,
+          base::TimeTicks::Now(), input);
+
+  EXPECT_THAT(external_delegate()->suggestions(),
+              ElementsAre(EqualsSuggestion(SuggestionType::kAddressEntry,
+                                           u"Mail@example.com",
+                                           /*is_main_text_primary=*/false),
+                          EqualsSuggestion(SuggestionType::kSeparator),
+                          EqualsSuggestion(SuggestionType::kAutocompleteEntry,
+                                           u"example@mail.org",
+                                           /*is_main_text_primary=*/false),
+                          EqualsSuggestion(SuggestionType::kSeparator),
+                          EqualsSuggestion(SuggestionType::kManageAddress)));
+}
+
+// Tests that the number of autocomplete suggestions is limited when merging
+// address and autocomplete suggestions for email fields.
+TEST_F(BrowserAutofillManagerSuggestionMergingTest,
+       AddressAndAutocomplete_EmailField_SuggestionLimit) {
+  const FormData form = test::GetFormData(
+      {.fields = {{.label = u"Field",
+                   .form_control_type = FormControlType::kInputText}}});
+  autofill_manager().AddSeenForm(form, {EMAIL_ADDRESS});
+
+  const std::vector<SuggestionGenerator::ReturnedSuggestions> input = {
+      WithAddressFooter(std::vector<Suggestion>(
+          8U, Suggestion(SuggestionType::kAddressEntry))),
+      {SuggestionGenerator::SuggestionDataSource::kAutocomplete,
+       {test::CreateAutofillSuggestion(SuggestionType::kAutocompleteEntry,
+                                       u"one@example.com"),
+        test::CreateAutofillSuggestion(SuggestionType::kAutocompleteEntry,
+                                       u"two@example.com"),
+        test::CreateAutofillSuggestion(SuggestionType::kAutocompleteEntry,
+                                       u"three@example.com"),
+        test::CreateAutofillSuggestion(SuggestionType::kAutocompleteEntry,
+                                       u"four@example.com")}}};
+
+  test_api(autofill_manager())
+      .OnIndividualSuggestionsGenerated(
+          form, form.fields()[0],
+          AutofillSuggestionTriggerSource::kFormControlElementClicked,
+          base::TimeTicks::Now(), input);
+
+  const std::vector<Suggestion> result = external_delegate()->suggestions();
+  // All address entries should be in the final suggestions.
+  EXPECT_THAT(base::span(result).first(8U),
+              Each(EqualsSuggestion(SuggestionType::kAddressEntry)));
+  // Remaining entries should contain only the top three Autocomplete
+  // suggestions.
+  EXPECT_THAT(base::span(result).subspan(8U),
+              ElementsAre(EqualsSuggestion(SuggestionType::kSeparator),
+                          EqualsSuggestion(SuggestionType::kAutocompleteEntry,
+                                           u"one@example.com",
+                                           /*is_main_text_primary=*/false),
+                          EqualsSuggestion(SuggestionType::kAutocompleteEntry,
+                                           u"two@example.com",
+                                           /*is_main_text_primary=*/false),
+                          EqualsSuggestion(SuggestionType::kAutocompleteEntry,
+                                           u"three@example.com",
+                                           /*is_main_text_primary=*/false),
+                          EqualsSuggestion(SuggestionType::kSeparator),
+                          EqualsSuggestion(SuggestionType::kManageAddress)));
+}
+
+// Tests that autocomplete and address suggestions are not merged when the
+// trigger field is not an email field.
+TEST_F(BrowserAutofillManagerSuggestionMergingTest,
+       AddressAndAutocomplete_NonEmailField) {
+  const FormData form = test::GetFormData(
+      {.fields = {{.label = u"Field",
+                   .form_control_type = FormControlType::kInputText}}});
+  autofill_manager().AddSeenForm(form, {NAME_FIRST});
+
+  const std::vector<SuggestionGenerator::ReturnedSuggestions> input = {
+      {SuggestionGenerator::SuggestionDataSource::kAddress,
+       {test::CreateAutofillSuggestion(SuggestionType::kAddressEntry,
+                                       u"Hans")}},
+      {SuggestionGenerator::SuggestionDataSource::kAutocomplete,
+       {test::CreateAutofillSuggestion(SuggestionType::kAutocompleteEntry,
+                                       u"name@last.at"),
+        test::CreateAutofillSuggestion(SuggestionType::kAutocompleteEntry,
+                                       u"Thomas")}}};
+
+  test_api(autofill_manager())
+      .OnIndividualSuggestionsGenerated(
+          form, form.fields()[0],
+          AutofillSuggestionTriggerSource::kFormControlElementClicked,
+          base::TimeTicks::Now(), input);
+
+  EXPECT_THAT(external_delegate()->suggestions(),
+              ElementsAre(EqualsSuggestion(SuggestionType::kAddressEntry)));
+}
 
 // Tests that the `Autofill.SuggestionGeneration.GeneratedFillingProduct` metric
 // is correctly emitted for all products that have suggestions generated.
@@ -7438,7 +7471,7 @@ TEST_F(BrowserAutofillManagerTest, GeneratedFillingProductMetric) {
   test_api(autofill_manager())
       .OnIndividualSuggestionsGenerated(
           form, form.fields()[0],
-          AutofillSuggestionTriggerSource::kFormControlElementClicked, {},
+          AutofillSuggestionTriggerSource::kFormControlElementClicked,
           base::TimeTicks::Now(),
           {{SuggestionGenerator::SuggestionDataSource::kAddress,
             {Suggestion(SuggestionType::kAddressEntry)}},

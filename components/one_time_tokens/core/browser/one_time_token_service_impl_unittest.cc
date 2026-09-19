@@ -90,15 +90,23 @@ class MockGmailOtpBackend : public GmailOtpBackend {
               (base::Time expiration, Callback callback),
               (override));
 
+  MOCK_METHOD(ExpiringSubscription,
+              SubscribeToTickles,
+              (base::Time expiration, TickleCallback callback),
+              (override));
+
   MOCK_METHOD(void,
               OnIncomingOneTimeTokenBackendNotification,
               (const OneTimeTokenBackendNotification& notification),
               (override));
 
-  MOCK_METHOD(void,
-              FetchUserDataProcessingConsent,
-              (FetchUserDataProcessingConsentCallback callback),
-              (override));
+  MOCK_METHOD(
+      void,
+      FetchUserDataProcessingConsent,
+      (FetchUserDataProcessingConsentCallback callback),
+      (override));
+
+  MOCK_METHOD(bool, HasPendingRequests, (), (const, override));
 
   // Simulates the reception of an OTP. This will run all pending callbacks from
   // `Subscribe`.
@@ -106,6 +114,8 @@ class MockGmailOtpBackend : public GmailOtpBackend {
       base::expected<OneTimeToken, OneTimeTokenRetrievalError> reply) {
     subscription_manager_.Notify(reply);
   }
+
+  void SimulateTickleArrived() { tickle_subscription_manager_.Notify(); }
 
   // Notifies the mock backend that a subscription was created successfully.
   // This is needed for `SimulateOtpArrived` to have a callback to run.
@@ -118,12 +128,25 @@ class MockGmailOtpBackend : public GmailOtpBackend {
     return subscription;
   }
 
+  ExpiringSubscription CreateMockTickleSubscription(base::Time expiration,
+                                                    TickleCallback callback) {
+    auto subscription = tickle_subscription_manager_.Subscribe(
+        expiration, std::move(callback),
+        /*expiration_callback=*/base::DoNothing());
+    last_tickle_handle_ = subscription.handle();
+    return subscription;
+  }
+
   bool HasPendingRetrieveGmailOtpCallbacks() {
     return subscription_manager_.GetNumberSubscribers() > 0;
   }
 
   size_t GetNumberSubscribers() const {
     return subscription_manager_.GetNumberSubscribers();
+  }
+
+  size_t GetNumberTickleSubscribers() const {
+    return tickle_subscription_manager_.GetNumberSubscribers();
   }
 
   base::Time GetLastSubscriptionExpirationTime() const {
@@ -133,7 +156,9 @@ class MockGmailOtpBackend : public GmailOtpBackend {
 
  private:
   ExpiringSubscriptionManager<CallbackSignature> subscription_manager_;
+  ExpiringSubscriptionManager<void()> tickle_subscription_manager_;
   std::optional<ExpiringSubscriptionHandle> last_handle_;
+  std::optional<ExpiringSubscriptionHandle> last_tickle_handle_;
 };
 
 // A helper class to collect results from the OneTimeTokenService callbacks.
@@ -1069,6 +1094,100 @@ TEST_F(OneTimeTokenServiceImplTest,
 
   std::optional<UserDataProcessingConsentStates> result = future.Get();
   EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(OneTimeTokenServiceImplTest, SubscribeToTickles_Gmail) {
+  OneTimeTokenServiceImpl service(/*sms_otp_backend=*/nullptr,
+                                  gmail_otp_backend_.get());
+
+  base::Time expiration = base::Time::Now() + base::Minutes(5);
+  EXPECT_CALL(*gmail_otp_backend_, SubscribeToTickles(expiration, _))
+      .WillOnce(
+          [this](base::Time exp, GmailOtpBackend::TickleCallback callback) {
+            return gmail_otp_backend_->CreateMockTickleSubscription(
+                exp, std::move(callback));
+          });
+
+  base::test::TestFuture<OneTimeTokenSource> future;
+  auto sub = service.SubscribeToTickles(OneTimeTokenSource::kGmail, expiration,
+                                        future.GetRepeatingCallback());
+
+  EXPECT_TRUE(sub.IsAlive());
+  gmail_otp_backend_->SimulateTickleArrived();
+
+  EXPECT_EQ(future.Take(), OneTimeTokenSource::kGmail);
+}
+
+TEST_F(OneTimeTokenServiceImplTest, SubscribeToTickles_NoGmailBackend) {
+  OneTimeTokenServiceImpl service(/*sms_otp_backend=*/nullptr,
+                                  /*gmail_otp_backend=*/nullptr);
+
+  base::test::TestFuture<OneTimeTokenSource> future;
+  auto sub = service.SubscribeToTickles(OneTimeTokenSource::kGmail,
+                                        base::Time::Now() + base::Minutes(5),
+                                        future.GetRepeatingCallback());
+
+  EXPECT_FALSE(sub.IsAlive());
+}
+
+TEST_F(OneTimeTokenServiceImplTest, HasPendingRequests_Gmail) {
+  OneTimeTokenServiceImpl service(/*sms_otp_backend=*/nullptr,
+                                  gmail_otp_backend_.get());
+
+  EXPECT_CALL(*gmail_otp_backend_, HasPendingRequests())
+      .WillOnce(testing::Return(true))
+      .WillOnce(testing::Return(false));
+
+  EXPECT_TRUE(service.HasPendingRequests(OneTimeTokenSource::kGmail));
+  EXPECT_FALSE(service.HasPendingRequests(OneTimeTokenSource::kGmail));
+}
+
+TEST_F(OneTimeTokenServiceImplTest, HasPendingRequests_NoGmailBackend) {
+  OneTimeTokenServiceImpl service(/*sms_otp_backend=*/nullptr,
+                                  /*gmail_otp_backend=*/nullptr);
+
+  EXPECT_FALSE(service.HasPendingRequests(OneTimeTokenSource::kGmail));
+}
+
+TEST_F(OneTimeTokenServiceImplTest, HasPendingRequests_Sms) {
+  OneTimeTokenServiceImpl service(&sms_otp_backend_,
+                                  /*gmail_otp_backend=*/nullptr);
+
+  EXPECT_FALSE(service.HasPendingRequests(OneTimeTokenSource::kOnDeviceSms));
+
+  base::test::TestFuture<
+      OneTimeTokenSource,
+      base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
+      future;
+  auto subscription = service.Subscribe(
+      OneTimeTokenSource::kOnDeviceSms, base::Time::Now() + base::Minutes(5),
+      future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
+  EXPECT_TRUE(service.HasPendingRequests(OneTimeTokenSource::kOnDeviceSms));
+
+  sms_otp_backend_.SimulateOtpArrived(OneTimeToken(
+      OneTimeTokenType::kSmsOtp, "123456", base::TimeTicks::Now()));
+  EXPECT_FALSE(service.HasPendingRequests(OneTimeTokenSource::kOnDeviceSms));
+}
+
+TEST_F(OneTimeTokenServiceImplTest, HasPendingRequests_SourcesAreIsolated) {
+  OneTimeTokenServiceImpl service(&sms_otp_backend_,
+                                  gmail_otp_backend_.get());
+
+  EXPECT_CALL(*gmail_otp_backend_, HasPendingRequests())
+      .WillRepeatedly(testing::Return(false));
+
+  base::test::TestFuture<
+      OneTimeTokenSource,
+      base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
+      future;
+  auto subscription = service.Subscribe(
+      OneTimeTokenSource::kOnDeviceSms, base::Time::Now() + base::Minutes(5),
+      future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
+
+  EXPECT_TRUE(service.HasPendingRequests(OneTimeTokenSource::kOnDeviceSms));
+  EXPECT_FALSE(service.HasPendingRequests(OneTimeTokenSource::kGmail));
 }
 
 }  // namespace one_time_tokens

@@ -25,8 +25,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetRecyclerScrollListener;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
 
 /**
@@ -58,12 +60,15 @@ public class TabGroupListBottomSheetView implements BottomSheetContent {
 
         mRecyclerView = mContentView.findViewById(R.id.tab_group_parity_recycler_view);
         mRecyclerView.setLayoutManager(new LinearLayoutManager(context));
+        mRecyclerView.addOnScrollListener(
+                new BottomSheetRecyclerScrollListener(bottomSheetController));
         mBottomsheetController = bottomSheetController;
         mShowNewGroupRow = showNewGroupRow;
     }
 
     void setRecyclerViewAdapter(SimpleRecyclerViewAdapter adapter) {
         mRecyclerView.setAdapter(adapter);
+        invalidateContentHeight();
     }
 
     // BottomSheetContent implementation follows:
@@ -80,7 +85,7 @@ public class TabGroupListBottomSheetView implements BottomSheetContent {
 
     @Override
     public int getVerticalScrollOffset() {
-        return mRecyclerView.getScrollY();
+        return mRecyclerView.computeVerticalScrollOffset();
     }
 
     @Override
@@ -100,18 +105,20 @@ public class TabGroupListBottomSheetView implements BottomSheetContent {
 
     @Override
     public float getFullHeightRatio() {
-        return Math.min(getSheetContentHeight(), mBottomsheetController.getContainerHeight())
-                / (float) mBottomsheetController.getContainerHeight();
+        float maxAvailable = getAvailableSheetHeight();
+        return maxAvailable <= 0
+                ? 0f
+                : Math.min(getSheetContentHeight(), maxAvailable) / maxAvailable;
+    }
+
+    private @Px int getAvailableSheetHeight() {
+        int maxHeight = mBottomsheetController.getMaxSheetHeight();
+        return maxHeight > 0 ? maxHeight : mBottomsheetController.getContainerHeight();
     }
 
     @Override
     public float getHalfHeightRatio() {
         return Math.min(getFullHeightRatio(), 0.5f);
-    }
-
-    @Override
-    public boolean hideOnScroll() {
-        return true;
     }
 
     @Override
@@ -143,16 +150,75 @@ public class TabGroupListBottomSheetView implements BottomSheetContent {
 
         Resources resources = mRecyclerView.getContext().getResources();
         @Px int rowMargin = resources.getDimensionPixelSize(R.dimen.default_list_row_padding);
-        params.bottomMargin = rowMargin;
-        mRecyclerView.setLayoutParams(params);
+        if (params.bottomMargin != rowMargin) {
+            params.bottomMargin = rowMargin;
+            mRecyclerView.setLayoutParams(params);
+            invalidateContentHeight();
+        }
+    }
+
+    private int mCachedSheetHeightPx;
+
+    public void invalidateContentHeight() {
+        mCachedSheetHeightPx = 0;
     }
 
     private float getSheetContentHeight() {
+        if (mCachedSheetHeightPx > 0) {
+            return mCachedSheetHeightPx;
+        }
+
         mContentView.measure(
                 MeasureSpec.makeMeasureSpec(
                         mBottomsheetController.getMaxSheetWidth(), MeasureSpec.EXACTLY),
-                MeasureSpec.makeMeasureSpec(
-                        mBottomsheetController.getContainerHeight(), MeasureSpec.AT_MOST));
-        return mContentView.getMeasuredHeight();
+                MeasureSpec.makeMeasureSpec(getAvailableSheetHeight(), MeasureSpec.AT_MOST));
+        int measuredHeight = mContentView.getMeasuredHeight();
+
+        int adapterCount =
+                mRecyclerView.getAdapter() != null ? mRecyclerView.getAdapter().getItemCount() : 0;
+        int childCount = mRecyclerView.getChildCount();
+
+        // When the model list is updated dynamically right before showing the sheet,
+        // RecyclerView may not have completed creating and laying out its item views yet,
+        // causing mContentView.measure() to under-report the total content height.
+        // Estimate the full list height based on adapter item count to ensure accurate ratios.
+        if (adapterCount > 0 && childCount < adapterCount) {
+            View dragHandlebar =
+                    mContentView.findViewById(R.id.tab_group_list_bottom_sheet_drag_handlebar);
+            View titleText =
+                    mContentView.findViewById(R.id.tab_group_parity_bottom_sheet_title_text);
+
+            int nonListHeight = 0;
+            if (dragHandlebar != null && dragHandlebar.getVisibility() != View.GONE) {
+                ViewGroup.MarginLayoutParams lp =
+                        (ViewGroup.MarginLayoutParams) dragHandlebar.getLayoutParams();
+                nonListHeight += dragHandlebar.getMeasuredHeight() + lp.topMargin + lp.bottomMargin;
+            }
+            if (titleText != null) {
+                ViewGroup.MarginLayoutParams lp =
+                        (ViewGroup.MarginLayoutParams) titleText.getLayoutParams();
+                nonListHeight += titleText.getMeasuredHeight() + lp.topMargin + lp.bottomMargin;
+            }
+
+            Resources resources = mRecyclerView.getContext().getResources();
+            int rowHeight =
+                    resources.getDimensionPixelSize(
+                            ChromeFeatureList.sTabGroupListContainment.getValue()
+                                    ? R.dimen.tab_group_row_height_containment
+                                    : R.dimen.tab_group_row_height);
+            ViewGroup.MarginLayoutParams recyclerLp =
+                    (ViewGroup.MarginLayoutParams) mRecyclerView.getLayoutParams();
+            int recyclerMargins =
+                    recyclerLp.topMargin
+                            + recyclerLp.bottomMargin
+                            + mRecyclerView.getPaddingTop()
+                            + mRecyclerView.getPaddingBottom();
+
+            int estimatedHeight = nonListHeight + (adapterCount * rowHeight) + recyclerMargins;
+            measuredHeight = Math.max(measuredHeight, estimatedHeight);
+        }
+
+        mCachedSheetHeightPx = measuredHeight;
+        return measuredHeight;
     }
 }

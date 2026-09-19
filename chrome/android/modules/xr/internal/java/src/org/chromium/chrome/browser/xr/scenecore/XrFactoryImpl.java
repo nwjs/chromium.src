@@ -62,9 +62,11 @@ public class XrFactoryImpl implements XrFactory {
         Shape entityShape;
         switch (shape) {
             case XrSurfaceEntityShape.QUAD:
+            case XrSurfaceEntityShape.ROUNDED_QUAD:
                 entityShape = new Shape.Quad(new FloatSize2d(1f, 1f));
                 break;
             case XrSurfaceEntityShape.SPHERE:
+            case XrSurfaceEntityShape.SEAMLESS_SPHERE:
                 entityShape = new Shape.Sphere(1f);
                 break;
             case XrSurfaceEntityShape.HEMISPHERE:
@@ -73,15 +75,18 @@ public class XrFactoryImpl implements XrFactory {
             default:
                 throw new IllegalArgumentException("Invalid shape: " + shape);
         }
-        return XrSurfaceEntityHolderImpl.create(
-                session,
-                SurfaceEntity.create(
+        XrSurfaceEntityHolderImpl holder =
+                XrSurfaceEntityHolderImpl.create(
                         session,
-                        Pose.Identity,
-                        entityShape,
-                        StereoMode.MONO,
-                        SuperSampling.PENTAGON,
-                        SurfaceProtection.NONE));
+                        SurfaceEntity.create(
+                                session,
+                                Pose.Identity,
+                                entityShape,
+                                StereoMode.MONO,
+                                SuperSampling.PENTAGON,
+                                SurfaceProtection.NONE));
+        holder.setSurfaceShape(shape);
+        return holder;
     }
 
     @Override

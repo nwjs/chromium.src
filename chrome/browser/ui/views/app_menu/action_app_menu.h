@@ -10,14 +10,16 @@
 #include "base/containers/flat_map.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
-#include "chrome/browser/ui/views/app_menu/app_menu_action_helper.h"
+#include "ui/base/command_id_constants.h"
 #include "ui/views/actions/action_view_controller.h"
 #include "ui/views/controls/menu/menu_delegate.h"
 
+class ActionAppMenuManager;
 class BrowserWindowInterface;
 
 namespace actions {
 class ActionItem;
+class BaseAction;
 }  // namespace actions
 
 namespace views {
@@ -48,10 +50,35 @@ class ActionAppMenu : public views::MenuDelegate {
   views::MenuItemView* root_menu_item_for_testing() { return root_; }
 
  private:
+  // Recursively populates the menu item with the `base_action_item`'s
+  // children.
   void PopulateMenu(views::MenuItemView* view_parent,
-                    actions::ActionItem* action_item);
+                    actions::BaseAction* base_action_item);
 
-  void CreateMenuHierarchy(actions::ActionItem* root);
+  // Appends and returns a menu item to the `parent_menu_item` and adds the
+  // `base_action_item` to the command to action map.
+  views::MenuItemView* AppendMenuItem(actions::BaseAction* base_action_item,
+                                      views::MenuItemView* parent_menu_item);
+
+  // Configures the section header in a menu to display the correct text. A
+  // section header is essentially a non-interactive piece of text within the
+  // menu to helps break up the menu into sections.
+  void ConfigureSectionHeader(views::MenuItemView* header_menu_item);
+
+  // Configures the menu item to populate with the correct icon, text, and
+  // padding. ConfigureMenuItem() differs from ConfigureSectionHeader() in that
+  // ConfigureMenuItem() should only be used for clickable menu items within the
+  // action app menu or have a sub-menu.
+  void ConfigureMenuItem(views::MenuItemView* menu_item,
+                         actions::BaseAction* child_base,
+                         bool is_first_item,
+                         bool is_last_item);
+
+  void PopulateFooter(views::MenuItemView* view_parent,
+                      actions::ActionItem* footer_action_item);
+
+  void PopulateBlockMenuItem(views::MenuItemView* view_parent,
+                             actions::ActionItem* block_action_item);
 
   // The browser window interface associated with this menu.
   raw_ptr<BrowserWindowInterface> browser_window_interface_;
@@ -70,6 +97,11 @@ class ActionAppMenu : public views::MenuDelegate {
 
   // The root menu item view. Owned by `menu_runner_`.
   raw_ptr<views::MenuItemView> root_ = nullptr;
+
+  // Manages the ActionItem hierarchy and dynamic submenus.
+  std::unique_ptr<ActionAppMenuManager> menu_manager_;
+
+  int next_id_ = COMMAND_ID_FIRST_UNBOUNDED;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_APP_MENU_ACTION_APP_MENU_H_

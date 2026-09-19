@@ -17,6 +17,7 @@
 #import "base/strings/string_number_conversions.h"
 #import "base/time/time.h"
 #import "components/feature_engagement/public/event_constants.h"
+#import "components/feature_engagement/public/feature_constants.h"
 #import "components/feature_engagement/public/tracker.h"
 #import "components/prefs/pref_service.h"
 #import "ios/chrome/browser/default_browser/model/features.h"
@@ -252,6 +253,110 @@ bool ShouldTriggerDefaultBrowserHighlightFeature(
   }
 
   return false;
+}
+
+// Struct used to count active overflow menu default browser promos across
+// windows (as the FET does not support showing multiple promos for the same
+// FET feature at the same time in a multi-window setup).
+struct DefaultBrowserPromoOverflowMenuActiveData
+    : public base::SupportsUserData::Data {
+  // The number of active menus across all windows.
+  int active_menus = 0;
+
+  // Key to use for this type in SupportsUserData.
+  static constexpr char key[] = "DefaultBrowserPromoOverflowMenuActiveData";
+};
+
+bool ShouldShowDefaultBrowserPromoOverflowMenu(
+    DefaultBrowserPromoOverflowMenuType type,
+    feature_engagement::Tracker* tracker) {
+  if (!tracker) {
+    return false;
+  }
+
+  if (IsChromeLikelyDefaultBrowser()) {
+    return false;
+  }
+
+  if (!IsDefaultBrowserPromoOverflowMenuEnabled() ||
+      CurrentDefaultBrowserPromoOverflowMenuType() != type) {
+    return false;
+  }
+
+  DefaultBrowserPromoOverflowMenuActiveData* data =
+      static_cast<DefaultBrowserPromoOverflowMenuActiveData*>(
+          tracker->GetUserData(DefaultBrowserPromoOverflowMenuActiveData::key));
+
+  // If the promo is already active in another window, increment the refcount
+  // without re-querying the FET.
+  if (data && data->active_menus > 0) {
+    data->active_menus++;
+    return true;
+  }
+
+  const base::Feature* feature = nullptr;
+  switch (type) {
+    case DefaultBrowserPromoOverflowMenuType::kDestination:
+      feature = &feature_engagement::
+                    kIPHiOSPromoOverflowMenuDestinationDefaultBrowserFeature;
+      break;
+    case DefaultBrowserPromoOverflowMenuType::kShortcuts:
+      feature = &feature_engagement::
+                    kIPHiOSPromoOverflowMenuShortcutsDefaultBrowserFeature;
+      break;
+  }
+
+  if (!tracker->ShouldTriggerHelpUI(*feature)) {
+    return false;
+  }
+
+  // Create user data struct on first trigger.
+  if (!data) {
+    auto new_data =
+        std::make_unique<DefaultBrowserPromoOverflowMenuActiveData>();
+    data = new_data.get();
+    tracker->SetUserData(DefaultBrowserPromoOverflowMenuActiveData::key,
+                         std::move(new_data));
+  }
+
+  data->active_menus++;
+  return true;
+}
+
+void DismissDefaultBrowserPromoOverflowMenu(
+    feature_engagement::Tracker* tracker) {
+  if (!tracker) {
+    return;
+  }
+
+  DefaultBrowserPromoOverflowMenuActiveData* data =
+      static_cast<DefaultBrowserPromoOverflowMenuActiveData*>(
+          tracker->GetUserData(DefaultBrowserPromoOverflowMenuActiveData::key));
+
+  CHECK(IsDefaultBrowserPromoOverflowMenuEnabled());
+  const base::Feature* feature = nullptr;
+  switch (CurrentDefaultBrowserPromoOverflowMenuType()) {
+    case DefaultBrowserPromoOverflowMenuType::kDestination:
+      feature = &feature_engagement::
+                    kIPHiOSPromoOverflowMenuDestinationDefaultBrowserFeature;
+      break;
+    case DefaultBrowserPromoOverflowMenuType::kShortcuts:
+      feature = &feature_engagement::
+                    kIPHiOSPromoOverflowMenuShortcutsDefaultBrowserFeature;
+      break;
+  }
+
+  if (data) {
+    data->active_menus--;
+    if (data->active_menus <= 0) {
+      if (feature) {
+        tracker->Dismissed(*feature);
+      }
+      tracker->RemoveUserData(DefaultBrowserPromoOverflowMenuActiveData::key);
+    }
+  } else if (feature) {
+    tracker->Dismissed(*feature);
+  }
 }
 
 NSInteger UserInteractionWithNonModalPromoCount() {

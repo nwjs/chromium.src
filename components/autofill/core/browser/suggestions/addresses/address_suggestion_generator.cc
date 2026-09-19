@@ -38,12 +38,12 @@
 #include "components/autofill/core/browser/autofill_trigger_source.h"
 #include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
-#include "components/autofill/core/browser/data_model/addresses/autofill_normalization_utils.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_normalization_util.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile_comparator.h"
 #include "components/autofill/core/browser/data_model/transliterator.h"
 #include "components/autofill/core/browser/data_quality/autofill_data_util.h"
-#include "components/autofill/core/browser/field_type_utils.h"
+#include "components/autofill/core/browser/field_type_util.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling/addresses/field_filling_address_util.h"
 #include "components/autofill/core/browser/filling/field_filling_skip_reason.h"
@@ -433,12 +433,12 @@ void RemoveDisusedSuggestions(std::vector<ProfileWithText>& profiles) {
 }
 
 // Returns non address suggestions which are displayed below address
-// suggestions in the Autofill popup. `is_autofilled` is used to conditionally
-// add suggestion for clearing all autofilled fields.
-std::vector<Suggestion> GetAddressFooterSuggestions(bool is_autofilled) {
+// suggestions in the Autofill popup. If `should_add_undo` is `true`, add a
+// suggestion for undoing the last Autofill operation.
+std::vector<Suggestion> GetAddressFooterSuggestions(bool should_add_undo) {
   std::vector<Suggestion> footer_suggestions;
   footer_suggestions.emplace_back(SuggestionType::kSeparator);
-  if (is_autofilled) {
+  if (should_add_undo) {
     footer_suggestions.push_back(CreateUndoSuggestion());
   }
   footer_suggestions.push_back(CreateManageAddressesSuggestion());
@@ -774,7 +774,7 @@ std::vector<Suggestion> GenerateAddressOnTypingSuggestions(
   }
   // TODO(crbug.com/381994105): Consider adding undo.
   base::Extend(suggestions,
-               GetAddressFooterSuggestions(/*is_autofilled=*/false));
+               GetAddressFooterSuggestions(/*should_add_undo=*/false));
   return suggestions;
 }
 
@@ -818,11 +818,8 @@ std::vector<Suggestion> GenerateAddressSuggestions(
   if (suggestions.empty()) {
     return {};
   }
-  base::Extend(suggestions,
-               // TODO(crbug.com/393114125): Change to use
-               // `AutofillField::field_modifiers_`.
-               GetAddressFooterSuggestions(
-                   trigger_field.is_autofilled_according_to_renderer()));
+  base::Extend(suggestions, GetAddressFooterSuggestions(ShouldOfferUndoOnField(
+                                *trigger_autofill_field)));
   return suggestions;
 }
 

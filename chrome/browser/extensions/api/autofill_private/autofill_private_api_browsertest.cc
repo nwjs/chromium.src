@@ -21,12 +21,12 @@
 #include "chrome/browser/extensions/api/autofill_private/autofill_private_event_router_factory.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "components/autofill/content/browser/test_autofill_client_injector.h"
 #include "components/autofill/content/browser/test_content_autofill_client.h"
 #include "components/autofill/core/browser/data_manager/addresses/test_address_data_manager.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
-#include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager_test_utils.h"
+#include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager_test_util.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
@@ -38,15 +38,17 @@
 #include "components/autofill/core/browser/payments/payments_request_details.h"
 #include "components/autofill/core/browser/payments/test_payments_network_interface.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_flow.h"
-#include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
-#include "components/autofill/core/browser/test_utils/entity_data_test_utils.h"
+#include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_util.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
+#include "components/autofill/core/browser/test_utils/entity_data_test_util.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/consent_auditor/consent_auditor.h"
 #include "components/consent_auditor/fake_consent_auditor.h"
 #include "components/device_reauth/mock_device_authenticator.h"
+#include "components/one_time_tokens/core/browser/mock_one_time_token_service.h"
+#include "components/one_time_tokens/core/browser/user_data_processing_consent_states.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
@@ -448,6 +450,128 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTest,
   EXPECT_TRUE(RunAutofillSubtest("optOutOfWalletablePassDetection"));
   EXPECT_TRUE(
       RunAutofillSubtest("verifyUserOptedOutOfWalletablePassDetection"));
+}
+
+IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTest,
+                       FetchUserDataProcessingConsent_Success) {
+  auto mock_otp_service = std::make_unique<
+      testing::NiceMock<one_time_tokens::MockOneTimeTokenService>>();
+  EXPECT_CALL(*mock_otp_service, FetchUserDataProcessingConsent)
+      .WillOnce(
+          RunOnceCallback<0>(one_time_tokens::UserDataProcessingConsentStates{
+              .comms_apps = one_time_tokens::ConsentState::kEnabled,
+              .google_apps = one_time_tokens::ConsentState::kEnabled,
+          }));
+  autofill_client()->set_one_time_token_service(std::move(mock_otp_service));
+
+  auto function = base::MakeRefCounted<
+      extensions::AutofillPrivateFetchUserDataProcessingConsentFunction>();
+  function->SetRenderFrameHost(GetActiveWebContents()->GetPrimaryMainFrame());
+
+  std::optional<base::Value> result =
+      extensions::api_test_utils::RunFunctionAndReturnSingleResult(
+          function.get(), "[]", profile());
+
+  ASSERT_TRUE(result);
+  ASSERT_TRUE(result->is_dict());
+  EXPECT_THAT(result->GetDict().FindString("commsApps"),
+              Pointee(Eq("ENABLED")));
+  EXPECT_THAT(result->GetDict().FindString("googleApps"),
+              Pointee(Eq("ENABLED")));
+}
+
+IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTest,
+                       FetchUserDataProcessingConsent_MixedAndUnknown) {
+  auto mock_otp_service = std::make_unique<
+      testing::NiceMock<one_time_tokens::MockOneTimeTokenService>>();
+  EXPECT_CALL(*mock_otp_service, FetchUserDataProcessingConsent)
+      .WillOnce(
+          RunOnceCallback<0>(one_time_tokens::UserDataProcessingConsentStates{
+              .comms_apps = one_time_tokens::ConsentState::kDisabled,
+              .google_apps = one_time_tokens::ConsentState::kUnknown,
+          }));
+  autofill_client()->set_one_time_token_service(std::move(mock_otp_service));
+
+  auto function = base::MakeRefCounted<
+      extensions::AutofillPrivateFetchUserDataProcessingConsentFunction>();
+  function->SetRenderFrameHost(GetActiveWebContents()->GetPrimaryMainFrame());
+
+  std::optional<base::Value> result =
+      extensions::api_test_utils::RunFunctionAndReturnSingleResult(
+          function.get(), "[]", profile());
+
+  ASSERT_TRUE(result);
+  ASSERT_TRUE(result->is_dict());
+  EXPECT_THAT(result->GetDict().FindString("commsApps"),
+              Pointee(Eq("DISABLED")));
+  EXPECT_THAT(result->GetDict().FindString("googleApps"),
+              Pointee(Eq("UNKNOWN")));
+}
+
+IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTest,
+                       FetchUserDataProcessingConsent_Undefined) {
+  auto mock_otp_service = std::make_unique<
+      testing::NiceMock<one_time_tokens::MockOneTimeTokenService>>();
+  EXPECT_CALL(*mock_otp_service, FetchUserDataProcessingConsent)
+      .WillOnce(
+          RunOnceCallback<0>(one_time_tokens::UserDataProcessingConsentStates{
+              .comms_apps = one_time_tokens::ConsentState::kUndefined,
+              .google_apps = one_time_tokens::ConsentState::kUndefined,
+          }));
+  autofill_client()->set_one_time_token_service(std::move(mock_otp_service));
+
+  auto function = base::MakeRefCounted<
+      extensions::AutofillPrivateFetchUserDataProcessingConsentFunction>();
+  function->SetRenderFrameHost(GetActiveWebContents()->GetPrimaryMainFrame());
+
+  std::optional<base::Value> result =
+      extensions::api_test_utils::RunFunctionAndReturnSingleResult(
+          function.get(), "[]", profile());
+
+  ASSERT_TRUE(result);
+  ASSERT_TRUE(result->is_dict());
+  EXPECT_THAT(result->GetDict().FindString("commsApps"),
+              Pointee(Eq("UNDEFINED")));
+  EXPECT_THAT(result->GetDict().FindString("googleApps"),
+              Pointee(Eq("UNDEFINED")));
+}
+
+IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTest,
+                       FetchUserDataProcessingConsent_BackendError) {
+  auto mock_otp_service = std::make_unique<
+      testing::NiceMock<one_time_tokens::MockOneTimeTokenService>>();
+  EXPECT_CALL(*mock_otp_service, FetchUserDataProcessingConsent)
+      .WillOnce(RunOnceCallback<0>(std::nullopt));
+  autofill_client()->set_one_time_token_service(std::move(mock_otp_service));
+
+  auto function = base::MakeRefCounted<
+      extensions::AutofillPrivateFetchUserDataProcessingConsentFunction>();
+  function->SetRenderFrameHost(GetActiveWebContents()->GetPrimaryMainFrame());
+
+  std::string error = extensions::api_test_utils::RunFunctionAndReturnError(
+      function.get(), "[]", profile());
+
+  EXPECT_EQ(
+      "Fetch user data processing consent - Failed to fetch user data "
+      "processing consent.",
+      error);
+}
+
+IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTest,
+                       FetchUserDataProcessingConsent_NoService) {
+  autofill_client()->set_one_time_token_service(nullptr);
+
+  auto function = base::MakeRefCounted<
+      extensions::AutofillPrivateFetchUserDataProcessingConsentFunction>();
+  function->SetRenderFrameHost(GetActiveWebContents()->GetPrimaryMainFrame());
+
+  std::string error = extensions::api_test_utils::RunFunctionAndReturnError(
+      function.get(), "[]", profile());
+
+  EXPECT_EQ(
+      "Fetch user data processing consent - One-time token service "
+      "unavailable.",
+      error);
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -875,7 +999,7 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiBrowserTestWithWalletPassBranding,
   EXPECT_EQ(
       api_type_branded.add_entity_type_string,
       l10n_util::GetStringUTF8(
-          IDS_AUTOFILL_AI_SAVE_DRIVERS_LICENSE_ENTITY_DIALOG_TITLE_BRANDED));
+          IDS_AUTOFILL_AI_ADD_DRIVERS_LICENSE_ENTITY_BRANDED));
 #else
   EXPECT_EQ(
       api_type_branded.add_entity_type_string,

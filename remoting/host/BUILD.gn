@@ -315,13 +315,6 @@ source_set("settings") {
   public_deps = [ "//remoting/base:settings" ]
 }
 
-source_set("host_extension") {
-  sources = [
-    "host_extension.h",
-    "host_extension_session.h",
-  ]
-}
-
 source_set("resources") {
   sources = [ "resources.h" ]
   deps = [
@@ -462,8 +455,6 @@ static_library("common") {
     "host_event_reporter.h",
     "host_experiment_session_plugin.cc",
     "host_experiment_session_plugin.h",
-    "host_extension_session_manager.cc",
-    "host_extension_session_manager.h",
     "host_power_save_blocker.cc",
     "host_power_save_blocker.h",
     "host_secret.cc",
@@ -513,10 +504,6 @@ static_library("common") {
     "terminal_session.h",
     "terminal_session_manager.cc",
     "terminal_session_manager.h",
-    "test_echo_extension.cc",
-    "test_echo_extension.h",
-    "test_echo_extension_session.cc",
-    "test_echo_extension_session.h",
     "video_memory_utils.cc",
     "video_memory_utils.h",
     "webrtc_mouse_cursor_monitor_adaptor.cc",
@@ -636,7 +623,6 @@ static_library("common") {
   public_deps = [
     ":common_headers",
     ":enterprise_params",
-    ":host_extension",
     ":mojo_caller_security_checker",
     "//ipc",
     "//remoting/host/base",
@@ -813,6 +799,10 @@ static_library("common") {
       "keyboard_layout_monitor_win.cc",
       "pairing_registry_delegate_win.cc",
       "pairing_registry_delegate_win.h",
+      "remote_client_cert_store.cc",
+      "remote_client_cert_store.h",
+      "remote_ssl_private_key.cc",
+      "remote_ssl_private_key.h",
       "sas_injector_win.cc",
       "touch_injector_win.cc",
       "touch_injector_win.h",
@@ -844,8 +834,6 @@ static_library("test_support") {
     "fake_active_display_monitor.h",
     "fake_desktop_environment.cc",
     "fake_desktop_environment.h",
-    "fake_host_extension.cc",
-    "fake_host_extension.h",
     "fake_keyboard_layout_monitor.cc",
     "fake_keyboard_layout_monitor.h",
     "fake_mouse_cursor_monitor.cc",
@@ -911,7 +899,6 @@ source_set("unit_tests") {
     "host_attributes_unittest.cc",
     "host_config_unittest.cc",
     "host_experiment_session_plugin_unittest.cc",
-    "host_extension_session_manager_unittest.cc",
     "host_power_save_blocker_unittest.cc",
     "input_monitor/local_input_monitor_unittest.cc",
     "it2me/it2me_confirmation_dialog_proxy_unittest.cc",
@@ -1044,6 +1031,7 @@ source_set("unit_tests") {
 
   if (is_linux) {
     sources += [
+      "disconnect_window_linux_unittest.cc",
       "pairing_registry_delegate_linux_unittest.cc",
       "terminal_process_monitor_linux_unittest.cc",
     ]
@@ -1083,6 +1071,8 @@ source_set("unit_tests") {
     sources += [
       "clipboard_win_unittest.cc",
       "pairing_registry_delegate_win_unittest.cc",
+      "remote_client_cert_store_unittest.cc",
+      "remote_ssl_private_key_unittest.cc",
       "touch_injector_win_unittest.cc",
     ]
     deps += [ "//remoting/host/win:unit_tests" ]

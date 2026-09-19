@@ -16,7 +16,7 @@
 #include "chrome/browser/preloading/scoped_prewarm_feature_list.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_selections.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_features.h"
@@ -197,6 +197,7 @@ class ProfileKeyedServiceBrowserTest : public InProcessBrowserTest {
 #if !BUILDFLAG(IS_ANDROID)
           features::kInitialWebUI,
           features::kWebUIReloadButton,
+          features::kLazyKeyedServiceInstantiation,
 #endif  // !BUILDFLAG(IS_ANDROID)
           features::kTrustSafetySentimentSurvey,
 #if BUILDFLAG(IS_WIN)
@@ -529,6 +530,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "UsbDeviceManager",
     "UsbDeviceResourceManager",
 #if !BUILDFLAG(IS_ANDROID)
+    "UserEducationService",
     "WaapUIMetricsService",
 #endif  // !BUILDFLAG(IS_ANDROID)
     "sct_reporting::Factory",
@@ -550,7 +552,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "LanguageDetectionModelService",
     "MediaEngagementServiceFactory",
     "MediaNotificationService",
-    "MerchantPromoCodeManager",
     "NoStatePrefetchManager",
 #if !BUILDFLAG(IS_CHROMEOS)
     // TODO(crbug.com/374351946): Investigate if this is necessary on CrOS.
@@ -585,7 +586,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "PrimaryProfileServices",
     "PrinterEventTracker",
     "SharesheetService",
-    "SupervisedUserService",
     "SupervisedUserUrlFilteringService",
     "SystemWebAppManager",
     "VirtualKeyboardAPI",
@@ -602,10 +602,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
           omnibox::kAimEligibilityComponentExtension)) {
     guest_otr_active_services.insert("AimEligibilityExtensionBridge");
     guest_otr_active_services.insert("ExtensionMojoBinderRegistry");
-  }
-  if (base::FeatureList::IsEnabled(
-          universal_optout::features::kUniversalOptOut)) {
-    guest_otr_active_services.insert("UniversalOptOutService");
   }
 
   // On ChromeOS, Guest session startup navigates to chrome://newtab (a WebUI)
@@ -624,7 +620,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
   Profile* guest_otr_profile = browser()->GetProfile();
   // Some key services are created asynchronosly. Wait util they're ready.
 #else
-  Browser* guest_browser = CreateGuestBrowser();
+  BrowserWindowInterface* guest_browser = CreateGuestBrowser();
   Profile* guest_otr_profile = guest_browser->GetProfile();
 #endif  // BUILDFLAG(IS_CHROMEOS)
   content::RunAllTasksUntilIdle();
@@ -632,6 +628,10 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
   ASSERT_FALSE(guest_otr_profile->IsRegularProfile());
   ASSERT_TRUE(guest_otr_profile->IsOffTheRecord());
   ASSERT_TRUE(guest_otr_profile->IsGuestSession());
+  if (base::FeatureList::IsEnabled(features::kLazyKeyedServiceInstantiation) &&
+      features::kLazyKeyedServiceInstantiationExtensions.Get()) {
+    guest_otr_active_services.erase("SafeBrowsingPrivateEventRouter");
+  }
   TestKeyedProfileServicesActives(guest_otr_profile, guest_otr_active_services);
 }
 
@@ -877,8 +877,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "RulesRegistryService",
     "RuntimeAPI",
     "SafeBrowsingMetricsCollector",
-    "SafeBrowsingNetworkContextService",
-
     "SafeBrowsingPrivateEventRouter",
     "SafeBrowsingTailoredSecurityService",
     "SearchEngineChoiceServiceFactory",
@@ -1026,6 +1024,10 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     guest_active_services.insert("ExtensionInstallPolicyService");
   }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  if (base::FeatureList::IsEnabled(
+          universal_optout::features::kUniversalOptOut)) {
+    guest_active_services.insert("UniversalOptOutService");
+  }
 #if BUILDFLAG(IS_CHROMEOS)
   EXPECT_TRUE(user_manager::UserManager::Get()->IsLoggedInAsGuest());
   // ChromeOS Guest mode starts with the guest otr profile.
@@ -1033,7 +1035,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
   Profile* guest_parent_profile = guest_otr_profile->GetOriginalProfile();
   // Some key services are created asynchronosly. Wait util they're ready.
 #else
-  Browser* guest_browser = CreateGuestBrowser();
+  BrowserWindowInterface* guest_browser = CreateGuestBrowser();
   Profile* guest_parent_profile =
       guest_browser->GetProfile()->GetOriginalProfile();
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -1042,5 +1044,14 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
   ASSERT_FALSE(guest_parent_profile->IsRegularProfile());
   ASSERT_FALSE(guest_parent_profile->IsOffTheRecord());
   ASSERT_TRUE(guest_parent_profile->IsGuestSession());
+  if (base::FeatureList::IsEnabled(features::kLazyKeyedServiceInstantiation) &&
+      features::kLazyKeyedServiceInstantiationOptimizationGuide.Get()) {
+    guest_active_services.erase("PageContentAnnotationsService");
+    guest_active_services.erase("ZeroSuggestCacheServiceFactory");
+  }
+  if (base::FeatureList::IsEnabled(features::kLazyKeyedServiceInstantiation) &&
+      features::kLazyKeyedServiceInstantiationExtensions.Get()) {
+    guest_active_services.erase("SafeBrowsingPrivateEventRouter");
+  }
   TestKeyedProfileServicesActives(guest_parent_profile, guest_active_services);
 }

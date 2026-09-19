@@ -4,6 +4,7 @@
 
 #include "services/webnn/webnn_tensor_impl.h"
 
+#include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/bind_post_task.h"
@@ -50,6 +51,20 @@ WebNNTensorImpl::WebNNTensorImpl(
       usage_(std::move(tensor_info->usage)) {}
 
 WebNNTensorImpl::~WebNNTensorImpl() = default;
+
+WebNNTensorImpl::OnTaskRunnerDeleterWithWait::OnTaskRunnerDeleterWithWait(
+    scoped_refptr<base::SequencedTaskRunner> task_runner)
+    : task_runner_(std::move(task_runner)) {}
+
+WebNNTensorImpl::OnTaskRunnerDeleterWithWait::~OnTaskRunnerDeleterWithWait() =
+    default;
+
+WebNNTensorImpl::OnTaskRunnerDeleterWithWait::OnTaskRunnerDeleterWithWait(
+    OnTaskRunnerDeleterWithWait&&) = default;
+
+WebNNTensorImpl::OnTaskRunnerDeleterWithWait&
+WebNNTensorImpl::OnTaskRunnerDeleterWithWait::operator=(
+    OnTaskRunnerDeleterWithWait&&) = default;
 
 bool WebNNTensorImpl::IsValidWithDescriptor(
     const OperandDescriptor& descriptor) const {
@@ -119,7 +134,8 @@ void WebNNTensorImpl::WriteTensor(mojo_base::BigBuffer src_buffer) {
       GetMojoReceiver().GetBadMessageCallback()));
 }
 
-void WebNNTensorImpl::ImportTensor(uint64_t flow_id, uint64_t release_count) {
+void WebNNTensorImpl::ImportTensor(uint64_t flow_id,
+                                   const gpu::SyncToken& fence) {
   ScopedTrace scoped_trace("WebNNTensorImpl::ImportTensor");
 
   if (!usage().Has(MLTensorUsageFlags::kWebGpuInterop)) {
@@ -130,13 +146,6 @@ void WebNNTensorImpl::ImportTensor(uint64_t flow_id, uint64_t release_count) {
   if (!context_->gpu_task_scheduler()) {
     GetMojoReceiver().ReportBadMessage(kBadMessageInvalidTensor);
     return;
-  }
-
-  gpu::SyncToken fence;
-  if (release_count != 0) {
-    fence = gpu::SyncToken(context_->gpu_task_scheduler()->namespace_id(),
-                           context_->gpu_task_scheduler()->command_buffer_id(),
-                           release_count);
   }
 
   // Defer the next task until the fence is released, after prior scheduled
@@ -165,7 +174,7 @@ void WebNNTensorImpl::ImportTensor(uint64_t flow_id, uint64_t release_count) {
           },
           base::RetainedRef(this), std::move(scoped_trace), flow_id,
           GetMojoReceiver().GetBadMessageCallback()),
-      fence);
+      {fence});
 }
 
 void WebNNTensorImpl::ExportTensor(uint64_t flow_id, uint64_t release_count) {
@@ -293,7 +302,7 @@ bool WebNNTensorImpl::ImportTensorInternal() {
     // its own thread, a task is posted to the main thread and waits for
     // completion. Otherwise, if WebNN is already running on the main thread,
     // access begins immediately.
-    RunOrPostTaskAndWaitOnSequence(
+    RunOrPostTaskAndWaitOnSequenceInternal(
         context_->main_task_runner(),
         base::BindOnce(
             [](gpu::WebNNTensorRepresentation* representation,
@@ -331,33 +340,17 @@ void WebNNTensorImpl::DestroyAccessAndRepresentationAndWait() {
   if (access) {
     scoped_refptr<base::SequencedTaskRunner> access_task_runner =
         access.get_deleter().task_runner_;
-    RunOrPostTaskAndWaitOnSequence(access_task_runner,
-                                   base::BindOnce(
-                                       [](ScopedAccessPtr access_to_destroy) {
-                                         access_to_destroy.reset();
-                                       },
-                                       std::move(access)));
+    RunOrPostTaskAndWaitOnSequenceInternal(
+        access_task_runner, base::DoNothingWithBoundArgs(std::move(access)));
   }
 
-  RepresentationPtr representation = std::move(representation_);
-  if (representation) {
-    scoped_refptr<base::SequencedTaskRunner> representation_task_runner =
-        representation.get_deleter().task_runner_;
-    RunOrPostTaskAndWaitOnSequence(
-        representation_task_runner,
-        base::BindOnce(
-            [](RepresentationPtr representation_to_destroy) {
-              representation_to_destroy.reset();
-            },
-            std::move(representation)));
-  }
+  representation_.reset();
 }
 
-void WebNNTensorImpl::RunOrPostTaskAndWaitOnSequence(
+// static
+void WebNNTensorImpl::RunOrPostTaskAndWaitOnSequenceInternal(
     scoped_refptr<base::SequencedTaskRunner> target,
     base::OnceClosure task) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
   if (target->RunsTasksInCurrentSequence()) {
     std::move(task).Run();
     return;

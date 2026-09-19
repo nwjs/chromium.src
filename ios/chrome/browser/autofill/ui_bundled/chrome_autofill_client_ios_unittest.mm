@@ -18,9 +18,10 @@
 #import "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #import "components/autofill/core/browser/foundations/test_autofill_manager_waiter.h"
 #import "components/autofill/core/browser/integrators/password_form_classification.h"
+#import "components/autofill/core/common/autofill_debug_features.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/core/common/autofill_prefs.h"
-#import "components/autofill/core/common/autofill_test_utils.h"
+#import "components/autofill/core/common/autofill_test_util.h"
 #import "components/autofill/core/common/form_data.h"
 #import "components/autofill/core/common/form_field_data.h"
 #import "components/autofill/ios/browser/autofill_agent.h"
@@ -34,9 +35,11 @@
 #import "ios/chrome/browser/autofill/model/autofill_agent_delegate.h"
 #import "ios/chrome/browser/autofill/model/autofill_policy_service_factory.h"
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
+#import "ios/chrome/browser/intelligence/actor/model/actor_tab_helper.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/public/commands/autofill_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/web/model/chrome_web_client.h"
@@ -111,6 +114,7 @@ class ChromeAutofillClientIOSTest : public PlatformTest {
                                           webState:web_state_.get()];
 
     autofill_agent.delegate = autofill_agent_delegate_;
+    ActorTabHelper::CreateForWebState(web_state_.get());
     InfoBarManagerImpl::CreateForWebState(web_state_.get());
     autofill_client_ =
         std::make_unique<WithFakedFromWebState<ChromeAutofillClientIOS>>(
@@ -156,13 +160,25 @@ class ChromeAutofillClientIOSTest : public PlatformTest {
 
   web::ScopedTestingWebClient web_client_;
   std::unique_ptr<TestProfileIOS> profile_;
-  std::unique_ptr<ChromeAutofillClientIOS> autofill_client_;
   std::unique_ptr<web::WebState> web_state_;
+  std::unique_ptr<ChromeAutofillClientIOS> autofill_client_;
   std::unique_ptr<TestAutofillManagerInjector<TestAutofillManager>>
       autofill_manager_injector_;
   std::unique_ptr<TestBrowser> browser_;
   SceneState* scene_state_;
 };
+
+// Tests that GetAutofillManagerForPrimaryMainFrame() returns the main frame's
+// AutofillManager.
+TEST_F(ChromeAutofillClientIOSTest, GetAutofillManagerForPrimaryMainFrame) {
+  ASSERT_TRUE(LoadHtmlAndWaitForFormsSeen(
+      @"<form>"
+       "<input name='username' autocomplete='username'>"
+       "</form>",
+      1));
+  EXPECT_EQ(client().GetAutofillManagerForPrimaryMainFrame(),
+            main_frame_manager());
+}
 
 // Tests that ClassifyAsPasswordForm correctly classifies a login form.
 TEST_F(ChromeAutofillClientIOSTest, ClassifyAsPasswordForm) {
@@ -285,34 +301,19 @@ TEST_F(ChromeAutofillClientIOSTest, ShowAutofillAiPreFetchFailureNotification) {
   EXPECT_EQ(infobar_manager->infobars().size(), 1u);
 }
 
-// Tests that `ShowAutofillAiPrivateInferenceNotice()` successfully adds
-// the private inference notice infobar to the InfoBarManager and sets the
-// first shown timestamp pref.
+// Tests that `ShowAutofillAiPrivateInferenceNotice()` dispatches the command to
+// show the Autofill AI Private Inference notice bottom sheet.
 TEST_F(ChromeAutofillClientIOSTest, ShowAutofillAiPrivateInferenceNotice) {
-  infobars::InfoBarManager* infobar_manager =
-      InfoBarManagerImpl::FromWebState(web_state());
-  ASSERT_EQ(infobar_manager->infobars().size(), 0u);
+  id mock_autofill_commands_handler =
+      OCMStrictProtocolMock(@protocol(AutofillCommands));
+  client().set_commands_handler(mock_autofill_commands_handler);
 
-  PrefService* prefs = profile()->GetPrefs();
-  EXPECT_TRUE(
-      prefs->GetTime(prefs::kAutofillAiPrivateInferenceNoticeShownTimestamp)
-          .is_null());
+  OCMExpect(
+      [mock_autofill_commands_handler showAutofillAIPrivateInferenceNotice]);
 
   client().ShowAutofillAiPrivateInferenceNotice();
 
-  ASSERT_EQ(infobar_manager->infobars().size(), 1u);
-  infobars::InfoBar* infobar = infobar_manager->infobars()[0];
-  EXPECT_EQ(infobar->delegate()->GetIdentifier(),
-            infobars::InfoBarDelegate::
-                FORMS_AI_PRIVATE_INFERENCE_INFOBAR_DELEGATE_IOS);
-
-  EXPECT_FALSE(
-      prefs->GetTime(prefs::kAutofillAiPrivateInferenceNoticeShownTimestamp)
-          .is_null());
-
-  // Calling it again should replace the existing one, so count remains 1.
-  client().ShowAutofillAiPrivateInferenceNotice();
-  ASSERT_EQ(infobar_manager->infobars().size(), 1u);
+  EXPECT_OCMOCK_VERIFY(mock_autofill_commands_handler);
 }
 
 // Tests that IsAutofillTypeBlockedByPolicy returns true when a domain
@@ -491,6 +492,55 @@ TEST_F(ChromeAutofillClientIOSTest,
                                     true);
 
   EXPECT_FALSE(client().IsAutofillEnabled());
+}
+
+// Test that `IsTabInActorMode` returns true when `kAutofillForceActorMode` is
+// enabled.
+TEST_F(ChromeAutofillClientIOSTest, IsTabInActorMode_ForceActorMode) {
+  base::test::ScopedFeatureList feature_list(
+      features::debug::kAutofillForceActorMode);
+  EXPECT_TRUE(client().IsTabInActorMode());
+}
+
+// Test that `IsTabInActorMode` gets the actuation state from `ActorTabHelper`.
+TEST_F(ChromeAutofillClientIOSTest, IsTabInActorMode_ActorTabHelper) {
+  ActorTabHelper* actor_tab_helper = ActorTabHelper::FromWebState(web_state());
+  ASSERT_TRUE(actor_tab_helper);
+
+  EXPECT_FALSE(client().IsTabInActorMode());
+
+  actor_tab_helper->SetActuating(true);
+  EXPECT_TRUE(client().IsTabInActorMode());
+
+  actor_tab_helper->SetActuating(false);
+  EXPECT_FALSE(client().IsTabInActorMode());
+}
+
+// Test that `IsTabInActorMode` returns false when `ActorTabHelper` is not
+// attached.
+TEST_F(ChromeAutofillClientIOSTest, IsTabInActorMode_NoActorTabHelper) {
+  web_state()->RemoveUserData(ActorTabHelper::UserDataKey());
+  EXPECT_FALSE(client().IsTabInActorMode());
+}
+
+// Test that `OnActorTaskStateChange` reparses known forms when actuating.
+TEST_F(ChromeAutofillClientIOSTest, OnActorTaskStateChange_ReparsesForms) {
+  ActorTabHelper* actor_tab_helper = ActorTabHelper::FromWebState(web_state());
+  ASSERT_TRUE(actor_tab_helper);
+
+  NSString* html = @"<form><input name='name'><input name='address'></form>";
+  ASSERT_TRUE(LoadHtmlAndWaitForFormsSeen(html, 1));
+
+  actor_tab_helper->SetActuating(true);
+  ASSERT_TRUE(main_frame_manager()->waiter().Wait(1));
+  EXPECT_TRUE(client().IsTabInActorMode());
+}
+
+// Test that `GetEntitySuppressionManager` returns the manager for the profile.
+TEST_F(ChromeAutofillClientIOSTest, GetEntitySuppressionManager) {
+  base::test::ScopedFeatureList feature_list(
+      features::kAutofillAmbientAutofillSuppression);
+  EXPECT_NE(client().GetEntitySuppressionManager(), nullptr);
 }
 
 }  // namespace autofill

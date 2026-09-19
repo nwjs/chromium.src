@@ -25,6 +25,7 @@ import androidx.lifecycle.Lifecycle.State;
 import androidx.preference.Preference;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -34,6 +35,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -44,10 +46,14 @@ import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchControllerFac
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchHooks;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchUtils;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.magic_stack.HomeModulesMetricsUtils;
+import org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.segmentation_platform.client_util.HomeModulesRankingHelper;
+import org.chromium.chrome.browser.segmentation_platform.client_util.HomeModulesRankingHelperJni;
 import org.chromium.chrome.browser.tab.TabArchiveSettings;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeatures;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeaturesJni;
@@ -77,12 +83,14 @@ public class TabsSettingsUnitTest {
     @Mock private UserPrefs.Natives mUserPrefsJniMock;
     @Mock private PrefService mPrefServiceMock;
     @Mock private TabGroupSyncFeatures.Natives mTabGroupSyncFeaturesJniMock;
+    @Mock private HomeModulesRankingHelper.Natives mHomeModulesRankingHelperJniMock;
     @Mock private SettingsCustomTabLauncher mCustomTabLauncher;
     @Mock private SettingsIndexData mSearchIndexDataMock;
     @Mock private AuxiliarySearchHooks mAuxiliarySearchHooksMock;
 
     @Before
     public void setUp() {
+        HomeModulesRankingHelperJni.setInstanceForTesting(mHomeModulesRankingHelperJniMock);
         UserPrefsJni.setInstanceForTesting(mUserPrefsJniMock);
         when(mUserPrefsJniMock.get(mProfileMock)).thenReturn(mPrefServiceMock);
         TabGroupSyncFeaturesJni.setInstanceForTesting(mTabGroupSyncFeaturesJniMock);
@@ -93,6 +101,11 @@ public class TabsSettingsUnitTest {
                 AuxiliarySearchHooks.class, mAuxiliarySearchHooksMock);
 
         mActivityScenarioRule.getScenario().onActivity(this::onActivity);
+    }
+
+    @After
+    public void tearDown() {
+        DeviceInfo.resetIsDesktopForTesting();
     }
 
     private void onActivity(Activity activity) {
@@ -180,6 +193,39 @@ public class TabsSettingsUnitTest {
     }
 
     @Test
+    @EnableFeatures(
+            ChromeFeatureList.ANDROID_TAB_DECLUTTER_ARCHIVE_ON_DESKTOP + ":force_disable/true")
+    public void testArchiveSettings_ForceDisabledOnDesktop() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        TabArchiveSettings archiveSettings =
+                new TabArchiveSettings(ChromeSharedPreferences.getInstance());
+        archiveSettings.setArchiveEnabled(true);
+
+        TabsSettings tabsSettings = launchFragment();
+        Preference archiveSettingsPref =
+                tabsSettings.findPreference(TabsSettings.PREF_TAB_ARCHIVE_SETTINGS);
+        assertFalse(archiveSettingsPref.isVisible());
+    }
+
+    @Test
+    @EnableFeatures(
+            ChromeFeatureList.ANDROID_TAB_DECLUTTER_ARCHIVE_ON_DESKTOP
+                    + ":disable_by_default/true")
+    public void testArchiveSettings_DisableByDefaultOnDesktop() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        TabArchiveSettings archiveSettings =
+                new TabArchiveSettings(ChromeSharedPreferences.getInstance());
+        archiveSettings.resetSettingsForTesting();
+
+        TabsSettings tabsSettings = launchFragment();
+        Preference archiveSettingsPref =
+                tabsSettings.findPreference(TabsSettings.PREF_TAB_ARCHIVE_SETTINGS);
+        assertTrue(archiveSettingsPref.isVisible());
+        assertEquals("Move to inactive section", archiveSettingsPref.getTitle());
+        assertEquals("Never", archiveSettingsPref.getSummary());
+    }
+
+    @Test
     public void testLaunchTabsSettingsShareTabs_noShowWhenDisabled() {
         TabsSettings tabsSettings = launchFragment();
         ChromeSwitchPreference shareTitlesAndUrlsWithOsSwitch =
@@ -196,7 +242,7 @@ public class TabsSettingsUnitTest {
         AuxiliarySearchHooks hooksMock = Mockito.mock(AuxiliarySearchHooks.class);
         when(hooksMock.isEnabled()).thenReturn(true);
         when(hooksMock.isSettingDefaultEnabledByOs()).thenReturn(true);
-        AuxiliarySearchControllerFactory.getInstance().setHooksForTesting(hooksMock);
+        ServiceLoaderUtil.setInstanceForTesting(AuxiliarySearchHooks.class, hooksMock);
         // Sets no consumer schema exists.
         ChromeSharedPreferences.getInstance()
                 .writeBoolean(ChromePreferenceKeys.AUXILIARY_SEARCH_CONSUMER_SCHEMA_FOUND, false);
@@ -216,7 +262,7 @@ public class TabsSettingsUnitTest {
         AuxiliarySearchHooks hooksMock = Mockito.mock(AuxiliarySearchHooks.class);
         when(hooksMock.isEnabled()).thenReturn(true);
         when(hooksMock.isSettingDefaultEnabledByOs()).thenReturn(true);
-        AuxiliarySearchControllerFactory.getInstance().setHooksForTesting(hooksMock);
+        ServiceLoaderUtil.setInstanceForTesting(AuxiliarySearchHooks.class, hooksMock);
         ChromeSharedPreferences.getInstance()
                 .writeBoolean(ChromePreferenceKeys.AUXILIARY_SEARCH_CONSUMER_SCHEMA_FOUND, true);
         assertTrue(AuxiliarySearchControllerFactory.getInstance().isSettingDefaultEnabledByOs());
@@ -238,6 +284,10 @@ public class TabsSettingsUnitTest {
 
         assertFalse(shareTitlesAndUrlsWithOsSwitch.isChecked());
         verify(listener).onConfigChanged(eq(false));
+        verify(mHomeModulesRankingHelperJniMock)
+                .notifyCardInteracted(
+                        eq(mProfileMock),
+                        eq(HomeModulesMetricsUtils.getModuleName(ModuleType.AUXILIARY_SEARCH)));
         AuxiliarySearchConfigManager.getInstance().removeListener(listener);
     }
 
@@ -249,7 +299,7 @@ public class TabsSettingsUnitTest {
                 .writeBoolean(ChromePreferenceKeys.AUXILIARY_SEARCH_CONSUMER_SCHEMA_FOUND, true);
         // Sets the setting as default disabled.
         when(hooksMock.isSettingDefaultEnabledByOs()).thenReturn(false);
-        AuxiliarySearchControllerFactory.getInstance().setHooksForTesting(hooksMock);
+        ServiceLoaderUtil.setInstanceForTesting(AuxiliarySearchHooks.class, hooksMock);
         assertFalse(AuxiliarySearchUtils.isShareTabsWithOsEnabled());
 
         TabsSettings tabsSettings = launchFragment();
@@ -269,6 +319,10 @@ public class TabsSettingsUnitTest {
 
         assertTrue(shareTitlesAndUrlsWithOsSwitch.isChecked());
         verify(listener).onConfigChanged(eq(true));
+        verify(mHomeModulesRankingHelperJniMock)
+                .notifyCardInteracted(
+                        eq(mProfileMock),
+                        eq(HomeModulesMetricsUtils.getModuleName(ModuleType.AUXILIARY_SEARCH)));
         AuxiliarySearchConfigManager.getInstance().removeListener(listener);
     }
 
@@ -277,7 +331,7 @@ public class TabsSettingsUnitTest {
         AuxiliarySearchHooks hooksMock = Mockito.mock(AuxiliarySearchHooks.class);
         when(hooksMock.isEnabled()).thenReturn(true);
         when(hooksMock.isSettingDefaultEnabledByOs()).thenReturn(true);
-        AuxiliarySearchControllerFactory.getInstance().setHooksForTesting(hooksMock);
+        ServiceLoaderUtil.setInstanceForTesting(AuxiliarySearchHooks.class, hooksMock);
         ChromeSharedPreferences.getInstance()
                 .writeBoolean(ChromePreferenceKeys.AUXILIARY_SEARCH_CONSUMER_SCHEMA_FOUND, true);
 
@@ -321,7 +375,7 @@ public class TabsSettingsUnitTest {
     public void testSearchableIndex_isShareTitlesAndUrlsEnabled_True() {
         AuxiliarySearchHooks hooksMock = Mockito.mock(AuxiliarySearchHooks.class);
         when(hooksMock.isEnabled()).thenReturn(true);
-        AuxiliarySearchControllerFactory.getInstance().setHooksForTesting(hooksMock);
+        ServiceLoaderUtil.setInstanceForTesting(AuxiliarySearchHooks.class, hooksMock);
         ChromeSharedPreferences.getInstance()
                 .writeBoolean(ChromePreferenceKeys.AUXILIARY_SEARCH_CONSUMER_SCHEMA_FOUND, true);
 
@@ -342,7 +396,7 @@ public class TabsSettingsUnitTest {
     public void testSearchableIndex_isShareTitlesAndUrlsEnabled_False() {
         AuxiliarySearchHooks hooksMock = Mockito.mock(AuxiliarySearchHooks.class);
         when(hooksMock.isEnabled()).thenReturn(true);
-        AuxiliarySearchControllerFactory.getInstance().setHooksForTesting(hooksMock);
+        ServiceLoaderUtil.setInstanceForTesting(AuxiliarySearchHooks.class, hooksMock);
         ChromeSharedPreferences.getInstance()
                 .writeBoolean(ChromePreferenceKeys.AUXILIARY_SEARCH_CONSUMER_SCHEMA_FOUND, false);
 
@@ -368,11 +422,13 @@ public class TabsSettingsUnitTest {
         TabsSettings tabsSettings = launchFragment();
         ChromeSwitchPreference switchPref =
                 tabsSettings.findPreference(
-                        TabsSettings.PREF_SHARE_BROWSING_DATA_WITH_ON_DEVICE_INTELLIGENCE_SWITCH);
+                        TabsSettings.PREF_CHROME_SUGGESTIONS_IN_OTHER_APPS_SWITCH);
         assertTrue(switchPref.isVisible());
         assertEquals(
-                mActivity.getString(
-                        R.string.share_browsing_data_with_on_device_intelligence_setting_text),
+                mActivity.getString(R.string.chrome_suggestions_in_other_apps_title),
+                switchPref.getTitle());
+        assertEquals(
+                mActivity.getString(R.string.chrome_suggestions_in_other_apps_summary),
                 switchPref.getSummary());
         assertTrue(switchPref.isChecked());
 
@@ -381,6 +437,10 @@ public class TabsSettingsUnitTest {
         assertFalse(switchPref.isChecked());
         verify(mPrefServiceMock)
                 .setBoolean(Pref.AUXILIARY_SEARCH_BROWSING_DATA_DONATION_ENABLED, false);
+        verify(mHomeModulesRankingHelperJniMock)
+                .notifyCardInteracted(
+                        eq(mProfileMock),
+                        eq(HomeModulesMetricsUtils.getModuleName(ModuleType.AUXILIARY_SEARCH)));
     }
 
     @Test
@@ -392,7 +452,7 @@ public class TabsSettingsUnitTest {
         TabsSettings tabsSettings = launchFragment();
         ChromeSwitchPreference switchPref =
                 tabsSettings.findPreference(
-                        TabsSettings.PREF_SHARE_BROWSING_DATA_WITH_ON_DEVICE_INTELLIGENCE_SWITCH);
+                        TabsSettings.PREF_CHROME_SUGGESTIONS_IN_OTHER_APPS_SWITCH);
         assertTrue(switchPref.isVisible());
         assertFalse(switchPref.isChecked());
 
@@ -401,6 +461,10 @@ public class TabsSettingsUnitTest {
         assertTrue(switchPref.isChecked());
         verify(mPrefServiceMock)
                 .setBoolean(Pref.AUXILIARY_SEARCH_BROWSING_DATA_DONATION_ENABLED, true);
+        verify(mHomeModulesRankingHelperJniMock)
+                .notifyCardInteracted(
+                        eq(mProfileMock),
+                        eq(HomeModulesMetricsUtils.getModuleName(ModuleType.AUXILIARY_SEARCH)));
     }
 
     @Test
@@ -409,25 +473,25 @@ public class TabsSettingsUnitTest {
         TabsSettings tabsSettings = launchFragment();
         ChromeSwitchPreference switchPref =
                 tabsSettings.findPreference(
-                        TabsSettings.PREF_SHARE_BROWSING_DATA_WITH_ON_DEVICE_INTELLIGENCE_SWITCH);
+                        TabsSettings.PREF_CHROME_SUGGESTIONS_IN_OTHER_APPS_SWITCH);
         assertFalse(switchPref.isVisible());
     }
 
     @Test
     @EnableFeatures(ChromeFeatureList.AUXILIARY_SEARCH_HISTORY_DONATION)
-    public void testSearchableIndex_isShareBrowsingDataWithOnDeviceIntelligenceEnabled_True() {
+    public void testSearchableIndex_isChromeSuggestionsInOtherAppsEnabled_True() {
         var indexProvider = TabsSettings.SEARCH_INDEX_DATA_PROVIDER;
         indexProvider.updateDynamicPreferences(mActivity, mSearchIndexDataMock, mProfileMock);
-        String pref = TabsSettings.PREF_SHARE_BROWSING_DATA_WITH_ON_DEVICE_INTELLIGENCE_SWITCH;
+        String pref = TabsSettings.PREF_CHROME_SUGGESTIONS_IN_OTHER_APPS_SWITCH;
         verify(mSearchIndexDataMock, times(0)).removeEntry(indexProvider.getUniqueId(pref));
     }
 
     @Test
     @DisableFeatures(ChromeFeatureList.AUXILIARY_SEARCH_HISTORY_DONATION)
-    public void testSearchableIndex_isShareBrowsingDataWithOnDeviceIntelligenceEnabled_False() {
+    public void testSearchableIndex_isChromeSuggestionsInOtherAppsEnabled_False() {
         var indexProvider = TabsSettings.SEARCH_INDEX_DATA_PROVIDER;
         indexProvider.updateDynamicPreferences(mActivity, mSearchIndexDataMock, mProfileMock);
-        String pref = TabsSettings.PREF_SHARE_BROWSING_DATA_WITH_ON_DEVICE_INTELLIGENCE_SWITCH;
+        String pref = TabsSettings.PREF_CHROME_SUGGESTIONS_IN_OTHER_APPS_SWITCH;
         verify(mSearchIndexDataMock).removeEntry(indexProvider.getUniqueId(pref));
     }
 
@@ -438,18 +502,17 @@ public class TabsSettingsUnitTest {
         TabsSettings tabsSettings = launchFragment();
         ChromeSwitchPreference switchPref =
                 tabsSettings.findPreference(
-                        TabsSettings.PREF_SHARE_BROWSING_DATA_WITH_ON_DEVICE_INTELLIGENCE_SWITCH);
+                        TabsSettings.PREF_CHROME_SUGGESTIONS_IN_OTHER_APPS_SWITCH);
         assertFalse(switchPref.isVisible());
     }
 
     @Test
     @EnableFeatures(ChromeFeatureList.AUXILIARY_SEARCH_HISTORY_DONATION)
-    public void
-            testSearchableIndex_isShareBrowsingDataWithOnDeviceIntelligenceEnabled_DeviceNotSupported() {
+    public void testSearchableIndex_isChromeSuggestionsInOtherAppsEnabled_DeviceNotSupported() {
         when(mAuxiliarySearchHooksMock.isBrowsingDataDonationSupported()).thenReturn(false);
         var indexProvider = TabsSettings.SEARCH_INDEX_DATA_PROVIDER;
         indexProvider.updateDynamicPreferences(mActivity, mSearchIndexDataMock, mProfileMock);
-        String pref = TabsSettings.PREF_SHARE_BROWSING_DATA_WITH_ON_DEVICE_INTELLIGENCE_SWITCH;
+        String pref = TabsSettings.PREF_CHROME_SUGGESTIONS_IN_OTHER_APPS_SWITCH;
         verify(mSearchIndexDataMock).removeEntry(indexProvider.getUniqueId(pref));
     }
 }

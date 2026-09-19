@@ -70,18 +70,23 @@ public class BookmarkPopupCoordinator {
             mPropertyModel.set(BookmarkPopupProperties.IMAGE_VISIBLE, true);
         }
 
+        ViewRectProvider rectProvider = new ViewRectProvider(anchor);
+        rectProvider.setIncludePadding(true);
+
         mPopupWindow =
                 new AnchoredPopupWindow.Builder(
                                 activity,
                                 anchor,
                                 AppCompatResources.getDrawable(activity, R.drawable.menu_bg_tinted),
                                 () -> mView,
-                                new ViewRectProvider(anchor))
+                                rectProvider)
                         .setOutsideTouchable(true)
                         .setFocusable(true)
+                        .setTouchModal(true)
                         .setMaxWidth(popupWidth)
                         .setDesiredContentWidth(popupWidth)
                         .setDismissOnScreenSizeChange(true)
+                        .setHorizontalOverlapAnchor(true)
                         .build();
 
         BookmarkModel bookmarkModel = BookmarkModel.getForProfile(profile);
@@ -114,6 +119,7 @@ public class BookmarkPopupCoordinator {
     public void show(BookmarkId bookmarkId, boolean isNewBookmark) {
         mMediator.show(bookmarkId, isNewBookmark);
         mPopupWindow.show();
+        mView.focusTitleInput();
     }
 
     /** Destroys the coordinator, dismissing the popup. */

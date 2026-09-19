@@ -25,6 +25,7 @@
 #include "chrome/browser/bookmarks/bookmark_parent_folder_children.h"
 #include "chrome/browser/bookmarks/managed_bookmark_service_factory.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
+#include "chrome/browser/enterprise/isolated_mode/isolated_mode_settings_service_factory.h"
 #include "chrome/browser/extensions/api/bookmark_manager_private/bookmark_manager_private_api.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
@@ -104,6 +105,10 @@ class BookmarksPageHandler::BookmarkContextMenu
       AddItem(IDC_BOOKMARK_BAR_OPEN_ALL);
       AddItem(IDC_BOOKMARK_BAR_OPEN_ALL_NEW_WINDOW);
       AddItem(IDC_BOOKMARK_BAR_OPEN_ALL_INCOGNITO);
+      if (enterprise_isolated_mode::IsolatedModeReplacesIncognito(
+              browser_window->GetProfile())) {
+        AddItem(IDC_BOOKMARK_BAR_OPEN_ALL_ISOLATED);
+      }
       if (bookmarks.size() == 1 && bookmarks.front()->is_url()) {
         AddItem(IDC_BOOKMARK_BAR_OPEN_SPLIT_VIEW);
       }
@@ -118,6 +123,10 @@ class BookmarksPageHandler::BookmarkContextMenu
     AddItem(IDC_BOOKMARK_BAR_OPEN_ALL);
     AddItem(IDC_BOOKMARK_BAR_OPEN_ALL_NEW_WINDOW);
     AddItem(IDC_BOOKMARK_BAR_OPEN_ALL_INCOGNITO);
+    if (enterprise_isolated_mode::IsolatedModeReplacesIncognito(
+            browser_window->GetProfile())) {
+      AddItem(IDC_BOOKMARK_BAR_OPEN_ALL_ISOLATED);
+    }
     if (bookmarks.size() == 1 && bookmarks.front()->is_url()) {
       AddItem(IDC_BOOKMARK_BAR_OPEN_SPLIT_VIEW);
     }
@@ -523,7 +532,7 @@ void BookmarksPageHandler::ExecuteOpenInNewWindowCommand(
                             IDC_BOOKMARK_BAR_OPEN_ALL_NEW_WINDOW);
 }
 
-void BookmarksPageHandler::ExecuteOpenInIncognitoWindowCommand(
+void BookmarksPageHandler::ExecuteOpenInOffTheRecordWindowCommand(
     const std::vector<std::string>& side_panel_ids,
     side_panel::mojom::ActionSource source) {
   const std::vector<int64_t> node_ids =
@@ -531,8 +540,11 @@ void BookmarksPageHandler::ExecuteOpenInIncognitoWindowCommand(
   if (node_ids.empty()) {
     return;
   }
-  ExecuteContextMenuCommand(node_ids, source,
-                            IDC_BOOKMARK_BAR_OPEN_ALL_INCOGNITO);
+  int command_id = enterprise_isolated_mode::IsolatedModeReplacesIncognito(
+                       browser_window_interface_->GetProfile())
+                       ? IDC_BOOKMARK_BAR_OPEN_ALL_ISOLATED
+                       : IDC_BOOKMARK_BAR_OPEN_ALL_INCOGNITO;
+  ExecuteContextMenuCommand(node_ids, source, command_id);
 }
 
 void BookmarksPageHandler::GetIncognitoAvailableCount(

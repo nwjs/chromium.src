@@ -1151,13 +1151,6 @@ bool ColumnRule::ParseShorthand(
     CSSParserLocalContext& local_context,
     HeapVector<CSSPropertyValue, 64>& properties) const {
   DCHECK_EQ(columnRuleShorthand().length(), 3u);
-  // If the CSSGapDecorations feature is not enabled, consume greedily since
-  // only single values are supported by 'column-rule' today.
-  if (!RuntimeEnabledFeatures::CSSGapDecorationEnabled()) {
-    return css_parsing_utils::ConsumeShorthandGreedilyViaLonghands(
-        columnRuleShorthand(), important, context, stream, properties);
-  }
-
   CSSValueList* rule_widths = nullptr;
   CSSValueList* rule_styles = nullptr;
   CSSValueList* rule_colors = nullptr;
@@ -5183,27 +5176,30 @@ static CSSValue* CSSValueForTimelineShorthand(
     const ComputedStyle& style) {
   CSSValueList* list = CSSValueList::CreateCommaSeparated();
 
-  if (name_vector.empty()) {
-    list->Append(*ComputedStyleUtils::SingleValueForTimelineShorthand(
-        /*name=*/g_null_atom, TimelineAxis::kBlock, /*inset=*/std::nullopt,
-        style));
+  const wtf_size_t name_length = name_vector.empty() ? 1u : name_vector.size();
+  const bool axis_is_initial =
+      axis_vector.empty() ||
+      (axis_vector.size() == 1u && axis_vector[0] == TimelineAxis::kBlock);
+  const bool inset_is_initial =
+      !inset_vector || inset_vector->empty() ||
+      (inset_vector->size() == 1u && (*inset_vector)[0] == TimelineInset());
+  if ((!axis_is_initial && axis_vector.size() != name_length) ||
+      (inset_vector && !inset_is_initial &&
+       inset_vector->size() != name_length)) {
     return list;
   }
 
-  // Per https://drafts.csswg.org/css-values-4/#linked-properties,
-  // the *-name property is the coordinating list base property, which
-  // determines the length of the coordinated value list. Other properties
-  // cycle if shorter or are truncated if longer.
-  for (wtf_size_t i = 0; i < name_vector.size(); ++i) {
-    TimelineAxis axis = axis_vector.empty()
-                            ? TimelineAxis::kBlock
-                            : axis_vector[i % axis_vector.size()];
+  for (wtf_size_t i = 0; i < name_length; ++i) {
+    const AtomicString& name =
+        name_vector.empty() ? g_null_atom : name_vector[i];
+    const TimelineAxis axis =
+        axis_is_initial ? TimelineAxis::kBlock : axis_vector[i];
     std::optional<TimelineInset> inset = std::nullopt;
     if (inset_vector && !inset_vector->empty()) {
-      inset = (*inset_vector)[i % inset_vector->size()];
+      inset = (*inset_vector)[inset_is_initial ? 0u : i];
     }
     list->Append(*ComputedStyleUtils::SingleValueForTimelineShorthand(
-        name_vector[i], axis, inset, style));
+        name, axis, inset, style));
   }
 
   return list;
@@ -5350,8 +5346,8 @@ const CSSValue* TimelineTrigger::CSSValueFromComputedStyleInternal(
       if (std::optional<Member<const ScopedCSSName>> name =
               animation_data->TimelineTriggerNameList().at(i)) {
         if (name->Get()) {
-          before_slash->Append(*MakeGarbageCollected<CSSCustomIdentValue>(
-              name->Get()->GetName()));
+          before_slash->Append(
+              *MakeGarbageCollected<CSSCustomIdentValue>(*name->Get()));
         }
       }
 

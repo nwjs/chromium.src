@@ -11,9 +11,11 @@
 
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
+#include "ash/constants/ash_switches.h"
 #include "ash/webui/diagnostics_ui/url_constants.h"
 #include "ash/webui/help_app_ui/url_constants.h"
 #include "ash/webui/os_feedback_ui/url_constants.h"
+#include "base/command_line.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -36,11 +38,13 @@
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/webui/ash/os_feedback_dialog/os_feedback_dialog.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chromeos/ash/components/system_web_apps/system_web_app_type.h"
 #include "components/feedback/content/content_tracing_manager.h"
@@ -50,6 +54,7 @@
 #include "components/feedback/feedback_uploader.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
+#include "components/user_manager/user_names.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "extensions/browser/api/feedback_private/feedback_private_api.h"
@@ -58,6 +63,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/aura/window.h"
+#include "ui/base/base_window.h"
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 
@@ -260,7 +266,7 @@ class ChromeOsFeedbackDelegateTest : public InProcessBrowserTest {
     EXPECT_EQ(SendReportStatus::kSuccess, future.Get());
   }
 
-  Browser* LaunchFeedbackAppAndGetBrowser() {
+  BrowserWindowInterface* LaunchFeedbackAppAndGetBrowser() {
     // Install system apps, namely the Feedback App.
     ash::SystemWebAppManager::GetForTest(browser()->GetProfile())
         ->InstallSystemAppsForTesting();
@@ -284,10 +290,9 @@ class ChromeOsFeedbackDelegateTest : public InProcessBrowserTest {
         ash::FindSystemWebAppBrowser(browser()->GetProfile(),
                                      ash::SystemWebAppType::OS_FEEDBACK,
                                      ash::BrowserType::kApp);
-    Browser* feedback_browser = feedback_browser_delegate
-                                    ? feedback_browser_delegate->GetBrowser()
-                                          .GetBrowserForMigrationOnly()
-                                    : nullptr;
+    BrowserWindowInterface* feedback_browser =
+        feedback_browser_delegate ? &feedback_browser_delegate->GetBrowser()
+                                  : nullptr;
 
     EXPECT_NE(feedback_browser, nullptr);
 
@@ -366,6 +371,28 @@ IN_PROC_BROWSER_TEST_F(ChromeOsFeedbackDelegateTest, GetSignedInUserEmail) {
   signin::MakePrimaryAccountAvailable(identity_manager, kSignedInUserEmail,
                                       signin::ConsentLevel::kSignin);
   EXPECT_EQ(feedback_delegate.GetSignedInUserEmail(), kSignedInUserEmail);
+}
+
+class ChromeOsFeedbackDelegateGuestModeBrowserTest
+    : public InProcessBrowserTest {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    command_line->AppendSwitch(ash::switches::kGuestSession);
+    command_line->AppendSwitchASCII(ash::switches::kLoginUser,
+                                    user_manager::kGuestUserName);
+    command_line->AppendSwitchASCII(ash::switches::kLoginProfile,
+                                    TestingProfile::kTestUserProfileDir);
+    command_line->AppendSwitch(::switches::kIncognito);
+  }
+};
+
+// Guest profiles have no annotated account (crbug.com/546860700), so
+// GetSignedInUserEmail() should report no signed-in email rather than crash.
+IN_PROC_BROWSER_TEST_F(ChromeOsFeedbackDelegateGuestModeBrowserTest,
+                       GetSignedInUserEmail) {
+  auto feedback_delegate =
+      ChromeOsFeedbackDelegate::CreateForTesting(browser()->GetProfile());
+  EXPECT_EQ(feedback_delegate.GetSignedInUserEmail(), std::nullopt);
 }
 
 // Test IsWifiDebugLogsAllowed returns true when
@@ -694,7 +721,7 @@ IN_PROC_BROWSER_TEST_F(ChromeOsFeedbackDelegateTest, NoScreenshot) {
 // Diagnostics app will launch the app as an independent SWA
 IN_PROC_BROWSER_TEST_F(ChromeOsFeedbackDelegateTest,
                        OpenDiagnosticsApp_From_SWA) {
-  Browser* feedback_browser = LaunchFeedbackAppAndGetBrowser();
+  BrowserWindowInterface* feedback_browser = LaunchFeedbackAppAndGetBrowser();
   CHECK(feedback_browser);
 
   auto feedback_delegate =
@@ -760,7 +787,7 @@ IN_PROC_BROWSER_TEST_F(ChromeOsFeedbackDelegateTest, OpenExploreApp) {
 // Test that the Metrics (Histograms) dialog opens
 // when OpenMetricsDialog is invoked.
 IN_PROC_BROWSER_TEST_F(ChromeOsFeedbackDelegateTest, OpenMetricsDialog) {
-  Browser* feedback_browser = LaunchFeedbackAppAndGetBrowser();
+  BrowserWindowInterface* feedback_browser = LaunchFeedbackAppAndGetBrowser();
 
   gfx::NativeWindow feedback_window =
       feedback_browser->GetWindow()->GetNativeWindow();
@@ -786,7 +813,7 @@ IN_PROC_BROWSER_TEST_F(ChromeOsFeedbackDelegateTest, OpenMetricsDialog) {
 // Feedback SWA.
 IN_PROC_BROWSER_TEST_F(ChromeOsFeedbackDelegateTest,
                        OpenSystemInfoDialog_From_FeedbackSWA) {
-  Browser* feedback_browser = LaunchFeedbackAppAndGetBrowser();
+  BrowserWindowInterface* feedback_browser = LaunchFeedbackAppAndGetBrowser();
 
   gfx::NativeWindow feedback_window =
       feedback_browser->GetWindow()->GetNativeWindow();
@@ -1018,7 +1045,7 @@ IN_PROC_BROWSER_TEST_F(ChromeOsFeedbackDelegateTest,
 // window bounds.
 IN_PROC_BROWSER_TEST_F(ChromeOsFeedbackDelegateTest,
                        DontRestoreUnresizableSystemWebApp) {
-  Browser* feedback_browser = LaunchFeedbackAppAndGetBrowser();
+  BrowserWindowInterface* feedback_browser = LaunchFeedbackAppAndGetBrowser();
   aura::Window* feedback_window =
       feedback_browser->GetWindow()->GetNativeWindow();
 

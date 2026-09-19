@@ -133,9 +133,7 @@ public class LayoutManagerImpl
     private TabModelSelector mTabModelSelector;
 
     private final Callback<TabModel> mCurrentTabModelObserver =
-            (tabModel) -> {
-                tabModelSwitched(tabModel.isIncognitoBranded());
-            };
+            (tabModel) -> tabModelSwitched(tabModel.isIncognitoBranded());
     private TabModelSelectorTabObserver mTabModelSelectorTabObserver;
 
     // An observer for watching TabModels changes events.
@@ -356,7 +354,7 @@ public class LayoutManagerImpl
      *
      * @param host A {@link LayoutManagerHost} instance.
      * @param contentContainer A {@link ViewGroup} for Android views to be bound to.
-     * @param tabContentManagerSupplier Supplier of the {@link TabContentManager} instance.
+     * @param tabContentManagerSupplier Supplier of the manager providing tab thumbnail snapshots.
      * @param toolbarThemeColorProvider {@link ToolbarThemeColorProvider} for the toolbar.
      */
     public LayoutManagerImpl(

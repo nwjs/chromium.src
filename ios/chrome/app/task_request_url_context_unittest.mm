@@ -8,20 +8,25 @@
 
 #import <optional>
 
+#import "base/strings/sys_string_conversions.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/metrics/user_action_tester.h"
 #import "base/test/scoped_feature_list.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/application_delegate/startup_information.h"
+#import "ios/chrome/app/application_delegate/tab_opening.h"
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/app/startup/app_launch_metrics.h"
 #import "ios/chrome/browser/first_run/model/first_run_metrics.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_controller.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/test/fake_scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/url_loading/model/url_loading_params.h"
+#import "ios/chrome/common/app_group/app_group_constants.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/platform_test.h"
@@ -60,7 +65,7 @@ class TaskRequestForURLContextTest : public PlatformTest {
   }
 
   UIOpenURLContext* CreateMockURLContext(NSURL* url) {
-    id mockContext = OCMClassMock([UIOpenURLContext class]);
+    UIOpenURLContext* mockContext = OCMClassMock([UIOpenURLContext class]);
     OCMStub([mockContext URL]).andReturn(url);
     return mockContext;
   }
@@ -206,6 +211,57 @@ TEST_F(TaskRequestForURLContextTest, TestXCallbackURLMetrics) {
   }
 }
 
+// Tests that X-Callback app-group-command URLs log the application group
+// command delay metric.
+TEST_F(TaskRequestForURLContextTest, TestXCallbackAppGroupCommandDelayMetric) {
+  base::HistogramTester histogram_tester;
+
+  // Prepare app group command parameters in defaults.
+  NSUserDefaults* sharedDefaults = app_group::GetGroupUserDefaults();
+  NSString* commandDictionaryPreference =
+      base::SysUTF8ToNSString(app_group::kChromeAppGroupCommandPreference);
+  NSString* commandTimePreference =
+      base::SysUTF8ToNSString(app_group::kChromeAppGroupCommandTimePreference);
+  NSString* commandCallerPreference =
+      base::SysUTF8ToNSString(app_group::kChromeAppGroupCommandAppPreference);
+  NSString* commandPreference = base::SysUTF8ToNSString(
+      app_group::kChromeAppGroupCommandCommandPreference);
+
+  NSDate* commandTime =
+      [NSDate dateWithTimeIntervalSinceNow:-5.0];  // 5 seconds ago
+  NSDictionary* commandDictionary = @{
+    commandTimePreference : commandTime,
+    commandCallerPreference : @"some-extension",
+    commandPreference : @"open-url-command"
+  };
+  [sharedDefaults setObject:commandDictionary
+                     forKey:commandDictionaryPreference];
+
+  NSURL* url =
+      [NSURL URLWithString:@"googlechrome://x-callback-url/app-group-command"];
+  UIOpenURLContext* context = CreateMockURLContext(url);
+
+  TaskRequestForURLContext* request =
+      [TaskRequestForURLContext taskRequestWithURLContext:context
+                                               sceneState:scene_state_
+                                              isColdStart:YES];
+  EXPECT_NE(request, nil);
+
+  histogram_tester.ExpectUniqueSample(kUMAMobileSessionStartActionHistogram,
+                                      START_ACTION_XCALLBACK_APPGROUP_COMMAND,
+                                      1);
+  histogram_tester.ExpectUniqueSample(kAppLaunchSource,
+                                      AppLaunchSource::X_CALLBACK, 1);
+
+  // Verify that the command delay was recorded.
+  histogram_tester.ExpectTotalCount("Startup.ApplicationGroupCommandDelay", 1);
+  histogram_tester.ExpectUniqueSample("Startup.ApplicationGroupCommandDelay", 5,
+                                      1);
+
+  // Clean up.
+  [sharedDefaults removeObjectForKey:commandDictionaryPreference];
+}
+
 // Tests that standard HTTP/HTTPS, File, and External Action URLs log launch
 // source, startup metrics, and user actions.
 TEST_F(TaskRequestForURLContextTest, TestSimpleURLMetrics) {
@@ -304,4 +360,67 @@ TEST_F(TaskRequestForURLContextTest, TestExternalActionMetrics) {
           user_action_tester.GetActionCount(test_case.expected_user_action), 1);
     }
   }
+}
+
+// Test double for SceneController to verify tab opening from TaskRequests.
+@interface TaskRequestURLContextTestTabOpener : SceneController <TabOpening>
+
+@property(nonatomic, assign) ApplicationModeForTabOpening targetMode;
+@property(nonatomic, assign) UrlLoadParams urlLoadParams;
+@property(nonatomic, assign) BOOL dismissOmnibox;
+@property(nonatomic, assign) TabOpeningPostOpeningAction completionAction;
+@property(nonatomic, assign) BOOL completionActionExecuted;
+
+@end
+
+@implementation TaskRequestURLContextTestTabOpener
+
+- (ProceduralBlock)completionBlockForTriggeringAction:
+    (TabOpeningPostOpeningAction)action {
+  self.completionAction = action;
+  return ^{
+    self.completionActionExecuted = YES;
+  };
+}
+
+- (void)dismissModalsAndMaybeOpenSelectedTabInMode:
+            (ApplicationModeForTabOpening)targetMode
+                                 withUrlLoadParams:(UrlLoadParams)urlLoadParams
+                                    dismissOmnibox:(BOOL)dismissOmnibox
+                                        completion:(ProceduralBlock)completion {
+  self.targetMode = targetMode;
+  self.urlLoadParams = urlLoadParams;
+  self.dismissOmnibox = dismissOmnibox;
+  if (completion) {
+    completion();
+  }
+}
+
+@end
+
+// Tests that WidgetKit URL execution correctly triggers the scene controller.
+TEST_F(TaskRequestForURLContextTest, TestWidgetURLContextExecution) {
+  NSURL* url =
+      [NSURL URLWithString:@"chromewidgetkit://quick-actions-widget/incognito"];
+  UIOpenURLContext* context = CreateMockURLContext(url);
+
+  TaskRequestForURLContext* request =
+      [TaskRequestForURLContext taskRequestWithURLContext:context
+                                               sceneState:scene_state_
+                                              isColdStart:YES];
+  EXPECT_NE(request, nil);
+
+  TaskRequestURLContextTestTabOpener* tab_opener =
+      [[TaskRequestURLContextTestTabOpener alloc]
+          initWithSceneState:scene_state_];
+  scene_state_.controller = tab_opener;
+
+  [request execute];
+
+  EXPECT_EQ(tab_opener.targetMode, ApplicationModeForTabOpening::INCOGNITO);
+  EXPECT_EQ(tab_opener.urlLoadParams.web_params.url, GURL("chrome://newtab/"));
+  EXPECT_FALSE(tab_opener.dismissOmnibox);
+  EXPECT_EQ(tab_opener.completionAction,
+            TabOpeningPostOpeningAction::FOCUS_OMNIBOX);
+  EXPECT_TRUE(tab_opener.completionActionExecuted);
 }

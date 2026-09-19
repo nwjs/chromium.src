@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 
+#include "base/memory/raw_ptr.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/unguessable_token.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -141,6 +142,11 @@ struct CORE_EXPORT GlobalScopeCreationParams final {
   Vector<network::mojom::blink::ContentSecurityPolicyPtr>
       outside_content_security_policies;
 
+  // The creator's document policy. This is populated only for dedicated
+  // workers, which inherit it for local schemes (about:, blob:, data:,
+  // filesystem:). Other worker and worklet types leave it empty.
+  DocumentPolicy::DocumentPolicyBundle creator_document_policy;
+
   // This is used only for classic dedicated workers with off-the-main-thread
   // fetch disabled.
   //
@@ -248,7 +254,8 @@ struct CORE_EXPORT GlobalScopeCreationParams final {
   // scenarios.
   const bool direct_sockets_force_enabled_in_parent;
 
-  InterfaceRegistry* const interface_registry;
+  const raw_ptr<InterfaceRegistry, UnprotectedInRelease | DanglingUntriaged>
+      interface_registry;
 
   // The compositor task runner associated with the |AgentGroupScheduler| this
   // worker belongs to.

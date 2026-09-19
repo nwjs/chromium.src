@@ -25,6 +25,7 @@ namespace ui {
 struct ClipboardMetadata;
 }  // namespace ui
 
+class PrefService;
 class Profile;
 
 namespace tabs {
@@ -38,6 +39,8 @@ GURL GetGuestURL();
 url::Origin GetGuestOrigin();
 std::string GetGlicAllowedOrigins(bool is_internal_google_account = false);
 bool IsOriginAllowedGlicApi(const url::Origin& origin);
+bool IsGuestOriginAllowed(const url::Origin& origin);
+bool IsAdminBlockedUrl(const GURL& url);
 bool IsFrameAllowedGlicApi(content::RenderFrameHost& frame_host);
 
 // Returns the StoragePartitionConfig for the Glic webview storage partition.
@@ -62,10 +65,10 @@ bool IsGlicOwnedTab(tabs::TabInterface* tab);
 // Returns true if `web_contents` is the Glic guest WebContents.
 bool IsGlicGuest(content::WebContents* web_contents);
 
+// Binds WebClientHandler for guest frame.
 void BindGlicWebClientHandler(
     content::RenderFrameHost* rfh,
     mojo::PendingReceiver<glic::mojom::WebClientHandler> receiver);
-
 // Returns true if `process_host` is either the Glic FRE WebUI or the Glic
 // main WebUI.
 bool IsProcessHostForGlic(content::RenderProcessHost* process_host);
@@ -99,7 +102,8 @@ mojom::Platform GetGlicPlatform();
 void PopulateGlobalClientInitialState(mojom::WebClientInitialState* state,
                                       Profile* profile);
 
-#if !BUILDFLAG(IS_ANDROID)
+// Returns the Glic zoom factor calculated from the zoom level pref.
+double GetZoomFactor(PrefService* pref_service);
 
 // Called before the OS clipboard writes the sequence number. Checks and stashes
 // the eligibility for the upcoming copy event.
@@ -120,7 +124,6 @@ bool IsClipboardPasteAllowed(const content::ClipboardEndpoint& source,
 // Logs the format of the clipboard data being pasted into Glic.
 void LogPasteAttempt(const content::ClipboardEndpoint& source,
                      const ui::ClipboardMetadata& metadata);
-#endif
 }  // namespace glic
 
 #endif  // CHROME_BROWSER_GLIC_HOST_GUEST_UTIL_H_

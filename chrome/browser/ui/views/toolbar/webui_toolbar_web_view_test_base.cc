@@ -13,7 +13,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -47,6 +47,31 @@ void WebUIToolbarWebViewTestBase::SetUpOnMainThread() {
 
 ToolbarView* WebUIToolbarWebViewTestBase::GetToolbarView() {
   return BrowserView::GetBrowserViewForBrowser(browser())->toolbar();
+}
+
+WebUIToolbarWebView* WebUIToolbarWebViewTestBase::GetWebUIToolbar() {
+  return GetToolbarView()->GetWebUIToolbarViewForTesting();
+}
+
+content::WebContents* WebUIToolbarWebViewTestBase::GetWebUIWebContents() {
+  return GetWebUIToolbar()->GetWebContents();
+}
+
+content::EvalJsResult WebUIToolbarWebViewTestBase::SetSpacerWidth(int width) {
+  return content::EvalJs(GetWebUIWebContents(), content::JsReplace(
+                                                    R"((() => {
+        const app = document.querySelector('toolbar-app');
+        let spacer = app.shadowRoot.querySelector('#test-spacer');
+        if (!spacer) {
+          spacer = document.createElement('div');
+          spacer.id = 'test-spacer';
+          spacer.style.flexShrink = '0';
+          app.shadowRoot.appendChild(spacer);
+        }
+        spacer.style.width = $1 + 'px';
+        return true;
+      })();)",
+                                                    width));
 }
 
 WebUIToolbarWebViewTestBase::WebUIToolbarWebViewTestBase(

@@ -6,14 +6,15 @@
 
 #include <utility>
 
-#include "base/containers/span_rust.h"
 #include "base/containers/to_vector.h"
+#include "base/numerics/byte_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/string_view_util.h"
-#include "components/private_verification_tokens/common/athm_ffi.rs.h"
+#include "components/private_verification_tokens/common/athm_ffi/athm_ffi.h"
 #include "components/private_verification_tokens/common/private_verification_tokens_parameters.h"
 #include "crypto/hash.h"
 #include "third_party/anonymous_tokens/src/anonymous_tokens/cpp/privacy_pass/athm_token_encodings_utils.h"
+#include "third_party/crubit/support/rs_std/slice_ref.h"
 
 namespace private_verification_tokens {
 
@@ -21,42 +22,40 @@ namespace private_verification_tokens {
 std::optional<AthmTestIssuer> AthmTestIssuer::Create(
     uint8_t num_buckets,
     base::span<const uint8_t> deployment_id) {
-  AthmKeyMaterial key_material =
-      athm_key_gen(num_buckets, base::SpanToRustSlice(deployment_id));
-  if (key_material.status != AthmStatus::Ok) {
+  auto key_material = AthmKeyMaterial::try_new(
+      num_buckets, rs_std::SliceRef<const uint8_t>(deployment_id));
+  if (!key_material.has_value()) {
     return std::nullopt;
   }
-  return AthmTestIssuer(base::ToVector(key_material.params),
-                        base::ToVector(key_material.private_key),
-                        base::ToVector(key_material.public_key),
-                        base::ToVector(key_material.public_key_proof));
+  return AthmTestIssuer(std::move(*key_material));
 }
 
-AthmTestIssuer::AthmTestIssuer(std::vector<uint8_t> params,
-                               std::vector<uint8_t> private_key,
-                               std::vector<uint8_t> public_key,
-                               std::vector<uint8_t> public_key_proof)
-    : params_(std::move(params)),
-      private_key_(std::move(private_key)),
-      public_key_(std::move(public_key)),
-      public_key_proof_(std::move(public_key_proof)),
-      key_id_(crypto::hash::Sha256(public_key_)) {}
+AthmTestIssuer::AthmTestIssuer(AthmKeyMaterial key_material)
+    : key_material_(std::move(key_material)) {}
 
 AthmTestIssuer::AthmTestIssuer(AthmTestIssuer&&) = default;
 AthmTestIssuer& AthmTestIssuer::operator=(AthmTestIssuer&&) = default;
 AthmTestIssuer::~AthmTestIssuer() = default;
 
 std::optional<std::vector<uint8_t>> AthmTestIssuer::Issue(
-    base::span<const uint8_t> request,
+    const TokenRequest& request,
     uint8_t hidden_metadata) const {
-  AthmBytesResult result = athm_issue(
-      base::SpanToRustSlice(private_key_), base::SpanToRustSlice(public_key_),
-      base::SpanToRustSlice(request), hidden_metadata,
-      base::SpanToRustSlice(params_));
-  if (result.status != AthmStatus::Ok) {
+  auto result = key_material_.issue(request, hidden_metadata);
+  if (!result.has_value()) {
     return std::nullopt;
   }
-  return base::ToVector(result.bytes);
+  return base::ToVector(*result);
+}
+
+std::optional<std::vector<uint8_t>> AthmTestIssuer::Issue(
+    base::span<const uint8_t> request,
+    uint8_t hidden_metadata) const {
+  auto token_req =
+      TokenRequest::decode(rs_std::SliceRef<const uint8_t>(request));
+  if (!token_req.has_value()) {
+    return std::nullopt;
+  }
+  return Issue(*token_req, hidden_metadata);
 }
 
 std::optional<std::vector<std::vector<uint8_t>>> AthmTestIssuer::BatchIssue(
@@ -91,23 +90,34 @@ std::optional<std::vector<std::vector<uint8_t>>> AthmTestIssuer::BatchIssue(
 std::optional<std::string> AthmTestIssuer::BatchIssue(
     std::string_view request_body,
     uint8_t hidden_metadata) const {
+  constexpr size_t kVersionSize = sizeof(uint32_t);
+  if (request_body.size() < kVersionSize) {
+    return std::nullopt;
+  }
+
+  base::span<const uint8_t> request_body_span =
+      base::as_byte_span(request_body);
+  const uint32_t version =
+      base::U32FromBigEndian(request_body_span.last<kVersionSize>());
   std::optional<PrivateVerificationTokensParameters> params =
-      GetParametersForVersion(1);
+      GetParametersForVersion(version);
   if (!params.has_value()) {
     return std::nullopt;
   }
 
-  if (request_body.empty() ||
-      request_body.size() % params->single_request_size != 0) {
+  std::string_view token_requests =
+      request_body.substr(0, request_body.size() - kVersionSize);
+  if (token_requests.empty() ||
+      token_requests.size() % params->single_request_size != 0) {
     return std::nullopt;
   }
 
-  const size_t batch_size = request_body.size() / params->single_request_size;
+  const size_t batch_size = token_requests.size() / params->single_request_size;
   std::vector<std::vector<uint8_t>> requests;
   requests.reserve(batch_size);
   for (size_t i = 0; i < batch_size; ++i) {
     base::span<const uint8_t> single_req =
-        base::as_byte_span(request_body)
+        base::as_byte_span(token_requests)
             .subspan(i * params->single_request_size,
                      params->single_request_size);
     requests.push_back(base::ToVector(single_req));
@@ -128,13 +138,11 @@ std::optional<std::string> AthmTestIssuer::BatchIssue(
 
 std::optional<uint8_t> AthmTestIssuer::Verify(
     base::span<const uint8_t> token) const {
-  AthmVerifyResult result =
-      athm_verify(base::SpanToRustSlice(private_key_),
-                  base::SpanToRustSlice(token), base::SpanToRustSlice(params_));
-  if (result.status != AthmStatus::Ok) {
+  auto result = key_material_.verify(rs_std::SliceRef<const uint8_t>(token));
+  if (!result.has_value()) {
     return std::nullopt;
   }
-  return result.metadata;
+  return *result;
 }
 
 std::optional<uint8_t> AthmTestIssuer::VerifyWithCheck(
@@ -144,7 +152,7 @@ std::optional<uint8_t> AthmTestIssuer::VerifyWithCheck(
       base::as_string_view(marshaled_token), &token);
   if (!status.ok() ||
       token.token_type != PrivateVerificationTokensParameters::kAthmTokenType ||
-      base::as_byte_span(token.issuer_key_id) != base::as_byte_span(key_id_)) {
+      base::as_byte_span(token.issuer_key_id) != base::as_byte_span(key_id())) {
     return std::nullopt;
   }
   return Verify(base::as_byte_span(token.token));
@@ -158,20 +166,19 @@ std::optional<AthmTestClient> AthmTestClient::Create(
     base::span<const uint8_t> public_key_proof,
     uint8_t num_buckets,
     base::span<const uint8_t> deployment_id) {
-  AthmClientParams params =
-      athm_client_params(num_buckets, base::SpanToRustSlice(deployment_id));
-  if (params.status != AthmStatus::Ok) {
+  auto params = AthmParameters::try_new(
+      num_buckets, rs_std::SliceRef<const uint8_t>(deployment_id));
+  if (!params.has_value()) {
     return std::nullopt;
   }
 
   return AthmTestClient(base::ToVector(public_key),
-                        base::ToVector(public_key_proof),
-                        base::ToVector(params.params));
+                        base::ToVector(public_key_proof), std::move(*params));
 }
 
 AthmTestClient::AthmTestClient(std::vector<uint8_t> public_key,
                                std::vector<uint8_t> public_key_proof,
-                               std::vector<uint8_t> params)
+                               AthmParameters params)
     : public_key_(std::move(public_key)),
       public_key_proof_(std::move(public_key_proof)),
       params_(std::move(params)) {}
@@ -182,30 +189,26 @@ AthmTestClient& AthmTestClient::operator=(const AthmTestClient&) = default;
 AthmTestClient::AthmTestClient(AthmTestClient&&) = default;
 AthmTestClient& AthmTestClient::operator=(AthmTestClient&&) = default;
 
-std::optional<AthmTestClient::ClientRequest>
-AthmTestClient::CreateClientRequest() const {
-  AthmClientRequest bridge_result = athm_client_request(
-      base::SpanToRustSlice(public_key_),
-      base::SpanToRustSlice(public_key_proof_), base::SpanToRustSlice(params_));
-  if (bridge_result.status != AthmStatus::Ok) {
+std::optional<AthmClientRequest> AthmTestClient::CreateClientRequest() const {
+  auto bridge_result = AthmClientRequest::try_new(
+      rs_std::SliceRef<const uint8_t>(public_key_),
+      rs_std::SliceRef<const uint8_t>(public_key_proof_), params_);
+  if (!bridge_result.has_value()) {
     return std::nullopt;
   }
-  return ClientRequest{.context = base::ToVector(bridge_result.context),
-                       .request = base::ToVector(bridge_result.request)};
+  return std::move(*bridge_result);
 }
 
 std::optional<std::vector<uint8_t>> AthmTestClient::FinalizeToken(
-    const ClientRequest& client_request,
+    const AthmClientRequest& client_request,
     base::span<const uint8_t> response) const {
-  AthmBytesResult result = athm_client_finalize(
-      base::SpanToRustSlice(client_request.context),
-      base::SpanToRustSlice(public_key_),
-      base::SpanToRustSlice(client_request.request),
-      base::SpanToRustSlice(response), base::SpanToRustSlice(params_));
-  if (result.status != AthmStatus::Ok) {
+  auto result = client_request.finalize(
+      rs_std::SliceRef<const uint8_t>(public_key_),
+      rs_std::SliceRef<const uint8_t>(response), params_);
+  if (!result.has_value()) {
     return std::nullopt;
   }
-  return base::ToVector(result.bytes);
+  return base::ToVector(*result);
 }
 
 }  // namespace private_verification_tokens

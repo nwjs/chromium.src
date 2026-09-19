@@ -60,9 +60,6 @@
 #include "components/optimization_guide/core/model_execution/model_execution_features_controller.h"
 #include "components/optimization_guide/core/model_execution/model_execution_fetcher.h"
 #include "components/optimization_guide/core/model_execution/model_execution_manager.h"
-#include "components/optimization_guide/core/model_execution/on_device_asset_manager.h"
-#include "components/optimization_guide/core/model_execution/on_device_model_component.h"
-#include "components/optimization_guide/core/model_execution/on_device_model_service_controller.h"
 #include "components/optimization_guide/core/model_execution/performance_class.h"
 #include "components/optimization_guide/core/model_execution/remote_model_executor.h"
 #include "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
@@ -109,17 +106,14 @@ namespace {
 using ::optimization_guide::ModelBasedCapabilityKey;
 using ::optimization_guide::ModelExecutionFeaturesController;
 using ::optimization_guide::ModelExecutionManager;
-using ::optimization_guide::OnDeviceModelComponentStateManager;
 using ::optimization_guide::OnDeviceModelPerformanceClass;
-using ::optimization_guide::OnDeviceModelServiceController;
 
 // Used to override the value of `version_info::IsOfficialBuild()` for tests.
 std::optional<bool> g_is_official_build_for_testing;
 
 // Returns the profile to use for when setting up the keyed service when the
-// profile is Off-The-Record. For guest profiles, returns a loaded profile if
-// one exists, otherwise just the original profile of the OTR profile. Note:
-// guest profiles are off-the-record and "original" profiles.
+// profile is Off-The-Record. For guest profiles, returns a loaded regular
+// profile if one exists, otherwise nullptr.
 Profile* GetProfileForOTROptimizationGuide(Profile* profile) {
   DCHECK(profile);
   DCHECK(profile->IsOffTheRecord());
@@ -131,9 +125,12 @@ Profile* GetProfileForOTROptimizationGuide(Profile* profile) {
     // another profile as that can lead to start up regressions.
     std::vector<Profile*> profiles =
         g_browser_process->profile_manager()->GetLoadedProfiles();
-    if (!profiles.empty()) {
-      return profiles[0];
+    for (Profile* loaded_profile : profiles) {
+      if (loaded_profile->IsRegularProfile()) {
+        return loaded_profile;
+      }
     }
+    return nullptr;
   }
   return profile->GetOriginalProfile();
 }
@@ -242,10 +239,6 @@ void OptimizationGuideKeyedService::BindModelBroker(
           optimization_guide::features::kOptimizationGuideModelExecution)) {
     return;
   }
-  if (!base::FeatureList::IsEnabled(
-          optimization_guide::features::kOptimizationGuideOnDeviceModel)) {
-    return;
-  }
   GetGlobalState().on_device_capability().BindModelBroker(std::move(receiver));
 }
 
@@ -283,11 +276,14 @@ void OptimizationGuideKeyedService::Initialize() {
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory;
   base::WeakPtr<optimization_guide::OptimizationGuideStore> hint_store;
   if (profile->IsOffTheRecord()) {
+    Profile* profile_for_ogks = GetProfileForOTROptimizationGuide(profile);
     OptimizationGuideKeyedService* original_ogks =
-        OptimizationGuideKeyedServiceFactory::GetForProfile(
-            GetProfileForOTROptimizationGuide(profile));
-    DCHECK(original_ogks);
-    hint_store = original_ogks->GetHintsManager()->hint_store();
+        profile_for_ogks ? OptimizationGuideKeyedServiceFactory::GetForProfile(
+                               profile_for_ogks)
+                         : nullptr;
+    if (original_ogks) {
+      hint_store = original_ogks->GetHintsManager()->hint_store();
+    }
   } else {
     // Use the database associated with the original profile.
     auto* proto_db_provider = profile->GetOriginalProfile()
@@ -542,6 +538,18 @@ void OptimizationGuideKeyedService::ExecuteModel(
       feature, request_metadata, options.execution_timeout,
       /*log_ai_data_request=*/nullptr, options.service_type,
       std::move(callback));
+}
+
+std::unique_ptr<optimization_guide::RemoteModelExecutionSession>
+OptimizationGuideKeyedService::StartStreamingSession(
+    optimization_guide::ModelBasedCapabilityKey feature,
+    const optimization_guide::StreamingModelExecutionOptions& options,
+    optimization_guide::OptimizationGuideModelExecutionStreamingCallback
+        callback) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  // TODO(crbug.com/553134125): Delegate streaming session creation to
+  // ModelExecutionManager.
+  return nullptr;
 }
 
 void OptimizationGuideKeyedService::AddOnDeviceModelAvailabilityChangeObserver(

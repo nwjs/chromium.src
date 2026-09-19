@@ -14,7 +14,7 @@
 #include "chrome/browser/history_clusters/history_clusters_metrics_logger.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/webui/history/history_ui.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -27,6 +27,7 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "ui/base/mojom/window_open_disposition.mojom.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/webui/resources/cr_components/history_clusters/history_clusters.mojom.h"
 
@@ -70,9 +71,9 @@ class HistoryClustersHandlerBrowserTest : public InProcessBrowserTest {
     EXPECT_TRUE(ui_test_utils::NavigateToURL(
         browser(), GURL(GetChromeUIHistoryClustersURL())));
     EXPECT_TRUE(content::WaitForLoadStop(
-        browser()->tab_strip_model()->GetActiveWebContents()));
+        browser()->GetTabStripModel()->GetActiveWebContents()));
     handler_ = browser()
-                   ->tab_strip_model()
+                   ->GetTabStripModel()
                    ->GetActiveWebContents()
                    ->GetWebUI()
                    ->GetController()
@@ -91,7 +92,7 @@ class HistoryClustersHandlerBrowserTest : public InProcessBrowserTest {
 // and in the expected order.
 IN_PROC_BROWSER_TEST_F(HistoryClustersHandlerBrowserTest,
                        OpenVisitUrlsInTabGroup) {
-  auto* tab_strip_model = browser()->tab_strip_model();
+  auto* tab_strip_model = browser()->GetTabStripModel();
   ASSERT_EQ(1, tab_strip_model->count());
 
   std::vector<mojom::URLVisitPtr> visits;
@@ -117,7 +118,7 @@ IN_PROC_BROWSER_TEST_F(HistoryClustersHandlerBrowserTest,
 // TODO(crbug.com/40847129): Flaky.
 IN_PROC_BROWSER_TEST_F(HistoryClustersHandlerBrowserTest,
                        DISABLED_OpenVisitUrlsInTabGroupHardCap) {
-  auto* tab_strip_model = browser()->tab_strip_model();
+  auto* tab_strip_model = browser()->GetTabStripModel();
   ASSERT_EQ(1, tab_strip_model->count());
 
   std::vector<mojom::URLVisitPtr> visits;
@@ -134,7 +135,7 @@ IN_PROC_BROWSER_TEST_F(HistoryClustersHandlerBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(HistoryClustersHandlerBrowserTest,
                        RecordUIVisitActions) {
-  auto* tab_strip_model = browser()->tab_strip_model();
+  auto* tab_strip_model = browser()->GetTabStripModel();
   ASSERT_EQ(1, tab_strip_model->count());
 
   base::HistogramTester histogram_tester;
@@ -169,7 +170,7 @@ IN_PROC_BROWSER_TEST_F(HistoryClustersHandlerBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(HistoryClustersHandlerBrowserTest,
                        RecordUIClusterActions) {
-  auto* tab_strip_model = browser()->tab_strip_model();
+  auto* tab_strip_model = browser()->GetTabStripModel();
   ASSERT_EQ(1, tab_strip_model->count());
 
   base::HistogramTester histogram_tester;
@@ -194,7 +195,7 @@ IN_PROC_BROWSER_TEST_F(HistoryClustersHandlerBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(HistoryClustersHandlerBrowserTest,
                        RecordUIRelatedSearchActions) {
-  auto* tab_strip_model = browser()->tab_strip_model();
+  auto* tab_strip_model = browser()->GetTabStripModel();
   ASSERT_EQ(1, tab_strip_model->count());
 
   base::HistogramTester histogram_tester;
@@ -216,7 +217,7 @@ IN_PROC_BROWSER_TEST_F(HistoryClustersHandlerBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(HistoryClustersHandlerBrowserTest,
                        RecordUnsuccessfulOutcome) {
-  auto* tab_strip_model = browser()->tab_strip_model();
+  auto* tab_strip_model = browser()->GetTabStripModel();
   ASSERT_EQ(1, tab_strip_model->count());
 
   base::HistogramTester histogram_tester;
@@ -344,6 +345,82 @@ IN_PROC_BROWSER_TEST_F(HistoryClustersHandlerBrowserTest,
   menu_model = handler_->CreateHistoryClustersSidePanelContextMenuForTesting(
       CreateIncognitoBrowser(), test_url);
   EXPECT_FALSE(IsOpenInIncognitoEnabled(menu_model.get()));
+}
+
+IN_PROC_BROWSER_TEST_F(HistoryClustersHandlerBrowserTest,
+                       OpenHistoryUrl_RejectsDisallowedUrls) {
+  auto* tab_strip_model = browser()->GetTabStripModel();
+  ASSERT_EQ(1, tab_strip_model->count());
+  const GURL initial_url =
+      tab_strip_model->GetActiveWebContents()->GetVisibleURL();
+
+  auto click_modifiers = ui::mojom::ClickModifiers::New();
+
+  // Test javascript: URL is rejected.
+  handler_->OpenHistoryUrl(GURL("javascript:alert(1)"),
+                           click_modifiers.Clone());
+  EXPECT_EQ(1, tab_strip_model->count());
+  EXPECT_EQ(initial_url,
+            tab_strip_model->GetActiveWebContents()->GetVisibleURL());
+
+  // Test chrome:// URL is rejected.
+  handler_->OpenHistoryUrl(GURL("chrome://version"), click_modifiers.Clone());
+  EXPECT_EQ(1, tab_strip_model->count());
+  EXPECT_EQ(initial_url,
+            tab_strip_model->GetActiveWebContents()->GetVisibleURL());
+
+  // Test about:blank URL is rejected.
+  handler_->OpenHistoryUrl(GURL("about:blank"), click_modifiers.Clone());
+  EXPECT_EQ(1, tab_strip_model->count());
+  EXPECT_EQ(initial_url,
+            tab_strip_model->GetActiveWebContents()->GetVisibleURL());
+
+  // Test invalid URL is rejected.
+  handler_->OpenHistoryUrl(GURL("not a valid url"), click_modifiers.Clone());
+  EXPECT_EQ(1, tab_strip_model->count());
+  EXPECT_EQ(initial_url,
+            tab_strip_model->GetActiveWebContents()->GetVisibleURL());
+}
+
+IN_PROC_BROWSER_TEST_F(HistoryClustersHandlerBrowserTest,
+                       OpenHistoryUrl_OpensValidUrls) {
+  auto* tab_strip_model = browser()->GetTabStripModel();
+  ASSERT_EQ(1, tab_strip_model->count());
+
+  auto click_modifiers = ui::mojom::ClickModifiers::New();
+  handler_->OpenHistoryUrl(GURL("https://example.com/"),
+                           std::move(click_modifiers));
+
+  // In History UI, the default disposition opens a new foreground tab.
+  EXPECT_EQ(2, tab_strip_model->count());
+  EXPECT_EQ(GURL("https://example.com/"),
+            tab_strip_model->GetWebContentsAt(1)->GetVisibleURL());
+}
+
+IN_PROC_BROWSER_TEST_F(HistoryClustersHandlerBrowserTest,
+                       OpenVisitUrlsInTabGroup_FiltersDisallowedUrls) {
+  auto* tab_strip_model = browser()->GetTabStripModel();
+  ASSERT_EQ(1, tab_strip_model->count());
+
+  std::vector<mojom::URLVisitPtr> visits;
+  auto visit1 = mojom::URLVisit::New();
+  visit1->normalized_url = GURL("javascript:alert(1)");
+  visits.push_back(std::move(visit1));
+
+  auto visit2 = mojom::URLVisit::New();
+  visit2->normalized_url = GURL("chrome://settings");
+  visits.push_back(std::move(visit2));
+
+  auto visit3 = mojom::URLVisit::New();
+  visit3->normalized_url = GURL("https://valid.com");
+  visits.push_back(std::move(visit3));
+
+  handler_->OpenVisitUrlsInTabGroup(std::move(visits), std::nullopt);
+
+  // Only the valid https URL should open as a new tab (total count becomes 2).
+  ASSERT_EQ(2, tab_strip_model->count());
+  EXPECT_EQ(GURL("https://valid.com"),
+            tab_strip_model->GetWebContentsAt(1)->GetVisibleURL());
 }
 
 }  // namespace history_clusters

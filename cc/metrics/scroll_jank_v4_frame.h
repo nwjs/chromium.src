@@ -59,6 +59,9 @@ struct CC_EXPORT ScrollJankV4Frame {
     // See `viz::BeginFrameArgs::interval`.
     base::TimeDelta interval;
 
+    // See `viz::BeginFrameArgs::deadline_derived_interval`.
+    std::optional<base::TimeDelta> deadline_derived_interval;
+
     // The ID of the result of the scroll jank V4 metric for the frame. This ID
     // makes it easy to retrieve the mapping between "EventLatency" and
     // "ScrollJankV4" slices in traces.
@@ -118,22 +121,23 @@ struct CC_EXPORT ScrollJankV4Frame {
       // At least one of `real` or `synthetic` must contain a value.
       ScrollUpdates(std::optional<Real> real,
                     std::optional<Synthetic> synthetic,
-                    std::optional<base::TimeTicks>
-                        scroll_begin_arrival_timestamp = std::nullopt);
+                    base::TimeTicks scroll_begin_arrival_timestamp);
 
       bool operator==(const ScrollUpdates&) const = default;
 
       const std::optional<Real>& real() const { return real_; }
       const std::optional<Synthetic>& synthetic() const { return synthetic_; }
-      const std::optional<base::TimeTicks>& scroll_begin_arrival_timestamp()
-          const {
+      base::TimeTicks scroll_begin_arrival_timestamp() const {
         return scroll_begin_arrival_timestamp_;
       }
 
      private:
       const std::optional<Real> real_;
       const std::optional<Synthetic> synthetic_;
-      const std::optional<base::TimeTicks> scroll_begin_arrival_timestamp_;
+      // Effectively the ID of the scroll these updates belong to. Null if the
+      // updates arrived before any scroll begin; see
+      // `ScrollEventMetrics::scroll_begin_arrival_timestamp()`.
+      const base::TimeTicks scroll_begin_arrival_timestamp_;
     };
 
     // A stage that corresponds to a single scroll end event
@@ -180,11 +184,29 @@ struct CC_EXPORT ScrollJankV4Frame {
   bool operator==(const ScrollJankV4Frame&) const = default;
 };
 
+template <typename T, typename... Ts>
+concept IsOneOf = (std::same_as<T, Ts> || ...);
+
+template <typename T>
+  requires IsOneOf<T,
+                   ScrollJankV4Frame::Stage::ScrollUpdates::Real,
+                   ScrollJankV4Frame::Stage::ScrollUpdates::Synthetic,
+                   EventMetrics::TraceId,
+                   base::TimeDelta>
+inline std::ostream& operator<<(std::ostream& os,
+                                const std::optional<T>& value) {
+  if (value.has_value()) {
+    return os << *value;
+  }
+  return os << "empty";
+}
+
 inline std::ostream& operator<<(
     std::ostream& os,
     const ScrollJankV4Frame::BeginFrameArgsForScrollJank& args) {
   return os << "BeginFrameArgsForScrollJank{frame_time: " << args.frame_time
             << ", interval: " << args.interval
+            << ", deadline_derived_interval: " << args.deadline_derived_interval
             << ", result_id: " << args.result_id << "}";
 }
 
@@ -206,23 +228,6 @@ inline std::ostream& operator<<(std::ostream& os,
   os << "ScrollDamage{";
   std::visit([&os](const auto& value) { os << value; }, damage);
   return os << "}";
-}
-
-template <typename T, typename... Ts>
-concept IsOneOf = (std::same_as<T, Ts> || ...);
-
-template <typename T>
-  requires IsOneOf<T,
-                   ScrollJankV4Frame::Stage::ScrollUpdates::Real,
-                   ScrollJankV4Frame::Stage::ScrollUpdates::Synthetic,
-                   EventMetrics::TraceId,
-                   base::TimeTicks>
-inline std::ostream& operator<<(std::ostream& os,
-                                const std::optional<T>& value) {
-  if (value.has_value()) {
-    return os << *value;
-  }
-  return os << "empty";
 }
 
 inline std::ostream& operator<<(

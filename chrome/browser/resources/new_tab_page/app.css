@@ -44,8 +44,6 @@
  * so they are not tabbable.
  */
 :host([show-composebox_]:not([ntp-realbox-next-enabled_])) cr-most-visited,
-:host([show-composebox_]:not([ntp-realbox-next-enabled_]))
-  ntp-middle-slot-promo,
 :host([show-composebox_]:not([ntp-realbox-next-enabled_])) ntp-modules,
 :host([show-composebox_]:not([ntp-realbox-next-enabled_]))
   #backgroundImageAttribution,
@@ -96,6 +94,9 @@ cr-most-visited {
   );
   --add-shortcut-foreground-color: var(
     --color-new-tab-page-add-shortcut-foreground
+  );
+  --tile-hover-color: var(
+    --color-new-tab-page-add-shortcut-background-hovered
   );
   --cr-menu-shadow: var(--ntp-menu-shadow);
   --most-visited-focus-shadow: var(--ntp-focus-shadow);
@@ -214,22 +215,12 @@ cr-most-visited {
   }
 }
 
-ntp-middle-slot-promo {
-  max-width: var(--ntp-search-box-width);
-}
-
 ntp-searchbox {
   visibility: hidden;
 }
 
 ntp-searchbox[shown] {
   visibility: visible;
-}
-
-/* ~ because the dom-if results in a template between the middle-slot-promo
-   and ntp-modules. */
-ntp-middle-slot-promo:not([hidden]) ~ #modules {
-  margin-top: 16px;
 }
 
 #themeAttribution {
@@ -319,15 +310,12 @@ svg {
   position: fixed;
 }
 
-:host([energy-effect-enabled_]) #composebox {
-  --cr-composebox-expanded-border-radius: 28px;
-}
-
 #composebox {
   --color-composebox-submit-button-background: var(
     --color-new-tab-page-composebox-submit-button-background);
 
   --cr-composebox-background-color: var(--color-composebox-background);
+  --cr-composebox-expanded-border-radius: 28px;
   --cr-composebox-submit-border-radius: 100px;
   --cr-composebox-submit-height: 36px;
   --cr-composebox-submit-icon-size: 24px;

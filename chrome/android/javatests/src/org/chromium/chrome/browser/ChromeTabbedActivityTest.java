@@ -31,7 +31,9 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
@@ -51,6 +53,7 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.chrome.browser.actor.ActorForegroundServiceController;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.device.DeviceClassManager;
@@ -280,17 +283,17 @@ public class ChromeTabbedActivityTest {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
         intent.setClass(mActivity, ChromeTabbedActivity.class);
-        IntentHandler.setTabLaunchType(intent, TabLaunchType.FROM_LONGPRESS_BACKGROUND_IN_GROUP);
+        IntentHandler.setTabLaunchType(intent, TabLaunchType.FROM_BOOKMARK_BAR_BACKGROUND);
         if (expectedTitle != null) {
             intent.putExtra(IntentHandler.EXTRA_TAB_GROUP_TITLE, expectedTitle);
         }
+        intent.putExtra(IntentHandler.EXTRA_OPEN_ADDITIONAL_URLS_IN_TAB_GROUP, true);
 
         if (!isSingleTab) {
             ArrayList<String> extraUrls =
                     Lists.newArrayList(
                             JUnitTestGURLs.URL_2.getSpec(), JUnitTestGURLs.URL_3.getSpec());
             intent.putExtra(IntentHandler.EXTRA_ADDITIONAL_URLS, extraUrls);
-            intent.putExtra(IntentHandler.EXTRA_OPEN_ADDITIONAL_URLS_IN_TAB_GROUP, true);
         }
         IntentUtils.setForceIsTrustedIntentForTesting(true);
 
@@ -343,6 +346,41 @@ public class ChromeTabbedActivityTest {
 
         // Collapse group should be skipped when strip is hidden.
         testTabGroupIntent(/* shouldApplyCollapse= */ false);
+    }
+
+    @Test
+    @MediumTest
+    @MinAndroidSdkLevel(VERSION_CODES.S)
+    public void testTabGroupIntent_EmptyList() {
+        AtomicInteger initialTabCount = new AtomicInteger();
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> initialTabCount.set(mActivity.getCurrentTabModel().getCount()));
+
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.setClass(mActivity, ChromeTabbedActivity.class);
+        TabGroupMetadata metadata =
+                new TabGroupMetadata(
+                        /* selectedTabId= */ 1,
+                        /* sourceWindowId= */ 1,
+                        TAB_GROUP_ID,
+                        /* tabIdsToUrls= */ new ArrayList<>(),
+                        /* tabGroupColor= */ 0,
+                        TAB_GROUP_TITLE,
+                        /* mhtmlTabTitle= */ null,
+                        /* tabGroupCollapsed= */ true,
+                        /* isGroupShared= */ false,
+                        /* isIncognito= */ false);
+        IntentHandler.setTabGroupMetadata(intent, metadata);
+        IntentUtils.setForceIsTrustedIntentForTesting(true);
+
+        ThreadUtils.runOnUiThreadBlocking(() -> mActivity.onNewIntent(intent));
+
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    TabModel tabModel = mActivity.getCurrentTabModel();
+                    Criteria.checkThat(tabModel.getCount(), Matchers.is(initialTabCount.get()));
+                });
     }
 
     @Test
@@ -1162,6 +1200,49 @@ public class ChromeTabbedActivityTest {
     @Test
     @MediumTest
     @MinAndroidSdkLevel(VERSION_CODES.S)
+    public void testMaybeLaunchDraggedMultiTabInWindow_missingTabsInTabWindowManager() {
+        AtomicInteger initialTabCount = new AtomicInteger();
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> initialTabCount.set(mActivity.getCurrentTabModel().getCount()));
+
+        Intent dragIntent = new Intent(Intent.ACTION_VIEW);
+        dragIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        dragIntent.setClass(mActivity, ChromeTabbedActivity.class);
+        IntentUtils.setForceIsTrustedIntentForTesting(true);
+        dragIntent.putExtra(IntentHandler.EXTRA_DRAGDROP_TAB_WINDOW_ID, 9999);
+
+        // Tab IDs 101, 102 do not exist in window 9999 (TabWindowManager returns null).
+        // maybeLaunchDraggedMultiTabInWindow filters out null tabs, detects tabs.isEmpty(), returns
+        // false, and falls back to URL reparenting which opens the 2 URLs.
+        IntentHandler.setMultiTabMetadata(
+                dragIntent,
+                MultiTabMetadata.createForTesting(
+                        /* tabIds= */ new ArrayList<>(List.of(101, 102)),
+                        /* urls= */ new ArrayList<>(
+                                List.of(
+                                        JUnitTestGURLs.URL_1.getSpec(),
+                                        JUnitTestGURLs.URL_2.getSpec())),
+                        /* isPinned= */ new boolean[] {false, false},
+                        /* isIncognito= */ false));
+
+        ThreadUtils.runOnUiThreadBlocking(() -> mActivity.onNewIntent(dragIntent));
+
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    TabModel tabModel = mActivity.getCurrentTabModel();
+                    Criteria.checkThat(tabModel.getCount(), Matchers.is(initialTabCount.get() + 2));
+                    Criteria.checkThat(
+                            tabModel.getTabAt(initialTabCount.get()).getUrl(),
+                            Matchers.is(JUnitTestGURLs.URL_1));
+                    Criteria.checkThat(
+                            tabModel.getTabAt(initialTabCount.get() + 1).getUrl(),
+                            Matchers.is(JUnitTestGURLs.URL_2));
+                });
+    }
+
+    @Test
+    @MediumTest
+    @MinAndroidSdkLevel(VERSION_CODES.S)
     public void testMoveTabsToOtherWindowAndMerge() {
         // 1. Launch a second ChromeTabbedActivity.
         Intent intent = new Intent(Intent.ACTION_MAIN);
@@ -1377,5 +1458,29 @@ public class ChromeTabbedActivityTest {
         Assert.assertNull(
                 "MinimizeAppAndCloseTabBackPressHandler should be null on Desktop Android.",
                 manager.getHandlersForTesting()[BackPressHandler.Type.MINIMIZE_APP_AND_CLOSE_TAB]);
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({ChromeFeatureList.GLIC_BACKGROUND_ACTUATION})
+    public void testWarmStartRestoresActiveWindowBackgroundTabs() {
+        ChromeTabbedActivity activity = mActivityTestRule.getActivity();
+        ActorForegroundServiceController mockController =
+                Mockito.mock(ActorForegroundServiceController.class);
+        ActorForegroundServiceController.setInstanceForTesting(mockController);
+
+        ThreadUtils.runOnUiThreadBlocking(() -> activity.onPause());
+        ThreadUtils.runOnUiThreadBlocking(() -> activity.onStop());
+        ThreadUtils.runOnUiThreadBlocking(() -> activity.onWindowFocusChanged(false));
+
+        ThreadUtils.runOnUiThreadBlocking(() -> activity.onWindowFocusChanged(true));
+        ThreadUtils.runOnUiThreadBlocking(() -> activity.onStart());
+        ThreadUtils.runOnUiThreadBlocking(() -> activity.onResume());
+
+        Mockito.verify(mockController)
+                .restoreActiveWindowBackgroundTabs(
+                        ArgumentMatchers.eq(activity.getTabModelSelector()),
+                        ArgumentMatchers.any(),
+                        ArgumentMatchers.any());
     }
 }

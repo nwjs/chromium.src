@@ -3383,8 +3383,7 @@ TEST_F(SSLClientSocketTest, SessionResumptionAlpn) {
 // feature is disabled.
 TEST_P(SSLClientSocketVersionTest,
        SessionResumptionNetworkIsolationKeyDisabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
+  AddScopedFeatureList().InitAndDisableFeature(
       features::kPartitionConnectionsByNetworkIsolationKey);
 
   ASSERT_TRUE(
@@ -3439,8 +3438,7 @@ TEST_P(SSLClientSocketVersionTest,
 // feature is enabled.
 TEST_P(SSLClientSocketVersionTest,
        SessionResumptionNetworkIsolationKeyEnabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
+  AddScopedFeatureList().InitAndEnableFeature(
       features::kPartitionConnectionsByNetworkIsolationKey);
 
   const SchemefulSite kSiteA(GURL("https://a.test"));
@@ -4766,8 +4764,7 @@ std::vector<SHA256HashValue> MakeHashValueVector(uint8_t tag) {
 // Test that |ssl_info.pkp_bypassed| is set when a local trust anchor causes
 // pinning to be bypassed.
 TEST_P(SSLClientSocketVersionTest, PKPBypassedSet) {
-  base::test::ScopedFeatureList scoped_feature_list_;
-  scoped_feature_list_.InitAndEnableFeature(
+  AddScopedFeatureList().InitAndEnableFeature(
       net::features::kStaticKeyPinningEnforcement);
   ASSERT_TRUE(
       StartEmbeddedTestServer(EmbeddedTestServer::CERT_OK, GetServerConfig()));
@@ -4803,8 +4800,7 @@ TEST_P(SSLClientSocketVersionTest, PKPBypassedSet) {
 }
 
 TEST_P(SSLClientSocketVersionTest, PKPEnforced) {
-  base::test::ScopedFeatureList scoped_feature_list_;
-  scoped_feature_list_.InitAndEnableFeature(
+  AddScopedFeatureList().InitAndEnableFeature(
       net::features::kStaticKeyPinningEnforcement);
   ASSERT_TRUE(
       StartEmbeddedTestServer(EmbeddedTestServer::CERT_OK, GetServerConfig()));
@@ -4944,8 +4940,7 @@ TEST_P(SSLClientSocketVersionTest, IgnoreCertificateErrorsBypassesRequiredCT) {
 // When both PKP and CT are required for a host, and both fail, the more
 // serious error is that the pin validation failed.
 TEST_P(SSLClientSocketVersionTest, PKPMoreImportantThanCT) {
-  base::test::ScopedFeatureList scoped_feature_list_;
-  scoped_feature_list_.InitAndEnableFeature(
+  AddScopedFeatureList().InitAndEnableFeature(
       net::features::kStaticKeyPinningEnforcement);
   ASSERT_TRUE(
       StartEmbeddedTestServer(EmbeddedTestServer::CERT_OK, GetServerConfig()));
@@ -6197,32 +6192,6 @@ TEST_F(SSLClientSocketTest, ECHGreaseEnabled) {
   EXPECT_TRUE(ran_callback);
 }
 
-// Test that, if ECH is disabled, the client does not send ECH GREASE.
-TEST_F(SSLClientSocketTest, ECHGreaseDisabled) {
-  SSLContextConfig context_config;
-  context_config.ech_enabled = false;
-  ssl_config_service_->UpdateSSLConfigAndNotify(context_config);
-
-  // Configure the server not to expect an ECH extension.
-  bool ran_callback = false;
-  SSLServerConfig server_config;
-  server_config.client_hello_callback_for_testing =
-      base::BindLambdaForTesting([&](const SSL_CLIENT_HELLO* client_hello) {
-        const uint8_t* data;
-        size_t len;
-        EXPECT_FALSE(SSL_early_callback_ctx_extension_get(
-            client_hello, TLSEXT_TYPE_encrypted_client_hello, &data, &len));
-        ran_callback = true;
-        return true;
-      });
-  ASSERT_TRUE(
-      StartEmbeddedTestServer(EmbeddedTestServer::CERT_OK, server_config));
-  int rv;
-  ASSERT_TRUE(CreateAndConnectSSLClientSocket(SSLConfig(), &rv));
-  EXPECT_THAT(rv, IsOk());
-  EXPECT_TRUE(ran_callback);
-}
-
 // Test that, if EchMode is kDisabled, no ECH extension is sent.
 TEST_F(SSLClientSocketTest, ECHModeDisabled) {
   bool ran_callback = false;
@@ -6239,9 +6208,6 @@ TEST_F(SSLClientSocketTest, ECHModeDisabled) {
   ASSERT_TRUE(
       StartEmbeddedTestServer(EmbeddedTestServer::CERT_OK, server_config));
 
-  SSLContextConfig context_config;
-  context_config.ech_enabled = true;
-  ssl_config_service_->UpdateSSLConfigAndNotify(context_config);
   ssl_config_service_->SetEchModeGetter(
       std::make_unique<TestStaticEchModeGetter>(EchMode::kDisabled,
                                                 host_port_pair().host()));
@@ -6266,9 +6232,6 @@ TEST_F(SSLClientSocketTest, ECHModeStrictMissingConfig) {
   ASSERT_TRUE(
       StartEmbeddedTestServer(EmbeddedTestServer::CERT_OK, server_config));
 
-  SSLContextConfig context_config;
-  context_config.ech_enabled = true;
-  ssl_config_service_->UpdateSSLConfigAndNotify(context_config);
   ssl_config_service_->SetEchModeGetter(
       std::make_unique<TestStaticEchModeGetter>(EchMode::kStrict,
                                                 host_port_pair().host()));
@@ -6302,9 +6265,6 @@ TEST_F(SSLClientSocketTest, ECHModeStrictHasConfig) {
   ASSERT_TRUE(
       StartEmbeddedTestServer(EmbeddedTestServer::CERT_OK, server_config));
 
-  SSLContextConfig context_config;
-  context_config.ech_enabled = true;
-  ssl_config_service_->UpdateSSLConfigAndNotify(context_config);
   ssl_config_service_->SetEchModeGetter(
       std::make_unique<TestStaticEchModeGetter>(EchMode::kStrict,
                                                 host_port_pair().host()));
@@ -6334,7 +6294,6 @@ TEST_F(SSLClientSocketTest, ECHModeStrictTLS12) {
       StartEmbeddedTestServer(EmbeddedTestServer::CERT_OK, server_config));
 
   SSLContextConfig context_config;
-  context_config.ech_enabled = true;
   context_config.version_max = SSL_PROTOCOL_VERSION_TLS1_2;
   ssl_config_service_->UpdateSSLConfigAndNotify(context_config);
   ssl_config_service_->SetEchModeGetter(
@@ -6367,9 +6326,6 @@ TEST_F(SSLClientSocketTest, ECHModeOpportunistic) {
   ASSERT_TRUE(
       StartEmbeddedTestServer(EmbeddedTestServer::CERT_OK, server_config));
 
-  SSLContextConfig context_config;
-  context_config.ech_enabled = true;
-  ssl_config_service_->UpdateSSLConfigAndNotify(context_config);
   ssl_config_service_->SetEchModeGetter(
       std::make_unique<TestStaticEchModeGetter>(EchMode::kOpportunistic,
                                                 host_port_pair().host()));
@@ -6400,9 +6356,6 @@ TEST_F(SSLClientSocketTest, ECHModeStrictUnusableConfig) {
   ASSERT_TRUE(
       StartEmbeddedTestServer(EmbeddedTestServer::CERT_OK, server_config));
 
-  SSLContextConfig context_config;
-  context_config.ech_enabled = true;
-  ssl_config_service_->UpdateSSLConfigAndNotify(context_config);
   ssl_config_service_->SetEchModeGetter(
       std::make_unique<TestStaticEchModeGetter>(EchMode::kStrict,
                                                 host_port_pair().host()));
@@ -6432,9 +6385,6 @@ TEST_F(SSLClientSocketTest, ECHModeOpportunisticUnusableConfig) {
   ASSERT_TRUE(
       StartEmbeddedTestServer(EmbeddedTestServer::CERT_OK, server_config));
 
-  SSLContextConfig context_config;
-  context_config.ech_enabled = true;
-  ssl_config_service_->UpdateSSLConfigAndNotify(context_config);
   ssl_config_service_->SetEchModeGetter(
       std::make_unique<TestStaticEchModeGetter>(EchMode::kOpportunistic,
                                                 host_port_pair().host()));
@@ -6892,18 +6842,17 @@ class SSLClientSocketAlpsTest
  public:
   SSLClientSocketAlpsTest() {
     if (client_use_new_alps()) {
-      feature_list_.InitAndEnableFeature(features::kUseNewAlpsCodepointHttp2);
+      AddScopedFeatureList().InitAndEnableFeature(
+          features::kUseNewAlpsCodepointHttp2);
     } else {
-      feature_list_.InitAndDisableFeature(features::kUseNewAlpsCodepointHttp2);
+      AddScopedFeatureList().InitAndDisableFeature(
+          features::kUseNewAlpsCodepointHttp2);
     }
   }
 
   bool client_alps_enabled() const { return std::get<0>(GetParam()); }
   bool server_alps_enabled() const { return std::get<1>(GetParam()); }
   bool client_use_new_alps() const { return std::get<2>(GetParam()); }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
 };
 
 INSTANTIATE_TEST_SUITE_P(All,

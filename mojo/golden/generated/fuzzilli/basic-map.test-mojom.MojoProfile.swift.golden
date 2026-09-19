@@ -42,13 +42,13 @@ extension ObjectGroup {
             "passMap": [
                 .plain(.jsString_GoldenEntryMap),
                 .plain(.string),
-            ] => .jsPromise(resolvingTo: .jsGoldenPrimary_PassMapResponse),
+            ] => .jsPromise(resolvingTo: .jsGoldenPrimary_PassMap_ResponseParams),
             "passNestedMap": [
-                .plain(.jsInteger_String_GoldenEntryMapMap),
+                .plain(.jsInt32_String_GoldenEntryMapMap),
                 .plain(.integer),
-            ] => .jsPromise(resolvingTo: .jsGoldenPrimary_PassNestedMapResponse),
+            ] => .jsPromise(resolvingTo: .jsGoldenPrimary_PassNestedMap_ResponseParams),
             "getMap": [
-            ] => .jsGoldenPrimary_GetMapResponse,
+            ] => .jsGoldenPrimary_GetMap_ResponseParams,
         ]
     )
 
@@ -81,18 +81,18 @@ extension ILType {
         ])
     fileprivate static let jsGoldenEntryConstructor: ILType = .constructor([
     ] => .jsGoldenEntry)
-    fileprivate static let jsGoldenPrimary_PassMapResponse: ILType = .object(
-        ofGroup: "golden.Primary_PassMapResponse",
+    fileprivate static let jsGoldenPrimary_PassMap_ResponseParams: ILType = .object(
+        ofGroup: "golden.Primary_PassMap_ResponseParams",
         withProperties: [
             "result",
         ])
-    fileprivate static let jsGoldenPrimary_PassNestedMapResponse: ILType = .object(
-        ofGroup: "golden.Primary_PassNestedMapResponse",
+    fileprivate static let jsGoldenPrimary_PassNestedMap_ResponseParams: ILType = .object(
+        ofGroup: "golden.Primary_PassNestedMap_ResponseParams",
         withProperties: [
             "result",
         ])
-    fileprivate static let jsGoldenPrimary_GetMapResponse: ILType = .object(
-        ofGroup: "golden.Primary_GetMapResponse",
+    fileprivate static let jsGoldenPrimary_GetMap_ResponseParams: ILType = .object(
+        ofGroup: "golden.Primary_GetMap_ResponseParams",
         withProperties: [
             "result",
         ])
@@ -102,31 +102,30 @@ extension ObjectGroup {
     fileprivate static let goldenEntry = ObjectGroup(
         name: "golden.Entry",
         instanceType: .jsGoldenEntry,
-        properties: [
-        ],
+        properties: [:],
         methods: [:]
     )
-    fileprivate static let goldenPrimaryPassMapResponse = ObjectGroup(
-        name: "golden.Primary_PassMapResponse",
-        instanceType: .jsGoldenPrimary_PassMapResponse,
+    fileprivate static let goldenPrimaryPassMapResponseParams = ObjectGroup(
+        name: "golden.Primary_PassMap_ResponseParams",
+        instanceType: .jsGoldenPrimary_PassMap_ResponseParams,
         properties: [
             "result": .jsGoldenEntry,
         ],
         methods: [:]
     )
-    fileprivate static let goldenPrimaryPassNestedMapResponse = ObjectGroup(
-        name: "golden.Primary_PassNestedMapResponse",
-        instanceType: .jsGoldenPrimary_PassNestedMapResponse,
+    fileprivate static let goldenPrimaryPassNestedMapResponseParams = ObjectGroup(
+        name: "golden.Primary_PassNestedMap_ResponseParams",
+        instanceType: .jsGoldenPrimary_PassNestedMap_ResponseParams,
         properties: [
             "result": .jsString_GoldenEntryMap,
         ],
         methods: [:]
     )
-    fileprivate static let goldenPrimaryGetMapResponse = ObjectGroup(
-        name: "golden.Primary_GetMapResponse",
-        instanceType: .jsGoldenPrimary_GetMapResponse,
+    fileprivate static let goldenPrimaryGetMapResponseParams = ObjectGroup(
+        name: "golden.Primary_GetMap_ResponseParams",
+        instanceType: .jsGoldenPrimary_GetMap_ResponseParams,
         properties: [
-            "result": .jsFloat_BooleanMap,
+            "result": .jsFloat_BoolMap,
         ],
         methods: [:]
     )
@@ -141,64 +140,75 @@ extension ILType {
             ofKeyType: .jsStringElement,
             ofValueType: .jsGoldenEntry
         )
-    fileprivate static let jsInteger_String_GoldenEntryMapMap: ILType =
+    fileprivate static let jsInt32_String_GoldenEntryMapMap: ILType =
         .createJsMapType(
-            ofKeyType: .jsIntegerElement,
+            ofKeyType: .jsInt32Element,
             ofValueType: .jsString_GoldenEntryMap
         )
-    fileprivate static let jsFloat_BooleanMap: ILType =
+    fileprivate static let jsFloat_BoolMap: ILType =
         .createJsMapType(
             ofKeyType: .jsFloatElement,
-            ofValueType: .jsBooleanElement
+            ofValueType: .jsBoolElement
         )
 }
 
 /// Generate a map with only one element. As Fuzzilli runs, the OperationMutator
 /// and VariadicInputReducer will modify the `CreateMap` operation to increase
 /// or decrease the element count.
+///
+/// `findOrGenerateType` is preferred over specifying `inputs` because
+/// Fuzzilli only uses CodeGenerators to produce types in `inputs`, while
+/// `findOrGenerateType` uses a variety of sources (e.g. `builtins`, other
+/// method properties and methods). An input is specified (i.e. `.one`)
+/// to prevent the CodeGenerator from being scheduled first when there are
+/// no visible variables, as `findOrGenerateType` causes a crash if there
+/// are no visibile variables.
 private let MojoString_GoldenEntryMapGenerator = CodeGenerator(
     "MojoString_GoldenEntryMapGenerator",
-    inputs: .required(
-        .jsStringElement,
-        .jsGoldenEntry
-    ),
+    inputs: .one,
     produces: [.jsString_GoldenEntryMap]
-) { b, key, val in
+) { b, _, _ in
+    let key = b.findOrGenerateType(.jsStringElement)
+    let val = b.findOrGenerateType(.jsGoldenEntry)
+    var keys: [Variable] = [key]
+    var values: [Variable] = [val]
     b.createMap(
-        withKeys: [key],
-        withValues: [val],
-        keyGroupName: ObjectGroup.stringElement.group.name,
-        valueGroupName: ObjectGroup.goldenEntry.group.name
+        withKeys: keys,
+        withValues: values,
+        keyGroupName: ObjectGroup.stringElement.name,
+        valueGroupName: ObjectGroup.goldenEntry.name
     )
 }
-private let MojoInteger_String_GoldenEntryMapMapGenerator = CodeGenerator(
-    "MojoInteger_String_GoldenEntryMapMapGenerator",
-    inputs: .required(
-        .jsIntegerElement,
-        .jsString_GoldenEntryMap
-    ),
-    produces: [.jsInteger_String_GoldenEntryMapMap]
-) { b, key, val in
+private let MojoInt32_String_GoldenEntryMapMapGenerator = CodeGenerator(
+    "MojoInt32_String_GoldenEntryMapMapGenerator",
+    inputs: .one,
+    produces: [.jsInt32_String_GoldenEntryMapMap]
+) { b, _, _ in
+    let key = b.findOrGenerateType(.jsInt32Element)
+    let val = b.findOrGenerateType(.jsString_GoldenEntryMap)
+    var keys: [Variable] = [key]
+    var values: [Variable] = [val]
     b.createMap(
-        withKeys: [key],
-        withValues: [val],
-        keyGroupName: ObjectGroup.integerElement.group.name,
-        valueGroupName: ObjectGroup.stringGoldenEntryMap.group.name
+        withKeys: keys,
+        withValues: values,
+        keyGroupName: ObjectGroup.int32Element.name,
+        valueGroupName: ObjectGroup.stringGoldenEntryMap.name
     )
 }
-private let MojoFloat_BooleanMapGenerator = CodeGenerator(
-    "MojoFloat_BooleanMapGenerator",
-    inputs: .required(
-        .jsFloatElement,
-        .jsBooleanElement
-    ),
-    produces: [.jsFloat_BooleanMap]
-) { b, key, val in
+private let MojoFloat_BoolMapGenerator = CodeGenerator(
+    "MojoFloat_BoolMapGenerator",
+    inputs: .one,
+    produces: [.jsFloat_BoolMap]
+) { b, _, _ in
+    let key = b.findOrGenerateType(.jsFloatElement)
+    let val = b.findOrGenerateType(.jsBoolElement)
+    var keys: [Variable] = [key]
+    var values: [Variable] = [val]
     b.createMap(
-        withKeys: [key],
-        withValues: [val],
-        keyGroupName: ObjectGroup.floatElement.group.name,
-        valueGroupName: ObjectGroup.booleanElement.group.name
+        withKeys: keys,
+        withValues: values,
+        keyGroupName: ObjectGroup.floatElement.name,
+        valueGroupName: ObjectGroup.boolElement.name
     )
 }
 
@@ -317,12 +327,13 @@ let mojoPrimaryProfile = Profile(
         .goldenPrimaryRemoteWrapper,
         .goldenPrimaryPendingReceiver,
         .goldenEntry,
-        .goldenPrimaryPassMapResponse,
-        .goldenPrimaryPassNestedMapResponse,
-        .goldenPrimaryGetMapResponse,
+        .goldenPrimaryPassMapResponseParams,
+        .goldenPrimaryPassNestedMapResponseParams,
+        .goldenPrimaryGetMapResponseParams,
     ] + commonMojoObjectGroups,
     additionalEnumerations: [
     ] + commonMojoEnumerations,
-    additionalOptionsBags: [] + commonMojoOptionsBags,
+    additionalOptionsBags: [
+    ] + commonMojoOptionsBags,
     optionalPostProcessor: nil
 )

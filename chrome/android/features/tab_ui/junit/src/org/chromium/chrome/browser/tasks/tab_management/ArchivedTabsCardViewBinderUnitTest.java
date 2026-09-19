@@ -23,7 +23,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.CallbackHelper;
@@ -35,10 +34,8 @@ import java.util.concurrent.TimeoutException;
 
 /** Tests for ArchivedTabsCardViewBinder. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class ArchivedTabsCardViewBinderUnitTest {
     private static final int ARCHIVED_TABS = 10;
-    private static final int TIME_DELTA = 14;
 
     private final CallbackHelper mCallbackHelper = new CallbackHelper();
 

@@ -202,6 +202,10 @@ bool UnpinnedTabContainerView::IsViewDragging(
 
 bool UnpinnedTabContainerView::ShouldAnimateOpacityForAddAndRemove(
     const views::View& child_view) const {
+  if (collection_node_ &&
+      collection_node_->orientation() == TabStripOrientation::kHorizontal) {
+    return false;
+  }
   // Only animate opacity for tab views.
   return views::IsViewClass<TabView>(&child_view);
 }
@@ -213,12 +217,42 @@ bool UnpinnedTabContainerView::ShouldSnapToTarget(
 
 std::optional<views::SizeBound>
 UnpinnedTabContainerView::GetAvailableMainAxisSpaceOverride() const {
-  return available_space_.is_bounded() ? std::make_optional(available_space_)
-                                       : std::nullopt;
+  if (!collection_node_ ||
+      collection_node_->orientation() != TabStripOrientation::kHorizontal) {
+    return std::nullopt;
+  }
+  const auto* scroll_view = GetScrollViewForContainer();
+  if (scroll_view && scroll_view->IsHorizontalContentOverflowing()) {
+    // When overflowing and scrollable, the available space for tab layout
+    // is strictly the visible viewport width so tabs do not expand to the
+    // total scrollable content width.
+    const int viewport_width = scroll_view->GetVisibleRect().width();
+    if (viewport_width > 0) {
+      return views::SizeBound(viewport_width);
+    }
+    if (scroll_view->width() > 0) {
+      return views::SizeBound(scroll_view->width());
+    }
+  }
+  // When not overflowing, return the total available unpinned capacity
+  // allocated by TabStripViewLayout so tabs have room to expand.
+  if (available_space_.is_bounded()) {
+    return available_space_;
+  }
+  if (scroll_view && scroll_view->width() > 0) {
+    return views::SizeBound(scroll_view->width());
+  }
+  return std::nullopt;
 }
 
 gfx::Size UnpinnedTabContainerView::GetTargetPreferredSize() const {
   return layout_manager_->GetTargetPreferredSize();
+}
+
+int UnpinnedTabContainerView::GetUnconstrainedPreferredWidth() const {
+  return static_cast<UnpinnedTabContainerViewLayout*>(
+             layout_manager_->target_layout_manager())
+      ->GetUnconstrainedPreferredWidth(this);
 }
 
 void UnpinnedTabContainerView::ResetCollectionNode() {

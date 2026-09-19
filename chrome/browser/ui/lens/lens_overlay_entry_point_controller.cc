@@ -186,12 +186,16 @@ bool LensOverlayEntryPointController::IsEnabled() const {
   }
 
   // Disable in fullscreen without top-chrome.
-  if (!lens::features::GetLensOverlayEnableInFullscreen() &&
-      ExclusiveAccessManager::From(browser_window_interface_)
-          ->context()
-          ->IsFullscreen() &&
-      !browser_window_interface_->IsTabStripVisible()) {
-    return false;
+  if (!lens::features::GetLensOverlayEnableInFullscreen()) {
+    auto* const exclusive_access_manager =
+        ExclusiveAccessManager::From(browser_window_interface_);
+    if (exclusive_access_manager &&
+        exclusive_access_manager->context()->IsFullscreen() &&
+        (!browser_window_interface_->IsTabStripVisible() ||
+         exclusive_access_manager->fullscreen_controller()
+             ->IsWindowFullscreenForTabOrPending())) {
+      return false;
+    }
   }
 
   return true;
@@ -270,9 +274,8 @@ void LensOverlayEntryPointController::InvokeAction(
     if (static_cast<page_actions::PageActionTrigger>(page_action_trigger) ==
             page_actions::PageActionTrigger::kKeyboard &&
         !lens::features::IsLensOverlayKeyboardSelectionEnabled()) {
-      active_tab->GetBrowserWindowInterface()
-          ->GetFeatures()
-          .lens_region_search_controller()
+      lens::LensRegionSearchController::From(
+          active_tab->GetBrowserWindowInterface())
           ->Start(active_tab->GetContents(), /*use_fullscreen_capture=*/true,
                   /*is_google_default_search_provider=*/true,
                   lens::AmbientSearchEntryPoint::

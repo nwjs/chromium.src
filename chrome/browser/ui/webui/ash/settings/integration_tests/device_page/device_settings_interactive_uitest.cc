@@ -32,7 +32,6 @@
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/state_observer.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/ui_base_features.h"
 #include "ui/events/ash/keyboard_capability.h"
 #include "ui/events/devices/device_data_manager_test_api.h"
 #include "ui/events/devices/input_device.h"
@@ -121,9 +120,7 @@ class DeviceSettingsInteractiveUiTest : public InteractiveAshTest {
     DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOsSettingsWebContentsId);
     webcontents_id_ = kOsSettingsWebContentsId;
 
-    feature_list_.InitWithFeatures({features::kAltClickAndSixPackCustomization,
-                                    features::kPeripheralCustomization,
-                                    ::features::kSupportF11AndF12KeyShortcuts},
+    feature_list_.InitWithFeatures({features::kAltClickAndSixPackCustomization},
                                    {});
   }
 
@@ -505,70 +502,6 @@ IN_PROC_BROWSER_TEST_F(DeviceSettingsInteractiveUiTest, TrackpointEnabled) {
                                  "Built-in TrackPoint"));
 }
 
-class DeviceSettingsSwapPrimaryMouseButtonInteractiveUiTest
-    : public DeviceSettingsInteractiveUiTest {
- public:
-  DeviceSettingsSwapPrimaryMouseButtonInteractiveUiTest() {
-    feature_list_.Reset();
-    feature_list_.InitWithFeatures({}, {features::kPeripheralCustomization});
-  }
-  // Query to pierce through Shadow DOM to find the mouse row.
-  const DeepQuery kMouseRowQuery{
-      "os-settings-ui",       "os-settings-main",   "main-page-container",
-      "settings-device-page", "#perDeviceMouseRow",
-  };
-
-  const DeepQuery kMouseSwapButtonDropdownQuery{
-      "os-settings-ui",
-      "os-settings-main",
-      "main-page-container",
-      "settings-device-page",
-      "settings-per-device-mouse",
-      "settings-per-device-mouse-subsection",
-      "#mouseSwapButtonDropdown",
-      "#dropdownMenu",
-  };
-
-  const DeepQuery kCursorAcceleratorToggleQuery{
-      "os-settings-ui",
-      "os-settings-main",
-      "main-page-container",
-      "settings-device-page",
-      "settings-per-device-mouse",
-      "settings-per-device-mouse-subsection",
-      "#mouseAcceleration",
-      "#control",
-  };
-};
-
-IN_PROC_BROWSER_TEST_F(DeviceSettingsSwapPrimaryMouseButtonInteractiveUiTest,
-                       SwapPrimaryMouseButton) {
-  DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kCursorAccelerationToggleEnabledEvent);
-  SetMouseDevices({kMouse});
-  StateChange cursor_acceleration_toggle_enabled;
-  cursor_acceleration_toggle_enabled.type =
-      StateChange::Type::kExistsAndConditionTrue;
-  cursor_acceleration_toggle_enabled.event =
-      kCursorAccelerationToggleEnabledEvent;
-  cursor_acceleration_toggle_enabled.where = kCursorAcceleratorToggleQuery;
-  cursor_acceleration_toggle_enabled.test_function = "el => !el.disabled";
-
-  RunTestSequence(
-      LaunchSettingsApp(webcontents_id_,
-                        chromeos::settings::mojom::kDeviceSectionPath),
-      Log("Waiting for per device mouse row to be visible"),
-      WaitForElementExists(webcontents_id_, kMouseRowQuery),
-      ClickElement(webcontents_id_, kMouseRowQuery),
-      Log("Selecting 'Right button' from the dropdown menu"),
-      SelectDropdownElementOption(
-          webcontents_id_, kMouseSwapButtonDropdownQuery,
-          l10n_util::GetStringUTF8(
-              IDS_SETTINGS_PRIMARY_MOUSE_BUTTON_RIGHT_LABEL)),
-      Log("Verifying that right clicking behavior has changed"),
-      MoveMouseTo(webcontents_id_, kCursorAcceleratorToggleQuery),
-      ClickMouse(ui_controls::RIGHT),
-      WaitForStateChange(webcontents_id_, cursor_acceleration_toggle_enabled));
-}
 
 IN_PROC_BROWSER_TEST_F(DeviceSettingsInteractiveUiTest, AddNewTouchpad) {
   // Query to pierce through Shadow DOM to find the touchpad row.
@@ -1052,9 +985,7 @@ class DeviceSettingsBrightnessInteractiveUiTest
   DeviceSettingsBrightnessInteractiveUiTest() {
     feature_list_.Reset();
     feature_list_.InitWithFeatures(
-        {features::kPeripheralCustomization,
-         features::kEnableBrightnessControlInSettings},
-        {});
+        {features::kEnableBrightnessControlInSettings}, {});
   }
 };
 

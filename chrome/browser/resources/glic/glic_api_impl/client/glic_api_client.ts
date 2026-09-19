@@ -3,19 +3,18 @@
 // found in the LICENSE file.
 
 import {CaptureRegionErrorReason, HostCapability} from '../../glic_api/glic_api.js';
-import type {ActivateTabOptions, AdditionalContext, AnnotatedPageData, CaptureRegionParams, CaptureRegionResult, ChromeVersion, ClientCapabilities, ClientErrorDialogType, ConversationInfo, CounterAbuseVerdict, CreateTabOptions, FileUploadPolicyState, FocusedTabData, FormFactor, GeminiEnterpriseSettings, GetPinCandidatesOptions, GlicBrowserHost, GlicBrowserHostMetrics, GlicHostRegistry, GlicWebClient, ImageBytesResult, ImageInfo, InvokeOptions, MicrophoneStatus, Observable, ObservableValue, OnResponseStoppedDetails, OpenPanelInfo, OpenSettingsOptions, PageMetadata, PanelOpeningData, PanelState, PdfDocumentData, PinCandidate, PinTabsOptions, Platform, ResizeWindowOptions, ResumeActorTaskResult, Screenshot, TabContextOptions, TabContextResult, TabData, UnpinTabsOptions, UserProfileInfo, WebClientMode, ZeroStateSuggestions} from '../../glic_api/glic_api.js';
+import type {ActivateTabOptions, AdditionalContext, AnnotatedPageData, CaptureRegionParams, CaptureRegionResult, ChromeVersion, ClientCapabilities, ClientErrorDialogType, ConversationInfo, CounterAbuseVerdict, CreateTabOptions, FileUploadPolicyState, FocusedTabData, FormFactor, GeminiEnterpriseSettings, GetPinCandidatesOptions, GlicBrowserHost, GlicBrowserHostMetrics, GlicHostRegistry, GlicWebClient, ImageBytesResult, ImageInfo, InvokeOptions, MicrophoneStatus, Observable, ObservableValue, OnResponseStoppedDetails, OpenPanelInfo, OpenPinnedTabPickerOptions, OpenSettingsOptions, PageMetadata, PanelOpeningData, PanelState, PdfDocumentData, PinCandidate, PinTabsOptions, Platform, PromptType, ResizeWindowOptions, ResumeActorTaskResult, Screenshot, TabContextOptions, TabContextResult, TabData, UnpinTabsOptions, UserProfileInfo, WebClientMode, ZeroStateSuggestions} from '../../glic_api/glic_api.js';
 import {ObservableValue as ObservableValueImpl, Subject} from '../../observable.js';
 import {GlicBrowserHostActor} from '../actor/actor_client.js';
 import {GlicBrowserHostAnnotation} from '../annotation/annotation_client.js';
 import {GlicBrowserHostExperimentalTriggering} from '../experimental_triggering/experimental_triggering_client.js';
 import {GlicBrowserHostSkills} from '../skills/skills_client.js';
 import {assertNever} from '../transport/messaging.js';
-import {createBidirectionalPostMessageTransport} from '../transport/post_message_transport.js';
-import type {PendingRemote, PostMessageHandler, PostMessageReceiver, PostMessageRemote, PostMessageRouter} from '../transport/post_message_transport.js';
+import type {createDirectMessagingPair, PendingRemote, PostMessageHandler, PostMessageReceiver, PostMessageRemote, PostMessageRouter} from '../transport/post_message_transport.js';
 import {GlicBrowserHostZeroStateSuggestions} from '../zero_state_suggestions/zero_state_suggestions_client.js';
 
 import {replaceProperties} from './../conversions.js';
-import {ERROR_CODEC, ErrorWithReasonImpl, newTransferableException, WebClientDef, WebClientHostDef, WebClientPinCandidatesObserverDef, WebClientRegionCaptureDef, WebClientTabDataObserverDef, WebClientTabFaviconObserverDef} from './../request_types.js';
+import {ErrorWithReasonImpl, newTransferableException, WebClientDef, WebClientPinCandidatesObserverDef, WebClientRegionCaptureDef, WebClientTabDataObserverDef, WebClientTabFaviconObserverDef} from './../request_types.js';
 import type {AdditionalContextPrivate, AnnotatedPageDataPrivate, FocusedTabDataPrivate, GlicException, ImageBytesResultPrivate, ImageInfoPrivate, InvokeOptionsPrivate, PdfDocumentDataPrivate, PinCandidatePrivate, ResumeActorTaskResultPrivate, RgbaImage, TabContextResultPrivate, TabDataPrivate, WebClient, WebClientHost, WebClientPinCandidatesObserver, WebClientRegionCapture, WebClientTabDataObserver, WebClientTabFaviconObserver} from './../request_types.js';
 import type {GlicBrowserHostBaseContext} from './glic_client_common.js';
 import {createDelegationProxy} from './glic_client_common.js';
@@ -28,10 +27,13 @@ import {ObservableSetByTabId} from './observable_set_by_tab_id.js';
 
 export class GlicHostRegistryImpl implements GlicHostRegistry {
   private host: GlicBrowserHostImpl|undefined;
-  constructor(private windowProxy: WindowProxy) {}
+  constructor(
+      private directPair: ReturnType<
+          typeof createDirectMessagingPair<WebClientHost, WebClient>>,
+  ) {}
 
   async registerWebClient(webClient: GlicWebClient): Promise<void> {
-    this.host = new GlicBrowserHostImpl(webClient, this.windowProxy);
+    this.host = new GlicBrowserHostImpl(webClient, this.directPair);
     const clientCapabilities = webClient.getClientCapabilities?.() ?? new Set();
     await this.host.webClientCreated(clientCapabilities);
     let success = false;
@@ -343,22 +345,17 @@ export class GlicBrowserHostImpl implements GlicBrowserHostBaseContext,
       ObservableSetByTabId<Blob|undefined, WebClientTabFaviconObserver>;
   notifyPanelWillOpenCompleted = Promise.withResolvers<void>();
 
-  constructor(public webClient: GlicWebClient, windowProxy: WindowProxy) {
+  constructor(
+      public webClient: GlicWebClient,
+      directPair: ReturnType<
+          typeof createDirectMessagingPair<WebClientHost, WebClient>>,
+  ) {
     this.webClientMessageHandler =
         new WebClientMessageHandler(this.webClient, this);
-    const {router, rootRemote} = createBidirectionalPostMessageTransport(
-        'chrome://glic',
-        windowProxy,
-        /*lifecycleObserver=*/ {},
-        this.webClientMessageHandler,
-        'glic_api_client',
-        /*isHost=*/ false,
-        ERROR_CODEC,
-        WebClientDef,
-        WebClientHostDef,
-    );
-    this.router = router;
-    this.clientRemote = rootRemote;
+    this.router = directPair.client.router;
+    this.clientRemote = directPair.client.rootRemote;
+    directPair.client.rootReceiver.setMessageHandler(
+        this.webClientMessageHandler, WebClientDef);
 
     this.actorClient = new GlicBrowserHostActor(this);
     this.annotationClient = new GlicBrowserHostAnnotation(this);
@@ -923,6 +920,12 @@ export class GlicBrowserHostImpl implements GlicBrowserHostBaseContext,
     this.clientRemote.requestNoResponse('unpinAllTabs', {options});
   }
 
+  async openPinnedTabPicker?
+      (options?: OpenPinnedTabPickerOptions): Promise<void> {
+    await this.clientRemote.requestWithResponse(
+        'openPinnedTabPicker', {options});
+  }
+
   getPinCandidates?
       (options: GetPinCandidatesOptions): ObservableValue<PinCandidate[]> {
     this.pinCandidates?.setObsolete();
@@ -1005,8 +1008,8 @@ class GlicBrowserHostMetricsImpl implements GlicBrowserHostMetrics {
     this.sender.requestNoResponse('onOptinImpression', undefined);
   }
 
-  onUserInputSubmitted(mode: number): void {
-    this.sender.requestNoResponse('onUserInputSubmitted', {mode});
+  onUserInputSubmitted(mode: number, promptType?: PromptType): void {
+    this.sender.requestNoResponse('onUserInputSubmitted', {mode, promptType});
   }
 
   onReaction(reactionType: number): void {

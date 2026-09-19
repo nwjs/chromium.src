@@ -25,11 +25,11 @@
 #include "chrome/browser/password_manager/passwords_navigation_observer.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/sync_service_factory.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
 #include "components/password_manager/core/browser/password_store/password_store_results_observer.h"
@@ -214,7 +214,8 @@ void PasswordManagerBrowserTestBase::SetUpCommandLine(
 }
 
 // static
-void PasswordManagerBrowserTestBase::WaitForPasswordStore(Browser* browser) {
+void PasswordManagerBrowserTestBase::WaitForPasswordStore(
+    BrowserWindowInterface* browser) {
   scoped_refptr<password_manager::PasswordStoreInterface>
       profile_password_store = ProfilePasswordStoreFactory::GetForProfile(
           browser->GetProfile(), ServiceAccessType::IMPLICIT_ACCESS);

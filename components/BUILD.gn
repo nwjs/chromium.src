@@ -181,9 +181,6 @@ test("components_unittests") {
 
   deps = [
     "//base",
-    "//components/accessibility_annotator/core/annotation_reducer:unit_tests",
-    "//components/accessibility_annotator/core/content_annotator:unit_tests",
-    "//components/accessibility_annotator/core/storage:unit_tests",
     "//components/account_settings:unit_tests",
     "//components/activity_reporter:unit_tests",
     "//components/actor/core:unit_tests",
@@ -219,6 +216,7 @@ test("components_unittests") {
     "//components/content_capture/common:unit_tests",
     "//components/content_settings/core/browser:unit_tests",
     "//components/content_settings/core/common:unit_tests",
+    "//components/contextual_cueing:unit_tests",
     "//components/contextual_search:unit_tests",
     "//components/contextual_search/footprints:unit_tests",
     "//components/contextual_search/internal:unit_tests",
@@ -238,9 +236,11 @@ test("components_unittests") {
     "//components/download:unit_tests",
     "//components/encrypted_messages:unit_tests",
     "//components/enterprise/device_trust/core/signals:unit_tests",
+    "//components/enterprise/device_trust/core/signals/decorators/common:unit_tests",
     "//components/facilitated_payments/core/validation:unit_tests",
     "//components/favicon/core:unit_tests",
     "//components/favicon_base:unit_tests",
+    "//components/fcm:unit_tests",
     "//components/feature_engagement:unit_tests",
     "//components/filename_generation:unit_tests",
     "//components/gcm_driver:unit_tests",
@@ -276,12 +276,12 @@ test("components_unittests") {
     "//components/offline_items_collection/core:unit_tests",
     "//components/omnibox/browser:unit_tests",
     "//components/omnibox/common:unit_tests",
+    "//components/omnibox/composebox:unit_tests",
     "//components/open_from_clipboard:unit_tests",
     "//components/openscreen_platform:unittests",
     "//components/optimization_guide/core:unit_tests",
     "//components/origin_gating/core:unit_tests",
-    "//components/os_crypt/async/browser:unit_tests",
-    "//components/os_crypt/async/common:unit_tests",
+    "//components/os_crypt/browser:unit_tests",
     "//components/os_crypt/common:unit_tests",
     "//components/page_image_service:unit_tests",
     "//components/page_info/core:unit_tests",
@@ -305,10 +305,6 @@ test("components_unittests") {
     "//components/payments/core:unit_tests",
     "//components/persistent_cache:unit_tests",
     "//components/personal_context/core:unit_tests",
-    "//components/plus_addresses/core/browser:unit_tests",
-    "//components/plus_addresses/core/browser/metrics:unit_tests",
-    "//components/plus_addresses/core/browser/settings:unit_tests",
-    "//components/plus_addresses/core/browser/webdata:unit_tests",
     "//components/policy/core/browser:unit_tests",
     "//components/policy/core/common:unit_tests",
     "//components/policy/test_support:unittests",
@@ -437,12 +433,9 @@ test("components_unittests") {
       "//components/fullscreen_control:unit_tests",
       "//components/global_media_controls:unit_tests",
       "//components/ui_devtools:unit_tests",
+      "//components/ui_devtools/views:unit_tests",
       "//components/user_education/views:unit_tests",
     ]
-  }
-
-  if (toolkit_views && enable_extensions) {
-    deps += [ "//components/ui_devtools/views:unit_tests" ]
   }
 
   if (is_fuchsia) {
@@ -550,7 +543,6 @@ test("components_unittests") {
       "//components/record_replay/core/browser:unit_tests",
       "//components/reduce_accept_language/browser:unit_tests",
       "//components/reporting/resources:unit_tests",
-      "//components/services/heap_profiling:unit_tests",
       "//components/services/paint_preview_compositor:unit_tests",
       "//components/services/storage:tests",
       "//components/session_proto_db:unit_tests",
@@ -791,14 +783,6 @@ test("components_unittests") {
 
   if (!is_fuchsia && !is_castos) {
     deps += [ "//components/private_ai:unit_tests" ]
-  }
-
-  if (!is_android && !is_ios && !is_fuchsia && !is_castos) {
-    deps += [
-      "//components/accessibility_annotator/content/content_annotator:unit_tests",
-      "//components/accessibility_annotator/content/live_tab_context:unit_tests",
-      "//components/accessibility_annotator/core/live_tab_context:unit_tests",
-    ]
   }
 
   if (enable_guest_view) {
@@ -1513,6 +1497,7 @@ if (is_android) {
       "//components/spellcheck/browser/android:components_spellcheck_junit_tests",
       "//components/stylus_handwriting/android:stylus_handwriting_junit_tests",
       "//components/subresource_filter/android:junit",
+      "//components/thin_webview/internal:junit",
       "//components/ukm/android:ukm_junit_tests",
       "//components/variations/android:components_variations_junit_tests",
       "//components/webapk/android/libs/client:junit",

@@ -18,6 +18,7 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
+#include "ui/events/base_event_utils.h"
 #include "ui/gfx/animation/animation.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -375,6 +376,14 @@ void PermissionChipView::SetChipIcon(const gfx::VectorIcon* icon) {
   UpdateIconAndColors();
 }
 
+PermissionChipTheme PermissionChipView::GetThemeForTesting() const {
+  return theme();
+}
+
+std::u16string PermissionChipView::GetTextForTesting() const {
+  return std::u16string(GetText());
+}
+
 bool PermissionChipView::GetIsRequestForTesting() const {
   switch (theme()) {
     case PermissionChipTheme::kNormalVisibility:
@@ -412,6 +421,10 @@ void PermissionChipView::SetVisible(bool visible) {
 
 void PermissionChipView::SetTooltipText(const std::u16string& tooltip) {
   views::View::SetTooltipText(tooltip);
+}
+
+std::u16string PermissionChipView::GetTooltipText() const {
+  return views::MdTextButton::GetTooltipText();
 }
 
 bool PermissionChipView::GetVisible() const {
@@ -514,6 +527,17 @@ void PermissionChipView::UpdateForDividerVisibility(bool is_divider_visible,
 
 int PermissionChipView::GetIconViewWidth() const {
   return GetIconSize() + GetInsets().width();
+}
+
+void PermissionChipView::ExecuteForTesting() {
+  ui::MouseEvent event(ui::EventType::kMousePressed, gfx::Point(), gfx::Point(),
+                       ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                       ui::EF_LEFT_MOUSE_BUTTON);
+  NotifyClick(event);
+}
+
+void PermissionChipView::EndAnimationForTesting() {
+  animation_->End();
 }
 
 BEGIN_METADATA(PermissionChipView)

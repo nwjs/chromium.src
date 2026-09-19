@@ -182,6 +182,61 @@ class BASE_EXPORT FeatureList {
           std::string_view /*group_name*/,
           OverrideState /*override_state*/)>;
 
+  // Encapsulates the 3-phase execution of updating a runtime mutable feature's
+  // state (pre-mutation callback, state update, post-mutation callback).
+  //
+  // Callers are responsible for invoking `RunPreMutationCallback()`,
+  // `UpdateState()`, and `RunPostMutationCallback()` in that exact order.
+  // CHECKs enforce that all phases are called in order and complete before
+  // destruction.
+  class BASE_EXPORT [[nodiscard]] RuntimeMutableFeatureUpdate {
+   public:
+    enum class Stage {
+      kInitial,
+      kPreMutationRun,
+      kStateUpdated,
+      kPostMutationRun,
+      kMovedFrom,
+    };
+
+    RuntimeMutableFeatureUpdate(RuntimeMutableFeatureUpdate&& other) noexcept;
+    RuntimeMutableFeatureUpdate& operator=(
+        RuntimeMutableFeatureUpdate&& other) noexcept;
+
+    RuntimeMutableFeatureUpdate(const RuntimeMutableFeatureUpdate&) = delete;
+    RuntimeMutableFeatureUpdate& operator=(const RuntimeMutableFeatureUpdate&) =
+        delete;
+
+    ~RuntimeMutableFeatureUpdate();
+
+    // Runs the pre-mutation callback (if any was registered). Must be called
+    // first.
+    void RunPreMutationCallback();
+
+    // Updates the feature's override state and associated field trial name.
+    // Must be called after `RunPreMutationCallback()`.
+    void UpdateState();
+
+    // Runs the post-mutation callback (if any was registered). Must be called
+    // after `UpdateState()`.
+    void RunPostMutationCallback();
+
+   private:
+    friend class FeatureList;
+
+    RuntimeMutableFeatureUpdate(
+        internal::RuntimeMutableFeatureState& state_entry,
+        std::string_view field_trial_name,
+        std::string_view group_name,
+        OverrideState override_state);
+
+    raw_ptr<internal::RuntimeMutableFeatureState> state_entry_ = nullptr;
+    std::string field_trial_name_;
+    std::string group_name_;
+    OverrideState override_state_ = OVERRIDE_USE_DEFAULT;
+    Stage stage_ = Stage::kInitial;
+  };
+
   // Initializes feature overrides via command-line flags `--enable-features=`
   // and `--disable-features=`, each of which is a comma-separated list of
   // features to enable or disable, respectively. This function also allows
@@ -216,10 +271,14 @@ class BASE_EXPORT FeatureList {
   void SetVariationCountry(std::string_view variation_country);
 
   // Enables runtime mutability for the given `feature` and registers the given
-  // `callback` to be invoked when the feature's state changes at runtime. This
-  // method should only be called once per feature and *MUST* be called before
-  // attempting to inspect the feature state of a runtime mutable feature (i.e.
-  // calling `IsEnabled()` or looking up a FeatureParam value).
+  // callbacks to be invoked when the feature's state changes at runtime.
+  // `pre_mutation_callback` is invoked right before the feature's state
+  // is about to change, and `post_mutation_callback` is invoked right after the
+  // feature's state has changed.
+  //
+  // This method should only be called once per feature and *MUST* be
+  // called before attempting to inspect the feature state of a runtime mutable
+  // feature (i.e. calling `IsEnabled()` or looking up a FeatureParam value).
   //
   // This method may only be called during FeatureList initialization and on
   // the main sequence. Implementers of runtime-mutable features should update
@@ -227,7 +286,13 @@ class BASE_EXPORT FeatureList {
   // their platform(s) to call this method for their runtime-mutable feature(s).
   void EnableRuntimeMutability(
       const Feature& feature,
-      OnRuntimeMutableFeatureStateChangedCallback callback);
+      OnRuntimeMutableFeatureStateChangedCallback pre_mutation_callback,
+      OnRuntimeMutableFeatureStateChangedCallback post_mutation_callback);
+  // Convenience method for the above when only a post-mutation callback is
+  // needed.
+  void EnableRuntimeMutability(
+      const Feature& feature,
+      OnRuntimeMutableFeatureStateChangedCallback post_mutation_callback);
 
   // Returns the set of runtime mutable features and their current state.
   // Must be called on the main sequence.
@@ -279,15 +344,20 @@ class BASE_EXPORT FeatureList {
                                   OverrideState override_state,
                                   FieldTrial* field_trial);
 
-  // Updates the state of a runtime mutable feature.
+  // Prepares an update for the state of a runtime mutable feature.
   //
   // This method can only be called from the main sequence and is intended to
   // only be called by the field trials framework when the state of a runtime
   // mutable feature needs to be updated.
   //
-  // Returns true if the feature state was updated successfully, false
-  // otherwise.
-  bool UpdateRuntimeMutableFeatureState(
+  // Returns a RuntimeMutableFeatureUpdate object if the feature state update
+  // was prepared successfully, or std::nullopt otherwise.
+  //
+  // The caller is responsible for invoking `RunPreMutationCallback()`,
+  // `UpdateState()`, and `RunPostMutationCallback()` in order on the returned
+  // update object.
+  [[nodiscard]] std::optional<RuntimeMutableFeatureUpdate>
+  PrepareRuntimeMutableFeatureStateUpdate(
       base::PassKey<variations::VariationsService>,
       std::string_view field_trial_name,
       std::string_view group_name,

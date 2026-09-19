@@ -15,6 +15,7 @@ import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.RadioButton;
 import android.widget.TextView;
 
 import androidx.annotation.ColorRes;
@@ -129,10 +130,22 @@ class AppMenuItemViewBinder {
                         public void onInitializeAccessibilityNodeInfo(
                                 View host, AccessibilityNodeInfo info) {
                             super.onInitializeAccessibilityNodeInfo(host, info);
+                            info.setClassName(RadioButton.class.getName());
                             info.setCheckable(true);
                             info.setChecked(
                                     model.containsKey(AppMenuItemProperties.CHECKED)
                                             && model.get(AppMenuItemProperties.CHECKED));
+                            int position =
+                                    model.containsKey(AppMenuItemProperties.POSITION)
+                                            ? model.get(AppMenuItemProperties.POSITION)
+                                            : 0;
+                            info.setCollectionItemInfo(
+                                    AccessibilityNodeInfo.CollectionItemInfo.obtain(
+                                            /* rowIndex= */ position,
+                                            /* rowSpan= */ 1,
+                                            /* columnIndex= */ 0,
+                                            /* columnSpan= */ 1,
+                                            /* heading= */ false));
                         }
                     });
         }
@@ -284,11 +297,6 @@ class AppMenuItemViewBinder {
                     button.setIcon(null);
                 }
             }
-
-            boolean isMenuIconAtStart = model.get(AppMenuItemProperties.MENU_ICON_AT_START);
-            view.setTag(
-                    R.id.menu_item_enter_anim_id,
-                    AppMenuUtil.buildIconItemEnterAnimator(buttons, isMenuIconAtStart));
 
             view.setEnabled(false);
         }

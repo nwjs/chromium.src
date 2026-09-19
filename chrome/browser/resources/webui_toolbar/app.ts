@@ -49,6 +49,7 @@ import {
   ContextMenuType,
   FocusRequestTarget,
   LhsChipIdentifier,
+  SecurityChipRole,
   OmniboxTextColor,
   PageActionId,
   PageActionTrigger,
@@ -59,6 +60,7 @@ import {
 } from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 import {IconType} from '/shared/icon_handle.mojom-webui.js';
 import type {OmniboxAction, LocationBarState, PageActionState, PermissionChipState, PermissionDashboardState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
+import type {OverflowMenuItem} from '/shared/toolbar_ui_api.mojom-webui.js';
 import {PermissionChipElement} from '/shared/permission_chip.js';
 import type {PermissionDashboardElement} from '/shared/permission_dashboard.js';
 
@@ -116,6 +118,7 @@ export {
   INVALID_FOCUS_REQUEST_HANDLE,
   INVALID_NAVIGATION_CONTROLS_STATE_LISTENER_HANDLE,
   LhsChipIdentifier,
+  SecurityChipRole,
   LocationBarElement,
   LocationIconElement,
   OmniboxTextColor,
@@ -153,6 +156,7 @@ export type {
   ToolbarActionMixinInterface,
   ToolbarFlatStateSchema,
 };
+export {SearchboxBrowserProxy} from '//resources/cr_components/searchbox/searchbox_browser_proxy.js';
 // clang-format on
 
 // LINT.IfChange(InitialWebUIRendererMilestones)
@@ -168,8 +172,7 @@ const TRACKED_ELEMENTS: Array<{selector: string, id: string}> = [
   {selector: '#split-tabs', id: 'kToolbarSplitTabsToolbarButtonElementId'},
   {selector: '#location-bar', id: 'kLocationBarElementId'},
   {selector: '#home', id: 'kToolbarHomeButtonElementId'},
-  {selector: '#app-menu', id: 'kToolbarAppMenuButtonElementId'},
-  {selector: '#avatar', id: 'kToolbarAvatarButtonElementId'},
+  {selector: '#overflow', id: 'kToolbarOverflowButtonElementId'},
   {selector: '#battery-saver', id: 'kToolbarBatterySaverButtonElementId'},
   {
     selector: '#performance-intervention',
@@ -424,6 +427,7 @@ export class ToolbarAppElement extends AppElementBase {
         userInputInProgress: false,
         popupOpen: false,
         forceAimButtonFocusRing: false,
+        isVirtualKeyboardVisible: false,
       },
       selectedKeyword: null,
       contentSettingImageStates: [],
@@ -434,12 +438,14 @@ export class ToolbarAppElement extends AppElementBase {
           text: '',
           tooltip: '',
           accessibilityState: {
+            role: SecurityChipRole.kButton,
             label: '',
             description: '',
           },
           isClickable: false,
           isTextDangerous: false,
           isVisible: true,
+          isContextMenuVisible: false,
         },
         activityIndicators: [],
         permissionDashboard: null,
@@ -472,13 +478,29 @@ export class ToolbarAppElement extends AppElementBase {
   private hasReadState_ = false;
   private initializeSessionId_: number = 0;
   private resizeObserver_?: ResizeObserver;
-  private layoutPending_: boolean = false;
+
+  // Indicates whether there's a pending call to layoutIfNeeded_() on the next
+  // animation frame, so another one will not be queued.
+  private pendingLayoutIfNeeded_: boolean = false;
+  // Indicates whether a layout needs to be done. If set, the next
+  // layoutIfNeeded_() call will always do a layout, unless
+  // layoutResponsiveControls() is called directly in the meantime. Any code
+  // that sets this to true should also schedule a layoutIfNeeded_() call.
+  private pendingLayout_: boolean = false;
+
   private dragOverListener_ = (e: DragEvent) => this.onDragOver_(e);
   private dropListener_ = (e: DragEvent) => this.onDrop_(e);
   private keyDownListener_ = (e: KeyboardEvent) => this.onKeyDown_(e);
-  private windowResizeListener_: () => void = () => this.onResize();
+  private windowResizeListener_:
+      () => void = () => this.scheduleLayoutIfNeeded_();
+  private requestLayoutListener_:
+      () => void = () => this.scheduleLayoutResponsiveControls_();
 
   private isRtl_: boolean = loadTimeData.getString('textdirection') === 'rtl';
+
+  get browserProxyForTesting(): BrowserProxy {
+    return this.browserProxy_;
+  }
 
   protected readonly initialBootSnapshot_: {
     backButtonEnabled: boolean,
@@ -538,8 +560,18 @@ export class ToolbarAppElement extends AppElementBase {
     this.addEventListener('dragover', this.dragOverListener_);
     this.addEventListener('drop', this.dropListener_);
     this.addEventListener('keydown', this.keyDownListener_);
+    this.addEventListener('request-layout', this.requestLayoutListener_);
 
-    this.resizeObserver_ = new ResizeObserver(() => this.onResize());
+    // This ResizeObserver performs a new layout, if needed, when toolbar-app is
+    // resized. This is too late in the process to avoid a visible re-layout,
+    // but serves to make sure if there's any path where we resize elements but
+    // fail to call one of the other methods that triggers a new layout, we'll
+    // still do a layout.
+    //
+    // Since this method does nothing if window size and the toolbar size match,
+    // this is a fairly low overhead call, if we don't need to do a new layout.
+    this.resizeObserver_ =
+        new ResizeObserver(() => this.scheduleLayoutIfNeeded_());
     this.resizeObserver_.observe(this);
     window.addEventListener('resize', this.windowResizeListener_);
 
@@ -578,6 +610,15 @@ export class ToolbarAppElement extends AppElementBase {
                   this.initializePage_(sessionId);
                 });
               }
+
+              // This message may result in microtasks that ultimately end up
+              // resizing the toolbar. Call scheduleLayoutIfNeeded_() to
+              // schedule a check if a new layout is needed to adjust the
+              // toolbar's size to correct for any newly shown/hidden controls
+              // that are not ResponsiveControls. The task will run right before
+              // the next render frame, after all microtasks that might affect
+              // layout have been executed.
+              this.scheduleLayoutIfNeeded_();
             });
 
     if (this.isInitialized_) {
@@ -645,6 +686,7 @@ export class ToolbarAppElement extends AppElementBase {
     this.removeEventListener('dragover', this.dragOverListener_);
     this.removeEventListener('drop', this.dropListener_);
     this.removeEventListener('keydown', this.keyDownListener_);
+    this.removeEventListener('request-layout', this.requestLayoutListener_);
 
     this.resizeObserver_?.disconnect();
     window.removeEventListener('resize', this.windowResizeListener_);
@@ -787,55 +829,61 @@ export class ToolbarAppElement extends AppElementBase {
     }
   }
 
-  override updated(changedProperties: PropertyValues<this>) {
-    super.updated(changedProperties);
-
-    // Check if a new layout is needed and if so, do it now. Checking only after
-    // all controls have been updated ensures that there's only one update if
-    // multiple controls are updated at once. ResizeObserver could theoretically
-    // trigger another notification, but since the entire toolbar should end up
-    // the same size after laying out all controls, there should hopefully only
-    // be a single call to layoutResponsiveControls().
-    let needsLayout = false;
-    for (const control of this.getResponsiveControls()) {
-      if (control.consumeNeedsLayout()) {
-        needsLayout = true;
-      }
+  /**
+   * Schedules a layoutIfNeeded_() on the next animation frame, if one isn't
+   * already scheduled. layoutIfNeeded_() will layout the ResponsiveControls if
+   * getAvailableWidth() is non-zero, meaning the window and toolbar have
+   * different widths so a new layout is needed, or if `pendingLayout_` is
+   * true.
+   *
+   * The scheduled task should be fast if no layout is actually needed.
+   *
+   * Called on window resize, toolbar-app resize, or when something happens that
+   * may result in resizing the toolbar-app. Also used by
+   * scheduleLayoutResponsiveControls_().
+   */
+  private scheduleLayoutIfNeeded_() {
+    if (!this.webUIToolbarFullyEnabled_ || this.pendingLayoutIfNeeded_) {
+      return;
     }
-    if (needsLayout) {
-      this.layoutResponsiveControls();
-    }
+    this.pendingLayoutIfNeeded_ = true;
+    requestAnimationFrame(() => this.layoutIfNeeded_());
   }
 
   /**
-   * Called on window resize or on toolbar-app resize. This makes sure there's a
-   * layout when the window is resized or when the size of controls other than
-   * ResponsiveControls change in size. When ResponsiveControls change in size,
-   * updated() calls layoutResponsiveControls() directly.
+   * Schedules a layout of responsive controls before the next animation frame.
+   * Multiple calls are aggregated into a single layout, so this should
+   * typically be used rather than calling layoutResponsiveControls() directly.
+   *
+   * This should be called whenever any control's visibility state or size
+   * changes, and a new layout is definitely needed. ResponsiveControls
+   * themselves are responsible for bubbling up `request-layout` events to the
+   * app to trigger layouts when their preferred and/or minimize sizes may have
+   * changed, while non-responsive controls are monitored by watching the size
+   * of the toolbar-app element itself. If two or more non-ResponsiveControls
+   * change in size in such a way that the toolbar's size remains the same, no
+   * resize is triggered, which is fine, since that should have no effect on
+   * which ResponsiveControls should be displayed.
    */
-  private onResize() {
-    // Check if a layout is needed. The width check prevents toolbar-app resizes
-    // triggered by a previous layoutResponsiveControls() call from triggering
-    // layouts unnecessarily. This check is only valid on window/toolbar resize,
-    // and not when a ResponsiveControl's minimum or preferred size changes, as
-    // the latter could require a new layoutResponsiveControls() call, even if
-    // the width of the toolbar still matches that of the window.
-    if (this.webUIToolbarFullyEnabled_ && this.getAvailableWidth() !== 0) {
-      this.scheduleLayoutResponsiveControls_();
-    }
-  }
-
   private scheduleLayoutResponsiveControls_() {
-    if (this.layoutPending_) {
+    if (!this.webUIToolbarFullyEnabled_ || this.pendingLayout_) {
       return;
     }
-    this.layoutPending_ = true;
-    requestAnimationFrame(() => {
-      this.layoutPending_ = false;
-      if (this.isConnected) {
-        this.layoutResponsiveControls();
-      }
-    });
+    this.pendingLayout_ = true;
+    this.scheduleLayoutIfNeeded_();
+  }
+
+  private layoutIfNeeded_() {
+    this.pendingLayoutIfNeeded_ = false;
+    if (!this.isConnected) {
+      this.pendingLayout_ = false;
+      return;
+    }
+
+    if (this.pendingLayout_ || this.getAvailableWidth() !== 0) {
+      // Note that this will set `pendingLayout_` to false.
+      this.layoutResponsiveControls();
+    }
   }
 
   /**
@@ -925,21 +973,32 @@ export class ToolbarAppElement extends AppElementBase {
   }
 
   /**
+   * Returns information on all controls that are currently hidden due to
+   * overflow and should therefore be displayed on the overflow menu.
+   */
+  getOverflowedMenuItems(): OverflowMenuItem[] {
+    const overflowControls: OverflowMenuItem[] = [];
+    for (const control of this.getResponsiveControls()) {
+      overflowControls.push(...control.controlsToAddToOverflowMenu());
+    }
+    return overflowControls;
+  }
+
+  /**
    * Resizes / shows / hides responsive controls based on available space in the
    * toolbar.
    *
-   * This should be called whenever:
-   * 1. The browser window/container size changes. This is monitored via
-   * `windowResizeListener_`.
-   * 2. Any control's visibility state or size changes. This is monitored via
-   * `resizeObserver_`, and by ResponsiveControl.consumeNeedsLayout(), which is
-   * both set and read during state updates.
+   * This should generally only be called through
+   * `scheduleLayoutResponsiveControls_`, to avoid redundant calls, which can
+   * be fairly heavy weight.
    *
    * TODO(crbug.com/491791965): Investigate performance of this method. It does
    * force a lot of layouts, which may well be a performance issue. There are
    * ways to improve performance, at potentially significant complexity cost.
    */
   private layoutResponsiveControls() {
+    this.pendingLayout_ = false;
+
     // If `webUIToolbarFullyEnabled_` is false, the C++ FlexLayout class will
     // handle laying out controls.
     if (!this.webUIToolbarFullyEnabled_) {

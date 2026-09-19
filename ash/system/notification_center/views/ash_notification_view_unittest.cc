@@ -484,6 +484,11 @@ class AshNotificationViewTestBase : public AshTestBase,
     return view->snooze_button_;
   }
 
+  void AnimateResizeAfterRemoval(AshNotificationView* view,
+                                 views::View* to_be_removed) {
+    view->AnimateResizeAfterRemoval(to_be_removed);
+  }
+
   scoped_refptr<NotificationTestDelegate> delegate() { return delegate_; }
 
   NotificationCenterTestApi* notification_center_test_api() {
@@ -1306,6 +1311,46 @@ TEST_F(AshNotificationViewTest, DuplicateGroupChildRemovalWithAnimation) {
   notification_view->RemoveGroupNotification(child_view->notification_id());
 }
 
+TEST_F(AshNotificationViewTest,
+       RemoveGroupNotificationDuringWindowDestruction) {
+  // Test when window is null.
+  auto notification = CreateTestNotification();
+  auto standalone_view = std::make_unique<AshNotificationView>(
+      *notification, /*shown_in_popup=*/false);
+  MakeNotificationGroupParent(standalone_view.get(), 2);
+  auto* child = GetFirstGroupedChildNotificationView(standalone_view.get());
+  // Calling AnimateResizeAfterRemoval when window is null should not crash and
+  // should remove the child view.
+  AnimateResizeAfterRemoval(standalone_view.get(), child);
+  EXPECT_EQ(GetChildNotifications(standalone_view.get()).size(), 0u);
+
+  // Test when window is being destroyed.
+  notification_center_test_api()->ToggleBubble();
+  auto notification2 = CreateTestNotification();
+  auto* notification_view =
+      GetNotificationViewFromMessageCenter(notification2->id());
+  MakeNotificationGroupParent(
+      notification_view,
+      2 * message_center_style::kMaxGroupedNotificationsInCollapsedState);
+
+  notification_view->ToggleExpand();
+  EXPECT_TRUE(notification_view->IsExpanded());
+
+  auto* child_view = GetFirstGroupedChildNotificationView(notification_view);
+  std::string child_id = child_view->notification_id();
+
+  // Enable animations so that SlideOutView starts an animation.
+  gfx::ScopedAnimationDurationScaleMode duration(
+      gfx::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+
+  notification_view->RemoveGroupNotification(child_id);
+
+  // Close the widget immediately. This destroys the native window, completing
+  // all layer animations and triggering AnimateResizeAfterRemoval while the
+  // window is being destroyed. This should not crash.
+  notification_view->GetWidget()->CloseNow();
+}
+
 // Regression test for b/253668543. Ensures toggling the expand state for a
 // progress notification with a large image does not result in a crash.
 TEST_F(AshNotificationViewTest, CollapseProgressNotificationWithImage) {
@@ -1854,19 +1899,8 @@ TEST_P(AshNotificationViewDragTest, Basics) {
       EXPECT_CALL(drag_drop_delegate(), HandleHtmlData);
     }
   }
-  base::HistogramTester tester;
   DragAndDropNotification(*GetViewForNotificationId(notification->id()),
                           DroppedToWidget());
-
-  // Check the notification catalog name.
-  tester.ExpectBucketCount("Ash.NotificationView.ImageDrag.Start",
-                           NotificationCatalogName::kNone, 1);
-  tester.ExpectBucketCount(
-      "Ash.NotificationView.ImageDrag.EndState",
-      DroppedToWidget()
-          ? AshNotificationDragController::DragEndState::kCompletedWithDrop
-          : AshNotificationDragController::DragEndState::kCompletedWithoutDrop,
-      1);
 
   // The the message center bubble is closed and the popup notification is
   // dismissed when drag ends.
@@ -2207,14 +2241,9 @@ TEST_P(ScreenCaptureNotificationViewDragTest, Basics) {
   // Drag to the center of `widget` then release. Verify that the screenshot
   // image carried by the drag data is handled.
   EXPECT_CALL(drag_drop_delegate(), HandleFilePathData(image_file_path));
-  base::HistogramTester tester;
   DragAndDropNotification(
       *GetViewForNotificationId(kScreenCaptureNotificationId),
       /*drag_to_widget=*/true);
-
-  // Check the notification catalog name.
-  tester.ExpectBucketCount("Ash.NotificationView.ImageDrag.Start",
-                           NotificationCatalogName::kScreenCapture, 1);
 }
 
 class DragAfterNotificationRemovalTest

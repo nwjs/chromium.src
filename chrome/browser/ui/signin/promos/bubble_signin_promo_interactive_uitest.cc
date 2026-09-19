@@ -21,6 +21,7 @@
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/extensions/extension_post_install_dialog.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/browser/ui/hats/mock_hats_service.h"
@@ -30,6 +31,7 @@
 #include "chrome/browser/ui/signin/promos/bubble_signin_promo_signin_button_view.h"
 #include "chrome/browser/ui/signin/promos/bubble_signin_promo_view.h"
 #include "chrome/browser/ui/signin/promos/signin_promo_tab_helper.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/autofill/address_sign_in_promo_view.h"
 #include "chrome/browser/ui/views/autofill/save_address_profile_view.h"
@@ -46,7 +48,7 @@
 #include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_node.h"
 #include "components/password_manager/core/browser/password_form.h"
@@ -422,11 +424,9 @@ AccountInfo BubbleSignInPromoInteractiveUITest::SignIn(
 void BubbleSignInPromoInteractiveUITest::
     EnsureSyncServiceSigninStateConsistency() {
   if (IsSignedIn()) {
-    test_sync_service().SetSignedIn(
-        signin::ConsentLevel::kSignin,
-        identity_manager()->FindExtendedAccountInfo(
-            identity_manager()->GetPrimaryAccountInfo(
-                signin::ConsentLevel::kSignin)));
+    test_sync_service().SetSignedIn(signin::ConsentLevel::kSignin,
+                                    identity_manager()->GetPrimaryAccountInfo(
+                                        signin::ConsentLevel::kSignin));
 
     test_sync_service().SetMaxTransportState(
         syncer::SyncService::TransportState::ACTIVE);
@@ -721,7 +721,8 @@ IN_PROC_BROWSER_TEST_P(BubbleSignInPromoPasswordSaveUiInteractiveUITest,
   // user's identity and signs them back in. This triggers the local data
   // migration.
   identity_manager()->GetAccountsMutator()->AddOrUpdateAccount(
-      account_info.gaia, account_info.email, "dummy_refresh_token",
+      account_info.GetGaiaId(), std::string(account_info.GetEmail()),
+      "dummy_refresh_token",
       /*is_under_advanced_protection=*/false,
       signin_metrics::AccessPoint::kPasswordBubble,
       signin_metrics::SourceForRefreshTokenOperation::
@@ -976,7 +977,8 @@ IN_PROC_BROWSER_TEST_F(BubbleSignInPromoInteractiveUITest,
   // user's identity and signs them back in. This would trigger the data
   // migration.
   identity_manager()->GetAccountsMutator()->AddOrUpdateAccount(
-      account_info.gaia, account_info.email, "dummy_refresh_token",
+      account_info.GetGaiaId(), std::string(account_info.GetEmail()),
+      "dummy_refresh_token",
       /*is_under_advanced_protection=*/false,
       signin_metrics::AccessPoint::kAddressBubble,
       signin_metrics::SourceForRefreshTokenOperation::
@@ -1316,7 +1318,8 @@ IN_PROC_BROWSER_TEST_F(BubbleSignInPromoInteractiveUITest,
   // Set a new refresh token for the primary account, which verifies the user's
   // identity and signs them back in. This would trigger the automatic upload.
   identity_manager()->GetAccountsMutator()->AddOrUpdateAccount(
-      account_info.gaia, account_info.email, "dummy_refresh_token",
+      account_info.GetGaiaId(), std::string(account_info.GetEmail()),
+      "dummy_refresh_token",
       /*is_under_advanced_protection=*/false,
       signin_metrics::AccessPoint::kBookmarkBubble,
       signin_metrics::SourceForRefreshTokenOperation::
@@ -1392,7 +1395,8 @@ IN_PROC_BROWSER_TEST_F(
   // user's identity and signs them back in. This would trigger the automatic
   // upload.
   identity_manager()->GetAccountsMutator()->AddOrUpdateAccount(
-      account_info.gaia, account_info.email, "dummy_refresh_token",
+      account_info.GetGaiaId(), std::string(account_info.GetEmail()),
+      "dummy_refresh_token",
       /*is_under_advanced_protection=*/false,
       signin_metrics::AccessPoint::kBookmarkBubble,
       signin_metrics::SourceForRefreshTokenOperation::
@@ -1431,8 +1435,8 @@ IN_PROC_BROWSER_TEST_F(BubbleSignInPromoInteractiveUITest,
   extensions::TriggerPostInstallDialog(
       browser()->GetProfile(), extension, SkBitmap(),
       base::BindOnce(
-          [](Browser* b) {
-            return b->tab_strip_model()->GetActiveWebContents();
+          [](BrowserWindowInterface* b) {
+            return b->GetTabStripModel()->GetActiveWebContents();
           },
           browser()));
 
@@ -1527,8 +1531,8 @@ IN_PROC_BROWSER_TEST_F(BubbleSignInPromoInteractiveUITest,
   extensions::TriggerPostInstallDialog(
       browser()->GetProfile(), extension, SkBitmap(),
       base::BindOnce(
-          [](Browser* b) {
-            return b->tab_strip_model()->GetActiveWebContents();
+          [](BrowserWindowInterface* b) {
+            return b->GetTabStripModel()->GetActiveWebContents();
           },
           browser()));
 
@@ -1552,7 +1556,7 @@ IN_PROC_BROWSER_TEST_F(BubbleSignInPromoInteractiveUITest,
   // Check that there is no helper attached to the sign in tab, because the
   // extension was already moved.
   EXPECT_FALSE(SigninPromoTabHelper::GetForWebContents(
-                   *browser()->tab_strip_model()->GetActiveWebContents())
+                   *browser()->GetTabStripModel()->GetActiveWebContents())
                    ->IsInitializedForTesting());
 
   // Check that the sign in was successful.
@@ -1625,8 +1629,8 @@ IN_PROC_BROWSER_TEST_F(BubbleSignInPromoInteractiveUITest,
   extensions::TriggerPostInstallDialog(
       browser()->GetProfile(), extension, SkBitmap(),
       base::BindOnce(
-          [](Browser* b) {
-            return b->tab_strip_model()->GetActiveWebContents();
+          [](BrowserWindowInterface* b) {
+            return b->GetTabStripModel()->GetActiveWebContents();
           },
           browser()));
   // Click the sign in button.
@@ -1650,14 +1654,14 @@ IN_PROC_BROWSER_TEST_F(BubbleSignInPromoInteractiveUITest,
 
   // Check that there is a helper attached to the sign in tab.
   EXPECT_TRUE(SigninPromoTabHelper::GetForWebContents(
-                  *browser()->tab_strip_model()->GetActiveWebContents())
+                  *browser()->GetTabStripModel()->GetActiveWebContents())
                   ->IsInitializedForTesting());
 
   // Set a new refresh token for the primary account, which verifies the
   // user's identity and signs them back in. This would trigger the automatic
   // upload.
   identity_manager()->GetAccountsMutator()->AddOrUpdateAccount(
-      info.gaia, info.email, "dummy_refresh_token",
+      info.GetGaiaId(), std::string(info.GetEmail()), "dummy_refresh_token",
       /*is_under_advanced_protection=*/false,
       signin_metrics::AccessPoint::kExtensionInstallBubble,
       signin_metrics::SourceForRefreshTokenOperation::
@@ -1712,8 +1716,8 @@ IN_PROC_BROWSER_TEST_F(
   extensions::TriggerPostInstallDialog(
       browser()->GetProfile(), extension, SkBitmap(),
       base::BindOnce(
-          [](Browser* b) {
-            return b->tab_strip_model()->GetActiveWebContents();
+          [](BrowserWindowInterface* b) {
+            return b->GetTabStripModel()->GetActiveWebContents();
           },
           browser()));
 
@@ -1741,7 +1745,7 @@ IN_PROC_BROWSER_TEST_F(
   // user's identity and signs them back in. This would trigger the automatic
   // upload.
   identity_manager()->GetAccountsMutator()->AddOrUpdateAccount(
-      info.gaia, info.email, "dummy_refresh_token",
+      info.GetGaiaId(), std::string(info.GetEmail()), "dummy_refresh_token",
       /*is_under_advanced_protection=*/false,
       signin_metrics::AccessPoint::kExtensionInstallBubble,
       signin_metrics::SourceForRefreshTokenOperation::
@@ -2075,7 +2079,7 @@ IN_PROC_BROWSER_TEST_F(BubbleSignInPromoInteractiveUITestWithoutPhase2FollowUp,
   // user's identity and signs them back in. This would trigger the automatic
   // upload.
   identity_manager()->GetAccountsMutator()->AddOrUpdateAccount(
-      info.gaia, info.email, "dummy_refresh_token",
+      info.GetGaiaId(), std::string(info.GetEmail()), "dummy_refresh_token",
       /*is_under_advanced_protection=*/false,
       signin_metrics::AccessPoint::kBookmarkBubble,
       signin_metrics::SourceForRefreshTokenOperation::

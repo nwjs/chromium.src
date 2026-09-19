@@ -13,6 +13,7 @@
 #include <optional>
 #include <ranges>
 #include <set>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -916,9 +917,11 @@ bool HistoryBackend::IsUntypedIntranetHost(const GURL& url) {
 
   const std::string host = url.GetHost();
   const size_t registry_length =
-      net::registry_controlled_domains::GetCanonicalHostRegistryLength(
+      net::registry_controlled_domains::GetCanonicalHostRegistry(
           host, net::registry_controlled_domains::EXCLUDE_UNKNOWN_REGISTRIES,
-          net::registry_controlled_domains::EXCLUDE_PRIVATE_REGISTRIES);
+          net::registry_controlled_domains::EXCLUDE_PRIVATE_REGISTRIES)
+          .transform(&std::string_view::size)
+          .value_or(std::string_view::npos);
   return (registry_length == 0) && !db_->IsTypedHost(host, /*scheme=*/nullptr);
 }
 
@@ -927,30 +930,21 @@ OriginCountAndLastVisitMap HistoryBackend::GetCountsAndLastVisitForOrigins(
   if (!db_) {
     return OriginCountAndLastVisitMap();
   }
-  if (origins.empty()) {
-    return OriginCountAndLastVisitMap();
-  }
-
-  URLDatabase::URLEnumerator it;
-  if (!db_->InitURLEnumeratorForEverything(&it)) {
-    return OriginCountAndLastVisitMap();
-  }
 
   OriginCountAndLastVisitMap origin_count_map;
   for (const GURL& origin : origins) {
     origin_count_map[origin] = std::make_pair(0, base::Time());
-  }
+    if (!origin.is_valid()) {
+      continue;
+    }
+    std::string prefix = origin.DeprecatedGetOriginAsURL().spec();
+    if (prefix.empty()) {
+      continue;
+    }
 
-  URLRow row;
-  while (it.GetNextURL(&row)) {
-    GURL origin = row.url().DeprecatedGetOriginAsURL();
-    auto iter = origin_count_map.find(origin);
-    if (iter != origin_count_map.end()) {
-      std::pair<int, base::Time>& value = iter->second;
-      ++(value.first);
-      if (value.second.is_null() || value.second < row.last_visit()) {
-        value.second = row.last_visit();
-      }
+    URLCountAndLastVisitRow row;
+    if (db_->GetURLCountAndLastVisitForPrefix(prefix, &row)) {
+      origin_count_map[origin] = std::make_pair(row.count, row.last_visit_time);
     }
   }
 
@@ -1226,14 +1220,12 @@ void HistoryBackend::AddPage(const HistoryAddPageArgs& request) {
   // works. As they are artificial they shouldn't be tracked for referral
   // chains.
   // TODO: crbug.com/439886906 - Stop excluding 404s from `VisitTracker`. 404
-  // visits are temporarily excluded until `history::kVisitedLinksOn404` is
-  // enabled by default, to avoid making a feature change to `VisitTracker` at
-  // the same time as making 404s eligible for History (404 visits were not
-  // eligible for History prior to `history::kVisitedLinksOn404` and were
-  // skipped upstream of this code).
+  //   visits were excluded to avoid making a feature change to `VisitTracker`
+  //   at the same time as the change to make 404s eligible for History (before
+  //   that change, 404 visits were skipped upstream of this code).
   // TODO(evanm): Due to http://b/1194536 we lose the referrers of a subframe
-  // navigation anyway, so last_visit_id is always zero for them.  But adding
-  // them here confuses main frame history, so we skip them for now.
+  //   navigation anyway, so last_visit_id is always zero for them. But adding
+  //   them here confuses main frame history, so we skip them for now.
   bool is_subframe_navigation =
       ui::PageTransitionCoreTypeIs(request_transition,
                                    ui::PAGE_TRANSITION_AUTO_SUBFRAME) ||
@@ -1326,6 +1318,9 @@ void HistoryBackend::InitImpl(
     }
   }
   db_->BeginExclusiveMode();  // Must be after the mem backend read the data.
+  if (!local_device_originator_cache_guid_.empty()) {
+    db_->SetLocalDeviceOriginatorCacheGuid(local_device_originator_cache_guid_);
+  }
 
   // Favicon database.
   favicon_backend_ = favicon::FaviconBackend::Create(favicon_name, this);
@@ -1394,12 +1389,7 @@ std::pair<URLID, VisitID> HistoryBackend::AddPageVisit(
     std::optional<VisitID> originator_opener_visit,
     bool is_known_to_sync) {
   DCHECK(url.is_valid());
-  if (!base::FeatureList::IsEnabled(history::kVisitedLinksOn404)) {
-    // 404s should not be recorded in history unless the feature
-    // `history::kVisitedLinksOn404` is enabled. If 404s are reaching this point
-    // with the flag disabled, something is broken.
-    CHECK_NE(response_code_category, VisitResponseCodeCategory::k404);
-  }
+
   // See if this URL is already in the DB.
   URLRow url_info(url);
   URLID url_id = db_->GetRowForURL(url, &url_info);
@@ -1511,13 +1501,11 @@ std::pair<URLID, VisitID> HistoryBackend::AddPageVisit(
 
   if (visit_info.visit_id) {
     // For redirect chains that end in a 404 visit, the redirect visits are
-    // saved due to the 404 visit, as with `history::kVisitedLinksOn404`
-    // disabled, the entire chain would be ineligible for History
-    // (`NavigationHandle::ShouldUpdateHistory()` would be false). Here, the
-    // `response_code_category` is always for the final navigation in the chain.
-    bool is_saved_due_to_404 =
-        response_code_category == VisitResponseCodeCategory::k404;
-    UMA_HISTOGRAM_BOOLEAN("History.VisitAddedDueTo404", is_saved_due_to_404);
+    // saved due to the 404 visit. Here, the `response_code_category` is
+    // always for the final navigation in the chain.
+    UMA_HISTOGRAM_BOOLEAN(
+        "History.VisitAddedDueTo404",
+        response_code_category == VisitResponseCodeCategory::k404);
     // Broadcast a notification of the visit.
     NotifyURLVisited(VisitedURLInfo(
         url_info, visit_info, response_code_category, local_navigation_id));
@@ -3440,13 +3428,9 @@ void HistoryBackend::BeginSingletonTransaction() {
   TRACE_EVENT0("browser", "HistoryBackend::BeginSingletonTransaction");
   DCHECK(!singleton_transaction_);
 
-  DCHECK_EQ(db_->transaction_nesting(), 0);
+  DCHECK(!db_->HasActiveTransactions());
   singleton_transaction_ = db_->CreateTransaction();
-
-  bool success = singleton_transaction_->Begin();
-  if (success) {
-    DCHECK_EQ(db_->transaction_nesting(), 1);
-  } else {
+  if (!singleton_transaction_->Begin()) {
     // Failing to begin the transaction happens very occasionally in the wild,
     // at about 1 failure per million, almost exclusively on Windows. Previous
     // analysis showed SQLITE_BUSY to be the main cause, which could suggest
@@ -3466,18 +3450,17 @@ void HistoryBackend::CommitSingletonTransactionIfItExists() {
                "HistoryBackend::CommitSingletonTransactionIfItExists");
 
   if (!singleton_transaction_) {
-    DCHECK_EQ(db_->transaction_nesting(), 0)
+    DCHECK(!db_->HasActiveTransactions())
         << "There should not be any transactions other than the singleton one.";
     return;
   }
 
-  DCHECK_EQ(db_->transaction_nesting(), 1)
-      << "Someone opened multiple transactions.";
+  DCHECK(db_->HasActiveTransactions())
+      << "The global transaction should be active.";
 
   bool success = singleton_transaction_->Commit();
   if (success) {
-    DCHECK_EQ(db_->transaction_nesting(), 0)
-        << "Someone left a transaction open.";
+    DCHECK(!db_->HasActiveTransactions()) << "Someone left a transaction open.";
   }
   // The long-running transaction fails to commit about 1 per 100,000 times.
   // The crash reports are again predominantly on Windows. More discussion in
@@ -3728,6 +3711,9 @@ void HistoryBackend::SetLocalDeviceOriginatorCacheGuid(
     std::string local_device_originator_cache_guid) {
   local_device_originator_cache_guid_ =
       std::move(local_device_originator_cache_guid);
+  if (db_) {
+    db_->SetLocalDeviceOriginatorCacheGuid(local_device_originator_cache_guid_);
+  }
 }
 
 void HistoryBackend::SetCanAddForeignVisitsToSegments(bool add_foreign_visits) {

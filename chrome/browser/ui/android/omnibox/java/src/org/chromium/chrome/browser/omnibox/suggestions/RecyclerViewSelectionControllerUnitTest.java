@@ -31,14 +31,13 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.omnibox.suggestions.SelectionController.TraversalMode;
 
 /** Tests for {@link RecyclerViewSelectionController}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class RecyclerViewSelectionControllerUnitTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -68,12 +67,10 @@ public class RecyclerViewSelectionControllerUnitTest {
         lenient().doReturn(true).when(mChildView5).isFocusable();
 
         mSelectionController =
-                new RecyclerViewSelectionController(
-                        mLayoutManager, RecyclerViewSelectionController.Mode.SATURATING);
+                new RecyclerViewSelectionController(mLayoutManager, TraversalMode.SATURATING);
         mSelectionControllerWithSentinel =
                 new RecyclerViewSelectionController(
-                        mLayoutManager,
-                        RecyclerViewSelectionController.Mode.SATURATING_WITH_SENTINEL);
+                        mLayoutManager, TraversalMode.SATURATING_WITH_SENTINEL);
 
         // Saturating controller will initialize selection, impacting tests. Reset this right away.
         clearInvocations(mChildView1);

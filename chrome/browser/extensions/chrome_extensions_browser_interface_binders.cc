@@ -305,9 +305,10 @@ void PopulateChromeFrameBindersForExtension(
   binder_map->Add<mime_handler::BeforeUnloadControl>(&BindBeforeUnloadControl);
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
-  ExtensionMojoBinderRegistryFactory::GetForBrowserContext(
-      render_frame_host->GetBrowserContext())
-      ->PopulateFrameBinders(binder_map, render_frame_host, extension);
+  if (auto* registry = ExtensionMojoBinderRegistryFactory::GetForBrowserContext(
+          render_frame_host->GetBrowserContext())) {
+    registry->PopulateFrameBinders(binder_map, render_frame_host, *extension);
+  }
 }
 
 void PopulateChromeServiceWorkerBindersForExtension(
@@ -315,6 +316,8 @@ void PopulateChromeServiceWorkerBindersForExtension(
         binder_map,
     content::BrowserContext* browser_context,
     const Extension* extension) {
+  DCHECK(extension);
+
 #if BUILDFLAG(IS_CHROMEOS)
   if (extension->id() == extension_misc::kGoogleSpeechSynthesisExtensionId) {
     binder_map->Add<chromeos::tts::mojom::GoogleTtsStream>(base::BindRepeating(
@@ -345,8 +348,11 @@ void PopulateChromeServiceWorkerBindersForExtension(
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-  ExtensionMojoBinderRegistryFactory::GetForBrowserContext(browser_context)
-      ->PopulateServiceWorkerBinders(binder_map, browser_context, extension);
+  if (auto* registry = ExtensionMojoBinderRegistryFactory::GetForBrowserContext(
+          browser_context)) {
+    registry->PopulateServiceWorkerBinders(binder_map, browser_context,
+                                           *extension);
+  }
 }
 
 }  // namespace extensions

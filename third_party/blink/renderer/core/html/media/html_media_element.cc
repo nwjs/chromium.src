@@ -4589,6 +4589,18 @@ void HTMLMediaElement::MediaControlsDidBecomeVisible() {
   }
 }
 
+void HTMLMediaElement::MediaControlsDidBecomeHidden() {
+  DVLOG(3) << "mediaControlsDidBecomeHidden(" << *this << ")";
+
+  // When the user agent stops exposing a user interface for a video element,
+  // reset and re-run the text track rendering rules so cues reclaim the space
+  // that was reserved for the controls.
+  if (IsHTMLVideoElement() && TextTracksVisible()) {
+    EnsureTextTrackContainer().UpdateDisplay(
+        *this, TextTrackContainer::kDidStopExposingControls);
+  }
+}
+
 void HTMLMediaElement::SetTextTrackKindUserPreferenceForAllMediaElements(
     Document* document) {
   auto it = DocumentToElementSetMap().find(document);
@@ -5015,11 +5027,9 @@ void HTMLMediaElement::RejectScheduledPlayPromises() {
     case PlayPromiseError::kNotSupported:
       NOTREACHED();
   }
-  RejectPlayPromisesInternal(
-      DOMExceptionCode::kAbortError,
-      UNSAFE_TODO(String::Format(
-          "The play() request was interrupted%s. https://goo.gl/LdLk22",
-          reason)));
+  RejectPlayPromisesInternal(DOMExceptionCode::kAbortError,
+                             StrCat({"The play() request was interrupted",
+                                     reason, ". https://goo.gl/LdLk22"}));
 }
 
 void HTMLMediaElement::RejectPlayPromises(DOMExceptionCode code,

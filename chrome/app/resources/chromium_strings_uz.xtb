@@ -9,6 +9,7 @@
 <translation id="1065672644894730302">Sozlamalarni ko‘rib bo‘lmadi. Ba’zi funksiyalar mavjud emas va o‘zgartirilgan sozlamalar saqlanmaydi.</translation>
 <translation id="1083934481477628225">Chromiumdagi “Sayt, ilova va kengaytmalarga ruxsat” ota-onangiz tomonidan faolsizlantirilgan</translation>
 <translation id="1090946077924227754">Muayyan Chromium funksiyasi yoki kengaytmasini qidirish uchun manzillar qatorida buyruqni kiritib, keyin belgilangan tezkor tugmani bosing.</translation>
+<translation id="1098493699368672217">Chromium orqali qidiruv belgisini tizim panelida chiqarish va tezkor tugmasini yoqish</translation>
 <translation id="1104942323762546749">Chromium parollaringizni eksport qilmoqchi. Ruxsat berish uchun Windows platformasidagi parolingizni kiriting.</translation>
 <translation id="112640046208448578">Obyekt yoki joylarni aniqlash, nusxalash yoki matn tarjima qilish. Rasm orqali qidiruv ishlatilganda sahifa skrinshoti Google serverlariga yuboriladi. <ph name="LEARN_MORE" /></translation>
 <translation id="113122355610423240">Qurilmangizdagi asosiy brauzer – Chromium.</translation>
@@ -38,7 +39,6 @@
 <translation id="1356661055722410047">Yangi! Ekrandagi matn va rasmlarni tarjima qilish mumkin</translation>
 <translation id="1383876407941801731">Qidiruv</translation>
 <translation id="1388276868779258475">Chromium ilovasi bilan internetda kezishni istalgan joyda davom ettiring</translation>
-<translation id="1397530502368084401">Chromium profillarini boshqarish</translation>
 <translation id="141901961143729572">Fikr-mulohaza qoldiring</translation>
 <translation id="1465192221147974788">Oynani ulashish uchun tizim sozlamalarida Chromium brauzeriga ekranni yozib olish uchun ruxsat bering.</translation>
 <translation id="1478370723027452770">Chrome for Testing yuzasidan yordam olish</translation>
@@ -151,7 +151,6 @@
 <translation id="2620436844016719705">Tizim</translation>
 <translation id="2629740064077610681">Tashkilotingiz bukmarklar, tarix va parollar kabi brauzer maʼlumotlaringizni koʻrishi va boshqarishi mumkin. Boshqa Chromium profillaridagi brauzer maʼlumotlarini koʻra olmaydi.</translation>
 <translation id="2635452620547538388"><ph name="ACCOUNT_EMAIL" /> hisobingizda Chromium maʼlumotlaridan foydalanish va saqlash uchun shaxsingizni tasdiqlang</translation>
-<translation id="2636783171884046627">Chromium ichidagi Gemini panelini ochish va yopishda tezkor tugmadan foydalaning.</translation>
 <translation id="2637732208198500597">{COUNT,plural, =0{Kuchaytirilgan himoya yangilishlarni oʻrnatish uchun Chromium brauzerini qayta ishga tushirishni talab qilmoqda}=1{Kuchaytirilgan himoya yangilishlarni oʻrnatish uchun Chromium brauzerini qayta ishga tushirishni talab qilmoqda. Inkognito oyna qayta ochilmaydi.}other{Kuchaytirilgan himoya yangilishlarni oʻrnatish uchun Chromium brauzerini qayta ishga tushirishni talab qilmoqda. # inkognito oyna qayta ochilmaydi.}}</translation>
 <translation id="263863604136125912">Chromiumni ishga tushirish</translation>
 <translation id="2648074677641340862">O‘rnatish vaqtida operatsion tizim xatoligi yuz berdi. Chromium‘ni qaytadan yuklab oling.</translation>
@@ -226,6 +225,7 @@
 <translation id="3387527074123400161">ChromiumOS</translation>
 <translation id="3406848076815591792">Mavjud Chromium profiliga almashilsinmi?</translation>
 <translation id="3412460710772753638">Bu qurilmada Parollar menejeriga</translation>
+<translation id="3438772217992559640">Bu varaqda rasmli qidiruv bilan qidirish</translation>
 <translation id="3455907671758333080">Telefonda Chromium orqali Saytlarni kuchaytirilgan rejimda xavfsiz kezish imkoniyatini kengaytiring</translation>
 <translation id="3461644266919055473">Chromiumni moslab oling...</translation>
 <translation id="3474745554856756813">Ushbu qurilmadagi <ph name="ITEMS_COUNT" /> ta element butunlay o‘chiriladi. Ma’lumotlaringizni keyinroq olish uchun Chromium brauzeriga <ph name="USER_EMAIL" /> sifatida kiring.</translation>
@@ -264,7 +264,6 @@
 <translation id="3892148308691398805">Matnni nusxalash</translation>
 <translation id="390528597099634151"><ph name="EXISTING_USER" /> allaqachon ushbu Chromium profiliga kirgan. Internetni alohida kezish uchun Chromium siz uchun alohida profil yaratadi.</translation>
 <translation id="3909353120217047026">Bu kengaytma Chrome Web Store qoidalariga mos emas va xavfli boʻlishi mumkin. Ochilgan saytlarda shaxsiy axborot kabi maʼlumotlarni koʻrishi va oʻzgartirishini tugatish uchun uni Chromiumdan olib tashlang.</translation>
-<translation id="3937491663738985329">C&amp;hromiumni oʻzingizga moslang</translation>
 <translation id="3941890832296813527">Oʻrnatishda xato: Oʻrnatish vositasi fayl nomi yaroqsiz yoki ishlamaydi.</translation>
 <translation id="3945058413678539331">Chromium parollarni nusxalashga urinmoqda. Ruxsat berish uchun Windows parolingizni kiriting.</translation>
 <translation id="3954172517175569325">Google hisobingizga saqlangan parollar, toʻlov usullari va manzillar bu qurilmadan olib tashlanadi. Ularni Chromiumda yana ishlatish uchun hisobingizga kiring.</translation>
@@ -304,6 +303,7 @@
 <translation id="4298125729853015961">Chromiumdan parollarini eksport qilish</translation>
 <translation id="4304713468139749426">Parollar menejeri</translation>
 <translation id="4334241893986177674">Bu skrinshotni qidirish</translation>
+<translation id="4368547723231502008">Chromium yigʻilgan boʻlsa ham, istalgan joydan qidiruv soʻrovini kiriting va savollaringizga javob oling</translation>
 <translation id="4384331407722351213">Windows ishga tushirilganda Chromiumni ishga tushirish</translation>
 <translation id="4400772909124543403">Hech qanday yangilanish mavjud emas</translation>
 <translation id="4407044323746248786">Chromium baribir yopilsinmi?</translation>
@@ -333,6 +333,7 @@
 <translation id="4613863813562375431">ChromiumOS versiyasi</translation>
 <translation id="4621240073146040695">Yangilashni yakunlash uchun Chromium brauzerini qayta ishga tushiring.</translation>
 <translation id="4625064703209785397">Chromium V8 tizimi bilan saytlar ishlashini tezlashtiradi, ammo Chromium brauzerining hujumlardan himoyasini biroz pasaytiradi</translation>
+<translation id="4626321472657185181">Chromium orqali qidiruvni ochish</translation>
 <translation id="4665829708273112819">Diqqat! Chromium kengaytmalarga brauzer tarixini yozib olishni taqiqlay olmaydi. Kengaytmani inkognito rejimida faolsizlantirish uchun bayroqchani olib tashlang.</translation>
 <translation id="4673151026126227699">Shuningdek, Chromium foydalanish statistikasini ham ulashsangiz, bu hisobotlarga siz tashrif qilgan URL manzillar ham kiradi</translation>
 <translation id="4673710618874938871"><ph name="USER_NAME" /> hisobidan kirilgan, obunasi bor. Hisob menyusini ochish</translation>
@@ -374,6 +375,7 @@
 <translation id="5286907366254680517">Aniqlandi</translation>
 <translation id="5289287148052354622">Chromium ilovasini yuklab olish</translation>
 <translation id="5294316920224716406">Inkognito rejimida ishlayotganingizda, xavfsiz ulanishli saytga kirganingizda Chromium sizni ogohlantiradi.</translation>
+<translation id="5296581118566748922">Chromium orqali qidirish</translation>
 <translation id="5313228254328109263">Chromium Updater ichki xizmati</translation>
 <translation id="5324450571874973775">Ularni Chromiumda boshqa Gemini funksiyalari bilan birga ishlating</translation>
 <translation id="5346389065299425353">Bir nechta varaq, fayl va vositalar kiritish orqali qidiruvni chuqurlashtiring</translation>
@@ -384,6 +386,7 @@
 <translation id="5358375970380395591">Siz boshqaruvdagi hisobga kiryapsiz va uning administratoriga Chromium profilingizni boshqarishga ruxsat beryapsiz. Ilovalar, xatcho‘plar, brauzer tarixi, parollar va boshqa sozlamalar kabi barcha Chromium ma’lumotlaringiz <ph name="USER_NAME" /> hisobiga biriktiriladi. Siz bu ma’lumotlarni Google hisoblar shaxsiy kabinetidan o‘chirishingiz mumkin, lekin bu ma’lumotlarni boshqa hisob bilan bog‘lay olmaysiz. <ph name="LEARN_MORE" /></translation>
 <translation id="5368118228313795342">Qoʻshimcha kod: <ph name="EXTRA_CODE" />.</translation>
 <translation id="5377622451696208284">Moslashtirish uchun Veb va ilovalardagi faoliyat tarixiga Chromiumni kiriting</translation>
+<translation id="5382964351116519680">Chromium orqali qidiruvni ochish</translation>
 <translation id="5383439451358640070">Chromium ayrim fayllarni nega bloklashi haqida</translation>
 <translation id="5386450000063123300">Chromium yangilanmoqda (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="538767207339317086">Chromium hisobiga kirishga ruxsat berish</translation>
@@ -440,6 +443,7 @@ Bu sahifa kutilganidek ishlamasa, optimallashga ruxsat bering.</translation>
 <translation id="5977420883993828287">Mahkamlandi! Endi uni asboblar panelidan ochish mumkin</translation>
 <translation id="5986585015444752010">{COUNT,plural, =1{Chromium 1 daqiqa ishlatilmasa, tashkilot avtomatik ravishda yopadi.}other{Chromium # daqiqa ishlatilmasa, tashkilot avtomatik ravishda yopadi.}}</translation>
 <translation id="5987687638152509985">Sinxronizatsiyani boshlash uchun Chromium brauzerini yangilang</translation>
+<translation id="5990360079535151574">Asboblar panelidagi “Kontekstli vazifalar” tugmasi orqali internetni kezish davomida savollar berish uchun Kontekstli vazifalarni qayta ochishingiz mumkin</translation>
 <translation id="6003112304606738118">Yuklab olinmoqda... <ph name="HOURS" /> soat qoldi</translation>
 <translation id="6009821354356307391">Qoʻshimcha soʻrov yuborish</translation>
 <translation id="6040143037577758943">Yopish</translation>
@@ -502,6 +506,7 @@ Bu sahifa kutilganidek ishlamasa, optimallashga ruxsat bering.</translation>
 <translation id="651535675648445253">Yorliqlar Chromiumda ochiladi</translation>
 <translation id="6539122709674868420">Tashkilotingiz Chromium <ph name="TIMEOUT_DURATION" /> ishlatilmasa avtomatik yopilishini sozlagan. Brauzer maʼlumotlari oʻchirib tashlandi. Jumladan, tarix, avtomatik kiritish va yuklanmalar.</translation>
 <translation id="6542839706527980775">Har bir profilda bukmark, tarix va parol kabi Chromium axboroti saqlanadi</translation>
+<translation id="6556755379298048869">Tezkor tugmalar yordamida qidiring.</translation>
 <translation id="6563921047760808519"><ph name="BEGIN_LINK" />Chromium maʼlumotlaringizni qanday xavfsiz saqlashi<ph name="END_LINK" /> haqida batafsil</translation>
 <translation id="6564039629497156115">Bu sozlamaga kiritilgan oʻzgarishlar Chromium qayta ishga tushganda kuchga kiradi.</translation>
 <translation id="6567032987737689854">Chromium asosiy menyusidagi Kengaytmalar tugmasini bosib, kengaytmalarni boshqaring.</translation>
@@ -536,6 +541,7 @@ Ba’zi imkoniyatlar ishlamasligi mumkin. Profilni saqlash uchun boshqa jild tay
 <translation id="6857782730669500492">Chromium – <ph name="PAGE_TITLE" /></translation>
 <translation id="6859580922007887573">Davom etish uchun tegining</translation>
 <translation id="6862030660799253820">Rasmli qidiruv orqali bu rasmni topish</translation>
+<translation id="6869568587896659271">Sevimli saytlaringizga manzil qatori ostidan bir zumda kiring</translation>
 <translation id="6873893289264747459">Chromium “<ph name="EXTENSION_NAME" />” kengaytmasi tarkibida zararli dastur aniqladi</translation>
 <translation id="6877155553248388166">qidiruv hududining pastki oʻng burchagi: oʻng <ph name="RIGHT" />%, past <ph name="BOTTOM" />%</translation>
 <translation id="6896758677409633944">Nusxa olish</translation>
@@ -589,6 +595,7 @@ Ayrim bukmarklar hisobingizdan oʻchirilmaguncha yangilari saqlanmaydi. Hozir hi
 <translation id="7318036098707714271">Sozlamalaringiz saqlanadigan fayl noto‘g‘ri yoki yaroqsiz holatda.
 
 Chromium sozlamalaringizni qaytadan tiklay olmadi.</translation>
+<translation id="7324051657739063017">Internetni kezish davomida savollar berish uchun Kontekstli vazifalarni istalgan vaqtda qayta ochishingiz mumkin</translation>
 <translation id="734373864078049451">Chromium’dagi barcha veb-sahifalar, xatcho‘plar va boshqa ma’lumotlarni bu yerdan topish mumkin.</translation>
 <translation id="7347827960336370838">Shifrlangan maʼlumotlarni faqatgina kodli ibora yordamida oʻqish mumkin. Kodli ibora ulashilmaydi va Google serverlarida saqlanmaydi. Agar kodli iborani unutsangiz yoki bu sozlamani oʻzgartirmoqchi boʻlsangiz, <ph name="BEGIN_LINK" />hisobingizda Chromium maʼlumotlarini oʻchirishingiz<ph name="END_LINK" /> kerak.</translation>
 <translation id="7349591376906416160">Tizim administratori tomonidan Chromium brauzeri <ph name="TARGET_URL_HOSTNAME" /> sahifasini <ph name="ALTERNATIVE_BROWSER_NAME" /> orqali ochiladigan qilib sozlangan.</translation>
@@ -597,6 +604,7 @@ Chromium sozlamalaringizni qaytadan tiklay olmadi.</translation>
 <translation id="7376384068949534168">Yaqinda ochmagansiz. Chromium olib tashladi: <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /></translation>
 <translation id="73786666777299047">Chrome internet-do‘konida ochish</translation>
 <translation id="7394275517973019558">Chromium ichidagi Gemini belgisini tizim panelida chiqarish</translation>
+<translation id="7401687852903179959">Rasmli qidiruv orqali bu videoni topish</translation>
 <translation id="7407655596887111931">Chromium endi birlamchi brauzeringiz</translation>
 <translation id="7413153308467572558">Ishni kelgan joyidan davom ettiring: Chromium har safar qayta ishga tushganda oxirgi varaqlarni tiklashi mumkin. Faolsizlantirish uchun bu yerga kiring:</translation>
 <translation id="7427879960656355200">Chromiumga parollarni import qilish</translation>
@@ -630,6 +638,7 @@ Chromium sozlamalaringizni qaytadan tiklay olmadi.</translation>
 <translation id="77283119132245232"><ph name="BROWSER_NAME" /> brauzeriga tizim trassirovkasi xizmatlari taqdim etiladi. Xizmat oʻchiq boʻlsa, brauzer yaratgan unumdorlik trassirovkalariga kontekstni almashtirish hamda oqim tayyorligi kabi tizim hodisalari kiritilmaydi.</translation>
 <translation id="7745317241717453663">Bu qurilmadagi brauzer tarixini tozalaydi. Ma’lumotlaringizni keyinroq olish uchun Chromium brauzeriga <ph name="USER_EMAIL" /> sifatida kiring.</translation>
 <translation id="7747138024166251722">O‘rnatish dasturi vaqtinchalik katalog yarata olmadi. Sizda ilovalar o‘rnatish uchun yetarli vakolat yoki disk yetarli bo‘sh joy yo‘q bo‘lsa kerak.</translation>
+<translation id="7747820849741499258">Chromiumda qidirish</translation>
 <translation id="7750130090210923118">Chromium birlamchi mavzusini tiklash</translation>
 <translation id="7752521946322750699">Chromiumda ishingiz xavfsizligini taʼminlash uchun tashkilotingiz Chromium hisobingizga kirganingizda ayrim maʼlumotlarni koʻrishi yoki boshqarishi mumkin.</translation>
 <translation id="7781047659465034537">Chromiumni birlamchi etib tayinlang va vazifalar paneliga mahkamlang</translation>
@@ -637,6 +646,7 @@ Chromium sozlamalaringizni qaytadan tiklay olmadi.</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> - Chromium Canary</translation>
 <translation id="7803986347287457849">Internetingizni kuzatuvchi tomonlarga ochadigan saytlaringizni koʻrishni qiyinlashtiring. Chromium DNS (Domen nomlari tizimi) qaydlaridan saytning IP manzilini shifrlangan aloqa yordamida tekshiradi.</translation>
 <translation id="7810005234485217901">Tezkor ochish uchun Rasm orqali qidiruvni mahkamlash mumkin</translation>
+<translation id="7828527096541974699">Chromium bilan qaysi maʼlumotlarni ulashishni tanlang</translation>
 <translation id="7828947555739565424">Bu hisobli Chromium profili ushbu qurilmada allaqachon mavjud</translation>
 <translation id="7845233973568007926">Oʻrnatganingiz uchun tashakkur! <ph name="BUNDLE_NAME" />ni ishlatishdan oldin kompyuterni qayta ishga tushirishingiz lozim.</translation>
 <translation id="7847673590271334840">Qidiruv tizimingiz Chromiumdan tashqarida oʻzgartirildi. Maʼlumotlaringizni himoyalash maqsadida Chromium uni birlamchi sozlamasiga qaytardi. <ph name="LEARN_MORE_LINK" /></translation>
@@ -676,6 +686,7 @@ Chromium sozlamalaringizni qaytadan tiklay olmadi.</translation>
 <translation id="81770708095080097">Bu fayl xavfli edi va u Chromium tomonidan bloklandi.</translation>
 <translation id="8177472873527554730">Sahifada kontent topilmadi</translation>
 <translation id="8200109504272824693"><ph name="USER_EMAIL" /> hisobingizda Chromium maʼlumotlaridan foydalanish va saqlash uchun kalit iborangizni kiriting</translation>
+<translation id="820759916613250543">Rasmli qidiruv orqali bu rasmni topish</translation>
 <translation id="8221491193165283816">Odatda bildirishnomalarni bloklaysiz. Bu saytga ruxsat berish uchun bu yerga bosing.</translation>
 <translation id="8223363452568144035">Kameradan foydalanish uchun <ph name="BEGIN_LINK" />tizim sozlamalari<ph name="END_LINK" /> orqali Chromiumga ruxsat bering</translation>
 <translation id="8232193495299001329">Chromium bu kengaytma manbasini tekshira olmadi va u xavfli boʻlishi mumkin. Ochilgan saytlarda shaxsiy axborot kabi maʼlumotlarni koʻrishi va oʻzgartirishini tugatish uchun uni Chromiumdan olib tashlang.</translation>
@@ -755,13 +766,16 @@ Chromium sozlamalaringizni qaytadan tiklay olmadi.</translation>
             • Cookie fayllari va saytlarning boshqa vaqtincha maʼlumotlari oʻchirib tashlanadi
             <ph name="LINE_BREAKS" />
             Bukmarklar, tarix va saqlangan parollar joyida qoladi.</translation>
+<translation id="8966875421152977384">Chromiumda sayt yorliqlarini chiqarish</translation>
 <translation id="897581876605952338">Chromium Enterprise logotipi</translation>
 <translation id="8980139959902937527"><ph name="DEVICE_TYPE" /> qurilmangizda Chromium ilovasi bilan Google xavfsizligi har doim yoningizda</translation>
 <translation id="8981150672034878610">Profilingizni ochishda nimadir xato ketgani uchun Chromium ishga tushmadi. Chromiumni qayta ishga tushirish.</translation>
 <translation id="8988036198400390003">Chromium profillarini boshqaring</translation>
+<translation id="8993855408334954620">Chromium ichidagi Gemini va ochiq varaq oynalarini almashtirish uchun klaviaturadan foydalaning.</translation>
 <translation id="9018218886431812662">O‘rnatildi.</translation>
 <translation id="9019929317751753759">Ma’lumotlaringiz xavfsizligini ta’minlash maqsadida ayrim kengaytmalarni o‘chirib qo‘ydik, chunki <ph name="IDS_EXTENSION_WEB_STORE_TITLE" />da ular haqida hech qanday ma’lumot yo‘q (ya’ni, ular sizning ruxsatingizsiz o‘rnatilgan bo‘lishi mumkin).</translation>
 <translation id="9022552996538154597">Chromium‘ga kirish</translation>
+<translation id="9035791714111278917">Chromium orqali qidiruv belgisini Mac menyu panelida chiqarish va tezkor tugmasini yoqish</translation>
 <translation id="904366664621834601">Chromium bu yuklanmani blokladi, chunki bu arxivda zararli dastur yashirilgan boʻlishi mumkin</translation>
 <translation id="9053882453960391422">Parollar, bukmarklar va tarixni qurilmalararo mukammal sinxronlashda davom eting. Birlamchi brauzerni Chromiumga yangilab, tanish va sevimli funksiyalardan oson foydalaning. Tezkor kirish uchun Chromium vazifalar paneliga qadaladi.</translation>
 <translation id="9056398481763999048">Telefonda Chromium ilovasi bilan Googlening eng ilgʻor AI vositalaridan foydalaning</translation>

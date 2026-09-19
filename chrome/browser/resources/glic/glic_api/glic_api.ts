@@ -63,6 +63,7 @@ export import ImageInfo = generated.ImageInfo;
 export import InvokeOptions = generated.InvokeOptions;
 export import MetaTag = generated.MetaTag;
 export import OnResponseStoppedDetails = generated.OnResponseStoppedDetails;
+export import OpenPinnedTabPickerOptions = generated.OpenPinnedTabPickerOptions;
 export import OpenSettingsOptions = generated.OpenSettingsOptions;
 export import PageMetadata = generated.PageMetadata;
 export import PanelOpeningData = generated.PanelOpeningData;
@@ -136,6 +137,7 @@ export import PanelStateKind = generated.PanelStateKind;
 export import PerformActionsErrorReason = generated.PerformActionsErrorReason;
 export import PinTrigger = generated.PinTrigger;
 export import Platform = generated.Platform;
+export import PromptType = generated.PromptType;
 export import RegisterConversationErrorReason =
     generated.RegisterConversationErrorReason;
 export import SbThreatType = generated.SbThreatType;
@@ -1015,6 +1017,25 @@ export declare interface GlicBrowserHost {
   getPinnedTabs?(): ObservableValue<TabData[]>;
 
   /**
+   * Opens the browser's native tab picker UI (such as the Grid Tab Switcher
+   * on Android) on top of Chrome, allowing the user to select one or more tabs
+   * to pin as context.
+   *
+   * Selected tabs are pinned to the conversation and asynchronously emitted to
+   * the web client via `getPinnedTabs()`.
+   *
+   * The returned promise resolves when the user finishes interacting with the
+   * picker (either by confirming their selection or dismissing/cancelling).
+   *
+   * Note: This method is supported on mobile platforms (Android phone and
+   * tablet). On desktop and other non-mobile form factors, this is currently a
+   * no-op and resolves immediately.
+   *
+   * @param options Optional configuration for the picker.
+   */
+  openPinnedTabPicker?(options?: OpenPinnedTabPickerOptions): Promise<void>;
+
+  /**
    * Returns an observable that emits a ranked list of pin tab candidates per
    * the given options. The list is returned once, and then again whenever the
    * list of candidates changes. The results are sorted by string match and then
@@ -1401,7 +1422,7 @@ export declare interface GlicBrowserHostMetrics {
   onOptinImpression?(): void;
 
   /** Called when the user has submitted input via the web client. */
-  onUserInputSubmitted?(mode: WebClientMode): void;
+  onUserInputSubmitted?(mode: WebClientMode, promptType?: PromptType): void;
 
   /**
    * Called when the web client sends a browser actuation result over the

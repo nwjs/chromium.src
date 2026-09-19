@@ -15,10 +15,11 @@
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_view_interface.h"
-#include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
+#include "chrome/browser/ui/views/page_action/test_support/page_action_test_accessor.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_store/password_form_converters.h"
+#include "components/password_manager/core/browser/password_string.h"
 #include "components/password_manager/core/common/password_manager_ui.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/test/browser_test.h"
@@ -54,7 +55,7 @@ IN_PROC_BROWSER_TEST_F(ManagePasswordsUIControllerBrowserTest,
   forms[0].url = GURL("http://example.com");
   forms[0].signon_realm = "http://example.com/";
   forms[0].username_value = u"user";
-  forms[0].password_value = u"pass";
+  forms[0].password_value = password_manager::PasswordString(u"pass");
 
   // Triggering OnPasswordAutofilled will call UpdateBubbleAndIconVisibility.
   // In the buggy version, this would use browser->GetActiveTabInterface()
@@ -65,13 +66,9 @@ IN_PROC_BROWSER_TEST_F(ManagePasswordsUIControllerBrowserTest,
 
   // 4. Verify Foreground Tab Icon Visibility
   // The foreground tab's page action icon should NOT be visible.
-  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
-  auto* provider = browser_view->toolbar_button_provider();
-  views::View* icon_view = page_actions::GetIconLabelBubbleViewForTesting(
-      provider->GetPageActionViewInterface(kActionShowPasswordsBubbleOrPage),
-      kActionShowPasswordsBubbleOrPage);
-  ASSERT_TRUE(icon_view);
-  EXPECT_FALSE(icon_view->GetVisible())
+  EXPECT_FALSE(page_actions::PageActionTestAccessor(
+                   browser(), kActionShowPasswordsBubbleOrPage)
+                   .GetVisible())
       << "Foreground PageActionView was incorrectly shown by background tab "
          "update.";
 }
@@ -83,7 +80,8 @@ IN_PROC_BROWSER_TEST_F(ManagePasswordsUIControllerBrowserTest,
   non_shared_credentials.url = GURL("http://example.com/login");
   non_shared_credentials.signon_realm = non_shared_credentials.url.spec();
   non_shared_credentials.username_value = u"username";
-  non_shared_credentials.password_value = u"12345";
+  non_shared_credentials.password_value =
+      password_manager::PasswordString(u"12345");
   non_shared_credentials.match_type =
       password_manager::PasswordForm::MatchType::kExact;
 
@@ -119,7 +117,8 @@ IN_PROC_BROWSER_TEST_F(ManagePasswordsUIControllerBrowserTest,
   non_shared_credentials.url = GURL("http://example.com/login");
   non_shared_credentials.signon_realm = non_shared_credentials.url.spec();
   non_shared_credentials.username_value = u"username";
-  non_shared_credentials.password_value = u"12345";
+  non_shared_credentials.password_value =
+      password_manager::PasswordString(u"12345");
   non_shared_credentials.match_type =
       password_manager::PasswordForm::MatchType::kExact;
 

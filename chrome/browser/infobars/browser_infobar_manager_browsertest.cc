@@ -14,8 +14,9 @@
 #include "chrome/browser/infobars/infobar_features.h"
 #include "chrome/browser/infobars/infobar_spec.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -45,9 +46,9 @@ InfoBarSpec BuildGlobalSpecSkippingIncognito() {
       .Build();
 }
 
-size_t InfoBarCountIn(Browser* browser) {
+size_t InfoBarCountIn(BrowserWindowInterface* browser) {
   return ContentInfoBarManager::FromWebContents(
-             browser->tab_strip_model()->GetActiveWebContents())
+             browser->GetTabStripModel()->GetActiveWebContents())
       ->infobars()
       .size();
 }
@@ -185,9 +186,9 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
   EXPECT_EQ(1u, infobar_manager1->infobars().size());
 
   // 2. Open a new browser window.
-  Browser* browser2 = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* browser2 = CreateBrowser(browser()->GetProfile());
   content::WebContents* web_contents2 =
-      browser2->tab_strip_model()->GetActiveWebContents();
+      browser2->GetTabStripModel()->GetActiveWebContents();
   auto* infobar_manager2 =
       ContentInfoBarManager::FromWebContents(web_contents2);
 
@@ -248,7 +249,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
   manager()->ShowGlobally(identifier);
 
   // Open a second browser.
-  Browser* browser2 = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* browser2 = CreateBrowser(browser()->GetProfile());
 
   content::WebContents* web_contents1 =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -256,7 +257,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
       ContentInfoBarManager::FromWebContents(web_contents1);
 
   content::WebContents* web_contents2 =
-      browser2->tab_strip_model()->GetActiveWebContents();
+      browser2->GetTabStripModel()->GetActiveWebContents();
   auto* infobar_manager2 =
       ContentInfoBarManager::FromWebContents(web_contents2);
 
@@ -291,6 +292,63 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
+                       ShowGloballyRollsBackWhenNothingShown) {
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  manager()->Register(InfoBarSpec::Builder(identifier)
+                          .SetMessageText(u"Test Message")
+                          .SetScope(InfoBarScope::kGlobal)
+                          .SetBrowserFilter(base::BindRepeating(
+                              [](BrowserWindowInterface*) { return false; }))
+                          .Build());
+  // Every browser is rejected, so nothing shows and nothing stays armed:
+  // a browser opened afterwards must not receive the infobar.
+  EXPECT_FALSE(manager()->ShowGlobally(identifier));
+  BrowserWindowInterface* browser2 = CreateBrowser(browser()->GetProfile());
+  EXPECT_EQ(0u, InfoBarCountIn(browser2));
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
+                       GlobalShowParamsApplyToEveryInstance) {
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  std::vector<InfoBarResult> results;
+  manager()->Register(InfoBarSpec::Builder(identifier)
+                          .SetMessageText(u"Spec Message")
+                          .SetScope(InfoBarScope::kGlobal)
+                          .Build());
+  InfoBarShowParams params;
+  params.message_text = u"Per-show Message";
+  params.result_callback = base::BindLambdaForTesting(
+      [&](content::WebContents*, InfoBarResult result) {
+        results.push_back(result);
+      });
+  ASSERT_TRUE(manager()->ShowGlobally(identifier, std::move(params)));
+  auto message_in = [](BrowserWindowInterface* browser) {
+    return ContentInfoBarManager::FromWebContents(
+               browser->GetTabStripModel()->GetActiveWebContents())
+        ->infobars()[0]
+        ->delegate()
+        ->AsConfirmInfoBarDelegate()
+        ->GetMessageText();
+  };
+  EXPECT_EQ(u"Per-show Message", message_in(browser()));
+  // A browser created while the infobar is up inherits the same overrides.
+  BrowserWindowInterface* browser2 = CreateBrowser(browser()->GetProfile());
+  ASSERT_EQ(1u, InfoBarCountIn(browser2));
+  EXPECT_EQ(u"Per-show Message", message_in(browser2));
+  // Dismissing one instance cascades and reports exactly once, through the
+  // per-show callback.
+  infobars::InfoBar* infobar2 =
+      ContentInfoBarManager::FromWebContents(
+          browser2->GetTabStripModel()->GetActiveWebContents())
+          ->infobars()[0];
+  infobar2->delegate()->InfoBarDismissed();
+  infobar2->RemoveSelf();
+  EXPECT_EQ(0u, InfoBarCountIn(browser()));
+  ASSERT_EQ(1u, results.size());
+  EXPECT_EQ(InfoBarResult::kDismissed, results[0]);
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
                        GlobalNoDismissalOnWindowDestruction) {
   const auto identifier = InfoBarDelegate::TEST_INFOBAR;
   auto spec = InfoBarSpec::Builder(identifier)
@@ -303,7 +361,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
   manager()->ShowGlobally(identifier);
 
   // Open a second browser.
-  Browser* browser2 = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* browser2 = CreateBrowser(browser()->GetProfile());
 
   content::WebContents* web_contents1 =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -311,7 +369,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
       ContentInfoBarManager::FromWebContents(web_contents1);
 
   content::WebContents* web_contents2 =
-      browser2->tab_strip_model()->GetActiveWebContents();
+      browser2->GetTabStripModel()->GetActiveWebContents();
   auto* infobar_manager2 =
       ContentInfoBarManager::FromWebContents(web_contents2);
 
@@ -337,7 +395,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
                        ShowGloballyRespectsBrowserFilter) {
-  Browser* incognito_browser = CreateIncognitoBrowser();
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowser();
   manager()->Register(BuildGlobalSpecSkippingIncognito());
 
   manager()->ShowGlobally(InfoBarDelegate::TEST_INFOBAR);
@@ -427,6 +485,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
                   WindowOpenDisposition) {
                 link_contents = contents;
                 clicked_index = index;
+                return false;
               }))
           .SetScope(InfoBarScope::kTab)
           .Build();
@@ -471,10 +530,10 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest, DarkModeIcon) {
 
   manager()->Register(std::move(spec));
   tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
-  content::WebContents* web_contents = tab->GetContents();
   manager()->Show(tab, identifier);
 
-  auto* infobar_manager = ContentInfoBarManager::FromWebContents(web_contents);
+  auto* infobar_manager =
+      ContentInfoBarManager::FromWebContents(tab->GetContents());
   ASSERT_EQ(1u, infobar_manager->infobars().size());
   auto* delegate = infobar_manager->infobars()[0]->delegate();
 
@@ -483,6 +542,553 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest, DarkModeIcon) {
 
   delegate->set_dark_mode(true);
   EXPECT_EQ(&kDarkIcon, &delegate->GetVectorIcon());
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
+                       ResultCallbackReportsUserInteraction) {
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  std::vector<InfoBarResult> results;
+  auto spec =
+      InfoBarSpec::Builder(identifier)
+          .SetMessageText(u"Test Message")
+          .SetScope(InfoBarScope::kTab)
+          .AddOkButton(u"OK",
+                       base::BindLambdaForTesting([](content::WebContents*) {}))
+          .SetResultCallback(base::BindLambdaForTesting(
+              [&](content::WebContents*, InfoBarResult result) {
+                results.push_back(result);
+              }))
+          .Build();
+  manager()->Register(std::move(spec));
+
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+  manager()->Show(tab, identifier);
+
+  auto* infobar_manager =
+      ContentInfoBarManager::FromWebContents(tab->GetContents());
+  ASSERT_EQ(1u, infobar_manager->infobars().size());
+  auto* delegate =
+      infobar_manager->infobars()[0]->delegate()->AsConfirmInfoBarDelegate();
+  ASSERT_TRUE(delegate);
+
+  // Accepting reports kAccepted. The delegate owes nothing after that, so a
+  // further interaction on it reports nothing.
+  delegate->Accept();
+  delegate->InfoBarDismissed();
+  ASSERT_EQ(1u, results.size());
+  EXPECT_EQ(InfoBarResult::kAccepted, results[0]);
+
+  // A second infobar reports its own dismissal.
+  chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
+  tabs::TabInterface* second_tab = browser()->tab_strip_model()->GetActiveTab();
+  manager()->Show(second_tab, identifier);
+  auto* second_infobar_manager =
+      ContentInfoBarManager::FromWebContents(second_tab->GetContents());
+  ASSERT_EQ(1u, second_infobar_manager->infobars().size());
+  auto* second_delegate = second_infobar_manager->infobars()[0]
+                              ->delegate()
+                              ->AsConfirmInfoBarDelegate();
+  ASSERT_TRUE(second_delegate);
+
+  second_delegate->InfoBarDismissed();
+  ASSERT_EQ(2u, results.size());
+  EXPECT_EQ(InfoBarResult::kDismissed, results[1]);
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
+                       LinkClickIsNotReportedAsIgnored) {
+  base::HistogramTester histogram_tester;
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  std::vector<InfoBarResult> results;
+  manager()->Register(
+      InfoBarSpec::Builder(identifier)
+          .SetMessageTextTemplate(u"Go to $1")
+          .SetSubstitutionsCallback(
+              base::BindLambdaForTesting([](content::WebContents*) {
+                std::vector<MessageSubstitution> substitutions;
+                substitutions.emplace_back(u"example.com", /*is_link=*/true,
+                                           /*accessible_name=*/std::nullopt);
+                return substitutions;
+              }))
+          .SetInlineLinkCallback(base::BindLambdaForTesting(
+              [](content::WebContents*, size_t, WindowOpenDisposition) {
+                return true;  // Close the infobar.
+              }))
+          .SetResultCallback(base::BindLambdaForTesting(
+              [&](content::WebContents*, InfoBarResult result) {
+                results.push_back(result);
+              }))
+          .SetScope(InfoBarScope::kTab)
+          .Build());
+
+  // Show on a background tab so removal destroys the delegate synchronously.
+  tabs::TabInterface* background_tab =
+      browser()->tab_strip_model()->GetActiveTab();
+  content::WebContents* background_contents = background_tab->GetContents();
+  chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
+  manager()->Show(background_tab, identifier);
+
+  auto* infobar_manager =
+      ContentInfoBarManager::FromWebContents(background_contents);
+  ASSERT_EQ(1u, infobar_manager->infobars().size());
+  infobars::InfoBar* infobar = infobar_manager->infobars()[0];
+  auto* delegate = infobar->delegate()->AsConfirmInfoBarDelegate();
+  ASSERT_TRUE(delegate);
+
+  // The click asks to close; the removal must report kLinkClicked as the
+  // terminal result, not kIgnored.
+  EXPECT_TRUE(delegate->InlineSubstitutionLinkClicked(
+      0u, WindowOpenDisposition::NEW_FOREGROUND_TAB));
+  infobar_manager->RemoveInfoBar(infobar);
+  ASSERT_EQ(1u, results.size());
+  EXPECT_EQ(InfoBarResult::kLinkClicked, results[0]);
+
+  // Second instance: a link click that leaves the infobar open, followed by
+  // closing the tab, must also report exactly one kLinkClicked (not
+  // kIgnored).
+  const auto second_identifier = InfoBarDelegate::DEV_TOOLS_INFOBAR_DELEGATE;
+  manager()->Register(
+      InfoBarSpec::Builder(second_identifier)
+          .SetMessageTextTemplate(u"Go to $1")
+          .SetSubstitutionsCallback(
+              base::BindLambdaForTesting([](content::WebContents*) {
+                std::vector<MessageSubstitution> substitutions;
+                substitutions.emplace_back(u"example.com", /*is_link=*/true,
+                                           /*accessible_name=*/std::nullopt);
+                return substitutions;
+              }))
+          .SetInlineLinkCallback(base::BindLambdaForTesting(
+              [](content::WebContents*, size_t, WindowOpenDisposition) {
+                return false;  // Keep the infobar open.
+              }))
+          .SetResultCallback(base::BindLambdaForTesting(
+              [&](content::WebContents*, InfoBarResult result) {
+                results.push_back(result);
+              }))
+          .SetScope(InfoBarScope::kTab)
+          .Build());
+
+  manager()->Show(background_tab, second_identifier);
+  ASSERT_EQ(1u, infobar_manager->infobars().size());
+  delegate =
+      infobar_manager->infobars()[0]->delegate()->AsConfirmInfoBarDelegate();
+  ASSERT_TRUE(delegate);
+  EXPECT_FALSE(delegate->InlineSubstitutionLinkClicked(
+      0u, WindowOpenDisposition::CURRENT_TAB));
+  EXPECT_EQ(1u, infobar_manager->infobars().size());
+  browser()->tab_strip_model()->CloseWebContentsAt(0,
+                                                   TabCloseTypes::CLOSE_NONE);
+  ASSERT_EQ(2u, results.size());
+  EXPECT_EQ(InfoBarResult::kLinkClicked, results[1]);
+
+  histogram_tester.ExpectTotalCount("InfoBar.Centralized.Ignored", 0);
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
+                       ResultCallbackReportsIgnoredOnTabClose) {
+  base::HistogramTester histogram_tester;
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  std::vector<InfoBarResult> results;
+  auto spec = InfoBarSpec::Builder(identifier)
+                  .SetMessageText(u"Test Message")
+                  .SetScope(InfoBarScope::kTab)
+                  .SetResultCallback(base::BindLambdaForTesting(
+                      [&](content::WebContents*, InfoBarResult result) {
+                        results.push_back(result);
+                      }))
+                  .Build();
+  manager()->Register(std::move(spec));
+
+  // Show the infobar on a background tab (which never animates it in), then
+  // close that tab without any user interaction.
+  tabs::TabInterface* background_tab =
+      browser()->tab_strip_model()->GetActiveTab();
+  content::WebContents* background_contents = background_tab->GetContents();
+  chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
+  ASSERT_NE(background_contents,
+            browser()->tab_strip_model()->GetActiveWebContents());
+
+  manager()->Show(background_tab, identifier);
+  ASSERT_EQ(1u, ContentInfoBarManager::FromWebContents(background_contents)
+                    ->infobars()
+                    .size());
+
+  browser()->tab_strip_model()->CloseWebContentsAt(0,
+                                                   TabCloseTypes::CLOSE_NONE);
+
+  ASSERT_EQ(1u, results.size());
+  EXPECT_EQ(InfoBarResult::kIgnored, results[0]);
+  histogram_tester.ExpectUniqueSample("InfoBar.Centralized.Ignored", identifier,
+                                      1);
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
+                       GlobalWindowCloseReportsOnlyForTheLastInstance) {
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  std::vector<InfoBarResult> results;
+  manager()->Register(InfoBarSpec::Builder(identifier)
+                          .SetMessageText(u"Test Message")
+                          .SetScope(InfoBarScope::kGlobal)
+                          .SetResultCallback(base::BindLambdaForTesting(
+                              [&](content::WebContents*, InfoBarResult result) {
+                                results.push_back(result);
+                              }))
+                          .Build());
+
+  manager()->ShowGlobally(identifier);
+  BrowserWindowInterface* browser2 = CreateBrowser(browser()->GetProfile());
+  ASSERT_EQ(1u, InfoBarCountIn(browser2));
+
+  // Closing one window leaves the infobar up in the other, so the logical
+  // infobar has no outcome yet.
+  CloseBrowserSynchronously(browser2);
+  EXPECT_EQ(1u, InfoBarCountIn(browser()));
+  EXPECT_TRUE(results.empty());
+
+  // Dismissing the last instance reports once for the whole infobar.
+  ContentInfoBarManager::FromWebContents(
+      browser()->tab_strip_model()->GetActiveWebContents())
+      ->infobars()[0]
+      ->delegate()
+      ->InfoBarDismissed();
+  ASSERT_EQ(1u, results.size());
+  EXPECT_EQ(InfoBarResult::kDismissed, results[0]);
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
+                       AcceptCanKeepTheInfoBarShowing) {
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  std::vector<InfoBarResult> results;
+  int accepts = 0;
+  manager()->Register(
+      InfoBarSpec::Builder(identifier)
+          .SetMessageText(u"Test Message")
+          .SetScope(InfoBarScope::kTab)
+          .SetCloseOnAccept(false)
+          .AddOkButton(u"Go", base::BindLambdaForTesting(
+                                  [&](content::WebContents*) { ++accepts; }))
+          .SetResultCallback(base::BindLambdaForTesting(
+              [&](content::WebContents*, InfoBarResult result) {
+                results.push_back(result);
+              }))
+          .Build());
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+  manager()->Show(tab, identifier);
+  auto* infobar_manager =
+      ContentInfoBarManager::FromWebContents(tab->GetContents());
+  ASSERT_EQ(1u, infobar_manager->infobars().size());
+  auto* delegate =
+      infobar_manager->infobars()[0]->delegate()->AsConfirmInfoBarDelegate();
+  ASSERT_TRUE(delegate);
+  // Accepting runs the action and reports, but tells the view to keep the
+  // infobar up.
+  EXPECT_FALSE(delegate->Accept());
+  EXPECT_EQ(1u, infobar_manager->infobars().size());
+  EXPECT_EQ(1, accepts);
+  ASSERT_EQ(1u, results.size());
+  EXPECT_EQ(InfoBarResult::kAccepted, results[0]);
+  // Accepting again re-runs the action without a second result.
+  EXPECT_FALSE(delegate->Accept());
+  EXPECT_EQ(2, accepts);
+  EXPECT_EQ(1u, results.size());
+  // The infobar outlived the interaction, so take it down before the test's
+  // callbacks go out of scope.
+  manager()->Hide(tab->GetContents(), identifier);
+  EXPECT_EQ(1u, results.size());
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest, IsRegistered) {
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  EXPECT_FALSE(manager()->IsRegistered(identifier));
+
+  manager()->Register(
+      InfoBarSpec::Builder(identifier).SetMessageText(u"Test Message").Build());
+  EXPECT_TRUE(manager()->IsRegistered(identifier));
+  EXPECT_FALSE(
+      manager()->IsRegistered(InfoBarDelegate::DEV_TOOLS_INFOBAR_DELEGATE));
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
+                       ShowReturnsWhetherInfoBarWasAdded) {
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+
+  // Not registered yet.
+  EXPECT_FALSE(manager()->Show(tab, identifier));
+
+  manager()->Register(InfoBarSpec::Builder(identifier)
+                          .SetMessageText(u"Test Message")
+                          .SetScope(InfoBarScope::kTab)
+                          .Build());
+
+  infobars::InfoBar* infobar = manager()->Show(tab, identifier);
+  ASSERT_TRUE(infobar);
+
+  auto* infobar_manager =
+      ContentInfoBarManager::FromWebContents(tab->GetContents());
+  ASSERT_EQ(1u, infobar_manager->infobars().size());
+  EXPECT_EQ(infobar, infobar_manager->infobars()[0]);
+
+  // An equal infobar is already showing, so the second call is a no-op.
+  EXPECT_FALSE(manager()->Show(tab, identifier));
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
+                       NeverShownInfoBarReportsNoResult) {
+  base::HistogramTester histogram_tester;
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  std::vector<InfoBarResult> results;
+  manager()->Register(InfoBarSpec::Builder(identifier)
+                          .SetMessageText(u"Test Message")
+                          .SetScope(InfoBarScope::kTab)
+                          .SetResultCallback(base::BindLambdaForTesting(
+                              [&](content::WebContents*, InfoBarResult result) {
+                                results.push_back(result);
+                              }))
+                          .Build());
+
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+  ASSERT_TRUE(manager()->Show(tab, identifier));
+
+  // The duplicate is rejected by AddInfoBar and its delegate destroyed
+  // immediately; that must not be reported as an ignored infobar.
+  ASSERT_FALSE(manager()->Show(tab, identifier));
+  EXPECT_TRUE(results.empty());
+  histogram_tester.ExpectTotalCount("InfoBar.Centralized.Ignored", 0);
+
+  manager()->Hide(tab->GetContents(), identifier);
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
+                       HideForWebContentsRemovesFromBackgroundTab) {
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  std::vector<InfoBarResult> results;
+  manager()->Register(InfoBarSpec::Builder(identifier)
+                          .SetMessageText(u"Test Message")
+                          .SetScope(InfoBarScope::kTab)
+                          .SetResultCallback(base::BindLambdaForTesting(
+                              [&](content::WebContents*, InfoBarResult result) {
+                                results.push_back(result);
+                              }))
+                          .Build());
+
+  // Show on a background tab. The old Hide(identifier) overload could not
+  // reach infobars on background tabs.
+  tabs::TabInterface* background_tab =
+      browser()->tab_strip_model()->GetActiveTab();
+  content::WebContents* background_contents = background_tab->GetContents();
+  chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
+  manager()->Show(background_tab, identifier);
+  auto* infobar_manager =
+      ContentInfoBarManager::FromWebContents(background_contents);
+  ASSERT_EQ(1u, infobar_manager->infobars().size());
+
+  manager()->Hide(background_contents, identifier);
+  EXPECT_EQ(0u, infobar_manager->infobars().size());
+
+  // A programmatic hide is not a terminal outcome, so nothing is reported.
+  EXPECT_TRUE(results.empty());
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
+                       ShowParamsOverrideContent) {
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  manager()->Register(
+      InfoBarSpec::Builder(identifier)
+          .SetMessageTextTemplate(u"Spec template with $1")
+          .SetSubstitutionsCallback(
+              base::BindLambdaForTesting([](content::WebContents*) {
+                std::vector<MessageSubstitution> substitutions;
+                substitutions.emplace_back(u"spec substitution",
+                                           /*is_link=*/false,
+                                           /*accessible_name=*/std::nullopt);
+                return substitutions;
+              }))
+          .SetLinkText(u"Spec link")
+          .SetLinkNavigationUrl(GURL("https://example.com/"))
+          .SetScope(InfoBarScope::kTab)
+          .Build());
+
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+  content::WebContents* web_contents = tab->GetContents();
+  auto* infobar_manager = ContentInfoBarManager::FromWebContents(web_contents);
+
+  // 1. Substitutions and link text provided per-show win over the spec's.
+  InfoBarShowParams params;
+  std::vector<MessageSubstitution> substitutions;
+  substitutions.emplace_back(u"instance substitution", /*is_link=*/false,
+                             /*accessible_name=*/std::nullopt);
+  params.substitutions = std::move(substitutions);
+  params.link_text = u"Instance link";
+
+  ASSERT_TRUE(manager()->Show(tab, identifier, std::move(params)));
+  ASSERT_EQ(1u, infobar_manager->infobars().size());
+
+  auto* delegate =
+      infobar_manager->infobars()[0]->delegate()->AsConfirmInfoBarDelegate();
+  ASSERT_TRUE(delegate);
+  ASSERT_EQ(1u, delegate->GetMessageSubstitutions().size());
+  EXPECT_EQ(u"instance substitution",
+            delegate->GetMessageSubstitutions()[0].text);
+  EXPECT_EQ(u"Spec template with instance substitution",
+            delegate->GetMessageText());
+  EXPECT_EQ(u"Instance link", delegate->GetLinkText());
+
+  manager()->Hide(web_contents, identifier);
+
+  // 2. A per-show message text replaces the template entirely.
+  InfoBarShowParams text_params;
+  text_params.message_text = u"Instance message";
+
+  ASSERT_TRUE(manager()->Show(tab, identifier, std::move(text_params)));
+  ASSERT_EQ(1u, infobar_manager->infobars().size());
+
+  delegate =
+      infobar_manager->infobars()[0]->delegate()->AsConfirmInfoBarDelegate();
+  ASSERT_TRUE(delegate);
+  EXPECT_EQ(u"Instance message", delegate->GetMessageText());
+  EXPECT_TRUE(delegate->GetMessageTextTemplate().empty());
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
+                       ShowParamsOverrideCallbacks) {
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  bool spec_ok_called = false;
+  std::vector<InfoBarResult> spec_results;
+  manager()->Register(InfoBarSpec::Builder(identifier)
+                          .SetMessageText(u"Test Message")
+                          .SetScope(InfoBarScope::kTab)
+                          .AddOkButton(u"OK", base::BindLambdaForTesting(
+                                                  [&](content::WebContents*) {
+                                                    spec_ok_called = true;
+                                                  }))
+                          .SetResultCallback(base::BindLambdaForTesting(
+                              [&](content::WebContents*, InfoBarResult result) {
+                                spec_results.push_back(result);
+                              }))
+                          .Build());
+
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+
+  bool instance_ok_called = false;
+  std::vector<InfoBarResult> instance_results;
+  InfoBarShowParams params;
+  params.ok_button_callback = base::BindLambdaForTesting(
+      [&](content::WebContents*) { instance_ok_called = true; });
+  params.result_callback = base::BindLambdaForTesting(
+      [&](content::WebContents*, InfoBarResult result) {
+        instance_results.push_back(result);
+      });
+
+  ASSERT_TRUE(manager()->Show(tab, identifier, std::move(params)));
+
+  auto* infobar_manager =
+      ContentInfoBarManager::FromWebContents(tab->GetContents());
+  ASSERT_EQ(1u, infobar_manager->infobars().size());
+
+  auto* delegate =
+      infobar_manager->infobars()[0]->delegate()->AsConfirmInfoBarDelegate();
+  ASSERT_TRUE(delegate);
+
+  delegate->Accept();
+  EXPECT_TRUE(instance_ok_called);
+  EXPECT_FALSE(spec_ok_called);
+
+  ASSERT_EQ(1u, instance_results.size());
+  EXPECT_EQ(InfoBarResult::kAccepted, instance_results[0]);
+  EXPECT_TRUE(spec_results.empty());
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
+                       ShowParamsScopeOverrideShowsGlobalSpecOnOneTab) {
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  manager()->Register(InfoBarSpec::Builder(identifier)
+                          .SetMessageText(u"Test Message")
+                          .SetScope(InfoBarScope::kGlobal)
+                          .Build());
+
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+  InfoBarShowParams params;
+  params.scope = InfoBarScope::kTab;
+
+  infobars::InfoBar* infobar =
+      manager()->Show(tab, identifier, std::move(params));
+  ASSERT_TRUE(infobar);
+
+  auto* infobar_manager =
+      ContentInfoBarManager::FromWebContents(tab->GetContents());
+  EXPECT_EQ(1u, infobar_manager->infobars().size());
+
+  // The instance is not tracked globally: new browsers do not receive it.
+  BrowserWindowInterface* browser2 = CreateBrowser(browser()->GetProfile());
+  EXPECT_EQ(0u, ContentInfoBarManager::FromWebContents(
+                    browser2->GetTabStripModel()->GetActiveWebContents())
+                    ->infobars()
+                    .size());
+
+  // The WebContents-targeted Hide() removes the override instance even
+  // though the spec is registered globally.
+  manager()->Hide(tab->GetContents(), identifier);
+  EXPECT_EQ(0u, infobar_manager->infobars().size());
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
+                       ScopeOverrideRemovalOnObservedManagerDoesNotCascade) {
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  manager()->Register(InfoBarSpec::Builder(identifier)
+                          .SetMessageText(u"Test Message")
+                          .SetScope(InfoBarScope::kGlobal)
+                          .Build());
+
+  // Arm the global context; its tracked instance sits on the active tab and
+  // the manager observes that tab's ContentInfoBarManager.
+  manager()->ShowGlobally(identifier);
+
+  tabs::TabInterface* tab1 = browser()->tab_strip_model()->GetActiveTab();
+  auto* infobar_manager1 =
+      ContentInfoBarManager::FromWebContents(tab1->GetContents());
+  ASSERT_EQ(1u, infobar_manager1->infobars().size());
+
+  // Switch tabs: the tracked instance moves; tab1's manager stays observed.
+  chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
+  ASSERT_EQ(0u, infobar_manager1->infobars().size());
+  auto* infobar_manager2 = ContentInfoBarManager::FromWebContents(
+      browser()->tab_strip_model()->GetActiveWebContents());
+  ASSERT_EQ(1u, infobar_manager2->infobars().size());
+
+  // Show an override instance on the (observed) background tab and remove it.
+  InfoBarShowParams params;
+  params.scope = InfoBarScope::kTab;
+  infobars::InfoBar* infobar =
+      manager()->Show(tab1, identifier, std::move(params));
+  ASSERT_TRUE(infobar);
+  infobar->RemoveSelf();
+
+  // The removal must not cascade into the armed global context: the active
+  // tab keeps its tracked instance.
+  EXPECT_EQ(0u, infobar_manager1->infobars().size());
+  EXPECT_EQ(1u, infobar_manager2->infobars().size());
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
+                       ScopeOverrideDedupesAgainstGlobalInstance) {
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  manager()->Register(InfoBarSpec::Builder(identifier)
+                          .SetMessageText(u"Test Message")
+                          .SetScope(InfoBarScope::kGlobal)
+                          .Build());
+
+  manager()->ShowGlobally(identifier);
+
+  // The active tab already shows the global instance, so a tab-scoped show of
+  // the same spec is rejected as a duplicate and returns no handle.
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+  InfoBarShowParams params;
+  params.scope = InfoBarScope::kTab;
+  EXPECT_FALSE(manager()->Show(tab, identifier, std::move(params)));
+  EXPECT_EQ(1u, ContentInfoBarManager::FromWebContents(tab->GetContents())
+                    ->infobars()
+                    .size());
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest, CentralizedMetrics) {
@@ -562,13 +1168,14 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest, TabMovement) {
   ASSERT_EQ(1u, infobar_manager->infobars().size());
 
   // 2. Create a second browser window.
-  Browser* second_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
   ASSERT_TRUE(second_browser);
 
   // 3. Move the tab containing the infobar to the second browser.
   std::unique_ptr<tabs::TabModel> tab_model =
       browser()->tab_strip_model()->DetachTabAtForInsertion(0);
-  second_browser->tab_strip_model()->AppendTab(std::move(tab_model), true);
+  second_browser->GetTabStripModel()->AppendTab(std::move(tab_model), true);
 
   // The infobar manager should still have the infobar on the moved tab.
   auto* new_infobar_manager =

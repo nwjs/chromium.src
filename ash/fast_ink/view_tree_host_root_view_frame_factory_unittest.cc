@@ -9,12 +9,14 @@
 #include <utility>
 #include <vector>
 
-#include "ash/frame_sink/ui_resource.h"
-#include "ash/frame_sink/ui_resource_manager.h"
 #include "ash/test/ash_test_base.h"
 #include "base/memory/raw_ptr.h"
+#include "base/task/single_thread_task_runner.h"
+#include "cc/resources/resource_pool.h"
+#include "components/viz/client/client_resource_provider.h"
 #include "components/viz/common/quads/compositor_frame.h"
 #include "components/viz/common/resources/resource_id.h"
+#include "components/viz/common/resources/returned_resource.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/geometry/rect.h"
@@ -24,23 +26,19 @@
 namespace ash {
 namespace {
 
-constexpr viz::SharedImageFormat kTestSharedImageFormat =
-    SK_B32_SHIFT ? viz::SinglePlaneFormat::kRGBA_8888
-                 : viz::SinglePlaneFormat::kBGRA_8888;
-constexpr UiSourceId kTestSourceId = 1u;
 constexpr gfx::Rect kTestContentRect = gfx::Rect(0, 0, 200, 100);
 constexpr gfx::Rect kTestTotalDamageRect = gfx::Rect(0, 0, 50, 25);
 
-class ViewTreeHostRootViewFrameFactoryTest : public AshTestBase {
+class ViewTreeHostRootViewFrameFactoryTestBase : public AshTestBase {
  public:
-  ViewTreeHostRootViewFrameFactoryTest() = default;
+  ViewTreeHostRootViewFrameFactoryTestBase() = default;
 
-  ViewTreeHostRootViewFrameFactoryTest(
-      const ViewTreeHostRootViewFrameFactoryTest&) = delete;
-  ViewTreeHostRootViewFrameFactoryTest& operator=(
-      const ViewTreeHostRootViewFrameFactoryTest&) = delete;
+  ViewTreeHostRootViewFrameFactoryTestBase(
+      const ViewTreeHostRootViewFrameFactoryTestBase&) = delete;
+  ViewTreeHostRootViewFrameFactoryTestBase& operator=(
+      const ViewTreeHostRootViewFrameFactoryTestBase&) = delete;
 
-  ~ViewTreeHostRootViewFrameFactoryTest() override = default;
+  ~ViewTreeHostRootViewFrameFactoryTestBase() override = default;
 
   // AshTestBase:
   void SetUp() override {
@@ -54,16 +52,25 @@ class ViewTreeHostRootViewFrameFactoryTest : public AshTestBase {
 
   // AshTestBase:
   void TearDown() override {
-    resource_manager_.ClearAvailableResources();
-    resource_manager_.LostExportedResources();
+    client_resource_provider_.ShutdownAndReleaseAllResources();
     AshTestBase::TearDown();
   }
 
  protected:
   std::unique_ptr<ViewTreeHostRootViewFrameFactory> factory_;
-  UiResourceManager resource_manager_;
+  viz::ClientResourceProvider client_resource_provider_;
+  std::unique_ptr<cc::ResourcePool> resource_pool_ =
+      std::make_unique<cc::ResourcePool>(
+          &client_resource_provider_,
+          nullptr,
+          base::SingleThreadTaskRunner::GetCurrentDefault(),
+          cc::ResourcePool::kDefaultExpirationDelay,
+          false);
   std::unique_ptr<views::Widget> widget_;
 };
+
+using ViewTreeHostRootViewFrameFactoryTest =
+    ViewTreeHostRootViewFrameFactoryTestBase;
 
 TEST_F(ViewTreeHostRootViewFrameFactoryTest,
        CompositorFrameHasCorrectStructure) {
@@ -71,7 +78,7 @@ TEST_F(ViewTreeHostRootViewFrameFactoryTest,
   auto frame = factory_->CreateCompositorFrame(
       viz::BeginFrameAck::CreateManualAckWithDamage(), kTestContentRect,
       kTestTotalDamageRect,
-      /*use_overlays=*/true, resource_manager_);
+      /*use_overlays=*/true, client_resource_provider_, *resource_pool_);
 
   auto primary_display = display::Screen::Get()->GetPrimaryDisplay();
 
@@ -83,7 +90,9 @@ TEST_F(ViewTreeHostRootViewFrameFactoryTest,
 
   // We should have a single resource.
   EXPECT_EQ(frame->resource_list.size(), 1u);
-  EXPECT_EQ(resource_manager_.exported_resources_count(), 1u);
+
+  EXPECT_EQ(client_resource_provider_.num_resources_for_testing(), 1u);
+  EXPECT_EQ(resource_pool_->GetBusyResourceCountForTesting(), 1u);
 
   auto& quad_list = frame->render_pass_list.front()->quad_list;
 
@@ -105,13 +114,12 @@ TEST_F(ViewTreeHostRootViewFrameFactoryTest, HasValidSourceId) {
   auto frame = factory_->CreateCompositorFrame(
       viz::BeginFrameAck::CreateManualAckWithDamage(), kTestContentRect,
       kTestTotalDamageRect,
-      /*use_overlays=*/true, resource_manager_);
+      /*use_overlays=*/true, client_resource_provider_, *resource_pool_);
 
   ASSERT_EQ(frame->resource_list.size(), 1u);
   viz::ResourceId resource_id = frame->resource_list.back().id;
 
-  EXPECT_NE(resource_manager_.PeekExportedResource(resource_id)->ui_source_id,
-            kInvalidUiSourceId);
+  EXPECT_NE(resource_id, viz::kInvalidResourceId);
 }
 
 TEST_F(ViewTreeHostRootViewFrameFactoryTest, FrameDamage) {
@@ -119,7 +127,7 @@ TEST_F(ViewTreeHostRootViewFrameFactoryTest, FrameDamage) {
   auto frame = factory_->CreateCompositorFrame(
       viz::BeginFrameAck::CreateManualAckWithDamage(), kTestContentRect,
       kTestTotalDamageRect,
-      /*use_overlays=*/true, resource_manager_);
+      /*use_overlays=*/true, client_resource_provider_, *resource_pool_);
 
   EXPECT_EQ(frame->render_pass_list.front()->damage_rect,
             gfx::Rect(0, 0, 100, 50));
@@ -129,7 +137,7 @@ TEST_F(ViewTreeHostRootViewFrameFactoryTest, FrameDamage) {
   frame = factory_->CreateCompositorFrame(
       viz::BeginFrameAck::CreateManualAckWithDamage(), kTestContentRect,
       gfx::Rect(0, 0, 201, 101),
-      /*use_overlays=*/true, resource_manager_);
+      /*use_overlays=*/true, client_resource_provider_, *resource_pool_);
 
   EXPECT_EQ(frame->render_pass_list.front()->damage_rect,
             gfx::Rect(0, 0, 400, 200));
@@ -140,7 +148,7 @@ TEST_F(ViewTreeHostRootViewFrameFactoryTest, CorrectQuadConfigured) {
   auto frame = factory_->CreateCompositorFrame(
       viz::BeginFrameAck::CreateManualAckWithDamage(), kTestContentRect,
       kTestTotalDamageRect,
-      /*use_overlays=*/true, resource_manager_);
+      /*use_overlays=*/true, client_resource_provider_, *resource_pool_);
 
   auto& quad_list = frame->render_pass_list.front()->quad_list;
 
@@ -160,6 +168,40 @@ TEST_F(ViewTreeHostRootViewFrameFactoryTest, CorrectQuadConfigured) {
   EXPECT_EQ(shared_quad_state->visible_quad_layer_rect, gfx::Rect(400, 200));
 }
 
+TEST_F(ViewTreeHostRootViewFrameFactoryTest,
+       ResourcePoolReusesReclaimedResources) {
+  UpdateDisplay("1920x1080");
+  auto frame1 = factory_->CreateCompositorFrame(
+      viz::BeginFrameAck::CreateManualAckWithDamage(), kTestContentRect,
+      kTestTotalDamageRect,
+      /*use_overlays=*/true, client_resource_provider_, *resource_pool_);
+
+  ASSERT_EQ(frame1->resource_list.size(), 1u);
+  EXPECT_EQ(resource_pool_->GetTotalResourceCountForTesting(), 1u);
+  EXPECT_EQ(resource_pool_->GetBusyResourceCountForTesting(), 1u);
+
+  // Reclaim the resource.
+  std::vector<viz::ReturnedResource> returned_resources;
+  returned_resources.push_back(
+      frame1->resource_list.back().ToReturnedResource());
+  client_resource_provider_.ReceiveReturnsFromParent(
+      std::move(returned_resources));
+
+  // The resource is now available for reuse in the resource pool.
+  EXPECT_EQ(resource_pool_->GetBusyResourceCountForTesting(), 0u);
+
+  auto frame2 = factory_->CreateCompositorFrame(
+      viz::BeginFrameAck::CreateManualAckWithDamage(), kTestContentRect,
+      kTestTotalDamageRect,
+      /*use_overlays=*/true, client_resource_provider_, *resource_pool_);
+
+  ASSERT_EQ(frame2->resource_list.size(), 1u);
+  // Total resource count in pool should not increase because the resource was
+  // reused.
+  EXPECT_EQ(resource_pool_->GetTotalResourceCountForTesting(), 1u);
+  EXPECT_EQ(resource_pool_->GetBusyResourceCountForTesting(), 1u);
+}
+
 struct ViewTreeHostRootViewFrameResourceTestParams {
   std::string display_spec;
   gfx::Rect content_rect;
@@ -167,7 +209,7 @@ struct ViewTreeHostRootViewFrameResourceTestParams {
 };
 
 class ViewTreeHostRootViewFrameResourceTest
-    : public ViewTreeHostRootViewFrameFactoryTest,
+    : public ViewTreeHostRootViewFrameFactoryTestBase,
       public ::testing::WithParamInterface<
           ViewTreeHostRootViewFrameResourceTestParams> {};
 
@@ -177,10 +219,9 @@ TEST_P(ViewTreeHostRootViewFrameResourceTest, CorrectResourceCreated) {
   auto frame = factory_->CreateCompositorFrame(
       viz::BeginFrameAck::CreateManualAckWithDamage(), params.content_rect,
       params.content_rect,
-      /*use_overlays=*/true, resource_manager_);
+      /*use_overlays=*/true, client_resource_provider_, *resource_pool_);
 
   ASSERT_EQ(frame->resource_list.size(), 1u);
-
   auto& resource = frame->resource_list.back();
   EXPECT_EQ(resource.GetSize(), params.expected_resource_size);
 }
@@ -218,61 +259,6 @@ INSTANTIATE_TEST_SUITE_P(
             .display_spec = "500x400*2/r",
             .content_rect = gfx::Rect(200, 100),
             .expected_resource_size = gfx::Size(200, 400)}));
-
-TEST_F(ViewTreeHostRootViewFrameFactoryTest,
-       OnlyCreateNewResourcesWhenNecessary) {
-  // Populate resources in the resource manager.
-  constexpr gfx::Size kResourceSizes[4] = {
-      {200, 100}, {200, 100}, {250, 150}, {50, 25}};
-  for (const auto& size : kResourceSizes) {
-    resource_manager_.OfferResourceForTesting(
-        ViewTreeHostRootViewFrameFactory::CreateUiResource(
-            size, kTestSharedImageFormat, kTestSourceId,
-            /*is_overlay_candidate=*/false));
-  }
-
-  EXPECT_EQ(resource_manager_.available_resources_count(), 4u);
-
-  UpdateDisplay("1920x1080");
-  auto frame = factory_->CreateCompositorFrame(
-      viz::BeginFrameAck::CreateManualAckWithDamage(), kTestContentRect,
-      kTestTotalDamageRect,
-      /*use_overlays=*/true, resource_manager_);
-
-  // We reuse one of the matching available resources.
-  EXPECT_EQ(resource_manager_.available_resources_count(), 3u);
-  EXPECT_EQ(resource_manager_.exported_resources_count(), 1u);
-
-  frame = factory_->CreateCompositorFrame(
-      viz::BeginFrameAck::CreateManualAckWithDamage(), kTestContentRect,
-      kTestTotalDamageRect,
-      /*use_overlays=*/true, resource_manager_);
-
-  // We again reuse one of the matching available resources.
-  EXPECT_EQ(resource_manager_.available_resources_count(), 2u);
-  EXPECT_EQ(resource_manager_.exported_resources_count(), 2u);
-
-  frame = factory_->CreateCompositorFrame(
-      viz::BeginFrameAck::CreateManualAckWithDamage(), kTestContentRect,
-      kTestTotalDamageRect,
-      /*use_overlays=*/true, resource_manager_);
-
-  // Now the factory create a new resource since any available resource does not
-  // match our requirements. The total number of resources in the manager has
-  // increased by 1.
-  EXPECT_EQ(resource_manager_.available_resources_count(), 2u);
-  EXPECT_EQ(resource_manager_.exported_resources_count(), 3u);
-
-  frame = factory_->CreateCompositorFrame(
-      viz::BeginFrameAck::CreateManualAckWithDamage(), gfx::Rect(50, 25),
-      kTestTotalDamageRect,
-      /*use_overlays=*/true, resource_manager_);
-
-  // We do not create a resource since there is an available resource for the
-  // new needed size.
-  EXPECT_EQ(resource_manager_.available_resources_count(), 1u);
-  EXPECT_EQ(resource_manager_.exported_resources_count(), 4u);
-}
 
 }  // namespace
 }  // namespace ash

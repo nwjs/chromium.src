@@ -2,8 +2,8 @@ Name: LiteRT
 Short Name: litert
 URL: https://github.com/google-ai-edge/LiteRT
 Version: N/A
-Revision: 2add6f4eda319e204c7c021ec871503a0fa766fc
-Date: 2026-08-11
+Revision: f67457790c9c2ab67347d6fe53270e8d3df20868
+Date: 2026-08-27
 Update Mechanism: Manual
 License: Apache-2.0
 License File: LICENSE

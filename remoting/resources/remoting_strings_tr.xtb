@@ -48,6 +48,7 @@ Bu izni vermek için aşağıdaki "<ph name="BUTTON_NAME" />" düğmesini tıkla
 <translation id="3197730452537982411">Uzaktan Masaüstü</translation>
 <translation id="3236334139428307578">Telif hakkı 2026 The Chromium Authors. Tüm Hakları Saklıdır.</translation>
 <translation id="324272851072175193">Bu talimatları e-postayla gönder</translation>
+<translation id="3254626532848657899">En alta taşı</translation>
 <translation id="3305934114213025800"><ph name="PRODUCT_NAME" /> değişiklik yapmak istiyor.</translation>
 <translation id="3339299787263251426">Bilgisayarınıza İnternet üzerinden güvenli bir şekilde erişin</translation>
 <translation id="3385242214819933234">Ana makinenin sahibi geçersiz.</translation>
@@ -166,6 +167,7 @@ Bu izni vermek için aşağıdaki "<ph name="BUTTON_NAME" />" düğmesini tıkla
 <translation id="8073845705237259513">Chrome Uzaktan Masaüstü'nü kullanmak için cihazınıza Google Hesabı eklemeniz gerekir.</translation>
 <translation id="809687642899217504">Bilgisayarlarım</translation>
 <translation id="8116630183974937060">Bir ağ hatası oluştu. Lütfen cihazınızın çevrimiçi olduğundan emin olun ve yeniden deneyin.</translation>
+<translation id="8249310407154411074">En üste taşı</translation>
 <translation id="8295077433896346116"><ph name="PRODUCT_NAME" /> ürününü kullanmak üzere uzak makinedeki girişin bu Mac'e aktarılabilmesi için "Erişilebilirlik" iznini vermeniz gerekir.
 
 Bu izni vermek için aşağıdaki "<ph name="BUTTON_NAME" />" düğmesini tıklayarak "Erişilebilirlik" tercihleri bölmesini açın ve ardından, "<ph name="SERVICE_SCRIPT_NAME" />" öğesinin yanındaki kutuyu işaretleyin.

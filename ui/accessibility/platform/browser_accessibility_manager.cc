@@ -583,18 +583,14 @@ bool BrowserAccessibilityManager::OnAccessibilityEvents(
     BrowserAccessibilityManager* parent_manager =
         has_parent_id ? BrowserAccessibilityManager::FromID(parent_id)
                       : nullptr;
-    if (IsRootFrameManager()) {
-      CHECK(!has_parent_id)
-          << "The root frame must be parentless, root url = "
-          << GetTreeData().url << "\nSupposed parent = "
-          << (parent_manager ? parent_manager->GetTreeData().url
-                             : "[not in map for parent_tree_id]");
+    if (IsRootFrameManager() && !has_parent_id) {
       CHECK(!connected_to_parent_tree_node_)
-          << "Root manager must not be connected to a parent tree node.";
+          << "A root tree with no parent must not be connected to a parent "
+             "tree node.";
     } else {
       CHECK(parent_manager)
-          << "Non-root trees must have a parent manager to "
-             "reach this code, otherwise CanFireEvents() "
+          << "A tree below the root of the full platform tree must have a "
+             "parent manager to reach this code, otherwise CanFireEvents() "
              "should have returned false, has_parent_id = "
           << has_parent_id << "\nCurrent url = " << GetTreeData().url;
       CHECK(connected_to_parent_tree_node_)
@@ -621,8 +617,9 @@ bool BrowserAccessibilityManager::OnAccessibilityEvents(
   // the currently-focused node. We do this so that screen readers are made
   // aware of changes in the tree which might be relevant to subsequent events
   // on the focused node, such as the focused node being a descendant of a
-  // reparented node or a newly-shown dialog box.
-  BrowserAccessibility* focus = GetFocus();
+  // reparented node or a newly-shown dialog box. `raw_ptr` mitigates
+  // crbug.com/549740754.
+  raw_ptr<BrowserAccessibility> focus = GetFocus();
   std::vector<AXEventGenerator::TargetedEvent> deferred_events;
   for (const auto& targeted_event : event_generator()) {
     if (!ShouldFireGeneratedEvent(targeted_event.event_params->event)) {
@@ -1958,7 +1955,11 @@ AXTreeManager* BrowserAccessibilityManager::GetParentManager() const {
   if (!parent)
     return nullptr;
 
-  if (delegate_ && delegate_->AccessibilityIsWebContentSource()) {
+  BrowserAccessibilityManager* parent_platform_manager =
+      BrowserAccessibilityManager::FromID(parent->GetTreeID());
+  if (delegate_ && delegate_->AccessibilityIsWebContentSource() &&
+      parent_platform_manager &&
+      parent_platform_manager->IsWebContentSource()) {
     DCHECK(!IsRootFrameManager());
   }
 
@@ -1985,12 +1986,22 @@ BrowserAccessibilityManager::GetDelegateForNativeView() const {
 
 bool BrowserAccessibilityManager::IsRootFrameManager() const {
   // delegate_ can be null in unit tests.
-  if (!delegate_)
+  if (!delegate_) {
     return GetTreeData().parent_tree_id == AXTreeIDUnknown();
+  }
+
+  if (!delegate_->AccessibilityIsWebContentSource()) {
+    return false;
+  }
 
   bool is_root_tree = delegate_->AccessibilityIsRootFrame();
-  DCHECK(!is_root_tree || GetParentTreeID() == AXTreeIDUnknown())
-      << "Root tree has parent tree id of: " << GetParentTreeID();
+
+  if (is_root_tree && GetParentTreeID() != AXTreeIDUnknown()) {
+    BrowserAccessibilityManager* parent_manager =
+        BrowserAccessibilityManager::FromID(GetParentTreeID());
+    DCHECK(parent_manager);
+    DCHECK(!parent_manager->IsWebContentSource());
+  }
   return is_root_tree;
 }
 

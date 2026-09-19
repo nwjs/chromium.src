@@ -20,6 +20,7 @@
 #include "components/autofill/core/common/password_generation_util.h"
 #include "components/device_reauth/device_reauth_metrics_util.h"
 #include "components/password_manager/core/browser/features/password_manager_features_util.h"
+#include "components/password_manager/core/browser/password_store/actionable_error.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
 #include "components/password_manager/core/common/credential_manager_types.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
@@ -405,6 +406,25 @@ enum class GenerationDialogChoice {
   kMaxValue = kRejected
 };
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// Metric: "PasswordManager.SaveWithTrustedVaultError.Outcome"
+//
+// LINT.IfChange(SaveWithTrustedVaultErrorOutcome)
+enum class SaveWithTrustedVaultErrorOutcome {
+  kSavedSuccessfully = 0,
+  kMessageTimedOut = 1,
+  kUserDismissedPrompt = 2,
+  kDeviceLockCanceled = 3,
+  kNewStoreError = 4,
+  kNeverForThisSite = 5,
+  // TODO(crbug.com/543028154): Add a value for key retrieval failed once the
+  // failure signal is available.
+  // TODO(crbug.com/543028154): Add a value for tab destruction.
+  kMaxValue = kNeverForThisSite,
+};
+// LINT.ThenChange(/tools/metrics/histograms/metadata/password/enums.xml:SaveWithTrustedVaultErrorOutcome)
+
 enum class SignInState {
   // The user is signed out.
   kSignedOut = 0,
@@ -413,7 +433,6 @@ enum class SignInState {
   // The user has enabled Sync.
   kSyncing = 2,
 };
-
 
 // Represents different user interactions related to adding credential from the
 // setting. These values are persisted to logs. Entries should not be renumbered
@@ -706,10 +725,18 @@ void LogGeneralUIDismissalReason(UIDismissalReason reason);
 // user-state-specific histogram.
 // If `log_adoption_metric` is true, additional histogram is recorded to
 // measure adoption among new users of password manager.
+// If `saving_blocked_error` is set, additional histogram
+// PasswordManager.SaveUIDismissalReason.{PasswordStoreError} is recorded.
 void LogSaveUIDismissalReason(
     UIDismissalReason reason,
     std::optional<features_util::PasswordAccountStorageUserState> user_state,
-    bool log_adoption_metric);
+    bool log_adoption_metric,
+    std::optional<ActionableError> saving_blocked_error);
+
+// Log the outcome of saving a password when saving is blocked by a trusted
+// vault error (logged on Android only).
+void LogSaveWithTrustedVaultErrorOutcome(
+    SaveWithTrustedVaultErrorOutcome outcome);
 
 // Log the |reason| a user dismissed the update password bubble.
 void LogUpdateUIDismissalReason(UIDismissalReason reason);

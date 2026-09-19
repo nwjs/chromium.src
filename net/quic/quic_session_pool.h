@@ -88,6 +88,7 @@ class HttpServerProperties;
 class NetLog;
 class NetworkAnonymizationKey;
 struct NetworkTrafficAnnotationTag;
+class NetworkQualityEstimator;
 class ProxyDelegate;
 class QuicChromiumConnectionHelper;
 class QuicCryptoClientStreamFactory;
@@ -325,6 +326,7 @@ class NET_EXPORT_PRIVATE QuicSessionPool
       SCTAuditingDelegate* sct_auditing_delegate,
       SocketPerformanceWatcherFactory* socket_performance_watcher_factory,
       QuicCryptoClientStreamFactory* quic_crypto_client_stream_factory,
+      NetworkQualityEstimator* network_quality_estimator,
       QuicContext* context);
 
   QuicSessionPool(const QuicSessionPool&) = delete;
@@ -404,7 +406,8 @@ class NET_EXPORT_PRIVATE QuicSessionPool
       bool use_dns_aliases,
       std::set<std::string> dns_aliases,
       MultiplexedSessionCreationInitiator session_creation_initiator,
-      std::optional<ConnectionManagementConfig> connection_management_config);
+      std::optional<ConnectionManagementConfig> connection_management_config,
+      bool is_stale = false);
 
   // Called by a session when it is going away and no more streams should be
   // created on it.
@@ -617,7 +620,7 @@ class NET_EXPORT_PRIVATE QuicSessionPool
   bool HasActiveSession(const QuicSessionKey& session_key) const;
   bool HasActiveJob(const QuicSessionKey& session_key) const;
 
-  QuicSessionEstablishmentReason DetermineQuicSessionEstablishmentReason(
+  QuicConnectionReuseDetails DetermineQuicConnectionReuseDetails(
       const QuicSessionKey& session_key) const;
 
   // Methods to notify the ConnectionChangeObserver about connection changing
@@ -655,7 +658,7 @@ class NET_EXPORT_PRIVATE QuicSessionPool
       raw_ptr<QuicChromiumClientSession>* session,
       handles::NetworkHandle* network,
       MultiplexedSessionCreationInitiator session_creation_initiator,
-      QuicSessionEstablishmentReason quic_session_establishment_reason,
+      QuicConnectionReuseDetails quic_connection_reuse_details,
       std::optional<ConnectionManagementConfig> connection_management_config =
           std::nullopt);
   // Note: QUIC session create methods that complete asynchronously, we can't
@@ -678,7 +681,7 @@ class NET_EXPORT_PRIVATE QuicSessionPool
       const NetLogWithSource& net_log,
       handles::NetworkHandle network,
       MultiplexedSessionCreationInitiator session_creation_initiator,
-      QuicSessionEstablishmentReason quic_session_establishment_reason,
+      QuicConnectionReuseDetails quic_connection_reuse_details,
       std::optional<ConnectionManagementConfig> connection_management_config =
           std::nullopt);
   // TODO(crbug.com/518753285): Proxied connections do not currently support
@@ -698,7 +701,8 @@ class NET_EXPORT_PRIVATE QuicSessionPool
       std::string user_agent,
       const NetLogWithSource& net_log,
       handles::NetworkHandle network,
-      QuicSessionEstablishmentReason quic_session_establishment_reason);
+      MultiplexedSessionCreationInitiator session_creation_initiator,
+      QuicConnectionReuseDetails quic_connection_reuse_details);
   void FinishCreateSession(
       CreateSessionCallback callback,
       QuicSessionAliasKey key,
@@ -715,7 +719,7 @@ class NET_EXPORT_PRIVATE QuicSessionPool
       handles::NetworkHandle network,
       std::unique_ptr<DatagramClientSocket> socket,
       MultiplexedSessionCreationInitiator session_creation_initiator,
-      QuicSessionEstablishmentReason quic_session_establishment_reason,
+      QuicConnectionReuseDetails quic_connection_reuse_details,
       std::optional<ConnectionManagementConfig> connection_management_config,
       int rv);
   // TODO(crbug.com/518753285): Stop accepting a `network` parameter. Instead,
@@ -736,7 +740,7 @@ class NET_EXPORT_PRIVATE QuicSessionPool
       handles::NetworkHandle network,
       std::unique_ptr<DatagramClientSocket> socket,
       MultiplexedSessionCreationInitiator session_creation_initiator,
-      QuicSessionEstablishmentReason quic_session_establishment_reason,
+      QuicConnectionReuseDetails quic_connection_reuse_details,
       std::optional<ConnectionManagementConfig> connection_management_config);
 
   // Called when the Job for the given key has created and confirmed a session.
@@ -766,6 +770,15 @@ class NET_EXPORT_PRIVATE QuicSessionPool
   // is no |http_server_properties_| or if |http_server_properties_| doesn't
   // have ServerNetworkStats for the given |server_id|.
   const base::TimeDelta* GetServerNetworkStatsSmoothedRtt(
+      const quic::QuicServerId& server_id,
+      const NetworkAnonymizationKey& network_anonymization_key,
+      const ProxyChain& proxy_chain) const;
+
+  // Returns the smoothed RTT for the given |server_id|,
+  // |network_anonymization_key|, and |proxy_chain| from ServerNetworkStats, or
+  // from NetworkQualityEstimator if not available. Returns nullopt if neither
+  // are available.
+  std::optional<base::TimeDelta> GetSmoothedRtt(
       const quic::QuicServerId& server_id,
       const NetworkAnonymizationKey& network_anonymization_key,
       const ProxyChain& proxy_chain) const;
@@ -855,6 +868,7 @@ class NET_EXPORT_PRIVATE QuicSessionPool
   const raw_ptr<HostResolver> host_resolver_;
   const raw_ptr<ClientSocketFactory> client_socket_factory_;
   const raw_ptr<HttpServerProperties> http_server_properties_;
+  const raw_ptr<NetworkQualityEstimator> network_quality_estimator_;
   const raw_ptr<CertVerifier> cert_verifier_;
   const raw_ptr<TransportSecurityState> transport_security_state_;
   const raw_ptr<ProxyDelegate> proxy_delegate_;

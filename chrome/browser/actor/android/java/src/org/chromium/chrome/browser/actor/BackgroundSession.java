@@ -9,6 +9,8 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tabwindow.TabWindowManager;
+import org.chromium.chrome.browser.tabwindow.WindowId;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +25,7 @@ public class BackgroundSession {
         private final Tab mTab;
         private @Nullable @TabId Integer mPlaceholderTabId;
         private int mOriginalTabIndex = TabModel.INVALID_TAB_INDEX;
-        private int mTabWindowId = -1;
+        private @WindowId int mTabWindowId = TabWindowManager.INVALID_WINDOW_ID;
 
         public BackgroundTabData(Tab tab) {
             mTab = tab;
@@ -58,7 +60,7 @@ public class BackgroundSession {
         }
 
         /** Sets the ID of the placeholder tab associated with this tab. */
-        public void setPlaceholderTabId(@TabId int placeholderTabId) {
+        public void setPlaceholderTabId(@Nullable @TabId Integer placeholderTabId) {
             mPlaceholderTabId = placeholderTabId;
         }
 
@@ -124,9 +126,18 @@ public class BackgroundSession {
         mGlicTriggerMessageId = glicTriggerMessageId;
     }
 
-    /** Adds an additional tab associated with this session. */
+    /** Adds an additional tab associated with this session, inheriting window ID if present. */
     public void addTab(Tab tab) {
-        mTabDataList.add(new BackgroundTabData(tab));
+        int windowId = TabWindowManager.INVALID_WINDOW_ID;
+        for (BackgroundTabData existingData : mTabDataList) {
+            if (existingData.getTabWindowId() != TabWindowManager.INVALID_WINDOW_ID) {
+                windowId = existingData.getTabWindowId();
+                break;
+            }
+        }
+        mTabDataList.add(
+                new BackgroundTabData(
+                        tab, /* placeholderTabId= */ null, TabModel.INVALID_TAB_INDEX, windowId));
     }
 
     /**
@@ -136,6 +147,11 @@ public class BackgroundSession {
      */
     public void addTabData(BackgroundTabData tabData) {
         mTabDataList.add(tabData);
+    }
+
+    /** Removes a tab data entry from this session. */
+    public void removeTabData(BackgroundTabData tabData) {
+        mTabDataList.remove(tabData);
     }
 
     /** Returns all offscreen tabs associated with this session. */
@@ -153,7 +169,7 @@ public class BackgroundSession {
     }
 
     /** Returns the last active offscreen tab owned by this session. */
-    public Tab getLastActiveTab() {
+    public @Nullable Tab getLastActiveTab() {
         return ActorTaskHelper.getLastActiveTabForTask(getTabs(), mTaskId);
     }
 

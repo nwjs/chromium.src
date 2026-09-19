@@ -9,14 +9,6 @@
 #include "chromeos/ash/components/boca/proto/bundle.pb.h"
 #include "chromeos/ash/components/boca/proto/session.pb.h"
 
-namespace network {
-class SharedURLLoaderFactory;
-}  // namespace network
-
-namespace signin {
-class IdentityManager;
-}  // namespace signin
-
 namespace ash::boca {
 
 class SharedCrdSessionWrapper;
@@ -30,13 +22,6 @@ class BocaAppClient {
   static BocaAppClient* Get();
 
   static bool HasInstance();
-
-  // Returns the IdentityManager for the active user profile.
-  virtual signin::IdentityManager* GetIdentityManager() = 0;
-
-  // Returns the URLLoaderFactory associated with user profile.
-  virtual scoped_refptr<network::SharedURLLoaderFactory>
-  GetURLLoaderFactory() = 0;
 
   // Launch Boca App.
   virtual void LaunchApp();

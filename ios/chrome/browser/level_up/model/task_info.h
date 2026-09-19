@@ -11,6 +11,7 @@
 #include "ios/chrome/browser/level_up/model/task_types.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 
+class Browser;
 @class CommandDispatcher;
 
 // Interface that provides information about a task in the Level Up feature.
@@ -30,6 +31,9 @@ class TaskInfo {
   // Icon symbol associated with the task.
   virtual Symbol GetIconSymbol() const = 0;
 
+  // Whether the icon symbol should be rendered using multicolor.
+  virtual bool IsMulticolorIcon() const;
+
   // The category this task belongs to.
   virtual LevelUpTaskCategory GetCategory() const = 0;
 
@@ -40,9 +44,10 @@ class TaskInfo {
   virtual std::string GetCompletionSnackbarMessage() const = 0;
 
   // Callback to navigate the user to the task's entry point using the
-  // dispatcher.
+  // dispatcher and browser.
   using NavigationAction =
-      base::RepeatingCallback<void(CommandDispatcher* dispatcher)>;
+      base::RepeatingCallback<void(CommandDispatcher* dispatcher,
+                                   Browser* browser)>;
   virtual NavigationAction GetNavigationAction() const = 0;
 };
 

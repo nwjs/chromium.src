@@ -69,15 +69,6 @@ BASE_DECLARE_FEATURE(kWebAuthnEnclaveAuthenticatorDelay);
 COMPONENT_EXPORT(FIDO_PUBLIC)
 BASE_DECLARE_FEATURE(kWebAuthnAmbientSignin);
 
-enum class WebAuthnAmbientSigninDisplay {
-  kSuggestionChip,
-  kAnchoredMessage,
-};
-
-COMPONENT_EXPORT(FIDO_PUBLIC)
-extern const base::FeatureParam<WebAuthnAmbientSigninDisplay>
-    kWebAuthnAmbientSigninDisplayParam;
-
 // Enables publishing prelinking information on Android.
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(FIDO_PUBLIC)
@@ -105,6 +96,11 @@ BASE_DECLARE_FEATURE(kWebAuthnEnclaveAttestation);
 // Support the WebAuthn Cross-device ("hybrid") fallback URL extension.
 COMPONENT_EXPORT(FIDO_PUBLIC)
 BASE_DECLARE_FEATURE(kWebAuthnCrossDeviceFallbackUrl);
+
+// Support the WebAuthn remoteClientDataJSON extension, which lets an authorized
+// remote desktop client supply the clientDataJSON for a request.
+COMPONENT_EXPORT(FIDO_PUBLIC)
+BASE_DECLARE_FEATURE(kWebAuthnRemoteClientDataJson);
 
 // Enables support for the WebAuthenticationRemoteDesktopAllowedOrigins
 // enterprise policy for Isolated Web Apps.
@@ -162,6 +158,12 @@ BASE_DECLARE_FEATURE(kWebAuthnGpmPasskeyEmbeddedRecoveryUrl);
 // during MakeCredential.
 COMPONENT_EXPORT(FIDO_PUBLIC)
 BASE_DECLARE_FEATURE(kWebAuthnEnclaveUseAuthDataFromEnclave);
+
+// Displays provider-specific vector icons (Google Password Manager,
+// Apple Passwords, Windows Hello, etc.) for passkey credentials in modal
+// requests.
+COMPONENT_EXPORT(FIDO_PUBLIC)
+BASE_DECLARE_FEATURE(kWebAuthnModalProviderIcons);
 
 }  // namespace device
 

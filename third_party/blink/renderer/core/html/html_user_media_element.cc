@@ -70,12 +70,17 @@ HTMLUserMediaElement::HTMLUserMediaElement(Document& document)
     : HTMLMediaCaptureElementBase(document, html_names::kUsermediaTag) {
   CHECK(RuntimeEnabledFeatures::UserMediaElementEnabled(
       document.GetExecutionContext()));
+  if (!IsLegacyMode()) {
+    permission_descriptors_.push_back(
+        CreatePermissionDescriptor(PermissionName::VIDEO_CAPTURE));
+    permission_descriptors_.push_back(
+        CreatePermissionDescriptor(PermissionName::AUDIO_CAPTURE));
+  }
 }
 
 bool HTMLUserMediaElement::IsLegacyMode() const {
   return RuntimeEnabledFeatures::UserMediaElementLegacyEnabled(
-             GetExecutionContext()) &&
-         hasAttribute(html_names::kTypeAttr);
+      GetExecutionContext());
 }
 
 DOMException* HTMLUserMediaElement::error() const {
@@ -165,16 +170,6 @@ Vector<mojom::blink::PermissionDescriptorPtr> HTMLUserMediaElement::ParseType(
 
 bool HTMLUserMediaElement::ShouldShowGrantedAppearance() const {
   return IsLegacyMode() && PermissionsGranted();
-}
-
-void HTMLUserMediaElement::ApplyDefaultConstraints() {
-  if (!IsLegacyMode() && permission_descriptors_.empty()) {
-    permission_descriptors_.push_back(
-        CreatePermissionDescriptor(PermissionName::VIDEO_CAPTURE));
-    permission_descriptors_.push_back(
-        CreatePermissionDescriptor(PermissionName::AUDIO_CAPTURE));
-  }
-  HTMLMediaCaptureElementBase::ApplyDefaultConstraints();
 }
 
 void HTMLUserMediaElement::Trace(Visitor* visitor) const {

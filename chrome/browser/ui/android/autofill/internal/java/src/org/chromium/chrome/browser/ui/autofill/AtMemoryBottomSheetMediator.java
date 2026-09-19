@@ -94,13 +94,16 @@ class AtMemoryBottomSheetMediator implements AtMemorySearchBarView.Delegate {
 
     void show(List<AutofillSuggestion> suggestions) {
         applyScreenState(getScreenState(suggestions), suggestions);
-        mModel.set(VISIBLE, true);
     }
 
     void onDismissed() {
         applyScreenState(AtMemoryScreenState.HIDDEN, List.of());
 
         mDelegate.onDismissed();
+    }
+
+    void onSheetOpened() {
+        mModel.set(VISIBLE, true);
     }
 
     private AtMemoryScreenState getScreenState(List<AutofillSuggestion> suggestions) {
@@ -193,7 +196,7 @@ class AtMemoryBottomSheetMediator implements AtMemorySearchBarView.Delegate {
             RecordHistogram.recordEnumeratedHistogram(
                     NOTICE_INTERACTIONS_HISTOGRAM,
                     PopupNoticeInteractions.SHOWN,
-                    PopupNoticeInteractions.MAX_VALUE);
+                    PopupNoticeInteractions.MAX_VALUE + 1);
             mWasNoticeShownRecorded = true;
         }
     }
@@ -202,7 +205,7 @@ class AtMemoryBottomSheetMediator implements AtMemorySearchBarView.Delegate {
         RecordHistogram.recordEnumeratedHistogram(
                 NOTICE_INTERACTIONS_HISTOGRAM,
                 PopupNoticeInteractions.ACKNOWLEDGED,
-                PopupNoticeInteractions.MAX_VALUE);
+                PopupNoticeInteractions.MAX_VALUE + 1);
         mDelegate.onSuggestionDismissed(position);
     }
 
@@ -364,7 +367,7 @@ class AtMemoryBottomSheetMediator implements AtMemorySearchBarView.Delegate {
 
     private @DrawableRes int getResIdForSuggestionType(int suggestionType) {
         switch (suggestionType) {
-            case SuggestionType.OPEN_GEMINI:
+            case SuggestionType.AT_MEMORY_OPEN_GEMINI:
                 return R.drawable.open_in_new;
             case SuggestionType.AT_MEMORY_NO_CONNECTION:
                 return R.drawable.ic_north_west_24dp;

@@ -9,6 +9,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -28,6 +29,7 @@
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/layout/box_layout.h"
+#include "ui/views/layout/layout_provider.h"
 #include "ui/views/view.h"
 
 namespace autofill {
@@ -99,7 +101,7 @@ void AtMemoryPromoBubbleView::OnLearnMoreClicked() {
   if (!browser_view) {
     return;
   }
-  Browser* browser = browser_view->browser();
+  BrowserWindowInterface* browser = browser_view->browser();
   if (browser) {
     // `PostTask` is used to avoid a use-after-free. Both `Navigate()`
     // and `NotifyUserAction()` trigger the destruction of this bubble. If

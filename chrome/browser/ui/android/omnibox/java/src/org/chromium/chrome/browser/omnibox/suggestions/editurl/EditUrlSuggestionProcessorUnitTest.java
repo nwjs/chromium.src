@@ -32,7 +32,6 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.UserDataHost;
@@ -73,13 +72,11 @@ import java.util.function.Supplier;
 
 /** Unit tests for the "edit url" omnibox suggestion. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public final class EditUrlSuggestionProcessorUnitTest {
     private static final String TAB_TITLE = "Tab Title";
     private static final String MATCH_TITLE = "Match Title";
     private static final int ACTION_SHARE = 0;
     private static final int ACTION_COPY = 1;
-    private static final int ACTION_EDIT = 2;
     private static final GURL SEARCH_URL_1 = JUnitTestGURLs.SEARCH_URL;
     private static final GURL SEARCH_URL_2 = JUnitTestGURLs.SEARCH_2_URL;
     private static final GURL INVALID_ESCAPED_PATH_URL =
@@ -89,7 +86,6 @@ public final class EditUrlSuggestionProcessorUnitTest {
     private static final GURL CHROME_DISTILLER_ORIGINAL_URL =
             new GURL("https://www.originalurl.com/test/path");
 
-    public static final String ESCAPED_PATH_URL_STRING = "https://pl.wikipedia.org/wiki/Gżegżółka";
     public static final GURL ESCAPED_PATH_URL =
             new GURL("https://pl.wikipedia.org/wiki/G%C5%BCeg%C5%BC%C3%B3%C5%82ka");
 

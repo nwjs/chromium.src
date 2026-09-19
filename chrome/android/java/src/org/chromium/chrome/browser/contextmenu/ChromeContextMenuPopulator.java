@@ -493,7 +493,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
     }
 
     @VisibleForTesting
-    boolean shouldShowTranslateItem() {
+    boolean shouldEnableTranslateItem() {
         Tab tab = getTab();
         if (tab == null || !TranslateUtils.canTranslateCurrentTab(tab)) {
             return false;
@@ -564,9 +564,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                     pageNavigationGroup.add(createListItem(Item.PRINT_PAGE));
                 }
             } else {
-                if (mItemDelegate instanceof TabContextMenuItemDelegate) {
-                    TabContextMenuItemDelegate tabDelegate =
-                            (TabContextMenuItemDelegate) mItemDelegate;
+                if (mItemDelegate instanceof TabContextMenuItemDelegate tabDelegate) {
                     pageNavigationGroup.add(
                             createListItem(
                                     Item.BACK,
@@ -590,16 +588,18 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
 
             if (mMode != ContextMenuMode.THIN_WEB_VIEW) {
                 ModelList pageGroup = new ModelList();
-                if (UrlUtilities.isDownloadableScheme(mParams.getPageUrl())) {
-                    pageGroup.add(
-                            createListItem(
-                                    Item.SAVE_PAGE,
-                                    /* showInProductHelp= */ false,
-                                    !mIsDownloadRestrictedByPolicy));
-                }
-                if (mItemDelegate.isPrintSupported()) {
-                    pageGroup.add(createListItem(Item.PRINT_PAGE));
-                }
+                pageGroup.add(
+                        createListItem(
+                                Item.SAVE_PAGE,
+                                /* showInProductHelp= */ false,
+                                !mIsDownloadRestrictedByPolicy
+                                        && UrlUtilities.isDownloadableScheme(
+                                                mParams.getPageUrl())));
+                pageGroup.add(
+                        createListItem(
+                                Item.PRINT_PAGE,
+                                /* showInProductHelp= */ false,
+                                mItemDelegate.isPrintSupported()));
                 if (enableShareFromContextMenu()) {
                     pageGroup.add(createShareListItem(Item.SHARE_PAGE, Item.DIRECT_SHARE_LINK));
                 }
@@ -614,32 +614,39 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                     maybeRecordUkmLensShown();
                 }
                 boolean isChromeOrNativePage =
-                        mParams.getPageUrl().getScheme().equals(UrlConstants.CHROME_SCHEME)
-                                || mParams.getPageUrl()
-                                        .getScheme()
-                                        .equals(UrlConstants.CHROME_NATIVE_SCHEME)
+                        UrlUtilities.isChromeScheme(mParams.getPageUrl())
                                 || (getTab() != null && getTab().isNativePage());
-                if (!isChromeOrNativePage
-                        && !DomDistillerUrlUtils.isDistilledPage(mParams.getPageUrl())) {
-                    pageGroup.add(createListItem(Item.READING_MODE));
-                }
+                pageGroup.add(
+                        createListItem(
+                                Item.READING_MODE,
+                                /* showInProductHelp= */ false,
+                                !isChromeOrNativePage
+                                        && !DomDistillerUrlUtils.isDistilledPage(
+                                                mParams.getPageUrl())));
                 groupedItems.add(pageGroup);
 
                 ModelList shareGroup = new ModelList();
                 Integer sendTabToSelfDisplayReason =
                         SendTabToSelfAndroidBridge.getEntryPointDisplayReason(
                                 getProfile(), mParams.getPageUrl().getSpec());
-                if (sendTabToSelfDisplayReason != null) {
-                    shareGroup.add(createListItem(Item.SEND_TAB_TO_SELF));
-                }
-                if (!isEmptyUrl(mParams.getPageUrl())) {
-                    shareGroup.add(createListItem(Item.CREATE_QR_CODE));
-                }
+                shareGroup.add(
+                        createListItem(
+                                Item.SEND_TAB_TO_SELF,
+                                /* showInProductHelp= */ false,
+                                sendTabToSelfDisplayReason != null));
+                shareGroup.add(
+                        createListItem(
+                                Item.CREATE_QR_CODE,
+                                /* showInProductHelp= */ false,
+                                !isEmptyUrl(mParams.getPageUrl())));
                 groupedItems.add(shareGroup);
-            }
-            if (mMode != ContextMenuMode.THIN_WEB_VIEW && shouldShowTranslateItem()) {
+
                 ModelList utilGroup = new ModelList();
-                utilGroup.add(createListItem(Item.TRANSLATE));
+                utilGroup.add(
+                        createListItem(
+                                Item.TRANSLATE,
+                                /* showInProductHelp= */ false,
+                                shouldEnableTranslateItem()));
                 groupedItems.add(utilGroup);
             }
         }
@@ -1572,7 +1579,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
     /** Copy the video frame, that triggered the current context menu, to system clipboard. */
     private void copyVideoFrameToClipboard() {
         verifyGenericCopyImageActionIsAllowedByPolicy(
-                mParams.getSrcUrl().getSpec(), () -> mNativeDelegate.copyVideoFrame());
+                mParams.getSrcUrl().getSpec(), mNativeDelegate::copyVideoFrame);
     }
 
     /** Download the video frame, that triggered the current context menu, to the device. */

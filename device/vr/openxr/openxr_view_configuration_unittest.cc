@@ -23,7 +23,7 @@ constexpr uint32_t kRecommendedImageHeight = 1584;
 constexpr uint32_t kMaxImageWidth = 8192;
 constexpr uint32_t kMaxImageHeight = 8192;
 
-#if !BUILDFLAG(IS_WIN)
+#if !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_LINUX)
 // Per-view max texture width limit is 16384 / 2 = 8192.
 // Raw max is 8192x8192.
 // max_scale_w = 8192 / 1440 = 5.6888...
@@ -57,8 +57,9 @@ void ValidateScale(const OpenXrViewProperties& properties, double scale) {
 
 }  // namespace
 
-// Viewport scaling isn't supported on windows, validate default behavior.
-#if BUILDFLAG(IS_WIN)
+// Viewport scaling isn't supported on Windows or Linux, validate default
+// behavior.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
 
 TEST(OpenXrViewPropertiesTest, ValidateNoFramebufferScale) {
   OpenXrViewProperties properties(kDefaultXrViewProperties, /*view_count=*/2,
@@ -86,7 +87,7 @@ TEST(OpenXrViewPropertiesTest, CommandLineSwitchIgnored) {
 TEST(OpenXrViewPropertiesTest, LowMemoryDeviceClamping) {
   // Override memory to 8GB (low-memory threshold is <=8GB).
   base::test::ScopedAmountOfPhysicalMemoryOverride memory_override(
-      base::GiBU(8));
+      base::GiB(8));
 
   OpenXrViewProperties properties(kDefaultXrViewProperties, /*view_count=*/2,
                                   kMaxTextureSize);
@@ -98,7 +99,7 @@ TEST(OpenXrViewPropertiesTest, LowMemoryDeviceClamping) {
 TEST(OpenXrViewPropertiesTest, HighMemoryDeviceAspectPreservingMax) {
   // Override memory to 16GB (above 8GB threshold).
   base::test::ScopedAmountOfPhysicalMemoryOverride memory_override(
-      base::GiBU(16));
+      base::GiB(16));
 
   OpenXrViewProperties properties(kDefaultXrViewProperties, /*view_count=*/2,
                                   kMaxTextureSize);
@@ -110,7 +111,7 @@ TEST(OpenXrViewPropertiesTest, CommandLineSwitchOverride) {
   // Override memory to 8GB (low-memory threshold is <=8GB). The command line
   // should ignore the default low-memory scale.
   base::test::ScopedAmountOfPhysicalMemoryOverride memory_override(
-      base::GiBU(8));
+      base::GiB(8));
   base::test::ScopedCommandLine scoped_command_line;
   scoped_command_line.GetProcessCommandLine()->AppendSwitchASCII(
       switches::kWebXrMaxFramebufferScale, "2.0");
@@ -163,6 +164,6 @@ TEST(OpenXrViewPropertiesTest, CommandLineSwitchOverride_InvalidLarge) {
   ValidateScale(properties, kDefaultDoubleWideScaleFactor);
 }
 
-#endif  // !BUILDFLAG(IS_WIN)
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
 
 }  // namespace device

@@ -41,6 +41,10 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHCompanionSidePanelFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHCompanionSidePanelRegionSearchFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHComposeMSBBSettingsFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHComposeNewBadgeFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(
+    kIPHContextualTasksEphemeralToolbarButtonFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHCriticalActionAppMenuFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHCriticalActionFilterChipFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopSharedHighlightingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopCustomizeChromeExperimentFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopCustomizeChromeAutoOpenFeature);
@@ -50,7 +54,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDownloadEsbPromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHExplicitBrowserSigninPreferenceRememberedFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHHistorySearchFeature);
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHExtensionsMenuFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHExtensionsRequestAccessButtonFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHExtensionsZeroStatePromoFeature);
@@ -75,14 +79,15 @@ enum IPHExtensionsZeroStatePromoVariant {
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 BASE_DECLARE_FEATURE_PARAM(IPHExtensionsZeroStatePromoVariant,
                            kIPHExtensionsZeroStatePromoVariantParam);
-#endif
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHFocusHelpBubbleScreenReaderPromoFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHGMCCastStartStopFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHGMCLocalMediaCastingFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHGMCSaveVideoFrameFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHGlicPromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHGlicTrustFirstOnboardingShortcutSnoozePromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHGlicTryItFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHGMCCastStartStopFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHGMCLocalMediaCastingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHMemorySaverModeFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHMultistepFilterPromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHLensOverlayFeature);
@@ -102,6 +107,7 @@ extern const base::FeatureParam<std::string>
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 extern const base::FeatureParam<base::TimeDelta> kIPHLensOverlayDelayTime;
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHLensOverlayTranslateButtonFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHOmniboxEverywhereLensPromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabAudioMutingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPasswordsSavePrimingPromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPasswordsSaveRecoveryPromoFeature);
@@ -129,6 +135,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModeKeyboardShortcutFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModePageActionLabelFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModePresentationModeFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModeSidePanelFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSendTabToSelfTutorialFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHShoppingCollectionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSmartTabSharingDefaultOnFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSmartTabSharingFeature);
@@ -150,6 +157,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSaveV2IntroFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSaveV2CloseGroupFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSharedTabChangedFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSharedTabFeedbackFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabScrollButtonFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabSearchComboButtonFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopSnoozeFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopPwaInstallFeature);
@@ -170,8 +178,8 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHExtensionsPinnedByDefaultFeature);
 // org.chromium.components.feature_engagement.FeatureConstants.
 // clang-format off
 #if BUILDFLAG(IS_ANDROID)
-// keep-sorted start case=no
 // FEATURE_CONSTANTS_DECLARE_FEATURE_ANDROID_START
+// keep-sorted start case=no
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAccountSettingsHistorySync);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationAddToBookmarksFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationNewTabFeature);
@@ -299,8 +307,8 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHVideoTutorialNTPSearchFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHVideoTutorialNTPSummaryFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHVideoTutorialNTPVoiceSearchFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHVideoTutorialTryNowFeature);
-// FEATURE_CONSTANTS_DECLARE_FEATURE_ANDROID_END
 // keep-sorted end
+// FEATURE_CONSTANTS_DECLARE_FEATURE_ANDROID_END
 #endif  // BUILDFLAG(IS_ANDROID)
 // clang-format on
 
@@ -364,6 +372,10 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHiOSPromoSettingsCardDefaultBrowserFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHiOSPromoSettingsCellDefaultBrowserFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(
+    kIPHiOSPromoOverflowMenuDestinationDefaultBrowserFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(
+    kIPHiOSPromoOverflowMenuShortcutsDefaultBrowserFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSOverflowMenuCustomizationFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSPageInfoRevampFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
@@ -452,6 +464,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillVirtualCardSuggestionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillEnableLoyaltyCardsFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillDownstreamCardAwarenessFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillOmniboxPaymentChipFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillWalletDirectOffersFeature);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) ||
         // BUILDFLAG(IS_FUCHSIA)
@@ -491,8 +504,31 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHResumptionRailFeature);
 
 #if BUILDFLAG(IS_WIN)
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSearchPromotionFeature);
+
+// Experiment actions / arms for the Windows search promotion feature.
+// Defaults to `kDisabled` if no valid action parameter is specified.
+enum class SearchPromotionAction {
+  kDisabled = 0,
+  kOpen = 1,
+  kInstall = 2,
+  kControl = 3,
+  kMaxValue = kControl,
+};
+
+// Target engagement cohorts for the Windows search promotion feature.
+// Defaults to `kAll` if omitted or if an unrecognized cohort is specified.
+enum class SearchPromotionCohort {
+  kAll = 0,
+  kLow = 1,
+  kMedium = 2,
+  kPower = 3,
+  kMaxValue = kPower,
+};
+
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
-BASE_DECLARE_FEATURE_PARAM(std::string, kSearchPromotionArm);
+BASE_DECLARE_FEATURE_PARAM(SearchPromotionAction, kSearchPromotionAction);
+COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
+BASE_DECLARE_FEATURE_PARAM(SearchPromotionCohort, kSearchPromotionCohort);
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 BASE_DECLARE_FEATURE_PARAM(std::string, kSearchPromotionStoreUrl);
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
@@ -502,11 +538,14 @@ BASE_DECLARE_FEATURE_PARAM(std::string, kSearchPromotionInstructionsUrl);
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 BASE_DECLARE_FEATURE_PARAM(std::string, kSearchPromotionMinPehVersion);
 
-inline constexpr char kSearchPromotionArmDefault[] = "disabled";
-inline constexpr char kSearchPromotionArmA[] = "arm_a";
-inline constexpr char kSearchPromotionArmB[] = "arm_b";
-inline constexpr char kSearchPromotionArmC[] = "arm_c";
-inline constexpr char kSearchPromotionArmD[] = "arm_d";
+inline constexpr char kSearchPromotionActionOpen[] = "open";
+inline constexpr char kSearchPromotionActionInstall[] = "install";
+inline constexpr char kSearchPromotionActionControl[] = "control";
+
+inline constexpr char kSearchPromotionCohortLow[] = "low";
+inline constexpr char kSearchPromotionCohortMedium[] = "medium";
+inline constexpr char kSearchPromotionCohortPower[] = "power";
+inline constexpr char kSearchPromotionCohortAll[] = "all";
 #endif  // BUILDFLAG(IS_WIN)
 
 }  // namespace feature_engagement

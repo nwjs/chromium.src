@@ -12,7 +12,6 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/tab/CollectionSaveForwarder.java",
     "java/src/org/chromium/chrome/browser/tab/CollectionStorageObserverFactory.java",
     "java/src/org/chromium/chrome/browser/tab/CurrentTabObserver.java",
-    "java/src/org/chromium/chrome/browser/tab/EmptyTabObserver.java",
     "java/src/org/chromium/chrome/browser/tab/LookAheadObservableSupplier.java",
     "java/src/org/chromium/chrome/browser/tab/SadTab.java",
     "java/src/org/chromium/chrome/browser/tab/SadTabView.java",
@@ -187,6 +186,7 @@ proto_java_library("critical_persisted_tab_data_proto_java") {
 robolectric_library("junit") {
   sources = [
     "java/src/org/chromium/chrome/browser/tab/CurrentTabObserverTest.java",
+    "java/src/org/chromium/chrome/browser/tab/StorageLoadedDataUnitTest.java",
     "java/src/org/chromium/chrome/browser/tab/TabAssociatedAppTest.java",
     "java/src/org/chromium/chrome/browser/tab/TabContextMenuDataUnitTest.java",
     "java/src/org/chromium/chrome/browser/tab/TabDragStateDataTest.java",
@@ -322,7 +322,6 @@ source_set("unit_tests") {
     ":tab",
     "//base",
     "//base/test:test_support",
-    "//chrome/browser",
     "//components/tabs:public",
     "//testing/gtest",
   ]

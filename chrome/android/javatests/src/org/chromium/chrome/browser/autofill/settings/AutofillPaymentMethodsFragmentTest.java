@@ -30,7 +30,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -71,8 +73,10 @@ import org.chromium.chrome.browser.autofill.AndroidAutofillAvailabilityStatus;
 import org.chromium.chrome.browser.autofill.AutofillClientProviderUtils;
 import org.chromium.chrome.browser.autofill.AutofillTestHelper;
 import org.chromium.chrome.browser.autofill.GoogleWalletLauncher;
+import org.chromium.chrome.browser.autofill.PersonalDataManager;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.CreditCard;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.Iban;
+import org.chromium.chrome.browser.autofill.PersonalDataManagerFactory;
 import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsFragment;
 import org.chromium.chrome.browser.device_reauth.BiometricStatus;
 import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
@@ -99,6 +103,7 @@ import org.chromium.components.payments.PackageManagerDelegate;
 import org.chromium.components.policy.test.annotations.Policies;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.DeviceRestriction;
 
 import java.util.ArrayList;
@@ -108,9 +113,7 @@ import java.util.concurrent.TimeoutException;
 
 /** Instrumentation tests for AutofillPaymentMethodsFragment. */
 @RunWith(ChromeJUnit4ClassRunner.class)
-@DisableFeatures({
-    ChromeFeatureList.AUTOFILL_ENABLE_WALLET_BRANDING,
-})
+@DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_WALLET_BRANDING})
 @Batch(Batch.PER_CLASS)
 public class AutofillPaymentMethodsFragmentTest {
     @Rule public final AutofillTestRule mAutofillTestRule = new AutofillTestRule();
@@ -324,6 +327,7 @@ public class AutofillPaymentMethodsFragmentTest {
     public void tearDown() throws TimeoutException {
         Intents.release();
         mAutofillTestHelper.clearAllDataForTesting();
+        PersonalDataManagerFactory.setInstanceForTesting(null);
     }
 
     @Test
@@ -1723,6 +1727,30 @@ public class AutofillPaymentMethodsFragmentTest {
 
     @Test
     @MediumTest
+    @EnableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_WALLET_REMINDER_NOTICE})
+    public void testWalletReminderNotice_shown() throws Exception {
+        SettingsActivityInterface activity = mSettingsTestRule.startSettingsActivity();
+
+        Preference noticePref =
+                getPreferenceScreen(activity)
+                        .findPreference(AutofillPaymentMethodsFragment.PREF_WALLET_REMINDER_NOTICE);
+        assertNotNull(noticePref);
+    }
+
+    @Test
+    @MediumTest
+    @DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_WALLET_REMINDER_NOTICE})
+    public void testWalletReminderNotice_whenFlagDisabled_notShown() throws Exception {
+        SettingsActivityInterface activity = mSettingsTestRule.startSettingsActivity();
+
+        Preference noticePref =
+                getPreferenceScreen(activity)
+                        .findPreference(AutofillPaymentMethodsFragment.PREF_WALLET_REMINDER_NOTICE);
+        assertNull(noticePref);
+    }
+
+    @Test
+    @MediumTest
     public void testSettingsState_SaveAndFillPaymentMethodsDisabledInThirdPartyMode()
             throws Exception {
         ThreadUtils.runOnUiThreadBlocking(
@@ -2059,6 +2087,7 @@ public class AutofillPaymentMethodsFragmentTest {
 
     @Test
     @SmallTest
+    @Restriction(DeviceFormFactor.PHONE) // Tablets and desktops don't have a help button or menu.
     public void testHelpMenuTriggersAutofillHelp() {
         SettingsActivityInterface settingsActivity = mSettingsTestRule.startSettingsActivity();
 
@@ -2151,5 +2180,83 @@ public class AutofillPaymentMethodsFragmentTest {
             }
         }
         return matchingPreferenceCount;
+    }
+
+    private PersonalDataManager setUpSpiedPersonalDataManager(SettingsActivityInterface activity) {
+        PersonalDataManager realPdm =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () ->
+                                PersonalDataManagerFactory.getForProfile(
+                                        ((AutofillPaymentMethodsFragment)
+                                                        activity.getMainFragment())
+                                                .getProfile()));
+        PersonalDataManager spyPdm = spy(realPdm);
+        PersonalDataManagerFactory.setInstanceForTesting(spyPdm);
+        return spyPdm;
+    }
+
+    @Test
+    @SmallTest
+    public void testSaveAndFillPaymentMethodsToggle_whenUserEnabled() {
+        SettingsActivityInterface activity = mSettingsTestRule.startSettingsActivity();
+        PersonalDataManager spyPdm = setUpSpiedPersonalDataManager(activity);
+        doReturn(true).when(spyPdm).isAutofillPaymentMethodsEnabled();
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    ((AutofillPaymentMethodsFragment) activity.getMainFragment()).rebuildPage();
+                });
+        ChromeSwitchPreference switchPref =
+                findPreferenceByKey(
+                        activity,
+                        AutofillPaymentMethodsFragment.PREF_SAVE_AND_FILL_PAYMENT_METHODS);
+        assertNotNull(switchPref);
+        assertTrue(switchPref.isChecked());
+        assertTrue(switchPref.isEnabled());
+    }
+
+    @Test
+    @SmallTest
+    public void testSaveAndFillPaymentMethodsToggle_whenUserDisabled() {
+        SettingsActivityInterface activity = mSettingsTestRule.startSettingsActivity();
+        PersonalDataManager spyPdm = setUpSpiedPersonalDataManager(activity);
+        doReturn(false).when(spyPdm).isAutofillPaymentMethodsEnabled();
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    ((AutofillPaymentMethodsFragment) activity.getMainFragment()).rebuildPage();
+                });
+        ChromeSwitchPreference switchPref =
+                findPreferenceByKey(
+                        activity,
+                        AutofillPaymentMethodsFragment.PREF_SAVE_AND_FILL_PAYMENT_METHODS);
+        assertNotNull(switchPref);
+        assertFalse(switchPref.isChecked());
+        assertTrue(switchPref.isEnabled());
+    }
+
+    @Test
+    @SmallTest
+    public void testSaveAndFillPaymentMethodsToggle_whenManagedByPolicy() {
+        SettingsActivityInterface activity = mSettingsTestRule.startSettingsActivity();
+        PersonalDataManager spyPdm = setUpSpiedPersonalDataManager(activity);
+        doReturn(true).when(spyPdm).isAutofillCreditCardManaged();
+        doReturn(false).when(spyPdm).isAutofillPaymentMethodsEnabled();
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    ((AutofillPaymentMethodsFragment) activity.getMainFragment()).rebuildPage();
+                });
+        ChromeSwitchPreference switchPref =
+                findPreferenceByKey(
+                        activity,
+                        AutofillPaymentMethodsFragment.PREF_SAVE_AND_FILL_PAYMENT_METHODS);
+        assertNotNull(switchPref);
+        // When managed by organization policy, the toggle must be shown as turned OFF.
+        assertFalse(switchPref.isChecked());
+        assertFalse(switchPref.isEnabled());
+        assertNotNull(switchPref.getManagedPreferenceDelegate());
+        assertTrue(
+                switchPref
+                        .getManagedPreferenceDelegate()
+                        .isPreferenceControlledByPolicy(switchPref));
+        assertTrue(switchPref.getManagedPreferenceDelegate().isPreferenceClickDisabled(switchPref));
     }
 }

@@ -104,10 +104,10 @@
 #include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
-#include "components/autofill/core/browser/data_manager/personal_data_manager_test_utils.h"
+#include "components/autofill/core/browser/data_manager/personal_data_manager_test_util.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
 #include "components/autofill/core/browser/test_utils/test_autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -922,6 +922,11 @@ class MockReportingService : public net::ReportingService {
   }
 
   void SendReportsAndRemoveSource(
+      const base::UnguessableToken& reporting_source) override {
+    NOTREACHED();
+  }
+
+  void SendReportsForSource(
       const base::UnguessableToken& reporting_source) override {
     NOTREACHED();
   }
@@ -3926,8 +3931,8 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, WipeCustomDictionaryData) {
 
   std::string contents;
   base::ReadFileToString(dict_path, &contents);
-  EXPECT_EQ(std::string::npos, contents.find("wug"));
-  EXPECT_EQ(std::string::npos, contents.find("spowing"));
+  EXPECT_FALSE(contents.contains("wug"));
+  EXPECT_FALSE(contents.contains("spowing"));
   EXPECT_FALSE(base::PathExists(backup_path));
 }
 

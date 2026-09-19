@@ -193,6 +193,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
       const blink::WebInputEvent& input_event) override;
   gfx::AcceleratedWidget AccessibilityGetAcceleratedWidget() override;
   gfx::NativeViewAccessible AccessibilityGetNativeViewAccessible() override;
+  ui::AXTreeID AccessibilityGetParentAXTreeID() override;
   void SetMainFrameAXTreeID(ui::AXTreeID id) override;
   blink::mojom::PointerLockResult LockPointer(
       bool request_unadjusted_movement) override;
@@ -223,6 +224,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
   viz::FrameSinkId GetRootFrameSinkId() override;
   viz::SurfaceId GetCurrentSurfaceId() const override;
   bool HasSavedCompositorFrame() const override;
+  void SetEvictOnHide(bool evict_on_hide) override;
   void FocusedNodeChanged(bool is_editable_node,
                           const gfx::Rect& node_bounds_in_screen) override;
 #if BUILDFLAG(IS_WIN)

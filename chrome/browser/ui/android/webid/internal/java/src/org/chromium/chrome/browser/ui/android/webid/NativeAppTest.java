@@ -36,10 +36,10 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 import org.robolectric.Shadows;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowActivity;
 import org.robolectric.shadows.ShadowPackageManager;
 
+import org.chromium.base.TriState;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -59,7 +59,6 @@ import java.lang.ref.WeakReference;
 
 /** Robolectric tests for native app continue_on flow in AccountSelectionCoordinator. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 @EnableFeatures({
     ContentFeatures.FED_CM_NATIVE_ID_PS,
     ChromeFeatureList.CCT_DONT_OVERRIDE_INTENT_MIME_TYPE
@@ -70,7 +69,6 @@ public class NativeAppTest {
     private static final String IDP_PACKAGE = "com.idp.app";
     private static final GURL CONTINUE_URL = new GURL("https://idp.com/continue");
     private static final GURL LOGIN_URL = new GURL("https://idp.com/login");
-    private static final Origin IDP_ORIGIN = Origin.create(CONTINUE_URL.getSpec());
 
     @Mock private Tab mTab;
     @Mock private WindowAndroid mWindowAndroid;
@@ -108,7 +106,7 @@ public class NativeAppTest {
                         invocation -> {
                             OriginVerificationListener listener = invocation.getArgument(0);
                             Origin origin = invocation.getArgument(1);
-                            listener.onOriginVerified(IDP_PACKAGE, origin, true, true);
+                            listener.onOriginVerified(IDP_PACKAGE, origin, true, TriState.TRUE);
                             return null;
                         })
                 .when(mMockOriginVerifier)
@@ -288,7 +286,7 @@ public class NativeAppTest {
                         invocation -> {
                             OriginVerificationListener listener = invocation.getArgument(0);
                             Origin origin = invocation.getArgument(1);
-                            listener.onOriginVerified(IDP_PACKAGE, origin, false, true);
+                            listener.onOriginVerified(IDP_PACKAGE, origin, false, TriState.TRUE);
                             return null;
                         })
                 .when(mMockOriginVerifier)
@@ -319,14 +317,14 @@ public class NativeAppTest {
                         invocation -> {
                             OriginVerificationListener listener = invocation.getArgument(0);
                             Origin origin = invocation.getArgument(1);
-                            listener.onOriginVerified(pkg1, origin, false, true);
+                            listener.onOriginVerified(pkg1, origin, false, TriState.TRUE);
                             return null;
                         })
                 .doAnswer(
                         invocation -> {
                             OriginVerificationListener listener = invocation.getArgument(0);
                             Origin origin = invocation.getArgument(1);
-                            listener.onOriginVerified(pkg2, origin, true, true);
+                            listener.onOriginVerified(pkg2, origin, true, TriState.TRUE);
                             return null;
                         })
                 .when(mMockOriginVerifier)

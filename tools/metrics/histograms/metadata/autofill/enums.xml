@@ -624,6 +624,7 @@ Called by update_autofill_enums.py.-->
   <int value="3" label="Network Error"/>
   <int value="4" label="Empty Response"/>
   <int value="5" label="Parsing Error"/>
+  <int value="6" label="Decryption Failed"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h:AutofillAiUnmaskResult) -->
@@ -685,7 +686,21 @@ Called by update_autofill_enums.py.-->
   <int value="0" label="Typed trigger"/>
   <int value="1" label="Context menu"/>
   <int value="2" label="Keyboard shortcut"/>
+  <int value="3" label="Double Ctrl"/>
 </enum>
+
+<!-- LINT.IfChange(AutofillAtMemoryUiSessionOutcome) -->
+
+<enum name="AutofillAtMemoryUiSessionOutcome">
+  <int value="0" label="Dismissed before query"/>
+  <int value="1" label="Dismissed before results"/>
+  <int value="2" label="Dismissed empty results"/>
+  <int value="3" label="Dismissed results before acceptance"/>
+  <int value="4" label="Suggestion accepted but not filled"/>
+  <int value="5" label="Suggestion filled"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/autofill/core/browser/at_memory/at_memory_metrics_recorder.h:AtMemoryUiSessionOutcome) -->
 
 <enum name="AutofillAutocompleteState">
   <int value="0" label="None"/>
@@ -1787,6 +1802,17 @@ Called by update_autofill_enums.py.-->
   <int value="0" label="EMAIL: accepted"/>
   <int value="1" label="LOYALTY_CARD: accepted"/>
 </enum>
+
+<!-- LINT.IfChange(AutofillEmailSuggestionAcceptedStatus) -->
+
+<enum name="AutofillEmailSuggestionAcceptedStatus">
+  <int value="0" label="Only Addresses available and selected"/>
+  <int value="1" label="Only Autocomplete available and selected"/>
+  <int value="2" label="Both available, Address selected"/>
+  <int value="3" label="Both available, Autocomplete selected"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/autofill/core/browser/metrics/suggestions_list_metrics.h:AutofillEmailSuggestionAcceptedStatus) -->
 
 <enum name="AutofillErrorDialogType">
   <int value="0" label="VIRTUAL_CARD_TEMPORARY_ERROR"/>
@@ -3114,6 +3140,8 @@ Called by update_autofill_enums.py.-->
   <int value="10"
       label="User entered the autofill options via personal context ambient
              autofill notice."/>
+  <int value="11"
+      label="User entered the autofill options via settings search."/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/android/preferences/autofill/settings_navigation_helper.h:AutofillOptionsReferrer) -->
@@ -4514,6 +4542,7 @@ Called by update_autofill_enums.py.-->
   <int value="23" label="AtMemory context menu"/>
   <int value="24" label="AtMemory inactivity nudge"/>
   <int value="25" label="AtMemory keyboard shortcut"/>
+  <int value="26" label="AtMemory double Ctrl"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/autofill/core/common/mojom/autofill_types.mojom:AutofillSuggestionTriggerSource) -->
@@ -4592,6 +4621,30 @@ Called by update_autofill_enums.py.-->
   <int value="0" label="One strike logged"/>
   <int value="1" label="All strikes cleared"/>
 </enum>
+
+<!-- LINT.IfChange(AutofillWalletReminderNoticeInteraction) -->
+
+<enum name="AutofillWalletReminderNoticeInteraction">
+  <int value="0" label="Acknowledged notice"/>
+  <int value="1" label="Link in legal disclaimer clicked"/>
+  <int value="2" label="Dismissed notice"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/autofill/core/browser/metrics/payments/wallet_reminder_notice_metrics.h:WalletReminderNoticeInteraction) -->
+
+<!-- LINT.IfChange(AutofillWalletReminderNoticeShowResult) -->
+
+<enum name="AutofillWalletReminderNoticeShowResult">
+  <int value="0" label="Shown successfully"/>
+  <int value="1" label="Not shown: already acknowledged according to server"/>
+  <int value="2" label="Not shown: already acknowledged according to pref"/>
+  <int value="3" label="Not shown: network or server error"/>
+  <int value="4" label="Not shown: preempted by mandatory reauth"/>
+  <int value="5" label="Not shown: preempted by VCN enrollment"/>
+  <int value="6" label="Not shown: preempted by card or CVC save"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/autofill/core/browser/metrics/payments/wallet_reminder_notice_metrics.h:WalletReminderNoticeShowResult) -->
 
 <enum name="AutofillWebauthnOptInPromoUserDecision">
   <int value="0" label="Accepted"/>
@@ -6054,7 +6107,7 @@ Called by update_autofill_enums.py.-->
   <int value="45" label="Title"/>
   <int value="46" label="Separator"/>
   <int value="47" label="Undo"/>
-  <int value="48" label="Mixed form message"/>
+  <int value="48" label="(Obsolete) Mixed form message"/>
   <int value="49" label="Devtools test addresses"/>
   <int value="50" label="Devtools test address entry"/>
   <int value="51" label="Devtools test address by country entry"/>
@@ -6089,7 +6142,7 @@ Called by update_autofill_enums.py.-->
   <int value="79" label="BNPL footnote"/>
   <int value="80" label="AtMemory inactivity nudge"/>
   <int value="81" label="Autocomplete AtMemory button"/>
-  <int value="82" label="Open Gemini"/>
+  <int value="82" label="AtMemory Open Gemini"/>
   <int value="83" label="AtMemory no connection"/>
   <int value="84" label="AtMemory search trigger affordance"/>
   <int value="85" label="Personal context notice"/>
@@ -6106,6 +6159,7 @@ Called by update_autofill_enums.py.-->
   <int value="96" label="AtMemory source attribution"/>
   <int value="97" label="AtMemory fetching"/>
   <int value="98" label="Remove Autofill AI info"/>
+  <int value="99" label="Autofill AI source attribution"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/autofill/core/browser/suggestions/suggestion_type.h:SuggestionType) -->

@@ -116,8 +116,8 @@ class ContextualTasksExtensionHandler
                    bool meta_key,
                    bool shift_key,
                    bool is_voice_search) override;
-  void SetActiveToolMode(omnibox::ToolMode tool,
-                         bool is_set_by_server) override;
+
+  void SetActiveToolMode(omnibox::ToolMode tool, bool is_set_by_aim) override;
   void SetActiveModelMode(omnibox::ModelMode model,
                           bool is_set_by_aim) override;
 
@@ -126,6 +126,7 @@ class ContextualTasksExtensionHandler
   // composebox.
   void OnFocusChanged(bool focused) override;
   void QueryAutocomplete(int32_t query_id,
+                         std::optional<int32_t> tab_id,
                          const std::u16string& input,
                          bool prevent_inline_autocomplete,
                          uint32_t cursor_position,
@@ -194,10 +195,15 @@ class ContextualTasksExtensionHandler
   void OnDriveDisclaimerAccepted() override;
   void OnDriveUploadClicked(OnDriveUploadClickedCallback callback) override;
   void OpenProfilePicker() override;
+  void ShowScreenshotMenu(const gfx::Rect& anchor_rect) override;
   void GetPageClassification(GetPageClassificationCallback callback) override;
   void OnThumbnailRemoved() override;
   void StartScreenshare(bool prefer_entire_screen,
                         StartScreenshareCallback callback) override;
+  void CaptureRegionScreenshot(
+      CaptureRegionScreenshotCallback callback) override;
+  void DismissFre() override {}
+  void OpenHotkeySettings() override {}
 
  private:
   friend class content::DocumentUserData<ContextualTasksExtensionHandler>;

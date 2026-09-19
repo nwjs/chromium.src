@@ -310,11 +310,12 @@ class SmartCardProviderPrivateAPI
       mojo::PendingRemote<device::mojom::SmartCardConnectionWatcher>
           connection_watcher);
 
+  struct ContextData;
+
   device::mojom::SmartCardTransactionResultPtr CreateSmartCardTransaction(
       ContextId scard_context,
-      Handle handle);
-
-  struct ContextData;
+      Handle handle,
+      ContextData& context_data);
 
   ContextData& GetContextData(ContextId scard_context);
 
@@ -332,6 +333,10 @@ class SmartCardProviderPrivateAPI
   // The watcher connection closes - thus, the pipe fall is leveraged to kill
   // the connection.
   void OnMojoWatcherPipeClosed(mojo::RemoteSetElementId watcher_id);
+
+  // Removes a connection receiver and tears down its associated connection
+  // watcher and tracking maps. Safe to call even if already disconnected.
+  void RemoveConnection(mojo::ReceiverId connection_receiver_id);
 
   // This may only be called only when processing a received method call on
   // SmartCardConnection().

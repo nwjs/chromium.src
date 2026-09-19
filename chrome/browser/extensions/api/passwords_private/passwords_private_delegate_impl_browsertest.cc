@@ -43,8 +43,8 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/autofill/chrome_autofill_client.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/hats/trust_safety_sentiment_service_factory.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
@@ -80,6 +80,7 @@
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
 #include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
+#include "components/password_manager/core/browser/password_string.h"
 #include "components/password_manager/core/browser/sharing/mock_password_sender_service.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
@@ -102,6 +103,7 @@
 using device_reauth::ReauthResult;
 using password_manager::PasswordForm;
 using password_manager::PasswordRecipient;
+using password_manager::PasswordString;
 using password_manager::TestPasswordStore;
 using ::testing::_;
 using ::testing::AllOf;
@@ -163,7 +165,7 @@ PasswordForm CreateSampleForm(
   form.signon_realm = "https://abc1.com";
   form.url = GURL("https://abc1.com");
   form.username_value = username;
-  form.password_value = u"test";
+  form.password_value = PasswordString(u"test");
   form.in_store = store;
   return form;
 }
@@ -559,7 +561,7 @@ IN_PROC_BROWSER_TEST_F(PasswordsPrivateDelegateImplTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(), embedded_test_server()->GetURL("/empty.html")));
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_FALSE(
       provider->command_manager().IsInstallingForWebContents(web_contents));
 
@@ -603,7 +605,7 @@ class PasswordsPrivateDelegateImplMockTaskEnvironmentTest
 IN_PROC_BROWSER_TEST_F(PasswordsPrivateDelegateImplMockTaskEnvironmentTest,
                        AuthenticationTimeMetric) {
   content::WebContents* web_contents_ptr =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   auto delegate = CreateDelegate();
 
   auto biometric_authenticator =
@@ -631,7 +633,7 @@ IN_PROC_BROWSER_TEST_F(PasswordsPrivateDelegateImplMockTaskEnvironmentTest,
   chrome::AddSelectedTabWithURL(browser(), GURL(url::kAboutBlankURL),
                                 ui::PAGE_TRANSITION_LINK);
   content::WebContents* web_contents_ptr =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   auto delegate = CreateDelegate();
 
   auto biometric_authenticator =
@@ -650,8 +652,8 @@ IN_PROC_BROWSER_TEST_F(PasswordsPrivateDelegateImplMockTaskEnvironmentTest,
   delegate->ExportPasswords(callback.Get(), web_contents_ptr);
 
   // Simulate closing tab while authentication is still ongoing.
-  browser()->tab_strip_model()->CloseWebContentsAt(
-      browser()->tab_strip_model()->active_index(), CLOSE_NONE);
+  browser()->GetTabStripModel()->CloseWebContentsAt(
+      browser()->GetTabStripModel()->active_index(), CLOSE_NONE);
 
   // Now simulate auth is finished with success. Expect export to fail because
   // the tab is closed.
@@ -667,7 +669,7 @@ IN_PROC_BROWSER_TEST_F(PasswordsPrivateDelegateImplMockTaskEnvironmentTest,
   chrome::AddSelectedTabWithURL(browser(), GURL(url::kAboutBlankURL),
                                 ui::PAGE_TRANSITION_LINK);
   content::WebContents* web_contents_ptr =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   auto delegate = CreateDelegate();
 
   auto biometric_authenticator =

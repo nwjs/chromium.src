@@ -75,6 +75,7 @@ CallStackProfileBuilder::CallStackProfileBuilder(
   sampled_profile_.set_thread(ToExecutionContextThread(profile_params.thread));
   sampled_profile_.set_trigger_event(
       ToSampledProfileTriggerEvent(profile_params.trigger));
+
   if (!profile_params.time_offset.is_zero()) {
     DCHECK(profile_params.time_offset.is_positive());
     CallStackProfile* call_stack_profile =

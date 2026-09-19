@@ -4039,6 +4039,48 @@ TEST_P(GLES3DecoderTest, TexStorage3DValidArgs) {
   EXPECT_EQ(GL_NO_ERROR, GetGLError());
 }
 
+TEST_P(GLES3DecoderManualInitTest, ResetTexStorageBaseLevelWorkaround) {
+  InitState init;
+  init.extensions = "GL_EXT_texture_storage";
+  init.gl_version = "OpenGL ES 3.0";
+  init.has_alpha = true;
+  init.has_depth = true;
+  init.context_type = CONTEXT_TYPE_OPENGLES3;
+  GpuDriverBugWorkarounds workarounds;
+  workarounds.reset_tex_storage_base_level = true;
+  InitDecoderWithWorkarounds(init, workarounds);
+
+  DoBindTexture(GL_TEXTURE_2D, client_texture_id_, kServiceTextureId);
+
+  // Set BASE_LEVEL to 1 before calling TexStorage2D.
+  cmds::TexParameteri param_cmd;
+  param_cmd.Init(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 1);
+  EXPECT_CALL(*gl_, TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 1))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_EQ(error::kNoError, ExecuteCmd(param_cmd));
+
+  // Calling TexStorage2DEXT should reset BASE_LEVEL to 0 first, call
+  // TexStorage2DEXT, and then restore BASE_LEVEL to 1.
+  EXPECT_CALL(*gl_, TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, TexStorage2DEXT(GL_TEXTURE_2D, 2, GL_RGBA8, 16, 16))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 1))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, GetError())
+      .WillOnce(Return(GL_NO_ERROR))
+      .WillOnce(Return(GL_NO_ERROR))
+      .RetiresOnSaturation();
+
+  cmds::TexStorage2DEXT storage_cmd;
+  storage_cmd.Init(GL_TEXTURE_2D, 2, GL_RGBA8, 16, 16);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(storage_cmd));
+}
+
 TEST_P(GLES3DecoderTest, TexImage3DValidArgs) {
   const GLenum kTarget = GL_TEXTURE_3D;
   const GLint kLevel = 2;
@@ -4667,6 +4709,79 @@ TEST_P(GLES3DecoderReattachTextureAfterLayerIncreaseTest,
   cmds::TexImage3D cmd;
   cmd.Init(kTarget, kLevel, kInternalFormat, kWidth, kHeight, kNewDepth,
            kFormat, kType, 0, 0);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+  EXPECT_EQ(GL_NO_ERROR, GetGLError());
+}
+
+TEST_P(GLES3DecoderReattachTextureAfterLayerIncreaseTest,
+       ReattachTextureAfterLayerIncrease_TexStorage3D) {
+  InitState init;
+  init.gl_version = "OpenGL ES 3.0";
+  init.context_type = CONTEXT_TYPE_OPENGLES3;
+  gpu::GpuDriverBugWorkarounds workarounds;
+  // Instantiation parameter is used to enable/disable the workaround.
+  workarounds.reattach_texture_to_fbo_after_layer_increase = GetParam();
+  InitDecoderWithWorkarounds(init, workarounds);
+
+  const GLenum kTarget = GL_TEXTURE_2D_ARRAY;
+  const GLint kLevel = 0;
+  const GLint kLevels = 1;
+  const GLint kInternalFormat = GL_RGBA8;
+  const GLsizei kWidth = 4;
+  const GLsizei kHeight = 4;
+  const GLsizei kDepth = 1;
+  const GLsizei kNewDepth = 2;
+  const GLenum kFormat = GL_RGBA;
+  const GLenum kType = GL_UNSIGNED_BYTE;
+
+  DoBindTexture(kTarget, client_texture_id_, kServiceTextureId);
+  DoTexImage3D(kTarget, kLevel, kInternalFormat, kWidth, kHeight, kDepth, 0,
+               kFormat, kType, 0, 0);
+
+  DoBindFramebuffer(GL_FRAMEBUFFER, client_framebuffer_id_,
+                    kServiceFramebufferId);
+
+  EXPECT_CALL(*gl_,
+              FramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                      kServiceTextureId, kLevel, 0))
+      .Times(1)
+      .RetiresOnSaturation();
+  cmds::FramebufferTextureLayer attach_cmd;
+  attach_cmd.Init(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, client_texture_id_,
+                  kLevel, 0);
+  EXPECT_EQ(error::kNoError, ExecuteCmd(attach_cmd));
+  EXPECT_EQ(GL_NO_ERROR, GetGLError());
+
+  // Calling TexStorage3D with increased depth should trigger detach,
+  // TexStorage3D, and re-attach when the workaround is enabled.
+  EXPECT_CALL(*gl_, BindFramebufferEXT(_, _)).Times(::testing::AnyNumber());
+  ::testing::InSequence sequence;
+  if (workarounds.reattach_texture_to_fbo_after_layer_increase) {
+    EXPECT_CALL(*gl_, FramebufferTextureLayer(GL_FRAMEBUFFER,
+                                              GL_COLOR_ATTACHMENT0, 0, 0, 0))
+        .Times(1)
+        .RetiresOnSaturation();
+  }
+  EXPECT_CALL(*gl_, GetError())
+      .WillOnce(Return(GL_NO_ERROR))
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, TexStorage3D(kTarget, kLevels, kInternalFormat, kWidth,
+                                 kHeight, kNewDepth))
+      .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, GetError())
+      .WillOnce(Return(GL_NO_ERROR))
+      .RetiresOnSaturation();
+  if (workarounds.reattach_texture_to_fbo_after_layer_increase) {
+    EXPECT_CALL(*gl_,
+                FramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                        kServiceTextureId, kLevel, 0))
+        .Times(1)
+        .RetiresOnSaturation();
+  }
+
+  cmds::TexStorage3D cmd;
+  cmd.Init(kTarget, kLevels, kInternalFormat, kWidth, kHeight, kNewDepth);
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
   EXPECT_EQ(GL_NO_ERROR, GetGLError());
 }

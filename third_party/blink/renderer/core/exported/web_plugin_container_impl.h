@@ -33,6 +33,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_EXPORTED_WEB_PLUGIN_CONTAINER_IMPL_H_
 
 #include "base/containers/span.h"
+#include "base/memory/raw_ptr.h"
 #include "third_party/blink/public/common/input/web_coalesced_input_event.h"
 #include "third_party/blink/public/common/input/web_touch_event.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
@@ -124,7 +125,7 @@ class CORE_EXPORT WebPluginContainerImpl final
   void EnqueueMessageEvent(const WebDOMMessageEvent&) override;
   void Invalidate() override;
   void ScheduleAnimation() override;
-  void ReportGeometry() override;
+  void ReportGeometry() override { PropagateFrameRects(); }
   v8::Local<v8::Object> V8ObjectForElement() override;
   void LoadFrameRequest(const WebURLRequest&, const WebString& target) override;
   bool IsRectTopmost(const gfx::Rect&) override;
@@ -188,14 +189,14 @@ class CORE_EXPORT WebPluginContainerImpl final
   // method. Here we call Dispose() which does the correct virtual dispatch.
   void PreFinalize() { Dispose(); }
   void Dispose() override;
-  void SetFrameRect(const gfx::Rect&) override;
-  void PropagateFrameRects() override { ReportGeometry(); }
+  void SetFrameRect(const gfx::Rect& frame_rect) override;
 
   void MaybeLostMouseLock();
 
   mojom::blink::WebFeature SvgFilterPaintedCounter() const override;
 
  protected:
+  void PropagateFrameRectsInternal() override;
   void ParentVisibleChanged() override;
 
  private:
@@ -244,8 +245,8 @@ class CORE_EXPORT WebPluginContainerImpl final
 
   Member<HTMLPlugInElement> element_;
   Member<MouseLockLostListener> mouse_lock_lost_listener_;
-  WebPlugin* web_plugin_;
-  cc::Layer* layer_ = nullptr;
+  raw_ptr<WebPlugin, UnprotectedInRelease | DanglingUntriaged> web_plugin_;
+  raw_ptr<cc::Layer, UnprotectedInRelease | DanglingUntriaged> layer_ = nullptr;
   TouchEventRequestType touch_event_request_type_ = kTouchEventRequestTypeNone;
   bool wants_wheel_events_ = false;
 

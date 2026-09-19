@@ -526,11 +526,20 @@ bool AimEligibilityService::IsFuseboxEligible() const {
   return IsEligibleByServer(GetMostRecentResponse().is_fusebox_eligible());
 }
 
+bool AimEligibilityService::IsCsbEligible() const {
+  if (!GetMostRecentResponse().has_is_contextual_searchbox_eligible()) {
+    return IsFuseboxEligible();
+  }
+  return IsEligibleByServer(
+      GetMostRecentResponse().is_contextual_searchbox_eligible());
+}
+
 bool AimEligibilityService::IsAimUrl(
     const GURL& url,
-    std::optional<std::string> host_override) const {
-  OMNIBOX_LOG("aim_url_check") << "IsAimUrl: Checking " << url
-                               << " override: " << host_override.value_or("");
+    std::optional<contextual_tasks::HostOverride> host_override) const {
+  OMNIBOX_LOG("aim_url_check")
+      << "IsAimUrl: Checking " << url
+      << " override: " << (host_override ? host_override->ToString() : "");
   bool is_aim_url =
       IsAimHost(url, host_override) && IsAimPath(url) && HasAimUrlParams(url);
   OMNIBOX_LOG("aim_url_check") << "IsAimUrl: " << (is_aim_url ? "yes" : "no");
@@ -539,10 +548,9 @@ bool AimEligibilityService::IsAimUrl(
 
 bool AimEligibilityService::IsAimHost(
     const GURL& url,
-    std::optional<std::string> host_override) const {
+    std::optional<contextual_tasks::HostOverride> host_override) const {
   OMNIBOX_LOG("aim_url_check") << "IsAimHost: Checking host...";
-  if (host_override &&
-      base::EqualsCaseInsensitiveASCII(host_override.value(), url.host())) {
+  if (host_override && host_override->Matches(url)) {
     OMNIBOX_LOG("aim_url_check") << "Found overridden host!";
     return true;
   }
@@ -770,6 +778,8 @@ std::string AimEligibilityService::RequestSourceToString(RequestSource source) {
       return "RefreshTokenError";
     case RequestSource::kOAuthFallbackCookieChange:
       return "OAuthFallbackCookieChange";
+    case RequestSource::kLocaleChange:
+      return "LocaleChange";
   }
 }
 
@@ -1139,8 +1149,7 @@ void AimEligibilityService::StartServerEligibilityRequest(
     request->method = "POST";
   }
 
-  if (request_source == RequestSource::kAimUrlNavigation &&
-      base::FeatureList::IsEnabled(
+  if (base::FeatureList::IsEnabled(
           omnibox::kAimServerEligibilitySendCoBrowseUserAgentSuffixEnabled) &&
       !configuration_.user_agent_with_cobrowse_suffix.empty()) {
     request->headers.SetHeader("User-Agent",
@@ -1152,6 +1161,14 @@ void AimEligibilityService::StartServerEligibilityRequest(
       !configuration_.full_version_list.empty()) {
     request->headers.SetHeader("Sec-CH-UA-Full-Version-List",
                                configuration_.full_version_list);
+  }
+
+  if (base::FeatureList::IsEnabled(
+          omnibox::kAimServerEligibilitySendSearchCapabilitiesHeaderEnabled) &&
+      !configuration_.search_capabilities_version.empty()) {
+    request->headers.SetHeader(
+        contextual_tasks::kContextualTasksSearchCapabilitiesHeaderName,
+        configuration_.search_capabilities_version);
   }
 
   GaiaId pending_request_account = GetActiveAccount();

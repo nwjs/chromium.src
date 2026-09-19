@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "base/byte_size.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
@@ -196,12 +197,12 @@ class SharedDictionaryManagerTest
   std::unique_ptr<SharedDictionaryManager> CreateSharedDictionaryManager() {
     switch (GetManagerType()) {
       case TestManagerType::kInMemory:
-        return SharedDictionaryManager::CreateInMemory(/*cache_max_size=*/0,
-                                                       kCacheMaxCount);
+        return SharedDictionaryManager::CreateInMemory(
+            /*cache_max_size=*/std::nullopt, kCacheMaxCount);
       case TestManagerType::kOnDisk:
         return SharedDictionaryManager::CreateOnDisk(
-            database_path_, cache_directory_path_, /*cache_max_size=*/0,
-            kCacheMaxCount,
+            database_path_, cache_directory_path_,
+            /*cache_max_size=*/std::nullopt, kCacheMaxCount,
 #if BUILDFLAG(IS_ANDROID)
             disk_cache::ApplicationStatusListenerGetter(),
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -248,6 +249,7 @@ class SharedDictionaryManagerTest
 
   base::TestMemoryConsumerRegistry test_memory_consumer_registry_;
 
+  base::test::ScopedFeatureList scoped_feature_list_;
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
 
@@ -255,7 +257,6 @@ class SharedDictionaryManagerTest
   base::ScopedTempDir tmp_directory_;
   base::FilePath database_path_;
   base::FilePath cache_directory_path_;
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 INSTANTIATE_TEST_SUITE_P(
@@ -1787,7 +1788,8 @@ TEST_P(SharedDictionaryManagerTest,
 
   task_environment_.FastForwardBy(base::Seconds(1));
 
-  manager->SetCacheMaxSize(/*cache_max_size=*/kTestData1.size() * 2);
+  manager->SetCacheMaxSize(
+      /*cache_max_size=*/base::ByteSize(kTestData1.size() * 2));
 
   if (GetManagerType() == TestManagerType::kOnDisk) {
     FlushCacheTasks();
@@ -1801,7 +1803,42 @@ TEST_P(SharedDictionaryManagerTest,
                                          mojom::RequestDestination::kEmpty));
 }
 
-TEST_P(SharedDictionaryManagerTest, CacheEvictionZeroMaxSizeCountExceeded) {
+TEST_P(SharedDictionaryManagerTest, CacheEvictionZeroMaxSize) {
+  net::SharedDictionaryIsolationKey isolation_key(url::Origin::Create(kUrl1),
+                                                  kSite1);
+
+  std::unique_ptr<SharedDictionaryManager> manager =
+      CreateSharedDictionaryManager();
+  scoped_refptr<SharedDictionaryStorage> storage =
+      manager->GetStorage(isolation_key);
+  ASSERT_TRUE(storage);
+
+  WriteDictionary(storage.get(), GURL("https://origin1.test/d1"), "p1*",
+                  {kTestData1});
+  task_environment_.FastForwardBy(base::Seconds(1));
+  WriteDictionary(storage.get(), GURL("https://origin2.test/d2"), "p2*",
+                  {kTestData1});
+
+  if (GetManagerType() == TestManagerType::kOnDisk) {
+    FlushCacheTasks();
+  }
+
+  task_environment_.FastForwardBy(base::Seconds(1));
+
+  manager->SetCacheMaxSize(base::ByteSize(0));
+
+  if (GetManagerType() == TestManagerType::kOnDisk) {
+    FlushCacheTasks();
+  }
+
+  EXPECT_FALSE(storage->GetDictionarySync(GURL("https://origin1.test/p1?"),
+                                          mojom::RequestDestination::kEmpty));
+  EXPECT_FALSE(storage->GetDictionarySync(GURL("https://origin2.test/p2?"),
+                                          mojom::RequestDestination::kEmpty));
+}
+
+TEST_P(SharedDictionaryManagerTest,
+       CacheEvictionUnlimitedMaxSizeCountExceeded) {
   std::unique_ptr<SharedDictionaryManager> manager =
       CreateSharedDictionaryManager();
 
@@ -1883,7 +1920,8 @@ TEST_P(SharedDictionaryManagerTest,
 
   std::unique_ptr<SharedDictionaryManager> manager =
       CreateSharedDictionaryManager();
-  manager->SetCacheMaxSize(/*cache_max_size=*/kTestData1.size() * 2);
+  manager->SetCacheMaxSize(
+      /*cache_max_size=*/base::ByteSize(kTestData1.size() * 2));
   scoped_refptr<SharedDictionaryStorage> storage1 =
       manager->GetStorage(isolation_key1);
   ASSERT_TRUE(storage1);
@@ -1964,7 +2002,8 @@ TEST_P(SharedDictionaryManagerTest, CacheEvictionAfterUpdatingLastUsedTime) {
 
   // Set the max size to kTestData1.size() * 3. The low water mark will be
   // kTestData1.size() * 2.7 (3 * 0.9).
-  manager->SetCacheMaxSize(/*cache_max_size=*/kTestData1.size() * 3);
+  manager->SetCacheMaxSize(
+      /*cache_max_size=*/base::ByteSize(kTestData1.size() * 3));
 
   if (GetManagerType() == TestManagerType::kOnDisk) {
     FlushCacheTasks();
@@ -1991,7 +2030,8 @@ TEST_P(SharedDictionaryManagerTest, CacheEvictionPerSiteSizeExceeded) {
   std::unique_ptr<SharedDictionaryManager> manager =
       CreateSharedDictionaryManager();
   // The size limit per site is kTestData1.size() * 4 / 2.
-  manager->SetCacheMaxSize(/*cache_max_size=*/kTestData1.size() * 4);
+  manager->SetCacheMaxSize(
+      /*cache_max_size=*/base::ByteSize(kTestData1.size() * 4));
 
   scoped_refptr<SharedDictionaryStorage> storage1 =
       manager->GetStorage(isolation_key1);
@@ -2035,7 +2075,7 @@ TEST_P(SharedDictionaryManagerTest, CacheEvictionPerSiteSizeExceeded) {
 }
 
 TEST_P(SharedDictionaryManagerTest,
-       CacheEvictionPerSiteZeroMaxSizeCountExceeded) {
+       CacheEvictionPerSiteUnlimitedMaxSizeCountExceeded) {
   net::SharedDictionaryIsolationKey isolation_key(url::Origin::Create(kUrl1),
                                                   kSite1);
 
@@ -2086,14 +2126,14 @@ TEST_P(SharedDictionaryManagerTest,
 }
 
 TEST_P(SharedDictionaryManagerTest,
-       CacheEvictionPerSiteNonZeroMaxSizeCountExceeded) {
+       CacheEvictionPerSiteLimitedMaxSizeCountExceeded) {
   net::SharedDictionaryIsolationKey isolation_key(url::Origin::Create(kUrl1),
                                                   kSite1);
 
   std::unique_ptr<SharedDictionaryManager> manager =
       CreateSharedDictionaryManager();
-  manager->SetCacheMaxSize(/*cache_max_size=*/kTestData1.size() *
-                           kCacheMaxCount);
+  manager->SetCacheMaxSize(
+      /*cache_max_size=*/base::ByteSize(kTestData1.size() * kCacheMaxCount));
   scoped_refptr<SharedDictionaryStorage> storage =
       manager->GetStorage(isolation_key);
   ASSERT_TRUE(storage);
@@ -2145,8 +2185,8 @@ TEST_P(SharedDictionaryManagerTest,
 
   std::unique_ptr<SharedDictionaryManager> manager =
       CreateSharedDictionaryManager();
-  manager->SetCacheMaxSize(/*cache_max_size=*/kTestData1.size() *
-                           kCacheMaxCount);
+  manager->SetCacheMaxSize(
+      /*cache_max_size=*/base::ByteSize(kTestData1.size() * kCacheMaxCount));
   scoped_refptr<SharedDictionaryStorage> storage =
       manager->GetStorage(isolation_key);
   ASSERT_TRUE(storage);

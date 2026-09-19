@@ -167,6 +167,10 @@ class ProfileAttributesTestObserver
                void(const base::FilePath& profile_path));
   MOCK_METHOD1(OnProfileManagementIdChanged,
                void(const base::FilePath& profile_path));
+  MOCK_METHOD1(OnProfileIsGlicEligibleChanged,
+               void(const base::FilePath& profile_path));
+  MOCK_METHOD2(OnProfileAiSubscriptionTierUpdated,
+               void(const base::FilePath& profile_path, int tier));
 };
 
 size_t GetDefaultAvatarIconResourceIDAtIndex(int index) {
@@ -227,6 +231,7 @@ class ProfileAttributesStorageTest : public testing::Test {
     EXPECT_CALL(observer_, OnProfileManagementEnrollmentTokenChanged(_))
         .Times(0);
     EXPECT_CALL(observer_, OnProfileManagementIdChanged(_)).Times(0);
+    EXPECT_CALL(observer_, OnProfileIsGlicEligibleChanged(_)).Times(0);
   }
 
   void EnableObserver() { scoped_observation_.Observe(storage()); }
@@ -798,7 +803,10 @@ TEST_F(ProfileAttributesStorageTest, EntryAccessors) {
   VerifyAndResetCallExpectations();
 
   TEST_BOOL_ACCESSORS(ProfileAttributesEntry, entry, IsEphemeral);
+
+  EXPECT_CALL(observer(), OnProfileAiSubscriptionTierUpdated(path, _)).Times(2);
   TEST_ACCESSORS(ProfileAttributesEntry, entry, AiSubscriptionTier, 1, 2);
+  VerifyAndResetCallExpectations();
 
   TEST_BOOL_ACCESSORS(ProfileAttributesEntry, entry, IsUsingDefaultAvatar);
   TEST_STRING_ACCESSORS(ProfileAttributesEntry, entry,
@@ -815,6 +823,9 @@ TEST_F(ProfileAttributesStorageTest, EntryAccessors) {
 
   EXPECT_CALL(observer(), OnProfileManagementIdChanged(path)).Times(2);
   TEST_STRING_ACCESSORS(ProfileAttributesEntry, entry, ProfileManagementId);
+
+  EXPECT_CALL(observer(), OnProfileIsGlicEligibleChanged(path)).Times(2);
+  TEST_BOOL_ACCESSORS(ProfileAttributesEntry, entry, IsGlicEligible);
 
   VerifyAndResetCallExpectations();
 }
@@ -2443,6 +2454,27 @@ TEST_F(ProfileAttributesStorageTest, GetHostedDomainFormatStability) {
   }
   EXPECT_EQ(entry->GetHostedDomain(), std::nullopt);
   EXPECT_EQ(entry->GetIsManaged(), signin::Tribool::kUnknown);
+}
+
+TEST_F(ProfileAttributesStorageTest, SetAiSubscriptionTierNotifiesObservers) {
+  base::FilePath profile_path = AddTestingProfile();
+
+  ProfileAttributesEntry* entry =
+      storage()->GetProfileAttributesWithPath(profile_path);
+  ASSERT_NE(entry, nullptr);
+
+  // Changing the AI subscription tier notifies observers via
+  // OnProfileAiSubscriptionTierUpdated.
+  EXPECT_CALL(observer(), OnProfileAiSubscriptionTierUpdated(profile_path, 1))
+      .Times(1);
+  entry->SetAiSubscriptionTier(1);
+  EXPECT_EQ(1, entry->GetAiSubscriptionTier());
+
+  // Setting the same tier does not trigger duplicate notifications.
+  EXPECT_CALL(observer(), OnProfileAiSubscriptionTierUpdated(profile_path, 1))
+      .Times(0);
+  entry->SetAiSubscriptionTier(1);
+  EXPECT_EQ(1, entry->GetAiSubscriptionTier());
 }
 
 INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(

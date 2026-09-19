@@ -67,7 +67,6 @@ def support_orchestrate(test_type: str) -> bool:
         'ozone_gl_unittests',
         'ozone_unittests',
         'perfetto_unittests',
-        'rust_gtest_interop_unittests',
         'services_unittests',
         'shell_dialogs_unittests',
         'skia_unittests',
@@ -100,7 +99,15 @@ def run_tests_with_orchestrate(
         logs_dir = '/tmp/'
 
     config_json = os.path.join(SCRIPT_DIR, 'orchestrate.json')
-    overrides = {'emulator': {'package_archives': packages}}
+    overrides = {
+        'emulator': {
+            'package_archives': packages,
+            'build_ids': [
+                os.path.join(os.path.dirname(pkg), 'ids.txt')
+                for pkg in packages
+            ],
+        }
+    }
     overrides_str = json.dumps(overrides)
 
     orchestrate_bin = os.path.join(common.SDK_TOOLS_DIR, 'orchestrate')

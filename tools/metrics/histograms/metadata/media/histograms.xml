@@ -752,6 +752,18 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Media.Android.MediaButtonWhilePaused.TimeSincePause.Pause"
+    units="ms" expires_after="2027-06-01">
+  <owner>philyan@chromium.org</owner>
+  <owner>media-dev-uma@chromium.org</owner>
+  <summary>
+    Records the elapsed time since media was paused when a KEYCODE_MEDIA_PAUSE
+    button event is received while the media notification is already paused.
+    Helps isolate rapid redundant pause events (such as dual earbud removal)
+    from delayed background events.
+  </summary>
+</histogram>
+
 <histogram name="Media.Android.MediaCodec.VideoInputExceedsMaxCapacity"
     enum="Boolean" expires_after="2027-03-24">
   <owner>sobek@google.com</owner>
@@ -929,9 +941,10 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Media.Audio.Android.AAudioFramesPerDataCallback.{Direction}{AudioLatencyTag}"
-    units="frames" expires_after="2026-09-27">
+    units="frames" expires_after="2027-09-27">
   <owner>kawasin@google.com</owner>
   <owner>tguilbert@chromium.org</owner>
+  <owner>media-dev-uma@chromium.org</owner>
   <summary>
     The number of frames per data callback for an AAudio stream got by
     `AAudioStream_getFramesPerDataCallback()` and {AudioLatencyTag}. Logged when
@@ -1053,9 +1066,10 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Media.Audio.Android.PreferredOutputFramesPerBuffer{AudioLatencyTagWithInvalidInputParams}"
-    units="frames" expires_after="2026-09-27">
+    units="frames" expires_after="2027-09-27">
   <owner>kawasin@google.com</owner>
   <owner>tguilbert@chromium.org</owner>
+  <owner>media-dev-uma@chromium.org</owner>
   <summary>
     The preferred output buffer size in frames for an audio output stream
     calculated from OS provided buffer size on Android. This is for audio output
@@ -1096,7 +1110,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Media.Audio.Android.RequestedOutputFramesPerBuffer{AudioLatencyTag}"
-    units="frames" expires_after="2026-09-27">
+    units="frames" expires_after="2027-09-27">
   <owner>kawasin@google.com</owner>
   <owner>olka@chromium.org</owner>
   <owner>dalecurtis@chromium.org</owner>
@@ -1176,7 +1190,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Media.Audio.Capture.LowLatencyCallbackError"
-    enum="BooleanError" expires_after="2026-12-13">
+    enum="BooleanError" expires_after="2027-02-14">
   <owner>guidou@chromium.org</owner>
   <owner>olka@chromium.org</owner>
   <owner>webrtc-audio-uma@google.com</owner>
@@ -1487,20 +1501,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Media.Audio.Capture.Win.InitDeviceInUseRetryOutcome"
-    enum="WASAPIInputDeviceInUseRetryOutcome" expires_after="2027-05-15">
-  <owner>henrika@chromium.org</owner>
-  <owner>webrtc-audio-uma@google.com</owner>
-  <summary>
-    The outcome of attempts to initialize the WASAPI audio input stream on
-    Windows when the first attempt failed with AUDCLNT_E_DEVICE_IN_USE. Records
-    whether retries succeeded or failed, or if no retries occurred because the
-    feature was disabled. This is logged once per stream open attempt if and
-    only if the first call to IAudioClient::Initialize returns
-    AUDCLNT_E_DEVICE_IN_USE.
-  </summary>
-</histogram>
-
 <histogram name="Media.Audio.Capture.Win.InitError.FormatRelated"
     enum="AudioStreamFormatRelatedInitError" expires_after="2027-01-17">
   <owner>fhernqvist@google.com</owner>
@@ -1543,20 +1543,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Media.Audio.Capture.Win.InitializeSucceeded" enum="Boolean"
-    expires_after="2027-05-15">
-  <owner>henrika@chromium.org</owner>
-  <owner>fhernqvist@google.com</owner>
-  <owner>webrtc-audio-uma@google.com</owner>
-  <summary>
-    Logs whether IAudioClient::Initialize() succeeded (after all retries) in
-    WASAPIAudioInputStream::InitializeAudioEngine on Windows. Logged once per
-    stream initialization.
-  </summary>
-</histogram>
-
 <histogram name="Media.Audio.Capture.Win.Open" enum="AudioStreamOpenResult"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>gudiou@chromium.org</owner>
   <owner>olka@chromium.org</owner>
   <owner>fhernqvist@google.com</owner>
@@ -1595,7 +1583,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Media.Audio.Capture.Win.VoiceProcessingEffects"
-    enum="AudioEffectType" expires_after="2026-09-01">
+    enum="AudioEffectType" expires_after="2027-03-01">
   <owner>henrika@chromium.org</owner>
   <owner>olka@chromium.org</owner>
   <owner>webrtc-audio-uma@google.com</owner>
@@ -1759,7 +1747,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Media.Audio.InputController.Delay.{AECType}" units="ms"
-    expires_after="2026-09-27">
+    expires_after="2027-03-27">
   <owner>henrika@chromium.org</owner>
   <owner>fhernqvist@google.com</owner>
   <owner>webrtc-audio-uma@google.com</owner>
@@ -2279,7 +2267,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Media.Audio.Render.OutputDeviceStatus"
-    enum="OutputDeviceStatus" expires_after="2026-12-13">
+    enum="OutputDeviceStatus" expires_after="2027-02-14">
   <owner>dalecurtis@chromium.org</owner>
   <owner>guidou@chromium.org</owner>
   <owner>olka@chromium.org</owner>
@@ -2317,7 +2305,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Media.Audio.Render.SystemDelay" units="ms"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>fhernqvist@google.com</owner>
   <owner>olka@chromium.org</owner>
   <owner>webrtc-audio-uma@google.com</owner>
@@ -2549,7 +2537,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Media.Audio.{Type}.SystemGlitchDuration" units="ms"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>fhernqvist@google.com</owner>
   <owner>olka@chromium.org</owner>
   <owner>webrtc-audio-uma@google.com</owner>
@@ -2951,7 +2939,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Media.AudioRendererImpl.SinkStatus" enum="OutputDeviceStatus"
-    expires_after="2026-12-13">
+    expires_after="2027-02-14">
   <owner>olka@chromium.org</owner>
   <owner>fhernqvist@google.com</owner>
   <owner>webrtc-audio-uma@google.com</owner>
@@ -3444,6 +3432,24 @@ chromium-metrics-reviews@google.com.
     Media.Capabilities.DecodingInfo.RequestTime.Video that only takes into
     account encrypted content.
   </summary>
+</histogram>
+
+<histogram name="Media.Capabilities.TimedOut.{QueryType}"
+    enum="BooleanTimedOut" expires_after="2027-08-24">
+  <owner>kron@chromium.org</owner>
+  <owner>media-dev-uma@chromium.org</owner>
+  <summary>
+    Records whether an asynchronous MediaCapabilities {QueryType} query timed
+    out (true) or completed and resolved before timing out (false). Recorded
+    just before the query promise is resolved, either upon normal completion
+    with capabilities or upon timing out with fallback capabilities.
+  </summary>
+  <token key="QueryType">
+    <variant name="Decoding"
+        summary="non-WebRTC decoding (file or media-source)"/>
+    <variant name="WebrtcDecoding" summary="WebRTC decoding"/>
+    <variant name="WebrtcEncoding" summary="WebRTC encoding"/>
+  </token>
 </histogram>
 
 <histogram name="Media.CodedSizeGuessing" enum="CodedSizeGuessStatus"
@@ -5562,7 +5568,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Media.LowLatencyAudioCaptureStartupSuccess"
-    enum="AudioCaptureStartupResult" expires_after="2026-12-13">
+    enum="AudioCaptureStartupResult" expires_after="2027-02-14">
   <owner>armax@chromium.org</owner>
   <owner>guidou@chromium.org</owner>
   <owner>olka@chromium.org</owner>
@@ -5747,7 +5753,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Media.MediaDevices.GetDisplayMedia.Result3"
-    enum="UserMediaRequestResult" expires_after="2026-12-16">
+    enum="UserMediaRequestResult" expires_after="2027-02-14">
   <owner>toprice@chromium.org</owner>
   <owner>agpalak@chromium.org</owner>
   <owner>video-cmi-apis@google.com</owner>
@@ -6568,7 +6574,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Media.MojoAudioDecoder.Initialized" enum="DecoderStatus"
-    expires_after="2026-10-06">
+    expires_after="2027-02-14">
   <owner>dalecurtis@chromium.org</owner>
   <owner>media-dev-uma@chromium.org</owner>
   <summary>
@@ -6577,7 +6583,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Media.MojoAudioDecoder.LastDecodeStatus" enum="DecoderStatus"
-    expires_after="2026-10-06">
+    expires_after="2027-02-14">
   <owner>dalecurtis@chromium.org</owner>
   <owner>media-dev-uma@chromium.org</owner>
   <summary>
@@ -7949,7 +7955,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Media.Ui.GetDisplayMedia.HasScreenRecordingPermission"
-    enum="Boolean" expires_after="2026-09-25">
+    enum="Boolean" expires_after="2027-09-25">
   <owner>tovep@chromium.org</owner>
   <owner>eladalon@chromium.org</owner>
   <owner>kron@chromium.org</owner>
@@ -8486,7 +8492,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Media.VideoCapture.StartOutcome"
-    enum="VideoCaptureStartOutcome" expires_after="2026-12-16">
+    enum="VideoCaptureStartOutcome" expires_after="2027-02-14">
   <owner>toprice@chromium.org</owner>
   <owner>guidou@chromium.org</owner>
   <summary>
@@ -8990,7 +8996,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Media.VideoResourceUpdater.FrameFormat"
-    enum="VideoPixelFormatUnion" expires_after="2026-12-16">
+    enum="VideoPixelFormatUnion" expires_after="2027-02-14">
   <owner>dalecurtis@chromium.org</owner>
   <owner>media-dev@chromium.org</owner>
   <summary>
@@ -9209,7 +9215,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Media.WebMediaPlayerCompositor.10xHarmonicFrameRate"
-    units="Hz" expires_after="2026-12-16">
+    units="Hz" expires_after="2027-02-14">
   <owner>handellm@google.com</owner>
   <owner>webrtc-video@google.com</owner>
   <summary>
@@ -9223,7 +9229,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Media.WebMediaPlayerCompositor.NegativeDisplayDurationCount"
-    units="count" expires_after="2026-12-16">
+    units="count" expires_after="2027-02-14">
   <owner>handellm@google.com</owner>
   <owner>webrtc-video@google.com</owner>
   <summary>
@@ -9247,7 +9253,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Media.WebMediaPlayerCompositor.ReproductionJitter.{ContentType}.{Origin}"
-    units="ms" expires_after="2026-12-14">
+    units="ms" expires_after="2027-02-14">
   <owner>handellm@google.com</owner>
   <owner>webrtc-video@google.com</owner>
   <summary>

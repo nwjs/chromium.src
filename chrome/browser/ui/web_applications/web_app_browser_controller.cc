@@ -22,14 +22,13 @@
 #include "build/build_config.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
-#include "chrome/browser/ash/browser_delegate/browser_controller.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/tabs/tab_menu_model_factory.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_dialogs.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
@@ -64,6 +63,7 @@
 #include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/safe_url_pattern.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -77,10 +77,14 @@
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/constants/ash_features.h"
 #include "chrome/browser/ash/apps/apk_web_app_service.h"
+#include "chrome/browser/ash/browser_delegate/browser_controller.h"
 #include "chrome/browser/ash/system_web_apps/color_helpers.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/web_applications/chromeos_web_app_experiments.h"
 #include "chromeos/ash/experiences/system_web_apps/types/system_web_app_delegate.h"
 #include "chromeos/constants/chromeos_features.h"
+#include "components/tabs/public/tab_context_menu_command.h"
+#include "ui/menus/simple_menu_model.h"
 #endif
 
 namespace web_app {
@@ -89,33 +93,6 @@ namespace {
 
 #if BUILDFLAG(IS_CHROMEOS)
 constexpr char kRelationship[] = "delegate_permission/common.handle_all_urls";
-
-// SystemWebAppDelegate provides menu.
-class SystemAppTabMenuModelFactory : public TabMenuModelFactory {
- public:
-  explicit SystemAppTabMenuModelFactory(
-      const ash::SystemWebAppDelegate* system_app)
-      : system_app_(system_app) {}
-  SystemAppTabMenuModelFactory(const SystemAppTabMenuModelFactory&) = delete;
-  SystemAppTabMenuModelFactory& operator=(const SystemAppTabMenuModelFactory&) =
-      delete;
-  ~SystemAppTabMenuModelFactory() override = default;
-
-  TabMenuModel* AsTabMenuModel(ui::SimpleMenuModel* model) override {
-    return nullptr;
-  }
-
-  std::unique_ptr<ui::SimpleMenuModel> Create(
-      ui::SimpleMenuModel::Delegate* delegate,
-      TabMenuModelDelegate* tab_menu_model_delegate,
-      TabStripModel*,
-      int) override {
-    return system_app_->GetTabMenuModel(delegate);
-  }
-
- private:
-  const raw_ptr<const ash::SystemWebAppDelegate> system_app_;
-};
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 base::OnceClosure& IconLoadCallbackForTesting() {
@@ -188,15 +165,15 @@ bool WebAppBrowserController::HasMinimalUiButtons() const {
   return effective_display_mode_ == DisplayMode::kMinimalUi;
 }
 
-std::unique_ptr<TabMenuModelFactory>
-WebAppBrowserController::GetTabMenuModelFactory() const {
 #if BUILDFLAG(IS_CHROMEOS)
-  if (system_app() && system_app()->HasCustomTabMenuModel()) {
-    return std::make_unique<SystemAppTabMenuModelFactory>(system_app());
+std::optional<base::flat_set<tabs::TabContextMenuCommand>>
+WebAppBrowserController::GetAllowedTabMenuCommands() const {
+  if (system_app()) {
+    return system_app()->GetAllowedTabMenuCommands();
   }
-#endif  // BUILDFLAG(IS_CHROMEOS)
-  return nullptr;
+  return std::nullopt;
 }
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 bool WebAppBrowserController::AppUsesWindowControlsOverlay() const {
   return effective_display_mode_ == DisplayMode::kWindowControlsOverlay;

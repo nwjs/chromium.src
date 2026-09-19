@@ -15,6 +15,14 @@ using keypair::PrivateKey;
 using keypair::PublicKey;
 using test::FixedEcP256PublicKeyAsCoseForTesting;
 using test::FixedEcP256PublicKeyForTesting;
+using test::FixedEd25519PublicKeyAsCoseForTesting;
+using test::FixedEd25519PublicKeyForTesting;
+using test::FixedMldsa44PublicKeyAsCoseForTesting;
+using test::FixedMldsa44PublicKeyForTesting;
+using test::FixedMldsa65PublicKeyAsCoseForTesting;
+using test::FixedMldsa65PublicKeyForTesting;
+using test::FixedMldsa87PublicKeyAsCoseForTesting;
+using test::FixedMldsa87PublicKeyForTesting;
 using test::FixedRsa2048PublicKeyAsCoseForTesting;
 using test::FixedRsa2048PublicKeyForTesting;
 
@@ -28,9 +36,29 @@ TEST(CoseTest, EcP256) {
             FixedEcP256PublicKeyAsCoseForTesting());
 }
 
-TEST(CoseTest, EdP256) {
+TEST(CoseTest, Ed25519) {
+  EXPECT_EQ(PublicKeyToCoseKey(FixedEd25519PublicKeyForTesting()),
+            FixedEd25519PublicKeyAsCoseForTesting());
+}
+
+TEST(CoseTest, Mldsa44) {
+  EXPECT_EQ(PublicKeyToCoseKey(FixedMldsa44PublicKeyForTesting()),
+            FixedMldsa44PublicKeyAsCoseForTesting());
+}
+
+TEST(CoseTest, Mldsa65) {
+  EXPECT_EQ(PublicKeyToCoseKey(FixedMldsa65PublicKeyForTesting()),
+            FixedMldsa65PublicKeyAsCoseForTesting());
+}
+
+TEST(CoseTest, Mldsa87) {
+  EXPECT_EQ(PublicKeyToCoseKey(FixedMldsa87PublicKeyForTesting()),
+            FixedMldsa87PublicKeyAsCoseForTesting());
+}
+
+TEST(CoseTest, EcP384) {
   EXPECT_NOTREACHED_DEATH(PublicKeyToCoseKey(
-      PublicKey::FromPrivateKey(PrivateKey::GenerateEd25519())));
+      PublicKey::FromPrivateKey(PrivateKey::GenerateEcP384())));
 }
 
 }  // namespace crypto

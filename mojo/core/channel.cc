@@ -396,13 +396,8 @@ Channel::MessagePtr Channel::Message::CreateMessage(size_t payload_size,
 Channel::MessagePtr Channel::Message::CreateMessage(size_t capacity,
                                                     size_t payload_size,
                                                     size_t max_handles) {
-#if defined(MOJO_CORE_LEGACY_PROTOCOL)
-  return CreateMessage(capacity, payload_size, max_handles,
-                       Message::MessageType::NORMAL_LEGACY);
-#else
   return CreateMessage(capacity, payload_size, max_handles,
                        Message::MessageType::NORMAL);
-#endif
 }
 
 // static
@@ -1103,10 +1098,9 @@ bool Channel::OnReadComplete(size_t bytes_read, size_t* next_read_size_hint) {
       if (!DispatchDelayedMessages()) {
         return false;
       }
-    } else if (result == DispatchResult::kNotEnoughData) {
+    } else if (result == DispatchResult::kNotEnoughData ||
+               result == DispatchResult::kMissingHandles) {
       return true;
-    } else if (result == DispatchResult::kMissingHandles) {
-      break;
     } else if (result == DispatchResult::kError) {
       return false;
     }

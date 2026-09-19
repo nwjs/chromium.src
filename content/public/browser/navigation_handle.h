@@ -13,6 +13,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/advanced_memory_safety_checks.h"
 #include "base/memory/safe_ref.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/supports_user_data.h"
 #include "base/unguessable_token.h"
 #include "content/common/content_export.h"
@@ -57,6 +58,10 @@ class HttpResponseHeaders;
 class IsolationInfo;
 class SSLInfo;
 }  // namespace net
+
+namespace network {
+class ResourceRequestBody;
+}  // namespace network
 
 namespace perfetto::protos::pbzero {
 class NavigationHandle;
@@ -334,6 +339,12 @@ class CONTENT_EXPORT NavigationHandle : public base::SupportsUserData {
   // server redirect).
   virtual std::string GetRequestMethod() = 0;
 
+  // Returns the ResourceRequestBody (POST data) for the navigation request, or
+  // nullptr if there is none. This is available starting from navigation start
+  // time (e.g. in `DidStartNavigation()`), but may be cleared if the navigation
+  // encounters an error or is redirected to a non-POST request.
+  virtual scoped_refptr<network::ResourceRequestBody> GetPostData() const = 0;
+
   // Returns a sanitized version of the referrer for this request.
   virtual const blink::mojom::Referrer& GetReferrer() = 0;
 
@@ -520,11 +531,8 @@ class CONTENT_EXPORT NavigationHandle : public base::SupportsUserData {
   // happens with 'history.replaceState()'), or navigations in non-primary frame
   // trees that should not appear in history.
   //
-  // NOTE: When `history::kVisitedLinksOn404` is enabled, this method will
-  // return true for 404s from reachable URLs. When
-  // `history::kVisitedLinksOn404` is disabled, this method will return false
-  // for 404s. If callers wish to filter out 404s, they must perform an explicit
-  // response code check.
+  // NOTE: This method returns true for 404s from reachable URLs. Callers that
+  // wish to filter out 404s must perform an explicit response code check.
   virtual bool ShouldUpdateHistory() = 0;
 
   // The previous main frame URL that the user was on. This may be empty if
@@ -896,6 +904,11 @@ class CONTENT_EXPORT NavigationHandle : public base::SupportsUserData {
   // inaccurate. Notably, this defers from the status from `StartedByAd()` as it
   // can include other signals outside of the initiator.
   virtual void SetIsAdTagged() = 0;
+
+  // Allows the embedder to mark whether this navigation matched an ad filter
+  // anchored to the domain/host.
+  virtual void SetIsAdTaggedByHostFilter() = 0;
+  virtual bool IsAdTaggedByHostFilter() const = 0;
 
   // If the navigation is discarded without committing, returns the reason for
   // the discarding. See `NavigationDiscardReason` for the various cases.

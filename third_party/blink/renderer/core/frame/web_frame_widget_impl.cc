@@ -98,6 +98,7 @@
 #include "third_party/blink/renderer/core/editing/ime/input_method_controller.h"
 #include "third_party/blink/renderer/core/editing/ime/stylus_writing_gesture.h"
 #include "third_party/blink/renderer/core/editing/position_with_affinity.h"
+#include "third_party/blink/renderer/core/editing/reveal_selection_scope.h"
 #include "third_party/blink/renderer/core/editing/selection_template.h"
 #include "third_party/blink/renderer/core/editing/visible_selection.h"
 #include "third_party/blink/renderer/core/events/clipboard_event.h"
@@ -152,7 +153,7 @@
 #include "third_party/blink/renderer/core/page/validation_message_client.h"
 #include "third_party/blink/renderer/core/page/viewport_description.h"
 #include "third_party/blink/renderer/core/paint/timing/first_meaningful_paint_detector.h"
-#include "third_party/blink/renderer/core/paint/timing/paint_timing_detector.h"
+#include "third_party/blink/renderer/core/paint/timing/paint_timing.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/scroll/scroll_into_view_util.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
@@ -1304,7 +1305,6 @@ WebInputEventResult WebFrameWidgetImpl::HandleGestureEvent(
         }
       }
       event_result = WebInputEventResult::kHandledSystem;
-      DidHandleGestureEvent(event);
       return event_result;
     default:
       break;
@@ -1406,7 +1406,6 @@ WebInputEventResult WebFrameWidgetImpl::HandleGestureEvent(
     default:
       NOTREACHED();
   }
-  DidHandleGestureEvent(event);
   return event_result;
 }
 
@@ -1990,6 +1989,9 @@ void WebFrameWidgetImpl::UpdateVisualProperties(
         visual_properties.min_size_for_auto_resize,
         visual_properties.max_size_for_auto_resize,
         visual_properties.screen_infos.current().device_scale_factor);
+    if (View() && View()->GetPage()) {
+      View()->GetPage()->SetAlwaysOnTop(visual_properties.always_on_top);
+    }
   }
 
   if (!View()->AutoResizeMode()) {
@@ -2831,22 +2833,39 @@ WebFrameWidgetImpl::GetOrCreateUnboundedSurfaceState(
   return unbounded_surface_state_.Get();
 }
 
-void WebFrameWidgetImpl::DismissUnboundedSurfaceState(bool is_teardown) {
+void WebFrameWidgetImpl::DismissUnboundedSurfaceState(
+    UnboundedDismissReason reason) {
   CHECK(RuntimeEnabledFeatures::UnboundedElementEnabled());
   if (!unbounded_surface_state_) {
     return;
   }
   auto state = unbounded_surface_state_;
+
+  if (state->active_element_) {
+    UnboundedEvents events =
+        (reason == UnboundedDismissReason::kTeardown)
+            ? UnboundedEvents::kSuppress
+            : ((reason == UnboundedDismissReason::kInteractive)
+                   ? UnboundedEvents::kFireCancelable
+                   : UnboundedEvents::kFireNonCancelable);
+    if (!state->active_element_->SetUnboundedElementActive(false, events)) {
+      // beforetoggle was canceled - notify host and do not dismiss.
+      if (state->host_.is_bound()) {
+        state->host_->DidCancelDismissal();
+      }
+      return;
+    }
+  }
+
   unbounded_surface_state_ = nullptr;
-  state->host_.reset();
-  state->client_receiver_.reset();
+
   if (auto* resolver = state->unbounded_element_resolver_.Get()) {
     auto reject_promise = [](ScriptPromiseResolver<IDLUndefined>* resolver) {
       resolver->Reject(MakeGarbageCollected<DOMException>(
           DOMExceptionCode::kAbortError,
           "The unbounded element was dismissed."));
     };
-    if (!is_teardown) {
+    if (reason != UnboundedDismissReason::kTeardown) {
       reject_promise(resolver);
     } else if (auto* context = resolver->GetExecutionContext()) {
       context->GetTaskRunner(TaskType::kInternalDefault)
@@ -2855,18 +2874,37 @@ void WebFrameWidgetImpl::DismissUnboundedSurfaceState(bool is_teardown) {
     }
     state->unbounded_element_resolver_ = nullptr;
   }
-  if (state->active_element_) {
-    state->active_element_->SetUnboundedElementActive(
-        false,
-        is_teardown ? UnboundedEvents::kSuppress : UnboundedEvents::kFire);
-  }
+
   if (auto* host = LayerTreeHost()) {
     host->DismissUnboundedFrameSink();
+  }
+
+  if (reason == UnboundedDismissReason::kTeardown) {
+    state->host_.reset();
+    state->client_receiver_.reset();
+  } else {
+    if (auto* host = LayerTreeHost()) {
+      host->SetNeedsCommitWithForcedRedraw();
+    }
+    if (state->host_.is_bound()) {
+      NotifyPresentationTime(BindOnce(
+          [](mojo::PendingAssociatedRemote<mojom::blink::UnboundedSurfaceHost>
+                 pending_host,
+             const viz::FrameTimingDetails&) {
+            if (pending_host.is_valid()) {
+              mojo::AssociatedRemote<mojom::blink::UnboundedSurfaceHost> host(
+                  std::move(pending_host));
+              host->DidPresentFrameAfterDismissal();
+            }
+          },
+          state->host_.Unbind()));
+    }
+    state->client_receiver_.reset();
   }
 }
 
 void WebFrameWidgetImpl::UnboundedContextDestroyed() {
-  DismissUnboundedSurfaceState(/*is_teardown=*/true);
+  DismissUnboundedSurfaceState(UnboundedDismissReason::kTeardown);
 }
 
 HTMLElement* WebFrameWidgetImpl::GetActiveUnboundedElement() const {
@@ -2987,7 +3025,7 @@ void WebFrameWidgetImpl::OnSurfaceAllocated(
 }
 
 void WebFrameWidgetImpl::OnDismissed() {
-  DismissUnboundedSurfaceState(/*is_teardown=*/false);
+  DismissUnboundedSurfaceState(UnboundedDismissReason::kInteractive);
 }
 
 void WebFrameWidgetImpl::UpdateUnboundedElementBounds(const gfx::Rect& bounds) {
@@ -4356,6 +4394,14 @@ void WebFrameWidgetImpl::CommitText(
     DOMNodeIdType target_dom_node_id) {
   TargetImeNodeFocusChangeScope focus_scope(target_dom_node_id);
 
+  std::optional<RevealSelectionScope> reveal_selection_scope;
+  if (LocalFrame* target_frame = !target_dom_node_id.is_null()
+                                     ? FocusedLocalFrameInWidget()
+                                     : nullptr) {
+    // If given a target node, keep the selection in view.
+    reveal_selection_scope.emplace(*target_frame);
+  }
+
   WebInputMethodController* controller = GetActiveWebInputMethodController();
   if (!controller) {
     return;
@@ -5586,7 +5632,7 @@ void WebFrameWidgetImpl::NotifyInputObservers(
   }
 
   const WebInputEvent& input_event = coalesced_event.Event();
-  PaintTimingDetector::From(*document).NotifyInputEvent(input_event.GetType());
+  PaintTiming::From(*document).NotifyInputEvent(input_event.GetType());
 }
 
 Frame* WebFrameWidgetImpl::FocusedCoreFrame() const {
@@ -6039,14 +6085,8 @@ bool WebFrameWidgetImpl::SetResizableRequested(
 void WebFrameWidgetImpl::OnWindowShowStateChanged(
     ui::mojom::blink::WindowShowState old_state,
     ui::mojom::blink::WindowShowState new_state) {
-  LocalFrame* frame = local_root_ ? local_root_->GetFrame() : nullptr;
-  Document* document = frame ? frame->GetDocument() : nullptr;
-  ExecutionContext* execution_context =
-      document ? document->GetExecutionContext() : nullptr;
-
-  if (!execution_context ||
-      !RuntimeEnabledFeatures::DesktopPWAsAdditionalWindowingControlsEnabled(
-          execution_context)) {
+  if (!RuntimeEnabledFeatures::
+          DesktopPWAsAdditionalWindowingControlsEnabled()) {
     return;
   }
 
@@ -6076,14 +6116,8 @@ void WebFrameWidgetImpl::OnWindowShowStateChanged(
 }
 
 void WebFrameWidgetImpl::OnResizableChanged(bool new_resizable) {
-  LocalFrame* frame = local_root_ ? local_root_->GetFrame() : nullptr;
-  Document* document = frame ? frame->GetDocument() : nullptr;
-  ExecutionContext* execution_context =
-      document ? document->GetExecutionContext() : nullptr;
-
-  if (!execution_context ||
-      !RuntimeEnabledFeatures::DesktopPWAsAdditionalWindowingControlsEnabled(
-          execution_context) ||
+  if (!RuntimeEnabledFeatures::
+          DesktopPWAsAdditionalWindowingControlsEnabled() ||
       !ForMainFrame()) {
     return;
   }

@@ -126,7 +126,9 @@ class ExecutionEngine : public ToolDelegate,
     kAllowByContainerConfig = 4,
     // AgentContainerConfig was provided and blocked this site.
     kBlockByContainerConfig = 5,
-    kMaxValue = kBlockByContainerConfig,
+    // The navigation was blocked due to a dangerous MIME type in the response.
+    kBlockByDangerousMimeType = 6,
+    kMaxValue = kBlockByDangerousMimeType,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/actor/enums.xml:GatingDecision)
 
@@ -253,18 +255,16 @@ class ExecutionEngine : public ToolDelegate,
       std::unique_ptr<actor_login::ActorLoginService> actor_login_service);
 
   // Callback invoked when ConfirmCrossOriginNavigation, which spawns an IPC to
-  // the web client, receives its response. This callback gets a boolean
-  // indicating if navigation should continue.
+  // the web client, receives its response.
   using NavigationDecisionCallback =
-      base::OnceCallback<void(bool may_continue)>;
+      base::OnceCallback<void(MayActOnUrlBlockReason)>;
 
-  // Returns a value indicating how the given navigation should be handled
-  // (proceed, cancel and ignore, defer, etc.). This method must only be called
-  // on the primary main frame or a prerendered main frame. `callback` will be
-  // invoked iff this function returns `content::NavigationThrottle::DEFER`.
-  content::NavigationThrottle::ThrottleAction ShouldDeferNavigation(
-      content::NavigationHandle& navigation_handle,
-      NavigationDecisionCallback callback);
+  // Invokes `callback` with a value indicating how the given navigation should
+  // be handled (proceed, cancel and ignore). This method must only be called on
+  // the primary main frame or a prerendered main frame. `callback` will be
+  // invoked after this function returns.
+  void ShouldNavigationCommit(content::NavigationHandle& navigation_handle,
+                              NavigationDecisionCallback callback);
 
   // Cancels all pending navigation gating checks, resolving their callbacks
   // with a negative decision (e.g., false or kTaskWentAway).
@@ -436,7 +436,7 @@ class ExecutionEngine : public ToolDelegate,
       ukm::SourceId ukm_source_id,
       base::ScopedUmaHistogramTimer timer,
       State engine_state,
-      NavigationDecisionCallback callback,
+      base::OnceCallback<void(bool)> callback,
       webui::mojom::NavigationConfirmationResponsePtr response);
 
   // Makes the web client confirm with the user that the actor is allowed to
@@ -448,7 +448,7 @@ class ExecutionEngine : public ToolDelegate,
       base::OnceCallback<void(NoVerdictResult)> callback);
   void OnPromptUserToConfirmNavigationDecision(
       const url::Origin& destination,
-      NavigationDecisionCallback callback,
+      base::OnceCallback<void(bool)> callback,
       webui::mojom::UserConfirmationDialogResponsePtr response);
 
   State state_ = State::kInit;

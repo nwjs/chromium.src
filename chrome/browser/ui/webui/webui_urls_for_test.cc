@@ -52,7 +52,6 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://connectors-internals",
       "chrome://content-settings",
 #if !BUILDFLAG(IS_ANDROID)
-      "chrome://content-annotator-internals",
       "chrome://contextual-cueing-internals",
 #endif
       "chrome://context-hub",
@@ -134,6 +133,7 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://optimization-guide-internals",
 #if !BUILDFLAG(IS_ANDROID)
       "chrome://organizer-panel.top-chrome",
+      "chrome://page-action-internals",
 #endif
       "chrome://password-manager",
       "chrome://password-manager-internals",
@@ -323,8 +323,6 @@ base::span<const std::string_view> GetUntestedChromeUrlsForTest() {
       "chrome://internals",
       // Note: Disabled because a DCHECK fires when directly visiting the URL.
       "chrome://managed-user-profile-notice",
-      // TODO(crbug.com/40185163): DCHECK failure
-      "chrome://memory-internals",
       "chrome://omnibox-everywhere.top-chrome",
       "chrome://omnibox-popup.top-chrome",
       "chrome://profile-customization",

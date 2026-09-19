@@ -18,9 +18,9 @@
 #include "chrome/browser/signin/signin_browser_test_base.h"
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/signin/chrome_signout_confirmation_prompt.h"
 #include "chrome/browser/ui/signin/cross_device_signin_qr_bubble.h"
 #include "chrome/browser/ui/signin/signin_qrcode_infobar.h"
@@ -52,6 +52,7 @@
 #include "components/sync/base/data_type.h"
 #include "components/sync/base/data_type_histogram.h"
 #include "components/sync/test/test_sync_service.h"
+#include "content/public/browser/context_menu_params.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
@@ -304,7 +305,7 @@ IN_PROC_BROWSER_TEST_F(
   // Setup a primary account in error state.
   AccountInfo primary_account_info = SetPrimaryAccount();
   identity_test_env()->UpdatePersistentErrorOfRefreshTokenForAccount(
-      primary_account_info.account_id,
+      primary_account_info.GetAccountId(),
       GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
           GoogleServiceAuthError::InvalidGaiaCredentialsReason::
               CREDENTIALS_REJECTED_BY_SERVER));
@@ -330,7 +331,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // The tab was navigated to the signin page.
   content::WebContents* tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(tab);
   EXPECT_TRUE(IsSigninTab(tab));
 }
@@ -341,7 +342,7 @@ IN_PROC_BROWSER_TEST_F(
   // Setup a primary account in error state.
   AccountInfo primary_account_info = SetPrimaryAccount();
   identity_test_env()->UpdatePersistentErrorOfRefreshTokenForAccount(
-      primary_account_info.account_id,
+      primary_account_info.GetAccountId(),
       GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
           GoogleServiceAuthError::InvalidGaiaCredentialsReason::
               CREDENTIALS_REJECTED_BY_SERVER));
@@ -372,7 +373,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // The tab was navigated to the signout page.
   content::WebContents* tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(tab);
   EXPECT_TRUE(IsSignoutTab(tab));
 }
@@ -401,11 +402,11 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
 
   // User is still signed in.
   EXPECT_EQ(
-      primary_account_info.account_id,
+      primary_account_info.GetAccountId(),
       identity_manager()->GetPrimaryAccountId(signin::ConsentLevel::kSignin));
   // The tab was not navigated to the signin page or signout page.
   content::WebContents* tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(tab);
   EXPECT_FALSE(IsSigninTab(tab));
   EXPECT_FALSE(IsSignoutTab(tab));
@@ -439,7 +440,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
 
   // The tab was navigated to the signout page.
   content::WebContents* tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(tab);
   EXPECT_TRUE(IsSignoutTab(tab));
 }
@@ -472,7 +473,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
 
   // The tab was navigated to the signout page.
   content::WebContents* tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(tab);
   EXPECT_TRUE(IsSignoutTab(tab));
 }
@@ -483,7 +484,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
   AccountInfo primary_account_info = SetPrimaryAccount();
 
   identity_test_env()->UpdatePersistentErrorOfRefreshTokenForAccount(
-      primary_account_info.account_id,
+      primary_account_info.GetAccountId(),
       GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
           GoogleServiceAuthError::InvalidGaiaCredentialsReason::
               CREDENTIALS_REJECTED_BY_SERVER));
@@ -501,7 +502,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
 
   // The tab was navigated to the signout page.
   content::WebContents* tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(tab);
   EXPECT_TRUE(IsSignoutTab(tab));
 }
@@ -536,7 +537,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
 
   // The tab was navigated to the signout page.
   content::WebContents* tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(tab);
   EXPECT_TRUE(IsSignoutTab(tab));
 }
@@ -575,7 +576,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
 
   // The tab was not navigated to the signin page or signout page.
   content::WebContents* active_tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(active_tab);
   EXPECT_FALSE(IsSigninTab(active_tab));
   EXPECT_FALSE(IsSignoutTab(active_tab));
@@ -606,7 +607,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
 
   // The tab was navigated to the signout page.
   content::WebContents* tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(tab);
   EXPECT_TRUE(IsSignoutTab(tab));
 }
@@ -616,7 +617,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
   // Setup a primary account in error state.
   AccountInfo primary_account_info = SetPrimaryAccount();
   identity_test_env()->UpdatePersistentErrorOfRefreshTokenForAccount(
-      primary_account_info.account_id,
+      primary_account_info.GetAccountId(),
       GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
           GoogleServiceAuthError::InvalidGaiaCredentialsReason::
               CREDENTIALS_REJECTED_BY_SERVER));
@@ -652,16 +653,16 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
 
   // The tab was navigated to the signout page.
   content::WebContents* tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(tab);
   EXPECT_TRUE(IsSignoutTab(tab));
 }
 
 IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
                        ShowChromeSigninDialogForExtensionsPromptReuseOpenTab) {
-  ASSERT_EQ(browser()->tab_strip_model()->count(), 1);
+  ASSERT_EQ(browser()->GetTabStripModel()->count(), 1);
   ASSERT_TRUE(SigninViewController::IsNTPTab(
-      browser()->tab_strip_model()->GetActiveWebContents()));
+      browser()->GetTabStripModel()->GetActiveWebContents()));
 
   identity_test_env()->MakeAccountAvailable(kTestEmail, {.set_cookie = true});
   ASSERT_FALSE(identity_manager()->GetAccountsWithRefreshTokens().empty());
@@ -674,7 +675,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
   ASSERT_TRUE(dialog_delegate);
 
   content::WebContents* tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(tab);
   EXPECT_TRUE(SigninViewController::IsNTPTab(tab));
 
@@ -684,7 +685,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
   EXPECT_TRUE(
       identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSignin));
   ASSERT_TRUE(future.Wait());
-  ASSERT_EQ(browser()->tab_strip_model()->count(), 1);
+  ASSERT_EQ(browser()->GetTabStripModel()->count(), 1);
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -694,9 +695,9 @@ IN_PROC_BROWSER_TEST_F(
       browser(), GURL("https://www.google.com"),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
-  ASSERT_EQ(browser()->tab_strip_model()->count(), 2);
+  ASSERT_EQ(browser()->GetTabStripModel()->count(), 2);
   ASSERT_FALSE(SigninViewController::IsNTPTab(
-      browser()->tab_strip_model()->GetActiveWebContents()));
+      browser()->GetTabStripModel()->GetActiveWebContents()));
 
   identity_test_env()->MakeAccountAvailable(kTestEmail, {.set_cookie = true});
   ASSERT_FALSE(identity_manager()->GetAccountsWithRefreshTokens().empty());
@@ -709,7 +710,7 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(dialog_delegate);
 
   content::WebContents* tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(tab);
   EXPECT_TRUE(SigninViewController::IsNTPTab(tab));
 
@@ -719,16 +720,16 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(
       identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSignin));
   ASSERT_TRUE(future.Wait());
-  ASSERT_EQ(browser()->tab_strip_model()->count(), 2);
+  ASSERT_EQ(browser()->GetTabStripModel()->count(), 2);
 }
 
 IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
                        ShowChromeSigninDialogForExtensionsPromptInNewTab) {
   ASSERT_TRUE(
       ui_test_utils::NavigateToURL(browser(), GURL("https://www.google.com")));
-  ASSERT_EQ(browser()->tab_strip_model()->count(), 1);
+  ASSERT_EQ(browser()->GetTabStripModel()->count(), 1);
   ASSERT_FALSE(SigninViewController::IsNTPTab(
-      browser()->tab_strip_model()->GetActiveWebContents()));
+      browser()->GetTabStripModel()->GetActiveWebContents()));
 
   identity_test_env()->MakeAccountAvailable(kTestEmail, {.set_cookie = true});
   ASSERT_FALSE(identity_manager()->GetAccountsWithRefreshTokens().empty());
@@ -739,10 +740,10 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
   views::DialogDelegate* dialog_delegate =
       TriggerChromeSigninDialogForExtensionsPrompt(future.GetCallback());
   ASSERT_TRUE(dialog_delegate);
-  ASSERT_EQ(browser()->tab_strip_model()->count(), 2);
+  ASSERT_EQ(browser()->GetTabStripModel()->count(), 2);
 
   content::WebContents* tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(tab);
   EXPECT_TRUE(SigninViewController::IsNTPTab(tab));
 
@@ -808,14 +809,14 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
   // Request a sign in tab, which will open a new tab.
   browser()->GetFeatures().signin_view_controller()->ShowDiceAddAccountTab(
       signin_metrics::AccessPoint::kPasswordBubble, std::string());
-  EXPECT_TRUE(IsSigninTab(browser()->tab_strip_model()->GetActiveWebContents(),
+  EXPECT_TRUE(IsSigninTab(browser()->GetTabStripModel()->GetActiveWebContents(),
                           signin_metrics::AccessPoint::kPasswordBubble));
 
   // Request a sign in tab with a different access point, which will update the
   // existing sign in tab's access point.
   browser()->GetFeatures().signin_view_controller()->ShowDiceAddAccountTab(
       signin_metrics::AccessPoint::kAddressBubble, std::string());
-  EXPECT_TRUE(IsSigninTab(browser()->tab_strip_model()->GetActiveWebContents(),
+  EXPECT_TRUE(IsSigninTab(browser()->GetTabStripModel()->GetActiveWebContents(),
                           signin_metrics::AccessPoint::kAddressBubble));
 
   EXPECT_TRUE(signin_ui_util::GetSignInTabWithAccessPoint(
@@ -910,7 +911,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerSignInBanner, Visibility) {
   mock_bluetooth_adapter_->SetInitialized(true);
 
   content::WebContents* active_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(active_contents);
   content::WaitForLoadStop(active_contents);
 
@@ -933,7 +934,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerSignInBanner,
       signin_metrics::AccessPoint::kSettings, std::string());
 
   content::WebContents* active_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(active_contents);
 
   // Navigate away immediately before resolving the initialization.
@@ -955,7 +956,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerSignInBanner,
       signin_metrics::AccessPoint::kSettings, std::string());
 
   content::WebContents* active_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(active_contents);
 
   // Wait for navigation to complete before resolving Bluetooth initialization.
@@ -1011,7 +1012,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerSignInBannerNoBluetooth,
       signin_metrics::AccessPoint::kSettings, std::string());
 
   content::WebContents* active_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(active_contents);
 
   // Check that the infobar is NOT shown because bluetooth is unavailable.
@@ -1152,6 +1153,11 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerCrossDeviceSigninBrowserTest,
   EXPECT_EQ(web_contents->GetVisibleURL(),
             GURL(chrome::kChromeUICrossDeviceSigninQrBubbleURL));
 
+  // Verify that right-click context menu is disabled in this bubble.
+  content::ContextMenuParams params;
+  EXPECT_TRUE(web_contents->GetDelegate()->HandleContextMenu(
+      *web_contents->GetPrimaryMainFrame(), params));
+
   views::test::WidgetDestroyedWaiter waiter(bubble_widget);
   // Simulating a click on the avatar button should close the bubble because of
   // the explicit action.
@@ -1203,7 +1209,8 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerCrossDeviceSigninBrowserTest,
   EXPECT_TRUE(bubble_widget->IsVisible());
 
   views::test::WidgetDestroyedWaiter waiter(bubble_widget);
-  identity_test_env()->RemoveRefreshTokenForAccount(account_info.account_id);
+  identity_test_env()->RemoveRefreshTokenForAccount(
+      account_info.GetAccountId());
   waiter.Wait();
 }
 IN_PROC_BROWSER_TEST_F(SigninViewControllerCrossDeviceSigninBrowserTest,
@@ -1226,7 +1233,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerCrossDeviceSigninBrowserTest,
 
   views::test::WidgetDestroyedWaiter waiter(bubble_widget);
   identity_test_env()->UpdatePersistentErrorOfRefreshTokenForAccount(
-      account_info.account_id,
+      account_info.GetAccountId(),
       GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
           GoogleServiceAuthError::InvalidGaiaCredentialsReason::UNKNOWN));
   waiter.Wait();
@@ -1236,8 +1243,8 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerCrossDeviceSigninBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
                        ShowModalManagedUserNoticeDialog) {
-  AccountInfo account_info;
-  account_info.email = "email@example.com";
+  AccountInfo account_info =
+      AccountInfo::Builder(GaiaId("gaia_id"), "email@example.com").Build();
   base::MockCallback<signin::SigninChoiceCallback>
       mock_process_user_choice_callback;
   base::MockCallback<base::OnceClosure> mock_done_callback;
@@ -1629,7 +1636,7 @@ IN_PROC_BROWSER_TEST_P(SigninViewControllerBrowserCookieParamTest, SignOut) {
 
   // Signout tab was opened only if cookies there were cookies for the account.
   content::WebContents* tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_TRUE(tab);
   EXPECT_EQ(IsSignoutTab(tab), with_cookies());
   EXPECT_FALSE(IsSigninTab(tab));

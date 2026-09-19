@@ -38,6 +38,7 @@
 #include "third_party/perfetto/include/perfetto/ext/tracing/core/trace_writer.h"
 #include "third_party/perfetto/include/perfetto/ext/tracing/core/tracing_service.h"
 #include "third_party/perfetto/include/perfetto/tracing/core/trace_config.h"
+#include "third_party/perfetto/protos/perfetto/common/tracing_service_state.gen.h"
 
 using ShmemMode = perfetto::SharedMemoryArbiter::ShmemMode;
 
@@ -215,16 +216,24 @@ class ProducerEndpoint : public perfetto::ProducerEndpoint,
     producer_->OnTracingSetup();
   }
 
+  void SetupDataSource(
+      uint64_t id,
+      const perfetto::DataSourceConfig& data_source_config) override {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    ds_configs_[id] = data_source_config;
+    producer_->SetupDataSource(id, data_source_config);
+  }
+
   void StartDataSource(uint64_t id,
-                       const perfetto::DataSourceConfig& data_source_config,
                        StartDataSourceCallback callback) override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     DCHECK(ds_start_callbacks_.find(id) == ds_start_callbacks_.end());
     ds_start_callbacks_[id] = std::move(callback);
     auto it_and_inserted = ds_instances_.insert(id);
     DCHECK(it_and_inserted.second);
-    producer_->SetupDataSource(id, data_source_config);
-    producer_->StartDataSource(id, data_source_config);
+    auto it = ds_configs_.find(id);
+    DCHECK(it != ds_configs_.end());
+    producer_->StartDataSource(id, it->second);
   }
 
   void StopDataSource(uint64_t id, StopDataSourceCallback callback) override {
@@ -232,6 +241,7 @@ class ProducerEndpoint : public perfetto::ProducerEndpoint,
     DCHECK(ds_stop_callbacks_.find(id) == ds_stop_callbacks_.end());
     ds_stop_callbacks_[id] = std::move(callback);
     ds_instances_.erase(id);
+    ds_configs_.erase(id);
     producer_->StopDataSource(id);
   }
 
@@ -305,6 +315,8 @@ class ProducerEndpoint : public perfetto::ProducerEndpoint,
       ds_start_callbacks_;
   base::flat_map<perfetto::DataSourceInstanceID, StopDataSourceCallback>
       ds_stop_callbacks_;
+  base::flat_map<perfetto::DataSourceInstanceID, perfetto::DataSourceConfig>
+      ds_configs_;
   base::flat_set<perfetto::DataSourceInstanceID> ds_instances_;
 
   std::unique_ptr<mojo::Receiver<mojom::ProducerClient>> receiver_;
@@ -492,10 +504,23 @@ class ConsumerEndpoint : public perfetto::ConsumerEndpoint,
   }
 
   void QueryServiceState(QueryServiceStateArgs,
-                         QueryServiceStateCallback) override {
+                         QueryServiceStateCallback callback) override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-    // TODO(skyostil): Implement service state querying.
-    NOTREACHED();
+    if (!consumer_host_.is_bound()) {
+      perfetto::TracingServiceState empty_state;
+      callback(false, empty_state);
+      return;
+    }
+    consumer_host_->QueryServiceState(base::BindOnce(
+        [](QueryServiceStateCallback callback, bool success,
+           const std::string& service_state_data) {
+          perfetto::TracingServiceState service_state;
+          if (success) {
+            success = service_state.ParseFromString(service_state_data);
+          }
+          callback(success, service_state);
+        },
+        std::move(callback)));
   }
 
   void QueryCapabilities(QueryCapabilitiesCallback) override {

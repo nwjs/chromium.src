@@ -14,7 +14,7 @@
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_test_util.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/sessions/content/session_tab_helper.h"
@@ -1174,9 +1174,10 @@ IN_PROC_BROWSER_TEST_F(DeveloperModeNativeBindingsApiTest,
 
   const GURL extension_url = extension->GetResourceURL("page.html");
 
-  Browser* incognito_browser = OpenURLOffTheRecord(profile(), extension_url);
+  BrowserWindowInterface* incognito_browser =
+      OpenURLOffTheRecord(profile(), extension_url);
   content::WebContents* incognito_tab =
-      incognito_browser->tab_strip_model()->GetActiveWebContents();
+      incognito_browser->GetTabStripModel()->GetActiveWebContents();
   content::WaitForLoadStop(incognito_tab);
 
   ScriptResultQueue result_queue;

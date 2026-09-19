@@ -35,6 +35,10 @@ BASE_DECLARE_FEATURE(kAimServerEligibilitySendCoBrowseUserAgentSuffixEnabled);
 // Eligibility Service requests.
 BASE_DECLARE_FEATURE(kAimServerEligibilitySendFullVersionListEnabled);
 
+// If enabled, adds the Chrome-Search-Capabilities-Version header to all AIM
+// Eligibility Service requests.
+BASE_DECLARE_FEATURE(kAimServerEligibilitySendSearchCapabilitiesHeaderEnabled);
+
 // If enabled, uses a custom retry policy for the server request.
 BASE_DECLARE_FEATURE(kAimServerEligibilityCustomRetryPolicyEnabled);
 
@@ -57,6 +61,10 @@ extern const base::FeatureParam<bool> kRequestOnPrimaryAccountChanges;
 // If enabled, all composebox context menus will use the `SearchboxConfig` aka
 // PEC API response in the AIM eligibility response.
 BASE_DECLARE_FEATURE(kAimUsePecApi);
+
+// If enabled, searchbox context menus will use the dynamic icon IDs provided in
+// `SearchboxConfig` rather than legacy hardcoded client mappings.
+BASE_DECLARE_FEATURE(kAimUseSearchboxConfigIconIds);
 
 // Configures whether to include the client locale in the AIM eligibility
 // request.

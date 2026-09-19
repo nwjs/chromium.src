@@ -6,6 +6,8 @@
 
 #import "ios/chrome/browser/ai_prototyping/ui/actuation_worklog_debug_view_controller.h"
 #import "ios/chrome/browser/ai_prototyping/ui/ai_prototyping_actor_tool_chip_view_controller.h"
+#import "ios/chrome/browser/ai_prototyping/ui/ai_prototyping_actuation_task_button_view_controller.h"
+#import "ios/chrome/browser/ai_prototyping/ui/ai_prototyping_actuation_task_card_view_controller.h"
 #import "ios/chrome/browser/ai_prototyping/ui/ai_prototyping_mutator.h"
 #import "ios/chrome/browser/ai_prototyping/ui/ai_prototyping_worklog_compact_view_controller.h"
 #import "ios/chrome/browser/ai_prototyping/ui/ai_prototyping_worklog_item_showcase_view_controller.h"
@@ -67,8 +69,22 @@ NSString* const kUICatalogCellIdentifier = @"UICatalogCell";
   actuationSandboxItem.viewControllerClass =
       [ActuationWorklogDebugViewController class];
 
-  _items =
-      @[ chipsItem, worklogItem, compactWorklogItem, actuationSandboxItem ];
+  AIPrototypingUICatalogItem* taskButtonItem =
+      [[AIPrototypingUICatalogItem alloc] init];
+  taskButtonItem.title = @"Actuation Task Button";
+  taskButtonItem.viewControllerClass =
+      [AIPrototypingActuationTaskButtonViewController class];
+
+  AIPrototypingUICatalogItem* taskCardItem =
+      [[AIPrototypingUICatalogItem alloc] init];
+  taskCardItem.title = @"Actuation Task Card";
+  taskCardItem.viewControllerClass =
+      [AIPrototypingActuationTaskCardViewController class];
+
+  _items = @[
+    chipsItem, worklogItem, compactWorklogItem, actuationSandboxItem,
+    taskButtonItem, taskCardItem
+  ];
 }
 
 #pragma mark - UITableViewDataSource

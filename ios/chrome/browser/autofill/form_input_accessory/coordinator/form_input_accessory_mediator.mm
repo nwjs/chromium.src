@@ -21,11 +21,13 @@
 #import "components/autofill/ios/browser/form_suggestion.h"
 #import "components/autofill/ios/browser/form_suggestion_provider.h"
 #import "components/autofill/ios/browser/personal_data_manager_observer_bridge.h"
+#import "components/autofill/ios/common/features.h"
 #import "components/autofill/ios/form_util/form_activity_observer_bridge.h"
 #import "components/autofill/ios/form_util/form_activity_params.h"
 #import "components/feature_engagement/public/tracker.h"
 #import "components/omnibox/browser/omnibox_pref_names.h"
 #import "components/password_manager/core/browser/password_form.h"
+#import "components/password_manager/core/browser/password_string.h"
 #import "components/password_manager/core/browser/ui/credential_ui_entry.h"
 #import "components/password_manager/ios/password_suggestion_helper.h"
 #import "components/password_manager/ios/shared_password_controller.h"
@@ -82,6 +84,9 @@ namespace {
 // field type isn't recognized, it returns the provided default value.
 bool InputTriggersKeyboard(autofill::FormActivityParams::FieldType field_type,
                            bool default_value) {
+  if (field_type == autofill::FormActivityParams::FieldType::kContentEditable) {
+    return base::FeatureList::IsEnabled(kAutofillSupportContentEditableIos);
+  }
   static const auto triggers_keyboard =
       base::MakeFixedFlatSet<autofill::FormActivityParams::FieldType>({
           autofill::FormActivityParams::FieldType::kEmail,
@@ -452,17 +457,7 @@ bool IsStateless() {
 - (void)keyboardWillShow:(NSNotification*)notification {
   _keyboardHeightChangeNotificationsEnabled = YES;
 
-  if (base::FeatureList::IsEnabled(
-          kSuppressKeyboardWillShowSuggestionRefresh)) {
-    return;
-  }
-
-  if (base::FeatureList::IsEnabled(
-          kAutofillThrottleOptionalSuggestionRefresh)) {
-    [self scheduleOptionalUpdate];
-  } else {
-    [self updateSuggestionsIfNeeded];
-  }
+  [self updateSuggestionsIfNeeded];
 }
 
 - (void)keyboardWillChangeFrame:(NSNotification*)notification {
@@ -549,6 +544,10 @@ bool IsStateless() {
       ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE;
   BOOL isSelectOne =
       params.field_type == autofill::FormActivityParams::FieldType::kSelectOne;
+  BOOL isContentEditable =
+      params.field_type ==
+      autofill::FormActivityParams::FieldType::kContentEditable;
+  self.consumer.contentEditable = isContentEditable;
 
   // Return early and reset if element is a picker.
   if (isSelectOne && !isDefaultViewEnabled) {
@@ -774,6 +773,7 @@ bool IsStateless() {
     self.webState = nullptr;
     self.provider = nil;
     self.consumer.atMemoryButtonHidden = YES;
+    self.consumer.contentEditable = NO;
   }
 }
 
@@ -782,6 +782,7 @@ bool IsStateless() {
 - (void)reset {
   _lastSeenParams = autofill::FormActivityParams();
   _hasLastSeenParams = NO;
+  self.consumer.contentEditable = NO;
   [self.consumer showAccessorySuggestions:@[]];
 
   [self.handler resetFormInputView];
@@ -812,21 +813,30 @@ bool IsStateless() {
                         webState:self.webState
         accessoryViewUpdateBlock:^(NSArray<FormSuggestion*>* suggestions,
                                    id<FormInputSuggestionsProvider> provider) {
-          // Ignore suggestions if the results aren't from the latest query
-          // which provides the most relevant suggestions to fit the current
-          // context (i.e. for the field being focused).
-          if (queryID != weakSelf.latestQueryId) {
-            return;
-          }
-
-          // No suggestions found, return and don't update suggestions in view
-          // model.
-          if (!suggestions) {
-            return;
-          }
-
-          [weakSelf updateWithProvider:provider suggestions:suggestions];
+          [weakSelf onSuggestionsRetrieved:suggestions
+                                  provider:provider
+                                   queryID:queryID];
         }];
+}
+
+// Handles retrieved suggestions for the given `queryID`.
+- (void)onSuggestionsRetrieved:(NSArray<FormSuggestion*>*)suggestions
+                      provider:(id<FormInputSuggestionsProvider>)provider
+                       queryID:(uint)queryID {
+  // Ignore suggestions if the results aren't from the latest query
+  // which provides the most relevant suggestions to fit the current
+  // context (i.e. for the field being focused).
+  if (queryID != _latestQueryId) {
+    return;
+  }
+
+  // No suggestions found, return and don't update suggestions in view
+  // model.
+  if (!suggestions) {
+    return;
+  }
+
+  [self updateWithProvider:provider suggestions:suggestions];
 }
 
 // Posts the passed `suggestions` to the consumer.
@@ -1214,7 +1224,11 @@ bool IsStateless() {
   if (const Suggestion::PasswordSuggestionDetails* details =
           std::get_if<Suggestion::PasswordSuggestionDetails>(&payload)) {
     form.username_value = details->username;
-    form.password_value = details->password;
+    // TODO(crbug.com/513276101): Explicit construction of std::u16string
+    // R-Value to be removed once PasswordSuggestionDetails converted to use
+    // PasswordString
+    form.password_value =
+        password_manager::PasswordString(std::u16string(details->password));
     form.signon_realm = details->signon_realm.value_or(
         password_manager::GetSignonRealm(page_url));
   } else {
@@ -1230,7 +1244,11 @@ bool IsStateless() {
                                           SuggestionType::kBackupPasswordEntry
                                forFrameId:_lastSeenParams.frame_id];
       if (fill_data_result.has_value()) {
-        form.password_value = fill_data_result.value()->password_value;
+        // TODO(crbug.com/513276101): Explicit construction of std::u16string
+        // R-Value to be removed once FillDataRetrievalResult converted to use
+        // PasswordString
+        form.password_value = password_manager::PasswordString(
+            std::u16string(fill_data_result.value()->password_value));
         std::string raw_realm = !fill_data_result.value()->realm.empty()
                                     ? fill_data_result.value()->realm
                                     : fill_data_result.value()->origin.spec();

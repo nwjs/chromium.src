@@ -26,6 +26,7 @@
 #endif
 #include "components/strings/grit/components_strings.h"
 #include "components/user_education/webui/help_bubble_handler.h"
+#include "components/user_education/webui/user_education.mojom.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
@@ -59,6 +60,7 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
       {"lineSpacingTitle", IDS_READING_MODE_LINE_SPACING_COMBOBOX_LABEL},
       {"fontNameTitle", IDS_READING_MODE_FONT_NAME_COMBOBOX_LABEL},
       {"appearanceTitle", IDS_READING_MODE_APPEARANCE_LABEL},
+      {"audioTitle", IDS_READING_MODE_AUDIO_LABEL},
       {"textSettingsTitle", IDS_READING_MODE_TEXT_STYLE_LABEL},
       {"mediaTitle", IDS_READING_MODE_MEDIA_LABEL},
       {"themeTitle", IDS_READING_MODE_COLORS_COMBOBOX_LABEL},
@@ -135,7 +137,6 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
       {"pauseTooltip", IDS_READING_MODE_PAUSE_TOOLTIP},
       {"previousSentenceLabel", IDS_READING_MODE_NAVIGATE_PREVIOUS_SENTENCE},
       {"nextSentenceLabel", IDS_READING_MODE_NAVIGATE_NEXT_SENTENCE},
-      {"moreOptionsLabel", IDS_READING_MODE_MORE_OPTIONS},
       {"settingsLabel", IDS_READING_MODE_SETTINGS},
       {"translateLabel", IDS_READING_MODE_TRANSLATE},
       {"voiceSpeedLabel", IDS_READING_MODE_VOICE_SPEED},
@@ -214,6 +215,9 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
       {"linksLabel", IDS_READING_MODE_LINKS_LABEL},
       {"aiPlaybackTurnOn", IDS_READING_MODE_AI_PLAYBACK_TURN_ON},
       {"aiPlaybackTurnOff", IDS_READING_MODE_AI_PLAYBACK_TURN_OFF},
+      {"voiceLabel", IDS_READING_MODE_VOICE_LABEL},
+      {"accentMenuLabel", IDS_READING_MODE_ACCENT_MENU_LABEL},
+      {"accentMenuClose", IDS_READING_MODE_ACCENT_MENU_CLOSE},
   };
   for (const auto& str : kLocalizedStrings) {
     webui::AddLocalizedString(source, str.name, str.id);
@@ -302,6 +306,14 @@ void ReadAnythingUntrustedUI::BindInterface(
   help_bubble_handler_factory_receiver_.Bind(std::move(receiver));
 }
 
+void ReadAnythingUntrustedUI::BindInterface(
+    mojo::PendingReceiver<
+        user_education::mojom::UserEducationMixedTrustHandlerFactory>
+        receiver) {
+  user_education_handler_factory_receiver_.reset();
+  user_education_handler_factory_receiver_.Bind(std::move(receiver));
+}
+
 void ReadAnythingUntrustedUI::CreateHelpBubbleHandler(
     mojo::PendingRemote<help_bubble::mojom::HelpBubbleClient> client,
     mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandler> handler) {
@@ -309,6 +321,13 @@ void ReadAnythingUntrustedUI::CreateHelpBubbleHandler(
       std::move(handler), std::move(client),
       ui::TrackedElementHandlerDocumentSingleton::GetOrCreate(
           web_ui()->GetRenderFrameHost()));
+}
+
+void ReadAnythingUntrustedUI::CreateUserEducationMixedTrustHandler(
+    mojo::PendingReceiver<user_education::mojom::UserEducationMixedTrustHandler>
+        handler) {
+  user_education_handler_ = std::make_unique<UserEducationMixedTrustHandler>(
+      std::move(handler), web_ui()->GetWebContents());
 }
 
 void ReadAnythingUntrustedUI::CreateUntrustedPageHandler(

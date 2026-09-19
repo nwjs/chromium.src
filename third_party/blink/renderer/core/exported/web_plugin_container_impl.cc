@@ -252,7 +252,7 @@ void WebPluginContainerImpl::Paint(const PaintInfo& paint_info,
       layer_origin += DeprecatedLocation().OffsetFromOrigin();
     }
     RecordForeignLayer(context, *layout, DisplayItem::kForeignLayerPlugin,
-                       layer_, layer_origin);
+                       layer_.get(), layer_origin);
     return;
   }
 
@@ -609,7 +609,7 @@ void WebPluginContainerImpl::ScheduleAnimation() {
     frame_view->ScheduleAnimation();
 }
 
-void WebPluginContainerImpl::ReportGeometry() {
+void WebPluginContainerImpl::PropagateFrameRectsInternal() {
   // Ignore when SetFrameRect/ReportGeometry is called from
   // UpdateOnEmbeddedContentViewChange before plugin is attached.
   if (!IsAttached())

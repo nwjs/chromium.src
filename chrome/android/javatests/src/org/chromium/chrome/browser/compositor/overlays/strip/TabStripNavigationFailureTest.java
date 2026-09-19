@@ -12,7 +12,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import org.chromium.base.ObserverList;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CallbackHelper;
@@ -23,7 +22,6 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
-import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
@@ -80,7 +78,7 @@ public class TabStripNavigationFailureTest {
                                         boolean markedForSelection) {
                                     bgTabHolder[0] = tab;
                                     tab.addObserver(
-                                            new EmptyTabObserver() {
+                                            new TabObserver() {
                                                 @Override
                                                 public void onPageLoadFailed(
                                                         Tab tab, int errorCode) {
@@ -193,10 +191,8 @@ public class TabStripNavigationFailureTest {
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    ObserverList.RewindableIterator<TabObserver> observers =
-                            TabTestUtils.getTabObservers(bgTab);
-                    while (observers.hasNext()) {
-                        observers.next().onLoadStopped(bgTab, /* toDifferentDocument= */ false);
+                    for (TabObserver observer : TabTestUtils.getTabObservers(bgTab)) {
+                        observer.onLoadStopped(bgTab, /* toDifferentDocument= */ false);
                     }
                 });
 

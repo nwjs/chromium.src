@@ -54,37 +54,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Keyboard"/>
 </enum>
 
-<enum name="AmbientDlcError">
-<!-- This enum needs to match DlcError in
-ash/ambient/util/time_of_day_utils.h -->
-
-  <summary>List of all the error types that DLC Service returns.</summary>
-  <int value="0" label="Unknown"/>
-  <int value="1" label="None"/>
-  <int value="2" label="Internal"/>
-  <int value="3" label="Busy"/>
-  <int value="4" label="Need reboot"/>
-  <int value="5" label="Invalid DLC"/>
-  <int value="6" label="Allocation"/>
-  <int value="7" label="No image found"/>
-</enum>
-
-<enum name="AmbientModeAnimationTheme">
-  <int value="0" label="Slide Show"/>
-  <int value="1" label="Feel The Breeze"/>
-  <int value="2" label="Float On By"/>
-  <int value="3" label="Video"/>
-</enum>
-
-<enum name="AmbientModeDurationOption">
-  <int value="0" label="Forever"/>
-  <int value="1" label="For 5 minutes"/>
-  <int value="2" label="For 10 minutes"/>
-  <int value="3" label="For 30 minutes"/>
-  <int value="4" label="For 1 hour"/>
-  <int value="5" label="Error: unknown duration value"/>
-</enum>
-
 <enum name="AmbientModePhotoSource">
   <int value="0" label="Default">
     This is when user clicked on the top level Screen Saver toggle but did not
@@ -105,16 +74,6 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
   <int value="0" label="Google Photos"/>
   <int value="1" label="Art Gallery"/>
   <int value="2" label="Video"/>
-</enum>
-
-<enum name="AmbientModeVideo">
-  <int value="0" label="Clouds"/>
-  <int value="1" label="New Mexico"/>
-</enum>
-
-<enum name="AmbientUiMode">
-  <int value="0" label="Lock Screen"/>
-  <int value="1" label="In Session Idle"/>
 </enum>
 
 <enum name="AmbientVideoSessionStatus">
@@ -586,12 +545,6 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
   <int value="3" label="PluggedIn"/>
   <int value="4" label="Suspended"/>
   <int value="5" label="UserShutdown"/>
-</enum>
-
-<enum name="DataFetchEventSource">
-  <int value="0" label="PostLoginFullRestore"/>
-  <int value="1" label="Overview"/>
-  <int value="2" label="Calendar"/>
 </enum>
 
 <enum name="DemoModeApp">
@@ -1670,15 +1623,6 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
   <int value="5" label="Accelerator"/>
 </enum>
 
-<enum name="NotificationImageDragEndState">
-<!-- Defined in ash/system/message_center/ash_notification_drag_controller.h -->
-
-  <int value="0" label="InterruptedByNewDrag"/>
-  <int value="1" label="Cancelled"/>
-  <int value="2" label="CompletedWithDrop"/>
-  <int value="3" label="CompletedWithoutDrop"/>
-</enum>
-
 <enum name="NotificationViewType">
   <int value="0" label="Simple (no image, action buttons) and ungrouped"/>
   <int value="1" label="Simple (no image, action buttons) and grouped"/>
@@ -2202,27 +2146,6 @@ chromeos/ash/components/peripheral_notification/peripheral_notification_manager.
   <int value="20" label="Toggle toolbar location to bottom center (Obsolete)"/>
 </enum>
 
-<enum name="QsButtonCatalogName">
-  <int value="0" label="Unknown"/>
-  <int value="1" label="SignOutButton"/>
-  <int value="2" label="LockButton"/>
-  <int value="3" label="PowerButton"/>
-  <int value="4" label="SettingsButton"/>
-  <int value="5" label="DateViewButton"/>
-  <int value="6" label="BatteryButton"/>
-  <int value="7" label="ManagedButton"/>
-  <int value="8" label="AvatarButton"/>
-  <int value="9" label="CollapseButton"/>
-  <int value="10" label="FeedBackButton"/>
-  <int value="11" label="VersionButton"/>
-  <int value="12" label="PowerOffMenuButton"/>
-  <int value="13" label="PowerRestartMenuButton"/>
-  <int value="14" label="PowerSignoutMenuButton"/>
-  <int value="15" label="PowerLockMenuButton"/>
-  <int value="16" label="SupervisedButton"/>
-  <int value="19" label="ExtendedUpdatesNoticeButton"/>
-</enum>
-
 <enum name="QsFeatureCatalogName">
   <int value="0" label="Unknown"/>
   <int value="1" label="Network"/>
@@ -2677,12 +2600,6 @@ chromeos/ash/components/peripheral_notification/peripheral_notification_manager.
   <int value="3" label="Session exit due to shutdown"/>
   <int value="4" label="Session exit due to unspecified reasons"/>
   <int value="5" label="Session exit due to converting to tablet mode"/>
-</enum>
-
-<enum name="SwipeHomeToOverviewResult">
-  <int value="0" label="Remained on the home screen"/>
-  <int value="1" label="Transitioned to overview"/>
-  <int value="2" label="Went back on the home screen"/>
 </enum>
 
 <enum name="TasksUserAction">

@@ -13,10 +13,11 @@
 #include "chrome/browser/ash/crostini/fake_crostini_features.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_browser_main.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "components/component_updater/ash/fake_component_manager_ash.h"
 #include "components/component_updater/component_updater_paths.h"
 #include "components/prefs/pref_service.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "content/public/test/network_connection_change_simulator.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 

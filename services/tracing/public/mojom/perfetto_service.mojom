@@ -114,6 +114,8 @@ struct DataSourceConfig {
   mojo_base.mojom.ByteString etw_config_raw;
   mojo_base.mojom.ByteString system_metrics_config_raw;
   mojo_base.mojom.ByteString histogram_samples_config_raw;
+  mojo_base.mojom.ByteString chromium_sampling_heap_profiler_raw;
+  mojo_base.mojom.ByteString chromium_stack_sampling_profiler_raw;
 };
 
 struct DataSourceRegistration {
@@ -122,6 +124,8 @@ struct DataSourceRegistration {
   bool will_notify_on_start;
   bool will_notify_on_stop;
   bool handles_incremental_state_clear;
+  // Serialized `perfetto.protos.TrackEventDescriptor` protobuf message.
+  mojo_base.mojom.ByteString track_event_descriptor_raw;
 };
 
 // This is implemented by the tracing service and represents the service-
@@ -159,9 +163,13 @@ interface ProducerClient {
   // Called when tracing is first enabled, before any data sources are started.
   OnTracingStart();
 
+  // Called by Perfetto (via ProducerHost) to setup a data source instance
+  // before starting.
+  SetupDataSource(uint64 id, DataSourceConfig data_source_config);
+
   // Called by Perfetto (via ProducerHost) to request a data source to start
   // logging.
-  StartDataSource(uint64 id, DataSourceConfig data_source_config) => ();
+  StartDataSource(uint64 id) => ();
 
   // Requesting a data source to stop logging again, with the id previously
   // sent in the StartDataSource call.
@@ -277,6 +285,12 @@ interface ConsumerHost {
                 pending_remote<TracingSessionClient> tracing_session_client,
                 mojo_base.mojom.UnguessableToken unguessable_name)
       => (bool success, string error, mojo_base.mojom.Token uuid);
+
+  // Queries the state of the tracing service (all registered data sources and
+  // producers). `service_state_data` contains the serialized
+  // `perfetto.protos.TracingServiceState` protobuf message on success.
+  QueryServiceState()
+      => (bool success, mojo_base.mojom.ByteString service_state_data);
 };
 
 // Represents the host side of an active tracing session. Closing this

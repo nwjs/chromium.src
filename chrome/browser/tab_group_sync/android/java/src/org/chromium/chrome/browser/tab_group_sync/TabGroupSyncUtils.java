@@ -44,8 +44,8 @@ public final class TabGroupSyncUtils {
     public static final String NEW_TAB_TITLE = "New tab";
 
     /**
-     * Whether the given {@param localId} corresponds to a tab group in the current window
-     * corresponding to {@param tabModel}.
+     * Whether the given {@code localId} corresponds to a tab group in the current window
+     * corresponding to {@code tabModel}.
      *
      * @param tabModel The tab model in which to find the tab group.
      * @param localId The ID of the tab group.
@@ -113,7 +113,7 @@ public final class TabGroupSyncUtils {
         unmapLocalIdsNotInTabModelList(tabGroupSyncService, Collections.singletonList(tabModel));
     }
 
-    /** Same as {@Link #unmapLocalIdsNotInTabModel} only with a list of tab models. */
+    /** Same as {@link #unmapLocalIdsNotInTabModel} only with a list of tab models. */
     public static void unmapLocalIdsNotInTabModelList(
             TabGroupSyncService tabGroupSyncService, List<TabModel> tabModelList) {
         for (TabModel tabModel : tabModelList) {

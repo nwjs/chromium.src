@@ -37,9 +37,9 @@
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/sessions/tab_restore_service_load_waiter.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/hats/mock_trust_safety_sentiment_service.h"
 #include "chrome/browser/ui/hats/trust_safety_sentiment_service_factory.h"
 #include "chrome/browser/ui/profiles/profile_view_utils.h"
@@ -55,6 +55,7 @@
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/test/base/chrome_test_path_utils.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/password_manager/core/common/password_manager_features.h"
@@ -104,11 +105,12 @@ class AppMenuBrowserTest : public UiBrowserTest {
   // Changes the return value of `browser()` as long as the returned object is
   // alive. This resetting behavior is necessary to null `browser_` before its
   // destruction, lest the allocator complain about dangling refs.
-  [[nodiscard]] base::AutoReset<raw_ptr<Browser>> SetBrowser(Browser* browser) {
-    return base::AutoReset<raw_ptr<Browser>>(&browser_, browser);
+  [[nodiscard]] base::AutoReset<raw_ptr<BrowserWindowInterface>> SetBrowser(
+      BrowserWindowInterface* browser) {
+    return base::AutoReset<raw_ptr<BrowserWindowInterface>>(&browser_, browser);
   }
 
-  Browser* browser() {
+  BrowserWindowInterface* browser() {
     return browser_ ? browser_.get() : UiBrowserTest::browser();
   }
 
@@ -121,7 +123,7 @@ class AppMenuBrowserTest : public UiBrowserTest {
   }
 
  private:
-  raw_ptr<Browser> browser_ = nullptr;
+  raw_ptr<BrowserWindowInterface> browser_ = nullptr;
   std::optional<int> command_id_;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
@@ -232,7 +234,8 @@ IN_PROC_BROWSER_TEST_F(AppMenuBrowserTest, ShowWithRecentlyClosedWindow) {
   TabRestoreServiceLoadWaiter tab_restore_service_load_waiter(
       tab_restore_service);
   tab_restore_service_load_waiter.Wait();
-  Browser* second_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
   content::WebContents* new_contents = chrome::AddSelectedTabWithURL(
       second_browser,
       chrome_test_utils::GetTestUrl(
@@ -637,9 +640,9 @@ IN_PROC_BROWSER_TEST_F(AppMenuProfileGradientRingBrowserTest,
 
   // Simulate account image fetch.
   gfx::Image fake_image = gfx::test::CreateImage(20, 20, SK_ColorBLUE);
-  signin::SimulateAccountImageFetch(identity_manager, account_info.account_id,
-                                    "http://example.com/avatar.jpg",
-                                    fake_image);
+  signin::SimulateAccountImageFetch(
+      identity_manager, account_info.GetAccountId(),
+      "http://example.com/avatar.jpg", fake_image);
 
   // 1. Get initial size (no subscription).
   menu_button()->ShowMenu(views::MenuRunner::SHOULD_SHOW_MNEMONICS);

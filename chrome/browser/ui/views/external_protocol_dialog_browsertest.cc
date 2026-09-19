@@ -8,7 +8,6 @@
 #include <string>
 
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
@@ -21,6 +20,7 @@
 #include "ui/events/event.h"
 #include "ui/events/event_utils.h"
 #include "ui/views/controls/button/checkbox.h"
+#include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/metrics.h"
 #include "ui/views/test/button_test_api.h"
 
@@ -66,7 +66,7 @@ IN_PROC_BROWSER_TEST_F(ExternalProtocolDialogBrowserTest,
                        TestAcceptAfterCloseTab) {
   ShowUi(std::string("https://example.test"));
   SetChecked(true);  // |remember_| must be true for the segfault to occur.
-  browser()->tab_strip_model()->CloseAllTabs();
+  browser()->GetTabStripModel()->CloseAllTabs();
   dialog_->AcceptDialog();
   EXPECT_FALSE(url_did_launch_);
   histogram_tester_.ExpectBucketCount(
@@ -130,7 +130,7 @@ IN_PROC_BROWSER_TEST_F(ExternalProtocolDialogBrowserTest, InvokeUi_default) {
 IN_PROC_BROWSER_TEST_F(ExternalProtocolDialogBrowserTest, OriginNameTest) {
   ASSERT_TRUE(embedded_test_server()->Start());
   content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
+      browser()->GetTabStripModel()->GetActiveWebContents();
   EXPECT_TRUE(ui_test_utils::NavigateToURL(
       browser(), embedded_test_server()->GetURL("a.test", "/empty.html")));
   EXPECT_TRUE(content::ExecJs(

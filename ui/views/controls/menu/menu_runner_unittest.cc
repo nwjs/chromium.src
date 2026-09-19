@@ -13,6 +13,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
+#include "base/test/gtest_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/simple_test_tick_clock.h"
@@ -37,6 +38,7 @@
 #include "ui/views/test/menu_test_utils.h"
 #include "ui/views/test/test_views.h"
 #include "ui/views/test/views_test_base.h"
+#include "ui/views/test/widget_test.h"
 #include "ui/views/widget/any_widget_observer.h"
 #include "ui/views/widget/native_widget_private.h"
 #include "ui/views/widget/widget.h"
@@ -689,23 +691,17 @@ TEST_F(MenuRunnerImplTest, NestedMenuRunnersDestroyedOutOfOrder) {
   menu_runner->RunMenuAt(owner(), nullptr, gfx::Rect(),
                          MenuAnchorPosition::kTopLeft);
 
-  std::unique_ptr<TestMenuDelegate> menu_delegate2(new TestMenuDelegate);
-  MenuItemView* menu_item_view2 = new MenuItemView(menu_delegate2.get());
+  auto menu_delegate2 = std::make_unique<TestMenuDelegate>();
+  auto menu_item_view2 = std::make_unique<MenuItemView>(menu_delegate2.get());
   menu_item_view2->AppendMenuItem(1, u"One");
 
-  internal::MenuRunnerImpl* menu_runner2 = new internal::MenuRunnerImpl(
-      base::WrapUnique<MenuItemView>(menu_item_view2));
+  internal::MenuRunnerImpl* menu_runner2 =
+      new internal::MenuRunnerImpl(std::move(menu_item_view2));
   menu_runner2->RunMenuAt(
       owner(), nullptr, gfx::Rect(), MenuAnchorPosition::kTopLeft,
       ui::mojom::MenuSourceType::kNone, MenuRunner::IS_NESTED);
 
-  // Hide the controller so we can test out of order destruction.
-  MenuControllerTestApi menu_controller;
-  menu_controller.SetShowing(false);
-
-  // This destroyed MenuController
-  menu_runner->OnMenuClosed(internal::MenuControllerDelegate::NOTIFY_DELEGATE,
-                            nullptr, 0);
+  menu_runner->Cancel();
 
   // This should not access the destroyed MenuController
   menu_runner2->Release();
@@ -784,48 +780,399 @@ TEST_F(MenuRunnerImplTest, SubmenuReentrantDestructionDuringReshow) {
   EXPECT_TRUE(fired);
 }
 
-// Tests that when there are two separate MenuControllers, and the active one is
-// deleted first, that shutting down the MenuRunner of the original
-// MenuController properly closes its controller. This should not crash on ASAN
-// bots.
+// Regression test demonstrating that MenuItemView destruction during ShowAt
+// is deferred and completes safely without crash.
+TEST_F(MenuRunnerImplTest, NestedRunnerReleasedDuringShowAtSafe) {
+  // Build a root menu containing one submenu item.
+  auto root = std::make_unique<TestMenuItemView>(menu_delegate());
+  MenuItemView* sub_item = root->AppendSubMenu(100, u"Sub");
+  sub_item->AppendMenuItem(101, u"Leaf");
+
+  internal::MenuRunnerImpl* menu_runner =
+      new internal::MenuRunnerImpl(std::move(root));
+  menu_runner->RunMenuAt(owner(), nullptr, gfx::Rect(gfx::Size(200, 200)),
+                         MenuAnchorPosition::kTopLeft);
+
+  MenuController* controller = MenuController::GetForOwnerWidget(owner());
+  ASSERT_TRUE(controller);
+
+  // We need to create a nested runner to simulate the nested menu.
+  auto nested_root = std::make_unique<TestMenuItemView>(menu_delegate());
+  MenuItemView* nested_sub_item = nested_root->AppendSubMenu(200, u"NestedSub");
+  nested_sub_item->AppendMenuItem(201, u"NestedLeaf");
+
+  internal::MenuRunnerImpl* nested_runner =
+      new internal::MenuRunnerImpl(std::move(nested_root));
+  nested_runner->RunMenuAt(owner(), nullptr, gfx::Rect(gfx::Size(200, 200)),
+                           MenuAnchorPosition::kTopLeft,
+                           ui::mojom::MenuSourceType::kNone,
+                           MenuRunner::IS_NESTED);
+
+  bool fired = false;
+  base::WeakPtr<Widget> host_widget;
+  AnyWidgetObserver observer(views::test::AnyWidgetTestPasskey{});
+  observer.set_shown_callback(
+      base::BindLambdaForTesting([&](views::Widget* widget) {
+        if (fired || widget->GetName() != "MenuHost") {
+          return;
+        }
+        fired = true;
+        host_widget = widget->GetWeakPtr();
+        // Release the runner. This should NOT crash, but defer deletion.
+        nested_runner->Release();
+
+        // The widget should still be alive because deletion is deferred.
+        ASSERT_TRUE(host_widget);
+      }));
+
+  nested_sub_item->GetMenuController()->SelectItemAndOpenSubmenu(
+      nested_sub_item);
+
+  EXPECT_TRUE(fired);
+
+  // After ShowSubmenuImmediately returns, the stack depth returns to 0.
+  // But since we didn't cancel the menu, the widget should still be alive.
+  EXPECT_TRUE(host_widget);
+
+  // Now cancel the menu. This should trigger OnMenuClosed, which will
+  // see delete_after_run_ is true, and delete the runner.
+  controller->Cancel(MenuController::ExitType::kAll);
+
+  // Wait for the runner to be deleted and destroy the widget.
+  if (host_widget) {
+    views::test::WidgetDestroyedWaiter(host_widget.get()).Wait();
+  }
+  EXPECT_FALSE(host_widget);
+
+  // Clean up parent.
+  menu_runner->Release();
+}
+
+// Regression test demonstrating that MenuController destruction during ShowAt
+// is blocked and results in a CHECK failure.
+using MenuRunnerImplDeathTest = MenuRunnerImplTest;
+TEST_F(MenuRunnerImplDeathTest, MenuControllerDeletedDuringShowAtCHECK) {
+  // Build a root menu containing one submenu item.
+  auto root = std::make_unique<TestMenuItemView>(menu_delegate());
+  MenuItemView* root_ptr = root.get();
+  MenuItemView* sub_item = root->AppendSubMenu(100, u"Sub");
+  sub_item->AppendMenuItem(101, u"Leaf");
+
+  internal::MenuRunnerImpl* menu_runner =
+      new internal::MenuRunnerImpl(std::move(root));
+  menu_runner->RunMenuAt(owner(), nullptr, gfx::Rect(gfx::Size(200, 200)),
+                         MenuAnchorPosition::kTopLeft);
+
+  MenuController* controller = MenuController::GetForOwnerWidget(owner());
+  ASSERT_TRUE(controller);
+  Widget* root_widget = root_ptr->GetSubmenu()->GetWidget();
+  ASSERT_TRUE(root_widget);
+
+  // We need to create a nested runner to simulate the nested menu.
+  auto nested_root = std::make_unique<TestMenuItemView>(menu_delegate());
+  MenuItemView* nested_root_ptr = nested_root.get();
+  MenuItemView* nested_sub_item = nested_root->AppendSubMenu(200, u"NestedSub");
+  nested_sub_item->AppendMenuItem(201, u"NestedLeaf");
+
+  internal::MenuRunnerImpl* nested_runner =
+      new internal::MenuRunnerImpl(std::move(nested_root));
+  nested_runner->RunMenuAt(owner(), nullptr, gfx::Rect(gfx::Size(200, 200)),
+                           MenuAnchorPosition::kTopLeft,
+                           ui::mojom::MenuSourceType::kNone,
+                           MenuRunner::IS_NESTED);
+  Widget* nested_widget = nested_root_ptr->GetSubmenu()->GetWidget();
+  ASSERT_TRUE(nested_widget);
+
+  // We expect the deletion to crash the process.
+  EXPECT_DEATH(
+      {
+        AnyWidgetObserver observer(views::test::AnyWidgetTestPasskey{});
+        bool fired = false;
+        observer.set_shown_callback(
+            base::BindLambdaForTesting([&](views::Widget* widget) {
+              if (fired || widget->GetName() != "MenuHost") {
+                return;
+              }
+              fired = true;
+              // Fake scenario to delete the instance while blocking the
+              // deletion.
+              MenuController::DeleteForTesting(
+                  MenuController::GetActiveInstance());
+            }));
+        MenuController::GetActiveInstance()->SelectItemAndOpenSubmenu(
+            nested_sub_item);
+      },
+      "Check failed: stack_depth_ == 0");
+
+  // Clean up in the parent process.
+  base::WeakPtr<Widget> root_weak = root_widget->GetWeakPtr();
+  base::WeakPtr<Widget> nested_weak = nested_widget->GetWeakPtr();
+
+  nested_runner->Release();
+  menu_runner->Release();
+
+  if (nested_weak) {
+    views::test::WidgetDestroyedWaiter(nested_weak.get()).Wait();
+  }
+  if (root_weak) {
+    views::test::WidgetDestroyedWaiter(root_weak.get()).Wait();
+  }
+}
+
+// Regression test demonstrating that MenuHost destruction during ShowAt
+// is deferred and completed after ShowAt returns.
+TEST_F(MenuRunnerImplTest, MenuHostDeferredDuringShowAt) {
+  // Build a root menu containing one submenu item.
+  auto root = std::make_unique<TestMenuItemView>(menu_delegate());
+  MenuItemView* sub_item = root->AppendSubMenu(100, u"Sub");
+  sub_item->AppendMenuItem(101, u"Leaf");
+
+  internal::MenuRunnerImpl* menu_runner =
+      new internal::MenuRunnerImpl(std::move(root));
+  menu_runner->RunMenuAt(owner(), nullptr, gfx::Rect(gfx::Size(200, 200)),
+                         MenuAnchorPosition::kTopLeft);
+
+  MenuController* controller = MenuController::GetForOwnerWidget(owner());
+  ASSERT_TRUE(controller);
+
+  // We need to create a nested runner to simulate the nested menu.
+  auto nested_root = std::make_unique<TestMenuItemView>(menu_delegate());
+  MenuItemView* nested_sub_item = nested_root->AppendSubMenu(200, u"NestedSub");
+  nested_sub_item->AppendMenuItem(201, u"NestedLeaf");
+
+  internal::MenuRunnerImpl* nested_runner =
+      new internal::MenuRunnerImpl(std::move(nested_root));
+  nested_runner->RunMenuAt(owner(), nullptr, gfx::Rect(gfx::Size(200, 200)),
+                           MenuAnchorPosition::kTopLeft,
+                           ui::mojom::MenuSourceType::kNone,
+                           MenuRunner::IS_NESTED);
+
+  bool fired = false;
+  base::WeakPtr<Widget> host_widget;
+  AnyWidgetObserver observer(views::test::AnyWidgetTestPasskey{});
+  observer.set_shown_callback(
+      base::BindLambdaForTesting([&](views::Widget* widget) {
+        if (fired || widget->GetName() != "MenuHost") {
+          return;
+        }
+        fired = true;
+        host_widget = widget->GetWeakPtr();
+
+        // Cancel the menu during ShowAt. This calls DestroyMenuHost on
+        // MenuHost. Since we are in ShowAt, the destruction should be deferred.
+        controller->Cancel(MenuController::ExitType::kAll);
+
+        // The widget should still be alive (destruction deferred).
+        ASSERT_TRUE(host_widget);
+        EXPECT_TRUE(static_cast<MenuHost*>(host_widget.get())
+                        ->destroying_for_testing());
+      }));
+
+  nested_sub_item->GetMenuController()->SelectItemAndOpenSubmenu(
+      nested_sub_item);
+
+  EXPECT_TRUE(fired);
+  // Wait for the deferred Widget::Close() to complete.
+  if (host_widget) {
+    views::test::WidgetDestroyedWaiter(host_widget.get()).Wait();
+  }
+  // After ShowSubmenuImmediately returns and waiter finishes, the deferred
+  // close should have run, destroying the widget.
+  EXPECT_FALSE(host_widget);
+
+  // Clean up
+  nested_runner->Release();
+  menu_runner->Release();
+}
+
+// Regression test demonstrating that MenuController destruction during ShowAt
+// is deferred and completed after ShowAt returns.
+TEST_F(MenuRunnerImplTest, MenuControllerDeferredDestructionDuringShowAt) {
+  // Build a root menu containing one submenu item.
+  auto root = std::make_unique<TestMenuItemView>(menu_delegate());
+  MenuItemView* sub_item = root->AppendSubMenu(100, u"Sub");
+  sub_item->AppendMenuItem(101, u"Leaf");
+
+  internal::MenuRunnerImpl* menu_runner =
+      new internal::MenuRunnerImpl(std::move(root));
+  menu_runner->RunMenuAt(owner(), nullptr, gfx::Rect(gfx::Size(200, 200)),
+                         MenuAnchorPosition::kTopLeft);
+
+  MenuController* controller = MenuController::GetForOwnerWidget(owner());
+  ASSERT_TRUE(controller);
+  base::WeakPtr<MenuController> controller_weak = controller->AsWeakPtr();
+
+  // We need to create a nested runner to simulate the nested menu.
+  auto nested_root = std::make_unique<TestMenuItemView>(menu_delegate());
+  MenuItemView* nested_sub_item = nested_root->AppendSubMenu(200, u"NestedSub");
+  nested_sub_item->AppendMenuItem(201, u"NestedLeaf");
+
+  internal::MenuRunnerImpl* nested_runner =
+      new internal::MenuRunnerImpl(std::move(nested_root));
+  nested_runner->RunMenuAt(owner(), nullptr, gfx::Rect(gfx::Size(200, 200)),
+                           MenuAnchorPosition::kTopLeft,
+                           ui::mojom::MenuSourceType::kNone,
+                           MenuRunner::IS_NESTED);
+
+  bool fired = false;
+  AnyWidgetObserver observer(views::test::AnyWidgetTestPasskey{});
+  observer.set_shown_callback(
+      base::BindLambdaForTesting([&](views::Widget* widget) {
+        if (fired || widget->GetName() != "MenuHost") {
+          return;
+        }
+        fired = true;
+
+        // Cancel the menu during ShowAt. This unwinds delegate stack and
+        // requests MenuController deletion.
+        controller->Cancel(MenuController::ExitType::kAll);
+
+        // The controller should still be alive (deletion deferred).
+        ASSERT_TRUE(controller_weak);
+      }));
+
+  nested_sub_item->GetMenuController()->SelectItemAndOpenSubmenu(
+      nested_sub_item);
+
+  EXPECT_TRUE(fired);
+  // After ShowSubmenuImmediately returns, the controller should be deleted.
+  EXPECT_FALSE(controller_weak);
+  EXPECT_FALSE(MenuController::GetActiveInstance());
+
+  // Clean up
+  nested_runner->Release();
+  menu_runner->Release();
+}
+
+// Regression test verifying that when a new MenuController is created and run
+// while an existing MenuController is on the call stack, both controllers
+// co-exist safely on the single owner widget,
+// MenuController::GetForOwnerWidget(owner()) resolves to the newly created
+// controller, and the old controller unwinds and deletes safely.
+TEST_F(MenuRunnerImplTest, MenuControllerRecreatedWhileOnCallStack) {
+  auto root = std::make_unique<TestMenuItemView>(menu_delegate());
+  MenuItemView* sub_item = root->AppendSubMenu(100, u"Sub");
+  sub_item->AppendMenuItem(101, u"Leaf");
+
+  internal::MenuRunnerImpl* menu_runner =
+      new internal::MenuRunnerImpl(std::move(root));
+  menu_runner->RunMenuAt(owner(), nullptr, gfx::Rect(gfx::Size(200, 200)),
+                         MenuAnchorPosition::kTopLeft);
+
+  MenuController* controller1 = MenuController::GetForOwnerWidget(owner());
+  ASSERT_TRUE(controller1);
+  base::WeakPtr<MenuController> controller1_weak = controller1->AsWeakPtr();
+
+  // Create a nested runner to simulate a submenu open and put controller1 on
+  // the call stack.
+  auto nested_root = std::make_unique<TestMenuItemView>(menu_delegate());
+  MenuItemView* nested_sub_item = nested_root->AppendSubMenu(200, u"NestedSub");
+  nested_sub_item->AppendMenuItem(201, u"NestedLeaf");
+
+  internal::MenuRunnerImpl* nested_runner =
+      new internal::MenuRunnerImpl(std::move(nested_root));
+  nested_runner->RunMenuAt(owner(), nullptr, gfx::Rect(gfx::Size(200, 200)),
+                           MenuAnchorPosition::kTopLeft,
+                           ui::mojom::MenuSourceType::kNone,
+                           MenuRunner::IS_NESTED);
+
+  bool fired = false;
+  AnyWidgetObserver observer(views::test::AnyWidgetTestPasskey{});
+  observer.set_shown_callback(
+      base::BindLambdaForTesting([&](views::Widget* widget) {
+        if (fired || widget->GetName() != "MenuHost") {
+          return;
+        }
+        fired = true;
+
+        // While controller1 is actively on the call stack inside ShowAt /
+        // OpenMenuImpl, start a new drop menu runner on the SAME owner widget.
+        auto root2 = std::make_unique<TestMenuItemView>(menu_delegate());
+        internal::MenuRunnerImpl* menu_runner2 =
+            new internal::MenuRunnerImpl(std::move(root2));
+        menu_runner2->RunMenuAt(
+            owner(), nullptr, gfx::Rect(gfx::Size(100, 100)),
+            MenuAnchorPosition::kTopLeft, ui::mojom::MenuSourceType::kNone,
+            MenuRunner::FOR_DROP);
+
+        MenuController* controller2 =
+            MenuController::GetForOwnerWidget(owner());
+
+        // Verify that both MenuControllers co-exist simultaneously.
+        ASSERT_TRUE(controller1_weak);
+        ASSERT_TRUE(controller2);
+        EXPECT_NE(controller1_weak.get(), controller2);
+
+        // Verify that the single owner widget resolves to controller2.
+        EXPECT_EQ(MenuController::GetForOwnerWidget(owner()), controller2);
+        EXPECT_FALSE(controller1_weak->showing_for_testing());
+        EXPECT_TRUE(controller2->showing_for_testing());
+
+        // Release the second runner.
+        menu_runner2->Release();
+      }));
+
+  nested_sub_item->GetMenuController()->SelectItemAndOpenSubmenu(
+      nested_sub_item);
+
+  EXPECT_TRUE(fired);
+
+  // After ShowSubmenuImmediately returns, controller1 should be safely deleted.
+  EXPECT_FALSE(controller1_weak);
+
+  // Clean up.
+  nested_runner->Release();
+  menu_runner->Release();
+}
+
+// Tests that when a MenuRunner's MenuController becomes inactive while a
+// second MenuController is active (e.g. during drag-and-drop), releasing the
+// original MenuRunner after the active MenuController has already been
+// destroyed still properly cleans up its own MenuController rather than
+// skipping cleanup because MenuController::GetActiveInstance() is null
+// (crbug.com/683087).
 TEST_F(MenuRunnerImplTest, MenuRunnerDestroyedWithNoActiveController) {
   internal::MenuRunnerImpl* menu_runner =
       new internal::MenuRunnerImpl(CreateMenuItemView());
   menu_runner->RunMenuAt(owner(), nullptr, gfx::Rect(),
                          MenuAnchorPosition::kTopLeft,
                          ui::mojom::MenuSourceType::kNone, 0);
+  EXPECT_TRUE(menu_runner->IsRunning());
 
-  // Hide the menu, and clear its item selection state.
-  MenuControllerTestApi menu_controller;
-  menu_controller.SetShowing(false);
-  menu_controller.ClearState();
+  // Simulate a drag starting from the active menu controller.
+  base::WeakPtr<MenuController> controller1 =
+      MenuController::GetForOwnerWidget(owner())->AsWeakPtr();
+  controller1->OnDragDropWillStart();
 
-  std::unique_ptr<TestMenuDelegate> menu_delegate2(new TestMenuDelegate);
-  MenuItemView* menu_item_view2 = new MenuItemView(menu_delegate2.get());
+  auto menu_delegate2 = std::make_unique<TestMenuDelegate>();
+  auto menu_item_view2 = std::make_unique<MenuItemView>(menu_delegate2.get());
   menu_item_view2->AppendMenuItem(1, u"One");
 
-  internal::MenuRunnerImpl* menu_runner2 = new internal::MenuRunnerImpl(
-      base::WrapUnique<MenuItemView>(menu_item_view2));
+  internal::MenuRunnerImpl* menu_runner2 =
+      new internal::MenuRunnerImpl(std::move(menu_item_view2));
   menu_runner2->RunMenuAt(
       owner(), nullptr, gfx::Rect(), MenuAnchorPosition::kTopLeft,
       ui::mojom::MenuSourceType::kNone, MenuRunner::FOR_DROP);
+  EXPECT_TRUE(menu_runner2->IsRunning());
 
-  EXPECT_NE(menu_controller.controller(), MenuController::GetActiveInstance());
-  menu_controller.SetShowing(true);
+  EXPECT_NE(controller1.get(), MenuController::GetForOwnerWidget(owner()));
+  controller1->OnDragDropCompleted(true);
 
   // Close the runner with the active menu first.
   menu_runner2->Release();
-  // Even though there is no active menu, this should still cleanup the
-  // controller that it created.
+  EXPECT_EQ(nullptr, MenuController::GetActiveInstance());
+
+  // Even though there is no active menu, releasing menu_runner should still
+  // clean up the controller that it created.
   ResetMenuItemView();
   menu_runner->Release();
 
-  // This is not expected to run, however this is from the origin ASAN stack
-  // traces. So regressions will be caught with the same stack trace.
-  if (menu_controller.controller()) {
-    menu_controller.controller()->Cancel(MenuController::ExitType::kAll);
+  // If controller1 was not destroyed when menu_runner was released, attempting
+  // to cancel it will access the deleted menu_runner delegate (UAF).
+  if (controller1) {
+    controller1->Cancel(MenuController::ExitType::kAll);
   }
-  EXPECT_EQ(nullptr, menu_controller.controller());
+  EXPECT_EQ(nullptr, controller1.get());
 }
 
 // Test class which overrides the ViewsDelegate. Allowing to simulate shutdown
@@ -866,6 +1213,7 @@ TEST_F(MenuRunnerDestructionTest, MenuRunnerDestroyedDuringReleaseRef) {
   menu_runner->RunMenuAt(owner(), nullptr, gfx::Rect(),
                          MenuAnchorPosition::kTopLeft,
                          ui::mojom::MenuSourceType::kNone, 0);
+  EXPECT_TRUE(menu_runner->IsRunning());
 
   base::RunLoop run_loop;
   static_cast<ReleaseRefTestViewsDelegate*>(test_views_delegate())
@@ -876,16 +1224,17 @@ TEST_F(MenuRunnerDestructionTest, MenuRunnerDestroyedDuringReleaseRef) {
       }));
 
   base::WeakPtr<internal::MenuRunnerImpl> ref(MenuRunnerAsWeakPtr(menu_runner));
-  MenuControllerTestApi menu_controller;
   // This will release the ref on ViewsDelegate. The test version will release
   // |menu_runner| simulating device shutdown.
-  menu_controller.controller()->Cancel(MenuController::ExitType::kAll);
-  // Both the |menu_runner| and |menu_controller| should have been deleted.
-  EXPECT_EQ(nullptr, menu_controller.controller());
+  menu_runner->Cancel();
+  // Both the |menu_runner| and active menu controller should have been deleted.
+  EXPECT_EQ(nullptr, MenuController::GetActiveInstance());
   run_loop.Run();
   EXPECT_EQ(nullptr, ref);
 }
 
+// Tests that normally canceling a menu runner fires the kFocusAfterMenuClose
+// accessibility event on the previously focused view (crbug.com/1022592).
 TEST_F(MenuRunnerImplTest, FocusOnMenuClose) {
   internal::MenuRunnerImpl* menu_runner =
       new internal::MenuRunnerImpl(CreateMenuItemView());
@@ -905,9 +1254,7 @@ TEST_F(MenuRunnerImplTest, FocusOnMenuClose) {
   // Open the menu.
   menu_runner->RunMenuAt(owner(), nullptr, gfx::Rect(),
                          MenuAnchorPosition::kTopLeft);
-
-  MenuControllerTestApi menu_controller;
-  menu_controller.SetShowing(false);
+  EXPECT_TRUE(menu_runner->IsRunning());
 
   // Test that closing the menu sends the kFocusAfterMenuClose event.
   bool focus_after_menu_close_sent = false;
@@ -923,8 +1270,8 @@ TEST_F(MenuRunnerImplTest, FocusOnMenuClose) {
           &focus_after_menu_close_sent);
   button->GetViewAccessibility().set_accessibility_events_callback(
       std::move(accessibility_events_callback));
-  menu_runner->OnMenuClosed(internal::MenuControllerDelegate::NOTIFY_DELEGATE,
-                            nullptr, 0);
+
+  menu_runner->Cancel();
 
   EXPECT_TRUE(focus_after_menu_close_sent);
 
@@ -937,6 +1284,9 @@ TEST_F(MenuRunnerImplTest, FocusOnMenuClose) {
   menu_runner->Release();
 }
 
+// Tests that releasing a running menu runner directly (which sets
+// delete_after_run_ = true) properly fires the kFocusAfterMenuClose
+// accessibility event on the previously focused view (crbug.com/1022592).
 TEST_F(MenuRunnerImplTest, FocusOnMenuCloseDeleteAfterRun) {
   // Create test button that has focus.
   LabelButton* button = new LabelButton(
@@ -953,26 +1303,10 @@ TEST_F(MenuRunnerImplTest, FocusOnMenuCloseDeleteAfterRun) {
       new internal::MenuRunnerImpl(CreateMenuItemView());
   menu_runner->RunMenuAt(owner(), nullptr, gfx::Rect(),
                          MenuAnchorPosition::kTopLeft);
+  EXPECT_TRUE(menu_runner->IsRunning());
 
-  // Hide the menu, and clear its item selection state.
-  MenuControllerTestApi menu_controller;
-  menu_controller.SetShowing(false);
-  menu_controller.ClearState();
-
-  std::unique_ptr<TestMenuDelegate> menu_delegate2(new TestMenuDelegate);
-  MenuItemView* menu_item_view2 = new MenuItemView(menu_delegate2.get());
-  menu_item_view2->AppendMenuItem(1, u"One");
-
-  internal::MenuRunnerImpl* menu_runner2 = new internal::MenuRunnerImpl(
-      base::WrapUnique<MenuItemView>(menu_item_view2));
-  menu_runner2->RunMenuAt(
-      owner(), nullptr, gfx::Rect(), MenuAnchorPosition::kTopLeft,
-      ui::mojom::MenuSourceType::kNone, MenuRunner::FOR_DROP);
-
-  EXPECT_NE(menu_controller.controller(), MenuController::GetActiveInstance());
-  menu_controller.SetShowing(true);
-
-  // Test that closing the menu sends the kFocusAfterMenuClose event.
+  // Test that closing the menu sends the kFocusAfterMenuClose event when
+  // MenuRunner is released directly.
   bool focus_after_menu_close_sent = false;
   ViewAccessibility::AccessibilityEventsCallback accessibility_events_callback =
       base::BindRepeating(
@@ -986,10 +1320,7 @@ TEST_F(MenuRunnerImplTest, FocusOnMenuCloseDeleteAfterRun) {
           &focus_after_menu_close_sent);
   button->GetViewAccessibility().set_accessibility_events_callback(
       std::move(accessibility_events_callback));
-  menu_runner2->Release();
 
-  EXPECT_TRUE(focus_after_menu_close_sent);
-  focus_after_menu_close_sent = false;
   ResetMenuItemView();
   menu_runner->Release();
 
@@ -1000,12 +1331,7 @@ TEST_F(MenuRunnerImplTest, FocusOnMenuCloseDeleteAfterRun) {
   button->GetViewAccessibility().set_accessibility_events_callback(
       base::DoNothing());
 
-  // This is not expected to run, however this is from the origin ASAN stack
-  // traces. So regressions will be caught with the same stack trace.
-  if (menu_controller.controller()) {
-    menu_controller.controller()->Cancel(MenuController::ExitType::kAll);
-  }
-  EXPECT_EQ(nullptr, menu_controller.controller());
+  EXPECT_EQ(nullptr, MenuController::GetActiveInstance());
 }
 
 // Tests that passing a histogram name to RunMenuAt records a histogram entry.
@@ -1021,7 +1347,8 @@ TEST_F(MenuRunnerTest, ShowMenuHostDurationMetricsDoesLog) {
                     std::nullopt, histogram_name);
 
   base::RunLoop run_loop;
-  views::MenuController::GetActiveInstance()
+  menu_item_view()
+      ->GetMenuController()
       ->GetSelectedMenuItem()
       ->GetSubmenu()
       ->GetWidget()
@@ -1051,7 +1378,8 @@ TEST_F(MenuRunnerTest, ShowMenuHostDurationMetricsDoesNotLog) {
                     ui::mojom::MenuSourceType::kNone);
 
   base::RunLoop run_loop;
-  views::MenuController::GetActiveInstance()
+  menu_item_view()
+      ->GetMenuController()
       ->GetSelectedMenuItem()
       ->GetSubmenu()
       ->GetWidget()

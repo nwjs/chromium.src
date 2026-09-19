@@ -90,8 +90,6 @@ class StorageHandler : public DevToolsDomainHandler, public Storage::Backend {
                     std::unique_ptr<Storage::Backend::ClearCookiesCallback>
                         callback) override;
 
-  bool CanAccessCookie(const net::CanonicalCookie& cookie) const;
-
   // Ignores all double calls to track an origin.
   Response TrackCacheStorageForOrigin(const std::string& origin) override;
   Response TrackCacheStorageForStorageKey(
@@ -111,29 +109,6 @@ class StorageHandler : public DevToolsDomainHandler, public Storage::Backend {
       const std::string& issuerOrigin,
       std::unique_ptr<ClearTrustTokensCallback> callback) override;
 
-  void GetSharedStorageMetadata(
-      const std::string& owner_origin_string,
-      std::unique_ptr<GetSharedStorageMetadataCallback> callback) override;
-  void GetSharedStorageEntries(
-      const std::string& owner_origin_string,
-      std::unique_ptr<GetSharedStorageEntriesCallback> callback) override;
-  void SetSharedStorageEntry(
-      const std::string& owner_origin_string,
-      const std::string& key,
-      const std::string& value,
-      std::optional<bool> ignore_if_present,
-      std::unique_ptr<SetSharedStorageEntryCallback> callback) override;
-  void DeleteSharedStorageEntry(
-      const std::string& owner_origin_string,
-      const std::string& key,
-      std::unique_ptr<DeleteSharedStorageEntryCallback> callback) override;
-  void ClearSharedStorageEntries(
-      const std::string& owner_origin_string,
-      std::unique_ptr<ClearSharedStorageEntriesCallback> callback) override;
-  Response SetSharedStorageTracking(bool enable) override;
-  void ResetSharedStorageBudget(
-      const std::string& owner_origin_string,
-      std::unique_ptr<ResetSharedStorageBudgetCallback> callback) override;
 
   DispatchResponse SetStorageBucketTracking(
       const std::string& serialized_storage_key,

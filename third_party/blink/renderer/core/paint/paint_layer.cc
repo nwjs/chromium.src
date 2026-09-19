@@ -301,19 +301,21 @@ void PaintLayer::UpdateTransform() {
   } else {
     transform_->MakeIdentity();
   }
-  const LayoutBox* box = GetLayoutBox();
-  DCHECK(box);
-  if (const auto* element = DynamicTo<Element>(box->GetNode())) {
+  const auto& box_model = To<LayoutBoxModelObject>(GetLayoutObject());
+  if (const auto* element = DynamicTo<Element>(box_model.GetNode())) {
     if (const auto* canvas_transform = element->GetUsedCanvasTransform()) {
       transform_->PreConcat(*canvas_transform);
     }
   }
-  const PhysicalRect reference_box = ComputeReferenceBox(*box);
-  box->StyleRef().ApplyTransform(
-      *transform_, box, reference_box,
-      ComputedStyle::kIncludeTransformOperations,
-      ComputedStyle::kIncludeTransformOrigin, ComputedStyle::kIncludeMotionPath,
-      ComputedStyle::kIncludeIndependentTransformProperties);
+  if (const auto* box = DynamicTo<LayoutBox>(&box_model)) {
+    const PhysicalRect reference_box = ComputeReferenceBox(*box);
+    box->StyleRef().ApplyTransform(
+        *transform_, box, reference_box,
+        ComputedStyle::kIncludeTransformOperations,
+        ComputedStyle::kIncludeTransformOrigin,
+        ComputedStyle::kIncludeMotionPath,
+        ComputedStyle::kIncludeIndependentTransformProperties);
+  }
 }
 
 void PaintLayer::UpdateTransformAfterStyleChange(
@@ -1002,8 +1004,7 @@ void PaintLayer::CollectFragments(
 
     ClipRectsContext clip_rects_context(
         root_layer, root_fragment_data,
-        kExcludeOverlayScrollbarSizeForHitTesting, respect_overflow_clip,
-        PhysicalOffset());
+        kExcludeOverlayScrollbarSizeForHitTesting, respect_overflow_clip);
 
     Clipper().CalculateRects(clip_rects_context, *fragment_data,
                              fragment.layer_offset, fragment.background_rect,
@@ -1389,8 +1390,9 @@ PaintLayer* PaintLayer::HitTestLayer(
     if (const auto* properties =
             layout_object.FirstFragment().PaintProperties()) {
       if (properties->HasCSSTransformPropertyNode() ||
-          properties->Perspective())
+          properties->Perspective() || properties->ElementCanvasTransform()) {
         use_transform = true;
+      }
     }
   }
 
@@ -1932,13 +1934,26 @@ PaintLayer* PaintLayer::HitTestChildren(
     if (!To<HTMLCanvasElement>(GetLayoutObject().GetNode())->layoutSubtree()) {
       return nullptr;
     }
+    if (children_to_visit != kNormalFlowChildren) {
+      return nullptr;
+    }
   }
 
   const LayoutObject* stop_node = result.GetHitTestRequest().GetStopNode();
   const PaintLayer* stop_layer = result.GetHitTestRequest().GetStopLayer();
 
   PaintLayer* result_layer = nullptr;
-  PaintLayerPaintOrderReverseIterator iterator(this, children_to_visit);
+  PaintLayerPaintOrderIteratorBase* iterator = nullptr;
+  std::optional<PaintLayerPaintOrderReverseIterator> normal_iter;
+  std::optional<CanvasDrawnElementPaintOrderReverseIterator> canvas_iter;
+  if (auto* canvas =
+          DynamicTo<HTMLCanvasElement>(GetLayoutObject().GetNode())) {
+    canvas_iter.emplace(*canvas);
+    iterator = &canvas_iter.value();
+  } else {
+    normal_iter.emplace(this, children_to_visit);
+    iterator = &normal_iter.value();
+  }
 
   // Returns true if the caller should break the loop.
   auto hit_test_child =
@@ -1996,7 +2011,7 @@ PaintLayer* PaintLayer::HitTestChildren(
     return false;
   };
 
-  while (PaintLayer* child_layer = iterator.Next()) {
+  while (PaintLayer* child_layer = iterator->Next()) {
     if (stacking_node_) {
       if (const auto* layers_painting_overlay_overflow_controls_after =
               stacking_node_->LayersPaintingOverlayOverflowControlsAfter(

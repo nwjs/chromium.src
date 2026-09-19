@@ -19,6 +19,7 @@
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/actor/glic_actor_policy_checker.h"
+#include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_controller.h"
 #include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_manager.h"
 #include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_hotkey.h"
@@ -58,10 +59,6 @@
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "third_party/blink/public/common/features.h"
 #include "ui/base/device_form_factor.h"
-
-#if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_controller.h"
-#endif
 
 namespace glic {
 
@@ -103,7 +100,7 @@ mojom::ProfileEnablementPtr BuildProfileEnablement(
   result->share_image_allowed = enablement.share_image_allowed;
   if (enablement.gemini_enterprise_settings) {
     result->gemini_enterprise_settings =
-        glic::mojom::GeminiEnterpriseSettings::New(
+        glic::mojom::GeminiEnterpriseSettingsInfo::New(
             enablement.gemini_enterprise_settings->project_id,
             enablement.gemini_enterprise_settings->app_id,
             enablement.gemini_enterprise_settings->location);
@@ -755,16 +752,13 @@ void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
   }
 
   GlicInvokeOptions options =
-      mojo_options->payload
-          ? GlicInvokeOptions(std::move(mojo_options->payload))
+      mojo_options->payload && mojo_options->payload->is_universal_cart()
+          ? GlicInvokeOptions(mojom::InvocationPayload::NewUniversalCart(
+                mojom::UniversalCartPayload::New(
+                    std::move(mojo_options->payload->get_universal_cart()
+                                  ->serialized_metadata))))
           : GlicInvokeOptions(mojo_options->invocation_source);
   options.prompts = std::move(mojo_options->prompts);
-
-  if (mojo_options->additional_context) {
-    options.additional_context = AdditionalTabContext(
-        std::move(mojo_options->additional_context),
-        content::GlobalRenderFrameHostId(), PolicyCheck::kClipboard);
-  }
 
   if (mojo_options->conversation->is_new_conversation()) {
     options.target.conversation = NewConversation();
@@ -777,9 +771,9 @@ void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
 
   options.feature_mode = mojo_options->feature_mode;
   options.disable_zss = mojo_options->disable_zss;
-  if (mojo_options->zss_config) {
+  if (mojo_options->zss_additional_content) {
     options.zss_config =
-        ZssConfig(mojo_options->zss_config->additional_content);
+        ZssConfig(std::move(mojo_options->zss_additional_content));
   }
   options.skill_id = std::move(mojo_options->skill_id);
   options.error_message = std::move(mojo_options->error_message);
@@ -991,7 +985,6 @@ void GlicInternalsPageHandler::SetShowErrorAllowed(bool allowed) {
 }
 
 void GlicInternalsPageHandler::ShowExperimentalOptIn() {
-#if !BUILDFLAG(IS_ANDROID)
   GlicKeyedService* service = GetGlicService();
   if (!service) {
     return;
@@ -1004,7 +997,6 @@ void GlicInternalsPageHandler::ShowExperimentalOptIn() {
           : webui_contents_.get();
 
   service->opt_in_controller().ShowDialog(target_contents, base::DoNothing());
-#endif
 }
 
 void GlicInternalsPageHandler::RevokeExperimentalTriggeringConsent() {

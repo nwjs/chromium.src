@@ -10,7 +10,9 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {DEFAULT_SETTINGS, LineFocusMovement, LineFocusStyle, ToolbarEvent} from '../content/read_anything_types.js';
+import type {VisualBrowserProxy} from '../app/visual_browser_proxy.js';
+import {VisualBrowserProxyImpl} from '../app/visual_browser_proxy.js';
+import {DEFAULT_SETTINGS, ToolbarEvent} from '../content/read_anything_types.js';
 import type {SettingsPrefs, ShowAtConfigPrefs} from '../content/read_anything_types.js';
 import {ReadAnythingSettingsChange} from '../shared/metrics_browser_proxy.js';
 import {ReadAnythingLogger} from '../shared/read_anything_logger.js';
@@ -44,9 +46,6 @@ export class TextMenuElement extends TextMenuElementBase implements
       areFontsLoaded: {type: Boolean},
       pageLanguage: {type: String},
       groups_: {type: Array},
-      lineFocusStyle: {type: Object},
-      lineFocusEnabled: {type: Boolean},
-      lineFocusMovement: {type: Number},
     };
   }
 
@@ -54,26 +53,26 @@ export class TextMenuElement extends TextMenuElementBase implements
   accessor nonModal: boolean = false;
   accessor areFontsLoaded: boolean = false;
   accessor pageLanguage: string = '';
-  accessor lineFocusStyle: LineFocusStyle|null = null;
-  accessor lineFocusEnabled: boolean = false;
-  accessor lineFocusMovement: LineFocusMovement|null = null;
+
+  private visualBrowserProxy_: VisualBrowserProxy =
+      VisualBrowserProxyImpl.getInstance();
 
   private fontOptions_: Array<MenuStateItem<string>> = [];
   private lineSpacingOptions_: Array<MenuStateItem<number>> = [
     {
       title: loadTimeData.getString('lineSpacingStandardTitle'),
       icon: 'read-anything:line-spacing-standard-custom',
-      data: chrome.readingMode.standardLineSpacing,
+      data: this.visualBrowserProxy_.getStandardLineSpacing(),
     },
     {
       title: loadTimeData.getString('lineSpacingLooseTitle'),
       icon: 'read-anything:line-spacing-loose-custom',
-      data: chrome.readingMode.looseLineSpacing,
+      data: this.visualBrowserProxy_.getLooseLineSpacing(),
     },
     {
       title: loadTimeData.getString('lineSpacingVeryLooseTitle'),
       icon: 'read-anything:line-spacing-very-loose-custom',
-      data: chrome.readingMode.veryLooseLineSpacing,
+      data: this.visualBrowserProxy_.getVeryLooseLineSpacing(),
     },
   ];
 
@@ -83,116 +82,54 @@ export class TextMenuElement extends TextMenuElementBase implements
       icon: loadTimeData.getBoolean('webuiRoundedIconsEnabled')?
       'read-anything:format-letter-spacing-standard':
           'read-anything:letter-spacing-standard-old',
-      data: chrome.readingMode.standardLetterSpacing,
+      data: this.visualBrowserProxy_.getStandardLetterSpacing(),
     },
     {
       title: loadTimeData.getString('letterSpacingWideTitle'),
       icon: loadTimeData.getBoolean('webuiRoundedIconsEnabled')?
       'read-anything:format-letter-spacing-wide':
           'read-anything:letter-spacing-wide-old',
-      data: chrome.readingMode.wideLetterSpacing,
+      data: this.visualBrowserProxy_.getWideLetterSpacing(),
     },
     {
       title: loadTimeData.getString('letterSpacingVeryWideTitle'),
       icon: loadTimeData.getBoolean('webuiRoundedIconsEnabled')?
       'read-anything:format-letter-spacing-wider':
           'read-anything:letter-spacing-very-wide-old',
-      data: chrome.readingMode.veryWideLetterSpacing,
+      data: this.visualBrowserProxy_.getVeryWideLetterSpacing(),
     },
   ];
 
-  private toggleOptions_: Array<MenuStateItem<boolean>> = [
+  protected accessor groups_: Array<MenuGroup<number|string>> = [
     {
-      title: loadTimeData.getString('lineFocusOffTitle'),
-      data: false,
-    },
-    {
-      title: loadTimeData.getString('lineFocusOnTitle'),
-      data: true,
-    },
-  ];
-
-  private styleOptions_: Array<MenuStateItem<LineFocusStyle>> = [
-    {
-      title: loadTimeData.getString('lineFocusUnderlineTitle'),
-      data: LineFocusStyle.UNDERLINE,
-    },
-    {
-      title: loadTimeData.getString('lineFocusOneLineTitle'),
-      data: LineFocusStyle.SMALL_WINDOW,
-    },
-    {
-      title: loadTimeData.getString('lineFocusThreeLineTitle'),
-      data: LineFocusStyle.MEDIUM_WINDOW,
-    },
-    {
-      title: loadTimeData.getString('lineFocusFiveLineTitle'),
-      data: LineFocusStyle.LARGE_WINDOW,
-    },
-  ];
-
-  private movementOptions_: Array<MenuStateItem<LineFocusMovement>> = [
-    {
-      title: loadTimeData.getString('lineFocusStaticTitle'),
-      data: LineFocusMovement.STATIC,
-    },
-    {
-      title: loadTimeData.getString('lineFocusCursorLineTitle'),
-      data: LineFocusMovement.CURSOR,
-    },
-  ];
-
-  private get defaultGroups_():
-      Array<MenuGroup<number|string|boolean|LineFocusStyle|LineFocusMovement>> {
-    return [
-      {
-        header: {
-          title: loadTimeData.getString('fontNameTitle'),
-          separator: false,
-        },
-        items: this.fontOptions_,
-        eventName: ToolbarEvent.FONT,
+      header: {
+        title: loadTimeData.getString('fontNameTitle'),
+        separator: false,
       },
-      {
-        header: {
-          title: loadTimeData.getString('lineSpacingTitle'),
-          separator: true,
-        },
-        items: this.lineSpacingOptions_,
-        eventName: ToolbarEvent.LINE_SPACING,
+      items: this.fontOptions_,
+      eventName: ToolbarEvent.FONT,
+    },
+    {
+      header: {
+        title: loadTimeData.getString('lineSpacingTitle'),
+        separator: true,
       },
-      {
-        header: {
-          title: loadTimeData.getString('letterSpacingTitle'),
-          separator: true,
-        },
-        items: this.letterSpacingOptions_,
-        eventName: ToolbarEvent.LETTER_SPACING,
+      items: this.lineSpacingOptions_,
+      eventName: ToolbarEvent.LINE_SPACING,
+    },
+    {
+      header: {
+        title: loadTimeData.getString('letterSpacingTitle'),
+        separator: true,
       },
-    ];
-  }
-
-  protected accessor groups_:
-      Array<MenuGroup<number|string|boolean|LineFocusStyle|LineFocusMovement>> =
-          this.defaultGroups_;
+      items: this.letterSpacingOptions_,
+      eventName: ToolbarEvent.LETTER_SPACING,
+    },
+  ];
   private logger_: ReadAnythingLogger = ReadAnythingLogger.getInstance();
 
   override willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
-
-    if (chrome.readingMode.isLineFocusEnabled) {
-      if (changedProperties.has('lineFocusEnabled')) {
-        this.updateOptionsForToggle_(this.lineFocusEnabled);
-      }
-      if (changedProperties.has('lineFocusStyle') &&
-          this.lineFocusStyle !== null) {
-        this.updateOptionsForStyle_(this.lineFocusStyle);
-      }
-      if (changedProperties.has('lineFocusMovement') &&
-          this.lineFocusMovement !== null) {
-        this.updateOptionsForMovement_(this.lineFocusMovement);
-      }
-    }
 
     if (changedProperties.has('pageLanguage') ||
         changedProperties.has('areFontsLoaded')) {
@@ -201,14 +138,10 @@ export class TextMenuElement extends TextMenuElementBase implements
 
     if (changedProperties.has('settingsPrefs') ||
         changedProperties.has('pageLanguage') ||
-        changedProperties.has('areFontsLoaded') ||
-        changedProperties.has('lineFocusEnabled') ||
-        changedProperties.has('lineFocusStyle') ||
-        changedProperties.has('lineFocusMovement')) {
+        changedProperties.has('areFontsLoaded')) {
       this.updateOptionsForFont_();
       this.updateOptionsForLineSpacing_();
       this.updateOptionsForLetterSpacing_();
-      this.computeGroups_();
       this.groups_ = [...this.groups_];
     }
   }
@@ -223,41 +156,26 @@ export class TextMenuElement extends TextMenuElementBase implements
 
   protected onFontChange_(event: CustomEvent<{data: string}>) {
     const newFont = event.detail.data;
-    chrome.readingMode.onFontChange(newFont);
+    this.visualBrowserProxy_.onFontChange(newFont);
     this.logger_.logTextSettingsChange(ReadAnythingSettingsChange.FONT_CHANGE);
   }
 
   protected onLineSpacingChange_(event: CustomEvent<{data: number}>) {
     const newSpacing = event.detail.data;
-    chrome.readingMode.onLineSpacingChange(newSpacing);
+    this.visualBrowserProxy_.onLineSpacingChange(newSpacing);
     this.logger_.logTextSettingsChange(
         ReadAnythingSettingsChange.LINE_HEIGHT_CHANGE);
   }
 
   protected onLetterSpacingChange_(event: CustomEvent<{data: number}>) {
     const newSpacing = event.detail.data;
-    chrome.readingMode.onLetterSpacingChange(newSpacing);
+    this.visualBrowserProxy_.onLetterSpacingChange(newSpacing);
     this.logger_.logTextSettingsChange(
         ReadAnythingSettingsChange.LETTER_SPACING_CHANGE);
   }
 
-  protected onLineFocusStyleChange_() {
-    this.logger_.logTextSettingsChange(
-        ReadAnythingSettingsChange.LINE_FOCUS_STYLE_CHANGE);
-  }
-
-  protected onLineFocusToggleChange_() {
-    this.logger_.logTextSettingsChange(
-        ReadAnythingSettingsChange.LINE_FOCUS_TOGGLE);
-  }
-
-  protected onLineFocusMovementChange_() {
-    this.logger_.logTextSettingsChange(
-        ReadAnythingSettingsChange.LINE_FOCUS_MOVEMENT_CHANGE);
-  }
-
   private updateOptionsForFont_() {
-    const currentFont = chrome.readingMode.fontName;
+    const currentFont = this.visualBrowserProxy_.getFontName();
     this.fontOptions_.forEach(option => {
       option.selected = option.data === currentFont;
     });
@@ -277,63 +195,8 @@ export class TextMenuElement extends TextMenuElementBase implements
     });
   }
 
-  private updateOptionsForToggle_(isEnabled: boolean) {
-    this.toggleOptions_.forEach(option => {
-      option.selected = option.data === isEnabled;
-    });
-  }
-
-  private updateOptionsForStyle_(newStyle: LineFocusStyle) {
-    this.styleOptions_.forEach(option => {
-      option.selected = option.data === newStyle;
-    });
-  }
-
-  private updateOptionsForMovement_(newMovement: LineFocusMovement) {
-    this.movementOptions_.forEach(option => {
-      option.selected = option.data === newMovement;
-    });
-  }
-
-  private computeGroups_() {
-    const groups = this.defaultGroups_;
-
-    if (chrome.readingMode.isLineFocusEnabled) {
-      groups.push({
-        header: {
-          title: loadTimeData.getString('lineFocusLabel'),
-          separator: true,
-        },
-        items: this.toggleOptions_,
-        eventName: ToolbarEvent.LINE_FOCUS_TOGGLE,
-      });
-
-      if (this.lineFocusEnabled) {
-        groups.push(
-            {
-              header: {
-                title: loadTimeData.getString('lineFocusStyleHeading'),
-                separator: false,
-              },
-              items: this.styleOptions_,
-              eventName: ToolbarEvent.LINE_FOCUS_STYLE,
-            },
-            {
-              header: {
-                title: loadTimeData.getString('lineFocusMovementHeading'),
-                separator: false,
-              },
-              items: this.movementOptions_,
-              eventName: ToolbarEvent.LINE_FOCUS_MOVEMENT,
-            });
-      }
-    }
-
-    this.groups_ = groups;
-  }
-
   private computeFontOptions_() {
-    const fonts = chrome.readingMode.supportedFonts;
+    const fonts = this.visualBrowserProxy_.getSupportedFonts();
     this.fontOptions_ = fonts.map(
         font => ({
           title: this.areFontsLoaded ?

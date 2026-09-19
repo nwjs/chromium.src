@@ -5,9 +5,12 @@
 #include "chrome/browser/glic/browser_ui/glic_iph_controller.h"
 
 #include "base/time/time.h"
+#include "chrome/browser/glic/glic_warming_checks.h"
 #include "chrome/browser/glic/host/guest_util.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/common/chrome_features.h"
 #include "components/feature_engagement/public/feature_constants.h"
@@ -35,12 +38,22 @@ base::TimeDelta GetPromoCheckInterval() {
 
 }  // namespace
 
+DEFINE_USER_DATA(GlicIphController);
+
+// static
+GlicIphController* GlicIphController::From(
+    BrowserWindowInterface* browser_window) {
+  return Get(browser_window->GetUnownedUserDataHost());
+}
+
 GlicIphController::GlicIphController(BrowserWindowInterface* browser_window,
                                      GlicKeyedService& glic_service)
     : show_cta_(base::FeatureList::IsEnabled(
           feature_engagement::kIPHGlicTryItFeature)),
       window_(*browser_window),
-      glic_service_(glic_service) {
+      glic_service_(glic_service),
+      scoped_unowned_user_data_(browser_window->GetUnownedUserDataHost(),
+                                *this) {
   if (GlicEnabling::IsEnabledByGlobalCriteria()) {
     show_timer_.Start(FROM_HERE, GetPromoCheckInterval(),
                       base::BindRepeating(&GlicIphController::MaybeShowPromo,
@@ -81,6 +94,11 @@ void GlicIphController::MaybeShowPromo() {
 
 void GlicIphController::OnShowPromoResult(
     user_education::FeaturePromoResult result) {
+  if (result) {
+    if (base::FeatureList::IsEnabled(features::kGlicWarmOnIph)) {
+      glic_service_->TryPreload(GlicWarmingTrigger::kIph);
+    }
+  }
   // If there's no chance a promo could be shown in this browser window, stop
   // trying to check.
   if (result.is_blocked_this_instance()) {

@@ -13,7 +13,6 @@
 #include "base/test/run_until.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/content_test_utils.h"
@@ -113,7 +112,7 @@ void WebDialogBrowserTest::SetUpOnMainThread() {
       std::make_unique<ChromeWebContentsHandler>());
   view->SetOwnedByWidget(views::WidgetDelegate::OwnedByWidgetPassKey());
   gfx::NativeView parent_view =
-      browser()->tab_strip_model()->GetActiveWebContents()->GetNativeView();
+      browser()->GetTabStripModel()->GetActiveWebContents()->GetNativeView();
   view_ = view.get();
   view_tracker_.SetView(view_);
 

@@ -40,7 +40,7 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/profiles/profile_window.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
 namespace {
@@ -104,6 +104,7 @@ SurveyStringData GetSurveyStringData(const std::string& trigger,
 
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile);
+  CHECK(identity_manager);
 
   // For bucketing, report "5+" if the number of accounts is larger than 5.
   const size_t num_google_accounts =
@@ -179,7 +180,11 @@ bool IsSurveyEnabledForHatsTrigger(const std::string& trigger) {
            {kHatsSurveyTriggerFirstRunDesktopRevampCompleted,
             &switches::kFirstRunDesktopRevampSurvey},
            {kHatsSurveyTriggerFirstRunDesktopRevampNoFeatureShowcaseCompleted,
-            &switches::kFirstRunDesktopRevampNoFeatureShowcaseSurvey}});
+            &switches::kFirstRunDesktopRevampNoFeatureShowcaseSurvey},
+           {kHatsSurveyTriggerPreFirstRunDesktopRefreshCompleted,
+            &switches::kPreFirstRunDesktopRefreshSurvey},
+           {kHatsSurveyTriggerPreFirstRunDesktopRefreshNoFeatureShowcaseCompleted,
+            &switches::kPreFirstRunDesktopRefreshNoFeatureShowcaseSurvey}});
   // Map of HaTS features that are conflicting with each other. Keys are
   // features that are suppressed if one of the corresponding value features is
   // enabled.
@@ -190,7 +195,9 @@ bool IsSurveyEnabledForHatsTrigger(const std::string& trigger) {
             {&switches::kBeforeFirstRunDesktopRefreshSurvey,
              &switches::kFirstRunDesktopRefreshSurvey,
              &switches::kFirstRunDesktopRevampSurvey,
-             &switches::kFirstRunDesktopRevampNoFeatureShowcaseSurvey}}});
+             &switches::kFirstRunDesktopRevampNoFeatureShowcaseSurvey,
+             &switches::kPreFirstRunDesktopRefreshSurvey,
+             &switches::kPreFirstRunDesktopRefreshNoFeatureShowcaseSurvey}}});
 
   const auto* feature = base::FindPtrOrNull(*kHatsTriggerFeatureMap, trigger);
 
@@ -233,7 +240,8 @@ void LaunchHatsSurveyForProfileInternal(
     bool defer_if_no_browser,
     base::OnceCallback<SurveyStringData()> data_factory) {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-  if (!profile || !IsSurveyEnabledForHatsTrigger(trigger)) {
+  if (!profile || profile->IsOffTheRecord() ||
+      !IsSurveyEnabledForHatsTrigger(trigger)) {
     return;
   }
 
@@ -255,7 +263,6 @@ void LaunchHatsSurveyForProfileInternal(
   HatsService* hats_service =
       HatsServiceFactory::GetForProfile(profile, /*create_if_necessary=*/true);
   if (!hats_service) {
-    // HaTS service is not available for OTR profiles.
     return;
   }
 

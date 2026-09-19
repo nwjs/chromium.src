@@ -8,6 +8,7 @@
 
 #include "base/notreached.h"
 #include "ui/base/interaction/element_identifier.h"
+#include "ui/base/interaction/element_tracker.h"
 
 namespace user_education {
 
@@ -38,25 +39,29 @@ AnchorElementProviderCommon& AnchorElementProviderCommon::operator=(
 AnchorElementProviderCommon::~AnchorElementProviderCommon() = default;
 
 ui::TrackedElement* AnchorElementProviderCommon::GetAnchorElement(
-    ui::ElementContext context,
+    ui::ElementContext default_context,
+    AnchorElementFilter default_filter,
     std::optional<int> index) const {
   CHECK(anchor_element_id_)
       << "Cannot call GetAnchorElement on default-constructed object.";
   CHECK(!index.has_value())
       << "Cannot specify an index for a default anchor element provider.";
 
+  auto filter =
+      anchor_element_filter_ ? anchor_element_filter_ : default_filter;
+
   auto* const element_tracker = ui::ElementTracker::GetElementTracker();
-  if (anchor_element_filter_) {
-    return anchor_element_filter_.Run(
-        in_any_context_ ? element_tracker->GetAllMatchingElementsInAnyContext(
-                              anchor_element_id_)
-                        : element_tracker->GetAllMatchingElements(
-                              anchor_element_id_, context));
+  if (filter) {
+    return filter.Run(in_any_context_
+                          ? element_tracker->GetAllMatchingElementsInAnyContext(
+                                anchor_element_id_)
+                          : element_tracker->GetAllMatchingElements(
+                                anchor_element_id_, default_context));
   } else {
     return in_any_context_
                ? element_tracker->GetElementInAnyContext(anchor_element_id_)
                : element_tracker->GetFirstMatchingElement(anchor_element_id_,
-                                                          context);
+                                                          default_context);
   }
 }
 

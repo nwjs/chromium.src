@@ -20,6 +20,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ui.actions.ActionId;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
+import org.chromium.ui.util.ValueUtils;
 
 /** Custom view for the bottom bar. */
 @NullMarked
@@ -35,12 +36,20 @@ public class BottomBarView extends LinearLayout {
     private RippleDrawable mNewTabRippleNoBackground;
     private BottomBarButtonContainer[] mOtherContainers;
     private RippleDrawable[] mOtherRipples;
+    private @Nullable ColorStateList mCachedNewTabRippleBackgroundColorStateList;
+    private @Nullable ColorStateList mCachedOtherRipplesColorStateList;
+    private @Nullable ColorStateList mCachedIconTint;
     private @Nullable Integer mColorScheme;
     private @Nullable Boolean mNewTabBackgroundVisible;
+    private @ColorInt int mNewTabBackgroundTintForTesting;
+    private @ColorInt int mNewTabRippleBackgroundColorForTesting;
+    private @ColorInt int mOtherRipplesColorForTesting;
+    private @ColorInt int mCachedOnSurfaceColor;
     private int mNewTabPaddingStart;
     private int mNewTabPaddingTop;
     private int mNewTabPaddingEnd;
     private int mNewTabPaddingBottom;
+    private float mDisabledAlpha;
 
     public BottomBarView(Context context, @Nullable AttributeSet attributeSet) {
         super(context, attributeSet);
@@ -61,6 +70,8 @@ public class BottomBarView extends LinearLayout {
         mAppMenuContainer = findViewById(R.id.app_menu_button_container);
 
         Context context = getContext();
+        mDisabledAlpha =
+                ValueUtils.getFloat(context.getResources(), R.dimen.default_disabled_alpha);
         mNewTabBackground =
                 assertNonNull(context.getDrawable(R.drawable.bottom_bar_new_tab_background))
                         .mutate();
@@ -83,18 +94,122 @@ public class BottomBarView extends LinearLayout {
         mNewTabPaddingBottom = mNewTabButton.getPaddingBottom();
     }
 
-    void setColorScheme(@BrandedColorScheme int colorScheme) {
+    /**
+     * Sets the bright surface background tint for the new tab button.
+     *
+     * @param color The bright surface color int.
+     */
+    public void setNewTabBackgroundTint(@ColorInt int color) {
+        mNewTabBackgroundTintForTesting = color;
+        mNewTabBackground.setTint(color);
+        mNewTabButton.invalidate();
+    }
+
+    /**
+     * Sets the ripple color for the new tab button with a background.
+     *
+     * @param color The ripple color int.
+     */
+    public void setNewTabRippleBackgroundColor(@ColorInt int color) {
+        mNewTabRippleBackgroundColorForTesting = color;
+        if (mCachedNewTabRippleBackgroundColorStateList == null
+                || mCachedNewTabRippleBackgroundColorStateList.getDefaultColor() != color) {
+            mCachedNewTabRippleBackgroundColorStateList = ColorStateList.valueOf(color);
+        }
+        mNewTabRippleBackground.setColor(mCachedNewTabRippleBackgroundColorStateList);
+    }
+
+    /**
+     * Sets the ripple color for buttons without a background.
+     *
+     * @param color The ripple color int.
+     */
+    public void setOtherRipplesColor(@ColorInt int color) {
+        mOtherRipplesColorForTesting = color;
+        if (mCachedOtherRipplesColorStateList == null
+                || mCachedOtherRipplesColorStateList.getDefaultColor() != color) {
+            mCachedOtherRipplesColorStateList = ColorStateList.valueOf(color);
+        }
+        for (RippleDrawable ripple : mOtherRipples) {
+            if (ripple != null) {
+                ripple.setColor(mCachedOtherRipplesColorStateList);
+            }
+        }
+        mNewTabRippleNoBackground.setColor(mCachedOtherRipplesColorStateList);
+    }
+
+    /**
+     * Sets the icon tint across all button containers derived from an onSurface color.
+     *
+     * @param onSurfaceColor The onSurface color int.
+     */
+    public void setIconOnSurfaceColor(@ColorInt int onSurfaceColor) {
+        // Note: mDisabledAlpha is immutable post-inflation, so onSurfaceColor is the sole cache
+        // key.
+        if (mCachedIconTint == null || mCachedOnSurfaceColor != onSurfaceColor) {
+            mCachedOnSurfaceColor = onSurfaceColor;
+            mCachedIconTint =
+                    BottomBarUtils.getIconColorStateListFromOnSurface(
+                            onSurfaceColor, mDisabledAlpha);
+        }
+        @BrandedColorScheme
+        int scheme = mColorScheme != null ? mColorScheme : BrandedColorScheme.APP_DEFAULT;
+        mHomeContainer.setColorScheme(mCachedIconTint, scheme);
+        mExtraContainer.setColorScheme(mCachedIconTint, scheme);
+        mNewTabContainer.setColorScheme(mCachedIconTint, scheme);
+        mTabSwitcherContainer.setColorScheme(mCachedIconTint, scheme);
+        mAppMenuContainer.setColorScheme(mCachedIconTint, scheme);
+    }
+
+    /** Resets the view colors to its configured {@link BrandedColorScheme}. */
+    public void resetColors() {
+        @BrandedColorScheme
+        int colorScheme = mColorScheme != null ? mColorScheme : BrandedColorScheme.APP_DEFAULT;
+        mColorScheme = null;
+        setColorScheme(colorScheme);
+    }
+
+    public @ColorInt int getNewTabBackgroundTintForTesting() {
+        return mNewTabBackgroundTintForTesting;
+    }
+
+    public @ColorInt int getNewTabRippleBackgroundColorForTesting() {
+        return mNewTabRippleBackgroundColorForTesting;
+    }
+
+    public @ColorInt int getOtherRipplesColorForTesting() {
+        return mOtherRipplesColorForTesting;
+    }
+
+    Drawable getNewTabBackgroundForTesting() {
+        return mNewTabBackground;
+    }
+
+    RippleDrawable getNewTabRippleBackgroundForTesting() {
+        return mNewTabRippleBackground;
+    }
+
+    RippleDrawable getNewTabRippleNoBackgroundForTesting() {
+        return mNewTabRippleNoBackground;
+    }
+
+    RippleDrawable[] getOtherRipplesForTesting() {
+        return mOtherRipples;
+    }
+
+    /**
+     * Sets the {@link BrandedColorScheme} for the bottom bar and updates its background, button
+     * tints, and ripple colors.
+     *
+     * @param colorScheme The {@link BrandedColorScheme} to apply.
+     */
+    public void setColorScheme(@BrandedColorScheme int colorScheme) {
         Context context = getContext();
         setBackgroundColor(BottomBarUtils.getBottomBarBackgroundColor(context, colorScheme));
-        mNewTabBackground.setTint(BottomBarUtils.getColorSurfaceBright(context, colorScheme));
-
-        @ColorInt
-        int rippleColorBackground = BottomBarUtils.getRippleColorBackground(context, colorScheme);
-        mNewTabRippleBackground.setColor(ColorStateList.valueOf(rippleColorBackground));
-
-        @ColorInt
-        int rippleColorNoBackground =
-                BottomBarUtils.getRippleColorNoBackground(context, colorScheme);
+        setNewTabBackgroundTint(BottomBarUtils.getColorSurfaceBright(context, colorScheme));
+        setNewTabRippleBackgroundColor(
+                BottomBarUtils.getRippleColorBackground(context, colorScheme));
+        setOtherRipplesColor(BottomBarUtils.getRippleColorNoBackground(context, colorScheme));
 
         if (mColorScheme == null || mColorScheme != colorScheme) {
             mColorScheme = colorScheme;
@@ -108,14 +223,6 @@ public class BottomBarView extends LinearLayout {
             }
         }
 
-        ColorStateList noBackgroundTint = ColorStateList.valueOf(rippleColorNoBackground);
-        for (RippleDrawable ripple : mOtherRipples) {
-            if (ripple != null) {
-                ripple.setColor(noBackgroundTint);
-            }
-        }
-        mNewTabRippleNoBackground.setColor(noBackgroundTint);
-
         ColorStateList tint = BottomBarUtils.getIconColorStateList(context, colorScheme);
 
         mHomeContainer.setColorScheme(tint, colorScheme);
@@ -125,7 +232,7 @@ public class BottomBarView extends LinearLayout {
         mAppMenuContainer.setColorScheme(tint, colorScheme);
     }
 
-    /*package*/ void setNewTabBackgroundVisible(boolean visible) {
+    public void setNewTabBackgroundVisible(boolean visible) {
         if (mNewTabBackgroundVisible != null && mNewTabBackgroundVisible == visible) {
             return;
         }

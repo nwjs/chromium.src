@@ -12,7 +12,6 @@ import androidx.annotation.Nullable;
 import org.mockito.Mockito;
 
 import org.chromium.base.ObserverList;
-import org.chromium.base.ObserverList.RewindableIterator;
 import org.chromium.base.ThreadUtils;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
@@ -21,11 +20,14 @@ import org.chromium.url.GURL;
 
 /** Exposes helper functions to be used in tests to instrument tab interaction. */
 public class TabTestUtils {
-    /**
-     * @return The observers registered for the given tab.
-     */
-    public static ObserverList.RewindableIterator<TabObserver> getTabObservers(Tab tab) {
+    /** Returns the observers registered for the given tab. */
+    public static Iterable<TabObserver> getTabObservers(Tab tab) {
         return ((TabImpl) tab).getTabObservers();
+    }
+
+    /** Returns the rewindable iterator over observers registered for the given tab. */
+    public static ObserverList.RewindableIterator<TabObserver> getRewindableTabObservers(Tab tab) {
+        return ((TabImpl) tab).getRewindableTabObservers();
     }
 
     /**
@@ -75,8 +77,9 @@ public class TabTestUtils {
      * @param tab Tab on which the simulated event will be sent.
      */
     public static void simulateFirstVisuallyNonEmptyPaint(Tab tab) {
-        RewindableIterator<TabObserver> observers = ((TabImpl) tab).getTabObservers();
-        while (observers.hasNext()) observers.next().didFirstVisuallyNonEmptyPaint(tab);
+        for (TabObserver observer : getTabObservers(tab)) {
+            observer.didFirstVisuallyNonEmptyPaint(tab);
+        }
     }
 
     /**
@@ -84,8 +87,9 @@ public class TabTestUtils {
      * @param tab Tab on which the simulated event will be sent.
      */
     public static void simulatePageLoadFinished(Tab tab) {
-        RewindableIterator<TabObserver> observers = ((TabImpl) tab).getTabObservers();
-        while (observers.hasNext()) observers.next().onPageLoadFinished(tab, tab.getUrl());
+        for (TabObserver observer : getTabObservers(tab)) {
+            observer.onPageLoadFinished(tab, tab.getUrl());
+        }
     }
 
     /**
@@ -94,8 +98,9 @@ public class TabTestUtils {
      * @param errorCode Errorcode to send to the page.
      */
     public static void simulatePageLoadFailed(Tab tab, int errorCode) {
-        RewindableIterator<TabObserver> observers = ((TabImpl) tab).getTabObservers();
-        while (observers.hasNext()) observers.next().onPageLoadFailed(tab, errorCode);
+        for (TabObserver observer : getTabObservers(tab)) {
+            observer.onPageLoadFailed(tab, errorCode);
+        }
     }
 
     /**
@@ -105,8 +110,9 @@ public class TabTestUtils {
      */
     public static void simulateCrash(Tab tab, boolean sadTabShown) {
         setupSadTab(tab, sadTabShown);
-        RewindableIterator<TabObserver> observers = ((TabImpl) tab).getTabObservers();
-        while (observers.hasNext()) observers.next().onCrash(tab);
+        for (TabObserver observer : getTabObservers(tab)) {
+            observer.onCrash(tab);
+        }
     }
 
     private static void setupSadTab(Tab tab, boolean show) {
@@ -129,8 +135,7 @@ public class TabTestUtils {
             ThreadUtils.runOnUiThreadBlocking(
                     () -> {
                         SadTab.initForTesting(tab, sadTab);
-                        sadTab.show(
-                                ((TabImpl) tab).getThemedApplicationContext(), () -> {}, () -> {});
+                        sadTab.show(TabImpl.getThemedApplicationContext(), () -> {}, () -> {});
                     });
         }
     }
@@ -141,8 +146,9 @@ public class TabTestUtils {
      * @param color Color to send to the tab.
      */
     public static void simulateChangeThemeColor(Tab tab, int color) {
-        RewindableIterator<TabObserver> observers = ((TabImpl) tab).getTabObservers();
-        while (observers.hasNext()) observers.next().onDidChangeThemeColor(tab, color);
+        for (TabObserver observer : getTabObservers(tab)) {
+            observer.onDidChangeThemeColor(tab, color);
+        }
     }
 
     /**
@@ -213,6 +219,14 @@ public class TabTestUtils {
     /** Mock Tab interface impl JNI for testing. */
     public static void mockTabJni() {
         TabImpl.Natives tabImplJni = Mockito.mock(TabImpl.Natives.class);
+        Mockito.doAnswer(
+                        invocation -> {
+                            TabImpl tab = invocation.getArgument(/* index= */ 0);
+                            tab.setNativePtrForTesting(/* nativePtr= */ 1L);
+                            return null;
+                        })
+                .when(tabImplJni)
+                .init(Mockito.any(), Mockito.any(), Mockito.anyInt());
         TabImplJni.setInstanceForTesting(tabImplJni);
     }
 

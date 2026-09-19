@@ -26,16 +26,14 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.CallbackUtils;
+import org.chromium.base.FeatureOverrides;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.optional_button.ButtonData;
@@ -51,7 +49,6 @@ import org.chromium.url.GURL;
 
 /** Unit tests for {@link ShareButtonController}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 @SuppressWarnings("DoNotMock") // Mocks GURL
 public final class ShareButtonControllerUnitTest {
     private static final int WIDTH_DELTA = 50;
@@ -74,6 +71,8 @@ public final class ShareButtonControllerUnitTest {
 
     @Before
     public void setUp() {
+        FeatureOverrides.newBuilder().apply();
+
         mShareDelegateSupplier = ObservableSuppliers.createMonotonic(mShareDelegate);
 
         mContext = RuntimeEnvironment.application;
@@ -100,7 +99,6 @@ public final class ShareButtonControllerUnitTest {
         TrackerFactory.setTrackerForTests(mTracker);
     }
 
-    @EnableFeatures(ChromeFeatureList.ADAPTIVE_BUTTON_IN_TOP_TOOLBAR_CUSTOMIZATION_V2)
     @Test
     public void testIphCommandHelper() {
         assertNull(
@@ -118,7 +116,6 @@ public final class ShareButtonControllerUnitTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.ADAPTIVE_BUTTON_IN_TOP_TOOLBAR_CUSTOMIZATION_V2)
     public void testIphEvent() {
         doReturn(true)
                 .when(mTracker)
@@ -134,7 +131,6 @@ public final class ShareButtonControllerUnitTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.ADAPTIVE_BUTTON_IN_TOP_TOOLBAR_CUSTOMIZATION_V2)
     public void testDoNotShowOnDataUrl() {
         doReturn("data").when(mMockGurl).getScheme();
         doReturn(mMockGurl).when(mTab).getUrl();

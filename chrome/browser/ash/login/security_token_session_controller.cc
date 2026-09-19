@@ -24,11 +24,9 @@
 #include "base/trace_event/trace_event.h"
 #include "chrome/browser/ash/certificate_provider/certificate_provider_service.h"
 #include "chrome/browser/ash/certificate_provider/certificate_provider_service_factory.h"
-#include "chrome/browser/ash/login/lock/screen_locker.h"
-#include "chrome/browser/browser_process.h"
+#include "chrome/browser/ash/login/lock/screen_locker_controller.h"
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
 #include "chrome/browser/extensions/forced_extensions/force_installed_tracker.h"
-#include "chrome/browser/notifications/system_notification_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/security_token_restriction/security_token_session_restriction_view.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
@@ -51,6 +49,7 @@
 #include "net/cert/x509_util.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/chromeos/devicetype_utils.h"
+#include "ui/message_center/message_center.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/dialog_delegate.h"
@@ -123,7 +122,7 @@ bool SanitizeDomain(const std::string& domain, std::string& sanitized_domain) {
 
 void DisplayNotification(const std::u16string& title,
                          const std::u16string& text) {
-  message_center::Notification notification = CreateSystemNotification(
+  auto notification = CreateSystemNotificationPtr(
       message_center::NOTIFICATION_TYPE_SIMPLE, kNotificationId, title, text,
       /*display_source=*/std::u16string(), /*origin_url=*/GURL(),
       message_center::NotifierId(message_center::NotifierType::SYSTEM_COMPONENT,
@@ -134,10 +133,11 @@ void DisplayNotification(const std::u16string& title,
           base::DoNothingAs<void()>()),
       chromeos::kEnterpriseIcon,
       message_center::SystemNotificationWarningLevel::NORMAL);
-  notification.set_fullscreen_visibility(
+  notification->set_fullscreen_visibility(
       message_center::FullscreenVisibility::OVER_USER);
-  notification.SetSystemPriority();
-  SystemNotificationHelper::GetInstance()->Display(notification);
+  notification->SetSystemPriority();
+  message_center::MessageCenter::Get()->AddNotification(
+      std::move(notification));
 }
 
 // Loads the persistently stored information about the challenge-response keys
@@ -442,7 +442,7 @@ void SecurityTokenSessionController::TriggerAction() {
     case Behavior::kIgnore:
       return;
     case Behavior::kLock:
-      ScreenLocker::Show();
+      ScreenLockerController::Get().ShowLockScreen();
       AddLockNotification();
       return;
     case Behavior::kLogout:

@@ -39,6 +39,8 @@ chromium-metrics-reviews@google.com.
   <variant name=".AimUrlNavigation"
       summary="Requests triggered by AIM URL navigation"/>
   <variant name=".CookieChange" summary="Requests triggered by cookie changes"/>
+  <variant name=".LocaleChange"
+      summary="Requests triggered by application locale changes"/>
   <variant name=".NetworkChange"
       summary="Requests triggered by network changes (expected at most once
                after startup)"/>
@@ -185,6 +187,19 @@ chromium-metrics-reviews@google.com.
       summary="SiteSearch keywords set by the user that support replacement
                (e.g. 'x.com/q=%s')"/>
 </variants>
+
+<!-- LINT.IfChange(MobileFuseboxPickerAttachmentType) -->
+
+<variants name="MobileFuseboxPickerAttachmentType">
+  <variant name="" summary="all pickers"/>
+  <variant name=".Camera" summary="Camera capture"/>
+  <variant name=".Drive" summary="Google Drive file picker"/>
+  <variant name=".File" summary="Local file / Document picker"/>
+  <variant name=".Gallery" summary="Photo library / Gallery picker"/>
+  <variant name=".Tabs" summary="Tabs"/>
+</variants>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h:MobileFuseboxPickerAttachmentType) -->
 
 <variants name="NavigationOrSuggestionPrefetch">
   <variant name="NavigationPrefetch"
@@ -534,7 +549,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.AimEligibility.CountryCodeEmpty" enum="Boolean"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>mahmadi@chromium.org</owner>
   <owner>mercerd@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
@@ -987,31 +1002,6 @@ Keep consistent with active providers. Doesn't need to include every provider in
     will use that fetched icon. Else it will hide the page action. Each of these
     cases will log a corresponding value. Exactly 1 of these will be logged when
     the page action is shown or hidden.
-  </summary>
-</histogram>
-
-<histogram name="Omnibox.AnswerParseSuccess" enum="BooleanSuccess"
-    expires_after="2027-01-31">
-  <owner>jdonnelly@chromium.org</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <summary>
-    For each answer received in suggest responses, the number that are
-    well-formed and contain all the required elements.
-  </summary>
-</histogram>
-
-<histogram name="Omnibox.AnswerParseType" enum="SuggestionAnswerType"
-    expires_after="2027-02-07">
-  <owner>jdonnelly@chromium.org</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <summary>
-    The number of times each omnibox suggestion answer type (e.g., weather,
-    sports score) was received and parsed successfully. Can be normalized with
-    the count of emits to Omnibox.SuggestRequest.Success.GoogleResponseTime,
-    which counts all successful suggest responses from Google, not just those
-    with answers attached. Note that GoogleResponseTime is technically off given
-    that it will still count cases where we fail to extract, deserialize, or
-    parse the response. But these cases are rare to non-existent.
   </summary>
 </histogram>
 
@@ -3176,6 +3166,16 @@ Keep consistent with active providers. Doesn't need to include every provider in
   </summary>
 </histogram>
 
+<histogram name="Omnibox.MobileFusebox.PickerOutcome{AttachmentType}"
+    enum="MobileFuseboxPickerOutcome" expires_after="2027-09-01">
+  <owner>erahmaoui@google.com</owner>
+  <owner>chrome-mobile-search@google.com</owner>
+  <summary>
+    Recorded when the user finishes an interaction with {AttachmentType}.
+  </summary>
+  <token key="AttachmentType" variants="MobileFuseboxPickerAttachmentType"/>
+</histogram>
+
 <histogram name="Omnibox.MobileFusebox.TabPickerTabsAttached" units="count"
     expires_after="2027-01-10">
   <owner>ameurhosni@google.com</owner>
@@ -4259,7 +4259,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.SearchPrefetch.CacheAliasOnCompleteNetError"
-    enum="NetErrorCodes" expires_after="2026-09-20">
+    enum="NetErrorCodes" expires_after="2027-09-20">
   <owner>lingqi@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
   <summary>
@@ -4301,7 +4301,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.SearchPrefetch.TakePrefetchResponseFromMemoryCache.ResourceResponseReceived"
-    enum="Boolean" expires_after="2026-12-16">
+    enum="Boolean" expires_after="2027-02-14">
   <owner>gjc@google.com</owner>
   <owner>chrome-prerendering@google.com</owner>
   <summary>
@@ -4340,7 +4340,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.SearchPreload.ResponseDataReaderFinalStatus.Prerender"
-    enum="SearchPrefetchResponseDataReaderStatus" expires_after="2026-08-22">
+    enum="SearchPrefetchResponseDataReaderStatus" expires_after="2027-08-22">
   <owner>lingqi@chromium.org</owner>
   <owner>ryansturm@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
@@ -4479,19 +4479,6 @@ Keep consistent with active providers. Doesn't need to include every provider in
   </summary>
   <token key="OmniboxZeroPrefixState" variants="OmniboxZeroPrefixState"/>
   <token key="OmniboxPageContext" variants="OmniboxPageContext"/>
-</histogram>
-
-<histogram name="Omnibox.SuggestionUsed.AnswerInSuggest"
-    enum="SuggestionAnswerOptionalType" expires_after="2027-01-17">
-  <owner>jdonnelly@chromium.org</owner>
-  <owner>mpearson@chromium.org</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <summary>
-    Counts how often omnibox suggestions are used, and in the case an Answer
-    suggestion was selected - records the type of an answer. This histogram is
-    useful because there is no distinct suggestion type recorded for answers so
-    their use is not recorded by Omnibox.SuggestionUsed.ProviderAndResultType.
-  </summary>
 </histogram>
 
 <histogram name="Omnibox.SuggestionUsed.ClientSummarizedResultType"
@@ -4813,7 +4800,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.SuggestionUsed.URL.NavigationToLargestContentfulPaint2.1"
-    units="ms" expires_after="2026-11-12">
+    units="ms" expires_after="2027-02-14">
   <owner>robertlin@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>

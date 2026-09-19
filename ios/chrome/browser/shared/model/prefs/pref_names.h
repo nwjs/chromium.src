@@ -27,8 +27,6 @@ inline constexpr char kAppStoreRatingPolicyEnabled[] =
 // Boolean that is true when Suggest support is enabled.
 inline constexpr char kArticlesForYouEnabled[] = "suggestions.articles_enabled";
 
-// Boolean which indicates if the omnibox should be at the bottom of the screen.
-inline constexpr char kBottomOmnibox[] = "ios.bottom_omnibox";
 
 // Boolean that is true when Browser Lockdown Mode is enabled.
 inline constexpr char kBrowserLockdownModeEnabled[] =
@@ -959,6 +957,14 @@ inline constexpr char kLastRecordedActiveDay[] = "ios.last_recorded_active_day";
 // 28-day window during session metrics logging.
 inline constexpr char kLastRecordedActiveDaysInPast28Days[] =
     "ios.last_recorded_active_days_in_past_28_days";
+
+// Mapping from UISceneSession identifiers to SceneState identifiers.
+inline constexpr char kSceneSessionIdentifierMap[] =
+    "ios.multiwindow.scene_session_identifiers";
+
+// Identifier of the last SceneState connected.
+inline constexpr char kLastConnectedSceneIdentifier[] =
+    "ios.multiwindow.last_connect_scene_identifier";
 
 }  // namespace prefs
 

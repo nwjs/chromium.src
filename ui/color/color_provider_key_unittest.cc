@@ -95,6 +95,9 @@ TEST(ColorProviderKeyTest, EqualityFrameStyle) {
   key1.frame_style = ColorProviderKey::FrameStyle::kDefault;
   key2.frame_style = ColorProviderKey::FrameStyle::kSystem;
   EXPECT_NE(key1, key2);
+
+  key2.frame_style = ColorProviderKey::FrameStyle::kGlass;
+  EXPECT_NE(key1, key2);
 }
 
 TEST(ColorProviderKeyTest, EqualityUserColorSource) {
@@ -166,6 +169,17 @@ TEST(ColorProviderKeyTest, EqualityAppController) {
   EXPECT_NE(key1, key2);
 
   key2.app_controller = &supplier1;
+  EXPECT_EQ(key1, key2);
+}
+
+TEST(ColorProviderKeyTest, EqualitySystemThemeVersion) {
+  ColorProviderKey key1;
+  ColorProviderKey key2;
+  key1.system_theme_version = 1;
+  key2.system_theme_version = 2;
+  EXPECT_NE(key1, key2);
+
+  key2.system_theme_version = 1;
   EXPECT_EQ(key1, key2);
 }
 

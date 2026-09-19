@@ -5,11 +5,13 @@
 #ifndef COMPONENTS_CONTEXTUAL_TASKS_PUBLIC_FEATURES_H_
 #define COMPONENTS_CONTEXTUAL_TASKS_PUBLIC_FEATURES_H_
 
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "components/contextual_tasks/public/host_override.h"
 
 namespace contextual_tasks {
 
@@ -18,7 +20,9 @@ BASE_DECLARE_FEATURE(kContextualTasksPrivateApiNoAnimation);
 BASE_DECLARE_FEATURE(kContextualTasksSidePanel);
 BASE_DECLARE_FEATURE(kContextualTasksEphemeralBrandedEntryPoint);
 BASE_DECLARE_FEATURE(kContextualTasksExtraOauthScopes);
+BASE_DECLARE_FEATURE(kContextualTasksDriveOAuthScope);
 BASE_DECLARE_FEATURE(kEnableContextualTasksPinButtonInToolbar);
+BASE_DECLARE_FEATURE(kEphemeralPinningVisibleWhenPermanentlyPinned);
 BASE_DECLARE_FEATURE(kContextualTasksContext);
 BASE_DECLARE_FEATURE(kContextualTasksSearchQuery);
 BASE_DECLARE_FEATURE(kContextualTasksContextMultiTurnTabRelevance);
@@ -26,6 +30,7 @@ BASE_DECLARE_FEATURE(
     kContextualTasksContextSmartTabSharingDefaultOnAvailability);
 BASE_DECLARE_FEATURE(kContextualTasksContextLibrary);
 BASE_DECLARE_FEATURE(kContextualTasksContextLogging);
+BASE_DECLARE_FEATURE(kContextualTasksScriptTools);
 BASE_DECLARE_FEATURE(kContextualTasksShowOnboardingTooltip);
 
 // Bypasses the dismissed cap for contextual tasks tooltips.
@@ -67,8 +72,6 @@ BASE_DECLARE_FEATURE(kContextualTasksSendContextualInputUploadType);
 // contextual tasks URL and redirect to aim URL.
 BASE_DECLARE_FEATURE(kContextualTasksUrlRedirectToAimUrl);
 
-// Enables the use of Stratus dark mode colors.
-BASE_DECLARE_FEATURE(kContextualTasksUseStratusDarkModeColors);
 
 // If enabled, animates the caret.
 BASE_DECLARE_FEATURE(kContextualTasksAnimatedCaret);
@@ -137,6 +140,14 @@ BASE_DECLARE_FEATURE(kContextualTasksSidePanelRearchitecture);
 
 // Enables sticky conversation UI that follows the user around.
 BASE_DECLARE_FEATURE(kContextualTasksEnableStickyConversation);
+
+// When enabled, allows AIM search URLs to be created and navigated immediately
+// upon starting contextual input uploads without waiting for background
+// network uploads to complete.
+BASE_DECLARE_FEATURE(kContextualTasksNonBlockingUrlNavigation);
+
+// Returns whether non-blocking AIM URL navigation is enabled.
+bool GetIsContextualTasksNonBlockingUrlNavigationEnabled();
 
 BASE_DECLARE_FEATURE(kContextualTasksEnableSpatialModelToolbarLayout);
 
@@ -317,14 +328,6 @@ extern int GetContextualTasksShowOnboardingTooltipSessionImpressionCap();
 // user before it no longer shows up.
 extern int GetContextualTasksOnboardingTooltipDismissedCap();
 
-// The maximum number of times the lens search tooltip can be dismissed by the
-// user before it no longer shows up.
-extern int GetContextualTasksLensSearchTooltipDismissedCap();
-
-// The maximum number of times the lens search tooltip can be shown to the user
-// in a single session before it no longer shows up.
-extern int GetContextualTasksLensSearchTooltipSessionImpressionCap();
-
 // The maximum number of times the AskG tooltip can be dismissed by the
 // user before it no longer shows up.
 extern int GetContextualTasksAskGTooltipDismissedCap();
@@ -375,10 +378,11 @@ extern bool ShouldShowExpandedSecurityChip();
 
 // Returns the host that all URLs loaded in the embedded page in the Contextual
 // Tasks WebUi should be routed to.
-extern std::string GetForcedEmbeddedPageHost();
+extern std::optional<HostOverride> GetForcedEmbeddedPageHost();
 
 // Allows overriding the embedded page host at runtime for debugging.
-extern void SetForcedEmbeddedPageHostOverride(const std::string& host);
+extern void SetForcedEmbeddedPageHostOverride(
+    std::optional<HostOverride> host_override);
 
 // Returns the domains for the sign in page.
 extern std::vector<std::string> GetContextualTasksSignInDomains();
@@ -389,8 +393,6 @@ extern bool GetIsContextualTasksSuggestionsEnabled();
 // Returns the timeout for smart tab sharing tab selection.
 extern base::TimeDelta GetSmartTabSharingTabSelectionTimeout();
 
-// Returns the score threshold required to display the smart tab sharing promo.
-extern double GetSmartTabSharingPromoScoreThreshold();
 
 // Enables tab auto-chip for contextual tasks. When disabled, no suggested
 // chips will be shown in the composebox automatically.
@@ -455,8 +457,6 @@ extern bool ShouldEnableCookiePrefetch();
 // from AIM.
 extern bool ShouldEnableLockAndUnlockInputCapability();
 
-// Returns whether the Stratus dark mode colors should be used.
-extern bool ShouldUseStratusDarkModeColors();
 
 // Returns whether the file hint is enabled in the composebox.
 extern bool GetEnableFileHint();
@@ -482,6 +482,15 @@ extern bool GetIsWebpageApcComparisonEnabled();
 
 extern bool IsContextualTasksRearchitectureEnabled();
 extern bool IsContextualTasksSidePanelRearchitectureEnabled();
+extern bool IsContextualTasksUnboundedMenuEnabled();
+
+inline constexpr char kContextualTasksSearchCapabilitiesHeaderName[] =
+    "Chrome-Search-Capabilities-Version";
+inline constexpr char kContextualTasksSearchCapabilitiesDefaultVersion[] = "1";
+
+extern const base::FeatureParam<std::string>
+    kContextualTasksSearchCapabilitiesVersion;
+std::string GetContextualTasksSearchCapabilitiesVersion();
 
 namespace flag_descriptions {
 
@@ -522,6 +531,8 @@ extern const char kContextualTasksSidePanelRearchitectureName[];
 extern const char kContextualTasksSidePanelRearchitectureDescription[];
 extern const char kContextualTasksBypassDismissedCapName[];
 extern const char kContextualTasksBypassDismissedCapDescription[];
+extern const char kEphemeralPinningVisibleWhenPermanentlyPinnedName[];
+extern const char kEphemeralPinningVisibleWhenPermanentlyPinnedDescription[];
 
 }  // namespace flag_descriptions
 

@@ -28,7 +28,7 @@
 #include "chrome/browser/sync/test/integration/status_change_checker.h"
 #include "chrome/browser/sync/test/integration/sync_service_impl_harness.h"
 #include "chrome/browser/sync/test/integration/sync_test.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_constants.h"
@@ -43,6 +43,7 @@
 #include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
 #include "components/password_manager/core/browser/password_store/password_store_results_observer.h"
+#include "components/password_manager/core/browser/password_string.h"
 #include "components/password_manager/core/browser/password_sync_util.h"
 #include "components/password_manager/core/browser/ui/saved_passwords_presenter.h"
 #include "components/password_manager/core/common/password_manager_features.h"
@@ -148,12 +149,12 @@ class SyncActiveWithoutPasswordsChecker
 // Note: This helper applies to ChromeOS too, but is currently unused there. So
 // define it out to prevent a compile error due to the unused function.
 #if !BUILDFLAG(IS_CHROMEOS)
-content::WebContents* GetNewTab(Browser* browser) {
+content::WebContents* GetNewTab(BrowserWindowInterface* browser) {
   ui_test_utils::NavigateToURLWithDisposition(
       browser, GURL("data:text/html"),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB);
-  return browser->tab_strip_model()->GetActiveWebContents();
+  return browser->GetTabStripModel()->GetActiveWebContents();
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
@@ -296,7 +297,8 @@ class PasswordManagerSyncTest : public SyncTest {
     form.signon_realm = origin.spec();
     form.url = origin;
     form.username_value = base::UTF8ToUTF16(username);
-    form.password_value = base::UTF8ToUTF16(password);
+    form.password_value =
+        password_manager::PasswordString(base::UTF8ToUTF16(password));
     form.date_created = base::Time::Now();
     return form;
   }

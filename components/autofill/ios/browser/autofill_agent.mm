@@ -36,6 +36,7 @@
 #import "base/uuid.h"
 #import "base/values.h"
 #import "build/branding_buildflags.h"
+#import "components/autofill/core/browser/at_memory/at_memory_enablement_util.h"
 #import "components/autofill/core/browser/autofill_field.h"
 #import "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #import "components/autofill/core/browser/data_model/payments/credit_card.h"
@@ -56,6 +57,7 @@
 #import "components/autofill/core/common/form_field_data.h"
 #import "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #import "components/autofill/core/common/unique_ids.h"
+#import "components/autofill/ios/browser/autofill_client_ios.h"
 #import "components/autofill/ios/browser/autofill_driver_ios.h"
 #import "components/autofill/ios/browser/autofill_driver_ios_bridge.h"
 #import "components/autofill/ios/browser/autofill_java_script_feature.h"
@@ -74,6 +76,7 @@
 #import "components/prefs/ios/pref_observer_bridge.h"
 #import "components/prefs/pref_change_registrar.h"
 #import "components/prefs/pref_service.h"
+#import "components/strings/grit/components_strings.h"
 #import "components/ukm/ios/ukm_url_recorder.h"
 #import "ios/web/common/url_scheme_util.h"
 #import "ios/web/public/js_messaging/web_frame.h"
@@ -90,6 +93,7 @@
 #import "ui/gfx/image/image.h"
 #import "url/gurl.h"
 
+using autofill::AtMemoryAction;
 using autofill::AutofillFormFeaturesJavaScriptFeature;
 using autofill::AutofillJavaScriptFeature;
 using autofill::FieldDataManager;
@@ -101,6 +105,7 @@ using autofill::FormFieldData;
 using autofill::FormGlobalId;
 using autofill::FormHandlersJavaScriptFeature;
 using autofill::FormRendererId;
+using autofill::MayPerformAtMemoryAction;
 using autofill::Section;
 using autofill::Suggestion;
 using autofill::SuggestionType;
@@ -288,6 +293,15 @@ bool HasGuid(const Suggestion::Payload& payload) {
 
   // Check for suggestions if the form activity is initiated by the user.
   if (!hasUserGesture) {
+    completion(NO);
+    return;
+  }
+
+  // kContentEditable is added for AtMemory. Suggestions are not available.
+  // A user uses AtMemory UI to run a search and then fill data manually to it.
+  if (formQuery.fieldType ==
+          autofill::FormActivityParams::FieldType::kContentEditable &&
+      base::FeatureList::IsEnabled(kAutofillSupportContentEditableIos)) {
     completion(NO);
     return;
   }
@@ -554,6 +568,11 @@ bool HasGuid(const Suggestion::Payload& payload) {
       frame, std::move(predictionData));
 }
 
+- (void)scrollFieldIntoView:(const FieldRendererId&)field
+                    inFrame:(web::WebFrame*)frame {
+  AutofillJavaScriptFeature::GetInstance()->ScrollFieldIntoView(frame, field);
+}
+
 #pragma mark - AutofillClientIOSBridge
 
 - (void)showAutofillPopup:(const std::vector<Suggestion>&)popup_suggestions
@@ -627,7 +646,6 @@ bool HasGuid(const Suggestion::Payload& payload) {
         // `suggestionIconType` will be set below.
         break;
 
-      case SuggestionType::kAutocompleteAtMemoryButton:
       case SuggestionType::kFetchingAmbientData:
         value = SysUTF16ToNSString(popup_suggestion.main_text.value);
         break;
@@ -641,12 +659,15 @@ bool HasGuid(const Suggestion::Payload& payload) {
       case SuggestionType::kAtMemoryGenericError:
       case SuggestionType::kAtMemoryInactivityNudge:
       case SuggestionType::kAtMemoryNoConnection:
+      case SuggestionType::kAtMemoryOpenGemini:
       case SuggestionType::kAtMemorySearchAffordance:
       case SuggestionType::kAtMemorySearchResult:
       case SuggestionType::kAtMemorySourceAttribution:
+      case SuggestionType::kAutocompleteAtMemoryButton:
       case SuggestionType::kAutofillAiOtherOrders:
       case SuggestionType::kAutofillAiOtherShipments:
       case SuggestionType::kAutofillAiPrivateInferenceNotice:
+      case SuggestionType::kAutofillAiSourceAttribution:
       case SuggestionType::kBackupPasswordEntry:
       case SuggestionType::kBnplEntry:
       case SuggestionType::kBnplFootnote:
@@ -679,9 +700,7 @@ bool HasGuid(const Suggestion::Payload& payload) {
       case SuggestionType::kManageEnhancedAutofill:
       case SuggestionType::kMaximizeCreditCardBenefitsEntry:
       case SuggestionType::kMerchantPromoCodeEntry:
-      case SuggestionType::kMixedFormMessage:
       case SuggestionType::kOneTimePasswordEntry:
-      case SuggestionType::kOpenGemini:
       case SuggestionType::kPasswordEntry:
       case SuggestionType::kPasswordFieldByFieldFilling:
       case SuggestionType::kPendingStateSignin:
@@ -756,6 +775,31 @@ bool HasGuid(const Suggestion::Payload& payload) {
       [suggestions insertObject:suggestion atIndex:0];
     } else {
       [suggestions addObject:suggestion];
+    }
+  }
+
+  if (suggestions.count > 0 && _webState) {
+    autofill::AutofillClientIOS* client =
+        autofill::AutofillClientIOS::FromWebState(_webState);
+    if (client &&
+        MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI, *client)) {
+      FormSuggestionMetadata metadata;
+      metadata.suggestion_delegate = delegate;
+      FormSuggestion* atMemorySuggestion = [FormSuggestion
+                  suggestionWithValue:
+                      l10n_util::GetNSString(
+                          IDS_AUTOFILL_AT_MEMORY_SEARCH_AFFORDANCE_TITLE)
+                           minorValue:nil
+                   displayDescription:nil
+                                 icon:nil
+                                 type:autofill::SuggestionType::
+                                          kAutocompleteAtMemoryButton
+                              payload:autofill::Suggestion::Payload()
+          fieldByFieldFillingTypeUsed:autofill::FieldType::EMPTY_TYPE
+                       requiresReauth:NO
+           acceptanceA11yAnnouncement:nil
+                             metadata:metadata];
+      [suggestions addObject:atMemorySuggestion];
     }
   }
 
@@ -1070,13 +1114,10 @@ bool HasGuid(const Suggestion::Payload& payload) {
                    fieldToFormLookupMap:fieldToFormLookupMap];
   }
 
-  if (base::FeatureList::IsEnabled(
-          autofill::features::kAutofillAcrossIframesIos)) {
-    auto* driver =
-        autofill::AutofillDriverIOS::FromWebStateAndWebFrame(_webState, frame);
-    if (driver && driver->is_processed()) {
-      driver->ScanForms();
-    }
+  auto* driver =
+      autofill::AutofillDriverIOS::FromWebStateAndWebFrame(_webState, frame);
+  if (driver && driver->is_processed()) {
+    driver->ScanForms();
   }
 
   if (actionType == autofill::mojom::FormActionType::kFill) {
@@ -1321,27 +1362,44 @@ bool HasGuid(const Suggestion::Payload& payload) {
                        frame:(base::WeakPtr<web::WebFrame>)frame
                     webState:(base::WeakPtr<web::WebState>)webState
            completionHandler:(SuggestionsAvailableCompletion)completion {
+  // If a query was already in flight, complete the previous completion callback
+  // with NO so it doesn't remain unresolved.
+  if (SuggestionsAvailableCompletion previousCompletion =
+          std::exchange(_suggestionsAvailableCompletion, nil)) {
+    previousCompletion(NO);
+  }
+
   if (!frame || !webState) {
-    completion(NO);
+    if (completion) {
+      completion(NO);
+    }
+    return;
+  }
+
+  if (!ContainsFocusableField(form, fieldIdentifier)) {
+    if (completion) {
+      completion(NO);
+    }
+    return;
+  }
+
+  auto* driver = autofill::AutofillDriverIOS::FromWebStateAndWebFrame(
+      _webState, frame.get());
+  DLOG_IF(WARNING, !driver) << "No AutofillDriverIOS found for WebFrame";
+  if (!driver) {
+    if (completion) {
+      completion(NO);
+    }
     return;
   }
 
   // Save the completion and go look for suggestions.
   _suggestionsAvailableCompletion = [completion copy];
   _typedValue = typedValue;
+  _lastQueriedFieldID = {form.host_frame(), fieldIdentifier};
 
   // Query the BrowserAutofillManager for suggestions. Results will arrive in
   // -showAutofillPopup:suggestionDelegate:.
-  if (!ContainsFocusableField(form, fieldIdentifier)) {
-    return;
-  }
-  _lastQueriedFieldID = {form.host_frame(), fieldIdentifier};
-  auto* driver = autofill::AutofillDriverIOS::FromWebStateAndWebFrame(
-      _webState, frame.get());
-  DLOG_IF(WARNING, !driver) << "No AutofillDriverIOS found for WebFrame";
-  if (!driver) {
-    return;
-  }
   driver->AskForValuesToFill(form, _lastQueriedFieldID);
 }
 

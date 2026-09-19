@@ -9,10 +9,13 @@
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
+#import "components/sessions/core/session_id.h"
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/sync/service/sync_service.h"
+#import "components/sync_sessions/open_tabs_ui_delegate.h"
+#import "components/sync_sessions/session_sync_service.h"
 #import "ios/chrome/browser/authentication/history_sync/coordinator/history_sync_coordinator.h"
 #import "ios/chrome/browser/authentication/history_sync/coordinator/history_sync_popup_coordinator.h"
 #import "ios/chrome/browser/authentication/history_sync/model/history_sync_utils.h"
@@ -25,6 +28,8 @@
 #import "ios/chrome/browser/menu/ui_bundled/action_factory.h"
 #import "ios/chrome/browser/menu/ui_bundled/menu_histograms.h"
 #import "ios/chrome/browser/menu/ui_bundled/tab_context_menu_delegate.h"
+#import "ios/chrome/browser/metrics/model/new_tab_page_uma.h"
+#import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/recent_tabs/coordinator/recent_tabs_coordinator.h"
 #import "ios/chrome/browser/recent_tabs/coordinator/recent_tabs_coordinator_delegate.h"
 #import "ios/chrome/browser/recent_tabs/coordinator/recent_tabs_mediator.h"
@@ -38,6 +43,8 @@
 #import "ios/chrome/browser/shared/model/browser/browser_provider.h"
 #import "ios/chrome/browser/shared/model/browser/browser_provider_interface.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
+#import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
+#import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
@@ -55,6 +62,8 @@
 #import "ios/chrome/browser/synced_sessions/model/synced_sessions_util.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
+#import "ios/chrome/browser/url_loading/model/url_loading_util.h"
+#import "ios/web/public/web_state.h"
 
 @interface RecentTabsCoordinator () <HistorySyncPopupCoordinatorDelegate,
                                      RecentTabsPresentationDelegate,
@@ -242,6 +251,28 @@
   [self showActiveRegularTabFromRecentTabs];
 }
 
+- (void)openTabWithTabRestoreEntryId:(SessionID)sessionId {
+  if (!self.browser) {
+    return;
+  }
+  base::RecordAction(
+      base::UserMetricsAction("MobileRecentTabManagerRecentTabOpened"));
+  WebStateList* webStateList = self.browser->GetWebStateList();
+  web::WebState* activeWebState = webStateList->GetActiveWebState();
+  bool is_ntp =
+      activeWebState && activeWebState->GetVisibleURL() == kChromeUINewTabURL;
+  new_tab_page_uma::RecordNTPAction(
+      self.profile->IsOffTheRecord(), is_ntp,
+      new_tab_page_uma::ACTION_OPENED_RECENTLY_CLOSED_ENTRY);
+
+  WindowOpenDisposition disposition =
+      IsNTPWithoutHistory(activeWebState)
+          ? WindowOpenDisposition::CURRENT_TAB
+          : WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  RestoreTab(sessionId, disposition, self.browser);
+  [self showActiveRegularTabFromRecentTabs];
+}
+
 - (void)showActiveRegularTabFromRecentTabs {
   // Stopping this coordinator reveals the tab UI underneath.
   self.completion = nil;
@@ -284,6 +315,12 @@
     _historySyncPopupCoordinator.delegate = self;
     [_historySyncPopupCoordinator start];
   }
+}
+
+- (void)deleteForeignSession:(const std::string&)sessionTag {
+  SessionSyncServiceFactory::GetForProfile(self.profile)
+      ->GetOpenTabsUIDelegate()
+      ->DeleteForeignSession(sessionTag);
 }
 
 #pragma mark - RecentTabsContextMenuDelegate

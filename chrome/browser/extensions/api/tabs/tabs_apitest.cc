@@ -41,8 +41,8 @@
 #include "services/metrics/public/cpp/ukm_builders.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -669,14 +669,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTabPrerenderingTest, DISABLED_Prerendering) {
   ASSERT_TRUE(RunExtensionTest("tabs/prerendering")) << message_;
 }
 
-// TODO(crbug.com/497838105): Flaky.
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_PrerenderingIntoANewTab DISABLED_PrerenderingIntoANewTab
-#else
-#define MAYBE_PrerenderingIntoANewTab PrerenderingIntoANewTab
-#endif
 IN_PROC_BROWSER_TEST_F(ExtensionApiTabPrerenderingTest,
-                       MAYBE_PrerenderingIntoANewTab) {
+                       PrerenderingIntoANewTab) {
   ASSERT_TRUE(RunExtensionTest("tabs/prerendering_into_new_tab")) << message_;
 }
 
@@ -1117,6 +1111,53 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTabDSERedirectTest,
                                      3 /* kDSERemovalsAfterLandingOnSERP */, 1);
 }
 
+IN_PROC_BROWSER_TEST_F(ExtensionApiTabDSERedirectTest,
+                       DSETabsRemoveAction_BackgroundTabWithOpener) {
+  content::WebContents::CreateParams params(profile());
+  params.opener_id = GetTabListInterface()
+                         ->GetActiveTab()
+                         ->GetContents()
+                         ->GetPrimaryMainFrame()
+                         ->GetGlobalId();
+  params.initially_hidden = true;
+  tabs::TabInterface* new_tab = GetTabListInterface()->InsertWebContentsAt(
+      -1, content::WebContents::Create(params), /*should_pin=*/false,
+      std::nullopt);
+  ASSERT_TRUE(new_tab);
+  std::ignore = content::NavigateToURL(
+      new_tab->GetContents(), embedded_test_server()->GetURL("/search?q=foo"));
+
+  base::HistogramTester histogram_tester;
+
+  static constexpr char kManifest[] =
+      R"({
+         "name": "RemoveAction Extension",
+         "version": "0.1",
+         "manifest_version": 3,
+         "permissions": ["tabs"],
+         "background": { "service_worker" : "background.js" }
+       })";
+  static constexpr char kBackground[] =
+      R"(
+        chrome.tabs.query({active: false}, (tabs) => {
+          chrome.tabs.remove(tabs[0].id, () => {
+            chrome.test.succeed();
+          });
+        });
+      )";
+
+  extensions::TestExtensionDir test_dir;
+  test_dir.WriteManifest(kManifest);
+  test_dir.WriteFile(FILE_PATH_LITERAL("background.js"), kBackground);
+
+  extensions::ResultCatcher result_catcher;
+  ASSERT_TRUE(LoadExtension(test_dir.UnpackedPath()));
+  ASSERT_TRUE(result_catcher.GetNextResult());
+
+  histogram_tester.ExpectBucketCount("Extensions.Tabs.RemoveAction",
+                                     0 /* kOtherRemovals */, 1);
+}
+
 class ExtensionApiTabSplitViewTest : public ExtensionApiTabTest {
  public:
   ExtensionApiTabSplitViewTest() = default;
@@ -1133,5 +1174,9 @@ class ExtensionApiTabSplitViewTest : public ExtensionApiTabTest {
 IN_PROC_BROWSER_TEST_F(ExtensionApiTabSplitViewTest, CreateSplitWithTabId) {
   ASSERT_TRUE(RunExtensionTest("tabs/split_view_create_split_with_id"))
       << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionApiTabSplitViewTest, CreateSplit) {
+  ASSERT_TRUE(RunExtensionTest("tabs/split_view_create_split")) << message_;
 }
 #endif  // !BUILDFLAG(IS_ANDROID)

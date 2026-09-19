@@ -6,6 +6,8 @@
 
 #include <cstdint>
 #include <limits>
+#include <set>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -34,7 +36,28 @@ void InMemoryMemoryBank::SaveMemoryBankEntry(
   int64_t entry_id = entry.id;
   entries_.Put(entry_id, std::move(entry));
   if (callback) {
-    std::move(callback).Run();
+    std::move(callback).Run(/*success=*/true);
+  }
+}
+
+void InMemoryMemoryBank::UpdateEntryAnnotations(
+    int64_t id,
+    std::vector<std::string> tags,
+    std::optional<std::string> note,
+    std::optional<std::string> collection,
+    OperationCompleteCallback callback) {
+  auto it = entries_.Peek(id);
+  if (it == entries_.end()) {
+    if (callback) {
+      std::move(callback).Run(/*success=*/false);
+    }
+    return;
+  }
+  it->second.tags = std::move(tags);
+  it->second.note = std::move(note);
+  it->second.collection = std::move(collection);
+  if (callback) {
+    std::move(callback).Run(/*success=*/true);
   }
 }
 
@@ -71,7 +94,33 @@ void InMemoryMemoryBank::DeleteEntries(base::span<const int64_t> ids,
     }
   }
   if (callback) {
-    std::move(callback).Run();
+    std::move(callback).Run(/*success=*/true);
+  }
+}
+
+void InMemoryMemoryBank::GetAllTags(GetStringsCallback callback) const {
+  std::set<std::string> unique_tags;
+  for (const auto& [_, entry] : entries_) {
+    for (const auto& tag : entry.tags) {
+      unique_tags.insert(tag);
+    }
+  }
+  if (callback) {
+    std::move(callback).Run(
+        std::vector<std::string>(unique_tags.begin(), unique_tags.end()));
+  }
+}
+
+void InMemoryMemoryBank::GetAllCollections(GetStringsCallback callback) const {
+  std::set<std::string> unique_collections;
+  for (const auto& [_, entry] : entries_) {
+    if (entry.collection.has_value() && !entry.collection->empty()) {
+      unique_collections.insert(*entry.collection);
+    }
+  }
+  if (callback) {
+    std::move(callback).Run(std::vector<std::string>(unique_collections.begin(),
+                                                     unique_collections.end()));
   }
 }
 

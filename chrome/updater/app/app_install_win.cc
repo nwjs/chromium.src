@@ -72,6 +72,7 @@
 #include "chrome/updater/win/ui/progress_wnd.h"
 #include "chrome/updater/win/ui/resources/resources.grh"
 #include "chrome/updater/win/ui/resources/updater_installer_strings.h"
+#include "chrome/updater/win/ui/ui_util.h"
 #include "chrome/updater/win/ui/webview2_progress_wnd.h"
 #include "chrome/updater/win/win_constants.h"
 #include "components/update_client/update_client_errors.h"
@@ -829,51 +830,157 @@ void AppInstallControllerImpl::StateChange(
   }
 }
 
-// Loads the logo in BMP format if it exists for the provided `app_id`, and sets
-// the resultant image onto the app bitmap for the progress window.
+// Loads the logos in BMP format if they exist for the provided `app_id`, and
+// sets the resultant images onto the app bitmap for the progress window.
+// It attempts to load both theme-specific square logos (`{app_id}_light.bmp`
+// and `{app_id}_dark.bmp`).
+// Fallback priority:
+// 1. Active theme logo first: Queries the active theme's logo first based on
+//    `ui::IsDarkModeOn()` (`_dark.bmp` in dark mode, `_light.bmp` in light
+//    mode).
+// 2. Dual-themed logos: If the active theme's logo exists, queries the
+//    alternate theme's logo and passes both to the UI window to support dynamic
+//    theme switching.
+// 3. Single-themed logo fallback: If the active theme's logo exists but the
+//    alternate theme is missing, the active logo is used for both themes.
+// 4. Unthemed legacy logo: If the active theme's logo is not found, the server
+//    is assumed to not support themed logo pairs. Querying the alternate theme
+//    is skipped to avoid an extra blocking 404 roundtrip, and the legacy
+//    `{app_id}.bmp` logo is fetched directly as the fallback for all themes.
 void AppInstallControllerImpl::LoadLogo(const std::string& app_id,
                                         HWND progress_hwnd) {
-  std::wstring url = base::UTF8ToWide(absl::StrFormat(
-      "%s%s.bmp?lang=%s",
-      CreateExternalConstants()->AppLogoURL().possibly_invalid_spec(),
-      base::EscapeUrlEncodedData(app_id, false),
-      base::WideToUTF8(GetPreferredLanguage())));
-  if (url.empty()) {
-    VLOG(1) << __func__ << "No url specified";
+  const GURL raw_logo_base_url = CreateExternalConstants()->AppLogoURL();
+  if (!raw_logo_base_url.is_valid()) {
+    VLOG(1) << __func__ << "No valid app logo URL specified";
+    return;
+  }
+  // `AppLogoURL` represents a directory and must end with a trailing slash
+  // (e.g. "https://dl.google.com/.../icons/"). `GURL::Resolve` treats base
+  // URLs without a trailing slash as filenames and will replace the final path
+  // component instead of appending to it. We enforce the trailing slash here
+  // defensively to guard against override configurations omitting it.
+  GURL logo_base_url = raw_logo_base_url;
+  if (!logo_base_url.path().empty() && !logo_base_url.path().ends_with('/')) {
+    const std::string new_path = base::StrCat({logo_base_url.path(), "/"});
+    GURL::Replacements replacements;
+    replacements.SetPathStr(new_path);
+    logo_base_url = logo_base_url.ReplaceComponents(replacements);
+  }
+
+  const std::string escaped_app_id = base::EscapeUrlEncodedData(app_id, false);
+  const std::string lang = base::WideToUTF8(GetPreferredLanguage());
+
+  auto get_logo_url = [&logo_base_url, &escaped_app_id,
+                       &lang](const std::string& suffix) {
+    const GURL resolved_url = logo_base_url.Resolve(
+        absl::StrFormat("%s%s.bmp?lang=%s", escaped_app_id, suffix, lang));
+    return resolved_url.is_valid() ? base::UTF8ToWide(resolved_url.spec())
+                                   : std::wstring();
+  };
+
+  auto load_picture =
+      [](const std::wstring& url) -> Microsoft::WRL::ComPtr<IPicture> {
+    if (url.empty()) {
+      return nullptr;
+    }
+
+    // `OleLoadPicturePath` expects a mutable `LPOLESTR`.
+    std::wstring mutable_url = url;
+    Microsoft::WRL::ComPtr<IPicture> picture;
+    const HRESULT hr = ::OleLoadPicturePath(mutable_url.data(), nullptr, 0, 0,
+                                            IID_PPV_ARGS(&picture));
+    if (FAILED(hr)) {
+      VLOG(1) << "::OleLoadPicturePath failed for logo: " << url << ": "
+              << std::hex << hr << ": " << logging::SystemErrorCodeToString(hr);
+      return nullptr;
+    }
+    return picture;
+  };
+
+  const bool is_dark_mode = ui::IsDarkModeOn();
+  const std::string primary_suffix = is_dark_mode ? "_dark" : "_light";
+  const std::string secondary_suffix = is_dark_mode ? "_light" : "_dark";
+
+  // Query the active theme's logo first to prioritize the user's active theme.
+  // If the active theme's logo is found, query the alternate theme's logo to
+  // support dynamic theme switching. If the active theme's logo is not found,
+  // assume the server lacks themed pairs, skip querying the alternate theme to
+  // avoid an unnecessary blocking 404 network roundtrip, and fetch the legacy
+  // unthemed fallback logo directly.
+  Microsoft::WRL::ComPtr<IPicture> primary_picture =
+      load_picture(get_logo_url(primary_suffix));
+  Microsoft::WRL::ComPtr<IPicture> secondary_picture;
+  Microsoft::WRL::ComPtr<IPicture> fallback_picture;
+
+  if (primary_picture) {
+    secondary_picture = load_picture(get_logo_url(secondary_suffix));
+  } else {
+    fallback_picture = load_picture(get_logo_url(""));
+  }
+
+  Microsoft::WRL::ComPtr<IPicture> light_picture =
+      fallback_picture ? fallback_picture
+                       : (is_dark_mode ? secondary_picture : primary_picture);
+  Microsoft::WRL::ComPtr<IPicture> dark_picture =
+      fallback_picture ? nullptr
+                       : (is_dark_mode ? primary_picture : secondary_picture);
+
+  auto create_standalone_bitmap =
+      [](const Microsoft::WRL::ComPtr<IPicture>& picture)
+      -> base::win::ScopedGDIObject<HBITMAP> {
+    if (!picture) {
+      return {};
+    }
+    OLE_HANDLE ole_handle = 0;
+    const HRESULT hr = picture->get_Handle(&ole_handle);
+    if (FAILED(hr)) {
+      VLOG(1) << "picture->get_Handle failed: " << std::hex << hr << ": "
+              << logging::SystemErrorCodeToString(hr);
+      return {};
+    }
+    // Explicitly cast through `LONG` and `intptr_t` to guarantee correct
+    // sign-extension for 64-bit GDI handles on Win64 regardless of whether the
+    // SDK toolchain defines `OLE_HANDLE` as signed (`LONG`) or unsigned
+    // (`UINT`).
+    const HBITMAP bitmap = reinterpret_cast<HBITMAP>(
+        static_cast<intptr_t>(static_cast<LONG>(ole_handle)));
+    base::win::ScopedGDIObject<HBITMAP> standalone_bitmap(
+        reinterpret_cast<HBITMAP>(::CopyImage(bitmap, IMAGE_BITMAP, 0, 0, 0)));
+    if (!standalone_bitmap.is_valid()) {
+      VLOG(1) << "::CopyImage failed";
+      return {};
+    }
+    return standalone_bitmap;
+  };
+
+  base::win::ScopedGDIObject<HBITMAP> light_bitmap =
+      create_standalone_bitmap(light_picture);
+  base::win::ScopedGDIObject<HBITMAP> dark_bitmap =
+      create_standalone_bitmap(dark_picture);
+
+  if (!light_bitmap.is_valid() && !dark_bitmap.is_valid()) {
+    VLOG(1) << __func__ << "No valid app logo bitmaps could be loaded";
     return;
   }
 
-  Microsoft::WRL::ComPtr<IPicture> picture;
-  HRESULT hr =
-      ::OleLoadPicturePath(&url[0], nullptr, 0, 0, IID_PPV_ARGS(&picture));
-  if (FAILED(hr)) {
-    VLOG(1) << __func__ << "::OleLoadPicturePath failed: " << url << ": "
-            << std::hex << hr << ": " << logging::SystemErrorCodeToString(hr);
-    return;
-  }
-
-  HBITMAP bitmap = nullptr;
-  hr = picture->get_Handle(reinterpret_cast<UINT*>(&bitmap));
-  if (FAILED(hr)) {
-    VLOG(1) << __func__ << "picture->get_Handle failed: " << std::hex << hr
-            << ": " << logging::SystemErrorCodeToString(hr);
-    return;
-  }
-
-  // Copy the bitmap on the background thread so it remains valid when the
-  // IPicture goes out of scope.
-  base::win::ScopedGDIObject<HBITMAP> standalone_bitmap(
-      reinterpret_cast<HBITMAP>(::CopyImage(bitmap, IMAGE_BITMAP, 0, 0, 0)));
-  if (!standalone_bitmap.is_valid()) {
-    VLOG(1) << __func__ << "::CopyImage failed";
-    return;
-  }
-
-  const HBITMAP bitmap_handle = standalone_bitmap.release();
+  // Transfer ownership of the bitmap handles to the UI thread via `WPARAM`
+  // (light logo) and `LPARAM` (dark logo).
+  // The UI window takes ownership upon receiving WM_SET_APP_LOGO; if posting
+  // fails, clean up immediately. If `progress_hwnd` is destroyed before the
+  // posted message is dispatched (e.g. installer is cancelled), the message
+  // is purged from the queue and the handles are reclaimed upon process exit.
+  const HBITMAP light_bitmap_handle = light_bitmap.release();
+  const HBITMAP dark_bitmap_handle = dark_bitmap.release();
   if (!::PostMessage(progress_hwnd, ui::WM_SET_APP_LOGO,
-                     reinterpret_cast<WPARAM>(bitmap_handle), 0)) {
-    VLOG(1) << __func__ << "::PostMessage failed";
-    ::DeleteObject(bitmap_handle);
+                     reinterpret_cast<WPARAM>(light_bitmap_handle),
+                     reinterpret_cast<LPARAM>(dark_bitmap_handle))) {
+    VLOG(1) << __func__ << "::PostMessage WM_SET_APP_LOGO failed";
+    if (light_bitmap_handle) {
+      ::DeleteObject(light_bitmap_handle);
+    }
+    if (dark_bitmap_handle) {
+      ::DeleteObject(dark_bitmap_handle);
+    }
   }
 }
 

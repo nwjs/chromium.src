@@ -61,7 +61,7 @@
 #endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -87,10 +87,8 @@ GetHighestPrecedenceForceSaveToCloudDestination(
       (destination_1 == TriggeredRule::CORP_G_DRIVE ||
        destination_2 == TriggeredRule::CORP_G_DRIVE)) {
     return TriggeredRule::CORP_G_DRIVE;
-  } else if (base::FeatureList::IsEnabled(
-                 enterprise_data_protection::kEnableForceDownloadToOneDrive) &&
-             (destination_1 == TriggeredRule::CORP_ONEDRIVE ||
-              destination_2 == TriggeredRule::CORP_ONEDRIVE)) {
+  } else if (destination_1 == TriggeredRule::CORP_ONEDRIVE ||
+             destination_2 == TriggeredRule::CORP_ONEDRIVE) {
     return TriggeredRule::CORP_ONEDRIVE;
   }
 #endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
@@ -368,6 +366,7 @@ DownloadCheckResult ResponseToDownloadCheckResult(
       case enterprise_connectors::TriggeredRule::KEEP_IN_MANAGED_CHROME:
       case enterprise_connectors::TriggeredRule::ACTION_UNSPECIFIED:
         break;
+      case enterprise_connectors::TriggeredRule::JUSTIFICATION_REQUIRED:
       case enterprise_connectors::TriggeredRule::FORCE_SAVE_TO_CLOUD:
         NOTREACHED();
     }
@@ -388,6 +387,7 @@ DownloadCheckResult ResponseToDownloadCheckResult(
       case enterprise_connectors::TriggeredRule::BLOCK:
         return DownloadCheckResult::SENSITIVE_CONTENT_BLOCK;
       case enterprise_connectors::TriggeredRule::WARN:
+      case enterprise_connectors::TriggeredRule::JUSTIFICATION_REQUIRED:
         return DownloadCheckResult::SENSITIVE_CONTENT_WARNING;
       case enterprise_connectors::TriggeredRule::REPORT_ONLY:
       case enterprise_connectors::TriggeredRule::KEEP_IN_MANAGED_CHROME:
@@ -1152,12 +1152,9 @@ content::WebContents* DeepScanningRequest::MaybeGetWebContentsForForceSave(
     return nullptr;
   }
 
-  const auto& force_save_to_cloud_feature =
-      result == DownloadCheckResult::FORCE_SAVE_TO_GDRIVE
-          ? enterprise_data_protection::kEnableForceDownloadToCloud
-          : enterprise_data_protection::kEnableForceDownloadToOneDrive;
-
-  if (!base::FeatureList::IsEnabled(force_save_to_cloud_feature)) {
+  if (result == DownloadCheckResult::FORCE_SAVE_TO_GDRIVE &&
+      !base::FeatureList::IsEnabled(
+          enterprise_data_protection::kEnableForceDownloadToCloud)) {
     result = DownloadCheckResult::SENSITIVE_CONTENT_BLOCK;
     return nullptr;
   }

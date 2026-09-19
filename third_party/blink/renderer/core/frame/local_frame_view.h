@@ -309,7 +309,6 @@ class CORE_EXPORT LocalFrameView final
   void ClearNaturalDimensions() override;
 
   void Dispose() override;
-  void PropagateFrameRects() override;
   void ZoomFactorChanged(float zoom_factor) override;
   void InvalidateAllCustomScrollbarsOnActiveChanged();
 
@@ -486,7 +485,9 @@ class CORE_EXPORT LocalFrameView final
   void SetIsVisuallyNonEmpty() { is_visually_non_empty_ = true; }
   void EnableAutoSizeMode(const gfx::Size& min_size, const gfx::Size& max_size);
   void DisableAutoSizeMode();
+  bool IsAutoSizeModeEnabled() const { return auto_size_info_; }
   bool IsBeingAutoSized() const { return is_being_auto_sized_; }
+  void SetNeedsAutoSizeForOverflow() { needs_autosize_for_overflow_ = true; }
 
   void ForceLayoutForPagination(float maximum_shrink_factor);
 
@@ -907,6 +908,8 @@ class CORE_EXPORT LocalFrameView final
   void FrameRectsChanged(const gfx::Rect&) override;
   void SelfVisibleChanged() override;
   void ParentVisibleChanged() override;
+  void PropagateFrameRectsInternal() override;
+  void PropagateFrameRectsRecursively(bool force = false);
   void NotifyFrameRectsChangedIfNeeded();
 
   // Updates viewport intersection state when LocalFrame's scroll positions,
@@ -1214,6 +1217,8 @@ class CORE_EXPORT LocalFrameView final
   bool layout_size_fixed_to_frame_size_;
 
   bool is_being_auto_sized_ = false;
+  // Preserve overflow invalidation across style updates that do not lay out.
+  bool needs_autosize_for_overflow_ = false;
 
   bool needs_update_geometries_;
 

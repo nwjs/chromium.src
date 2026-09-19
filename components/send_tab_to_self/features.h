@@ -63,6 +63,10 @@ BASE_DECLARE_FEATURE(kSendTabToSelfExtraEntryPoints);
 // part of the enhanced desktop UI v2.
 BASE_DECLARE_FEATURE(kSendTabToSelfEnhancedDesktopUIv2);
 
+// If this feature is enabled, multi-tab sharing via Send Tab to Self is
+// supported.
+BASE_DECLARE_FEATURE(kSendTabToSelfMultiTabShare);
+
 #if BUILDFLAG(IS_ANDROID)
 // If this feature is enabled, physical double-tap gestures will be detected
 // and used to trigger sending tabs to self on Android devices.
@@ -71,6 +75,11 @@ BASE_DECLARE_FEATURE(kSendTabToSelfGesture);
 // If this feature is enabled, a Sent Tab To Self notification will open
 // the appropriate native app if it is available.
 BASE_DECLARE_FEATURE(kSendTabToSelfOpenNativeApp);
+
+// If this feature is enabled, activating a received tab via the mobile snackbar
+// will be recorded as ShareActivatedEntryPoint::kMobileMessageBanner (instead
+// of ShareActivatedEntryPoint::kTabStrip) and drop the tab label immediately.
+BASE_DECLARE_FEATURE(kSendTabToSelfRecordSnackbarActivation);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
@@ -104,7 +113,7 @@ extern const char kReminderNotificationsDefaultTimeOffset[];
 // Returns the default time offset used to pre-populate the date/time picker
 // when the 'Set a Reminder' UI half-sheet is first shown. This value is
 // controlled by the `kReminderNotificationsDefaultTimeOffset` Finch parameter.
-const base::TimeDelta GetReminderNotificationsDefaultTimeOffset();
+base::TimeDelta GetReminderNotificationsDefaultTimeOffset();
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_ANDROID)

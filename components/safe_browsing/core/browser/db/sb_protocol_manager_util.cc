@@ -37,8 +37,10 @@ namespace safe_browsing {
 
 // Can be overriden by tests.
 const char* g_sbv4_url_prefix_for_testing = nullptr;
+const char* g_sbv5_url_prefix_for_testing = nullptr;
 
 const char kSbV4UrlPrefix[] = "https://safebrowsing.googleapis.com/v4";
+const char kSbV5UrlPrefix[] = "https://safebrowsing.googleapis.com/v5";
 
 const base::FilePath::CharType kStoreSuffix[] = FILE_PATH_LITERAL(".store");
 
@@ -154,7 +156,7 @@ void GenerateHostVariantsToCheckV4(const std::string& host,
        i != host.rend() && hosts->size() < kMaxHostsToCheck; ++i) {
     if (*i == '.') {
       if (skipped_last_component) {
-        hosts->push_back(std::string(i.base(), host.end()));
+        hosts->emplace_back(i.base(), host.end());
       } else {
         skipped_last_component = true;
       }
@@ -167,6 +169,15 @@ void GenerateHostVariantsToCheckV4(const std::string& host,
 
 void SetSbV4UrlPrefixForTesting(const char* url_prefix) {
   g_sbv4_url_prefix_for_testing = url_prefix;
+}
+
+void SetSbV5UrlPrefixForTesting(const char* url_prefix) {
+  g_sbv5_url_prefix_for_testing = url_prefix;
+}
+
+const char* GetSbV5UrlPrefix() {
+  return g_sbv5_url_prefix_for_testing ? g_sbv5_url_prefix_for_testing
+                                       : kSbV5UrlPrefix;
 }
 
 std::string GetReportUrl(const V4ProtocolConfig& config,
@@ -836,7 +847,7 @@ void SBProtocolManagerUtil::GeneratePathVariantsToCheck(
   for (std::string::const_iterator i(path.begin());
        i != path.end() && paths->size() < kMaxPathsToCheck; ++i) {
     if (*i == '/') {
-      paths->push_back(std::string(path.begin(), i + 1));
+      paths->emplace_back(path.begin(), i + 1);
     }
   }
 

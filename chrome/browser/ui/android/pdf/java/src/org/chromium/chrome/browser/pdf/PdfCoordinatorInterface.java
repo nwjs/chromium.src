@@ -25,6 +25,12 @@ public interface PdfCoordinatorInterface {
     /** Reloads the pdf document. */
     void reload();
 
+    /** Returns whether there are any unsaved or applied changes. */
+    boolean hasChanges();
+
+    /** Shows the reload confirmation dialog and runs onConfirm if confirmed. */
+    void showReloadConfirmationDialog(Runnable onConfirm);
+
     /** Called after pdf download complete. */
     void onDownloadComplete(String pdfFilePath, String pdfFileName);
 
@@ -50,4 +56,32 @@ public interface PdfCoordinatorInterface {
      * @return True if the PDF page can be zoomed out, false otherwise.
      */
     boolean changeZoomLevel(boolean decrease);
+
+    /**
+     * Resets the zoom level of the PDF page to the default zoom level.
+     *
+     * @return True if the PDF page was zoomed to the default zoom level, false otherwise.
+     */
+    boolean resetZoomLevel();
+
+    /** Observer for PDF coordinator events. */
+    interface Observer {
+        /** Called when the "has changes" state of the PDF changes. */
+        void onHasChangesChanged();
+    }
+
+    /** Adds an observer. */
+    void addObserver(Observer observer);
+
+    /** Removes an observer. */
+    void removeObserver(Observer observer);
+
+    /** Print the pdf document. */
+    void print();
+
+    /** Download the pdf document. */
+    void download();
+
+    /** Exits edit mode and applies any draft edits. */
+    void exitEditMode();
 }

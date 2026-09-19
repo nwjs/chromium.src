@@ -37,6 +37,8 @@
 #include "components/password_manager/core/browser/password_store/android_backend_error.h"
 #include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_util.h"
+#include "components/password_manager/core/browser/password_string.h"
+#include "components/signin/public/identity_manager/account_info.h"
 #include "components/sync/base/deletion_origin.h"
 #include "components/sync/protocol/deletion_origin.pb.h"
 #include "components/sync/test/test_sync_service.h"
@@ -68,6 +70,7 @@ MATCHER_P(EqualsStoredCredential, expected_form, "") {
 }
 
 constexpr char kTestAccount[] = "test@gmail.com";
+constexpr char kTestGaiaId[] = "test_gaia_id";
 const std::u16string kTestUsername(u"Todd Tester");
 const std::u16string kTestPassword(u"S3cr3t");
 constexpr char kTestUrl[] = "https://example.com";
@@ -101,7 +104,7 @@ PasswordForm CreateEntry(const std::string& username,
                          PasswordForm::MatchType match_type) {
   PasswordForm form;
   form.username_value = base::ASCIIToUTF16(username);
-  form.password_value = base::ASCIIToUTF16(password);
+  form.password_value = PasswordString(base::ASCIIToUTF16(password));
   form.url = origin_url;
   form.signon_realm = origin_url.GetWithEmptyPath().spec();
   form.match_type = match_type;
@@ -120,12 +123,12 @@ std::vector<PasswordForm> CreateTestLogins() {
 }
 
 PasswordForm CreateTestLogin(const std::u16string& username_value,
-                             const std::u16string& password_value,
+                             std::u16string password_value,
                              const std::string& url,
                              base::Time date_created) {
   PasswordForm form;
   form.username_value = username_value;
-  form.password_value = password_value;
+  form.password_value = PasswordString(std::move(password_value));
   form.url = GURL(url);
   form.signon_realm = url;
   form.date_created = date_created;
@@ -217,8 +220,8 @@ class PasswordStoreAndroidAccountBackendTest : public testing::Test {
   void EnableSyncForTestAccount() {
     sync_service_.GetUserSettings()->SetSelectedTypes(
         /*sync_everything=*/false, {syncer::UserSelectableType::kPasswords});
-    AccountInfo account_info;
-    account_info.email = kTestAccount;
+    AccountInfo account_info =
+        AccountInfo::Builder(GaiaId(kTestGaiaId), kTestAccount).Build();
     sync_service_.SetSignedIn(signin::ConsentLevel::kSignin, account_info);
   }
 

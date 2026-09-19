@@ -492,7 +492,7 @@ BASE_FEATURE(kContextMenuSaveVideoFrameAs, base::FEATURE_ENABLED_BY_DEFAULT);
 // Enables the "Search Video Frame with <Search Provider>" context menu item.
 BASE_FEATURE(kContextMenuSearchForVideoFrame, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Forces D3D11VideoDecoder to use one decoder texture per picture buffer.
+// Forces D3DVideoDecoder to use one decoder texture per picture buffer.
 // Owner: media-gpu-team@chromium.org
 // Expiry: When no longer needed for decode texture selection experiments.
 BASE_FEATURE(kD3D11VideoDecoderForceSingleTexture,
@@ -545,9 +545,6 @@ BASE_FEATURE(kDocumentPictureInPictureReparenting,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
-
-// Enables support for >8 audio channel layouts (i.e., 5.1.4 and 7.1.4).
-BASE_FEATURE(kEnableHighChannelLayouts, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether the Mirroring Service will fetch, analyze, and store
 // information on the quality of the session using RTCP logs.
@@ -1088,7 +1085,7 @@ BASE_FEATURE(kWebRTCHardwareVideoEncoderFrameDrop,
 BASE_FEATURE(kWebRTCLogColorSpace, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebRtcAudioNeuralResidualEchoEstimation,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebRtcVoiceIsolationDenoiser, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1166,10 +1163,6 @@ BASE_FEATURE(kUseOutOfProcessVideoDecoding,
 #endif
 );
 
-// Use shared image interface to transport video frame resources.
-// TODO(crbug.com/457296322): Enable after fixing issue where SharedImages are
-// missing from the SharedImageManager.
-BASE_FEATURE(kUseSharedImageInOOPVDProcess, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
 
@@ -1235,9 +1228,9 @@ BASE_FEATURE(kPlatformHEVCEncoderSupport, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_APPLE)
-// Enables HEVC Main10 (10-bit) hardware accelerated encoding on macOS.
-BASE_FEATURE(kPlatformHEVCMain10EncoderSupport,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+// Enables HEVC high-bit-depth hardware accelerated encoding on macOS. Covers
+// Main10 (10-bit 4:2:0) and RExt 8/10-bit 4:2:2 and 4:4:4.
+BASE_FEATURE(kPlatformHEVCHbdEncoderSupport, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_APPLE)
 
 #endif  // BUILDFLAG(ENABLE_PLATFORM_HEVC)
@@ -1252,6 +1245,20 @@ BASE_FEATURE(kSymphoniaMp3Decoding, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kSymphoniaPcmDecoding, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kSymphoniaVorbisDecoding, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(ENABLE_SYMPHONIA)
+
+#if BUILDFLAG(ENABLE_SYMPHONIA_DEMUXER)
+// Enables the use of Symphonia for container demuxing.
+// Owner: jophba@chromium.org
+// TODO(crbug.com/550619039, jophba): Consider for removal in M177.
+BASE_FEATURE(kSymphoniaDemuxing, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSymphoniaAacDemuxing, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSymphoniaFlacDemuxing, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSymphoniaIsomDemuxing, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSymphoniaMkvDemuxing, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSymphoniaMp3Demuxing, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSymphoniaOggDemuxing, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSymphoniaRiffDemuxing, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(ENABLE_SYMPHONIA_DEMUXER)
 
 #if BUILDFLAG(IS_ANDROID)
 // Allows audio playback capture on Android.
@@ -1277,13 +1284,19 @@ BASE_FEATURE(kAllowMediaCodecSoftwareDecoder,
 BASE_FEATURE(kAndroidEnableBackgroundMediaCapturing,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables WebRTC to suspend when the screen is turned off on Android.
+// Owner: seannli@google.com
+// Expiry: When Android provides a dedicated API for system suspend.
+BASE_FEATURE(kAndroidSuspendWebRtcOnScreenOff,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables zero-copy video capture on Android.
 BASE_FEATURE(kAndroidZeroCopyVideoCapture, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables automatic Picture-in-Picture permission prompt on Android for
 // document picture-in-picture.
 BASE_FEATURE(kAutoDocPiPPermissionPromptAndroid,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables automatic Picture-in-Picture on Android for supported websites.
 // This triggers for active video playback or camera/microphone usage on sites
@@ -1298,9 +1311,9 @@ BASE_FEATURE(kContextMenuPictureInPictureAndroid,
 BASE_FEATURE(kFullscreenVideoPictureInPicture,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables block model (LinearBlock) on supported devices.
-// TODO(crbug.com/327625558): Currently block model is buggy and can't be
-// enabled, we need to test it again when Android 17 is released.
+// Enables block model on supported devices.
+// Block model is only supported on Android 17 26Q4+ where the feature is
+// properly supported by the framework.
 BASE_FEATURE(kMediaCodecBlockModel, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables output-side block model (OutputFrame) on supported devices.
@@ -1332,10 +1345,6 @@ BASE_FEATURE(kMediaDrmPreprovisioning, base::FEATURE_ENABLED_BY_DEFAULT);
 // Note: Has no effect if kMediaDrmPreprovisioning feature is disabled.
 BASE_FEATURE(kMediaDrmPreprovisioningAtStartup,
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables exponential backoff for preprovisioning requests in
-// MediaDrmOriginIdManager.
-BASE_FEATURE(kMediaDrmPreprovisioningBackoff, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // This feature allows for some MediaDrm functions to be executed in a separate
 // process so that crashes do not bring down the browser. Flag is available so

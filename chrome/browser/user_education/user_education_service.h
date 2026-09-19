@@ -29,12 +29,10 @@
 #include "components/user_education/product_messaging/product_messaging_controller.h"
 #include "content/public/browser/browser_context.h"
 
-// Kill switch for recent session tracking. Enabled by default.
-BASE_DECLARE_FEATURE(kAllowRecentSessionTracking);
-
 class BrowserHelpBubble;
 class BrowserUserEducationInterfaceImpl;
 class ToolbarButtonMenuHighlighter;
+class UserEducationMixedTrustHandler;
 class UserEducationInternalsPageHandlerImpl;
 
 namespace web_app {
@@ -82,11 +80,8 @@ class UserEducationService : public KeyedService {
   user_education::NewBadgeController* new_badge_controller() {
     return new_badge_controller_.get();
   }
-  RecentSessionTracker* recent_session_tracker() {
-    return recent_session_tracker_.get();
-  }
-  RecentSessionObserver* recent_session_observer() {
-    return recent_session_observer_.get();
+  RecentSessionTracker& recent_session_tracker() {
+    return *recent_session_tracker_;
   }
   user_education::NtpPromoRegistry* ntp_promo_registry() {
     return ntp_promo_registry_.get();
@@ -102,6 +97,7 @@ class UserEducationService : public KeyedService {
     requires std::same_as<T, BrowserHelpBubble> ||
              std::same_as<T, BrowserUserEducationInterfaceImpl> ||
              std::same_as<T, ToolbarButtonMenuHighlighter> ||
+             std::same_as<T, UserEducationMixedTrustHandler> ||
              std::same_as<T, UserEducationInternalsPageHandlerImpl> ||
              std::same_as<T, web_app::WebAppUiManagerImpl>
   const user_education::FeaturePromoController* GetFeaturePromoController(

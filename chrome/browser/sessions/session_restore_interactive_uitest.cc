@@ -17,9 +17,8 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/startup/startup_tab.h"
-#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
-#include "chrome/test/base/chrome_test_utils.h"
+#include "chrome/test/base/chrome_test_path_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -243,8 +242,6 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreInteractiveTest,
 class SessionRestoreVerticalTabsInteractiveTest
     : public SessionRestoreInteractiveTest {
  protected:
-  base::test::ScopedFeatureList scoped_feature_list_{tabs::kVerticalTabs};
-
   const bool kIsCollapsed = true;
   const int kUncollapsedWidth = 200;
 };

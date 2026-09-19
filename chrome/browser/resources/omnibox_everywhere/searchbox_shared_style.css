@@ -41,7 +41,8 @@
   z-index: 100;
 }
 
-.searchbox-icon-button-container:hover {
+.searchbox-icon-button-container:hover,
+.searchbox-icon-button-container.menu-open {
   background-color: var(--color-new-tab-page-realbox-next-icon-hover);
 }
 
@@ -86,14 +87,17 @@
   -webkit-mask-image: url(//resources/cr_components/searchbox/icons/camera.svg);
 }
 
+:host {
+  --omnibox-everywhere-top-actions-top: 12px;
+}
+
 #profileIcon {
-  border-radius: 50%;
   height: 36px;
   pointer-events: none;
   position: absolute;
   right: 16px;
-  top: 10px;
-  width: 36px;
+  top: var(--omnibox-everywhere-top-actions-top, 12px);
+  width: auto;
   z-index: 100;
 }
 
@@ -174,3 +178,9 @@
   -webkit-mask-image: url(
     '//resources/cr_components/searchbox/icons/screenshot_region.svg');
 }
+
+help-bubble {
+  -webkit-app-region: no-drag;
+  width: 340px;
+}
+

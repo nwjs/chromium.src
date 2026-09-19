@@ -14,7 +14,6 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.ObserverList;
 import org.chromium.base.UserDataHost;
@@ -22,7 +21,6 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 
 /** Unit tests for {@link TabBrowserControlsOffsetHelper}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class TabBrowserControlsOffsetHelperTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
     private final UserDataHost mUserDataHost = new UserDataHost();
@@ -39,8 +37,7 @@ public class TabBrowserControlsOffsetHelperTest {
 
         ObserverList<TabObserver> observers = new ObserverList<>();
         observers.addObserver(mDispatchedTabObserver);
-        Mockito.when(mTab.getTabObservers())
-                .thenAnswer(invocation -> observers.rewindableIterator());
+        Mockito.when(mTab.getTabObservers()).thenReturn(observers);
 
         ArgumentCaptor<TabObserver> observerArg = ArgumentCaptor.forClass(TabObserver.class);
         mHelper = TabBrowserControlsOffsetHelper.get(mTab);

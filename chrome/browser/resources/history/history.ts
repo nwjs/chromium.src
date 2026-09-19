@@ -5,6 +5,7 @@
 import './app.js';
 
 export {browserProxyFactory as foreignSessionBrowserProxyFactory} from 'chrome://resources/cr_components/history/foreign_sessions.mojom-webui.js';
+export {CriticalActionType} from 'chrome://resources/cr_components/history/history.mojom-webui.js';
 export type {CriticalAction, HistoryEntry, QueryResult} from 'chrome://resources/cr_components/history/history.mojom-webui.js';
 export {browserProxyFactory as historyClustersBrowserProxyFactory, ClusterAction, PageCallbackRouter, PageHandlerRemote, RelatedSearchAction, VisitAction, VisitType} from 'chrome://resources/cr_components/history_clusters/history_clusters.mojom-webui.js';
 export type {MetricsProxy} from 'chrome://resources/cr_components/history_clusters/metrics_proxy.js';
@@ -20,6 +21,8 @@ export {CrCheckboxElement} from 'chrome://resources/cr_elements/cr_checkbox/cr_c
 export {CrDialogElement} from 'chrome://resources/cr_elements/cr_dialog/cr_dialog.js';
 export {CrRouter} from 'chrome://resources/js/cr_router.js';
 export {getTrustedHTML} from 'chrome://resources/js/static_types.js';
+// This is used to ensure that the same proxy factory is used in tests.
+export {browserProxyFactory as userEducationProxyFactory} from 'chrome://resources/mojo/components/user_education/webui/user_education.mojom-webui.js';
 export {HistoryAppElement} from './app.js';
 export type {BrowserProxy, RemoveVisitsRequest} from './browser_proxy.js';
 export {BrowserProxyImpl} from './browser_proxy.js';

@@ -13,6 +13,7 @@ import android.view.View;
 import android.view.View.OnClickListener;
 
 import androidx.annotation.IdRes;
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.appcompat.widget.Toolbar.OnMenuItemClickListener;
 import androidx.core.view.MenuCompat;
 
@@ -48,6 +49,18 @@ public class BookmarkToolbar extends SelectableListToolbar<BookmarkId>
     private boolean mSelectionShowCopyLink;
     private boolean mSelectionShowMarkRead;
     private boolean mSelectionShowMarkUnread;
+    private boolean mChromeIconVisible;
+    private @NavigationButton int mNavigationButtonState = NavigationButton.NONE;
+
+    public static final List<Integer> SORT_MENU_IDS =
+            List.of(
+                    R.id.sort_by_manual,
+                    R.id.sort_by_newest,
+                    R.id.sort_by_oldest,
+                    R.id.sort_by_last_opened,
+                    R.id.sort_by_alpha,
+                    R.id.sort_by_reverse_alpha);
+    public static final List<Integer> VIEW_MENU_IDS = List.of(R.id.visual_view, R.id.compact_view);
 
     private @Nullable List<Integer> mSortMenuIds;
     private boolean mSortMenuIdsEnabled;
@@ -111,6 +124,18 @@ public class BookmarkToolbar extends SelectableListToolbar<BookmarkId>
         getMenu().findItem(R.id.create_new_folder_menu_id).setEnabled(enabled);
     }
 
+    void setChromeIconVisible(boolean visible) {
+        mChromeIconVisible = visible;
+        if (visible) {
+            setNavigationIcon(
+                    AppCompatResources.getDrawable(getContext(), R.drawable.chrome_logo_24dp));
+            setNavigationContentDescription(null);
+            setNavigationOnClickListener(null);
+        } else if (!mIsSelectionEnabled && mNavigationButtonState == NavigationButton.NONE) {
+            setNavigationIcon(null);
+        }
+    }
+
     void setSelectionShowEdit(boolean show) {
         mSelectionShowEdit = show;
         if (show) assert mIsSelectionEnabled;
@@ -154,11 +179,23 @@ public class BookmarkToolbar extends SelectableListToolbar<BookmarkId>
     }
 
     void setNavigationButtonState(@NavigationButton int navigationButtonState) {
-        setNavigationButton(navigationButtonState);
+        mNavigationButtonState = navigationButtonState;
+        if (!mIsSelectionEnabled) {
+            setNavigationButton(navigationButtonState);
+            if (mChromeIconVisible && navigationButtonState == NavigationButton.NONE) {
+                setChromeIconVisible(true);
+            }
+        }
     }
 
     void setCheckedSortMenuId(@IdRes int id) {
-        getMenu().findItem(id).setChecked(true);
+        List<Integer> sortIds = mSortMenuIds != null ? mSortMenuIds : SORT_MENU_IDS;
+        for (@IdRes int sortId : sortIds) {
+            MenuItem item = getMenu().findItem(sortId);
+            if (item != null) {
+                item.setChecked(sortId == id);
+            }
+        }
     }
 
     void setSortMenuIds(List<Integer> sortMenuIds) {
@@ -173,7 +210,12 @@ public class BookmarkToolbar extends SelectableListToolbar<BookmarkId>
     }
 
     void setCheckedViewMenuId(@IdRes int id) {
-        getMenu().findItem(id).setChecked(true);
+        for (@IdRes int viewId : VIEW_MENU_IDS) {
+            MenuItem item = getMenu().findItem(viewId);
+            if (item != null) {
+                item.setChecked(viewId == id);
+            }
+        }
     }
 
     void setNavigateBackRunnable(Runnable navigateBackRunnable) {
@@ -219,10 +261,12 @@ public class BookmarkToolbar extends SelectableListToolbar<BookmarkId>
         super.showNormalView();
 
         // SelectableListToolbar will show/hide the entire group.
+        setNavigationButtonState(mNavigationButtonState);
         setEditButtonVisible(mEditButtonVisible);
         setNewFolderButtonVisible(mNewFolderButtonVisible);
         setNewFolderButtonEnabled(mNewFolderButtonEnabled);
         setSortMenuIdsEnabled(mSortMenuIdsEnabled);
+        setChromeIconVisible(mChromeIconVisible);
     }
 
     @Override

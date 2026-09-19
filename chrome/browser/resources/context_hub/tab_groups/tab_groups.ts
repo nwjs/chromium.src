@@ -14,10 +14,18 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 
 import {browserProxyFactory, ChatRole} from '../context_hub.mojom-webui.js';
-import type {ChatMessage, TabInfo} from '../context_hub.mojom-webui.js';
+import type {ChatMessage, TabGroup as TabGroupMojom, TabInfo} from '../context_hub.mojom-webui.js';
 
 import {getCss} from './tab_groups.css.js';
 import {getHtml} from './tab_groups.html.js';
+
+const CANVAS_FEEDBACK_FORM_URL =
+    'https://docs.google.com/forms/d/e/1FAIpQLSfseE-j9tXWU7oSbcUAY37K2pGlkkCPGzjxe9V9ZigGasSB3Q/viewform';
+const ENTRY_USER_PROMPT = 'entry.372998523';
+const ENTRY_EXPORTED_JSON = 'entry.1489365180';
+const ENTRY_LIKED_DISLIKED = 'entry.1865051344';
+const ENTRY_GROUPING_DESCRIPTION = 'entry.532400426';
+const ENTRY_OVERALL_RATING = 'entry.647161720';
 
 interface TabGroup {
   label: string;
@@ -44,10 +52,14 @@ export class TabGroupsElement extends CrLitElement {
       groups_: {type: Array},
       ungroupedTabs_: {type: Array},
       chatHistory_: {type: Array},
+      confirmedGroupSummaries_: {type: Array},
+      expandedConfirmedGroups_: {type: Object},
       isGrouped_: {type: Boolean},
       isGrouping_: {type: Boolean},
       autoTabGroupsEnabled_: {type: Boolean},
       inputValue_: {type: String},
+      canvasFeedbackLiked_: {type: Boolean},
+      chatFeedbackLiked_: {type: Boolean},
     };
   }
 
@@ -55,6 +67,8 @@ export class TabGroupsElement extends CrLitElement {
   protected accessor groups_: TabGroup[] = [];
   protected accessor ungroupedTabs_: TabInfo[] = [];
   protected accessor chatHistory_: ChatMessage[] = [];
+  protected accessor confirmedGroupSummaries_: TabGroupMojom[] = [];
+  protected accessor expandedConfirmedGroups_: Set<string> = new Set();
   protected accessor isGrouped_: boolean = false;
   protected accessor isGrouping_: boolean = false;
   protected accessor autoTabGroupsEnabled_: boolean =
@@ -63,6 +77,9 @@ export class TabGroupsElement extends CrLitElement {
       loadTimeData.getInteger('kMaxTabGroupChatHistoryTurns') :
       10;
   protected accessor inputValue_: string = '';
+  protected accessor canvasFeedbackLiked_: boolean|null = null;
+  protected accessor chatFeedbackLiked_: boolean|null = null;
+  protected lastGroupPrompt_: string = 'Default';
 
   private trimChatHistory_(history: ChatMessage[]): ChatMessage[] {
     if (this.maxTabGroupChatHistoryTurns_ > 0 &&
@@ -75,6 +92,16 @@ export class TabGroupsElement extends CrLitElement {
   override connectedCallback() {
     super.connectedCallback();
     this.fetchExistingTabGroupsAndChats_();
+    this.fetchConfirmedTabGroupSummaries_();
+  }
+
+  private async fetchConfirmedTabGroupSummaries_() {
+    if (!this.autoTabGroupsEnabled_) {
+      return;
+    }
+    const {groups} =
+        await browserProxyFactory.getInstance().handler.getConfirmedTabGroups();
+    this.confirmedGroupSummaries_ = groups;
   }
 
   private async fetchExistingTabGroupsAndChats_() {
@@ -126,6 +153,8 @@ export class TabGroupsElement extends CrLitElement {
     this.isGrouped_ = false;
     this.ungroupedTabs_ = [];
     this.isGrouping_ = false;
+    this.canvasFeedbackLiked_ = null;
+    this.chatFeedbackLiked_ = null;
   }
 
   protected async onGroupTabsClick_() {
@@ -135,7 +164,10 @@ export class TabGroupsElement extends CrLitElement {
 
     const command = this.inputValue_.trim();
     this.isGrouping_ = true;
+    this.lastGroupPrompt_ = command || 'Default';
     this.inputValue_ = '';
+    this.canvasFeedbackLiked_ = null;
+    this.chatFeedbackLiked_ = null;
 
     if (command) {
       this.chatHistory_ = this.trimChatHistory_([
@@ -182,6 +214,20 @@ export class TabGroupsElement extends CrLitElement {
     }
   }
 
+  protected async onConfirmAllGroupsClick_() {
+    if (!this.autoTabGroupsEnabled_ || this.isGrouping_) {
+      return;
+    }
+    const {success} =
+        await browserProxyFactory.getInstance().handler.confirmAllTabGroups();
+    if (success) {
+      this.groups_ = [];
+      this.isGrouped_ = false;
+      await this.fetchTabs_();
+      await this.fetchConfirmedTabGroupSummaries_();
+    }
+  }
+
   protected async onUngroupTabsClick_() {
     if (!this.autoTabGroupsEnabled_ || this.isGrouping_) {
       return;
@@ -189,6 +235,7 @@ export class TabGroupsElement extends CrLitElement {
     await browserProxyFactory.getInstance().handler.clearTabGroups();
     this.inputValue_ = '';
     await this.fetchTabs_();
+    await this.fetchConfirmedTabGroupSummaries_();
   }
 
   protected async onClearChatHistoryClick_() {
@@ -197,6 +244,7 @@ export class TabGroupsElement extends CrLitElement {
     }
     await browserProxyFactory.getInstance().handler.clearTabGroupChatHistory();
     this.chatHistory_ = [];
+    this.chatFeedbackLiked_ = null;
   }
 
   protected async onDefaultGroupingClick_() {
@@ -239,6 +287,166 @@ export class TabGroupsElement extends CrLitElement {
     if (e.key === 'Enter' && this.inputValue_.trim().length > 0) {
       this.onGroupTabsClick_();
     }
+  }
+
+  protected onConfirmedGroupExpandedChanged_(e: CustomEvent<{value: boolean}>) {
+    const target = e.currentTarget as HTMLElement;
+    const indexStr = target.dataset['index'];
+    if (indexStr === undefined) {
+      return;
+    }
+    const index = parseInt(indexStr, 10);
+    const summary = this.confirmedGroupSummaries_[index];
+    if (!summary || !summary.savedGuid) {
+      return;
+    }
+    const newSet = new Set(this.expandedConfirmedGroups_);
+    if (e.detail.value) {
+      newSet.add(summary.savedGuid.value);
+    } else {
+      newSet.delete(summary.savedGuid.value);
+    }
+    this.expandedConfirmedGroups_ = newSet;
+  }
+
+  protected async onUngroupAllConfirmedGroupsClick_() {
+    if (!this.autoTabGroupsEnabled_ || this.isGrouping_) {
+      return;
+    }
+    await browserProxyFactory.getInstance()
+        .handler.removeAllConfirmedTabGroups();
+    await this.fetchConfirmedTabGroupSummaries_();
+    await this.fetchTabs_();
+  }
+
+  protected async onUngroupConfirmedGroupClick_(e: Event) {
+    if (!this.autoTabGroupsEnabled_ || this.isGrouping_) {
+      return;
+    }
+    const target = e.currentTarget as HTMLElement;
+    const savedGuid = target.dataset['guid'];
+    if (!savedGuid) {
+      return;
+    }
+    await browserProxyFactory.getInstance().handler.removeConfirmedTabGroup(
+        {value: savedGuid});
+    await this.fetchConfirmedTabGroupSummaries_();
+    await this.fetchTabs_();
+  }
+
+  protected async onCloseConfirmedGroupClick_(e: Event) {
+    if (!this.autoTabGroupsEnabled_ || this.isGrouping_) {
+      return;
+    }
+    const target = e.currentTarget as HTMLElement;
+    const savedGuid = target.dataset['guid'];
+    if (!savedGuid) {
+      return;
+    }
+    await browserProxyFactory.getInstance().handler.closeConfirmedTabGroup(
+        {value: savedGuid});
+    await this.fetchConfirmedTabGroupSummaries_();
+    await this.fetchTabs_();
+  }
+
+  protected getCanvasThumbsUpIcon_(): string {
+    return this.canvasFeedbackLiked_ === true ? 'cr:thumb-up-filled' :
+                                                'cr:thumb-up';
+  }
+
+  protected getCanvasThumbsDownIcon_(): string {
+    return this.canvasFeedbackLiked_ === false ? 'cr:thumb-down-filled' :
+                                                 'cr:thumb-down';
+  }
+
+  protected getChatThumbsUpIcon_(): string {
+    return this.chatFeedbackLiked_ === true ? 'cr:thumb-up-filled' :
+                                              'cr:thumb-up';
+  }
+
+  protected getChatThumbsDownIcon_(): string {
+    return this.chatFeedbackLiked_ === false ? 'cr:thumb-down-filled' :
+                                               'cr:thumb-down';
+  }
+
+  protected exportGroupDataJson_(): string {
+    const result: Record<string, Array<{tab_title: string, tab_url: string}>> =
+        {};
+    for (const group of this.groups_) {
+      result[group.label] = group.tabs.map(tab => ({
+                                             tab_title: tab.title,
+                                             tab_url: tab.url,
+                                           }));
+    }
+    return JSON.stringify(result);
+  }
+
+  protected onCanvasThumbsUpClick_() {
+    this.sendFeedback_('canvas', true);
+  }
+
+  protected onCanvasThumbsDownClick_() {
+    this.sendFeedback_('canvas', false);
+  }
+
+  protected onChatThumbsUpClick_() {
+    this.sendFeedback_('chat', true);
+  }
+
+  protected onChatThumbsDownClick_() {
+    this.sendFeedback_('chat', false);
+  }
+
+  protected sendFeedback_(source: 'canvas'|'chat', liked: boolean) {
+    if (source === 'canvas') {
+      if (this.canvasFeedbackLiked_ === liked) {
+        this.canvasFeedbackLiked_ = null;
+        return;
+      }
+      this.canvasFeedbackLiked_ = liked;
+    } else {
+      if (this.chatFeedbackLiked_ === liked) {
+        this.chatFeedbackLiked_ = null;
+        return;
+      }
+      this.chatFeedbackLiked_ = liked;
+    }
+
+    const totalTurns = Math.ceil(this.chatHistory_.length / 2);
+    const sourceLabel = source === 'canvas' ? 'Canvas' : 'Chat';
+    const userPrompt = this.lastGroupPrompt_ || 'Default';
+    const promptHeader = totalTurns > 0 ?
+        `[${sourceLabel} - Turn ${totalTurns}/${totalTurns}] ${userPrompt}` :
+        `[${sourceLabel}] ${userPrompt}`;
+
+    const lastMsg = this.chatHistory_[this.chatHistory_.length - 1];
+    const latestAssistantResponse =
+        lastMsg && lastMsg.role === ChatRole.kAssistant ? lastMsg.content : '';
+
+    const payload = {
+      source,
+      user_prompt: userPrompt,
+      latest_assistant_response: latestAssistantResponse,
+      chat_history: this.chatHistory_.map(msg => ({
+        role: msg.role === ChatRole.kUser ? 'user' : 'assistant',
+        content: msg.content,
+      })),
+      groups_snapshot: JSON.parse(this.exportGroupDataJson_()),
+    };
+
+    const params = new URLSearchParams({
+      'usp': 'pp_url',
+      [ENTRY_USER_PROMPT]: promptHeader,
+      [ENTRY_EXPORTED_JSON]: JSON.stringify(payload),
+      [ENTRY_LIKED_DISLIKED]: liked ? 'Liked 👍' : 'Disliked 👎',
+    });
+
+    if (liked) {
+      params.set(ENTRY_GROUPING_DESCRIPTION, 'All good');
+      params.set(ENTRY_OVERALL_RATING, '10');
+    }
+
+    window.open(`${CANVAS_FEEDBACK_FORM_URL}?${params.toString()}`, '_blank');
   }
 
   private scrollToBottom_() {

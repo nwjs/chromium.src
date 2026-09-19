@@ -21,6 +21,7 @@ import static org.chromium.chrome.test.util.ChromeTabUtils.getIndexOnUiThread;
 
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -256,7 +257,7 @@ public class TabSwitcherLayoutPTTest {
 
         tabSwitcherStation = pageStation.openRegularTabSwitcher();
 
-        mRenderTestRule.render(cta.findViewById(R.id.pane_frame), "3_native_tabs_v7");
+        mRenderTestRule.render(cta.findViewById(R.id.pane_frame), "3_native_tabs_v8");
 
         RegularNewTabPageStation previousPage =
                 tabSwitcherStation.leaveHubToPreviousTabViaBack(
@@ -319,7 +320,7 @@ public class TabSwitcherLayoutPTTest {
         editor.openAppMenuWithEditor().pinTabs();
 
         mRenderTestRule.render(
-                tabSwitcher.getActivity().findViewById(R.id.pane_frame), "regular_pinned_tabs_v3");
+                tabSwitcher.getActivity().findViewById(R.id.pane_frame), "regular_pinned_tabs_v4");
 
         RegularNewTabPageStation previousPage =
                 tabSwitcher.leaveHubToPreviousTabViaBack(RegularNewTabPageStation.newBuilder());
@@ -751,14 +752,20 @@ public class TabSwitcherLayoutPTTest {
 
         // TODO(crbug.com/324919909): Migrate this to a HubTabSwitcherCardFacility with a tab
         // thumbnail as a view element.
-        ThreadUtils.runOnUiThreadBlocking(
+        CriteriaHelper.pollUiThread(
                 () -> {
                     ImageView view =
                             (ImageView) mCtaTestRule.getActivity().findViewById(R.id.tab_thumbnail);
-                    mBitmap =
-                            new WeakReference<>(((BitmapDrawable) view.getDrawable()).getBitmap());
-                    assertNotNull(mBitmap.get());
-                });
+                    if (view == null) return false;
+                    Drawable drawable = view.getDrawable();
+                    if (!(drawable instanceof BitmapDrawable bitmapDrawable)) return false;
+                    Bitmap bitmap = bitmapDrawable.getBitmap();
+                    if (bitmap == null) return false;
+                    mBitmap = new WeakReference<>(bitmap);
+                    return true;
+                },
+                "Tab thumbnail failed to load as a BitmapDrawable");
+        assertNotNull(mBitmap.get());
 
         page = tabSwitcher.leaveHubToPreviousTabViaBack(destinationBuiderFactory.get());
 

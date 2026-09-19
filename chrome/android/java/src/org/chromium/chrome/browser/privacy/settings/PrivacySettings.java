@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.privacy.settings;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
+import static org.chromium.chrome.browser.privacy.settings.UniversalOptOutSettings.shouldShowUniversalOptOutSettings;
 import static org.chromium.components.content_settings.PrefNames.COOKIE_CONTROLS_MODE;
 
 import android.content.Context;
@@ -99,6 +100,7 @@ public class PrivacySettings extends ChromeBaseSettingsFragment
     private static final String PREF_INCOGNITO_LOCK = "incognito_lock";
     private static final String PREF_JAVASCRIPT_OPTIMIZER = "javascript_optimizer";
     @VisibleForTesting static final String PREF_DO_NOT_TRACK = "do_not_track";
+    @VisibleForTesting static final String PREF_UNIVERSAL_OPT_OUT = "universal_opt_out";
     @VisibleForTesting static final String PREF_THIRD_PARTY_COOKIES = "third_party_cookies";
     private static final String PREF_ADVANCED_PROTECTION_INFO = "advanced_protection_info";
     private static final int SECURE_CONNECTIONS_MESSAGE_ID =
@@ -149,7 +151,7 @@ public class PrivacySettings extends ChromeBaseSettingsFragment
                     RecordHistogram.recordEnumeratedHistogram(
                             "Settings.PrivacyGuide.EntryExit",
                             PrivacyGuideInteractions.SETTINGS_LINK_ROW_ENTRY,
-                            PrivacyGuideInteractions.MAX_VALUE);
+                            PrivacyGuideInteractions.MAX_VALUE + 1);
                     UserPrefs.get(getProfile()).setBoolean(Pref.PRIVACY_GUIDE_VIEWED, true);
 
                     // Explicitly launch PrivacyGuideFragment from here. Because the fragment
@@ -278,6 +280,10 @@ public class PrivacySettings extends ChromeBaseSettingsFragment
             scrollToPreference(PREF_ADVANCED_PROTECTION_INFO);
         }
 
+        if (!shouldShowUniversalOptOutSettings(getProfile())) {
+            getPreferenceScreen().removePreference(findPreference(PREF_UNIVERSAL_OPT_OUT));
+        }
+
         updatePreferences();
     }
 
@@ -387,6 +393,16 @@ public class PrivacySettings extends ChromeBaseSettingsFragment
                     UserPrefs.get(getProfile()).getBoolean(Pref.ENABLE_DO_NOT_TRACK)
                             ? R.string.text_on
                             : R.string.text_off);
+        }
+
+        if (shouldShowUniversalOptOutSettings(getProfile())) {
+            Preference universalOptOutPref = findPreference(PREF_UNIVERSAL_OPT_OUT);
+            if (universalOptOutPref != null) {
+                universalOptOutPref.setSummary(
+                        UserPrefs.get(getProfile()).getBoolean(Pref.UNIVERSAL_OPT_OUT_ENABLED)
+                                ? R.string.text_on
+                                : R.string.text_off);
+            }
         }
 
         Preference preloadPagesPreference = findPreference(PREF_PRELOAD_PAGES);
@@ -613,6 +629,10 @@ public class PrivacySettings extends ChromeBaseSettingsFragment
                         var textId = httpsFirstLegacySummaryId(isAdvancedProtectionEnabled());
                         indexData.updateEntrySummaryForKey(
                                 frag, PREF_HTTPS_FIRST_MODE_LEGACY, textId);
+                    }
+
+                    if (!shouldShowUniversalOptOutSettings(profile)) {
+                        indexData.removeEntry(getUniqueId(PREF_UNIVERSAL_OPT_OUT));
                     }
 
                     if (shouldHideAdvancedProtectionInfoPref()) {

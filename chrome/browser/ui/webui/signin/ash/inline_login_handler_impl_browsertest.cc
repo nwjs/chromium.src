@@ -27,8 +27,9 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/signin/signin_promo.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/ash/edu_coexistence/edu_coexistence_login_handler.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -132,8 +133,8 @@ base::Value GetCompleteLoginArgs(const std::string& email) {
 }
 
 account_manager::Account CreateGaiaAccount(const AccountInfo& account_info) {
-  return {account_manager::AccountKey::FromGaiaId(account_info.gaia),
-          account_info.email};
+  return {account_manager::AccountKey::FromGaiaId(account_info.GetGaiaId()),
+          std::string(account_info.GetEmail())};
 }
 
 bool IsAccountAvailableInArc(AccountAppsAvailability* account_apps_availability,
@@ -349,7 +350,8 @@ class InlineLoginHandlerTest
       const std::string& email) {
     AccountInfo account = identity_test_env()->MakeAccountAvailable(email);
     account_manager()->UpsertAccount(
-        account_manager::AccountKey::FromGaiaId(account.gaia), account.email,
+        account_manager::AccountKey::FromGaiaId(account.GetGaiaId()),
+        std::string(account.GetEmail()),
         account_manager::AccountManager::kInvalidToken);
     CHECK(AccountManagerHasAccount(email));
     return account;
@@ -397,7 +399,7 @@ class InlineLoginHandlerTest
   DeviceAccountInfo GetDeviceAccountInfo() const { return GetParam(); }
 
   content::WebContents* web_contents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   Profile* profile() { return browser()->GetProfile(); }

@@ -110,6 +110,21 @@ void ToolbarUIService::ShowContextMenu(
   }
 }
 
+void ToolbarUIService::ShowOverflowMenu(
+    std::vector<toolbar_ui_api::mojom::OverflowMenuItemPtr> controls,
+    const gfx::RectF& bounds_in_css_pixels,
+    ui::mojom::MenuSourceType source,
+    ShowOverflowMenuCallback callback) {
+  if (delegate_) {
+    delegate_->ShowOverflowMenu(std::move(controls), bounds_in_css_pixels,
+                                source, std::move(callback));
+  } else {
+    std::move(callback).Run(base::unexpected(mojo_base::mojom::Error::New(
+        mojo_base::mojom::Code::kFailedPrecondition,
+        "ToolbarUIService: null delegate_ for ShowOverflowMenu")));
+  }
+}
+
 void ToolbarUIService::OnOmniboxAction(
     toolbar_ui_api::mojom::OmniboxActionPtr action,
     OnOmniboxActionCallback callback) {
@@ -148,6 +163,20 @@ void ToolbarUIService::OnContentSettingImagePointerDown(
     ::toolbar_ui_api::mojom::ContentSettingImageType type) {
   if (delegate_) {
     delegate_->OnContentSettingImagePointerDown(type);
+  }
+}
+
+void ToolbarUIService::OnContentSettingImageAnimationEnded(
+    ::toolbar_ui_api::mojom::ContentSettingImageType type) {
+  if (delegate_) {
+    delegate_->OnContentSettingImageAnimationEnded(type);
+  }
+}
+
+void ToolbarUIService::OnPageActionPointerDown(
+    ::toolbar_ui_api::mojom::PageActionId action_id) {
+  if (delegate_) {
+    delegate_->OnPageActionPointerDown(action_id);
   }
 }
 
@@ -225,9 +254,10 @@ void ToolbarUIService::MoveExtensionActionBy(const std::string& extension_id,
 }
 
 void ToolbarUIService::OnLhsChipMousePressed(
-    toolbar_ui_api::mojom::LhsChipIdentifier identifier) {
+    toolbar_ui_api::mojom::LhsChipIdentifier identifier,
+    bool is_middle_click) {
   if (delegate_) {
-    delegate_->OnLhsChipMousePressed(identifier);
+    delegate_->OnLhsChipMousePressed(identifier, is_middle_click);
   }
 }
 

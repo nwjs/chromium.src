@@ -179,7 +179,6 @@ bool RenderSurfaceImpl::IsViewTransitionElement() const {
 // Returns true if this render surface is for an unbounded element.
 bool RenderSurfaceImpl::IsUnbounded() const {
   return layer_tree_impl_->settings().enable_unbounded_element &&
-         !layer_tree_impl_->settings().TreesInVizInClientProcess() &&
          OwningEffectNode() &&
          OwningEffectNode()->render_surface_reason ==
              RenderSurfaceReason::kUnboundedElement;
@@ -200,6 +199,10 @@ int RenderSurfaceImpl::ClipTreeIndex() const {
 
 int RenderSurfaceImpl::EffectTreeIndex() const {
   return effect_tree_index_;
+}
+
+const EffectTree* RenderSurfaceImpl::effect_tree() const {
+  return &layer_tree_impl_->property_trees()->effect_tree();
 }
 
 const EffectNode* RenderSurfaceImpl::OwningEffectNode() const {

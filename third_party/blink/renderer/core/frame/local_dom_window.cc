@@ -279,13 +279,13 @@ void LocalDOMWindow::ClearForReuse() {
           document_->DidRemoveEventListeners(count);
         });
   }
-  document_ = nullptr;
-
-  // Reset per-document metrics bookkeeping.
+  // Reset per-document metrics bookkeeping before clearing `document_`.
   if (soft_navigation_heuristics_) {
     soft_navigation_heuristics_->Shutdown();
     soft_navigation_heuristics_ = nullptr;
   }
+  document_ = nullptr;
+
   WindowPerformance::ClearForWindowReuse(*this);
 }
 
@@ -988,7 +988,7 @@ void LocalDOMWindow::DispatchLoadAndPageshowEvents() {
   // 4.5. ..., invoke the reset algorithm of each of those elements.
   // 4.6.3. Run any session history document visibility change steps ...
   if (document_) {
-    document_->GetFormController().RestoreImmediately();
+    document_->EnsureFormController().RestoreImmediately();
   }
 
   // 4.6.4. Fire an event named pageshow at the Document object's relevant
@@ -1034,7 +1034,7 @@ void LocalDOMWindow::DispatchPagehideEvent(
     return;
   }
 
-  if (RuntimeEnabledFeatures::NavigationStateEnabled()) {
+  if (RuntimeEnabledFeatures::NavigationSourcePseudoClassEnabled()) {
     // In case we come back to this document later via BFCache, there must not
     // be a dangling active navigation.
     NavigationState::AttemptFinishNavigationAndDestroy(document_);
@@ -1662,6 +1662,13 @@ bool LocalDOMWindow::find(const String& string,
 
 bool LocalDOMWindow::offscreenBuffering() const {
   return true;
+}
+
+bool LocalDOMWindow::alwaysOnTop() const {
+  if (!GetFrame() || !GetFrame()->GetPage()) {
+    return false;
+  }
+  return GetFrame()->GetPage()->AlwaysOnTop();
 }
 
 int LocalDOMWindow::outerHeight() const {
@@ -2430,7 +2437,7 @@ void LocalDOMWindow::FinishedLoading(FrameLoader::NavigationFinishState state) {
     print(nullptr);
   }
 
-  if (RuntimeEnabledFeatures::NavigationStateEnabled()) {
+  if (RuntimeEnabledFeatures::NavigationSourcePseudoClassEnabled()) {
     NavigationState::AttemptFinishNavigationAndDestroy(document_);
   }
 }

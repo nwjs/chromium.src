@@ -10,6 +10,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/omnibox/aim_eligibility/aim_eligibility.mojom.h"
 #include "chrome/browser/ui/webui/omnibox/aim_eligibility_extension/aim_eligibility_extension_bridge.h"
+#include "chrome/browser/ui/webui/omnibox/aim_eligibility_extension/aim_eligibility_extension_frame_page_handler_factory.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/service_worker_version_base_info.h"
@@ -24,10 +25,9 @@ void BindFactoryReceiverForFrame(
     content::RenderFrameHost* frame_host,
     mojo::PendingReceiver<aim_eligibility::mojom::PageHandlerFactory>
         receiver) {
-  auto* bridge = AimEligibilityExtensionBridge::Get(
-      Profile::FromBrowserContext(frame_host->GetBrowserContext()));
-  CHECK(bridge);
-  bridge->BindFactoryReceiver(std::move(receiver));
+  AimEligibilityExtensionFramePageHandlerFactory::GetOrCreateForCurrentDocument(
+      frame_host)
+      ->Bind(std::move(receiver));
 }
 
 void BindFactoryReceiverForWorker(
@@ -38,7 +38,7 @@ void BindFactoryReceiverForWorker(
   auto* bridge =
       AimEligibilityExtensionBridge::Get(Profile::FromBrowserContext(context));
   CHECK(bridge);
-  bridge->BindFactoryReceiver(std::move(receiver));
+  bridge->service_worker_page_handler_factory().Bind(std::move(receiver));
 }
 
 }  // namespace
@@ -46,36 +46,23 @@ void BindFactoryReceiverForWorker(
 // static
 void AimEligibilityExtensionBinderProvider::Register(
     content::BrowserContext* browser_context) {
-  extensions::ExtensionMojoBinderRegistryFactory::GetForBrowserContext(
+  extensions::ExtensionMojoBinderRegistryFactory::GetOrCreateForBrowserContext(
       browser_context)
       ->RegisterProvider(
           base::PassKey<AimEligibilityExtensionBinderProvider>(),
           std::make_unique<AimEligibilityExtensionBinderProvider>());
 }
 
-AimEligibilityExtensionBinderProvider::AimEligibilityExtensionBinderProvider() =
-    default;
+AimEligibilityExtensionBinderProvider::AimEligibilityExtensionBinderProvider()
+    : ExtensionMojoBinderProvider(extension_misc::kAimEligibilityExtensionId) {}
+
 AimEligibilityExtensionBinderProvider::
     ~AimEligibilityExtensionBinderProvider() = default;
-
-extensions::ExtensionId AimEligibilityExtensionBinderProvider::GetExtensionId()
-    const {
-  return extension_misc::kAimEligibilityExtensionId;
-}
-
-bool AimEligibilityExtensionBinderProvider::IsJsErrorReportingEnabled() const {
-  return true;
-}
-
-bool AimEligibilityExtensionBinderProvider::
-    ShouldCrashOnJsErrorInDevelopmentBuild() const {
-  return true;
-}
 
 void AimEligibilityExtensionBinderProvider::PopulateFrameBinders(
     mojo::BinderMapWithContext<content::RenderFrameHost*>& binder_map,
     content::RenderFrameHost* render_frame_host,
-    const extensions::Extension* extension) {
+    const extensions::Extension& extension) {
   binder_map.Add<aim_eligibility::mojom::PageHandlerFactory>(
       base::BindRepeating(&BindFactoryReceiverForFrame));
 
@@ -94,7 +81,7 @@ void AimEligibilityExtensionBinderProvider::PopulateServiceWorkerBinders(
     mojo::BinderMapWithContext<const content::ServiceWorkerVersionBaseInfo&>&
         binder_map,
     content::BrowserContext* browser_context,
-    const extensions::Extension* extension) {
+    const extensions::Extension& extension) {
   binder_map.Add<aim_eligibility::mojom::PageHandlerFactory>(
       base::BindRepeating(&BindFactoryReceiverForWorker, browser_context));
 }

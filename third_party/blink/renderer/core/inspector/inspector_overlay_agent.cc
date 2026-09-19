@@ -649,7 +649,7 @@ protocol::Response InspectorOverlayAgent::disable() {
   hinge_ = nullptr;
   display_cutout_ = nullptr;
   if (inspect_tool_) {
-    inspect_tool_->OnAgentDisable();
+    inspect_tool_->Dispose();
   }
   PickTheRightTool();
   SetNeedsUnbufferedInput(false);
@@ -1584,8 +1584,10 @@ void InspectorOverlayAgent::LoadOverlayPageResource() {
       FrameInsertType::kInsertInConstructor, LocalFrameToken(), nullptr,
       nullptr, mojo::NullRemote());
   frame->SetView(MakeGarbageCollected<LocalFrameView>(*frame));
-  frame->Init(/*opener=*/nullptr, DocumentToken(), /*policy_container=*/nullptr,
-              StorageKey(), /*document_ukm_source_id=*/ukm::kInvalidSourceId,
+  frame->Init(/*opener=*/nullptr, DocumentToken(),
+              /*initiator_state_token=*/base::UnguessableToken::Create(),
+              /*policy_container=*/nullptr, StorageKey(),
+              /*document_ukm_source_id=*/ukm::kInvalidSourceId,
               /*creator_base_url=*/NullUrl());
   frame->View()->SetCanHaveScrollbars(false);
   frame->View()->SetBaseBackgroundColor(Color::kTransparent);
@@ -1847,7 +1849,7 @@ void InspectorOverlayAgent::PickTheRightTool() {
     inspect_tool = MakeGarbageCollected<ScreenshotTool>(this, GetFrontend());
   } else if (!paused_in_debugger_message_.empty()) {
     inspect_tool = MakeGarbageCollected<PausedInDebuggerTool>(
-        this, GetFrontend(), V8Session().get(), paused_in_debugger_message_);
+        this, GetFrontend(), V8Session(), paused_in_debugger_message_);
   } else if (persistent_tool_) {
     inspect_tool = persistent_tool_;
   }
@@ -1880,6 +1882,15 @@ void InspectorOverlayAgent::EnsureEnableFrameOverlay() {
 }
 
 void InspectorOverlayAgent::ClearInspectTool() {
+  if (inspect_tool_) {
+    // Notify the outgoing tool that it is being uninstalled so that it drops
+    // its unowned reference to the V8 inspector session. Otherwise a
+    // PausedInDebuggerTool orphaned here can still be reached by a pending
+    // ExecuteOnV8Session task (bound through its WeakCell) and perform a
+    // virtual call through a raw v8_inspector::V8InspectorSession pointer
+    // that dangles once DevToolsSession::Detach() destroys the session.
+    inspect_tool_->Dispose();
+  }
   inspect_tool_ = nullptr;
   if (!hinge_ && !display_cutout_) {
     DisableFrameOverlay();

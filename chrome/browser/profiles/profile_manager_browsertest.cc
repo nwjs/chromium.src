@@ -56,6 +56,7 @@
 #include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_consumer.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
+#include "components/password_manager/core/browser/password_string.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/policy_constants.h"
 #include "components/prefs/pref_service.h"
@@ -748,7 +749,7 @@ IN_PROC_BROWSER_TEST_P(ProfileManagerBrowserTest, DeletePasswords) {
   form.url = GURL("http://accounts.google.com/LoginAuth");
   form.signon_realm = "http://accounts.google.com/";
   form.username_value = u"my_username";
-  form.password_value = u"my_password";
+  form.password_value = password_manager::PasswordString(u"my_password");
   form.blocked_by_user = false;
 
   scoped_refptr<password_manager::PasswordStoreInterface> password_store =
@@ -958,21 +959,21 @@ IN_PROC_BROWSER_TEST_P(ProfileManagerBrowserTest, LastOpenedProfiles) {
   EXPECT_THAT(profile_manager->GetLastOpenedProfiles(), testing::SizeIs(1));
 
   // Create a browser for profile1.
-  Browser* browser1a = CreateBrowser(&profile1);
+  BrowserWindowInterface* browser1a = CreateBrowser(&profile1);
 
   EXPECT_THAT(profile_manager->GetLastOpenedProfiles(),
               testing::ElementsAre(testing::_, &profile1));
   EXPECT_TRUE(profile_manager->has_updated_last_opened_profiles());
 
   // And for profile2.
-  Browser* browser2 = CreateBrowser(&profile2);
+  BrowserWindowInterface* browser2 = CreateBrowser(&profile2);
 
   EXPECT_THAT(profile_manager->GetLastOpenedProfiles(),
               testing::ElementsAre(testing::_, &profile1, &profile2));
   EXPECT_TRUE(profile_manager->has_updated_last_opened_profiles());
 
   // Adding more browsers doesn't change anything.
-  Browser* browser1b = CreateBrowser(&profile1);
+  BrowserWindowInterface* browser1b = CreateBrowser(&profile1);
 
   EXPECT_THAT(profile_manager->GetLastOpenedProfiles(),
               testing::ElementsAre(testing::_, &profile1, &profile2));
@@ -1037,20 +1038,20 @@ IN_PROC_BROWSER_TEST_P(ProfileManagerBrowserTest,
   EXPECT_THAT(profile_manager->GetLastOpenedProfiles(), testing::SizeIs(1));
 
   // Create a browser for profile1.
-  Browser* browser1 = CreateBrowser(&profile1);
+  BrowserWindowInterface* browser1 = CreateBrowser(&profile1);
 
   EXPECT_THAT(profile_manager->GetLastOpenedProfiles(),
               testing::ElementsAre(testing::_, &profile1));
 
   // And for profile2.
-  Browser* browser2a =
+  BrowserWindowInterface* browser2a =
       CreateBrowser(profile1.GetPrimaryOTRProfile(/*create_if_needed=*/true));
 
   EXPECT_THAT(profile_manager->GetLastOpenedProfiles(),
               testing::ElementsAre(testing::_, &profile1));
 
   // Adding more browsers doesn't change anything.
-  Browser* browser2b =
+  BrowserWindowInterface* browser2b =
       CreateBrowser(profile1.GetPrimaryOTRProfile(/*create_if_needed=*/true));
   EXPECT_THAT(profile_manager->GetLastOpenedProfiles(),
               testing::ElementsAre(testing::_, &profile1));
@@ -1078,7 +1079,7 @@ IN_PROC_BROWSER_TEST_P(ProfileManagerBrowserTest,
   EXPECT_NE(&profile, last_used_profile);
 
   // Create a browser for the profile.
-  Browser* browser = CreateBrowser(&profile);
+  BrowserWindowInterface* browser = CreateBrowser(&profile);
   last_used_profile = profile_manager->GetLastUsedProfile();
   EXPECT_NE(&profile, last_used_profile);
 
@@ -1171,7 +1172,7 @@ IN_PROC_BROWSER_TEST_F(ProfileManagerDestroyProfileBrowserTest,
       profiles::testing::CreateProfileSync(profile_manager, dest_path2);
 
   // Create a browser for profile2.
-  Browser* browser2 = CreateBrowser(&profile2);
+  BrowserWindowInterface* browser2 = CreateBrowser(&profile2);
 
   EXPECT_TRUE(profile_manager->IsValidProfile(&profile1));
   EXPECT_TRUE(profile_manager->IsValidProfile(&profile2));
@@ -1220,7 +1221,7 @@ IN_PROC_BROWSER_TEST_F(ProfileManagerDestroyProfileBrowserTest,
   EXPECT_TRUE(base::PathExists(dest_path2));
 
   // Create a browser for profile2.
-  Browser* browser2 = CreateBrowser(&profile2);
+  BrowserWindowInterface* browser2 = CreateBrowser(&profile2);
 
   // All asynchronous profile loading must complete to prevent accidental
   // reconstruction of profile2's path. This happens because

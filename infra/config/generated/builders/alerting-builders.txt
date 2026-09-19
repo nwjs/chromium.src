@@ -95,7 +95,6 @@ ci/chromeos-amd64-generic-rel
 ci/chromeos-amd64-generic-rel-gtest
 ci/chromeos-arm-generic-rel
 ci/chromeos-arm64-generic-rel
-ci/fuchsia-arm64-cast-receiver-rel
 ci/fuchsia-x64-cast-receiver-dbg
 ci/fuchsia-x64-cast-receiver-rel
 ci/ios-simulator
@@ -158,7 +157,6 @@ try/chromeos-amd64-generic-dbg
 try/chromeos-amd64-generic-rel
 try/chromeos-arm-generic-rel
 try/chromeos-arm64-generic-rel
-try/fuchsia-arm64-cast-receiver-rel
 try/fuchsia-binary-size
 try/fuchsia-x64-cast-receiver-dbg
 try/fuchsia-x64-cast-receiver-rel

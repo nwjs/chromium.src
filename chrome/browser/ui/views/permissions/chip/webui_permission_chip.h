@@ -30,6 +30,10 @@ class WebUIPermissionChip : public PermissionChipInterface {
   // PermissionChipInterface:
   void SetVisible(bool visible) override;
   bool GetVisible() const override;
+  PermissionChipTheme GetThemeForTesting() const override;
+  std::u16string GetTooltipText() const override;
+  std::u16string GetTextForTesting() const override;
+  bool GetIsRequestForTesting() const override;
   void SetChipIcon(const gfx::VectorIcon& icon) override;
   void SetChipIcon(const gfx::VectorIcon* icon) override;
   void SetMessage(std::u16string message) override;
@@ -57,6 +61,8 @@ class WebUIPermissionChip : public PermissionChipInterface {
       base::RepeatingCallback<void(bool)> callback) override;
   views::BubbleAnchor GetAnchor() override;
   void SetBubbleOwner(BubbleOwnerDelegate* owner) override;
+  void ExecuteForTesting() override;
+  void EndAnimationForTesting() override;
 
   // Called from WebUI
   void OnExpandAnimationEnded();

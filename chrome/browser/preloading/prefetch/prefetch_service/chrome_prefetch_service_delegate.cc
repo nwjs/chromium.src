@@ -16,7 +16,6 @@
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "components/google/core/common/google_util.h"
 #include "components/language/core/browser/pref_names.h"
-#include "components/page_load_metrics/browser/metrics_web_contents_observer.h"
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/unified_consent/url_keyed_data_collection_consent_helper.h"
@@ -81,8 +80,10 @@ bool ChromePrefetchServiceDelegate::DisableDecoysBasedOnUserSettings() {
 }
 
 content::PreloadingEligibility
-ChromePrefetchServiceDelegate::IsSomePreloadingEnabled() {
-  return prefetch::IsSomePreloadingEnabled(*profile_->GetPrefs());
+ChromePrefetchServiceDelegate::IsSomePreloadingEnabled(
+    bool should_ignore_saver_modes) {
+  return prefetch::IsSomePreloadingEnabled(*profile_->GetPrefs(),
+                                           should_ignore_saver_modes);
 }
 
 bool ChromePrefetchServiceDelegate::IsPreloadingPrefEnabled() {
@@ -120,18 +121,6 @@ bool ChromePrefetchServiceDelegate::IsContaminationExempt(
   return template_url_service &&
          template_url_service->GetDefaultSearchProviderOrigin() ==
              referring_origin;
-}
-
-void ChromePrefetchServiceDelegate::OnPrefetchLikely(
-    content::WebContents* web_contents) {
-  page_load_metrics::MetricsWebContentsObserver* metrics_web_contents_observer =
-      page_load_metrics::MetricsWebContentsObserver::FromWebContents(
-          web_contents);
-  if (!metrics_web_contents_observer) {
-    return;
-  }
-
-  metrics_web_contents_observer->OnPrefetchLikely();
 }
 
 void ChromePrefetchServiceDelegate::SetAcceptLanguageHeader(

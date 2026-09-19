@@ -30,11 +30,11 @@
 #include "base/types/optional_util.h"
 #include "build/build_config.h"
 #include "components/autofill/content/renderer/autofill_renderer_test.h"
-#include "components/autofill/content/renderer/focus_test_utils.h"
+#include "components/autofill/content/renderer/focus_test_util.h"
 #include "components/autofill/content/renderer/form_autofill_util.h"
 #include "components/autofill/content/renderer/form_cache.h"
 #include "components/autofill/content/renderer/synchronous_form_cache.h"
-#include "components/autofill/content/renderer/test_utils.h"
+#include "components/autofill/content/renderer/test_util.h"
 #include "components/autofill/core/common/autocomplete_parsing_util.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_data_validation.h"
@@ -44,7 +44,7 @@
 #include "components/autofill/core/common/form_data_test_api.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
-#include "components/autofill/core/common/test_utils/autofill_form_test_utils.h"
+#include "components/autofill/core/common/test_utils/autofill_form_test_util.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/test/render_view_test.h"
@@ -289,13 +289,7 @@ class FormAutofillUtilsTest : public content::RenderViewTest {
       .last_dom_content_loaded = {},
   };
 
-  FormAutofillUtilsTest() {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/
-        {features::kAutofillFixIframeOwnership,
-         features::kAutofillIgnoreCheckableElements},
-        /*disabled_features=*/{});
-  }
+  FormAutofillUtilsTest() = default;
   ~FormAutofillUtilsTest() override = default;
 
   WebDocument GetDocument() { return GetMainFrame()->GetDocument(); }
@@ -317,7 +311,8 @@ class FormAutofillUtilsTest : public content::RenderViewTest {
   FieldDataManager& field_data_manager() { return *field_data_manager_; }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_;
+  base::test::ScopedFeatureList scoped_feature_list_{
+      features::kAutofillFixIframeOwnership};
   scoped_refptr<FieldDataManager> field_data_manager_ =
       base::MakeRefCounted<FieldDataManager>();
 };
@@ -630,9 +625,6 @@ const AutofillFieldUtilCase kInferLabelForElementTestCases[] = {
          <div><input id='target'></div>
        </div>)",
      u"label", u"label"},
-    {"Infer_from_next_sibling",
-     "<input id='target' type='checkbox'>hello <b>world</b>", u"hello world",
-     u"hello world"},
     // With better placeholder support, poor man's placeholder will no longer
     // be considered a label. The label will be instead based on the value
     // attribute that is available.
@@ -1548,22 +1540,6 @@ TEST_F(FormAutofillUtilsTest, IsWebElementVisibleTest) {
         <input type="text" data-visible   style="width: 100px; position: absolute; right:  -200px;" data-false="POSITIVE">
         <input type="text" data-visible   style="width: 100px; position: absolute; bottom: -200px;" data-false="POSITIVE">
 
-        <input type="checkbox" data-visible   style="">
-        <input type="checkbox" data-invisible style="display: none;">
-        <input type="checkbox" data-invisible style="visibility: hidden;">
-        <input type="checkbox" data-visible   style="width: 15px; height: 15px;">
-        <input type="checkbox" data-visible   style="width: 15px; height:  5px;">
-        <input type="checkbox" data-visible   style="width:  5px; height: 15px;">
-        <input type="checkbox" data-visible   style="width:  5px; height:  5px;">
-
-        <input type="radio" data-visible   style="">
-        <input type="radio" data-invisible style="display: none;">
-        <input type="radio" data-invisible style="visibility: hidden;">
-        <input type="radio" data-visible   style="width: 15px; height: 15px;">
-        <input type="radio" data-visible   style="width: 15px; height:  5px;">
-        <input type="radio" data-visible   style="width:  5px; height: 15px;">
-        <input type="radio" data-visible   style="width:  5px; height:  5px;">
-
         <div style="width: 10000; height: 10000"></div>
       </body>)");
 
@@ -1580,7 +1556,7 @@ TEST_F(FormAutofillUtilsTest, IsWebElementVisibleTest) {
     }
     return result;
   }();
-  ASSERT_GE(inputs.size(), 36u);
+  ASSERT_GE(inputs.size(), 22u);
 
   auto RunTestCases = [](const std::vector<WebElement>& inputs) {
     for (WebElement input : inputs) {

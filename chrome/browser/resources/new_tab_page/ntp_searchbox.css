@@ -25,6 +25,14 @@
   height: var(--cr-searchbox-height);
   width: var(--cr-searchbox-width);
   z-index: 99;
+<if expr="is_android">
+  /* Use Google Sans Text for the NTP realbox on Android. The @font-face
+   * rules in text_defaults_md.css register the font names, and
+   * AndroidFontLookupImpl downloads them from GMSCore. font-family is
+   * inherited, so this cascades to the input placeholder and suggestion
+   * list items. */
+  font-family: 'Google Sans Text', 'Google Sans', Arial, sans-serif;
+</if>
 }
 
 :host([searchbox-chrome-refresh-theming][dropdown-is-visible]) {
@@ -250,7 +258,7 @@ cr-searchbox-input::part(searchbox-input) {
 }
 
 :host([ntp-realbox-next-enabled]) {
-  --cr-searchbox-border-radius: 30px;
+  --cr-searchbox-border-radius: 28px;
   --cr-searchbox-dropdown-padding-bottom: 10px;
   --cr-searchbox-dropdown-padding-top: 10px;
   --cr-searchbox-height: 56px;
@@ -268,7 +276,6 @@ cr-searchbox-input::part(searchbox-input) {
 }
 
 :host-context([energy-effect-enabled_]):host([ntp-realbox-next-enabled]) {
-  --cr-searchbox-border-radius: 28px;
   --cr-searchbox-border: 1px solid #DADCE0;
 }
 

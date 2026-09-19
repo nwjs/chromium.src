@@ -42,6 +42,7 @@ enum class SecurePaymentConfirmationRequestValidationError {
   kLogoLabelRequired,
   kInternalError,
   kWebAuthnExtensionsNotSupported,
+  kLocaleDoesNotMatch,
 };
 
 // Converts a SecurePaymentConfirmationRequestValidationError to a
@@ -55,7 +56,14 @@ std::string SecurePaymentConfirmationRequestValidationErrorToString(
 SecurePaymentConfirmationRequestValidationError
 IsValidSecurePaymentConfirmationRequest(
     const mojom::SecurePaymentConfirmationRequestPtr& request,
-    const url::Origin& initiator_origin);
+    const url::Origin& initiator_origin,
+    const std::string& application_locale);
+
+// Records the PaymentRequest.SecurePaymentConfirmation.LocaleOutcome histogram
+// based on the request locales and application locale.
+void RecordSpcLocaleOutcome(
+    const mojom::SecurePaymentConfirmationRequestPtr& request,
+    const std::string& application_locale);
 
 }  // namespace payments
 

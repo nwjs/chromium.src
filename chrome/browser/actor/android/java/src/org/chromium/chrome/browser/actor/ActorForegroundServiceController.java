@@ -8,13 +8,19 @@ import android.app.Notification;
 import android.content.Intent;
 
 import org.chromium.base.Callback;
+import org.chromium.base.IntentUtils;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.notifications.NotificationConstants;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabDelegateFactory;
+import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.ui.base.WindowAndroid;
 
 import java.util.Set;
 
@@ -73,6 +79,23 @@ public interface ActorForegroundServiceController {
      */
     default void transitionActiveTasksToBackground(TabModelSelector selector) {}
 
+    /** Restores active window background tabs when activity starts or receives intent. */
+    default void restoreActiveWindowBackgroundTabs(
+            TabModelSelector selector,
+            WindowAndroid window,
+            TabDelegateFactory tabDelegateFactory) {}
+
+    /** Handles cleanup when a message-triggered task is stopped for a context ID. */
+    default void onMessageTriggerTaskStopped(String contextId) {}
+
+    /**
+     * Handles task completion by persisting associated background tabs to disk and restoring warm
+     * sessions.
+     *
+     * @param taskId The ID of the completed task.
+     */
+    default void onTaskCompleted(int taskId) {}
+
     /** Destroys the background actuation manager and cleans up its resources. */
     default void destroyBackgroundActuationManager() {}
 
@@ -86,6 +109,14 @@ public interface ActorForegroundServiceController {
     default void provisionBackgroundTabForTask(
             Profile profile, int taskId, Callback<@Nullable Tab> callback) {
         callback.onResult(null);
+    }
+
+    /**
+     * Returns the placeholder tab ID associated with a given original tab ID if it's currently in a
+     * background session.
+     */
+    default @Nullable Integer getPlaceholderTabIdForTaskTab(int originalTabId) {
+        return null;
     }
 
     /**
@@ -105,6 +136,47 @@ public interface ActorForegroundServiceController {
 
     /** Returns true if a tabbed activity is currently visible. */
     boolean isTabbedActivityVisible();
+
+    /**
+     * Resolves the target tab ID for an Actor notification intent.
+     *
+     * @param intent The incoming {@link Intent}.
+     * @return The resolved tab ID, or {@link Tab#INVALID_TAB_ID} if none could be resolved.
+     */
+    static @TabId int resolveActorIntentTabId(@Nullable Intent intent) {
+        if (intent == null) {
+            return Tab.INVALID_TAB_ID;
+        }
+
+        int taskId =
+                IntentUtils.safeGetIntExtra(
+                        intent,
+                        NotificationConstants.EXTRA_ACTOR_TASK_ID,
+                        ActorTask.INVALID_TASK_ID);
+        if (taskId == ActorTask.INVALID_TASK_ID) {
+            return Tab.INVALID_TAB_ID;
+        }
+
+        return resolveTabIdForTask(taskId);
+    }
+
+    private static @TabId int resolveTabIdForTask(int taskId) {
+        if (!ProfileManager.isInitialized()) {
+            return Tab.INVALID_TAB_ID;
+        }
+        Profile profile = ProfileManager.getLastUsedRegularProfile();
+        if (profile == null) {
+            return Tab.INVALID_TAB_ID;
+        }
+
+        ActorKeyedService service = ActorKeyedServiceFactory.getForProfile(profile);
+        if (service == null) {
+            return Tab.INVALID_TAB_ID;
+        }
+
+        ActorTask task = service.getTask(taskId);
+        return task != null ? task.getTargetTabId() : Tab.INVALID_TAB_ID;
+    }
 
     /** Returns the singleton instance. */
     static ActorForegroundServiceController get() {

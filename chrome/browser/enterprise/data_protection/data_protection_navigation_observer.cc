@@ -19,6 +19,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
+#include "components/dom_distiller/core/url_constants.h"
+#include "components/dom_distiller/core/url_utils.h"
 #include "components/enterprise/data_protection/data_protection_url_lookup_service.h"
 #include "components/enterprise/data_protection/utils.h"
 #include "components/safe_browsing/buildflags.h"
@@ -49,6 +51,9 @@ namespace {
 
 constexpr char kURLVerdictSourceHistogram[] =
     "Enterprise.DataProtection.URLVerdictSource";
+
+constexpr char kURLVerdictScreenshotHistogram[] =
+    "Enterprise.DataProtection.URLVerdictForScreenshot";
 
 // This is non-null in tests to install a fake service.
 safe_browsing::RealTimeUrlLookupServiceBase* g_lookup_service = nullptr;
@@ -86,6 +91,17 @@ bool ShouldReportSafeUrlFilteringEvents(DataProtectionPageUserData* user_data) {
              .has_matched_url_navigation_rule();
 }
 #endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+
+GURL GetOriginalUrl(const GURL& url) {
+  if (GURL got_url =
+          dom_distiller::url_utils::GetOriginalUrlFromDistillerUrl(url);
+      got_url.is_valid()) {
+    return got_url;
+  } else {
+    VLOG(1) << __func__ << " got a invalid url: " << got_url;
+  }
+  return url;
+}
 
 void RunPendingNavigationCallback(
     content::WebContents* web_contents,
@@ -133,12 +149,6 @@ void OnDoLookupComplete(
       GetPageFromWebContents(web_contents.get()), identifier,
       std::move(rt_lookup_response));
   RunPendingNavigationCallback(web_contents.get(), std::move(callback));
-}
-
-bool SkipUrl(const GURL& url) {
-  return !url.is_valid() || url.SchemeIs(content::kChromeUIScheme) ||
-         url.SchemeIs(extensions::kExtensionScheme) ||
-         url.SchemeIs(chrome::kChromeNativeScheme);
 }
 
 bool IsEnterpriseLookupEnabled(Profile* profile) {
@@ -191,7 +201,7 @@ std::string GetIdentifier(content::BrowserContext* browser_context) {
 
 void LogVerdictSource(
     DataProtectionNavigationObserver::URLVerdictSource verdict_source) {
-  VLOG(1) << "enterprise.watermark: verdict source: "
+  VLOG(1) << "enterprise.data_protection: verdict source: "
           << static_cast<int>(verdict_source);
   base::UmaHistogramEnumeration(kURLVerdictSourceHistogram, verdict_source);
 }
@@ -232,12 +242,7 @@ DataProtectionNavigationObserver::CreateForNavigationIfNeeded(
           << navigation_handle->GetURL();
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-  // The Data protection settings need to be cleared if:
-  // 1. This is a skipped URL. This is needed to handle for example navigating
-  // from a watermarked page to the NTP.
-  // 2. Data protection is disabled. This is needed to prevent stale data
-  // protection settings if the enabled state is changed mid session.
-  if (SkipUrl(navigation_handle->GetURL())) {
+  if (!navigation_handle->GetURL().is_valid()) {
     std::move(callback).Run(UrlSettings::None());
     return nullptr;
   }
@@ -277,20 +282,17 @@ void DataProtectionNavigationObserver::ApplyDataProtectionSettings(
     return;
   }
 
-  // If this is a skipped URL, force the view to clear any data protections if
-  // present.  This is needed to handle for example navigating from a
-  // protected page to the NTP.
-  if (SkipUrl(web_contents->GetLastCommittedURL())) {
+  if (!web_contents->GetLastCommittedURL().is_valid()) {
     std::move(callback).Run(UrlSettings::None());
     return;
   }
 
   std::string identifier = GetIdentifier(profile);
 
+  const GURL original_url = GetOriginalUrl(web_contents->GetLastCommittedURL());
   DataProtectionPageUserData::UpdateDataControlsScreenshotState(
       GetPageFromWebContents(web_contents), identifier,
-      IsScreenshotAllowedByDataControls(profile,
-                                        web_contents->GetLastCommittedURL()));
+      IsScreenshotAllowedByDataControls(profile, original_url));
 
   auto* lookup_service =
       g_lookup_service
@@ -318,8 +320,8 @@ void DataProtectionNavigationObserver::ApplyDataProtectionSettings(
         },
         std::move(identifier), std::move(callback), web_contents->GetWeakPtr());
 
-    DoLookup(lookup_service, web_contents->GetLastCommittedURL(),
-             std::move(lookup_callback), web_contents);
+    DoLookup(lookup_service, original_url, std::move(lookup_callback),
+             web_contents);
   } else {
     ud = GetUserData(web_contents);
     DCHECK(ud);
@@ -347,9 +349,10 @@ DataProtectionNavigationObserver::DataProtectionNavigationObserver(
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK(!pending_navigation_callback_.is_null());
 
+  const GURL original_url = GetOriginalUrl(navigation_handle.GetURL());
   identifier_ = GetIdentifier(web_contents->GetBrowserContext());
   allow_screenshot_ = IsScreenshotAllowedByDataControls(
-      web_contents->GetBrowserContext(), navigation_handle.GetURL());
+      web_contents->GetBrowserContext(), original_url);
 
   // When serving from cache, we expect to find a page user data. So this code
   // skips the call to DoLookup() to prevent an unneeded network request.
@@ -361,7 +364,7 @@ DataProtectionNavigationObserver::DataProtectionNavigationObserver(
   is_from_cache_ = navigation_handle.IsServedFromBackForwardCache();
   if (!is_from_cache_ &&
       ShouldPerformRealTimeUrlCheck(web_contents->GetBrowserContext())) {
-    DoLookup(lookup_service_, navigation_handle.GetURL(),
+    DoLookup(lookup_service_, original_url,
              base::BindOnce(&DataProtectionNavigationObserver::OnLookupComplete,
                             weak_factory_.GetWeakPtr()),
              navigation_handle.GetWebContents());
@@ -383,6 +386,11 @@ void DataProtectionNavigationObserver::OnLookupComplete(
   if (!web_contents()) {
     return;
   }
+
+  base::UmaHistogramBoolean(
+      kURLVerdictScreenshotHistogram,
+      GetUrlSettings("", rt_lookup_response.get()).allow_screenshots);
+
   if (is_navigation_finished_) {
     OnDoLookupComplete(web_contents()->GetWeakPtr(),
                        std::move(pending_navigation_callback_), identifier_,
@@ -406,12 +414,20 @@ void DataProtectionNavigationObserver::DidRedirectNavigation(
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK(!is_from_cache_);
 
-  allow_screenshot_ = allow_screenshot_ && IsScreenshotAllowedByDataControls(
-      navigation_handle->GetWebContents()->GetBrowserContext(),
-      navigation_handle->GetURL());
+  const GURL original_url = GetOriginalUrl(navigation_handle->GetURL());
+
+  allow_screenshot_ =
+      allow_screenshot_ &&
+      IsScreenshotAllowedByDataControls(
+          navigation_handle->GetWebContents()->GetBrowserContext(),
+          original_url);
 
   if (ShouldPerformRealTimeUrlCheck(
           navigation_handle->GetWebContents()->GetBrowserContext())) {
+    is_verdict_received_ = false;
+    rt_lookup_response_.reset();
+    // Cancel any previous lookup calls before starting a new lookup for the redirect.
+    weak_factory_.InvalidateWeakPtrs();
     DoLookup(
         lookup_service_, navigation_handle->GetURL(),
         base::BindOnce(&DataProtectionNavigationObserver::OnLookupComplete,
@@ -486,7 +502,7 @@ void DataProtectionNavigationObserver::DidFinishNavigation(
       ShouldPerformRealTimeUrlCheck(web_contents()->GetBrowserContext())) {
     LogVerdictSource(URLVerdictSource::kPostNavigationLookup);
     DoLookup(
-        lookup_service_, navigation_handle->GetURL(),
+        lookup_service_, GetOriginalUrl(navigation_handle->GetURL()),
         base::BindOnce(&OnDoLookupComplete, web_contents()->GetWeakPtr(),
                        std::move(pending_navigation_callback_), identifier_),
         web_contents());

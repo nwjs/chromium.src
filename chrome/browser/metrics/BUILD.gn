@@ -30,6 +30,7 @@ source_set("metrics") {
     "chrome_metrics_service_accessor.h",
     "chrome_metrics_service_client.h",
     "chrome_metrics_services_manager_client.h",
+    "cpu_performance_metrics_provider.h",
     "https_engagement_metrics_provider.h",
     "incognito_observer.h",
     "metrics_memory_details.h",
@@ -244,6 +245,7 @@ source_set("impl") {
     "chrome_metrics_service_accessor.cc",
     "chrome_metrics_service_client.cc",
     "chrome_metrics_services_manager_client.cc",
+    "cpu_performance_metrics_provider.cc",
     "https_engagement_metrics_provider.cc",
     "incognito_observer.cc",
     "metrics_memory_details.cc",
@@ -461,7 +463,7 @@ source_set("impl") {
     deps += [
       "//chrome/browser/win",
       "//chrome/browser/win:cloud_synced_folder_checker",
-      "//chrome/browser/win:isolated_browser_support",
+      "//chrome/browser/win/isolated_browser:isolated_browser_support",
       "//chrome/notification_helper:constants",
     ]
   }
@@ -546,6 +548,7 @@ source_set("unit_tests") {
     "chrome_metrics_service_accessor_unittest.cc",
     "chrome_metrics_service_client_unittest.cc",
     "chrome_metrics_services_manager_client_unittest.cc",
+    "cpu_performance_metrics_provider_unittest.cc",
     "metrics_provider_process_observer_unittest.cc",
     "process_memory_metrics_emitter_unittest.cc",
     "tab_footprint_aggregator_unittest.cc",
@@ -559,7 +562,6 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//chrome/browser/performance_manager:test_support",
     "//chrome/browser/sync",
-    "//chrome/browser/ui",
     "//chrome/browser/ui:ui_features",
     "//chrome/test:test_support",
     "//components/component_updater:test_support",

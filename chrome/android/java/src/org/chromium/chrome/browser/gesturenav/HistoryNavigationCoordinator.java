@@ -9,6 +9,8 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 import android.view.ViewGroup;
 
 import org.chromium.base.DeviceInfo;
+import org.chromium.base.TriState;
+import org.chromium.base.TriStateUtils;
 import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.Initializer;
@@ -21,8 +23,8 @@ import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
 import org.chromium.chrome.browser.tab.CurrentTabObserver;
-import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
 import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
@@ -45,14 +47,10 @@ public class HistoryNavigationCoordinator
         implements InsetObserver.WindowInsetObserver, PauseResumeWithNativeObserver {
     private final Runnable mUpdateNavigationStateRunnable = this::onNavigationStateChanged;
     private final SideUiObserver mSideUiObserver =
-            new SideUiObserver() {
-                @Override
-                public void onSideUiSpecsChanged(SideUiSpecs sideUiSpecs) {
+            (SideUiSpecs sideUiSpecs) ->
                     updateSideUiWidths(
                             sideUiSpecs.getWidth(AnchorSide.LEFT),
                             sideUiSpecs.getWidth(AnchorSide.RIGHT));
-                }
-            };
 
     private WindowAndroid mWindow;
     private ViewGroup mParentView;
@@ -71,7 +69,7 @@ public class HistoryNavigationCoordinator
 
     private TouchEventProvider mTouchEventProvider;
 
-    private @Nullable Boolean mForceFeatureEnabledForTesting;
+    private @TriState int mForceFeatureEnabledForTesting;
 
     private int mLeftSideUiWidth;
     private int mRightSideUiWidth;
@@ -125,7 +123,6 @@ public class HistoryNavigationCoordinator
             BackActionDelegate backActionDelegate,
             TouchEventProvider touchEventProvider,
             FullscreenManager fullscreenManager) {
-        mForceFeatureEnabledForTesting = null;
         mNavigationLayout =
                 new HistoryNavigationLayout(
                         parentView.getContext(),
@@ -148,7 +145,7 @@ public class HistoryNavigationCoordinator
         mCurrentTabObserver =
                 new CurrentTabObserver(
                         tabSupplier,
-                        new EmptyTabObserver() {
+                        new TabObserver() {
                             @Override
                             public void onContentChanged(Tab tab) {
                                 notifyNavigationState();
@@ -220,8 +217,8 @@ public class HistoryNavigationCoordinator
      * @return {@code} true if the feature is enabled.
      */
     private boolean isFeatureEnabled() {
-        if (mForceFeatureEnabledForTesting != null) {
-            return mForceFeatureEnabledForTesting;
+        if (mForceFeatureEnabledForTesting != TriState.NOT_SET) {
+            return mForceFeatureEnabledForTesting == TriState.TRUE;
         }
 
         if (DeviceInfo.isAutomotive() && mIsFullscreen) {
@@ -428,7 +425,7 @@ public class HistoryNavigationCoordinator
     }
 
     void forceFeatureEnabledForTesting(boolean enable) {
-        mForceFeatureEnabledForTesting = enable;
+        mForceFeatureEnabledForTesting = TriStateUtils.from(enable);
         onNavigationStateChanged();
     }
 }

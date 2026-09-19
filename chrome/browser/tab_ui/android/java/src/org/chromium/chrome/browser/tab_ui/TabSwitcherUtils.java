@@ -7,8 +7,12 @@ package org.chromium.chrome.browser.tab_ui;
 import static org.chromium.build.NullUtil.assertNonNull;
 
 import org.chromium.base.Callback;
+import org.chromium.base.DeviceInfo;
+import org.chromium.base.FeatureOverrides;
+import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider.LayoutStateObserver;
 import org.chromium.chrome.browser.layouts.LayoutType;
@@ -24,6 +28,31 @@ import org.chromium.components.tab_group_sync.TabGroupUiActionHandler;
 @NullMarked
 public class TabSwitcherUtils {
     /**
+     * Returns whether the Grid Tab Switcher should be disabled. True when the
+     * DisableGridTabSwitcher feature flag is enabled on Desktop Android.
+     *
+     * <p>In test environments, this defaults to false unless explicitly overridden via
+     * {@code @EnableFeatures} or {@link FeatureOverrides}.
+     *
+     * TODO(crbug.com/545634112): This may also be considered for tablets behind a different flag.
+     */
+    public static boolean isGridTabSwitcherDisabled() {
+        if (!DeviceInfo.isDesktop()) {
+            return false;
+        }
+        if (BuildConfig.IS_FOR_TEST) {
+            Boolean testValue =
+                    FeatureOverrides.getTestValueForFeature(
+                            ChromeFeatureList.DISABLE_GRID_TAB_SWITCHER);
+            if (testValue == null) {
+                return false;
+            }
+            return testValue;
+        }
+        return ChromeFeatureList.sDisableGridTabSwitcher.isEnabled();
+    }
+
+    /**
      * A method to navigate to tab switcher.
      *
      * @param layoutManager A {@link LayoutManagerChrome} used to watch for scene changes.
@@ -32,7 +61,7 @@ public class TabSwitcherUtils {
      */
     public static void navigateToTabSwitcher(
             LayoutManager layoutManager, boolean animate, @Nullable Runnable onNavigationFinished) {
-        if (layoutManager.isLayoutVisible(LayoutType.HUB)) {
+        if (isGridTabSwitcherDisabled() || layoutManager.isLayoutVisible(LayoutType.HUB)) {
             if (onNavigationFinished != null) {
                 onNavigationFinished.run();
             }
@@ -56,15 +85,26 @@ public class TabSwitcherUtils {
     }
 
     /**
-     * Tries to open the tab group dialog for a tab group.
+     * Brings focus to a tab group identified by its sync ID.
      *
-     * @param syncId The id of the tab group, might or might not correspond to an open group.
-     * @param tabGroupSyncService Used to open closed groups and convert to local ids.
-     * @param tabGroupUiActionHandler Used to open a closed group.
-     * @param tabModel Used to get root id.
-     * @param requestOpenTabGroupDialog Callback to actually open a group dialog.
+     * <p>If the tab group is currently closed locally, it will first be opened via the {@link
+     * TabGroupUiActionHandler}.
+     *
+     * <p>When the Grid Tab Switcher / Hub is disabled (e.g., on Desktop Android), this selects the
+     * last shown tab of the group in the {@link TabModel} to focus the group on the tab strip.
+     * Otherwise, it invokes {@code requestOpenTabGroupDialog} to present the tab group dialog
+     * inside the tab switcher.
+     *
+     * @param syncId The sync ID of the tab group, which may or may not correspond to an open group.
+     * @param tabGroupSyncService Service used to retrieve sync group metadata and convert sync IDs
+     *     to local IDs.
+     * @param tabGroupUiActionHandler Handler used to open closed tab groups.
+     * @param tabModel The tab model used to resolve the group's last shown tab and update tab
+     *     selection when the tab switcher is disabled.
+     * @param requestOpenTabGroupDialog Callback invoked with the root tab ID to display the tab
+     *     group dialog when the tab switcher is enabled.
      */
-    public static void openTabGroupDialog(
+    public static void focusTabGroup(
             String syncId,
             TabGroupSyncService tabGroupSyncService,
             TabGroupUiActionHandler tabGroupUiActionHandler,
@@ -82,6 +122,13 @@ public class TabSwitcherUtils {
 
         int tabId = tabModel.getGroupLastShownTabId(syncGroup.localId.tabGroupId);
         if (tabId == Tab.INVALID_TAB_ID) return;
+        if (isGridTabSwitcherDisabled()) {
+            Tab tab = tabModel.getTabById(tabId);
+            if (tab != null) {
+                tabModel.setIndex(tabModel.indexOf(tab), TabSelectionType.FROM_USER);
+            }
+            return;
+        }
         requestOpenTabGroupDialog.onResult(tabId);
     }
 

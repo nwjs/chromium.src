@@ -11,9 +11,9 @@
 #include "base/memory/raw_ptr.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -112,7 +112,7 @@ class HorizontalTabStripRegionViewTest : public InProcessBrowserTest {
 
   TabStrip* tab_strip() { return tab_strip_region_view()->tab_strip(); }
 
-  TabStripModel* tab_strip_model() { return browser()->tab_strip_model(); }
+  TabStripModel* tab_strip_model() { return browser()->GetTabStripModel(); }
 
   views::View* new_tab_button() {
     return BrowserElementsViews::From(browser())->GetViewAs<views::View>(
@@ -256,7 +256,7 @@ IN_PROC_BROWSER_TEST_F(HorizontalTabStripRegionViewTest, HasPaneRole) {
 
 IN_PROC_BROWSER_TEST_F(HorizontalTabStripRegionViewTest,
                        IncognitoLeadingButtonsCheckDoesntCrash) {
-  Browser* incognito_browser = CreateIncognitoBrowser();
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowser();
   HorizontalTabStripRegionView* incognito_tab_strip_region_view =
       views::AsViewClass<HorizontalTabStripRegionView>(
           BrowserView::GetBrowserViewForBrowser(incognito_browser)

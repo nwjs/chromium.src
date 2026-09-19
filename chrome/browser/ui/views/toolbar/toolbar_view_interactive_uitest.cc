@@ -18,12 +18,13 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_window.h"
+#include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
-#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
@@ -161,7 +162,7 @@ class ToolbarViewTest : public ToolbarAccessibilityTest {
     }
   }
 
-  void RunToolbarCycleFocusTest(Browser* browser);
+  void RunToolbarCycleFocusTest(BrowserWindowInterface* browser);
 
   void SetLocationBarSecurityLevelForTesting(
       security_state::SecurityLevel security_level) {
@@ -188,7 +189,8 @@ class ToolbarViewTest : public ToolbarAccessibilityTest {
   base::test::ScopedFeatureList webui_omnibox_feature_list_;
 };
 
-void ToolbarViewTest::RunToolbarCycleFocusTest(Browser* browser) {
+void ToolbarViewTest::RunToolbarCycleFocusTest(
+    BrowserWindowInterface* browser) {
   // Navigate to a few URLs so that the back and forward buttons are enabled
   // and focusable.
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -205,7 +207,7 @@ void ToolbarViewTest::RunToolbarCycleFocusTest(Browser* browser) {
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser, url2));
   // Navigate back once so forward is enabled too.
   content::TestNavigationObserver back_nav_observer(
-      browser->tab_strip_model()->GetActiveWebContents());
+      browser->GetTabStripModel()->GetActiveWebContents());
   chrome::BrowserCommandController::From(browser)->ExecuteCommand(IDC_BACK);
   back_nav_observer.Wait();
 
@@ -320,7 +322,8 @@ IN_PROC_BROWSER_TEST_P(ToolbarViewTest, ToolbarCycleFocusWithBookmarkBar) {
   // We want to specifically test the case where the bookmark bar is
   // already showing when a window opens, so create a second browser
   // window with the same profile.
-  Browser* second_browser = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
   WaitForInitialWebUI(second_browser);
   RunToolbarCycleFocusTest(second_browser);
 }
@@ -341,7 +344,7 @@ IN_PROC_BROWSER_TEST_P(ToolbarViewTest, BackForwardButtonUpdate) {
 
       Do([this]() {
         auto& controller = browser()
-                               ->tab_strip_model()
+                               ->GetTabStripModel()
                                ->GetActiveWebContents()
                                ->GetController();
         controller.DeleteNavigationEntries(base::BindRepeating(
@@ -352,7 +355,14 @@ IN_PROC_BROWSER_TEST_P(ToolbarViewTest, BackForwardButtonUpdate) {
       ExpectBackForwardButtonEnabled(kToolbarForwardButtonElementId, false));
 }
 
-IN_PROC_BROWSER_TEST_P(ToolbarViewTest, BackButtonHoverThenClick) {
+// TODO(crbug.com/548345902): Re-enable once fixed. Failing at step 9:
+// WaitForWebContentsNavigation(kWebContentsId, GURL(url::kAboutBlankURL))
+#if BUILDFLAG(IS_CHROMEOS) && defined(MEMORY_SANITIZER)
+#define MAYBE_BackButtonHoverThenClick DISABLED_BackButtonHoverThenClick
+#else
+#define MAYBE_BackButtonHoverThenClick BackButtonHoverThenClick
+#endif
+IN_PROC_BROWSER_TEST_P(ToolbarViewTest, MAYBE_BackButtonHoverThenClick) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kWebContentsId);
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL url1 = embedded_test_server()->GetURL("/title1.html");
@@ -616,14 +626,6 @@ class ToolbarViewVerticalTabsRTLTest
     ToolbarViewTest::SetUpCommandLine(command_line);
     command_line->AppendSwitchASCII("force-ui-direction", "rtl");
   }
-
-  void SetUp() override {
-    scoped_feature_list_.InitAndEnableFeature(tabs::kVerticalTabs);
-    ToolbarViewTest::SetUp();
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_P(ToolbarViewVerticalTabsRTLTest, ReloadButtonWorks) {

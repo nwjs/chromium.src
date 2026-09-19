@@ -111,7 +111,7 @@ URLDataManagerBackend::~URLDataManagerBackend() = default;
 
 URLDataManagerBackend* URLDataManagerBackend::GetForBrowserContext(
     BrowserContext* context) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M158);
   if (!context->GetUserData(kURLDataManagerBackendKeyName)) {
     context->SetUserData(kURLDataManagerBackendKeyName,
                          std::make_unique<URLDataManagerBackend>());
@@ -121,7 +121,7 @@ URLDataManagerBackend* URLDataManagerBackend::GetForBrowserContext(
 }
 
 void URLDataManagerBackend::AddDataSource(URLDataSourceImpl* source) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M158);
   if (!source->source()->ShouldReplaceExistingSource() &&
       data_sources_.contains(source->source_name())) {
     return;
@@ -246,8 +246,9 @@ scoped_refptr<net::HttpResponseHeaders> URLDataManagerBackend::GetHeaders(
 
   if (!origin.empty()) {
     std::string header = source->GetAccessControlAllowOriginForOrigin(origin);
-    DCHECK(header.empty() || header == origin || header == "*" ||
-           header == "null");
+    CHECK(
+        header.empty() || header == origin || header == "*" || header == "null",
+        base::NotFatalUntil::M158);
     if (!header.empty()) {
       headers->SetHeader("Access-Control-Allow-Origin", header);
       headers->SetHeader("Vary", "Origin");
@@ -259,11 +260,12 @@ scoped_refptr<net::HttpResponseHeaders> URLDataManagerBackend::GetHeaders(
 
 bool URLDataManagerBackend::CheckURLIsValid(const GURL& url) {
   std::vector<std::string> additional_schemes;
-  DCHECK(url.SchemeIs(kChromeUIScheme) ||
-         url.SchemeIs(kChromeUIUntrustedScheme) ||
-         (GetContentClient()->browser()->GetAdditionalWebUISchemes(
-              &additional_schemes),
-          std::ranges::contains(additional_schemes, url.GetScheme())));
+  CHECK(url.SchemeIs(kChromeUIScheme) ||
+            url.SchemeIs(kChromeUIUntrustedScheme) ||
+            (GetContentClient()->browser()->GetAdditionalWebUISchemes(
+                 &additional_schemes),
+             std::ranges::contains(additional_schemes, url.GetScheme())),
+        base::NotFatalUntil::M158);
 
   if (!url.is_valid()) {
     NOTREACHED();

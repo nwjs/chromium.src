@@ -37,7 +37,6 @@ import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelega
 import org.chromium.ui.base.Clipboard;
 import org.chromium.ui.modelutil.PropertyModel;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 
@@ -47,15 +46,7 @@ class BookmarkToolbarMediator
         implements BookmarkUiObserver,
                 DragListener,
                 SelectionDelegate.SelectionObserver<BookmarkId> {
-    @VisibleForTesting
-    static final List<Integer> SORT_MENU_IDS =
-            Arrays.asList(
-                    R.id.sort_by_manual,
-                    R.id.sort_by_newest,
-                    R.id.sort_by_oldest,
-                    R.id.sort_by_last_opened,
-                    R.id.sort_by_alpha,
-                    R.id.sort_by_reverse_alpha);
+    @VisibleForTesting static final List<Integer> SORT_MENU_IDS = BookmarkToolbar.SORT_MENU_IDS;
 
     private final BookmarkUiPrefs.Observer mBookmarkUiPrefsObserver =
             new Observer() {
@@ -96,6 +87,7 @@ class BookmarkToolbarMediator
 
     private @Nullable BookmarkId mCurrentFolder;
     private @BookmarkUiMode int mCurrentUiMode;
+    private boolean mIsSmallScreen;
 
     BookmarkToolbarMediator(
             Context context,
@@ -117,6 +109,9 @@ class BookmarkToolbarMediator
         mContext = context;
         mProfile = profile;
         mModel = model;
+        mIsSmallScreen =
+                mContext.getResources().getConfiguration().screenWidthDp
+                        < BookmarkUtils.WIDE_DISPLAY_THRESHOLD_DP;
 
         mModel.set(BookmarkToolbarProperties.MENU_ID_CLICKED_FUNCTION, this::onMenuIdClick);
         mDragTouchHandler = dragTouchHandler;
@@ -155,6 +150,22 @@ class BookmarkToolbarMediator
                     mBookmarkDelegate.addUiObserver(this);
                     mBookmarkDelegate.notifyStateChange(this);
                 });
+    }
+
+    void setSmallScreen(boolean isSmallScreen) {
+        if (mIsSmallScreen == isSmallScreen) {
+            return;
+        }
+        mIsSmallScreen = isSmallScreen;
+
+        if (mCurrentUiMode != BookmarkUiMode.SEARCHING
+                && mCurrentUiMode != BookmarkUiMode.LOADING) {
+            onFolderStateSet(mCurrentFolder);
+        }
+    }
+
+    boolean isSmallScreenForTesting() {
+        return mIsSmallScreen;
     }
 
     boolean onMenuIdClick(@IdRes int id) {
@@ -307,6 +318,7 @@ class BookmarkToolbarMediator
             mModel.set(BookmarkToolbarProperties.NAVIGATION_BUTTON_STATE, NavigationButton.NONE);
             mModel.set(BookmarkToolbarProperties.TITLE, null);
             mModel.set(BookmarkToolbarProperties.EDIT_BUTTON_VISIBLE, false);
+            mModel.set(BookmarkToolbarProperties.CHROME_ICON_VISIBLE, false);
         } else if (mode == BookmarkUiMode.SEARCHING) {
             mModel.set(
                     BookmarkToolbarProperties.NAVIGATION_BUTTON_STATE,
@@ -318,6 +330,7 @@ class BookmarkToolbarMediator
             }
             mModel.set(BookmarkToolbarProperties.EDIT_BUTTON_VISIBLE, false);
             mModel.set(BookmarkToolbarProperties.NEW_FOLDER_BUTTON_ENABLED, false);
+            mModel.set(BookmarkToolbarProperties.CHROME_ICON_VISIBLE, false);
         } else {
             // All modes besides LOADING require a folder to be set. If there's none available,
             // then the button visibilities will be updated accordingly. Additionally, it's
@@ -352,8 +365,11 @@ class BookmarkToolbarMediator
                                         .equals(mBookmarkModel.getRootFolderId()))
                         || mBookmarkModel.isReadingListFolder(mCurrentFolder);
 
-        if (isRootFolder || (isDesktopLayout && isTopLevelFolder)) {
-            title = isRootFolder ? res.getString(R.string.bookmarks) : folderItem.getTitle();
+        if (isRootFolder) {
+            title = res.getString(R.string.bookmarks);
+            navigationButton = NavigationButton.NONE;
+        } else if (isDesktopLayout && isTopLevelFolder && !mIsSmallScreen) {
+            title = folderItem.getTitle();
             navigationButton = NavigationButton.NONE;
         } else if (mBookmarkModel.getTopLevelFolderIds().contains(folderItem.getParentId())
                 && TextUtils.isEmpty(folderItem.getTitle())) {
@@ -365,6 +381,15 @@ class BookmarkToolbarMediator
         }
         // This doesn't handle selection state correctly, must be before we fake a selection change.
         mModel.set(BookmarkToolbarProperties.TITLE, title);
+
+        boolean showChromeIcon =
+                isDesktopLayout
+                        && mIsSmallScreen
+                        && isRootFolder
+                        && mCurrentUiMode != BookmarkUiMode.SEARCHING
+                        && mCurrentUiMode != BookmarkUiMode.LOADING
+                        && !mSelectionDelegate.isSelectionEnabled();
+        mModel.set(BookmarkToolbarProperties.CHROME_ICON_VISIBLE, showChromeIcon);
 
         // Selection state isn't routed through MVC, but instead the View directly subscribes to
         // events. The view then changes/ignores/overrides properties that were set above, based on
@@ -414,6 +439,8 @@ class BookmarkToolbarMediator
             onUiModeChanged(mCurrentUiMode);
 
             assert selectedItems.isEmpty();
+        } else {
+            mModel.set(BookmarkToolbarProperties.CHROME_ICON_VISIBLE, false);
         }
         updateSelectedMenuItemVisibility(selectedItems);
 

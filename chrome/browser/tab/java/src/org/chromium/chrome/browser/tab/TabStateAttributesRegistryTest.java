@@ -23,9 +23,7 @@ import org.chromium.content_public.browser.WebContents;
 
 /** Unit tests for TabStateAttributesRegistry. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(
-        manifest = Config.NONE,
-        shadows = {ShadowLooper.class})
+@Config(shadows = {ShadowLooper.class})
 public class TabStateAttributesRegistryTest {
     private static class FakeKey1 implements TabStateAttributes.StoreKey {}
 
@@ -75,5 +73,17 @@ public class TabStateAttributesRegistryTest {
         attrs2.updateIsDirty(DirtinessState.UNTIDY);
         assertEquals(DirtinessState.DIRTY, attrs1.getDirtinessState());
         assertEquals(DirtinessState.UNTIDY, attrs2.getDirtinessState());
+    }
+
+    @Test
+    public void testGetAllAttributes() {
+        TabStateAttributesRegistry.createAttributesForTab(
+                mTab, FakeKey1.class, TabCreationState.FROZEN_ON_RESTORE);
+        TabStateAttributesRegistry.createAttributesForTab(
+                mTab, FakeKey2.class, TabCreationState.FROZEN_ON_RESTORE);
+
+        TabStateAttributesRegistry registry =
+                mTab.getUserDataHost().getUserData(TabStateAttributesRegistry.class);
+        assertEquals(2, registry.getAllAttributes().size());
     }
 }

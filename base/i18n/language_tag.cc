@@ -103,20 +103,8 @@ LanguageTag LanguageTag::WithExtensionStringInternal(
     return *this;
   }
 
-  for (std::pair<char, std::vector<std::string_view>>& extension :
-       parsed->extensions) {
-    if (extension.first == key) {
-      extension.second = base::SplitStringPiece(
-          subtags, "-", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
-      return LanguageTag(i18n_internal::GetBcp47TagPieces(*parsed));
-    }
-  }
-
-  parsed->extensions.emplace_back(
-      key, base::SplitStringPiece(subtags, "-", base::KEEP_WHITESPACE,
-                                  base::SPLIT_WANT_ALL));
-  // Canonicalization applied to have all the extensions sorted by singleton.
-  std::ranges::sort(parsed->extensions);
+  parsed->extensions[key] = base::SplitStringPiece(
+      subtags, "-", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
   return LanguageTag(i18n_internal::GetBcp47TagPieces(*parsed));
 }
 
@@ -168,6 +156,21 @@ LanguageTag LanguageTag::WithExtension(
 LanguageTag LanguageTag::WithExtension(const Extension& extension) const {
   return WithExtensionStringInternal(extension.singleton(),
                                      extension.SubtagsString());
+}
+
+LanguageTag LanguageTag::WithExtensionRemoved(char key) const {
+  std::optional<i18n_internal::ParsedBcp47Tag> parsed =
+      i18n_internal::ParseBcp47Tag(tag_.AsString());
+  if (!parsed) {
+    return *this;
+  }
+  char normalized_key = base::ToLowerASCII(key);
+  if (normalized_key == 'x') {
+    parsed->private_use.clear();
+  } else {
+    parsed->extensions.erase(normalized_key);
+  }
+  return LanguageTag(i18n_internal::GetBcp47TagPieces(*parsed));
 }
 
 std::ostream& operator<<(std::ostream& os, const LanguageTag& lt) {

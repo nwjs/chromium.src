@@ -457,6 +457,33 @@ GURL NormalizeExternalFileUrl(const GURL& url) {
 }
 #endif
 
+// Helper to remove the trailing dot from the provided URL's host, if present.
+// Used when looking for matching legacy isolated origins.
+std::optional<GURL> RemoveTrailingDotFromUrlIfNecessary(const GURL& url) {
+  if (url.has_host() && url.host().back() == '.') {
+    GURL::Replacements replacements;
+    std::string_view host(url.host());
+    host.remove_suffix(1);
+    replacements.SetHostStr(host);
+    return url.ReplaceComponents(replacements);
+  }
+  return std::nullopt;
+}
+
+// Reconstructs the given origin with its default port if it currently has a
+// non-default port. Used for resolving matches for legacy isolated origins
+// where isolate_all_subdomains is true. Legacy isolated origins don't support
+// ports, so the port needs to be cleared when returning an origin that matched
+// a wildcard.
+url::Origin CreateOriginWithDefaultPortIfNecessary(const url::Origin& origin) {
+  uint16_t default_port = url::DefaultPortForScheme(origin.scheme());
+  if (origin.port() != default_port) {
+    return url::Origin::Create(
+        GURL(origin.scheme() + url::kStandardSchemeSeparator + origin.host()));
+  }
+  return origin;
+}
+
 }  // namespace
 
 ChildProcessSecurityPolicyImpl::Handle::Handle() = default;
@@ -771,8 +798,8 @@ class ChildProcessSecurityPolicyImpl::ProcessState {
   // Determine if the certain permissions have been granted to a content URI.
   bool HasPermissionsForContentUri(const base::FilePath& file,
                                    int permissions) const {
-    DCHECK(!file.empty());
-    DCHECK(file.IsContentUri());
+    CHECK(!file.empty(), base::NotFatalUntil::M159);
+    CHECK(file.IsContentUri(), base::NotFatalUntil::M159);
     if (!permissions) {
       return false;
     }
@@ -924,7 +951,8 @@ class ChildProcessSecurityPolicyImpl::ProcessState {
              lock_to_set.GetProcessLockURL());
 
     if (process_lock_.is_invalid()) {
-      DCHECK(browsing_instance_default_isolation_states_.empty());
+      CHECK(browsing_instance_default_isolation_states_.empty(),
+            base::NotFatalUntil::M159);
       CHECK(lock_to_set.AllowsAnySite() || lock_to_set.IsLockedToSite());
     } else {
       // Verify that we are not trying to update the lock with different
@@ -955,7 +983,7 @@ class ChildProcessSecurityPolicyImpl::ProcessState {
   }
 
   void AddBrowsingInstanceInfo(const IsolationContext& context) {
-    DCHECK(!context.browsing_instance_id().is_null());
+    CHECK(!context.browsing_instance_id().is_null(), base::NotFatalUntil::M159);
     browsing_instance_default_isolation_states_.insert(
         {context.browsing_instance_id(), context.default_isolation_state()});
 
@@ -1263,9 +1291,9 @@ ChildProcessSecurityPolicyImpl* ChildProcessSecurityPolicyImpl::GetInstance() {
 
 void ChildProcessSecurityPolicyImpl::Add(ChildProcessId child_id,
                                          BrowserContext* browser_context) {
-  DCHECK(browser_context);
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK(child_id);
+  CHECK(browser_context, base::NotFatalUntil::M159);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
+  CHECK(child_id, base::NotFatalUntil::M159);
 
   if (IsRustEnabled(GetRustPolicy(CpspRustFeature::kProcessState))) {
     rust::child_process_security_policy::create_state_for_process(child_id);
@@ -1316,8 +1344,8 @@ void ChildProcessSecurityPolicyImpl::AddForTesting(
 }
 
 void ChildProcessSecurityPolicyImpl::Remove(ChildProcessId child_id) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK(child_id);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
+  CHECK(child_id, base::NotFatalUntil::M159);
 
   if (IsRustEnabled(GetRustPolicy(CpspRustFeature::kProcessState))) {
     rust::child_process_security_policy::prepare_to_remove_state(child_id);
@@ -2139,7 +2167,7 @@ bool ChildProcessSecurityPolicyImpl::CanReadRequestBody(
     RenderProcessHost* process,
     const scoped_refptr<network::ResourceRequestBody>& body) {
   CHECK(process);
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
 
   return CanReadRequestBody(
       process->GetID(), process->GetStoragePartition()->GetFileSystemContext(),
@@ -2385,7 +2413,7 @@ CanCommitStatus ChildProcessSecurityPolicyImpl::CanCommitOriginAndUrl(
     int child_id,
     const IsolationContext& isolation_context,
     const UrlInfo& url_info) {
-  DCHECK(url_info.origin.has_value());
+  CHECK(url_info.origin.has_value(), base::NotFatalUntil::M159);
   const url::Origin& origin = *url_info.origin;
   // First check whether the URL is allowed to commit, without considering the
   // origin. This involves scheme checks as well as CanAccessDataForOrigin.
@@ -2698,6 +2726,9 @@ bool ChildProcessSecurityPolicyImpl::PerformJailAndCitadelChecks(
                     actual_process_lock.embedder_isolation_info())
                 .WithSandbox(actual_process_lock.is_sandboxed())
                 .WithUniqueSandboxId(actual_process_lock.unique_sandbox_id())
+                .WithIsAdTaggedForSiteKeying(
+                    actual_process_lock.agent_cluster_key().oac_status() ==
+                    AgentClusterKey::OACStatus::kSiteKeyedByDefault)
                 .WithCrossOriginIsolationKey(
                     actual_process_lock.agent_cluster_key()
                         .GetCrossOriginIsolationKey())));
@@ -2968,12 +2999,12 @@ bool ChildProcessSecurityPolicyImpl::CanAccessMaybeOpaqueOrigin(
 void ChildProcessSecurityPolicyImpl::IncludeIsolationContext(
     int child_id,
     const IsolationContext& isolation_context) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   base::AutoLock lock(lock_);
   // TODO(crbug.com/379869738) Remove FromUnsafeValue.
   auto* state = process_states_.GetProcessStateForMutation(
       ChildProcessId::FromUnsafeValue(child_id));
-  DCHECK(state);
+  CHECK(state, base::NotFatalUntil::M159);
   state->AddBrowsingInstanceInfo(isolation_context);
 }
 
@@ -2984,7 +3015,7 @@ void ChildProcessSecurityPolicyImpl::LockProcess(
     const ProcessLock& process_lock) {
   // LockProcess should only be called on the UI thread (OTOH, it is okay to
   // call GetProcessLock from any thread).
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
 
   base::AutoLock lock(lock_);
   auto* state = process_states_.GetProcessStateForMutation(child_id);
@@ -3116,7 +3147,7 @@ void ChildProcessSecurityPolicyImpl::AddFutureIsolatedOrigins(
   // This can only be called from the UI thread, as it reads state that's only
   // available (and is only safe to be retrieved) on the UI thread, such as
   // BrowsingInstance IDs.
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
 
   base::AutoLock isolated_origins_lock(isolated_origins_lock_);
 
@@ -3183,7 +3214,8 @@ void ChildProcessSecurityPolicyImpl::AddIsolatedOriginInternal(
         // the old ID, since NextBrowsingInstanceId() returns monotonically
         // increasing IDs.
         if (applies_to_future_browsing_instances) {
-          DCHECK_LE(entry.browsing_instance_id(), browsing_instance_id);
+          CHECK_LE(entry.browsing_instance_id(), browsing_instance_id,
+                   base::NotFatalUntil::M159);
         }
         should_add = false;
         break;
@@ -3197,7 +3229,7 @@ void ChildProcessSecurityPolicyImpl::AddIsolatedOriginInternal(
         // BrowsingInstances should always reference
         // SiteInstanceImpl::NextBrowsingInstanceId(), which always refers to
         // an ID that's greater than any existing BrowsingInstance ID.
-        DCHECK(!applies_to_future_browsing_instances);
+        CHECK(!applies_to_future_browsing_instances, base::NotFatalUntil::M159);
 
         should_add = false;
         break;
@@ -3223,24 +3255,7 @@ void ChildProcessSecurityPolicyImpl::AddIsolatedOriginInternal(
 
 void ChildProcessSecurityPolicyImpl::RemoveStateForBrowserContext(
     const BrowserContext& browser_context) {
-  {
-    base::AutoLock isolated_origins_lock(isolated_origins_lock_);
-    const base::UnguessableToken browser_context_id =
-        browser_context.UniqueToken();
-
-    for (auto& iter : isolated_origins_) {
-      std::erase_if(iter.second,
-                    [&browser_context_id](const IsolatedOriginEntry& entry) {
-                      // Remove if BrowserContext matches.
-                      return (entry.browser_context_id() == browser_context_id);
-                    });
-    }
-
-    // Also remove map entries for site URLs which no longer have any
-    // IsolatedOriginEntries remaining.
-    base::EraseIf(isolated_origins_,
-                  [](const auto& pair) { return pair.second.empty(); });
-  }
+  RemoveIsolatedOriginsForBrowserContext(browser_context.UniqueToken());
 
   RemoveOriginAgentClusterRequestsForBrowserContext(browser_context);
 
@@ -3248,6 +3263,24 @@ void ChildProcessSecurityPolicyImpl::RemoveStateForBrowserContext(
     base::AutoLock lock(lock_);
     process_states_.ClearBrowserContextIfMatches(browser_context);
   }
+}
+
+void ChildProcessSecurityPolicyImpl::RemoveIsolatedOriginsForBrowserContext(
+    const base::UnguessableToken& browser_context_id) {
+  base::AutoLock isolated_origins_lock(isolated_origins_lock_);
+
+  for (auto& iter : isolated_origins_) {
+    std::erase_if(iter.second,
+                  [&browser_context_id](const IsolatedOriginEntry& entry) {
+                    // Remove if BrowserContext matches.
+                    return (entry.browser_context_id() == browser_context_id);
+                  });
+  }
+
+  // Also remove map entries for site URLs which no longer have any
+  // IsolatedOriginEntries remaining.
+  base::EraseIf(isolated_origins_,
+                [](const auto& pair) { return pair.second.empty(); });
 }
 
 void ChildProcessSecurityPolicyImpl::
@@ -3402,19 +3435,25 @@ bool ChildProcessSecurityPolicyImpl::GetMatchingProcessIsolatedOrigin(
     }
   }
 
-  return GetMatchingProcessIsolatedOriginFromLegacyOriginList(
-      isolation_context, origin, site_url, result);
+  // TODO(crbug.com/482216433): Convert GetMatchingProcessIsolatedOrigin() to
+  // return std::optional<url::Origin> as well and eliminate this conversion.
+  std::optional<url::Origin> match =
+      GetMatchingProcessIsolatedOriginFromLegacyOriginList(isolation_context,
+                                                           origin, site_url);
+  if (match) {
+    *result = *match;
+    return true;
+  }
+  return false;
 }
 
-bool ChildProcessSecurityPolicyImpl::
+std::optional<url::Origin> ChildProcessSecurityPolicyImpl::
     GetMatchingProcessIsolatedOriginFromLegacyOriginList(
         const IsolationContext& isolation_context,
         const url::Origin& origin,
-        const GURL& site_url,
-        url::Origin* result) {
+        const GURL& site_url) {
   CHECK_CURRENTLY_ON(BrowserThread::UI);
 
-  *result = url::Origin();
   base::AutoLock isolated_origins_lock(isolated_origins_lock_);
 
   // If |isolation_context| does not specify a BrowsingInstance ID (which should
@@ -3435,13 +3474,12 @@ bool ChildProcessSecurityPolicyImpl::
   // without it.  A trailing dot shouldn't be able to bypass isolated origins:
   // if "https://foo.com" is an isolated origin, "https://foo.com." should
   // match it.
-  if (it == isolated_origins_.end() && site_url.has_host() &&
-      site_url.host().back() == '.') {
-    GURL::Replacements replacements;
-    std::string_view host(site_url.host());
-    host.remove_suffix(1);
-    replacements.SetHostStr(host);
-    it = isolated_origins_.find(site_url.ReplaceComponents(replacements));
+  if (it == isolated_origins_.end()) {
+    std::optional<GURL> fallback_site_url =
+        RemoveTrailingDotFromUrlIfNecessary(site_url);
+    if (fallback_site_url) {
+      it = isolated_origins_.find(*fallback_site_url);
+    }
   }
 
   // Looks for all isolated origins that were already isolated at the time
@@ -3449,7 +3487,7 @@ bool ChildProcessSecurityPolicyImpl::
   // registered with a common domain suffix, return the most specific one.  For
   // example, if foo.isolated.com and isolated.com are both isolated origins,
   // bar.foo.isolated.com should return foo.isolated.com.
-  bool found = false;
+  std::optional<url::Origin> best_match;
   if (it != isolated_origins_.end()) {
     for (const auto& isolated_origin_entry : it->second) {
       // If this isolated origin applies only to a specific profile, don't
@@ -3468,28 +3506,18 @@ bool ChildProcessSecurityPolicyImpl::
         // IsolatedOriginEntry constructed from http://[*.]isolated.com, so
         // https://a.b.c.isolated.com must be returned.
         if (isolated_origin_entry.isolate_all_subdomains()) {
-          *result = origin;
-          uint16_t default_port = url::DefaultPortForScheme(origin.scheme());
-
-          if (origin.port() != default_port) {
-            *result = url::Origin::Create(GURL(origin.scheme() +
-                                               url::kStandardSchemeSeparator +
-                                               origin.host()));
-          }
-
-          return true;
+          return CreateOriginWithDefaultPortIfNecessary(origin);
         }
 
-        if (!found || result->host().length() <
-                          isolated_origin_entry.origin().host().length()) {
-          *result = isolated_origin_entry.origin();
-          found = true;
+        if (!best_match || best_match->host().length() <
+                               isolated_origin_entry.origin().host().length()) {
+          best_match = isolated_origin_entry.origin();
         }
       }
     }
   }
 
-  return found;
+  return best_match;
 }
 
 OriginAgentClusterIsolationState
@@ -3618,7 +3646,7 @@ void ChildProcessSecurityPolicyImpl::RecordDefaultOriginAgentClusterOriginIfNew(
   // All callers to this function live on the UI thread, so the IsolationContext
   // should contain a BrowserContext*.
   BrowserContext* browser_context = isolation_context.browser_context();
-  DCHECK(browser_context);
+  CHECK(browser_context, base::NotFatalUntil::M159);
 
   RUST_CPP_VOID_FUNCTION(
       rust::child_process_security_policy::
@@ -3721,7 +3749,7 @@ void ChildProcessSecurityPolicyImpl::RemoveAllStateForBrowsingInstanceInternal(
 
   {
     // content_unittests don't always report being on the IO thread.
-    DCHECK(IsRunningOnExpectedThread());
+    CHECK(IsRunningOnExpectedThread(), base::NotFatalUntil::M159);
     base::AutoLock lock(lock_);
     process_states_.RemoveStateForBrowsingInstance(browsing_instance_id);
 
@@ -3731,47 +3759,54 @@ void ChildProcessSecurityPolicyImpl::RemoveAllStateForBrowsingInstanceInternal(
     // origin.
   }
 
-  EraseOriginAgentClusterState(browsing_instance_id);
+  RemoveOriginAgentClusterState(browsing_instance_id);
 
-  {
-    base::AutoLock isolated_origins_lock(isolated_origins_lock_);
-    for (auto& iter : isolated_origins_) {
-      std::erase_if(iter.second, [&browsing_instance_id](
-                                     const IsolatedOriginEntry& entry) {
-        // Remove entries that are specific to `browsing_instance_id` and
-        // do not apply to future BrowsingInstances.
-        return (entry.browsing_instance_id() == browsing_instance_id &&
-                !entry.applies_to_future_browsing_instances());
-      });
-    }
-  }
+  RemoveIsolatedOriginsForBrowsingInstance(browsing_instance_id);
 
-  EraseV8OptimizationState(browsing_instance_id);
+  RemoveV8OptimizationState(browsing_instance_id);
 }
 
-void ChildProcessSecurityPolicyImpl::EraseOriginAgentClusterState(
+void ChildProcessSecurityPolicyImpl::RemoveOriginAgentClusterState(
     const BrowsingInstanceId& browsing_instance_id) {
   RUST_CPP_VOID_FUNCTION(
-      rust::child_process_security_policy::erase_origin_agent_cluster_state(
+      rust::child_process_security_policy::remove_origin_agent_cluster_state(
           browsing_instance_id),
-      EraseOriginAgentClusterState_Cpp(browsing_instance_id));
+      RemoveOriginAgentClusterState_Cpp(browsing_instance_id));
 }
 
-void ChildProcessSecurityPolicyImpl::EraseOriginAgentClusterState_Cpp(
+void ChildProcessSecurityPolicyImpl::RemoveOriginAgentClusterState_Cpp(
     const BrowsingInstanceId& browsing_instance_id) {
   base::AutoLock origin_agent_cluster_lock(origin_agent_cluster_lock_);
   origin_agent_cluster_states_by_browsing_instance_.erase(browsing_instance_id);
 }
 
-void ChildProcessSecurityPolicyImpl::EraseV8OptimizationState(
+void ChildProcessSecurityPolicyImpl::RemoveIsolatedOriginsForBrowsingInstance(
     const BrowsingInstanceId& browsing_instance_id) {
-  RUST_CPP_VOID_FUNCTION(
-      rust::child_process_security_policy::erase_v8_optimization_state(
-          browsing_instance_id),
-      EraseV8OptimizationState_Cpp(browsing_instance_id));
+  base::AutoLock isolated_origins_lock(isolated_origins_lock_);
+  for (auto& iter : isolated_origins_) {
+    std::erase_if(
+        iter.second, [&browsing_instance_id](const IsolatedOriginEntry& entry) {
+          // Remove entries that are specific to `browsing_instance_id` and
+          // do not apply to future BrowsingInstances.
+          return (entry.browsing_instance_id() == browsing_instance_id &&
+                  !entry.applies_to_future_browsing_instances());
+        });
+  }
+  // Also remove map entries for site URLs which no longer have any
+  // IsolatedOriginEntries remaining.
+  base::EraseIf(isolated_origins_,
+                [](const auto& pair) { return pair.second.empty(); });
 }
 
-void ChildProcessSecurityPolicyImpl::EraseV8OptimizationState_Cpp(
+void ChildProcessSecurityPolicyImpl::RemoveV8OptimizationState(
+    const BrowsingInstanceId& browsing_instance_id) {
+  RUST_CPP_VOID_FUNCTION(
+      rust::child_process_security_policy::remove_v8_optimization_state(
+          browsing_instance_id),
+      RemoveV8OptimizationState_Cpp(browsing_instance_id));
+}
+
+void ChildProcessSecurityPolicyImpl::RemoveV8OptimizationState_Cpp(
     const BrowsingInstanceId& browsing_instance_id) {
   base::AutoLock are_v8_optimizations_disabled_lock(
       are_v8_optimizations_disabled_lock_);
@@ -3800,7 +3835,7 @@ void ChildProcessSecurityPolicyImpl::AddCoopIsolatedOriginForBrowsingInstance(
   // This can only be called from the UI thread, as it reads state that's only
   // available (and is only safe to be retrieved) on the UI thread, such as
   // BrowsingInstance IDs.
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
 
   BrowsingInstanceId browsing_instance_id(
       isolation_context.browsing_instance_id());

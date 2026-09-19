@@ -28,12 +28,20 @@ class ContextHubBackendImpl : public ContextHubBackend {
   // ContextHubBackend implementation.
   void AddOrUpdateMemoryBankEntry(MemoryBankEntry entry,
                                   OperationCompleteCallback callback) override;
+  void UpdateMemoryBankEntryAnnotations(
+      int64_t id,
+      std::vector<std::string> tags,
+      std::optional<std::string> note,
+      std::optional<std::string> collection,
+      OperationCompleteCallback callback) override;
   void DeleteMemoryBankEntries(base::span<const int64_t> ids,
                                OperationCompleteCallback callback) override;
   void GetAllMemoryBankEntries(GetEntriesCallback callback) const override;
   void GetMemoryBankEntriesByIds(
       base::span<const int64_t> ids,
       GetEntriesCallback callback) const override;
+  void GetAllMemoryBankTags(GetStringsCallback callback) const override;
+  void GetAllMemoryBankCollections(GetStringsCallback callback) const override;
 
  private:
   enum class DbState {

@@ -7,7 +7,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "GPU FYI Win x64 Builder",
-              "project": "chromium-m153"
+              "project": "chromium-m154"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu.fyi",
@@ -30,7 +30,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Win10 FYI x64 Release (NVIDIA)",
-              "project": "chromium-m153"
+              "project": "chromium-m154"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu.fyi",
@@ -50,7 +50,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "GPU FYI Win x64 Builder",
-                "project": "chromium-m153"
+                "project": "chromium-m154"
               },
               "run_tests_serially": true,
               "use_test_trigger_cas": true
@@ -62,7 +62,7 @@
         {
           "bucket": "ci",
           "builder": "Win10 FYI x64 Release (NVIDIA)",
-          "project": "chromium-m153"
+          "project": "chromium-m154"
         }
       ],
       "mirroring_builder_group_and_names": [

@@ -19,13 +19,15 @@
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/public/common/content_switches.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
+#include "third_party/blink/public/common/input/web_mouse_wheel_event.h"
 #include "third_party/blink/public/common/input/web_touch_event.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/aura/client/screen_position_client.h"
 #include "ui/aura/client/transient_window_client.h"
 #include "ui/aura/client/window_parenting_client.h"
 #include "ui/compositor/compositor.h"
-#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_surface.h"
+#include "ui/compositor/layer_textured.h"
 #include "ui/compositor/paint_recorder.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
@@ -142,7 +144,7 @@ base::WeakPtr<UnboundedSurfaceWindow> UnboundedSurfaceWindowAura::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
 }
 
-bool UnboundedSurfaceWindowAura::is_valid() const {
+bool UnboundedSurfaceWindowAura::IsValid() const {
   return window_ != nullptr;
 }
 
@@ -275,7 +277,8 @@ bool UnboundedSurfaceWindowAura::InitWindow(const gfx::Rect& bounds_in_screen) {
   // transparent background later, if security issues arise. For example, this
   // allows content to put up a fully transparent (invisible) overlay over site
   // content and steal clicks/events.
-  window_->layer()->AsSurface()->SetBackgroundColor(SkColors::kTransparent);
+  window_->layer()->AsSurface()->SetFallbackBackgroundColor(
+      SkColors::kTransparent);
   window_->SetEmbedFrameSinkId(frame_sink_id_);
 
   GetHostFrameSinkManager()->RegisterFrameSinkId(
@@ -358,21 +361,15 @@ void UnboundedSurfaceWindowAura::UpdateBounds(const gfx::Rect& bounds) {
   }
 }
 
-void UnboundedSurfaceWindowAura::Dismiss() {
-  if (client_remote_.is_bound()) {
-    client_remote_->OnDismissed();
-    client_remote_.reset();
-  }
+void UnboundedSurfaceWindowAura::TeardownAndDestroy() {
   if (parent_view_) {
-    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE,
-        base::BindOnce(&RenderWidgetHostViewBase::DestroyUnboundedSurface,
-                       parent_view_->GetWeakPtr(), GetWeakPtr()));
+    parent_view_->DestroyUnboundedSurface(GetWeakPtr());
   }
 }
 
 void UnboundedSurfaceWindowAura::OnConnectionError() {
-  Dismiss();
+  dismiss_pending_ = true;
+  ScheduleDeferredDestroy();
 }
 
 void UnboundedSurfaceWindowAura::GetCompositorFrameSink(
@@ -383,30 +380,8 @@ void UnboundedSurfaceWindowAura::GetCompositorFrameSink(
       /*render_input_router_config=*/nullptr);
 }
 
-void UnboundedSurfaceWindowAura::RouteMouseEvent(
-    const blink::WebMouseEvent& event) {
-  if (!parent_view_ || !parent_view_->host() ||
-      !parent_view_->host()->delegate() ||
-      !parent_view_->host()->delegate()->GetInputEventRouter()) {
-    return;
-  }
-  RenderWidgetHostViewBase* root_view =
-      static_cast<RenderWidgetHostViewBase*>(parent_view_->GetRootView());
-  if (!root_view) {
-    return;
-  }
-
-  blink::WebMouseEvent web_event = event;
-  gfx::PointF screen_point(web_event.PositionInScreen());
-  gfx::Point root_origin = root_view->GetViewBounds().origin();
-  gfx::PointF root_point =
-      screen_point - gfx::Vector2dF(root_origin.x(), root_origin.y());
-  gfx::PointF parent_local_point =
-      parent_view_->TransformRootPointToViewCoordSpace(root_point);
-  web_event.SetPositionInWidget(parent_local_point.x(), parent_local_point.y());
-
-  parent_view_->host()->delegate()->GetInputEventRouter()->RouteMouseEvent(
-      parent_view_, &web_event, ui::LatencyInfo());
+RenderWidgetHostViewBase* UnboundedSurfaceWindowAura::GetParentView() const {
+  return parent_view_;
 }
 
 void UnboundedSurfaceWindowAura::OnKeyEvent(ui::KeyEvent* event) {
@@ -435,9 +410,26 @@ void UnboundedSurfaceWindowAura::OnMouseEvent(ui::MouseEvent* event) {
 
   if (window_ &&
       window_->Contains(static_cast<aura::Window*>(event->target()))) {
-    blink::WebMouseEvent web_event = ui::MakeWebMouseEvent(*event);
-    RouteMouseEvent(web_event);
+    if (event->type() == ui::EventType::kMousewheel) {
+      blink::WebMouseWheelEvent web_event =
+          ui::MakeWebMouseWheelEvent(*event->AsMouseWheelEvent());
+      RouteMouseWheelEvent(web_event);
+    } else {
+      blink::WebMouseEvent web_event = ui::MakeWebMouseEvent(*event);
+      RouteMouseEvent(web_event);
+    }
     event->SetHandled();
+  }
+}
+
+void UnboundedSurfaceWindowAura::OnScrollEvent(ui::ScrollEvent* event) {
+  if (window_ &&
+      window_->Contains(static_cast<aura::Window*>(event->target()))) {
+    if (event->type() == ui::EventType::kScroll) {
+      blink::WebMouseWheelEvent web_event = ui::MakeWebMouseWheelEvent(*event);
+      RouteMouseWheelEvent(web_event);
+      event->SetHandled();
+    }
   }
 }
 

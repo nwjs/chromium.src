@@ -55,6 +55,11 @@ class ProfileAttributesStorageObserver {
       const base::FilePath& profile_path) {}
   virtual void OnProfileManagementIdChanged(
       const base::FilePath& profile_path) {}
+  virtual void OnProfileIsGlicEligibleChanged(
+      const base::FilePath& profile_path) {}
+  virtual void OnProfileAiSubscriptionTierUpdated(
+      const base::FilePath& profile_path,
+      int tier) {}
 
  protected:
   ProfileAttributesStorageObserver() = default;

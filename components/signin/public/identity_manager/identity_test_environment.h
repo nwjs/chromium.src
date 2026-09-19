@@ -142,7 +142,7 @@ class IdentityTestEnvironment : public IdentityManager::DiagnosticsObserver,
   // See `MakePrimaryAccountAvailable()` for a method that also adds a refresh
   // token for the account, or `MakeAccountAvailable()` for the more openly
   // configurable equivalent.
-  CoreAccountInfo SetPrimaryAccount(const std::string& email,
+  CoreAccountInfo SetPrimaryAccount(std::string_view email,
                                     ConsentLevel consent_level);
 
   // Sets a refresh token for the primary account (which must already be set).
@@ -171,7 +171,7 @@ class IdentityTestEnvironment : public IdentityManager::DiagnosticsObserver,
   // Returns the AccountInfo of the newly-available account.
   //
   // See `MakeAccountAvailable()` for a more configurable equivalent.
-  AccountInfo MakePrimaryAccountAvailable(const std::string& email,
+  AccountInfo MakePrimaryAccountAvailable(std::string_view email,
                                           ConsentLevel consent_level);
 
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -365,13 +365,13 @@ class IdentityTestEnvironment : public IdentityManager::DiagnosticsObserver,
   // Simulate account fetching using AccountTrackerService without sending
   // network requests.
   void SimulateSuccessfulFetchOfAccountInfo(const CoreAccountId& account_id,
-                                            const std::string& email,
+                                            std::string_view email,
                                             const GaiaId& gaia,
-                                            const std::string& hosted_domain,
-                                            const std::string& full_name,
-                                            const std::string& given_name,
-                                            const std::string& locale,
-                                            const std::string& picture_url);
+                                            std::string_view hosted_domain,
+                                            std::string_view full_name,
+                                            std::string_view given_name,
+                                            std::string_view locale,
+                                            std::string_view picture_url);
 
   // Simulates a log out failure with |auth_error| as the error.
   void SimulateGaiaLogOutFailure(const GoogleServiceAuthError& auth_error);

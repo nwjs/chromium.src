@@ -123,8 +123,21 @@ class OmniboxPopupPresenterBase
   virtual std::optional<base::TimeDelta> ShouldDeferUntilVisualStateReady()
       const = 0;
 
+  // Returns whether resize events should be debounced.
+  virtual bool ShouldDebounceResize() const = 0;
+
+  // Returns whether height workarounds should be applied.
+  virtual bool ShouldApplyHeightWorkarounds() const = 0;
   // Returns if the WebContents should be detached when the popup is hidden.
   virtual bool ShouldDetachWebContentsOnHide() const = 0;
+
+  // Returns whether the popup should evict its saved compositor frame when
+  // hidden.
+  virtual bool ShouldEvictOnHide() const = 0;
+
+  // Returns if the child WebView bounds should be sized to its preferred
+  // height in RoundedOmniboxResultsFrame.
+  virtual bool ShouldSizeWebViewToPreferredHeight() const = 0;
 
   virtual std::string_view GetPopupMetricPrefix() const = 0;
 

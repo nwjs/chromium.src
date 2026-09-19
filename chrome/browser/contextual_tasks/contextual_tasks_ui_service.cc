@@ -246,13 +246,21 @@ EntrypointSource ConvertContextualSearchSourceToEntrypointSource(
 }
 
 #if !BUILDFLAG(IS_ANDROID)
-bool ShouldReloadZeroState(const GURL& url, ContextualTasksUiService* service) {
+bool ShouldReloadZeroStateForOmniboxAction(
+    const GURL& url,
+    ContextualTasksUiService* service,
+    omnibox::ChromeAimEntryPoint entry_point) {
   return base::FeatureList::IsEnabled(
              omnibox::kWebUIOmniboxAskGAboutThisPage) &&
+         entry_point == omnibox::ChromeAimEntryPoint::
+                            DESKTOP_CHROME_COBROWSE_OMNIBOX_ACTION &&
          ContextualTasksUI::IsZeroState(url, service);
 }
 #else
-bool ShouldReloadZeroState(const GURL& url, ContextualTasksUiService* service) {
+bool ShouldReloadZeroStateForOmniboxAction(
+    const GURL& url,
+    ContextualTasksUiService* service,
+    omnibox::ChromeAimEntryPoint entry_point) {
   return false;
 }
 #endif
@@ -1139,6 +1147,28 @@ void ContextualTasksUiService::InitializeTaskInSidePanel(
   AssociateWebContentsToTask(web_contents, task_id);
 }
 
+void ContextualTasksUiService::ReloadZeroStateInOpenSidePanel(
+    content::WebContents* panel_contents,
+    tabs::TabInterface* tab_interface,
+    const GURL& url,
+    std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
+        session_handle,
+    omnibox::ChromeAimEntryPoint entry_point) {
+  // Cleanly start over: Create a new task, record entry point, and reload the
+  // parent WebUI.
+  ContextualTask task = contextual_tasks_service_->CreateTaskFromUrl(url);
+  SetInitialEntryPointForTask(task.GetTaskId(), entry_point);
+  task_id_to_creation_url_[task.GetTaskId()] = url;
+  AssociateWebContentsToTask(tab_interface->GetContents(), task.GetTaskId());
+
+  content::NavigationController::LoadURLParams load_params(
+      GetContextualTaskUrlForTask(task.GetTaskId()));
+  panel_contents->GetController().LoadURLWithParams(load_params);
+
+  InitializeTaskInSidePanel(panel_contents, task.GetTaskId(),
+                            std::move(session_handle));
+}
+
 void ContextualTasksUiService::OnNonThreadNavigationInTab(
     content::OpenURLParams url_params,
     base::WeakPtr<tabs::TabInterface> tab) {
@@ -1375,13 +1405,11 @@ bool ContextualTasksUiService::ShouldAddRequiredSidePanelUrlChanges(
   }
 
   // Check if host override is set and needs to be applied.
-  std::string forced_host = GetForcedEmbeddedPageHost();
-  if (!forced_host.empty() &&
-      !base::EqualsCaseInsensitiveASCII(url.host(), forced_host) &&
-      !IsSignInDomain(url)) {
+  std::optional<HostOverride> forced_host = GetForcedEmbeddedPageHost();
+  if (forced_host && !forced_host->Matches(url) && !IsSignInDomain(url)) {
     OMNIBOX_LOG("nav_trace")
         << "ShouldAddRequiredSidePanelUrlChanges: host mismatch: "
-        << std::string(url.host()) << " vs forced " << forced_host;
+        << std::string(url.host()) << " vs forced " << forced_host->ToString();
     return true;
   }
 
@@ -1448,7 +1476,7 @@ bool ContextualTasksUiService::AddRequiredSidePanelUrlChanges(
 GURL ContextualTasksUiService::AddRequiredSidePanelUrlChanges(
     const GURL& url,
     content::WebContents* source_contents) {
-  if (!source_contents) {
+  if (!source_contents || !url.SchemeIsHTTPOrHTTPS()) {
     return url;
   }
 
@@ -1470,11 +1498,9 @@ GURL ContextualTasksUiService::AddRequiredSidePanelUrlChanges(
     }
   }
 
-  std::string forced_host = GetForcedEmbeddedPageHost();
-  if (!forced_host.empty() && !IsSignInDomain(new_url)) {
-    GURL::Replacements replacements;
-    replacements.SetHostStr(forced_host);
-    new_url = new_url.ReplaceComponents(replacements);
+  std::optional<HostOverride> forced_host = GetForcedEmbeddedPageHost();
+  if (forced_host && !IsSignInDomain(new_url)) {
+    new_url = forced_host->ApplyToUrl(new_url);
   }
 
   return new_url;
@@ -2523,9 +2549,9 @@ std::string ContextualTasksUiService::GetHostForTask(
     }
   }
 
-  std::string forced_host = GetForcedEmbeddedPageHost();
-  if (!forced_host.empty()) {
-    return forced_host;
+  std::optional<HostOverride> forced_host = GetForcedEmbeddedPageHost();
+  if (forced_host.has_value()) {
+    return forced_host->ToString();
   }
 
   return "";
@@ -2574,16 +2600,31 @@ bool ContextualTasksUiService::IsTrustedHost(const std::string& host) {
     return false;
   }
 
-  // Handle localhost and loopback addresses. Note: `net::HostStringIsLocalhost`
-  // does not recognize bracketed IPv6 literals like "[::1]", so we explicitly
-  // check for "[::1]" in addition to standard loopback host strings.
+  // Handle localhost and loopback addresses without port first.
   if (host == "localhost" || host == "127.0.0.1" || host == "[::1]" ||
       host == "::1" || net::HostStringIsLocalhost(host)) {
     return true;
   }
 
+  std::string parsed_host;
+  int parsed_port = -1;
+  if (!net::ParseHostAndPort(host, &parsed_host, &parsed_port)) {
+    return false;
+  }
+
+  if (parsed_port != -1 && (parsed_port < 1 || parsed_port > 65535)) {
+    return false;
+  }
+
+  // Handle localhost and loopback addresses with or without port.
+  if (parsed_host == "localhost" || parsed_host == "127.0.0.1" ||
+      parsed_host == "[::1]" || parsed_host == "::1" ||
+      net::HostStringIsLocalhost(parsed_host)) {
+    return true;
+  }
+
   url::CanonHostInfo host_info;
-  std::string canonical_host = net::CanonicalizeHost(host, &host_info);
+  std::string canonical_host = net::CanonicalizeHost(parsed_host, &host_info);
   if (canonical_host.empty() ||
       host_info.family == url::CanonHostInfo::BROKEN) {
     return false;
@@ -2604,21 +2645,31 @@ bool ContextualTasksUiService::IsTrustedHost(const std::string& host) {
 
 std::optional<std::string> ContextualTasksUiService::GetHostFromUrl(
     const GURL& url) {
-  std::string host;
-  if (net::GetValueForKeyInQuery(url, kChromeHostParam, &host) &&
-      IsTrustedHost(host)) {
-    if (host == "[::1]" || host == "::1") {
-      return "[::1]";
-    }
-    url::CanonHostInfo host_info;
-    std::string canonical_host = net::CanonicalizeHost(host, &host_info);
-    if (!canonical_host.empty() &&
-        host_info.family != url::CanonHostInfo::BROKEN) {
-      return canonical_host;
-    }
-    return host;
+  std::string host_str;
+  if (!net::GetValueForKeyInQuery(url, kChromeHostParam, &host_str) ||
+      !IsTrustedHost(host_str)) {
+    return std::nullopt;
   }
-  return std::nullopt;
+
+  std::optional<HostOverride> host_override =
+      HostOverride::FromString(host_str);
+  if (!host_override) {
+    return std::nullopt;
+  }
+
+  if (host_override->host == "[::1]" || host_override->host == "::1") {
+    host_override->host = "::1";
+    return host_override->ToString();
+  }
+
+  url::CanonHostInfo host_info;
+  std::string canonical_host =
+      net::CanonicalizeHost(host_override->host, &host_info);
+  if (!canonical_host.empty() &&
+      host_info.family != url::CanonHostInfo::BROKEN) {
+    host_override->host = canonical_host;
+  }
+  return host_override->ToString();
 }
 
 void ContextualTasksUiService::SetInitialEntryPointForTask(
@@ -2947,7 +2998,7 @@ void ContextualTasksUiService::StartTaskUiInSidePanelImpl(
   }
 
   if (IsContextualTasksSidePanelRearchitectureEnabled()) {
-    if (ShouldReloadZeroState(url, this)) {
+    if (ShouldReloadZeroStateForOmniboxAction(url, this, options.entry_point)) {
       // TODO(crbug.com/537842795): Understand if this flow is possible in the
       // rearchitecture and handle accordingly. For now, just load the URL.
     }
@@ -2959,19 +3010,10 @@ void ContextualTasksUiService::StartTaskUiInSidePanelImpl(
   // navigation directly to the embedded page.
   if (ContextualTasksUIInterface* web_ui_interface =
           GetWebUiInterface(panel_contents)) {
-    if (ShouldReloadZeroState(url, this)) {
-      // Cleanly start over: Create a new task and reload the parent WebUI.
-      ContextualTask task = contextual_tasks_service_->CreateTaskFromUrl(url);
-      task_id_to_creation_url_[task.GetTaskId()] = url;
-      AssociateWebContentsToTask(tab_interface->GetContents(),
-                                 task.GetTaskId());
-
-      content::NavigationController::LoadURLParams load_params(
-          GetContextualTaskUrlForTask(task.GetTaskId()));
-      panel_contents->GetController().LoadURLWithParams(load_params);
-
-      InitializeTaskInSidePanel(panel_contents, task.GetTaskId(),
-                                std::move(session_handle));
+    if (ShouldReloadZeroStateForOmniboxAction(url, this, options.entry_point)) {
+      ReloadZeroStateInOpenSidePanel(panel_contents, tab_interface, url,
+                                     std::move(session_handle),
+                                     options.entry_point);
       return;
     }
 
@@ -3224,9 +3266,11 @@ GURL ContextualTasksUiService::GetAiUrlFromWebUIUrl(const GURL& base_url,
 
   std::optional<std::string> host_value = GetHostFromUrl(url);
   if (host_value.has_value()) {
-    GURL::Replacements replacements;
-    replacements.SetHostStr(*host_value);
-    url = url.ReplaceComponents(replacements);
+    std::optional<HostOverride> host_override =
+        HostOverride::FromString(*host_value);
+    if (host_override) {
+      url = host_override->ApplyToUrl(url);
+    }
   }
 
   // Remove kChromeHostParam from the new url if it exists.

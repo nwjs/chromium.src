@@ -183,6 +183,7 @@ source_set("impl") {
       "//chrome/browser/ui/waap",
       "//chrome/browser/ui/waap:waap_utils",
       "//chrome/browser/ui/waap:window_metrics_manager",
+      "//chrome/browser/ui/webui:webui_util",
       "//chrome/browser/ui/webui/metrics_reporter",
       "//chrome/browser/ui/webui/omnibox_popup",
       "//chrome/browser/ui/webui/top_chrome",
@@ -233,6 +234,7 @@ source_set("unit_tests") {
     "observers/document_write_page_load_metrics_observer_unittest.cc",
     "observers/from_gws_page_load_metrics_observer_unittest.cc",
     "observers/gws_page_load_metrics_observer_unittest.cc",
+    "observers/gws_prewarm_page_load_metrics_observer_unittest.cc",
     "observers/lcp_critical_path_predictor_page_load_metrics_observer_unittest.cc",
     "observers/loading_predictor_page_load_metrics_observer_unittest.cc",
     "observers/multi_tab_loading_page_load_metrics_observer_unittest.cc",
@@ -273,6 +275,13 @@ source_set("unit_tests") {
       "observers/non_tab_webui_page_load_metrics_observer_unittest.cc",
       "observers/top_chrome_webui_metrics_observer_unittest.cc",
       "page_load_metrics_initialize_unittest.cc",
+    ]
+    deps += [
+      "//chrome/browser/ui:test_support",
+      "//chrome/browser/ui/browser_window/test:test_support",
+      "//chrome/browser/ui/tabs:test_support",
+      "//chrome/browser/ui/waap:window_metrics_manager",
+      "//chrome/browser/ui/webui:webui_util",
     ]
   }
 
@@ -339,6 +348,8 @@ if (!is_android) {
       "//chrome/browser/search_engines",
       "//chrome/browser/ssl:cert_verifier_test_support",
       "//chrome/browser/subresource_filter:test_support",
+      "//chrome/browser/ui:browser_live_tab_context",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/waap",
       "//chrome/browser/ui/waap:window_metrics_manager",
       "//chrome/browser/ui/webui:webui_util",
@@ -372,6 +383,17 @@ if (!is_android) {
         "//chrome/browser:chrome_browser_main",
         "//chrome/browser/ash/app_restore",
         "//chrome/browser/ash/app_restore:test_support",
+      ]
+    }
+
+    if (enable_extensions) {
+      sources += [ "observers/serp_page_load_metrics_observer_browsertest.cc" ]
+      deps += [
+        "//base/test:test_support",
+        "//chrome/browser/safe_browsing",
+        "//components/search_engines",
+        "//net:test_support",
+        "//testing/gmock",
       ]
     }
   }

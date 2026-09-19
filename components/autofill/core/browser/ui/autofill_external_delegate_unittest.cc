@@ -27,8 +27,12 @@
 #include "base/uuid.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
+#if BUILDFLAG(IS_ANDROID)
+#include "base/android/device_info.h"
+#endif
 #include "components/autofill/core/browser/autofill_trigger_source.h"
 #include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
+#include "components/autofill/core/browser/data_manager/autofill_ai/in_memory_entity_suppression_manager.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager_observer.h"
 #include "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
@@ -58,7 +62,7 @@
 #include "components/autofill/core/browser/integrators/one_time_tokens/mock_otp_manager.h"
 #include "components/autofill/core/browser/metrics/autofill_in_devtools_metrics.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
-#include "components/autofill/core/browser/metrics/autofill_metrics_utils.h"
+#include "components/autofill/core/browser/metrics/autofill_metrics_util.h"
 #include "components/autofill/core/browser/metrics/log_event.h"
 #include "components/autofill/core/browser/metrics/payments/save_and_fill_metrics.h"
 #include "components/autofill/core/browser/metrics/suggestions_list_metrics.h"
@@ -78,10 +82,10 @@
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
 #include "components/autofill/core/browser/suggestions/suggestion_test_helpers.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
-#include "components/autofill/core/browser/test_utils/autofill_form_test_utils.h"
-#include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
-#include "components/autofill/core/browser/test_utils/entity_data_test_utils.h"
-#include "components/autofill/core/browser/test_utils/valuables_data_test_utils.h"
+#include "components/autofill/core/browser/test_utils/autofill_form_test_util.h"
+#include "components/autofill/core/browser/test_utils/autofill_test_util.h"
+#include "components/autofill/core/browser/test_utils/entity_data_test_util.h"
+#include "components/autofill/core/browser/test_utils/valuables_data_test_util.h"
 #include "components/autofill/core/browser/ui/tabbed_pane_enums.h"
 #include "components/autofill/core/browser/webdata/autocomplete/autocomplete_entry.h"
 #include "components/autofill/core/browser/webdata/autocomplete/autocomplete_table_label_sensitive.h"
@@ -105,11 +109,17 @@
 #include "components/strings/grit/components_strings.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "url/origin.h"
+
+// TODO(crbug.com/40100455): Move this to a GN buildflag_header.
+#define PLATFORM_SUPPORTS_DEVICE_REAUTH                               \
+  (BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
+   BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_IOS))
 
 namespace autofill {
 namespace {
@@ -416,6 +426,7 @@ class AutofillExternalDelegateTest : public testing::Test,
             personal_context::PersonalContextEligibilityState::kEligible));
     autofill_client().set_personal_context_eligibility_service(
         mock_personal_context_service_.get());
+    autofill_client().set_entity_suppression_manager(&suppression_manager_);
     autofill_client().GetPrefs()->registry()->RegisterIntegerPref(
         optimization_guide::prefs::kGeminiSettings,
         std::to_underlying(
@@ -468,7 +479,8 @@ class AutofillExternalDelegateTest : public testing::Test,
                         kDefaultSuggestionTriggerSource,
                     FieldType trigger_field_type = NAME_FIRST,
                     const std::string& autocomplete_attribute = "given-name") {
-    FormGlobalId form_id = test::MakeFormGlobalId();
+    FormGlobalId form_id = {autofill_driver().GetFrameToken(),
+                            test::MakeFormRendererId()};
     FieldGlobalId field_id = test::MakeFieldGlobalId();
     IssueOnQuery(
         test::GetFormData({
@@ -491,7 +503,8 @@ class AutofillExternalDelegateTest : public testing::Test,
   }
 
   void IssueOnQuery(std::vector<SelectOption> datalist_options) {
-    FormGlobalId form_id = test::MakeFormGlobalId();
+    FormGlobalId form_id = {autofill_driver().GetFrameToken(),
+                            test::MakeFormRendererId()};
     FieldGlobalId field_id = test::MakeFieldGlobalId();
     IssueOnQuery(
         test::GetFormData({
@@ -595,7 +608,8 @@ class AutofillExternalDelegateTest : public testing::Test,
 
   void OnSuggestionsReturned(const FormFieldData& field,
                              const std::vector<Suggestion>& input_suggestions) {
-    external_delegate().OnSuggestionsReturned(field, input_suggestions);
+    external_delegate().OnSuggestionsReturned(field, input_suggestions,
+                                              /*prefilled_query=*/{});
   }
 
   FormData CreateTestFormWithBounds(
@@ -631,6 +645,7 @@ class AutofillExternalDelegateTest : public testing::Test,
       personal_context::MockPersonalContextEligibilityService>>
       mock_personal_context_service_;
 
+  InMemoryEntitySuppressionManager suppression_manager_;
   // Form containing the triggering field that initialized the external delegate
   // `OnQuery`.
   FormData queried_form_;
@@ -718,9 +733,11 @@ TEST_F(AutofillExternalDelegateTest, GetMainFillingProduct) {
   EXPECT_EQ(external_delegate().GetMainFillingProduct(), FillingProduct::kNone);
 
   // Show auxiliary helper suggestion in the popup.
-  OnSuggestionsReturned(queried_field(), {CreateAutofillSuggestion(
-                                             SuggestionType::kMixedFormMessage,
-                                             u"no autofill available")});
+  OnSuggestionsReturned(
+      queried_field(),
+      {CreateAutofillSuggestion(
+          SuggestionType::kInsecureContextPaymentDisabledMessage,
+          u"no autofill available")});
   EXPECT_EQ(external_delegate().GetMainFillingProduct(), FillingProduct::kNone);
 
   // Show save and fill suggestion in the popup.
@@ -797,7 +814,7 @@ TEST_F(AutofillExternalDelegateTest, AtMemoryUsesCaretAnchorWithValidCaret) {
       {CreateAutofillSuggestion(SuggestionType::kAddressEntry, u"suggestion")});
 }
 
-// Tests that @memory trigger source uses the bottom sheet anchor type.
+// Tests that AtMemory trigger source uses the bottom sheet anchor type.
 TEST_F(AutofillExternalDelegateTest, AtMemoryUsesBottomSheetAnchor) {
   gfx::RectF field_bounds(0, 0, 100, 20);
   gfx::Rect empty_caret_bounds;
@@ -927,7 +944,7 @@ TEST_F(AutofillExternalDelegateTest,
                                       true, 1);
 }
 
-// Tests that @memory search results from first-party sources include metadata
+// Tests that AtMemory search results from first-party sources include metadata
 // as child suggestions with source attribution in the flyout menu.
 TEST_F(AutofillExternalDelegateTest, AtMemoryFlyoutChildrenFirstPartySources) {
   StartAtMemorySession();
@@ -976,7 +993,7 @@ TEST_F(AutofillExternalDelegateTest, AtMemoryFlyoutChildrenFirstPartySources) {
   external_delegate().OnSearchSubmitted(u"shoe size");
 }
 
-// Tests that @memory search results from the Autofill source show a management
+// Tests that AtMemory search results from the Autofill source show a management
 // option in the flyout menu.
 TEST_F(AutofillExternalDelegateTest, AtMemoryFlyoutChildrenAutofillSource) {
   StartAtMemorySession();
@@ -1367,7 +1384,8 @@ TEST_F(AutofillExternalDelegateTest, AtMemoryRemoteQuery_UnsupportedQuery) {
                     IDS_AUTOFILL_AT_MEMORY_UNSUPPORTED_QUERY_TITLE)),
                 HasLabel(l10n_util::GetStringUTF16(
                     IDS_AUTOFILL_AT_MEMORY_UNSUPPORTED_QUERY_DESCRIPTION)),
-                testing::Field(&Suggestion::type, SuggestionType::kOpenGemini),
+                testing::Field(&Suggestion::type,
+                               SuggestionType::kAtMemoryOpenGemini),
                 testing::Field(&Suggestion::icon, Suggestion::Icon::kSpark))));
       });
 
@@ -1479,7 +1497,7 @@ TEST_P(AutofillExternalDelegateAtMemoryGenericErrorTest,
 TEST_F(AutofillExternalDelegateTest, AtMemoryAcceptOpenGeminiSuggestion) {
   IssueOnQuery();
 
-  Suggestion suggestion(SuggestionType::kOpenGemini);
+  Suggestion suggestion(SuggestionType::kAtMemoryOpenGemini);
   suggestion.payload = Suggestion::OpenGeminiPayload(u"test prompt");
 
   EXPECT_CALL(autofill_client(),
@@ -2728,8 +2746,7 @@ TEST_F(AutofillExternalDelegateTest, FillAutofillAiFillsFullForm) {
                                           {.multi_index = {0}});
 }
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
-    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_IOS)
+#if PLATFORM_SUPPORTS_DEVICE_REAUTH
 // Tests that when accepting a `kFillAutofillAi` suggestion that requires
 // re-authentication, the re-authentication flow is triggered and the form is
 // filled upon success.
@@ -3030,7 +3047,7 @@ TEST_F(AutofillExternalDelegateTest,
   external_delegate().DidAcceptSuggestion(fill_suggestion,
                                           {.multi_index = {0}});
 }
-#endif
+#endif  // PLATFORM_SUPPORTS_DEVICE_REAUTH
 
 TEST_F(AutofillExternalDelegateTest, AcceptManageAutofillAi) {
   Suggestion manage_suggestion =
@@ -3235,8 +3252,7 @@ TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
                                           {.multi_index = {0}});
 }
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
-    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_IOS)
+#if PLATFORM_SUPPORTS_DEVICE_REAUTH
 // Tests that when attempting to fill a masked server entity and re-auth fails,
 // no failure notification is displayed.
 TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
@@ -3439,6 +3455,7 @@ TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
   ASSERT_FALSE(get_unmasked_entity_callback.is_null());
   std::move(get_unmasked_entity_callback).Run(full_passport);
 }
+#endif  // PLATFORM_SUPPORTS_DEVICE_REAUTH
 
 class AutofillExternalDelegateWithAmbientAutofillTest
     : public AutofillExternalDelegateTest {
@@ -3449,6 +3466,7 @@ class AutofillExternalDelegateWithAmbientAutofillTest
             features::kAutofillAiWithDataSchema,
             features::kAutofillAiReauthRequired,
             features::kAutofillAmbientAutofill,
+            features::kAutofillAmbientAutofillSuppression,
             features::kAutofillAiWalletPrivatePasses,
 #if BUILDFLAG(IS_ANDROID)
             features::kAutofillAiShowPersonalContextFillingYourInfoDialog,
@@ -3463,8 +3481,10 @@ class AutofillExternalDelegateWithAmbientAutofillTest
         NiceMock<MockAutofillAiPersonalContextAccessManager>>();
     autofill_client().set_personal_context_access_manager(
         personal_context_manager_.get());
+#if PLATFORM_SUPPORTS_DEVICE_REAUTH
     autofill_client().GetPrefs()->SetBoolean(
         prefs::kAutofillAiReauthBeforeViewingSensitiveData, true);
+#endif
   }
 
   void TearDown() override {
@@ -3485,6 +3505,7 @@ class AutofillExternalDelegateWithAmbientAutofillTest
       personal_context_manager_;
 };
 
+#if PLATFORM_SUPPORTS_DEVICE_REAUTH
 // Tests that when accepting a `kFillAutofillAi` suggestion for a masked
 // personal context entity, the entity is fetched and a loading state is shown
 // if it is async.
@@ -3837,7 +3858,30 @@ TEST_F(
   std::move(get_unmasked_entity_callback).Run(full_passport);
 }
 
-#endif
+#endif  // PLATFORM_SUPPORTS_DEVICE_REAUTH
+
+// Tests that accepting a `kRemoveAutofillAi` suggestion suppresses the
+// corresponding entity in `EntitySuppressionManager`.
+TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
+       DidAcceptSuggestion_RemoveAutofillAi_SuppressesEntity) {
+  EntityInstance full_passport = GetPassportEntityInstanceWithRandomGuid(
+      {.record_type = EntityInstance::RecordType::kPersonalContext});
+  autofill_client().GetEntityDataManager()->OnPrefetchContextComplete(
+      personal_context_manager(), std::vector<EntityInstance>{full_passport});
+  IssueOnQuery({.fields = {{.role = PASSPORT_NUMBER}}});
+  Suggestion remove_suggestion(SuggestionType::kRemoveAutofillAi);
+  remove_suggestion.payload =
+      Suggestion::AutofillAiPayload(full_passport.guid());
+  EXPECT_CALL(autofill_client(),
+              HideSuggestions(SuggestionHidingReason::kAcceptSuggestion,
+                              Eq(std::nullopt)));
+
+  external_delegate().DidAcceptSuggestion(remove_suggestion,
+                                          {.multi_index = {0}});
+
+  EXPECT_TRUE(autofill_client().GetEntitySuppressionManager()->IsSuppressed(
+      full_passport));
+}
 
 TEST_F(AutofillExternalDelegateTest,
        ComposeSuggestion_ComposeProactiveNudge_ForwardsCaretBoundsToClient) {
@@ -4751,7 +4795,7 @@ TEST_F(AutofillExternalDelegateTest, ShouldDiscardOutdatedSuggestions) {
 }
 #endif
 
-// Tests that @memory search results use the kReplaceSelectionForAtMemory
+// Tests that AtMemory search results use the kReplaceSelectionForAtMemory
 // action.
 TEST_F(AutofillExternalDelegateTest, AtMemorySearchResult_UsesSpecialAction) {
   StartAtMemorySession();
@@ -4759,16 +4803,10 @@ TEST_F(AutofillExternalDelegateTest, AtMemorySearchResult_UsesSpecialAction) {
   suggestion.payload =
       Suggestion::AtMemoryPayload(u"pasted text", MemoryDataType::kUnknown);
 
-  // 1. Test Preview
-  EXPECT_CALL(
-      autofill_manager(),
-      FillOrPreviewField(mojom::ActionPersistence::kPreview,
-                         mojom::FieldActionType::kReplaceSelectionForAtMemory,
-                         _, _, std::u16string(u"pasted text"),
-                         FillingProduct::kAtMemory, _));
+  // 1. There is currently no Preview.
   external_delegate().DidSelectSuggestion(suggestion);
 
-  // 2. Test Fill
+  // 2. Test Fill.
   EXPECT_CALL(
       autofill_manager(),
       FillOrPreviewField(mojom::ActionPersistence::kFill,
@@ -4978,11 +5016,14 @@ TEST_F(AutofillExternalDelegateTest,
   OnSuggestionsReturned(queried_field(), {});
 }
 
+#if BUILDFLAG(IS_ANDROID)
 TEST_F(AutofillExternalDelegateTest,
-       ExternalDelegateDoesNotHideSuggestionsOnLargeFormFactor) {
+       ExternalDelegateDoesNotHideSuggestionsOnAndroidDesktop) {
+  base::android::device_info::set_is_desktop_for_testing(true);
+  absl::Cleanup reset =
+      &base::android::device_info::reset_is_desktop_for_testing;
   IssueOnQuery();
 
-  autofill_client().set_is_device_large_form_factor(true);
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(
       features::kAutofillAndroidKeyboardAccessoryDynamicPositioning);
@@ -4992,6 +5033,7 @@ TEST_F(AutofillExternalDelegateTest,
   // Return empty suggestions.
   OnSuggestionsReturned(queried_field(), {});
 }
+#endif
 
 // Tests that the "Maximize rewards" suggestion functions properly when the
 // user clicks it.
@@ -5035,3 +5077,5 @@ TEST_F(AutofillExternalDelegateTest,
 }  // namespace
 
 }  // namespace autofill
+
+#undef PLATFORM_SUPPORTS_DEVICE_REAUTH

@@ -110,6 +110,8 @@ found in the LICENSE file.
     <item name="tab_strip_button_bg_hover_alpha" format="float" type="dimen">0.08</item>
     <item name="tab_strip_button_bg_peripheral_pressed_alpha" format="float" type="dimen">0.12</item>
     <item name="tab_strip_button_bg_pressed_alpha" format="float" type="dimen">0.2</item>
+    <dimen name="tab_strip_ntb_with_strip_button_padding">8dp</dimen>
+    <dimen name="tab_strip_ntb_with_strip_button_padding_desktop">24dp</dimen>
 
     <!-- Tab strip Glic buttons -->
     <!-- vertical margin = tab strip height - glic background height = 40 - 32 = 8dp. -->
@@ -141,24 +143,6 @@ found in the LICENSE file.
     <dimen name="fre_illustration_to_content_margin">48dp</dimen>
     <dimen name="fre_subtitle_top_padding">8dp</dimen>
     <dimen name="fre_landscape_margin">55dp</dimen>
-
-    <!-- Safety FRE Promo Card dimensions -->
-    <dimen name="safety_fre_card_height">88dp</dimen>
-    <dimen name="safety_fre_card_gap">8dp</dimen>
-    <dimen name="safety_fre_card_padding_vertical">12dp</dimen>
-    <dimen name="safety_fre_card_padding_horizontal">16dp</dimen>
-    <dimen name="safety_fre_card_icon_size">40dp</dimen>
-    <dimen name="safety_fre_card_subtitle_margin_top">4dp</dimen>
-    <dimen name="safety_fre_card_chevron_size">24dp</dimen>
-
-    <!-- Safety FRE with cards UI dimensions -->
-    <dimen name="safety_fre_logo_size">48dp</dimen>
-    <dimen name="safety_fre_title_margin_bottom">36dp</dimen>
-
-    <!-- Safety FRE Carousel dimensions -->
-    <dimen name="safety_fre_carousel_icon_margin_top">64dp</dimen>
-    <dimen name="safety_fre_carousel_title_margin_bottom">8dp</dimen>
-    <dimen name="safety_fre_carousel_button_margin_bottom">8dp</dimen>
 
     <!-- Account Signin dimensions -->
     <!-- The Account Signin page appears in the First Run Experience (amongst other places), so uses
@@ -222,12 +206,13 @@ found in the LICENSE file.
     <dimen name="bookmark_minimum_dialog_size_tablet">500dp</dimen>
     <dimen name="bookmark_dialog_toolbar_shadow_height">4dp</dimen>
     <dimen name="bookmark_reading_list_section_header_padding_top">15dp</dimen>
+    <dimen name="bookmark_account_section_header_padding_top">18dp</dimen>
     <dimen name="improved_bookmark_favicon_text_size">18dp</dimen>
 
     <!-- Bookmarks Desktop Layout dimensions -->
-    <dimen name="bookmark_desktop_navigation_pane_width">240dp</dimen>
+    <dimen name="bookmark_desktop_navigation_pane_width">280dp</dimen>
     <dimen name="bookmark_desktop_navigation_header_top_margin">24dp</dimen>
-    <dimen name="bookmark_desktop_navigation_header_bot_margin">8dp</dimen>
+    <dimen name="bookmark_desktop_navigation_header_start_margin">16dp</dimen>
     <dimen name="bookmark_desktop_navigation_header_end_margin">16dp</dimen>
     <dimen name="bookmark_desktop_navigation_header_bottom_margin">36dp</dimen>
     <dimen name="bookmark_desktop_content_padding">24dp</dimen>
@@ -246,6 +231,10 @@ found in the LICENSE file.
     <dimen name="add_new_folder_dialog_horizontal_margin">24dp</dimen>
     <dimen name="bookmark_folder_picker_button_container_top_padding">10dp</dimen>
     <dimen name="bookmark_folder_picker_button_container_bottom_padding">16dp</dimen>
+    <dimen name="bookmark_folder_picker_button_horizontal_spacing">8dp</dimen>
+    <dimen name="desktop_bookmark_dialog_container_margin">12dp</dimen>
+    <dimen name="desktop_bookmark_dialog_padding">20dp</dimen>
+    <dimen name="desktop_bookmark_dialog_text_input_margin_top">24dp</dimen>
     <dimen name="improved_bookmark_row_horizontal_margin">10dp</dimen>
     <dimen name="improved_bookmark_row_horizontal_padding">6dp</dimen>
     <dimen name="improved_bookmark_row_horizontal_negative_margin">-10dp</dimen>

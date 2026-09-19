@@ -20,6 +20,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/timer/timer.h"
 #include "remoting/base/errors.h"
 #include "remoting/base/local_session_policies_provider.h"
 #include "remoting/base/session_policies.h"
@@ -32,8 +33,6 @@
 #include "remoting/protocol/session.h"
 
 namespace remoting {
-
-class HostExtension;
 
 // A ClientSession keeps a reference to a connection to a client, and maintains
 // per-client state.
@@ -78,13 +77,11 @@ class ClientSession : public protocol::Session::EventHandler,
   };
 
   // `event_handler` and `peer_session_factory` must outlive `this`.
-  // All `HostExtension`s in `extensions` must outlive `this`.
   ClientSession(
       EventHandler* event_handler,
       std::unique_ptr<protocol::Session> session,
       PeerSessionFactory* peer_session_factory,
       const DesktopEnvironmentOptions& desktop_environment_options,
-      const std::vector<raw_ptr<HostExtension, VectorExperimental>>& extensions,
       const LocalSessionPoliciesProvider* local_session_policies_provider);
 
   ClientSession(const ClientSession&) = delete;
@@ -135,9 +132,6 @@ class ClientSession : public protocol::Session::EventHandler,
   // The DesktopEnvironmentOptions used to initialize DesktopEnvironment.
   DesktopEnvironmentOptions desktop_environment_options_;
 
-  // HostExtensions passed when creating the session.
-  std::vector<raw_ptr<HostExtension, VectorExperimental>> extensions_;
-
   // Set to true if the client was authenticated successfully.
   bool is_authenticated_ = false;
 
@@ -172,6 +166,8 @@ class ClientSession : public protocol::Session::EventHandler,
 
   std::vector<mojo::PendingReceiver<mojom::ChromotingSessionServices>>
       pending_session_services_receivers_;
+
+  base::OneShotTimer max_duration_timer_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

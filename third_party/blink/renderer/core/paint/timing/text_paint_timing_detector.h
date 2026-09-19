@@ -5,6 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_PAINT_TIMING_TEXT_PAINT_TIMING_DETECTOR_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_PAINT_TIMING_TEXT_PAINT_TIMING_DETECTOR_H_
 
+#include "base/functional/function_ref.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
@@ -22,6 +23,7 @@ class WebString;
 struct DOMPaintTimingInfo;
 class LargestContentfulPaintManager;
 class LayoutBoxModelObject;
+class PaintTimingClient;
 class PaintTimingDetector;
 class PropertyTreeStateOrAlias;
 
@@ -57,8 +59,6 @@ class CORE_EXPORT TextPaintTimingDetector final
   // timing entries to be emitted.
   void ResetPaintTrackingOnInteraction(const LayoutObject&);
 
-  bool IsRecordingLargestTextPaint() const;
-
   void ReportLargestIgnoredText();
   void Trace(Visitor*) const;
 
@@ -88,6 +88,8 @@ class CORE_EXPORT TextPaintTimingDetector final
     added_entry_in_latest_frame_ = true;
   }
 
+  void ForEachPaintTimingClient(base::FunctionRef<void(PaintTimingClient*)>);
+
   LargestContentfulPaintManager* GetLargestContentfulPaintManager() const;
 
   // LayoutObjects for which text has been aggregated.
@@ -97,8 +99,6 @@ class CORE_EXPORT TextPaintTimingDetector final
   HeapDeque<Member<TextRecord>> texts_queued_for_paint_time_;
 
   Member<PaintTimingDetector> paint_timing_detector_;
-
-  bool recording_largest_text_paint_ = true;
 
   // Used to decide which frame a record belongs to, monotonically increasing.
   uint32_t frame_index_ = 1;

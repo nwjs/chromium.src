@@ -17,8 +17,17 @@
 
 namespace memory_saver {
 
-MemorySaverBubbleController::MemorySaverBubbleController(
+DEFINE_USER_DATA(MemorySaverBubbleController);
+
+// static
+MemorySaverBubbleController* MemorySaverBubbleController::From(
     BrowserWindowInterface* bwi) {
+  return Get(bwi->GetUnownedUserDataHost());
+}
+
+MemorySaverBubbleController::MemorySaverBubbleController(
+    BrowserWindowInterface* bwi)
+    : scoped_unowned_user_data_(bwi->GetUnownedUserDataHost(), *this) {
   // Associate the bubble with its ActionItem, to ensure that any future
   // invocations come from the expected ActionItem.
   action_item_ = actions::ActionManager::Get().FindAction(
@@ -34,8 +43,7 @@ void MemorySaverBubbleController::InvokeAction(BrowserWindowInterface* bwi,
   CHECK(item == action_item_);
 
   // Open the dialog bubble.
-  BrowserView* browser_view =
-      BrowserView::GetBrowserViewForBrowser(bwi->GetBrowserForMigrationOnly());
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(bwi);
   CHECK_NE(browser_view, nullptr);
   auto anchor =
       browser_view->toolbar_button_provider()->GetBubbleAnchor(std::nullopt);

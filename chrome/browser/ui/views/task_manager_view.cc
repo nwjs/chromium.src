@@ -17,8 +17,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/task_manager/common/task_manager_features.h"
 #include "chrome/browser/task_manager/task_manager_interface.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/task_manager/task_manager_columns.h"
@@ -28,6 +27,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "components/prefs/pref_service.h"
 #include "ui/accessibility/platform/ax_platform.h"
+#include "ui/base/base_window.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
@@ -40,6 +40,7 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
+#include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/scroll_view.h"
 #include "ui/views/controls/tabbed_pane/tabbed_pane.h"
@@ -125,7 +126,7 @@ TaskManagerView::~TaskManagerView() {
 
 // static
 task_manager::TaskManagerTableModel* TaskManagerView::Show(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     StartAction start_action) {
   if (g_task_manager_view) {
     // If there's a Task manager window open already, just activate it.
@@ -690,10 +691,10 @@ void TaskManagerView::ActivateSelectedTab() {
   }
 }
 
-void TaskManagerView::SelectTaskOfActiveTab(Browser* browser) {
+void TaskManagerView::SelectTaskOfActiveTab(BrowserWindowInterface* browser) {
   if (browser) {
     tab_table_->Select(table_model_->GetRowForWebContents(
-        browser->tab_strip_model()->GetActiveWebContents()));
+        browser->GetTabStripModel()->GetActiveWebContents()));
   }
 }
 
@@ -802,7 +803,7 @@ namespace chrome {
 // These are used by the Mac versions of |ShowTaskManager| and |HideTaskManager|
 // if they decide to show the Views task manager instead of the Cocoa one.
 task_manager::TaskManagerTableModel* ShowTaskManagerViews(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     task_manager::StartAction start_action) {
   return task_manager::TaskManagerView::Show(browser, start_action);
 }

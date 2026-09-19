@@ -15,7 +15,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.os.Bundle;
+import android.util.DisplayMetrics;
 import android.util.TypedValue;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
 
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -37,6 +41,7 @@ import org.chromium.base.FeatureOverrides;
 import org.chromium.base.ObserverList;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.TriState;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.test.BaseActivityTestRule;
@@ -45,6 +50,7 @@ import org.chromium.base.test.params.ParameterAnnotations.UseRunnerDelegate;
 import org.chromium.base.test.params.ParameterSet;
 import org.chromium.base.test.params.ParameterizedRunner;
 import org.chromium.base.test.util.Batch;
+import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
@@ -57,6 +63,8 @@ import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.components.browser_ui.settings.EmbeddableSettingsPage;
+import org.chromium.components.browser_ui.settings.SettingsNavigation;
+import org.chromium.components.browser_ui.site_settings.SingleWebsiteSettings;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.sync.SyncService;
@@ -64,7 +72,9 @@ import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.BlankUiTestActivity;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * TODO(crbug.com/493130564): Revert to regular runner after
@@ -263,6 +273,89 @@ public class MultiColumnSettingsUnitTest {
 
     @Test
     @SmallTest
+    @UiThreadTest
+    public void testFragmentTracker_RestoreTitles_WithUnmatchedUuid() {
+        ObserverList<MultiColumnSettings.Observer> observers = new ObserverList<>();
+        var fragmentManager = new TestFragmentManager();
+
+        var fragmentTracker = new MultiColumnSettings.FragmentTracker(observers);
+
+        var fragment1 = new TestFragment();
+        fragmentTracker.onFragmentResumed(fragmentManager, fragment1);
+
+        var fragment2 = new TestFragment();
+        fragmentManager.addBackStack();
+        fragmentTracker.onFragmentResumed(fragmentManager, fragment2);
+
+        var fragment3 = new TestFragment();
+        fragmentManager.addBackStack();
+        fragmentTracker.onFragmentResumed(fragmentManager, fragment3);
+
+        assertEquals(3, fragmentTracker.mTitles.size());
+
+        Bundle bundle = new Bundle();
+        fragmentTracker.saveTitles(bundle);
+
+        // Simulate activity recreation where fragment2 was an intermediate fragment replaced
+        // in-place without backstack, and fragment2Replacement (like EmptyFragment) was restored
+        // from backstack instead.
+        var fragment2Replacement = new TestFragment();
+        Map<String, EmbeddableSettingsPage> uuidMap = new HashMap<>();
+        uuidMap.put(MultiColumnSettings.getUUID(fragment1), fragment1);
+        uuidMap.put(MultiColumnSettings.getUUID(fragment2Replacement), fragment2Replacement);
+        uuidMap.put(MultiColumnSettings.getUUID(fragment3), fragment3);
+
+        var newFragmentTracker = new MultiColumnSettings.FragmentTracker(observers);
+        newFragmentTracker.restoreTitles(bundle, uuidMap);
+
+        assertEquals(3, newFragmentTracker.mTitles.size());
+        assertSame(fragment1.getPageTitle(), newFragmentTracker.mTitles.get(0).titleSupplier);
+        assertEquals(0, newFragmentTracker.mTitles.get(0).backStackCount);
+
+        assertSame(
+                fragment2Replacement.getPageTitle(),
+                newFragmentTracker.mTitles.get(1).titleSupplier);
+        assertEquals(1, newFragmentTracker.mTitles.get(1).backStackCount);
+
+        assertSame(fragment3.getPageTitle(), newFragmentTracker.mTitles.get(2).titleSupplier);
+        assertEquals(2, newFragmentTracker.mTitles.get(2).backStackCount);
+    }
+
+    @Test
+    @SmallTest
+    @UiThreadTest
+    public void testFragmentTracker_RestoreTitles_WithMissingUuidAndNoReplacement() {
+        ObserverList<MultiColumnSettings.Observer> observers = new ObserverList<>();
+        var fragmentManager = new TestFragmentManager();
+
+        var fragmentTracker = new MultiColumnSettings.FragmentTracker(observers);
+
+        var fragment1 = new TestFragment();
+        fragmentTracker.onFragmentResumed(fragmentManager, fragment1);
+
+        var fragment2 = new TestFragment();
+        fragmentManager.addBackStack();
+        fragmentTracker.onFragmentResumed(fragmentManager, fragment2);
+
+        Bundle bundle = new Bundle();
+        fragmentTracker.saveTitles(bundle);
+
+        // Only fragment1 is present in uuidMap, fragment2 is completely missing with no
+        // replacement.
+        Map<String, EmbeddableSettingsPage> uuidMap = new HashMap<>();
+        uuidMap.put(MultiColumnSettings.getUUID(fragment1), fragment1);
+
+        var newFragmentTracker = new MultiColumnSettings.FragmentTracker(observers);
+        // Must not crash with NullPointerException. See https://crbug.com/542323396
+        newFragmentTracker.restoreTitles(bundle, uuidMap);
+
+        assertEquals(1, newFragmentTracker.mTitles.size());
+        assertSame(fragment1.getPageTitle(), newFragmentTracker.mTitles.get(0).titleSupplier);
+        assertEquals(0, newFragmentTracker.mTitles.get(0).backStackCount);
+    }
+
+    @Test
+    @SmallTest
     @Restriction(DeviceFormFactor.PHONE)
     @EnableFeatures({
         SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
@@ -346,16 +439,16 @@ public class MultiColumnSettingsUnitTest {
         private final MainSettings mMainSettings = new TestMainSettings();
         private Fragment mInitialDetailFragment;
         private boolean mInitialDetailFragmentCreated;
-        private @Nullable Boolean mIsTwoColumnForTesting;
+        private @TriState int mIsTwoColumnForTesting = TriState.NOT_SET;
 
-        void setIsTwoColumnForTesting(@Nullable Boolean isTwoColumn) {
+        void setIsTwoColumnForTesting(@TriState int isTwoColumn) {
             mIsTwoColumnForTesting = isTwoColumn;
         }
 
         @Override
         boolean isTwoColumn() {
-            if (mIsTwoColumnForTesting != null) {
-                return mIsTwoColumnForTesting;
+            if (mIsTwoColumnForTesting != TriState.NOT_SET) {
+                return mIsTwoColumnForTesting == TriState.TRUE;
             }
             return super.isTwoColumn();
         }
@@ -480,13 +573,13 @@ public class MultiColumnSettingsUnitTest {
                             detailFragment instanceof TestFragment);
 
                     // Verify that settings.requireContext() (which was passed to
-                    // Fragment.instantiate) carries R.style.Theme_Chromium_Settings by checking
-                    // that preferenceTheme resolves.
+                    // Fragment.instantiate) carries R.style.ThemeOverlay_Chromium_Settings by
+                    // checking that preferenceTheme resolves.
                     Context context = settings.requireContext();
                     TypedValue tv = new TypedValue();
                     assertTrue(
                             "Theme should resolve preferenceTheme attribute from"
-                                    + " Theme_Chromium_Settings",
+                                    + " ThemeOverlay_Chromium_Settings",
                             context.getTheme().resolveAttribute(R.attr.preferenceTheme, tv, true));
                 });
     }
@@ -502,7 +595,7 @@ public class MultiColumnSettingsUnitTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     TestMultiColumnSettings settings = new TestMultiColumnSettings();
-                    settings.setIsTwoColumnForTesting(true);
+                    settings.setIsTwoColumnForTesting(TriState.TRUE);
 
                     activity.getSupportFragmentManager()
                             .beginTransaction()
@@ -527,7 +620,7 @@ public class MultiColumnSettingsUnitTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     TestMultiColumnSettings settings = new TestMultiColumnSettings();
-                    settings.setIsTwoColumnForTesting(false);
+                    settings.setIsTwoColumnForTesting(TriState.FALSE);
 
                     activity.getSupportFragmentManager()
                             .beginTransaction()
@@ -538,6 +631,315 @@ public class MultiColumnSettingsUnitTest {
                             "In single-column mode, onCreateInitialDetailFragment should return"
                                     + " null",
                             settings.onCreateInitialDetailFragment());
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Restriction({DeviceFormFactor.TABLET_OR_DESKTOP})
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB})
+    public void testUpdateHeaderPaneFocusability() {
+        mBlankUiActivityTestRule.launchActivity(null);
+        BlankUiTestActivity activity = mBlankUiActivityTestRule.getActivity();
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    TestMultiColumnSettings settings = new TestMultiColumnSettings();
+                    settings.setIsTwoColumnForTesting(TriState.FALSE);
+
+                    activity.getSupportFragmentManager()
+                            .beginTransaction()
+                            .add(android.R.id.content, settings)
+                            .commitNow();
+
+                    ViewGroup headerGroup =
+                            settings.requireView().findViewById(R.id.preferences_header);
+                    assertNotNull(headerGroup);
+
+                    // In single-column mode with detail pane open, header descendants are blocked.
+                    settings.showDetailFragment(new TestFragment(), false, null);
+                    assertEquals(
+                            ViewGroup.FOCUS_BLOCK_DESCENDANTS,
+                            headerGroup.getDescendantFocusability());
+                    assertEquals(
+                            View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS,
+                            headerGroup.getImportantForAccessibility());
+
+                    // In two-column mode, header descendants are allowed.
+                    settings.setIsTwoColumnForTesting(TriState.TRUE);
+                    settings.updateHeaderPaneFocusability();
+                    assertEquals(
+                            ViewGroup.FOCUS_AFTER_DESCENDANTS,
+                            headerGroup.getDescendantFocusability());
+                    assertEquals(
+                            View.IMPORTANT_FOR_ACCESSIBILITY_AUTO,
+                            headerGroup.getImportantForAccessibility());
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Restriction({DeviceFormFactor.TABLET_OR_DESKTOP})
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB})
+    public void testEmptyBackStack_InTwoColumnMode_EnsuresInitialDetailFragment() {
+        mBlankUiActivityTestRule.launchActivity(null);
+        BlankUiTestActivity activity = mBlankUiActivityTestRule.getActivity();
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    TestMultiColumnSettings settings = new TestMultiColumnSettings();
+                    settings.setIsTwoColumnForTesting(TriState.TRUE);
+
+                    activity.getSupportFragmentManager()
+                            .beginTransaction()
+                            .add(android.R.id.content, settings)
+                            .commitNow();
+
+                    // Open a detail fragment with addToBackStack=true.
+                    settings.showDetailFragment(new TestFragment(), true, null);
+                    settings.getChildFragmentManager().executePendingTransactions();
+                    assertEquals(1, settings.getChildFragmentManager().getBackStackEntryCount());
+
+                    // Pop the back stack so entry count becomes 0.
+                    settings.getChildFragmentManager().popBackStackImmediate();
+                    assertEquals(0, settings.getChildFragmentManager().getBackStackEntryCount());
+
+                    // The initial detail fragment should be re-populated in two-column mode.
+                    assertNotNull(
+                            "Detail fragment should be present in two-column mode when back stack"
+                                    + " is empty",
+                            settings.getChildFragmentManager()
+                                    .findFragmentById(R.id.preferences_detail));
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Restriction({DeviceFormFactor.TABLET_OR_DESKTOP})
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB})
+    public void testEmptyBackStack_InSingleColumnMode_ClosesSlidingPane() {
+        mBlankUiActivityTestRule.launchActivity(null);
+        BlankUiTestActivity activity = mBlankUiActivityTestRule.getActivity();
+
+        final TestMultiColumnSettings[] settingsHolder = new TestMultiColumnSettings[1];
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+                    int narrowWidth =
+                            (int)
+                                    TypedValue.applyDimension(
+                                            TypedValue.COMPLEX_UNIT_DIP, 400, metrics);
+                    FrameLayout container = new FrameLayout(activity);
+                    container.setId(View.generateViewId());
+                    activity.setContentView(
+                            container,
+                            new ViewGroup.LayoutParams(
+                                    narrowWidth, ViewGroup.LayoutParams.MATCH_PARENT));
+
+                    TestMultiColumnSettings settings = new TestMultiColumnSettings();
+                    settingsHolder[0] = settings;
+                    settings.setIsTwoColumnForTesting(TriState.FALSE);
+
+                    activity.getSupportFragmentManager()
+                            .beginTransaction()
+                            .add(container.getId(), settings)
+                            .commitNow();
+                });
+
+        // Wait for the layout and measure pass to complete so SlidingPaneLayout evaluates
+        // isSlideable() with the narrow container width.
+        CriteriaHelper.pollUiThread(
+                () -> settingsHolder[0].getSlidingPaneLayout().isSlideable(),
+                "SlidingPaneLayout should become slideable with narrow container");
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    TestMultiColumnSettings settings = settingsHolder[0];
+                    // Open a detail fragment with addToBackStack=true.
+                    settings.showDetailFragment(new TestFragment(), true, null);
+                    settings.getChildFragmentManager().executePendingTransactions();
+                });
+
+        // Wait for the detail pane to slide open.
+        CriteriaHelper.pollUiThread(
+                () -> settingsHolder[0].getSlidingPaneLayout().isOpen(),
+                "SlidingPaneLayout should open when detail fragment is shown");
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    assertEquals(
+                            1,
+                            settingsHolder[0].getChildFragmentManager().getBackStackEntryCount());
+                    // Pop the back stack so entry count becomes 0.
+                    settingsHolder[0].getChildFragmentManager().popBackStackImmediate();
+                    assertEquals(
+                            0,
+                            settingsHolder[0].getChildFragmentManager().getBackStackEntryCount());
+                });
+
+        // In single-column mode, SlidingPaneLayout should close when detail is popped.
+        CriteriaHelper.pollUiThread(
+                () -> !settingsHolder[0].getSlidingPaneLayout().isOpen(),
+                "SlidingPaneLayout closes when detail fragment is popped in single-column mode");
+    }
+
+    @Test
+    @SmallTest
+    @Restriction({DeviceFormFactor.TABLET_OR_DESKTOP})
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV})
+    public void testOnCreateInitialDetailFragment_withInitialUrl() {
+        mBlankUiActivityTestRule.launchActivity(null);
+        BlankUiTestActivity activity = mBlankUiActivityTestRule.getActivity();
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    TestMultiColumnSettings settings = new TestMultiColumnSettings();
+                    settings.setInitialUrl(
+                            "chrome://settings/siteDetails?site=https%3A%2F%2Fgoogle.com");
+
+                    activity.getSupportFragmentManager()
+                            .beginTransaction()
+                            .add(android.R.id.content, settings)
+                            .commitNow();
+
+                    Fragment detailFragment = settings.onCreateInitialDetailFragment();
+                    assertNotNull(
+                            "Detail fragment should be instantiated for initial subpage URL",
+                            detailFragment);
+                    assertTrue(
+                            "Detail fragment should be SingleWebsiteSettings instance",
+                            detailFragment instanceof SingleWebsiteSettings);
+                    assertNotNull(detailFragment.getArguments());
+                    assertEquals(
+                            "https://google.com",
+                            detailFragment
+                                    .getArguments()
+                                    .getString(SingleWebsiteSettings.EXTRA_SITE_ADDRESS));
+                    assertNull(
+                            "Initial URL should be cleared after being consumed",
+                            settings.getInitialUrl());
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Restriction({DeviceFormFactor.TABLET_OR_DESKTOP})
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV})
+    public void testOnPreferenceStartFragment_delegatesToSettingsNavigation() {
+        mBlankUiActivityTestRule.launchActivity(null);
+        BlankUiTestActivity activity = mBlankUiActivityTestRule.getActivity();
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    SettingsNavigation mockNavigation = Mockito.mock(SettingsNavigation.class);
+                    SettingsNavigationFactory.setInstanceForTesting(mockNavigation);
+
+                    MultiColumnSettings settings = new TestMultiColumnSettings();
+                    activity.getSupportFragmentManager()
+                            .beginTransaction()
+                            .add(android.R.id.content, settings)
+                            .commitNow();
+
+                    Preference preference = new Preference(settings.requireContext());
+                    preference.setFragment(TestFragment.class.getName());
+                    Bundle extras = preference.getExtras();
+                    extras.putString("test_key", "test_value");
+
+                    PreferenceFragmentCompat caller = Mockito.mock(PreferenceFragmentCompat.class);
+                    boolean handled = settings.onPreferenceStartFragment(caller, preference);
+
+                    assertTrue("Preference start fragment should be handled", handled);
+                    Mockito.verify(mockNavigation)
+                            .startSettings(settings.getContext(), TestFragment.class, extras);
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Restriction({DeviceFormFactor.TABLET_OR_DESKTOP})
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB})
+    @DisableFeatures({ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV})
+    public void testOnPreferenceStartFragment_urlNavDisabled_fallsBackToParent() {
+        mBlankUiActivityTestRule.launchActivity(null);
+        BlankUiTestActivity activity = mBlankUiActivityTestRule.getActivity();
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    SettingsNavigation mockNavigation = Mockito.mock(SettingsNavigation.class);
+                    SettingsNavigationFactory.setInstanceForTesting(mockNavigation);
+
+                    MultiColumnSettings settings = new TestMultiColumnSettings();
+                    activity.getSupportFragmentManager()
+                            .beginTransaction()
+                            .add(android.R.id.content, settings)
+                            .commitNow();
+
+                    Preference preference = new Preference(settings.requireContext());
+                    preference.setFragment(TestFragment.class.getName());
+
+                    PreferenceFragmentCompat caller = Mockito.mock(PreferenceFragmentCompat.class);
+                    settings.onPreferenceStartFragment(caller, preference);
+
+                    Mockito.verifyNoInteractions(mockNavigation);
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Restriction({DeviceFormFactor.TABLET_OR_DESKTOP})
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV})
+    public void testOnPreferenceStartFragment_nullFragment_fallsBackToParent() {
+        mBlankUiActivityTestRule.launchActivity(null);
+        BlankUiTestActivity activity = mBlankUiActivityTestRule.getActivity();
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    SettingsNavigation mockNavigation = Mockito.mock(SettingsNavigation.class);
+                    SettingsNavigationFactory.setInstanceForTesting(mockNavigation);
+
+                    MultiColumnSettings settings = new TestMultiColumnSettings();
+                    activity.getSupportFragmentManager()
+                            .beginTransaction()
+                            .add(android.R.id.content, settings)
+                            .commitNow();
+
+                    Preference preference = new Preference(settings.requireContext());
+                    preference.setFragment(null);
+
+                    PreferenceFragmentCompat caller = Mockito.mock(PreferenceFragmentCompat.class);
+                    boolean handled = settings.onPreferenceStartFragment(caller, preference);
+
+                    assertFalse("Null fragment should not be handled by URL navigation", handled);
+                    Mockito.verifyNoInteractions(mockNavigation);
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Restriction({DeviceFormFactor.TABLET_OR_DESKTOP})
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV})
+    public void testOnPreferenceStartFragment_invalidFragmentClass_fallsBackToParent() {
+        mBlankUiActivityTestRule.launchActivity(null);
+        BlankUiTestActivity activity = mBlankUiActivityTestRule.getActivity();
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    SettingsNavigation mockNavigation = Mockito.mock(SettingsNavigation.class);
+                    SettingsNavigationFactory.setInstanceForTesting(mockNavigation);
+
+                    MultiColumnSettings settings = new TestMultiColumnSettings();
+                    activity.getSupportFragmentManager()
+                            .beginTransaction()
+                            .add(android.R.id.content, settings)
+                            .commitNow();
+
+                    Preference preference = new Preference(settings.requireContext());
+                    preference.setFragment("invalid.fragment.class.Name");
+
+                    PreferenceFragmentCompat caller = Mockito.mock(PreferenceFragmentCompat.class);
+                    settings.onPreferenceStartFragment(caller, preference);
+
+                    Mockito.verifyNoInteractions(mockNavigation);
                 });
     }
 

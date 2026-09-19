@@ -57,6 +57,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_image_bitmap_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_image_encode_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_element_elementimage.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_update_element_geometry_options.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
@@ -625,7 +626,11 @@ void HTMLCanvasElement::configureHighDynamicRange(
 bool HTMLCanvasElement::ShouldSkipPaintInvalidation() const {
   if (RuntimeEnabledFeatures::CanvasDrawElementEnabled(GetExecutionContext()) &&
       IsInCanvasSubtree()) {
-    return false;
+    // Nested <canvas layoutsubtree> elements only record a CustomDataOp
+    // placeholder during paint and resolve their snapshot on demand, so they
+    // do not need paint invalidation when drawn to. Non-layoutsubtree canvases
+    // do need paint invalidation.
+    return layoutSubtree();
   }
   return (context_ && context_->IsComposited()) || (!!surface_layer_bridge_);
 }
@@ -741,7 +746,53 @@ void HTMLCanvasElement::OnAccelerationDisabled() {
 }
 
 void HTMLCanvasElement::SetNeedsCompositingUpdate() {
+  if (RuntimeEnabledFeatures::CanvasDrawElementEnabled(GetExecutionContext()) &&
+      IsInCanvasSubtree() && layoutSubtree()) {
+    // Nested layoutsubtree canvases cannot be composited and do not need
+    // repainting when their resource provider or context updates.
+    return;
+  }
   Element::SetNeedsCompositingUpdate();
+}
+
+void HTMLCanvasElement::UpdateDrawnElementGeometry(
+    Element& element,
+    const gfx::Transform* transform,
+    bool update_hit_test_order) {
+  if (element.CanvasForDrawing() != this) {
+    return;
+  }
+  if (update_hit_test_order || !hit_testable_descendants_.Contains(&element)) {
+    hit_testable_descendants_.AppendOrMoveToLast(&element);
+  }
+  if (transform) {
+    element.SetCanvasTransform(*transform);
+  }
+}
+
+void HTMLCanvasElement::UpdateDrawnElementGeometry(
+    ElementImage& element_image,
+    const gfx::Transform* transform,
+    bool update_hit_test_order) {
+  if (element_image.GetCanvasNodeId() != GetDomNodeId()) {
+    return;
+  }
+  if (Element* element = DynamicTo<Element>(
+          DOMNodeIds::NodeForId(element_image.GetNodeId()))) {
+    UpdateDrawnElementGeometry(*element, transform, update_hit_test_order);
+  }
+}
+
+void HTMLCanvasElement::ClearDrawnElementGeometry(Element& element) {
+  hit_testable_descendants_.erase(&element);
+  element.ClearCanvasTransform();
+}
+
+void HTMLCanvasElement::ClearDrawnElementGeometry(ElementImage& element_image) {
+  if (Element* element = DynamicTo<Element>(
+          DOMNodeIds::NodeForId(element_image.GetNodeId()))) {
+    ClearDrawnElementGeometry(*element);
+  }
 }
 
 bool HTMLCanvasElement::DoDeferredPaintInvalidation() {
@@ -913,8 +964,26 @@ DOMMatrix* HTMLCanvasElement::getElementTransform(
   }
 
   gfx::Transform transform =
-      GetElementTransform(*paint_state, Size(), draw_transform->Matrix());
+      GetElementTransform(*paint_state, Size(), draw_transform->Matrix(),
+                          RuntimeEnabledFeatures::ElementCanvasTransformEnabled(
+                              GetExecutionContext()));
   return MakeGarbageCollected<DOMMatrix>(transform, transform.Is2dTransform());
+}
+
+DOMMatrix* HTMLCanvasElement::getElementTransform(
+    Element* element,
+    ExceptionState& exception_state) const {
+  if (!VerifyDrawElementImageEligibility(element, "getElementTransform",
+                                         exception_state)) {
+    return nullptr;
+  }
+  if (element) {
+    if (const gfx::Transform* transform = element->GetCanvasTransform()) {
+      return MakeGarbageCollected<DOMMatrix>(*transform,
+                                             transform->Is2dTransform());
+    }
+  }
+  return DOMMatrix::Create();
 }
 
 bool HTMLCanvasElement::VerifyDrawElementImageEligibility(
@@ -998,6 +1067,56 @@ ElementImage* HTMLCanvasElement::captureElementImage(
   }
   return MakeGarbageCollected<ElementImage>(
       std::make_unique<CanvasChildPaintRecord>(std::move(*child_paint_record)));
+}
+
+void HTMLCanvasElement::updateElementGeometry(
+    const V8UnionElementOrElementImage* element_or_element_image,
+    const UpdateElementGeometryOptions* options,
+    ExceptionState& exception_state) {
+  Element* element = nullptr;
+  if (element_or_element_image->IsElement()) {
+    element = element_or_element_image->GetAsElement();
+  } else if (element_or_element_image->IsElementImage()) {
+    element = DynamicTo<Element>(DOMNodeIds::NodeForId(
+        element_or_element_image->GetAsElementImage()->GetNodeId()));
+    if (!element) {
+      exception_state.ThrowDOMException(
+          DOMExceptionCode::kInvalidStateError,
+          "Could not find live Element associated with the given "
+          "ElementImage.");
+      return;
+    }
+  }
+
+  if (!VerifyDrawElementImageEligibility(element, "updateElementGeometry",
+                                         exception_state)) {
+    return;
+  }
+
+  const gfx::Transform* transform_ptr = nullptr;
+  gfx::Transform transform;
+  if (options->hasCanvasTransform()) {
+    DOMMatrix* matrix =
+        DOMMatrix::fromMatrix(options->canvasTransform(), exception_state);
+    if (exception_state.HadException()) {
+      return;
+    }
+    CHECK(matrix);
+    transform = matrix->Matrix();
+    transform_ptr = &transform;
+  }
+
+  UpdateDrawnElementGeometry(*element, transform_ptr,
+                             !options->preserveHitTestOrder());
+}
+
+void HTMLCanvasElement::clearElementGeometry(
+    const V8UnionElementOrElementImage* element_or_element_image) {
+  if (element_or_element_image->IsElement()) {
+    ClearDrawnElementGeometry(*element_or_element_image->GetAsElement());
+  } else if (element_or_element_image->IsElementImage()) {
+    ClearDrawnElementGeometry(*element_or_element_image->GetAsElementImage());
+  }
 }
 
 bool HTMLCanvasElement::PaintsIntoCanvasBuffer() const {
@@ -1550,6 +1669,7 @@ void HTMLCanvasElement::Trace(Visitor* visitor) const {
   visitor->Trace(listeners_);
   visitor->Trace(context_);
   visitor->Trace(accessibility_manager_);
+  visitor->Trace(hit_testable_descendants_);
   ExecutionContextLifecycleObserver::Trace(visitor);
   PageVisibilityObserver::Trace(visitor);
   CanvasRenderingContextHost::Trace(visitor);

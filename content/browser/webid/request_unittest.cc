@@ -6573,6 +6573,86 @@ TEST_F(RequestTest, SuccessfulAuthZRequestWithPopUpWindow) {
   EXPECT_FALSE(DidFetch(FetchedEndpoint::CLIENT_METADATA));
 }
 
+// Test that destroying the Request during ShowModalDialog (e.g. if the
+// frame is detached) does not cause a use-after-free.
+TEST_F(RequestTest, FrameDetachDuringShowModalDialog) {
+  RequestParameters parameters = kDefaultRequestParameters;
+
+  MockConfiguration config = kConfigurationValid;
+  config.token = "an-access-token";
+
+  GURL continue_on = GURL(kProviderUrlFull).Resolve("/more-permissions.php");
+  config.continue_on = std::move(continue_on);
+
+  auto dialog_controller =
+      std::make_unique<TestDialogController>(kConfigurationValid);
+  base::WeakPtr<TestDialogController> weak_dialog_controller =
+      dialog_controller->AsWeakPtr();
+  SetDialogController(std::move(dialog_controller));
+
+  EXPECT_CALL(*weak_dialog_controller, ShowModalDialog)
+      .WillOnce(::testing::WithArg<0>([this](const GURL& url) {
+        // Synchronously navigate the document to destroy the Request
+        // during ShowModalDialog.
+        static_cast<TestWebContents*>(web_contents())
+            ->NavigateAndCommit(GURL("https://other.com"),
+                                ui::PAGE_TRANSITION_LINK);
+        return nullptr;
+      }));
+
+  RunDontWaitForCallback(parameters, config);
+  EXPECT_FALSE(request_);
+}
+
+namespace {
+
+class FrameDetachWhenShowAccountsDialogController
+    : public TestDialogController {
+ public:
+  FrameDetachWhenShowAccountsDialogController(
+      const MockConfiguration& configuration,
+      base::OnceClosure on_show_accounts_dialog)
+      : TestDialogController(configuration),
+        on_show_accounts_dialog_(std::move(on_show_accounts_dialog)) {}
+
+  bool ShowAccountsDialog(
+      RelyingPartyData rp_data,
+      const std::vector<IdentityProviderDataPtr>& idp_list,
+      const std::vector<IdentityRequestAccountPtr>& accounts,
+      const std::vector<IdentityRequestAccountPtr>& filtered_accounts,
+      blink::mojom::RpMode rp_mode,
+      IdentityRequestDialogController::AccountSelectionCallback on_selected,
+      IdentityRequestDialogController::LoginToIdPCallback on_add_account,
+      IdentityRequestDialogController::DismissCallback dismiss_callback,
+      IdentityRequestDialogController::AccountsDisplayedCallback
+          accounts_displayed_callback) override {
+    if (on_show_accounts_dialog_) {
+      std::move(on_show_accounts_dialog_).Run();
+    }
+    return true;
+  }
+
+ private:
+  base::OnceClosure on_show_accounts_dialog_;
+};
+
+}  // namespace
+
+// Test that destroying the Request during ShowAccountsDialog (e.g. if the
+// frame is detached) does not cause a use-after-free.
+TEST_F(RequestTest, FrameDetachDuringShowAccountsDialog) {
+  SetDialogController(
+      std::make_unique<FrameDetachWhenShowAccountsDialogController>(
+          kConfigurationValid, base::BindLambdaForTesting([this]() {
+            static_cast<TestWebContents*>(web_contents())
+                ->NavigateAndCommit(GURL("https://other.com"),
+                                    ui::PAGE_TRANSITION_LINK);
+          })));
+
+  RunDontWaitForCallback(kDefaultRequestParameters, kConfigurationValid);
+  EXPECT_FALSE(request_);
+}
+
 // Test the continuation popup calling close().
 TEST_F(RequestTest, ContinuationPopupCallingClose) {
   RequestParameters parameters = kDefaultRequestParameters;
@@ -6970,6 +7050,40 @@ TEST_F(RequestTest, ActiveFlowSkipsMismatchUI) {
 TEST_F(RequestTest, ActiveFlowShowsLoadingUI) {
   ExpectSuccessfulActiveFlow();
   EXPECT_TRUE(dialog_controller_state_.did_show_loading_dialog);
+}
+
+// Test that active flow with multiple IDPs shows loading dialog and accounts
+// dialog.
+TEST_F(RequestTest, ActiveFlowMultiIdpShowsLoadingAndAccountsUI) {
+  RequestParameters parameters = kDefaultMultiIdpRequestParameters;
+  parameters.rp_mode = blink::mojom::RpMode::kActive;
+
+  static_cast<TestRenderFrameHost*>(web_contents()->GetPrimaryMainFrame())
+      ->SimulateUserActivation();
+
+  RequestExpectations expectations = kExpectationSuccess;
+  expectations.selected_idp_config_url = kProviderTwoUrlFull;
+  RunTest(parameters, expectations, kConfigurationMultiIdpValid);
+
+  EXPECT_TRUE(dialog_controller_state_.did_show_loading_dialog);
+  EXPECT_TRUE(did_show_accounts_dialog());
+}
+
+// Test active flow with multiple IDPs requires user activation.
+TEST_F(RequestTest, ActiveFlowMultiIdpRequiresUserActivation) {
+  RequestParameters parameters = kDefaultMultiIdpRequestParameters;
+  parameters.rp_mode = blink::mojom::RpMode::kActive;
+
+  RequestExpectations error = {
+      RequestTokenStatus::kError,
+      FederatedRequestResult::kMissingTransientUserActivation,
+      /*standalone_console_message=*/std::nullopt,
+      /*selected_idp_config_url=*/std::nullopt};
+
+  RunDontWaitForCallback(parameters, kConfigurationMultiIdpValid);
+  CheckExpectations(kConfigurationMultiIdpValid, error);
+
+  EXPECT_FALSE(DidFetchAnyEndpoint());
 }
 
 // Test dismissing a active flow through the loading UI.

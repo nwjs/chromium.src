@@ -77,6 +77,7 @@
 #include "net/cert/caching_cert_verifier.h"
 #include "net/cert/cert_verifier.h"
 #include "net/cert/coalescing_cert_verifier.h"
+#include "net/cert/x509_util.h"
 #include "net/cert_net/cert_net_fetcher_url_request.h"
 #include "net/cookies/cookie_access_delegate.h"
 #include "net/cookies/cookie_constants.h"
@@ -1211,6 +1212,7 @@ void NetworkContext::GetRestrictedCookieManager(
     const net::IsolationInfo& isolation_info,
     const net::CookieSettingOverrides& cookie_setting_overrides,
     const net::CookieSettingOverrides& devtools_cookie_setting_overrides,
+    bool prefer_bound_cookie_context,
     mojo::PendingRemote<mojom::CookieAccessObserver> cookie_observer) {
   net::FirstPartySetMetadata first_party_set_metadata =
       RestrictedCookieManager::ComputeFirstPartySetMetadata(
@@ -1221,7 +1223,8 @@ void NetworkContext::GetRestrictedCookieManager(
           role, url_request_context_->cookie_store(),
           cookie_manager_->cookie_settings(), origin, isolation_info,
           cookie_setting_overrides, devtools_cookie_setting_overrides,
-          std::move(cookie_observer), std::move(first_party_set_metadata),
+          prefer_bound_cookie_context, std::move(cookie_observer),
+          std::move(first_party_set_metadata),
           network_service_->GetMetricsUpdater());
 
   auto callback = base::BindOnce(&NetworkContext::OnRCMDisconnect,
@@ -1698,6 +1701,18 @@ void NetworkContext::SendReportsAndRemoveSource(
       url_request_context()->reporting_service();
   if (reporting_service) {
     reporting_service->SendReportsAndRemoveSource(reporting_source);
+  }
+#endif  // BUILDFLAG(ENABLE_REPORTING)
+}
+
+void NetworkContext::SendReportsForSource(
+    const base::UnguessableToken& reporting_source) {
+#if BUILDFLAG(ENABLE_REPORTING)
+  CHECK(!reporting_source.is_empty());
+  net::ReportingService* reporting_service =
+      url_request_context()->reporting_service();
+  if (reporting_service) {
+    reporting_service->SendReportsForSource(reporting_source);
   }
 #endif  // BUILDFLAG(ENABLE_REPORTING)
 }
@@ -2544,11 +2559,8 @@ void NetworkContext::GetTrustAnchorIDsForTesting(
     GetTrustAnchorIDsForTestingCallback callback) {
   const net::SSLContextConfig& ssl_context_config =
       url_request_context_->ssl_config_service()->GetSSLContextConfig();
-  std::vector<std::vector<uint8_t>> all_trust_anchor_ids =
-      ssl_context_config.mtc_trust_anchor_ids;
-  base::Extend(all_trust_anchor_ids,
-               base::ToVector(ssl_context_config.trust_anchor_ids));
-  std::move(callback).Run(all_trust_anchor_ids);
+  std::move(callback).Run(net::x509_util::ParseTlsTrustAnchorIDs(
+      ssl_context_config.SelectAllTrustAnchorIDs()));
 }
 
 void NetworkContext::PreconnectSockets(
@@ -3629,7 +3641,8 @@ void NetworkContext::CreateTrustedUrlLoaderFactoryForNetworkService(
                          std::move(url_loader_factory_params));
 }
 
-void NetworkContext::SetSharedDictionaryCacheMaxSize(uint64_t cache_max_size) {
+void NetworkContext::SetSharedDictionaryCacheMaxSize(
+    std::optional<base::ByteSize> cache_max_size) {
   if (!shared_dictionary_manager_) {
     return;
   }
@@ -4057,10 +4070,6 @@ void NetworkContext::SetVariationsHeaders(
   variations_headers_ = std::move(variations_headers);
 }
 
-void NetworkContext::SetExpectedTargetNetworkForTesting(
-    std::optional<int64_t> target_network) {
-  url_request_context_->set_expected_target_network_for_testing(target_network);
-}
 
 bool NetworkContext::HasCookieAccessForDeviceBoundSession(
     const net::device_bound_sessions::CookieAccessCheckParams& params) {

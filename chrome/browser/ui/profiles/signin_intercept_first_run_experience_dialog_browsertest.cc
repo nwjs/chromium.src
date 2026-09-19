@@ -24,8 +24,8 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/themes/theme_syncable_service.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button.h"
@@ -149,7 +149,7 @@ class SigninInterceptFirstRunExperienceDialogBrowserTestBase : public TestBase {
     account_id_ = identity_test_env()
                       ->MakePrimaryAccountAvailable(
                           GetEmail(), signin::ConsentLevel::kSignin)
-                      .account_id;
+                      .GetAccountId();
     EXPECT_EQ(
         identity_manager()->GetPrimaryAccountId(signin::ConsentLevel::kSignin),
         account_id());
@@ -749,7 +749,7 @@ IN_PROC_BROWSER_TEST_P(
   ExpectPrimaryAccountWithExactConsentLevel(signin::ConsentLevel::kSync);
   // Browser displays a sync settings tab.
   EXPECT_EQ(
-      browser()->tab_strip_model()->GetActiveWebContents()->GetVisibleURL(),
+      browser()->GetTabStripModel()->GetActiveWebContents()->GetVisibleURL(),
       kSyncSettingsUrl);
   // Sync settings abort the fre dialog.
   EXPECT_FALSE(controller()->ShowsModalDialog());

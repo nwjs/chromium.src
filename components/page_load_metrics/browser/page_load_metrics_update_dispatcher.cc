@@ -398,12 +398,19 @@ PageLoadMetricsUpdateDispatcher::PageLoadMetricsUpdateDispatcher(
       main_frame_metadata_(mojom::FrameMetadata::New()),
       subframe_metadata_(mojom::FrameMetadata::New()),
       is_prerendered_page_load_(navigation_handle->IsInPrerenderedMainFrame()),
-      soft_navigation_largest_contentful_paint_(
-          false,
-          blink::LargestContentfulPaintType::kNone) {}
+      soft_navigation_tracker_(client) {}
 
 PageLoadMetricsUpdateDispatcher::~PageLoadMetricsUpdateDispatcher() {
   ShutDown();
+}
+
+void PageLoadMetricsUpdateDispatcher::OnHidden(
+    base::TimeDelta background_time) {
+  soft_navigation_tracker_.OnHidden(background_time);
+}
+
+void PageLoadMetricsUpdateDispatcher::OnShown(base::TimeDelta shown_time) {
+  soft_navigation_tracker_.OnShown(shown_time);
 }
 
 void PageLoadMetricsUpdateDispatcher::ShutDown() {
@@ -417,6 +424,12 @@ void PageLoadMetricsUpdateDispatcher::ShutDown() {
   if (should_dispatch) {
     DispatchTimingUpdates();
   }
+
+  // Finalize and report any currently active soft navigation before page
+  // teardown completes. This is not tied to `should_dispatch` because it is not
+  // about flushing buffered timer events, but rather forcing active soft
+  // navigations to wrap up and notify observers.
+  FlushSoftNavigationMetrics();
 }
 
 void PageLoadMetricsUpdateDispatcher::UpdateMetrics(
@@ -461,9 +474,10 @@ void PageLoadMetricsUpdateDispatcher::UpdateMetrics(
     if (font_loading_metrics) {
       UpdateMainFrameFontLoadingMetrics(*font_loading_metrics);
     }
-    UpdateSoftNavigationMetrics(std::move(soft_navigation_metrics),
-                                event_timings, render_data->new_layout_shifts,
-                                soft_largest_contentful_paint);
+    if (!soft_largest_contentful_paint.empty()) {
+      client_->OnSoftNavigationLargestContentfulPaint(
+          soft_largest_contentful_paint.size());
+    }
   } else {
     if (!render_frame_host->GetParentOrOuterDocument()) {
       // TODO(crbug.com/40065854): This can be removed once
@@ -476,7 +490,6 @@ void PageLoadMetricsUpdateDispatcher::UpdateMetrics(
 
     UpdateSubFrameMetadata(render_frame_host, std::move(new_metadata));
     UpdateSubFrameTiming(render_frame_host, std::move(new_timing));
-    // This path is just for the AMP metrics.
     UpdateSubFrameEventTiming(render_frame_host, event_timings);
   }
   UpdatePageEventTiming(render_frame_host, event_timings);
@@ -484,6 +497,19 @@ void PageLoadMetricsUpdateDispatcher::UpdateMetrics(
   if (!is_main_frame) {
     // This path is just for the AMP metrics.
     OnSubFrameRenderDataChanged(render_frame_host, *render_data);
+  }
+
+  // Route metrics to SoftNavigationTracker. Main frame and subframe metrics
+  // arrive in separate, mutually exclusive per-frame IPC batches.
+  if (is_main_frame) {
+    soft_navigation_tracker_.UpdateMainFrameMetrics(
+        render_frame_host->GetGlobalFrameToken(), soft_navigation_metrics,
+        event_timings, render_data->new_layout_shifts,
+        soft_largest_contentful_paint);
+  } else {
+    soft_navigation_tracker_.UpdateSubFrameMetrics(
+        render_frame_host->GetGlobalFrameToken(), event_timings,
+        render_data->new_layout_shifts);
   }
 
   client_->UpdateFeaturesUsage(render_frame_host, new_features);
@@ -602,35 +628,8 @@ void PageLoadMetricsUpdateDispatcher::UpdateMainFrameFontLoadingMetrics(
   font_loading_metrics_ = font_loading_metrics.Clone();
 }
 
-void PageLoadMetricsUpdateDispatcher::UpdateSoftNavigationMetrics(
-    std::vector<mojom::SoftNavigationMetricsPtr> soft_navigation_metrics,
-    base::span<const mojom::EventTimingPtr> event_timings,
-    base::span<const mojom::LayoutShiftPtr> layout_shifts,
-    base::span<const mojom::LargestContentfulPaintTimingPtr> soft_lcps) {
-  CHECK(!soft_navigation_tracker_.HasNextSoftNavigation());
-  if (!soft_navigation_tracker_.UpdateAndValidateMetrics(
-          std::move(soft_navigation_metrics))) {
-    return;
-  }
-  while (true) {
-    soft_navigation_tracker_.Process(
-        &event_timings, &soft_navigation_interaction_to_next_paint_);
-    soft_navigation_tracker_.Process(
-        &layout_shifts, &soft_navigation_layout_shift_normalization_);
-    size_t num_soft_lcps_processed = soft_navigation_tracker_.Process(
-        &soft_lcps, &soft_navigation_largest_contentful_paint_);
-    if (num_soft_lcps_processed) {
-      client_->OnSoftNavigationLargestContentfulPaint(num_soft_lcps_processed);
-    }
-    if (!soft_navigation_tracker_.HasNextSoftNavigation()) {
-      break;
-    }
-    client_->OnSoftNavigation();  // Notify observers, via PageLoadTracker.
-    soft_navigation_tracker_.AdvanceToNextSoftNavigation();
-    soft_navigation_interaction_to_next_paint_.ClearEventTimings();
-    soft_navigation_layout_shift_normalization_.ClearAllLayoutShifts();
-    soft_navigation_largest_contentful_paint_.Clear();
-  }
+void PageLoadMetricsUpdateDispatcher::FlushSoftNavigationMetrics() {
+  soft_navigation_tracker_.CompleteActiveNavigationAndFlush();
 }
 
 void PageLoadMetricsUpdateDispatcher::MaybeUpdateMainFrameRect(

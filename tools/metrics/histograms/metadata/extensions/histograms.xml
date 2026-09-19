@@ -108,6 +108,14 @@ chromium-metrics-reviews@google.com.
                kCommandLine and kUnpacked)"/>
 </variants>
 
+<variants name="NativeMessagingAndroidSendMessageStatus">
+  <variant name="Success"
+      summary="messages sent successfully to the external Android app"/>
+  <variant name="TooLarge"
+      summary="messages that failed to send due to
+               TransactionTooLargeException"/>
+</variants>
+
 <variants name="NativeMessagingSource">
   <variant name=".Extension" summary="the extension to the native app"/>
   <variant name=".NativeApp" summary="the native app to the extension"/>
@@ -317,21 +325,8 @@ This is emitted for two scenarios when a worker may be unregistered:
   </summary>
 </histogram>
 
-<histogram name="Extensions.AlarmManager.AlarmsMaxNameLength"
-    enum="ExtensionAlarmsNameLength" expires_after="2026-12-27">
-  <owner>rdevlin.cronin@chromium.org</owner>
-  <owner>bershanskyi@gmail.com</owner>
-  <owner>extensions-core@chromium.org</owner>
-  <summary>
-    The length of the longest alarm name (in characters) an extension has set.
-    It is emitted every time an extension is loaded (during user profile load).
-    It is not emitted for extensions that do not have any saved alarms on
-    extension load.
-  </summary>
-</histogram>
-
 <histogram name="Extensions.AppLaunch" enum="AppLaunch"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>benwells@chromium.org</owner>
   <owner>dominickn@chromium.org</owner>
   <owner>tapted@chromium.org</owner>
@@ -710,58 +705,32 @@ This is emitted for two scenarios when a worker may be unregistered:
   </summary>
 </histogram>
 
+<histogram name="Extensions.ContentVerification.VerifyFailedOnFileType"
+    enum="VerifiedFileType" expires_after="2027-08-19">
+  <owner>rdevlin.cronin@chromium.org</owner>
+  <owner>extensions-core@chromium.org</owner>
+  <summary>
+    The type of file content verification failed to verify. Emitted at the time
+    content verification fails, once per file that failed.
+  </summary>
+</histogram>
+
 <histogram
-    name="Extensions.ContentVerification.VerifyFailedOnFileMV2{VerifiedFileType}"
-    enum="ContentVerifyJobResult" expires_after="2026-06-08">
+    name="Extensions.ContentVerification.VerifyFailedOnFile{VerifiedFileType}"
+    enum="ContentVerifyJobResult" expires_after="2027-08-19">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
     The content verification failure reason for why a {VerifiedFileType} failed.
-    Emitted when content verification fails for a {VerifiedFileType} in a
-    manifest V2 extension.
+    Emitted when content verification fails for a {VerifiedFileType}.
   </summary>
   <token key="VerifiedFileType" variants="VerifiedFileType">
     <variant name=""/>
   </token>
-</histogram>
-
-<histogram
-    name="Extensions.ContentVerification.VerifyFailedOnFileMV3{VerifiedFileType}"
-    enum="ContentVerifyJobResult" expires_after="2026-06-08">
-  <owner>rdevlin.cronin@chromium.org</owner>
-  <owner>extensions-core@chromium.org</owner>
-  <summary>
-    The content verification failure reason for why a {VerifiedFileType} failed.
-    Emitted when content verification fails for a {VerifiedFileType} in a
-    manifest V3 extension.
-  </summary>
-  <token key="VerifiedFileType" variants="VerifiedFileType">
-    <variant name=""/>
-  </token>
-</histogram>
-
-<histogram name="Extensions.ContentVerification.VerifyFailedOnFileTypeMV2"
-    enum="VerifiedFileType" expires_after="2026-06-08">
-  <owner>rdevlin.cronin@chromium.org</owner>
-  <owner>extensions-core@chromium.org</owner>
-  <summary>
-    The type of file content verification failed to verify in an MV2 extension.
-    Emitted at the time content verification fails, once per file that failed.
-  </summary>
-</histogram>
-
-<histogram name="Extensions.ContentVerification.VerifyFailedOnFileTypeMV3"
-    enum="VerifiedFileType" expires_after="2026-06-08">
-  <owner>rdevlin.cronin@chromium.org</owner>
-  <owner>extensions-core@chromium.org</owner>
-  <summary>
-    The type of file content verification failed to verify in an MV3 extension.
-    Emitted at the time content verification fails, once per file that failed.
-  </summary>
 </histogram>
 
 <histogram name="Extensions.ContentVerification.VerifyJobResult"
-    enum="ContentVerifyJobResult" expires_after="2027-03-01">
+    enum="ContentVerifyJobResult" expires_after="2027-08-19">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -769,28 +738,6 @@ This is emitted for two scenarios when a worker may be unregistered:
     extension (independent of manifest version). Emitted when the job is
     complete. A content verification job is started for a given extension
     resource request.
-  </summary>
-</histogram>
-
-<histogram name="Extensions.ContentVerification.VerifyJobResultMV2"
-    enum="ContentVerifyJobResult" expires_after="2026-07-01">
-  <owner>rdevlin.cronin@chromium.org</owner>
-  <owner>extensions-core@chromium.org</owner>
-  <summary>
-    Reports the result of a given content verification job succeeded for a
-    Manifest Version 2 extension. Emitted when the job is complete. A content
-    verification job is started for a given extension resource request.
-  </summary>
-</histogram>
-
-<histogram name="Extensions.ContentVerification.VerifyJobResultMV3"
-    enum="ContentVerifyJobResult" expires_after="2026-07-01">
-  <owner>rdevlin.cronin@chromium.org</owner>
-  <owner>extensions-core@chromium.org</owner>
-  <summary>
-    Reports the result of a given content verification job succeeded for a
-    Manifest Version 3 extension. Emitted when the job is complete. A content
-    verification job is started for a given extension resource request.
   </summary>
 </histogram>
 
@@ -1113,7 +1060,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 
 <histogram
     name="Extensions.DeclarativeNetRequest.EvaluateRequestTime.AllExtensions3"
-    units="microseconds" expires_after="2026-12-16">
+    units="microseconds" expires_after="2027-02-14">
   <owner>kelvinjiang@chromium.org</owner>
   <owner>src/extensions/OWNERS</owner>
   <summary>
@@ -2793,7 +2740,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.Functions.SucceededTotalExecutionTime" units="ms"
-    expires_after="2026-12-13">
+    expires_after="2027-02-14">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -2806,7 +2753,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.Functions.SynchronousExecutionTime" units="ms"
-    expires_after="2026-12-20">
+    expires_after="2027-02-21">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -3558,7 +3505,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.ManifestVersionByLocation.{ManifestLocation}"
-    units="manifest version" expires_after="2026-12-16">
+    units="manifest version" expires_after="2027-02-14">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -3713,6 +3660,44 @@ This is emitted for two scenarios when a worker may be unregistered:
   <token key="ManifestLocation" variants="ManifestLocationGroup"/>
 </histogram>
 
+<histogram name="Extensions.NativeMessaging.Android.DisconnectionReason"
+    enum="NativeMessagingAndroidDisconnectionReason" expires_after="2027-09-01">
+  <owner>kelvinjiang@chromium.org</owner>
+  <owner>extensions-core@chromium.org</owner>
+  <summary>
+    Recorded when an Android native messaging ServiceConnection is disconnected,
+    indicating whether it was a clean unbind or an unexpected disconnection
+    (e.g. service process crash, binding death, null binding, or connection
+    timeout).
+  </summary>
+</histogram>
+
+<histogram
+    name="Extensions.NativeMessaging.Android.SentMessageSize.{SendMessageStatus}"
+    units="bytes" expires_after="2027-09-01">
+  <owner>kelvinjiang@chromium.org</owner>
+  <owner>extensions-core@chromium.org</owner>
+  <summary>
+    The size of the message in bytes sent from an extension to an external
+    Android app for native messaging ({SendMessageStatus}).
+  </summary>
+  <token key="SendMessageStatus"
+      variants="NativeMessagingAndroidSendMessageStatus"/>
+</histogram>
+
+<histogram
+    name="Extensions.NativeMessaging.Android.UnexpectedDisconnectionDuration"
+    units="ms" expires_after="2027-09-01">
+  <owner>kelvinjiang@chromium.org</owner>
+  <owner>extensions-core@chromium.org</owner>
+  <summary>
+    Recorded when an Android native messaging ServiceConnection unexpectedly
+    drops (via onServiceDisconnected or onBindingDied), measuring the duration
+    from when the service was connected from onServiceConnected to when it
+    dropped.
+  </summary>
+</histogram>
+
 <histogram name="Extensions.NativeMessaging.MessageSize{NativeMessagingSource}"
     units="bytes" expires_after="2027-01-01">
   <owner>kelvinjiang@chromium.org</owner>
@@ -3753,7 +3738,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.NewTabPageOverrides2" units="units"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>kelvinjiang@chromium.org</owner>
   <summary>
@@ -3894,7 +3879,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.Printing.UsesSupportedMargins" enum="Boolean"
-    expires_after="2026-12-06">
+    expires_after="2027-08-01">
   <owner>nmuggli@google.com</owner>
   <owner>msisov@igalia.com</owner>
   <summary>
@@ -3904,7 +3889,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.Printing.UsesSupportedPrintScaling" enum="Boolean"
-    expires_after="2026-10-01">
+    expires_after="2027-08-01">
   <owner>nmuggli@google.com</owner>
   <owner>msisov@igalia.com</owner>
   <summary>
@@ -4598,6 +4583,20 @@ This is emitted for two scenarios when a worker may be unregistered:
   </summary>
 </histogram>
 
+<histogram name="Extensions.Storage.OnSettingsChangedTime" units="ms"
+    expires_after="2027-02-01">
+  <owner>nafisabedin@google.com</owner>
+  <owner>clank-performance-team@google.com</owner>
+  <improvement direction="LOWER_IS_BETTER"/>
+  <summary>
+    Tracks the Browser UI thread execution time of
+    StorageFrontend::OnSettingsChanged when preparing and dispatching
+    chrome.storage change events to extensions with active listeners. Recorded
+    for each storage change notification that has at least one registered
+    listener.
+  </summary>
+</histogram>
+
 <histogram name="Extensions.SyncBlockedByDefaultWebAppMigration" enum="Boolean"
     expires_after="2024-02-08">
   <owner>alancutter@chromium.org</owner>
@@ -4724,7 +4723,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="Extensions.UploadExtensionToAccount.{Page}" enum="Boolean"
-    expires_after="2026-10-11">
+    expires_after="2027-02-14">
   <owner>kelvinjiang@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -4756,7 +4755,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 
 <histogram
     name="Extensions.WebRequest.BeforeRequestDeclarativeNetRequestEvaluationTime"
-    units="ms" expires_after="2026-12-16">
+    units="ms" expires_after="2027-02-14">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>src/extensions/OWNERS</owner>
   <summary>
@@ -5200,7 +5199,7 @@ This is emitted for two scenarios when a worker may be unregistered:
 </histogram>
 
 <histogram name="GuestView.GuestViewCreated" enum="GuestViewType"
-    expires_after="2026-12-16">
+    expires_after="2027-02-14">
   <owner>mcnee@chromium.org</owner>
   <owner>wjmaclean@chromium.org</owner>
   <owner>src/components/guest_view/OWNERS</owner>

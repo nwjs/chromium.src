@@ -173,12 +173,10 @@ bool IsEditableBoxEmpty(const Node* node) {
   if (!node) {
     return true;
   }
-  if (RuntimeEnabledFeatures::TextAreaEmptyPlaceholderBreakEnabled()) {
-    if (auto* text_control = EnclosingTextControl(node)) {
-      // We don't use `HasChildren()` for text controls because text controls
-      // may have placeholder break elements even for empty values.
-      return text_control->InnerEditorValue().empty();
-    }
+  if (auto* text_control = EnclosingTextControl(node)) {
+    // We don't use `HasChildren()` for text controls because text controls
+    // may have placeholder break elements even for empty values.
+    return text_control->InnerEditorValue().empty();
   }
   Element* root = RootEditableElement(*node);
   return !root || !root->HasChildren();
@@ -1376,8 +1374,7 @@ void SelectionController::UpdateSelectionForContextMenuEvent(
     const PhysicalOffset& position) {
   if (!Selection().IsAvailable())
     return;
-  if (mouse_down_was_single_click_on_caret_ || Selection().Contains(position) ||
-      hit_test_result.GetScrollbar() ||
+  if (Selection().Contains(position) || hit_test_result.GetScrollbar() ||
       // FIXME: In the editable case, word selection sometimes selects content
       // that isn't underneath the mouse.
       // If the selection is non-editable, we do word selection to make it
@@ -1399,6 +1396,10 @@ void SelectionController::UpdateSelectionForContextMenuEvent(
           ui::mojom::blink::MenuSourceType::kTouchHandle &&
       HitTestResultIsMisspelled(hit_test_result)) {
     return SelectClosestMisspellingFromMouseEvent(mouse_event, hit_test_result);
+  }
+
+  if (mouse_down_was_single_click_on_caret_) {
+    return;
   }
 
   if (!frame_->GetEditor().Behavior().ShouldSelectOnContextualMenuClick())

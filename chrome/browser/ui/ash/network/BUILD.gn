@@ -34,8 +34,6 @@ static_library("network") {
     "//chrome/browser/ash/profiles",
     "//chrome/browser/ash/profiles:signin_profile_handler",
     "//chrome/browser/chromeos/network",
-    "//chrome/browser/notifications",
-    "//chrome/browser/notifications:system_notification_helper",
     "//chrome/browser/prefs",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui/ash/system",
@@ -59,10 +57,12 @@ static_library("network") {
     "//components/proxy_config",
     "//components/session_manager/core",
     "//components/strings:components_strings_grit",
+    "//components/user_manager",
     "//extensions/browser",
     "//extensions/common",
     "//ui/chromeos",
     "//ui/chromeos/strings",
+    "//ui/message_center",
     "//ui/message_center/public/cpp",
     "//ui/web_dialogs",
   ]
@@ -91,7 +91,6 @@ source_set("unit_tests") {
     "//chrome/browser",
     "//chrome/browser/ash/login/users:test_support",
     "//chrome/browser/ash/profiles",
-    "//chrome/browser/notifications:system_notification_helper",
     "//chrome/browser/prefs",
     "//chrome/browser/ui/webui/ash/floating_workspace",
     "//chrome/common",
@@ -118,6 +117,7 @@ source_set("unit_tests") {
     "//testing/gtest",
     "//ui/base",
     "//ui/chromeos/strings",
+    "//ui/message_center",
     "//ui/message_center/public/cpp",
   ]
 }

@@ -284,6 +284,22 @@ public class AwContents implements SmartClipProvider {
         int COUNT = 3;
     }
 
+    // Used to record Android.WebView.WebContent.AdoptResult.
+    // Since these values are persisted to logs, they should never be renumbered or reused
+    @IntDef({
+        AdoptResult.SUCCESS,
+        AdoptResult.DESTROYED,
+        AdoptResult.OLD_CONTAINER_ATTACHED,
+        AdoptResult.NEW_CONTAINER_ATTACHED,
+    })
+    public @interface AdoptResult {
+        int SUCCESS = 0;
+        int DESTROYED = 1;
+        int OLD_CONTAINER_ATTACHED = 2;
+        int NEW_CONTAINER_ATTACHED = 3;
+        int COUNT = 4;
+    }
+
     /**
      * WebKit hit test related data structure. These are used to implement getHitTestResult,
      * requestFocusNodeHref, requestImageRef methods in WebView. All values should be updated
@@ -925,7 +941,6 @@ public class AwContents implements SmartClipProvider {
             mSettings.setDipScale(dipScale);
         }
     }
-    ;
 
     // --------------------------------------------------------------------------------------------
     /**
@@ -966,6 +981,38 @@ public class AwContents implements SmartClipProvider {
             InternalAccessDelegate internalAccessAdapter,
             AwDrawFnImpl.DrawFnAccess drawFnAccess,
             AwContentsClientFactory clientFactory,
+            DependencyFactory dependencyFactory) {
+        this(
+                browserContext,
+                containerView,
+                context,
+                internalAccessAdapter,
+                drawFnAccess,
+                clientFactory,
+                /* onSettingsCreated= */ null,
+                dependencyFactory);
+    }
+
+    /**
+     * @param browserContext the browsing context to associate this view contents with.
+     * @param containerView the view-hierarchy item this object will be bound to.
+     * @param context the context to use, usually containerView.getContext().
+     * @param internalAccessAdapter to access private methods on containerView.
+     * @param drawFnAccess to access the draw functor provided by the WebView.
+     * @param clientFactory will create the AwContentsClient which receives callbacks.
+     * @param onSettingsCreated optional callback invoked immediately after AwSettings is created,
+     *     before containerView is interacted with.
+     * @param dependencyFactory an instance of the DependencyFactory used to provide instances of
+     *     classes that this class depends on.
+     */
+    public AwContents(
+            AwBrowserContext browserContext,
+            ViewGroup containerView,
+            Context context,
+            InternalAccessDelegate internalAccessAdapter,
+            AwDrawFnImpl.DrawFnAccess drawFnAccess,
+            AwContentsClientFactory clientFactory,
+            @Nullable Callback<AwSettings> onSettingsCreated,
             DependencyFactory dependencyFactory) {
         assert browserContext != null;
         long startTime = SystemClock.uptimeMillis();
@@ -1076,6 +1123,10 @@ public class AwContents implements SmartClipProvider {
                 // On KK and above, favicons are automatically downloaded as the method
                 // old apps use to enable that behavior is deprecated.
                 AwSettings.setShouldDownloadFaviconsGlobal();
+            }
+
+            if (onSettingsCreated != null) {
+                onSettingsCreated.onResult(mSettings);
             }
 
             updateDefaultLocale();
@@ -1358,16 +1409,20 @@ public class AwContents implements SmartClipProvider {
     public void adopt(ViewGroup newContainerView, InternalAccessDelegate internalAccessAdapter) {
         ThreadUtils.assertOnUiThread();
         if (isDestroyed(NO_WARN)) {
+            recordAdoptResult(AdoptResult.DESTROYED);
             throw new IllegalStateException("AwContents is destroyed.");
         }
         if (mContainerView != null && mContainerView.isAttachedToWindow()) {
+            recordAdoptResult(AdoptResult.OLD_CONTAINER_ATTACHED);
             throw new IllegalStateException(
                     "AwContents must be detached from the window before adopting.");
         }
         if (newContainerView.isAttachedToWindow()) {
+            recordAdoptResult(AdoptResult.NEW_CONTAINER_ATTACHED);
             throw new IllegalStateException(
                     "The new container view must be detached from the window before adopting.");
         }
+        recordAdoptResult(AdoptResult.SUCCESS);
         updateContext(newContainerView.getContext());
         mPrimaryInternalAccessAdapter = internalAccessAdapter;
         setInternalAccessAdapter(internalAccessAdapter);
@@ -1375,6 +1430,11 @@ public class AwContents implements SmartClipProvider {
         mDisplayCutoutController.unregisterContainerView(mContainerView);
         setContainerView(newContainerView);
         mDisplayCutoutController.registerContainerView(newContainerView);
+    }
+
+    private static void recordAdoptResult(@AdoptResult int result) {
+        RecordHistogram.recordEnumeratedHistogram(
+                "Android.WebView.WebContent.AdoptResult", result, AdoptResult.COUNT);
     }
 
     private void setContainerView(ViewGroup newContainerView) {
@@ -2279,14 +2339,6 @@ public class AwContents implements SmartClipProvider {
     private void requestVisitedHistoryFromClient() {
         Callback<String[]> callback =
                 value -> {
-                    if (value != null) {
-                        // Replace null values with empty strings, because they can't be represented
-                        // as native strings.
-                        for (int i = 0; i < value.length; i++) {
-                            if (value[i] == null) value[i] = "";
-                        }
-                    }
-
                     PostTask.runOrPostTask(
                             TaskTraits.UI_DEFAULT,
                             () -> {
@@ -2542,10 +2594,8 @@ public class AwContents implements SmartClipProvider {
     public void loadData(String data, String mimeType, String encoding) {
         if (TRACE) Log.i(TAG, "%s loadData", this);
         if (isDestroyed(WARN)) return;
-        if (data != null && data.contains("#")) {
-            if (ContextUtils.getApplicationContext().getApplicationInfo().targetSdkVersion
-                            < Build.VERSION_CODES.Q
-                    && !isBase64Encoded(encoding)) {
+        if (data != null && data.contains("#") && !isBase64Encoded(encoding)) {
+            if (CompatQuirks.isEnabled(CompatQuirks.Quirk.FIXUP_OCTOTHORPES_IN_LOAD_DATA)) {
                 // As of Chromium M72, data URI parsing strictly enforces encoding of '#'. To
                 // support WebView applications which were not expecting this change, we do it for
                 // them.
@@ -4136,7 +4186,7 @@ public class AwContents implements SmartClipProvider {
     }
 
     @CalledByNative
-    private void onReceivedTouchIconUrl(String url, boolean precomposed) {
+    private void onReceivedTouchIconUrl(@JniType("std::string") String url, boolean precomposed) {
         mContentsClient.onReceivedTouchIconUrl(url, precomposed);
     }
 
@@ -4160,13 +4210,17 @@ public class AwContents implements SmartClipProvider {
 
     /** Callback for generateMHTML. */
     @CalledByNative
-    private static void generateMHTMLCallback(String path, long size, Callback<String> callback) {
+    private static void generateMHTMLCallback(
+            @JniType("std::string") String path, long size, Callback<String> callback) {
         if (callback == null) return;
         AwThreadUtils.postToUiThreadLooper(callback.bind(size < 0 ? null : path));
     }
 
     @CalledByNative
-    private void onReceivedHttpAuthRequest(AwHttpAuthHandler handler, String host, String realm) {
+    private void onReceivedHttpAuthRequest(
+            AwHttpAuthHandler handler,
+            @JniType("std::string") String host,
+            @JniType("std::string") String realm) {
         try (TraceEvent event =
                 TraceEvent.scoped("WebView.APICallback.ON_RECEIVED_HTTP_AUTH_REQUEST")) {
             mContentsClient.onReceivedHttpAuthRequest(handler, host, realm);
@@ -4187,7 +4241,7 @@ public class AwContents implements SmartClipProvider {
     }
 
     @CalledByNative
-    private void onGeolocationPermissionsShowPrompt(String origin) {
+    private void onGeolocationPermissionsShowPrompt(@JniType("std::string") String origin) {
         if (isDestroyed(NO_WARN)) return;
         AwGeolocationPermissions permissions = mBrowserContext.getGeolocationPermissions();
         // Reject if geoloaction is disabled, or the origin has a retained deny
@@ -4266,7 +4320,11 @@ public class AwContents implements SmartClipProvider {
     // Called as a result of AwContentsJni.get().updateLastHitTestData.
     @CalledByNative
     private void updateHitTestData(
-            int type, String extra, String href, String anchorText, String imgSrc) {
+            int type,
+            @JniType("std::optional<std::string>") @Nullable String extra,
+            @JniType("std::optional<std::u16string>") @Nullable String href,
+            @JniType("std::optional<std::u16string>") @Nullable String anchorText,
+            @JniType("std::optional<std::string>") @Nullable String imgSrc) {
         mPossiblyStaleHitTestData.hitTestResultType = type;
         mPossiblyStaleHitTestData.hitTestResultExtraData = extra;
         mPossiblyStaleHitTestData.href = href;
@@ -5083,8 +5141,10 @@ public class AwContents implements SmartClipProvider {
 
         int getNativeInstanceCount();
 
-        void updateDefaultLocale(String locale, String localeList);
+        void updateDefaultLocale(
+                @JniType("std::string") String locale, @JniType("std::string") String localeList);
 
+        @JniType("std::string")
         String getSafeBrowsingLocaleForTesting();
 
         AwContents fromWebContents(WebContents webContents);
@@ -5110,9 +5170,13 @@ public class AwContents implements SmartClipProvider {
 
         void documentHasImages(long nativeAwContents, Message message);
 
-        void generateMHTML(long nativeAwContents, String path, Callback<String> callback);
+        void generateMHTML(
+                long nativeAwContents,
+                @JniType("std::string") String path,
+                Callback<String> callback);
 
-        void addVisitedLinks(long nativeAwContents, String[] visitedLinks);
+        void addVisitedLinks(
+                long nativeAwContents, @JniType("std::vector<std::string>") String[] visitedLinks);
 
         void zoomBy(long nativeAwContents, float delta);
 
@@ -5134,7 +5198,7 @@ public class AwContents implements SmartClipProvider {
 
         boolean needToDrawBackgroundColor(long nativeAwContents);
 
-        void findAllAsync(long nativeAwContents, String searchString);
+        void findAllAsync(long nativeAwContents, @JniType("std::u16string") String searchString);
 
         void findNext(long nativeAwContents, boolean forward);
 
@@ -5170,6 +5234,7 @@ public class AwContents implements SmartClipProvider {
 
         void setDipScale(long nativeAwContents, float dipScale);
 
+        @JniType("std::string")
         String getScheme(long nativeAwContents);
 
         void onInputEvent(long nativeAwContents);
@@ -5195,10 +5260,15 @@ public class AwContents implements SmartClipProvider {
 
         void clearView(long nativeAwContents);
 
-        void setExtraHeadersForUrl(long nativeAwContents, String url, String extraHeaders);
+        void setExtraHeadersForUrl(
+                long nativeAwContents,
+                @JniType("std::string") String url,
+                @JniType("std::string") String extraHeaders);
 
         void invokeGeolocationCallback(
-                long nativeAwContents, boolean value, String requestingFrame);
+                long nativeAwContents,
+                boolean value,
+                @JniType("std::string") String requestingFrame);
 
         int getEffectivePriority(long nativeAwContents);
 
@@ -5208,7 +5278,8 @@ public class AwContents implements SmartClipProvider {
 
         void createPdfExporter(long nativeAwContents, AwPdfExporter awPdfExporter);
 
-        void preauthorizePermission(long nativeAwContents, String origin, long resources);
+        void preauthorizePermission(
+                long nativeAwContents, @JniType("std::string") String origin, long resources);
 
         void grantFileSchemeAccesstoChildProcess(long nativeAwContents);
 
@@ -5227,6 +5298,7 @@ public class AwContents implements SmartClipProvider {
 
         void removePersistentJavaScript(long nativeAwContents, int scriptId);
 
+        @JniType("std::u16string")
         String addWebMessageListener(
                 long nativeAwContents,
                 WebMessageListenerHolder listener,

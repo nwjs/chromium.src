@@ -2,10 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <stddef.h>
+
 #include <cstdint>
 #include <vector>
 
-#include "base/big_endian.h"
+#include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
@@ -54,6 +56,7 @@
 #include "net/socket/transport_client_socket_pool.h"
 #include "net/ssl/ssl_config_service.h"
 #include "net/ssl/test_ssl_config_service.h"
+#include "net/ssl/test_static_ech_mode_getter.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
@@ -459,8 +462,7 @@ TEST_F(HttpsWithDnsOverHttpsTest, EndToEndFail) {
 
 // An end-to-end test of the HTTPS upgrade behavior.
 TEST_F(HttpsWithDnsOverHttpsTest, HttpsUpgrade) {
-  base::test::ScopedFeatureList features;
-  features.InitAndEnableFeatureWithParameters(
+  AddScopedFeatureList().InitAndEnableFeatureWithParameters(
       features::kUseDnsHttpsSvcb,
       {// Disable timeouts.
        {"UseDnsHttpsSvcbSecureExtraTimeMax", "0"},
@@ -508,8 +510,7 @@ TEST_F(HttpsWithDnsOverHttpsTest, HttpsUpgrade) {
 // this to exercise connection logic for extra HostResolver results with
 // metadata.
 TEST_F(HttpsWithDnsOverHttpsTest, HttpsMetadata) {
-  base::test::ScopedFeatureList features;
-  features.InitAndEnableFeatureWithParameters(
+  AddScopedFeatureList().InitAndEnableFeatureWithParameters(
       features::kUseDnsHttpsSvcb,
       {// Disable timeouts.
        {"UseDnsHttpsSvcbSecureExtraTimeMax", "0"},
@@ -543,8 +544,7 @@ TEST_F(HttpsWithDnsOverHttpsTest, HttpsMetadata) {
 }
 
 TEST_F(DnsOverHttpsIntegrationTest, EncryptedClientHello) {
-  base::test::ScopedFeatureList features;
-  features.InitWithFeaturesAndParameters(
+  AddScopedFeatureList().InitWithFeaturesAndParameters(
       /*enabled_features=*/{{features::kUseDnsHttpsSvcb,
                              {// Disable timeouts.
                               {"UseDnsHttpsSvcbSecureExtraTimeMax", "0"},
@@ -582,9 +582,9 @@ TEST_F(DnsOverHttpsIntegrationTest, EncryptedClientHello) {
     // sockets, etc., from the previous loop iteration.
     ResetContext();
 
-    SSLContextConfig config;
-    config.ech_enabled = ech_enabled;
-    ssl_config_service_->UpdateSSLConfigAndNotify(config);
+    ssl_config_service_->SetEchModeGetter(
+        std::make_unique<TestStaticEchModeGetter>(
+            ech_enabled ? EchMode::kOpportunistic : EchMode::kDisabled));
 
     TestDelegate d;
     std::unique_ptr<URLRequest> r = context()->CreateRequest(
@@ -607,8 +607,7 @@ TEST_F(DnsOverHttpsIntegrationTest, EncryptedClientHello) {
 // the client can recover and connect to the server, provided the server can
 // handshake as the public name.
 TEST_F(DnsOverHttpsIntegrationTest, EncryptedClientHelloStaleKey) {
-  base::test::ScopedFeatureList features;
-  features.InitWithFeaturesAndParameters(
+  AddScopedFeatureList().InitWithFeaturesAndParameters(
       /*enabled_features=*/{{features::kUseDnsHttpsSvcb,
                              {// Disable timeouts.
                               {"UseDnsHttpsSvcbSecureExtraTimeMax", "0"},
@@ -692,8 +691,7 @@ TEST_F(DnsOverHttpsIntegrationTest, EncryptedClientHelloStaleKey) {
 }
 
 TEST_F(DnsOverHttpsIntegrationTest, EncryptedClientHelloFallback) {
-  base::test::ScopedFeatureList features;
-  features.InitWithFeaturesAndParameters(
+  AddScopedFeatureList().InitWithFeaturesAndParameters(
       /*enabled_features=*/{{features::kUseDnsHttpsSvcb,
                              {// Disable timeouts.
                               {"UseDnsHttpsSvcbSecureExtraTimeMax", "0"},
@@ -767,8 +765,7 @@ TEST_F(DnsOverHttpsIntegrationTest, EncryptedClientHelloFallback) {
 }
 
 TEST_F(DnsOverHttpsIntegrationTest, EncryptedClientHelloFallbackTLS12) {
-  base::test::ScopedFeatureList features;
-  features.InitWithFeaturesAndParameters(
+  AddScopedFeatureList().InitWithFeaturesAndParameters(
       /*enabled_features=*/{{features::kUseDnsHttpsSvcb,
                              {// Disable timeouts.
                               {"UseDnsHttpsSvcbSecureExtraTimeMax", "0"},
@@ -847,7 +844,7 @@ class DnsOverHttpsReportingTest : public DnsOverHttpsIntegrationTest {
  public:
   DnsOverHttpsReportingTest()
       : DnsOverHttpsIntegrationTest(/*start_server=*/false) {
-    feature_list_.InitWithFeatures(
+    AddScopedFeatureList().InitWithFeatures(
         {features::kPartitionConnectionsByNetworkIsolationKey},
         // Disable HTTPS record lookups to simplify what requests we expect.
         {features::kUseDnsHttpsSvcb});
@@ -939,7 +936,6 @@ class DnsOverHttpsReportingTest : public DnsOverHttpsIntegrationTest {
   }
 
  protected:
-  base::test::ScopedFeatureList feature_list_;
   EmbeddedTestServer https_server_{EmbeddedTestServer::Type::TYPE_HTTPS};
   base::Lock report_uploaded_lock_;
   bool report_uploaded_ GUARDED_BY(report_uploaded_lock_) = false;

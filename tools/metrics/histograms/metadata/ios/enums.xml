@@ -463,6 +463,19 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Background prevented impression"/>
 </enum>
 
+<!-- LINT.IfChange(IOSDefaultBrowserPromoOverflowMenuAction) -->
+
+<enum name="IOSDefaultBrowserPromoOverflowMenuAction">
+  <summary>
+    The action taken by the user on the Default Browser Overflow Menu Promo.
+  </summary>
+  <int value="0" label="No Action"/>
+  <int value="1" label="Hidden"/>
+  <int value="2" label="Tapped"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/default_browser/model/utils.h:IOSDefaultBrowserPromoOverflowMenuAction) -->
+
 <enum name="IOSDefaultBrowserPromoType">
   <int value="0" label="General"/>
   <int value="1" label="Made for iOS"/>
@@ -722,17 +735,6 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Cancel sorting selection"/>
 </enum>
 
-<enum name="IOSFilePickerInstallError">
-  <int value="0" label="The file picker was not found"/>
-  <int value="1" label="The file picker configuration was not found"/>
-  <int value="2" label="The file picker cannot submit the selection"/>
-  <int value="3" label="The file picker cannot present a sub menu"/>
-</enum>
-
-<enum name="IOSFilePickerSelectedElement">
-  <int value="0" label="Drive"/>
-</enum>
-
 <!-- LINT.IfChange(IOSFileUploadPanelCameraActionVariant) -->
 
 <enum name="IOSFileUploadPanelCameraActionVariant">
@@ -868,6 +870,7 @@ chromium-metrics-reviews@google.com.
   <int value="11" label="External App Store Event"/>
   <int value="12" label="Toolbar"/>
   <int value="13" label="App Switcher AI Summarization"/>
+  <int value="14" label="AtMemory Search Unsupported Query"/>
   <int value="100" label="Unknown"/>
 </enum>
 
@@ -1104,7 +1107,9 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="GeminiAppsActivity"/>
   <int value="1" label="Personalization"/>
   <int value="2" label="Extensions"/>
-  <int value="3" label="Unknown"/>
+  <int value="3" label="(Obsolete) Unknown"/>
+  <int value="4" label="UsageLimits"/>
+  <int value="50" label="Unknown"/>
 </enum>
 
 <!-- LINT.ThenChange(/ios/chrome/browser/settings/ui_bundled/bwg/utils/gemini_settings_metrics.h:IOSGeminiSettingsItem) -->
@@ -1457,6 +1462,7 @@ chromium-metrics-reviews@google.com.
   <int value="24" label="Obsolete in M152 - Signin"/>
   <int value="25" label="Identity"/>
   <int value="26" label="CustomizeHomePage"/>
+  <int value="27" label="DefaultBrowser"/>
 </enum>
 
 <!-- LINT.ThenChange(
@@ -1486,6 +1492,7 @@ chromium-metrics-reviews@google.com.
   <int value="10" label="PriceNotifications"/>
   <int value="11" label="Cobalt"/>
   <int value="12" label="LevelUp"/>
+  <int value="13" label="DefaultBrowser"/>
 </enum>
 
 <!-- LINT.ThenChange(
@@ -1536,6 +1543,18 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Page Load Navigation"/>
   <int value="3" label="Obsolete - Loading Started"/>
 </enum>
+
+<!-- LINT.IfChange(IOSPageStabilityOutcome) -->
+
+<enum name="IOSPageStabilityOutcome">
+  <int value="0" label="kUnknown"/>
+  <int value="1" label="kStable"/>
+  <int value="2" label="kStableBeforeMinDelay"/>
+  <int value="3" label="kTimeout"/>
+  <int value="4" label="kWebFrameGoingAway"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/intelligence/actor/tools/model/ios_page_stability_metrics.h:IOSPageStabilityOutcome) -->
 
 <enum name="IOSParcelTrackingOptInStatus">
   <int value="0" label="Never Track"/>
@@ -2213,6 +2232,8 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Audio and Video"/>
 </enum>
 
+<!-- LINT.IfChange(MetricKitExitData) -->
+
 <enum name="MetricKitExitData">
   <int value="0" label="App exited normally"/>
   <int value="1" label="App exited abnormally"/>
@@ -2225,6 +2246,8 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="Illegal or undefined instruction"/>
   <int value="9" label="Exceeded allocated time for background task"/>
 </enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/metrics/model/histogram_bridge.h:MetricKitExitReason) -->
 
 <!-- LINT.IfChange(NonModalSignInPromoAction) -->
 

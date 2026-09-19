@@ -21,7 +21,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -31,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 
 /** Tests for {@link ToastManager}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class ToastManagerTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock Toast mToast;
@@ -41,7 +39,6 @@ public class ToastManagerTest {
 
     private static final String TOAST_MSG = "now";
     private static final String TOAST_MSG_NEXT = "next";
-    private static final long DURATION_BETWEEN_TOASTS_MS = 500;
     private static final long DURATION_SHORT_MS = 2000;
 
     @Test

@@ -6,7 +6,6 @@ package org.chromium.components.webapk.lib.client;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.components.webapk.lib.common.WebApkConstants.WEBAPK_PACKAGE_PREFIX;
-import static org.chromium.components.webapk.lib.common.WebApkMetaDataKeys.SCOPE;
 import static org.chromium.components.webapk.lib.common.WebApkMetaDataKeys.START_URL;
 import static org.chromium.components.webapk.lib.common.WebApkMetaDataKeys.WEB_MANIFEST_URL;
 
@@ -55,9 +54,6 @@ import java.util.List;
 public class WebApkValidator {
     private static final String TAG = "WebApkValidator";
     private static final String KEY_FACTORY = "EC"; // aka "ECDSA"
-    private static final String MAPSLITE_PACKAGE_NAME = "com.google.android.apps.mapslite";
-    private static final String MAPSLITE_URL_PREFIX =
-            "https://www.google.com/maps"; // Matches scope.
     private static final boolean DEBUG = false;
 
     private static byte @Nullable [] sExpectedSignature;
@@ -68,14 +64,12 @@ public class WebApkValidator {
     @IntDef({
         ValidationResult.FAILURE,
         ValidationResult.V1_WEB_APK,
-        ValidationResult.MAPS_LITE,
         ValidationResult.COMMENT_SIGNED
     })
     @Retention(RetentionPolicy.SOURCE)
     private @interface ValidationResult {
         int FAILURE = 0;
         int V1_WEB_APK = 1;
-        int MAPS_LITE = 2;
         int COMMENT_SIGNED = 3;
     }
 
@@ -184,11 +178,6 @@ public class WebApkValidator {
                 switch (result) {
                     case ValidationResult.FAILURE:
                         continue;
-                    case ValidationResult.MAPS_LITE:
-                        String name = info.loadLabel(context.getPackageManager()).toString();
-                        showDeprecationWarning(
-                                context, name, R.string.webapk_mapsgo_deprecation_warning);
-                        return false;
                     case ValidationResult.V1_WEB_APK:
                         int shellApkVersion =
                                 IntentUtils.safeGetInt(
@@ -336,13 +325,6 @@ public class WebApkValidator {
         if (verifyV1WebApk(packageInfo, webappPackageName)) {
             return ValidationResult.V1_WEB_APK;
         }
-        if (verifyMapsLite(packageInfo, webappPackageName)) {
-            if (DEBUG) {
-                Log.d(TAG, "Matches Maps Lite");
-            }
-
-            return ValidationResult.MAPS_LITE;
-        }
         if (verifyCommentSignedWebApk(packageInfo)) {
             return ValidationResult.COMMENT_SIGNED;
         }
@@ -380,13 +362,39 @@ public class WebApkValidator {
             Log.e(TAG, "no application info, or metaData retrieved.");
             return true;
         }
+        if (hasSplits(packageInfo)) {
+            Log.e(TAG, "WebApk validation failure - WebAPK is not a single APK.");
+            return true;
+        }
         // Having the startURL in AndroidManifest.xml is a strong signal.
         String startUrl = packageInfo.applicationInfo.metaData.getString(START_URL);
         return TextUtils.isEmpty(startUrl);
     }
 
+    private static boolean hasSplits(PackageInfo packageInfo) {
+        if (packageInfo.splitNames != null && packageInfo.splitNames.length > 0) {
+            return true;
+        }
+        if (packageInfo.applicationInfo != null) {
+            if (packageInfo.applicationInfo.splitNames != null
+                    && packageInfo.applicationInfo.splitNames.length > 0) {
+                return true;
+            }
+            if (packageInfo.applicationInfo.splitSourceDirs != null
+                    && packageInfo.applicationInfo.splitSourceDirs.length > 0) {
+                return true;
+            }
+            if (packageInfo.applicationInfo.splitPublicSourceDirs != null
+                    && packageInfo.applicationInfo.splitPublicSourceDirs.length > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static boolean verifyV1WebApk(PackageInfo packageInfo, String webappPackageName) {
-        if (packageInfo.signatures == null
+        if (hasSplits(packageInfo)
+                || packageInfo.signatures == null
                 || packageInfo.signatures.length != 2
                 || !webappPackageName.startsWith(WEBAPK_PACKAGE_PREFIX)) {
             return false;
@@ -402,29 +410,12 @@ public class WebApkValidator {
         return false;
     }
 
-    private static boolean verifyMapsLite(PackageInfo packageInfo, String webappPackageName) {
-        if (!webappPackageName.equals(MAPSLITE_PACKAGE_NAME)) {
-            return false;
-        }
-        String startUrl = packageInfo.applicationInfo.metaData.getString(START_URL);
-        if (startUrl == null || !startUrl.startsWith(MAPSLITE_URL_PREFIX)) {
-            if (DEBUG) {
-                Log.d(TAG, "mapslite invalid startUrl prefix");
-            }
-            return false;
-        }
-        String scope = packageInfo.applicationInfo.metaData.getString(SCOPE);
-        if (scope == null || !scope.equals(MAPSLITE_URL_PREFIX)) {
-            if (DEBUG) {
-                Log.d(TAG, "mapslite invalid scope prefix");
-            }
-            return false;
-        }
-        return true;
-    }
-
     /** Verify that the comment signed webapk matches the public key. */
     private static boolean verifyCommentSignedWebApk(PackageInfo packageInfo) {
+        if (hasSplits(packageInfo)) {
+            Log.e(TAG, "WebApk validation failure - WebAPK is not a single APK.");
+            return false;
+        }
         PublicKey commentSignedPublicKey;
         try {
             commentSignedPublicKey = getCommentSignedPublicKey();

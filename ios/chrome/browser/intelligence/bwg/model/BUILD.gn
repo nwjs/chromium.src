@@ -219,6 +219,7 @@ source_set("gemini_capabilities_manager_factory") {
     "//base",
     "//components/keyed_service/core",
     "//components/signin/public/identity_manager",
+    "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/profile:profile_keyed_service_factory",
     "//ios/chrome/browser/signin/model",
@@ -290,7 +291,6 @@ source_set("gateway_manager") {
     "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/public/commands",
-    "//ios/chrome/browser/url_loading/model",
     "//ios/public/provider/chrome/browser/bwg:gemini_api",
   ]
 }
@@ -400,6 +400,7 @@ source_set("unit_tests") {
     "//components/sync_preferences",
     "//components/sync_preferences:test_support",
     "//components/unified_consent",
+    "//ios/chrome/app/startup:utils",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/favicon/model",
     "//ios/chrome/browser/feature_engagement/model",
@@ -412,6 +413,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/intelligence/bwg/metrics:unit_tests",
     "//ios/chrome/browser/intelligence/bwg/utils:constants",
     "//ios/chrome/browser/intelligence/bwg/utils:prefs",
+    "//ios/chrome/browser/intelligence/bwg/utils:test_support",
     "//ios/chrome/browser/intelligence/bwg/utils:unit_tests",
     "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/intelligence/persist_tab_context/model",

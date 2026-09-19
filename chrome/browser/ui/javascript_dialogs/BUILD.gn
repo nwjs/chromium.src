@@ -27,7 +27,10 @@ source_set("javascript_dialogs") {
 }
 
 source_set("impl") {
-  sources = [ "chrome_app_modal_dialog_manager_delegate.cc" ]
+  sources = [
+    "chrome_app_modal_dialog_manager_delegate.cc",
+    "chrome_javascript_app_modal_dialog_view_factory.cc",
+  ]
 
   deps = [
     ":javascript_dialogs",
@@ -85,6 +88,7 @@ if (!is_android) {
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/tabs:tab_enums",
       "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/views/tabs:tab_strip",
       "//chrome/browser/ui/views/tabs/tab",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",

@@ -29,6 +29,7 @@
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/accessibility/ax_tree_manager.h"
 #include "ui/accessibility/ax_tree_update_forward.h"
+#include "url/gurl.h"
 
 namespace ui {
 class AXNode;
@@ -387,6 +388,14 @@ class ReadAnythingAppModel {
     return false;
   }
 
+  bool readability_distillation_complete_for_current_tree() const {
+    return readability_distillation_complete_for_current_tree_;
+  }
+  void set_readability_distillation_complete_for_current_tree(bool complete) {
+    readability_distillation_complete_for_current_tree_ = complete;
+    last_readability_distilled_url_ = complete ? GetActiveTreeUrl() : GURL();
+  }
+
   read_anything::mojom::LetterSpacing letter_spacing() const {
     return letter_spacing_;
   }
@@ -439,6 +448,13 @@ class ReadAnythingAppModel {
   }
   void set_screen2x_distiller_running(bool screen2x_distiller_running) {
     screen2x_distiller_running_ = screen2x_distiller_running;
+  }
+
+  bool is_screen_ai_service_ready() const {
+    return is_screen_ai_service_ready_;
+  }
+  void set_is_screen_ai_service_ready(bool is_screen_ai_service_ready) {
+    is_screen_ai_service_ready_ = is_screen_ai_service_ready;
   }
 
   bool should_extract_anchors_from_tree_for_readability() const {
@@ -557,6 +573,7 @@ class ReadAnythingAppModel {
   void SetUkmSourceIdForTree(const ui::AXTreeID& tree,
                              ukm::SourceId ukm_source_id);
 
+  GURL GetActiveTreeUrl() const;
   int GetNumSelections() const;
   void SetNumSelections(int num_selections);
   void SetTreeInfoUrlInformation(AXTreeInfo& tree_info);
@@ -657,6 +674,11 @@ class ReadAnythingAppModel {
   void PrepareForAXTreeUpdates(const ui::AXTreeID& tree_id);
 
   void OnAXTreeDestroyed(const ui::AXTreeID& tree_id);
+
+  // Compares the current URL of the active tree against the URL of the last
+  // distilled page. If a same-document navigation is detected, resets the
+  // distillation complete flag to allow the new page to be distilled.
+  void ResetDistillationCompleteIfNeeded();
 
   const PendingUpdates& pending_updates_for_testing() const {
     return pending_updates_;
@@ -960,6 +982,9 @@ class ReadAnythingAppModel {
   // new distillation requests during that time.
   bool screen2x_distiller_running_ = false;
 
+  // Whether the ScreenAI service is ready in the browser.
+  bool is_screen_ai_service_ready_ = false;
+
   // A mapping of a tree ID to a queue of pending updates on the active AXTree,
   // which will be unserialized once distillation completes.
   PendingUpdates pending_updates_;
@@ -1108,6 +1133,13 @@ class ReadAnythingAppModel {
   // The distillation method that produced the content currently visible in the
   // UI.
   DistillationMethod current_content_distillation_method_;
+
+  // Track if a readability distillation has already been completed for the
+  // current active AX tree.
+  bool readability_distillation_complete_for_current_tree_ = false;
+
+  // Track the URL of the last successfully distilled page on the active tree.
+  GURL last_readability_distilled_url_;
 
   // Tracks whether the side panel distillation is derived from the main content
   // article (even for an empty distillation) or from a specific user

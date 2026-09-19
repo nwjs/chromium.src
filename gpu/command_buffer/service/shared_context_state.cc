@@ -4,10 +4,12 @@
 
 #include "gpu/command_buffer/service/shared_context_state.h"
 
+#include "base/atomic_sequence_num.h"
 #include "base/compiler_specific.h"
-#include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/immediate_crash.h"
+#include "base/memory_coordinator/memory_coordinator_features.h"
+#include "base/memory_coordinator/utils.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
@@ -426,6 +428,15 @@ bool SharedContextState::IsGraphiteDawnD3D11() const {
 #endif
 }
 
+bool SharedContextState::IsGraphiteDawnD3D12() const {
+#if BUILDFLAG(SKIA_USE_DAWN)
+  return IsGraphiteDawn() &&
+         dawn_context_provider()->backend_type() == wgpu::BackendType::D3D12;
+#else
+  return false;
+#endif
+}
+
 bool SharedContextState::IsGraphiteDawnVulkan() const {
 #if BUILDFLAG(SKIA_USE_DAWN)
   return IsGraphiteDawn() &&
@@ -574,7 +585,8 @@ bool SharedContextState::InitializeGanesh(
     return false;
   }
 
-  gr_context_->setResourceCacheLimit(max_resource_cache_bytes);
+  max_resource_cache_bytes_ = max_resource_cache_bytes;
+  gr_context_->setResourceCacheLimit(max_resource_cache_bytes_);
   transfer_cache_ = std::make_unique<ServiceTransferCache>(
       gpu_preferences,
       base::BindRepeating(&SharedContextState::ScheduleSkiaCleanup,
@@ -907,8 +919,6 @@ bool SharedContextState::SubmitIfNecessary(
   // AddVulkanCleanupTaskForSkiaFlush() on gpu main thread and do skia flush.
   // This will ensure that vulkan memory allocated on gpu main thread will be
   // cleaned up.
-  SCOPED_CRASH_KEY_BOOL("gpu", "DrDcEnabled", is_drdc_enabled_);
-  SCOPED_CRASH_KEY_NUMBER("gpu", "SignalSemaphores", signal_semaphores.size());
   if (!signal_semaphores.empty() || is_drdc_enabled_) {
     GrFlushInfo flush_info = {
         .fNumSemaphores = signal_semaphores.size(),
@@ -917,13 +927,11 @@ bool SharedContextState::SubmitIfNecessary(
     gpu::AddVulkanCleanupTaskForSkiaFlush(vk_context_provider(), &flush_info);
 
     if (gr_context()->flush(flush_info) != GrSemaphoresSubmitted::kYes) {
-      base::debug::DumpWithoutCrashing();
       return false;
     }
   }
 
   bool sync_cpu = gpu::ShouldVulkanSyncCpuForSkiaSubmit(vk_context_provider());
-  SCOPED_CRASH_KEY_BOOL("gpu", "SubmitSyncCpu", sync_cpu);
 
   // If DrDc is enabled, submit the gr_context() to ensure correct ordering
   // of vulkan commands between raster and display compositor.
@@ -937,7 +945,6 @@ bool SharedContextState::SubmitIfNecessary(
 
   if (need_submit &&
       !gr_context()->submit(sync_cpu ? GrSyncCpu::kYes : GrSyncCpu::kNo)) {
-    base::debug::DumpWithoutCrashing();
     return false;
   }
   return true;
@@ -1059,52 +1066,85 @@ void SharedContextState::RemoveContextLostObserver(ContextLostObserver* obs) {
   context_lost_observers_.RemoveObserver(obs);
 }
 
-void SharedContextState::PurgeMemory(
-    base::MemoryPressureLevel memory_pressure_level) {
-  // Ensure the context is current before doing any GPU cleanup.
-  if (!MakeCurrent(nullptr))
-    return;
+void SharedContextState::PurgeGaneshMemory(int memory_limit) {
+  DCHECK(gr_context_);
 
-  switch (memory_pressure_level) {
-    case base::MEMORY_PRESSURE_LEVEL_NONE:
-      return;
-    case base::MEMORY_PRESSURE_LEVEL_MODERATE:
-      // With moderate pressure, clear any unlocked resources.
-      sk_surface_cache_.Clear();
-      if (gr_context_) {
-        gr_context_->purgeUnlockedResources(
-            GrPurgeResourceOptions::kScratchResourcesOnly);
-      } else if (gpu_main_graphite_cache_controller_) {
-        gpu_main_graphite_cache_controller_->CleanUpScratchResources();
-      }
-      UpdateSkiaOwnedMemorySize();
-      scratch_deserialization_buffer_.resize(
-          kInitialScratchDeserializationBufferSize);
-      scratch_deserialization_buffer_.shrink_to_fit();
-      break;
-    case base::MEMORY_PRESSURE_LEVEL_CRITICAL:
-      // With critical pressure, purge as much as possible.
-      sk_surface_cache_.Clear();
-      {
-        std::optional<raster::GrShaderCache::ScopedCacheUse> cache_use;
-        // ScopedCacheUse is to avoid the empty/invalid client id DCHECKS caused
-        // while accessing GrShaderCache. Note that since the actual client_id
-        // here does not matter, we are using gpu::kDisplayCompositorClientId.
-        UseShaderCache(cache_use, kDisplayCompositorClientId);
-        if (gr_context_) {
-          gr_context_->freeGpuResources();
-        } else if (gpu_main_graphite_cache_controller_) {
-          gpu_main_graphite_cache_controller_->CleanUpAllResources();
-        }
-      }
-      UpdateSkiaOwnedMemorySize();
-      scratch_deserialization_buffer_.resize(0u);
-      scratch_deserialization_buffer_.shrink_to_fit();
-      break;
+  if (memory_limit <= base::kCriticalMemoryPressureThreshold) {
+    sk_surface_cache_.Clear();
+    std::optional<raster::GrShaderCache::ScopedCacheUse> cache_use;
+    // ScopedCacheUse is to avoid the empty/invalid client id DCHECKS caused
+    // while accessing GrShaderCache. Note that since the actual client_id
+    // here does not matter, we are using gpu::kDisplayCompositorClientId.
+    UseShaderCache(cache_use, kDisplayCompositorClientId);
+    gr_context_->freeGpuResources();
+    return;
   }
 
-  if (transfer_cache_)
-    transfer_cache_->PurgeMemory(memory_pressure_level);
+  if (base::FeatureList::IsEnabled(base::kStatefulMemoryPressure)) {
+    size_t target_resource_cache_bytes =
+        gpu::UpdateShaderCacheSizeOnMemoryLimit(max_resource_cache_bytes_,
+                                                memory_limit);
+    size_t current_skia_usage = 0;
+    gr_context_->getResourceCacheUsage(nullptr, &current_skia_usage);
+    if (current_skia_usage > target_resource_cache_bytes) {
+      size_t bytes_to_purge = current_skia_usage - target_resource_cache_bytes;
+      gr_context_->purgeUnlockedResources(bytes_to_purge,
+                                          /*preferScratchResources=*/true);
+    }
+  } else if (memory_limit <= base::kModerateMemoryPressureThreshold) {
+    sk_surface_cache_.Clear();
+    gr_context_->purgeUnlockedResources(
+        GrPurgeResourceOptions::kScratchResourcesOnly);
+  }
+}
+
+void SharedContextState::PurgeGraphiteMemory(int memory_limit) {
+  DCHECK(gpu_main_graphite_cache_controller_);
+
+  if (memory_limit <= base::kCriticalMemoryPressureThreshold) {
+    gpu_main_graphite_cache_controller_->CleanUpAllResources();
+  } else if (memory_limit <= base::kModerateMemoryPressureThreshold) {
+    gpu_main_graphite_cache_controller_->CleanUpScratchResources();
+  }
+}
+
+void SharedContextState::PurgeMemory(int memory_limit) {
+  // Ensure the context is current before doing any GPU cleanup.
+  if (!MakeCurrent(nullptr)) {
+    return;
+  }
+
+  if (memory_limit <= base::kCriticalMemoryPressureThreshold) {
+    scratch_deserialization_buffer_.clear();
+    scratch_deserialization_buffer_.shrink_to_fit();
+  } else if (memory_limit <= base::kModerateMemoryPressureThreshold) {
+    scratch_deserialization_buffer_.resize(
+        kInitialScratchDeserializationBufferSize);
+    scratch_deserialization_buffer_.shrink_to_fit();
+  }
+
+  if (gr_context_) {
+    PurgeGaneshMemory(memory_limit);
+  } else if (gpu_main_graphite_cache_controller_) {
+    PurgeGraphiteMemory(memory_limit);
+  }
+
+  if (memory_limit <= base::kModerateMemoryPressureThreshold ||
+      base::FeatureList::IsEnabled(base::kStatefulMemoryPressure)) {
+    UpdateSkiaOwnedMemorySize();
+  }
+
+  if (transfer_cache_) {
+    transfer_cache_->OnReleaseMemory(memory_limit);
+  }
+}
+
+void SharedContextState::OnUpdateMemoryLimit(int memory_limit) {
+  if (base::FeatureList::IsEnabled(base::kStatefulMemoryPressure)) {
+    if (transfer_cache_) {
+      transfer_cache_->OnUpdateMemoryLimit(memory_limit);
+    }
+  }
 }
 
 // Reports to GpuServiceImpl::GetVideoMemoryUsageStats()
@@ -1421,6 +1461,16 @@ Microsoft::WRL::ComPtr<ID3D11Device> SharedContextState::GetD3D11Device()
     default:
       NOTREACHED();
   }
+}
+
+Microsoft::WRL::ComPtr<ID3D12CommandQueue>
+SharedContextState::GetD3D12CommandQueue() const {
+#if BUILDFLAG(SKIA_USE_DAWN)
+  if (IsGraphiteDawnD3D12()) {
+    return dawn_context_provider_->GetD3D12CommandQueue();
+  }
+#endif
+  return nullptr;
 }
 #endif
 

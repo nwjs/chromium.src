@@ -210,7 +210,7 @@ source_set("unit_tests") {
     ]
 
     deps += [
-      "//chrome/browser/ui",
+      "//chrome/browser/ui:tab_ui_helper",
       "//chrome/browser/ui/tabs:test_support",
       "//components/performance_manager",
       "//components/performance_manager/test_support:test_support_common",
@@ -240,6 +240,7 @@ if (!is_android) {
       "//base/test:test_support",
       "//chrome/browser/devtools:test_support",
       "//chrome/browser/ui",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/find_bar",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/test:test_support",

@@ -5,12 +5,12 @@
 import type {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 
 import {LineFocusType} from '../content/read_anything_types.js';
+import type {AudioBrowserProxy} from '../read_aloud/audio_browser_proxy.js';
+import {AudioBrowserProxyImpl} from '../read_aloud/audio_browser_proxy.js';
 
-// Constants for styling the app when page zoom changes.
-const OVERFLOW_X_TYPICAL = 'hidden';
-const OVERFLOW_X_SCROLL = 'scroll';
-const MIN_WIDTH_TYPICAL = 'auto';
-const MIN_WIDTH_OVERFLOW = 'fit-content';
+import type {VisualBrowserProxy} from './visual_browser_proxy.js';
+import {VisualBrowserProxyImpl} from './visual_browser_proxy.js';
+
 // Empty state colors.
 const EMPTY_STATE_HEADING = 'var(--color-read-anything-foreground';
 const EMPTY_STATE_BODY_DEFAULT =
@@ -49,9 +49,6 @@ const ON_AUDIO_PLAYER_FOCUS_OUTLINE =
     'var(--color-read-anything-on-audio-player-focus-outline';
 const AUDIO_CONTROLS_ICON = 'var(--color-read-anything-audio-controls-icon';
 const FULL_PAGE_SCROLLBAR = 'var(--color-read-anything-full-page-scrollbar';
-// Toolbar icon colors for when the immersive flag is disabled.
-const LEGACY_TOOLBAR_ICON = 'var(--color-sys-on-surface-subtle)';
-const LEGACY_PLAYPAUSE_ICON = 'var(--color-sys-primary)';
 // Line focus styles.
 // Determined by experimentation to balance visibility without risking
 // obstructing any text.
@@ -79,17 +76,22 @@ enum ColorSuffix {
 // Handles updating the visual styles for the Reading mode content panel.
 export class AppStyleUpdater {
   private app_: CrLitElement;
+  private visualBrowserProxy_: VisualBrowserProxy =
+      VisualBrowserProxyImpl.getInstance();
+  private audioBrowserProxy_: AudioBrowserProxy =
+      AudioBrowserProxyImpl.getInstance();
 
   constructor(app: CrLitElement) {
     this.app_ = app;
   }
 
   setMaxLineWidth() {
-    this.setStyle_('--max-width', `${chrome.readingMode.maxLineWidth}ch`);
+    this.setStyle_(
+        '--max-width', `${this.visualBrowserProxy_.getMaxLineWidth()}ch`);
   }
 
   setPaddingForLineFocus(padding: number) {
-    if (!chrome.readingMode.isLineFocusEnabled) {
+    if (!this.visualBrowserProxy_.isLineFocusEnabled()) {
       return;
     }
 
@@ -97,7 +99,7 @@ export class AppStyleUpdater {
   }
 
   getPaddingForLineFocus(): number {
-    if (!chrome.readingMode.isLineFocusEnabled) {
+    if (!this.visualBrowserProxy_.isLineFocusEnabled()) {
       return 0;
     }
     const padding = this.app_.style.getPropertyValue('--line-focus-padding');
@@ -113,7 +115,8 @@ export class AppStyleUpdater {
 
   setLineFocusStyle(type: LineFocusType) {
     this.setToolbarIconColorForLineFocus_(type);
-    if (!chrome.readingMode.isLineFocusEnabled || type === LineFocusType.NONE) {
+    if (!this.visualBrowserProxy_.isLineFocusEnabled() ||
+        type === LineFocusType.NONE) {
       this.setStyle_('--line-focus-display', 'none');
       return;
     }
@@ -133,27 +136,17 @@ export class AppStyleUpdater {
   }
 
   private setToolbarIconColorForLineFocus_(type: LineFocusType) {
-    if (!chrome.readingMode.isLineFocusEnabled) {
+    if (!this.visualBrowserProxy_.isLineFocusEnabled()) {
       return;
     }
 
     // Since the window line focus scrim goes into the toolbar area, update the
     // toolbar icons as needed to maintain visibility on top of the dark scrim.
     const isWindow = type === LineFocusType.WINDOW;
-    if (chrome.readingMode.isImmersiveEnabled) {
-      const colorSuffix =
-          isWindow ? ColorSuffix.DARK : this.getCurrentColorSuffix_();
-      this.setStyle_(
-          '--toolbar-icon-color', this.getToolbarIconColor_(colorSuffix));
-    } else {
-      const iconColor = isWindow ? this.getToolbarIconColor_(ColorSuffix.DARK) :
-                                   LEGACY_TOOLBAR_ICON;
-      this.setStyle_('--legacy-toolbar-icon-color', iconColor);
-      const playPauseColor = isWindow ?
-          this.getLineFocusColor_(ColorSuffix.DARK) :
-          LEGACY_PLAYPAUSE_ICON;
-      this.setStyle_('--legacy-audio-player-icon-color', playPauseColor);
-    }
+    const colorSuffix =
+        isWindow ? ColorSuffix.DARK : this.getCurrentColorSuffix_();
+    this.setStyle_(
+        '--toolbar-icon-color', this.getToolbarIconColor_(colorSuffix));
   }
 
   setLineFocusHeight() {
@@ -162,7 +155,9 @@ export class AppStyleUpdater {
     // window.
     this.setStyle_(
         '--line-focus-height',
-        `${chrome.readingMode.fontSize * LINE_FOCUS_LINE_HEIGHT_SCALE}px`);
+        `${
+            this.visualBrowserProxy_.getFontSize() *
+            LINE_FOCUS_LINE_HEIGHT_SCALE}px`);
   }
 
   setAllTextStyles() {
@@ -174,52 +169,38 @@ export class AppStyleUpdater {
   }
 
   setLineSpacing() {
-    const lineHeight =
-        chrome.readingMode.getLineSpacingValue(chrome.readingMode.lineSpacing);
+    const lineHeight = this.visualBrowserProxy_.getLineSpacingValue(
+        this.visualBrowserProxy_.getLineSpacing());
     this.setStyle_('--line-height', `${lineHeight}`);
 
-    const minLineHeight = chrome.readingMode.getLineSpacingValue(
-        chrome.readingMode.standardLineSpacing);
+    const minLineHeight = this.visualBrowserProxy_.getLineSpacingValue(
+        this.visualBrowserProxy_.getStandardLineSpacing());
     const pSpacing = minLineHeight ? (lineHeight / minLineHeight) : lineHeight;
     this.setStyle_('--paragraph-spacing', `${pSpacing}em`);
   }
 
   setLetterSpacing() {
-    const letterSpacing = chrome.readingMode.getLetterSpacingValue(
-        chrome.readingMode.letterSpacing);
+    const letterSpacing = this.visualBrowserProxy_.getLetterSpacingValue(
+        this.visualBrowserProxy_.getLetterSpacing());
     this.setStyle_('--letter-spacing', `${letterSpacing}em`);
   }
 
   setFontSize() {
-    this.setStyle_('--font-size', `${chrome.readingMode.fontSize}em`);
+    this.setStyle_(
+        '--font-size', `${this.visualBrowserProxy_.getFontSize()}em`);
   }
 
   setFont() {
     this.setStyle_(
         '--font-family',
-        chrome.readingMode.getValidatedFontName(chrome.readingMode.fontName));
+        this.visualBrowserProxy_.getValidatedFontName(
+            this.visualBrowserProxy_.getFontName()));
   }
 
   setHighlight() {
     this.setStyle_(
         '--current-highlight-bg-color',
         this.getCurrentHighlightColor_(this.getCurrentColorSuffix_()));
-  }
-
-  resetToolbar() {
-    this.setStyle_('--app-overflow-x', OVERFLOW_X_TYPICAL);
-    this.setStyle_('--container-min-width', MIN_WIDTH_TYPICAL);
-  }
-
-  overflowToolbar(shouldScroll: boolean) {
-    this.setStyle_(
-        '--app-overflow-x',
-        shouldScroll ? OVERFLOW_X_SCROLL : OVERFLOW_X_TYPICAL);
-    this.setStyle_(
-        // When we scroll, we should allow the container to expand and scroll
-        // horizontally.
-        '--container-min-width',
-        shouldScroll ? MIN_WIDTH_OVERFLOW : MIN_WIDTH_TYPICAL);
   }
 
   setTheme() {
@@ -259,8 +240,8 @@ export class AppStyleUpdater {
     // disabled (via flag), off, or in line mode.
     const lineFocusDisplay =
         this.app_.style.getPropertyValue('--line-focus-display');
-    if (!chrome.readingMode.isLineFocusEnabled || lineFocusDisplay === 'none' ||
-        !isLineFocusWindow) {
+    if (!this.visualBrowserProxy_.isLineFocusEnabled() ||
+        lineFocusDisplay === 'none' || !isLineFocusWindow) {
       this.setStyle_(
           '--toolbar-icon-color', this.getToolbarIconColor_(colorSuffix));
     }
@@ -277,6 +258,12 @@ export class AppStyleUpdater {
         '--audio-controls-icon-color',
         this.getAudioControlsIconColor_(colorSuffix));
     this.setStyle_(
+        '--toggle-inactive-background-color',
+        this.getToggleInactiveBackgroundColor_(colorSuffix));
+    this.setStyle_(
+        '--toggle-active-background-color',
+        this.getToggleActiveBackgroundColor_(colorSuffix));
+    this.setStyle_(
         '--color-read-anything-full-page-scrollbar',
         this.getFullPageScrollbarColor_(colorSuffix));
 
@@ -291,20 +278,20 @@ export class AppStyleUpdater {
   }
 
   private getCurrentColorSuffix_(): ColorSuffix {
-    switch (chrome.readingMode.colorTheme) {
-      case chrome.readingMode.lightTheme:
+    switch (this.visualBrowserProxy_.getColorTheme()) {
+      case this.visualBrowserProxy_.getLightTheme():
         return ColorSuffix.LIGHT;
-      case chrome.readingMode.darkTheme:
+      case this.visualBrowserProxy_.getDarkTheme():
         return ColorSuffix.DARK;
-      case chrome.readingMode.yellowTheme:
+      case this.visualBrowserProxy_.getYellowTheme():
         return ColorSuffix.YELLOW;
-      case chrome.readingMode.blueTheme:
+      case this.visualBrowserProxy_.getBlueTheme():
         return ColorSuffix.BLUE;
-      case chrome.readingMode.highContrastTheme:
+      case this.visualBrowserProxy_.getHighContrastTheme():
         return ColorSuffix.HIGH_CONTRAST;
-      case chrome.readingMode.lowContrastLightTheme:
+      case this.visualBrowserProxy_.getLowContrastLightTheme():
         return ColorSuffix.LOW_CONTRAST_LIGHT;
-      case chrome.readingMode.lowContrastDarkTheme:
+      case this.visualBrowserProxy_.getLowContrastDarkTheme():
         return ColorSuffix.LOW_CONTRAST_DARK;
       default:
         return ColorSuffix.DEFAULT;
@@ -321,7 +308,7 @@ export class AppStyleUpdater {
   }
 
   private getCurrentHighlightColor_(colorSuffix: ColorSuffix): string {
-    if (!chrome.readingMode.isHighlightOn()) {
+    if (!this.audioBrowserProxy_.isHighlightOn()) {
       return TRANSPARENT;
     }
     if (colorSuffix === ColorSuffix.DEFAULT) {
@@ -417,5 +404,23 @@ export class AppStyleUpdater {
     return (colorSuffix === ColorSuffix.DEFAULT) ?
         `${FULL_PAGE_SCROLLBAR})` :
         `${FULL_PAGE_SCROLLBAR}${colorSuffix})`;
+  }
+
+  private getToggleInactiveBackgroundColor_(colorSuffix: ColorSuffix): string {
+    if (colorSuffix === ColorSuffix.BLUE) {
+      return `${AUDIO_PLAYER_ICON}${colorSuffix})`;
+    }
+    return (colorSuffix === ColorSuffix.DEFAULT) ?
+        `${AUDIO_PLAYER_BACKGROUND})` :
+        `${AUDIO_PLAYER_BACKGROUND}${colorSuffix})`;
+  }
+
+  private getToggleActiveBackgroundColor_(colorSuffix: ColorSuffix): string {
+    if (colorSuffix === ColorSuffix.BLUE) {
+      return `${AUDIO_PLAYER_BACKGROUND}${colorSuffix})`;
+    }
+    return (colorSuffix === ColorSuffix.DEFAULT) ?
+        `${AUDIO_PLAYER_ICON})` :
+        `${AUDIO_PLAYER_ICON}${colorSuffix})`;
   }
 }

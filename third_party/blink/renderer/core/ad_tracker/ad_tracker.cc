@@ -7,7 +7,6 @@
 #include <optional>
 #include <utility>
 
-#include "base/metrics/histogram_functions.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "third_party/blink/renderer/core/ad_tracker/lazy_stack_trace.h"
 #include "third_party/blink/renderer/core/ad_tracker/script_ancestry_tracker.h"
@@ -15,6 +14,7 @@
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/platform/bindings/v8_binding.h"
+#include "third_party/blink/renderer/platform/instrumentation/instance_counters.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_initiator_type_names.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
@@ -23,21 +23,6 @@
 #include "v8/include/v8.h"
 
 namespace blink {
-
-namespace {
-
-bool IsKnownAdExecutionContext(ExecutionContext* execution_context) {
-  // TODO(jkarlin): Do the same check for worker contexts.
-  if (auto* window = DynamicTo<LocalDOMWindow>(execution_context)) {
-    LocalFrame* frame = window->GetFrame();
-    if (frame && frame->IsAdFrame()) {
-      return true;
-    }
-  }
-  return false;
-}
-
-}  // namespace
 
 String AdTracker::AdScriptAncestry::ToString() const {
   if (ancestry_chain.empty() || !root_script_filterlist_rule.IsValid()) {
@@ -98,7 +83,7 @@ std::optional<AdProvenance> AdTracker::CalculateIfAdSubresource(
     std::optional<AdProvenance> known_ad_provenance,
     bool scan_javascript_stack) {
   const bool is_ad_execution_context =
-      IsKnownAdExecutionContext(execution_context);
+      IsMarkedExecutionContext(execution_context);
 
   if (!known_ad_provenance && is_ad_execution_context) {
     known_ad_provenance = NoProvenance{};
@@ -120,12 +105,9 @@ std::optional<AdProvenance> AdTracker::CalculateIfAdSubresource(
     if (isolate) {
       v8::HandleScope handle_scope(isolate);
       LazyStackTrace stack_trace(isolate);
-      std::optional<V8ScriptId> ancestor_ad_script;
-
-      if (IsMarkedScriptInStack(
-              StackType::kTopOnly, stack_trace, &ancestor_ad_script,
-              /*ignore_monkey_patch=*/MonkeyPatchableApi::kNodeAppendChild) &&
-          ancestor_ad_script.has_value()) {
+      if (std::optional<V8ScriptId> ancestor_ad_script = GetMarkedScriptInStack(
+              StackType::kTopOnly, stack_trace,
+              /*ignore_monkey_patch=*/MonkeyPatchableApi::kNodeAppendChild)) {
         known_ad_provenance = AdProvenance(*ancestor_ad_script);
       }
     }
@@ -155,7 +137,7 @@ bool AdTracker::IsKnownAdScript(ExecutionContext* execution_context,
     return false;
   }
 
-  if (IsKnownAdExecutionContext(execution_context)) {
+  if (IsMarkedExecutionContext(execution_context)) {
     return true;
   }
 
@@ -184,12 +166,8 @@ AdTracker::AdScriptAncestry AdTracker::GetAncestry(V8ScriptId script_id) {
     return ancestry;
   }
 
-  HashSet<V8ScriptId> seen_script_ids;
-  bool duplicate = false;
-
   ancestry.ancestry_chain.emplace_back(metadata->context_id, script_id,
                                        metadata->url);
-  seen_script_ids.insert(script_id);
 
   AdProvenance ad_provenance = it->value;
   while (true) {
@@ -197,11 +175,6 @@ AdTracker::AdScriptAncestry AdTracker::GetAncestry(V8ScriptId script_id) {
         absl::Overload{
             [&](NoProvenance) { return true; },
             [&](V8ScriptId marked_script_id) {
-              // Prevent an infinite loop due to cycles.
-              if (!seen_script_ids.insert(marked_script_id).is_new_entry) {
-                duplicate = true;
-                return true;
-              }
               const ScriptAncestryTracker::ScriptMetadata* parent_metadata =
                   GetScriptMetadata(marked_script_id);
               if (!parent_metadata) {
@@ -234,56 +207,42 @@ AdTracker::AdScriptAncestry AdTracker::GetAncestry(V8ScriptId script_id) {
     }
   }
 
-  base::UmaHistogramBoolean(
-      "Navigation.IframeCreated.AdTracker.DuplicateAncestryScriptId",
-      duplicate);
-
   return ancestry;
 }
 
 bool AdTracker::IsAdScriptInStack(StackType stack_type,
                                   MonkeyPatchableApi ignore_monkey_patch,
                                   AdScriptAncestry* out_ad_script_ancestry) {
-  v8::Isolate* isolate = v8::Isolate::TryGetCurrent();
-  if (isolate) {
-    v8::Local<v8::Context> context = isolate->GetCurrentContext();
-    ExecutionContext* execution_context =
-        context.IsEmpty() ? nullptr : ToExecutionContext(context);
-    if (execution_context && IsKnownAdExecutionContext(execution_context)) {
-      if (out_ad_script_ancestry) {
-        *out_ad_script_ancestry = AdScriptAncestry();
-        if (auto* window = DynamicTo<LocalDOMWindow>(execution_context)) {
-          if (LocalFrame* frame = window->GetFrame()) {
-            std::optional<AdScriptIdentifier> creation_script =
-                frame->CreationAdScript();
-            if (creation_script.has_value() &&
-                creation_script->id != AdScriptIdentifier::kEmptyId) {
-              *out_ad_script_ancestry = GetAncestry(creation_script->id);
-            }
-          }
-        }
-      }
-      return true;
-    }
-  }
-
-  std::optional<V8ScriptId> out_ad_script;
+  v8::Isolate* isolate = GetIsolate();
   std::optional<v8::HandleScope> handle_scope;
   if (isolate) {
     handle_scope.emplace(isolate);
   }
   LazyStackTrace stack_trace(isolate);
-  bool is_ad_script_in_stack = IsMarkedScriptInStack(
-      stack_type, stack_trace, &out_ad_script, ignore_monkey_patch);
+  std::optional<V8ScriptId> out_ad_script =
+      GetMarkedScriptInStack(stack_type, stack_trace, ignore_monkey_patch);
 
   if (out_ad_script_ancestry) {
     *out_ad_script_ancestry = AdScriptAncestry();
-    if (out_ad_script.has_value()) {
+    if (out_ad_script.has_value() &&
+        *out_ad_script != AdScriptIdentifier::kEmptyId) {
       *out_ad_script_ancestry = GetAncestry(*out_ad_script);
     }
   }
 
-  return is_ad_script_in_stack;
+  return out_ad_script.has_value();
+}
+
+std::optional<AdScriptIdentifier> AdTracker::GetCreationAdScript(
+    const LocalFrame* frame) const {
+  V8ScriptId initiating_script_id = GetInitiatingScriptId(frame);
+  if (initiating_script_id.value() > 0) {
+    if (const auto* metadata = GetScriptMetadata(initiating_script_id)) {
+      return AdScriptIdentifier(metadata->context_id, initiating_script_id,
+                                metadata->url);
+    }
+  }
+  return std::nullopt;
 }
 
 void AdTracker::Shutdown() {
@@ -294,13 +253,24 @@ bool AdTracker::IsMarkedScript(V8ScriptId script_id) const {
   return ad_scripts_.Contains(script_id);
 }
 
+bool AdTracker::IsMarkedFrame(const LocalFrame* frame) const {
+  return (frame && frame->IsAdFrame()) ||
+         ScriptAncestryTracker::IsMarkedFrame(frame);
+}
+
+bool AdTracker::HasMarkedFrames() const {
+  return InstanceCounters::CounterValue(InstanceCounters::kAdSubframeCounter) >
+             0 ||
+         ScriptAncestryTracker::HasMarkedFrames();
+}
+
 void AdTracker::OnScriptRegistered(ExecutionContext& execution_context,
                                    V8ScriptId script_id,
                                    const String& url,
                                    std::optional<V8ScriptId> marked_script_id) {
   std::optional<AdProvenance> ad_provenance;
 
-  if (IsKnownAdExecutionContext(&execution_context)) {
+  if (IsMarkedExecutionContext(&execution_context)) {
     // It's an ad script because it's in an ad frame, but we don't (yet) specify
     // provenance for ad frames.
     ad_provenance = NoProvenance{};

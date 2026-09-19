@@ -59,24 +59,20 @@ TEST_F(TabDragSessionTest, StartAndReleaseCapture) {
 
   EXPECT_FALSE(toy_adapter.capture_started());
   EXPECT_FALSE(toy_adapter.capture_released());
-  EXPECT_FALSE(toy_window.HasCapture());
 
   {
     TabDragSessionParams params{
         .source_window_id = toy_window.GetWindowId(),
         .source_tab_ids = {NodeId(NodeId::Type::kContent, "tab1")},
-        .start_point = gfx::Point(),
-        .end_callback = end_callback.Get()};
-    TabDragSession session(std::move(params), &injector);
+        .start_point = gfx::Point()};
+    TabDragSession session(std::move(params), end_callback.Get(), &injector);
     EXPECT_FALSE(toy_adapter.capture_started());
     EXPECT_TRUE(session.Start().has_value());
     EXPECT_TRUE(toy_adapter.capture_started());
     EXPECT_FALSE(toy_adapter.capture_released());
-    EXPECT_TRUE(toy_window.HasCapture());
   }
 
   EXPECT_TRUE(toy_adapter.capture_released());
-  EXPECT_FALSE(toy_window.HasCapture());
 }
 
 TEST_F(TabDragSessionTest, InputEventCancelled) {
@@ -90,9 +86,8 @@ TEST_F(TabDragSessionTest, InputEventCancelled) {
   TabDragSessionParams params{
       .source_window_id = dummy_window_.GetWindowId(),
       .source_tab_ids = {NodeId(NodeId::Type::kContent, "tab1")},
-      .start_point = gfx::Point(),
-      .end_callback = end_callback.Get()};
-  TabDragSession session(std::move(params), &injector);
+      .start_point = gfx::Point()};
+  TabDragSession session(std::move(params), end_callback.Get(), &injector);
   EXPECT_TRUE(session.Start().has_value());
 
   EXPECT_CALL(end_callback, Run()).Times(1);
@@ -110,9 +105,8 @@ TEST_F(TabDragSessionTest, InputEventDropped) {
   TabDragSessionParams params{
       .source_window_id = dummy_window_.GetWindowId(),
       .source_tab_ids = {NodeId(NodeId::Type::kContent, "tab1")},
-      .start_point = gfx::Point(),
-      .end_callback = end_callback.Get()};
-  TabDragSession session(std::move(params), &injector);
+      .start_point = gfx::Point()};
+  TabDragSession session(std::move(params), end_callback.Get(), &injector);
   EXPECT_TRUE(session.Start().has_value());
 
   EXPECT_CALL(end_callback, Run()).Times(1);
@@ -132,12 +126,10 @@ TEST_F(TabDragSessionTest, CoordinateTracking) {
   TabDragSessionParams params{
       .source_window_id = dummy_window_.GetWindowId(),
       .source_tab_ids = {NodeId(NodeId::Type::kContent, "tab1")},
-      .start_point = start_point,
-      .end_callback = end_callback.Get()};
-  TabDragSession session(std::move(params), &injector);
+      .start_point = start_point};
+  TabDragSession session(std::move(params), end_callback.Get(), &injector);
   EXPECT_TRUE(session.Start().has_value());
 
-  EXPECT_EQ(session.start_point_in_screen(), start_point);
   EXPECT_EQ(session.last_mouse_screen_point(), start_point);
 
   // Move mouse
@@ -168,9 +160,8 @@ TEST_F(TabDragSessionTest, ListenerNotification) {
       NodeId(NodeId::Type::kContent, "tab1")};
   TabDragSessionParams params{.source_window_id = dummy_window_.GetWindowId(),
                               .source_tab_ids = tab_ids,
-                              .start_point = gfx::Point(),
-                              .end_callback = end_callback.Get()};
-  TabDragSession session(std::move(params), &injector);
+                              .start_point = gfx::Point()};
+  TabDragSession session(std::move(params), end_callback.Get(), &injector);
 
   ASSERT_EQ(listener.events().size(), 0u);
   EXPECT_TRUE(session.Start().has_value());
@@ -204,7 +195,6 @@ TEST_F(TabDragSessionTest, ListenerNotification) {
   EXPECT_EQ(dummy_window_.last_detach_tab_ids(), tab_ids);
   EXPECT_EQ(dummy_window_.last_detach_drag_offset(), gfx::Vector2d(120, 0));
   EXPECT_TRUE(dummy_detached_window_.run_window_move_loop_called());
-  EXPECT_FALSE(dummy_detached_window_.had_capture_on_move_loop());
   EXPECT_EQ(dummy_detached_window_.last_move_loop_point(), tear_point);
   EXPECT_EQ(dummy_detached_window_.last_move_loop_offset(),
             gfx::Vector2d(120, 120));
@@ -224,14 +214,11 @@ TEST_F(TabDragSessionTest, CaptureLostExternally) {
   TabDragSessionParams params{
       .source_window_id = toy_window.GetWindowId(),
       .source_tab_ids = {NodeId(NodeId::Type::kContent, "tab1")},
-      .start_point = gfx::Point(),
-      .end_callback = end_callback.Get()};
-  TabDragSession session(std::move(params), &injector);
+      .start_point = gfx::Point()};
+  TabDragSession session(std::move(params), end_callback.Get(), &injector);
   EXPECT_TRUE(session.Start().has_value());
-  EXPECT_TRUE(toy_window.HasCapture());
 
   // Simulate external capture loss.
-  toy_window.ReleaseCapture();
   EXPECT_CALL(end_callback, Run()).Times(1);
   toy_adapter.SendToyEvent(TabDragInputEvent::Type::kCaptureChanged);
 }
@@ -255,9 +242,8 @@ TEST_F(TabDragSessionTest, DropTargetBoundsTearOff) {
       NodeId(NodeId::Type::kContent, "tab1")};
   TabDragSessionParams params{.source_window_id = dummy_window_.GetWindowId(),
                               .source_tab_ids = tab_ids,
-                              .start_point = gfx::Point(),
-                              .end_callback = end_callback.Get()};
-  TabDragSession session(std::move(params), &injector);
+                              .start_point = gfx::Point()};
+  TabDragSession session(std::move(params), end_callback.Get(), &injector);
 
   EXPECT_TRUE(session.Start().has_value());
 
@@ -299,9 +285,8 @@ TEST_F(TabDragSessionTest, DropTargetBoundsTearOffCancel) {
       NodeId(NodeId::Type::kContent, "tab1")};
   TabDragSessionParams params{.source_window_id = dummy_window_.GetWindowId(),
                               .source_tab_ids = tab_ids,
-                              .start_point = gfx::Point(),
-                              .end_callback = end_callback.Get()};
-  TabDragSession session(std::move(params), &injector);
+                              .start_point = gfx::Point()};
+  TabDragSession session(std::move(params), end_callback.Get(), &injector);
 
   EXPECT_TRUE(session.Start().has_value());
 
@@ -338,11 +323,9 @@ TEST_F(TabDragSessionTest, CaptureLostDuringDetachIgnored) {
   TabDragSessionParams params{
       .source_window_id = toy_window.GetWindowId(),
       .source_tab_ids = {NodeId(NodeId::Type::kContent, "tab1")},
-      .start_point = gfx::Point(),
-      .end_callback = end_callback.Get()};
-  TabDragSession session(std::move(params), &injector);
+      .start_point = gfx::Point()};
+  TabDragSession session(std::move(params), end_callback.Get(), &injector);
   EXPECT_TRUE(session.Start().has_value());
-  EXPECT_TRUE(toy_window.HasCapture());
 
   // Force the session into the kDetaching state.
   session.set_drag_mode_for_testing(TabDragSession::DragMode::kDetaching);
@@ -375,9 +358,8 @@ TEST_F(TabDragSessionTest, SingleTabDragImmediateWindowDrag) {
       NodeId(NodeId::Type::kContent, "tab1")};
   TabDragSessionParams params{.source_window_id = dummy_window_.GetWindowId(),
                               .source_tab_ids = tab_ids,
-                              .start_point = start_point,
-                              .end_callback = end_callback.Get()};
-  TabDragSession session(std::move(params), &injector);
+                              .start_point = start_point};
+  TabDragSession session(std::move(params), end_callback.Get(), &injector);
 
   // Single tab in window -> Start() should immediately trigger window drag
   // on the source window, call RunWindowMoveLoop (returns kSuccess), and
@@ -397,9 +379,8 @@ TEST_F(TabDragSessionTest, SingleTabDragImmediateWindowDrag) {
   EXPECT_FALSE(dummy_window_.detach_to_new_window_called());
 
   // Verify that RunWindowMoveLoop was called on the SOURCE window
-  // (dummy_window_) and that capture was released before entering the loop.
+  // (dummy_window_).
   EXPECT_TRUE(dummy_window_.run_window_move_loop_called());
-  EXPECT_FALSE(dummy_window_.had_capture_on_move_loop());
   EXPECT_EQ(dummy_window_.last_move_loop_point(), start_point);
   EXPECT_FALSE(dummy_detached_window_.run_window_move_loop_called());
 }
@@ -430,9 +411,8 @@ TEST_F(TabDragSessionTest, SingleTabDragReattachesToTargetWindow) {
       NodeId(NodeId::Type::kContent, "tab1")};
   TabDragSessionParams params{.source_window_id = source_window.GetWindowId(),
                               .source_tab_ids = tab_ids,
-                              .start_point = gfx::Point(),
-                              .end_callback = end_callback.Get()};
-  TabDragSession session(std::move(params), &injector);
+                              .start_point = gfx::Point()};
+  TabDragSession session(std::move(params), end_callback.Get(), &injector);
 
   // Single tab in window -> Start() immediately runs the move loop on
   // source_window, which triggers simulated move to (250, 50) and reattachment.
@@ -451,7 +431,6 @@ TEST_F(TabDragSessionTest, SingleTabDragReattachesToTargetWindow) {
   // Verify that the session's dragged window transitioned to the target window
   // and was activated.
   EXPECT_EQ(session.dragged_window(), target_window.GetWindowId());
-  EXPECT_TRUE(target_window.HasCapture());
   EXPECT_TRUE(target_window.activated());
 
   // Drop in the target window.
@@ -477,7 +456,8 @@ TEST_F(TabDragSessionTest, DetachWindowOffset) {
   constexpr int kDropTargetY = 5;
   constexpr int kDropTargetWidth = 300;
   constexpr int kDropTargetHeight = 30;
-  constexpr int kTabOriginalOffsetX = 25;
+  constexpr int kTabOriginalOffsetX = 40;
+  constexpr float kMouseToTabXRatio = 0.5f;
 
   dummy_window_.set_tab_count(3);
   registry.UpdateTargetBounds(registry.source_id(),
@@ -492,8 +472,8 @@ TEST_F(TabDragSessionTest, DetachWindowOffset) {
                               .source_tab_ids = tab_ids,
                               .start_point = start_point,
                               .tab_original_offset_x = kTabOriginalOffsetX,
-                              .end_callback = end_callback.Get()};
-  TabDragSession session(std::move(params), &injector);
+                              .mouse_to_tab_x_ratio = kMouseToTabXRatio};
+  TabDragSession session(std::move(params), end_callback.Get(), &injector);
 
   EXPECT_TRUE(session.Start().has_value());
 

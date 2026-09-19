@@ -273,6 +273,73 @@ FS_MATRIX CalculateTextObjectOriginTransform(
   return FS_MATRIX{
       1.0f, 0.0f, 0.0f, 1.0f, baseline_origin.x(), -baseline_origin.y()};
 }
+
+// Creates a text object for a single typeface run at `item` in PDF points.
+ScopedFPDFPageObject CreateTextObjectForRun(
+    FPDF_DOCUMENT doc,
+    FPDF_FONT font,
+    float pdf_font_size,
+    const InkTextInfo& item,
+    const InkTextBoxAttributes& attributes,
+    double pdf_zoom,
+    float ascent,
+    const FS_MATRIX& textbox_matrix) {
+  ScopedFPDFPageObject text_object(
+      FPDFPageObj_CreateTextObj(doc, font, pdf_font_size));
+  CHECK(text_object);
+  const SkColor color = attributes.color;
+  CHECK(FPDFPageObj_SetFillColor(text_object.get(), /*R=*/SkColorGetR(color),
+                                 /*G=*/SkColorGetG(color),
+                                 /*B=*/SkColorGetB(color), /*A=*/255));
+  CHECK(FPDFText_SetCharcodes(text_object.get(), item.glyphs.data(),
+                              item.glyphs.size()));
+
+  if (item.is_synthetic_bold) {
+    // This matches `SK_OUTLINE_EMBOLDEN_DIVISOR` in Skia.
+    static constexpr float kOutlineEmboldenDivisor = 24.0f;
+    // This matches Skia synthetic bold logic.
+    CHECK(FPDFTextObj_SetTextRenderMode(text_object.get(),
+                                        FPDF_TEXTRENDERMODE_FILL_STROKE));
+    CHECK(FPDFPageObj_SetStrokeColor(
+        text_object.get(), /*R=*/SkColorGetR(color),
+        /*G=*/SkColorGetG(color), /*B=*/SkColorGetB(color),
+        /*A=*/255));
+    CHECK(FPDFPageObj_SetStrokeWidth(text_object.get(),
+                                     pdf_font_size / kOutlineEmboldenDivisor));
+    CHECK(FPDFPageObj_SetLineJoin(text_object.get(), FPDF_LINEJOIN_MITER));
+  }
+
+  if (item.glyph_positions.size() > 1) {
+    std::vector<float> positions;
+    base::span<const float> unscaled_positions =
+        base::span(item.glyph_positions).subspan<1u>();
+    positions.reserve(unscaled_positions.size());
+    std::ranges::transform(unscaled_positions, std::back_inserter(positions),
+                           [pdf_zoom](float pos) {
+                             return CSSFontSizeToPdfFontSize(pos / pdf_zoom);
+                           });
+    CHECK(FPDFText_SetPositions(text_object.get(), positions.data(),
+                                positions.size()));
+  }
+
+  if (item.is_synthetic_italic) {
+    // This matches `-SK_Scalar1 / 4` in Blink and Skia code. The value is
+    // positive because the PDF coordinate system has a bottom-left origin,
+    // instead of a top-left screen origin.
+    static constexpr float kSkew = 0.25f;
+    const FS_MATRIX skew_matrix{1.0f, 0.0f, kSkew, 1.0f, 0.0f, 0.0f};
+    // This matches Skia synthetic italic logic.
+    CHECK(FPDFPageObj_TransformF(text_object.get(), &skew_matrix));
+  }
+
+  FS_MATRIX text_origin_matrix =
+      CalculateTextObjectOriginTransform(item, pdf_zoom, attributes, ascent);
+  // Local translation must be applied before the textbox's global transform
+  // to ensure correct rotation/scaling of the offset.
+  CHECK(FPDFPageObj_TransformF(text_object.get(), &text_origin_matrix));
+  CHECK(FPDFPageObj_TransformF(text_object.get(), &textbox_matrix));
+  return text_object;
+}
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
 
 // Windows has native panning capabilities. No need to use our own.
@@ -3030,6 +3097,11 @@ const DocumentMetadata& PDFiumEngine::GetDocumentMetadata() const {
   return doc_metadata_;
 }
 
+std::string PDFiumEngine::GetFileNameFromContentDisposition() const {
+  return doc_loader_ ? doc_loader_->GetFileNameFromContentDisposition()
+                     : std::string();
+}
+
 int PDFiumEngine::GetNumberOfPages() const {
   return pages_.size();
 }
@@ -5409,12 +5481,11 @@ void PDFiumEngine::AddFont(FontId font_id,
 
   constexpr SkFontTableTag kHeadTag = SkSetFourByteTag('h', 'e', 'a', 'd');
   const bool is_sfnt = typeface->getTableSize(kHeadTag) > 0;
+  CHECK(is_sfnt);
 
-  // TODO(crbug.com/506133432): Avoid hardcoding the cid parameter?
-  int font_type = is_sfnt ? FPDF_FONT_TRUETYPE : FPDF_FONT_TYPE1;
   ScopedFPDFFont font(FPDFText_LoadFont(doc(), font_data_span.data(),
                                         font_data_span.size(),
-                                        /*font_type=*/font_type,
+                                        /*font_type=*/FPDF_FONT_TRUETYPE,
                                         /*cid=*/true));
 
   base::UmaHistogramBoolean("PDF.Ink2FontLoaded", font != nullptr);
@@ -5482,7 +5553,6 @@ void PDFiumEngine::DrawText(int page_index,
   const FS_MATRIX textbox_matrix =
       CalculateTextBoxTransform(attributes.rect, attributes.orientation,
                                 GetCanonicalToPdfTransformForPage(page));
-  const SkColor color = attributes.color;
   const float pdf_font_size =
       CSSFontSizeToPdfFontSize(attributes.css_font_size);
 
@@ -5500,62 +5570,9 @@ void PDFiumEngine::DrawText(int page_index,
       continue;
     }
 
-    ScopedFPDFPageObject text_object(
-        FPDFPageObj_CreateTextObj(doc(), font, pdf_font_size));
-    CHECK(text_object);
-    page_objects.push_back(text_object.get());
-    CHECK(FPDFPageObj_SetFillColor(text_object.get(), /*R=*/SkColorGetR(color),
-                                   /*G=*/SkColorGetG(color),
-                                   /*B=*/SkColorGetB(color),
-                                   /*A=*/255));
-    CHECK(FPDFText_SetCharcodes(text_object.get(), item.glyphs.data(),
-                                item.glyphs.size()));
-
-    if (item.is_synthetic_bold) {
-      // This matches `SK_OUTLINE_EMBOLDEN_DIVISOR` in Skia.
-      static constexpr float kOutlineEmboldenDivisor = 24.0f;
-      // This matches Skia synthetic bold logic.
-      CHECK(FPDFTextObj_SetTextRenderMode(text_object.get(),
-                                          FPDF_TEXTRENDERMODE_FILL_STROKE));
-      CHECK(FPDFPageObj_SetStrokeColor(text_object.get(),
-                                       /*R=*/SkColorGetR(color),
-                                       /*G=*/SkColorGetG(color),
-                                       /*B=*/SkColorGetB(color),
-                                       /*A=*/255));
-      CHECK(FPDFPageObj_SetStrokeWidth(
-          text_object.get(), pdf_font_size / kOutlineEmboldenDivisor));
-      CHECK(FPDFPageObj_SetLineJoin(text_object.get(), FPDF_LINEJOIN_MITER));
-    }
-
-    if (item.glyph_positions.size() > 1) {
-      std::vector<float> positions;
-      base::span<const float> unscaled_positions =
-          base::span(item.glyph_positions).subspan<1u>();
-      positions.reserve(unscaled_positions.size());
-      std::ranges::transform(unscaled_positions, std::back_inserter(positions),
-                             [pdf_zoom](float pos) {
-                               return CSSFontSizeToPdfFontSize(pos / pdf_zoom);
-                             });
-      CHECK(FPDFText_SetPositions(text_object.get(), positions.data(),
-                                  positions.size()));
-    }
-
-    if (item.is_synthetic_italic) {
-      // This matches `-SK_Scalar1 / 4` in Blink and Skia code. The value is
-      // positive because the PDF coordinate system has a bottom-left origin,
-      // instead of a top-left screen origin.
-      static constexpr float kSkew = 0.25f;
-      const FS_MATRIX skew_matrix{1.0f, 0.0f, kSkew, 1.0f, 0.0f, 0.0f};
-      // This matches Skia synthetic italic logic.
-      CHECK(FPDFPageObj_TransformF(text_object.get(), &skew_matrix));
-    }
-
-    FS_MATRIX text_origin_matrix =
-        CalculateTextObjectOriginTransform(item, pdf_zoom, attributes, ascent);
-    // Local translation must be applied before the textbox's global transform
-    // to ensure correct rotation/scaling of the offset.
-    CHECK(FPDFPageObj_TransformF(text_object.get(), &text_origin_matrix));
-    CHECK(FPDFPageObj_TransformF(text_object.get(), &textbox_matrix));
+    ScopedFPDFPageObject text_object =
+        CreateTextObjectForRun(doc(), font, pdf_font_size, item, attributes,
+                               pdf_zoom, ascent, textbox_matrix);
 
     // The metadata mark must be attached to every text object in the
     // annotation. Initialize it on the first successfully created text object.
@@ -5577,6 +5594,7 @@ void PDFiumEngine::DrawText(int page_index,
                                    blob.data(), blob.size());
     }
 
+    page_objects.push_back(text_object.get());
     CHECK(FPDFPage_InsertObject(page, text_object.release()));
   }
 

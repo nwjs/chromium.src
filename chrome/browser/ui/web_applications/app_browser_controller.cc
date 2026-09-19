@@ -31,10 +31,10 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/color/chrome_color_provider_utils.h"
 #include "chrome/browser/ui/page_action/action_ids.h"
-#include "chrome/browser/ui/tabs/tab_menu_model_factory.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/unload_controller.h"
+#include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
@@ -478,9 +478,9 @@ bool AppBrowserController::IsFirstLaunchAfterInstall() const {
   return false;
 }
 
-std::unique_ptr<TabMenuModelFactory>
-AppBrowserController::GetTabMenuModelFactory() const {
-  return nullptr;
+std::optional<base::flat_set<tabs::TabContextMenuCommand>>
+AppBrowserController::GetAllowedTabMenuCommands() const {
+  return std::nullopt;
 }
 
 bool AppBrowserController::AppUsesWindowControlsOverlay() const {

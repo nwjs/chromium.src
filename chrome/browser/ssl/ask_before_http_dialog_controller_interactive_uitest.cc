@@ -281,7 +281,8 @@ class AskBeforeHttpDialogControllerUiTest
   content::ContentMockCertVerifier mock_cert_verifier_;
   base::HistogramTester histograms_;
   std::unique_ptr<ukm::TestAutoSetUkmRecorder> test_ukm_recorder_;
-  raw_ptr<Browser, AcrossTasksDanglingUntriaged> incognito_browser_ = nullptr;
+  raw_ptr<BrowserWindowInterface, AcrossTasksDanglingUntriaged>
+      incognito_browser_ = nullptr;
 };
 
 INSTANTIATE_TEST_SUITE_P(
@@ -697,11 +698,12 @@ IN_PROC_BROWSER_TEST_P(AskBeforeHttpDialogControllerUiTest,
                          /*foreground=*/false);
 
         // Create a second browser window and move the tab to it.
-        Browser* second_browser = CreateBrowser(GetBrowser()->GetProfile());
+        BrowserWindowInterface* second_browser =
+            CreateBrowser(GetBrowser()->GetProfile());
         std::unique_ptr<tabs::TabModel> detached_tab =
             GetBrowser()->tab_strip_model()->DetachTabAtForInsertion(0);
-        second_browser->tab_strip_model()->AppendTab(
-            std::move(detached_tab), /*foreground=*/true);
+        second_browser->GetTabStripModel()->AppendTab(std::move(detached_tab),
+                                                      /*foreground=*/true);
       }),
       // Verify that after reparenting, the dialog's continue button is still
       // present and visible in the second browser window.

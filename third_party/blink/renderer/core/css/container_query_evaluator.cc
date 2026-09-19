@@ -4,8 +4,6 @@
 
 #include "third_party/blink/renderer/core/css/container_query_evaluator.h"
 
-#include "base/feature_list.h"
-#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-blink.h"
 #include "third_party/blink/renderer/core/css/container_query.h"
 #include "third_party/blink/renderer/core/css/container_state.h"
@@ -43,22 +41,12 @@ PhysicalAxes ContainerTypeAxes(const ComputedStyle& style) {
 }
 
 bool NameMatches(const ComputedStyle& style,
-                 const ContainerSelector& container_selector,
-                 const TreeScope* selector_tree_scope) {
+                 const ContainerSelector& container_selector) {
   const AtomicString& name = container_selector.Name();
   if (name.IsNull()) {
     return true;
   }
-  if (const ScopedCSSNameList* container_name = style.ContainerName()) {
-    const HeapVector<Member<const ScopedCSSName>>& names =
-        container_name->GetNames();
-    for (const auto& scoped_name : names) {
-      if (scoped_name->GetName() == name) {
-        return true;
-      }
-    }
-  }
-  return false;
+  return style.ContainerName().Contains(name);
 }
 
 bool TypeMatches(const ComputedStyle& style,
@@ -69,27 +57,21 @@ bool TypeMatches(const ComputedStyle& style,
 }
 
 bool Matches(const ComputedStyle& style,
-             const ContainerSelector& container_selector,
-             const TreeScope* selector_tree_scope) {
+             const ContainerSelector& container_selector) {
   return TypeMatches(style, container_selector) &&
-         NameMatches(style, container_selector, selector_tree_scope);
+         NameMatches(style, container_selector);
 }
 
 Element* CachedContainer(Element* starting_element,
                          const ContainerSelector& container_selector,
-                         const TreeScope* selector_tree_scope,
                          ContainerSelectorCache& container_selector_cache) {
-  auto it =
-      container_selector_cache.Find<ScopedContainerSelectorHashTranslator>(
-          ScopedContainerSelector(container_selector, selector_tree_scope));
+  auto it = container_selector_cache.find(container_selector);
   if (it != container_selector_cache.end()) {
     return it->value.Get();
   }
   Element* container = ContainerQueryEvaluator::FindContainer(
-      starting_element, container_selector, selector_tree_scope);
-  container_selector_cache.insert(MakeGarbageCollected<ScopedContainerSelector>(
-                                      container_selector, selector_tree_scope),
-                                  container);
+      starting_element, container_selector);
+  container_selector_cache.insert(container_selector, container);
   return container;
 }
 
@@ -137,14 +119,13 @@ ContainerQueryEvaluator::ContainerQueryEvaluator(Element& container) {
 // static
 Element* ContainerQueryEvaluator::FindContainer(
     Element* starting_element,
-    const ContainerSelector& container_selector,
-    const TreeScope* selector_tree_scope) {
+    const ContainerSelector& container_selector) {
   // TODO(crbug.com/1213888): Cache results.
   for (Element* element = starting_element; element;
        element = FlatTreeTraversal::ParentElement(*element)) {
     if (const ComputedStyle* style = element->GetComputedStyle()) {
       if (style->StyleType() == kPseudoIdNone) {
-        if (Matches(*style, container_selector, selector_tree_scope)) {
+        if (Matches(*style, container_selector)) {
           return element;
         }
       }
@@ -188,7 +169,6 @@ bool ContainerQueryEvaluator::EvalAndAdd(
   }
   SetDependencyFlags(query, match_result);
   if (Element* container = CachedContainer(starting_element, selector,
-                                           match_result.CurrentTreeScope(),
                                            container_selector_cache)) {
     if (!query.Query()) {
       // Querying name only, which is already matched in FindContainer.
@@ -970,9 +950,7 @@ StyleRecalcChange ContainerQueryEvaluator::ApplyScrollStateAndStyleChanges(
   // Similarly for line-height and the lh unit.
   bool invalidate_for_relative_units =
       ((unit_flags_ & MediaQueryExpValue::kFontRelative) &&
-       (base::FeatureList::IsEnabled(blink::features::kCSSFontComparisonFix)
-            ? !base::ValuesEquivalent(old_style.GetFont(), new_style.GetFont())
-            : old_style.GetFont() != new_style.GetFont())) ||
+       !base::ValuesEquivalent(old_style.GetFont(), new_style.GetFont())) ||
       ((unit_flags_ & MediaQueryExpValue::kLineHeightRelative) &&
        old_style.ComputedLineHeight() != new_style.ComputedLineHeight());
 

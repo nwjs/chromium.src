@@ -113,6 +113,7 @@ class StyleSheetContents;
 class StyleInitialData;
 class TextTrack;
 class StyleSheetCollection;
+class URLPattern;
 class ViewportStyleResolver;
 class SelectorFilter;
 struct LogicalSize;
@@ -276,6 +277,11 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   void AdoptedStyleSheetAdded(TreeScope& tree_scope, CSSStyleSheet* sheet);
   void AdoptedStyleSheetRemoved(TreeScope& tree_scope, CSSStyleSheet* sheet);
 
+  StyleSheetContents* FindStyleSheetContents(
+      const String& text,
+      const CSSParserContext* parser_context);
+  void AddStyleSheetContents(const String& text, StyleSheetContents* contents);
+
   void WatchedSelectorsChanged();
   void DocumentRulesSelectorsChanged();
   void InitialStyleChanged();
@@ -327,6 +333,22 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   // changes at some later point, we may have to mark affected elements for
   // style recalc.
   bool EvaluateFunctionalNavigationQuery(const NavigationTestExpression&);
+
+  void SetNeedsStyleUpdateOnNavigation() {
+    needs_style_update_on_navigation_ = true;
+  }
+  bool NeedsStyleUpdateOnNavigation() const {
+    return needs_style_update_on_navigation_;
+  }
+
+  // Add a URLPattern for a given @location rule.
+  // `location` is a <dashed-ident>.
+  void AddURLPatternFromLocation(const AtomicString& location_name,
+                                 URLPattern*);
+
+  // Look up and return the URLPattern identified by <dashed-ident> `location`.
+  const URLPattern* FindURLPatternByLocation(
+      const AtomicString& location_name) const;
 
   void UpdateActiveStyle();
 
@@ -555,7 +577,6 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
       InvalidationScope,
       bool invalidate_slotted,
       bool invalidate_part);
-  void ScheduleCustomElementInvalidations(HashSet<AtomicString> tag_names);
   void ScheduleInvalidationsForHasPseudoAffectedByInsertionOrRemoval(
       ContainerNode* parent,
       Node* node_before_change,
@@ -866,11 +887,6 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   void CollectUserStyleFeaturesTo(RuleFeatureSet&) const;
   void CollectScopedStyleFeaturesTo(RuleFeatureSet&) const;
 
-  CSSStyleSheet* ParseSheet(Element&,
-                            const String& text,
-                            TextPosition start_position,
-                            RenderBlockingBehavior render_blocking_behavior);
-
   const StyleSheetCollection& GetDocumentStyleSheetCollection() const {
     DCHECK(document_style_sheet_collection_);
     return *document_style_sheet_collection_;
@@ -1087,6 +1103,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   bool fonts_need_update_{false};
   bool counter_styles_need_update_{false};
   bool position_try_styles_dirty_{false};
+  bool needs_style_update_on_navigation_{false};
 
   // Set to true if we allow marking style dirty from style recalc. Ideally, we
   // should get rid of this, but we keep track of where we allow it with
@@ -1297,6 +1314,9 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   RandomValueCache random_base_value_cache_;
   using ElementSharedRandomValueCache = HashMap<AtomicString, double>;
   ElementSharedRandomValueCache element_shared_random_base_value_cache_;
+
+  // URLPattern entries defined by @location rules.
+  HeapHashMap<AtomicString, Member<URLPattern>> navigation_locations_;
 };
 
 void PossiblyScheduleNthPseudoInvalidations(Node& node);

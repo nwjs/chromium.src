@@ -7,21 +7,41 @@ package org.chromium.chrome.browser.actor;
 import org.chromium.base.Callback;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.Token;
+import org.chromium.base.task.PostTask;
+import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.layouts.LayoutManager;
+import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabCreationState;
+import org.chromium.chrome.browser.tab.TabDelegateFactory;
+import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabIdManager;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabState;
+import org.chromium.chrome.browser.tab.TabStateAttributes;
 import org.chromium.chrome.browser.tab.TabStateExtractor;
+import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeatures;
+import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
+import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncUtils;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabGroupMergeNotificationType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabModelObserver;
+import org.chromium.chrome.browser.tabmodel.TabModelUtils;
+import org.chromium.components.tab_group_sync.LocalTabGroupId;
+import org.chromium.components.tab_group_sync.SavedTabGroup;
+import org.chromium.components.tab_group_sync.SavedTabGroupTab;
+import org.chromium.components.tab_group_sync.TabGroupSyncService;
+import org.chromium.ui.base.WindowAndroid;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Manages tab detachment and transitions from physical activities to offscreen background
@@ -29,7 +49,6 @@ import java.util.List;
  */
 @NullMarked
 public class ActorTabStateHelper {
-
     private ActorTabStateHelper() {}
 
     /**
@@ -45,14 +64,14 @@ public class ActorTabStateHelper {
     public static List<BackgroundSession> detachActiveBackgroundSessions(
             TabModelSelector selector, int windowId, Callback<Tab> onTabDetaching) {
         ThreadUtils.assertOnUiThread();
-        TabModel regularModel = selector.getModel(/* incognito= */ false);
-        ActorKeyedService service = getActorKeyedService(regularModel);
+        TabModel model = selector.getModel(/* incognito= */ false);
+        ActorKeyedService service = getActorKeyedService(model);
 
-        if (regularModel == null || service == null || service.getActiveTasksCount() == 0) {
+        if (model == null || service == null || service.getActiveTasksCount() == 0) {
             return Collections.emptyList();
         }
 
-        return findAndDetachActiveSessions(regularModel, service, windowId, onTabDetaching);
+        return findAndDetachActiveSessions(model, service, windowId, onTabDetaching);
     }
 
     /**
@@ -62,6 +81,7 @@ public class ActorTabStateHelper {
     private static List<BackgroundSession> findAndDetachActiveSessions(
             TabModel model, ActorKeyedService service, int windowId, Callback<Tab> onTabDetaching) {
         List<BackgroundSession> sessions = new ArrayList<>();
+        TabGroupSyncService syncService = getTabGroupSyncService(model);
 
         for (Tab originalTab : model) {
             if (originalTab == null) continue;
@@ -70,7 +90,19 @@ public class ActorTabStateHelper {
             if (taskId == null) continue;
 
             int originalIndex = model.indexOf(originalTab);
-            Tab placeholderTab = createAndInsertPlaceholder(originalTab, model);
+
+            setTabGroupSyncPaused(syncService, /* isPaused= */ true);
+            Tab placeholderTab;
+            try {
+                placeholderTab = createAndInsertPlaceholder(originalTab, model);
+                if (placeholderTab != null) {
+                    updateTabGroupSyncMapping(
+                            syncService, model, originalTab, placeholderTab.getId());
+                }
+            } finally {
+                setTabGroupSyncPaused(syncService, /* isPaused= */ false);
+            }
+
             if (placeholderTab == null) {
                 continue;
             }
@@ -85,24 +117,42 @@ public class ActorTabStateHelper {
                 sessions.add(new BackgroundSession(tabData, taskId));
             }
             onTabDetaching.onResult(originalTab);
-            // TODO(b/544014273) : Consider canceling the task if detaching tab was not successful
-            model.getTabRemover().removeTab(originalTab, /* allowDialog= */ false);
+
+            setTabGroupSyncPaused(syncService, /* isPaused= */ true);
+            try {
+                // TODO(b/544014273) : Consider canceling the task if detaching tab was not
+                // successful
+                model.getTabRemover().removeTab(originalTab, /* allowDialog= */ false);
+            } finally {
+                setTabGroupSyncPaused(syncService, /* isPaused= */ false);
+            }
         }
 
         return sessions;
     }
 
     /**
+     * Returns the {@link ActorKeyedService} instance for the profile associated with the model.
+     *
+     * @param model The {@link TabModel} to query for profile.
+     * @return The {@link ActorKeyedService} instance, or null if not available.
+     */
+    public static @Nullable ActorKeyedService getActorKeyedServiceForTesting(
+            @Nullable TabModel model) {
+        return getActorKeyedService(model);
+    }
+
+    /**
      * Creates and inserts a dormant placeholder tab in the TabModel at the index immediately
      * following the original tab, duplicating its visual properties and state.
      */
-    public static @Nullable Tab createAndInsertPlaceholder(Tab originalTab, TabModel regularModel) {
+    public static @Nullable Tab createAndInsertPlaceholder(Tab originalTab, TabModel model) {
         ThreadUtils.assertOnUiThread();
 
-        int originalIndex = regularModel.indexOf(originalTab);
+        int originalIndex = model.indexOf(originalTab);
         if (originalIndex == TabModel.INVALID_TAB_INDEX) return null;
 
-        TabCreator tabCreator = regularModel.getTabCreator();
+        TabCreator tabCreator = model.getTabCreator();
 
         TabState originalState = TabStateExtractor.from(originalTab);
         if (originalState == null) return null;
@@ -113,17 +163,36 @@ public class ActorTabStateHelper {
                 tabCreator.createFrozenTab(originalState, placeholderId, originalIndex + 1);
 
         if (placeholderTab != null) {
-            transferGroupAndPinState(originalTab, placeholderTab, regularModel, originalIndex);
+            transferGroupAndPinState(originalTab, placeholderTab, model, originalIndex);
         }
 
         return placeholderTab;
     }
 
     /**
+     * Prepares a live background tab for foreground display by stopping offscreen rendering and
+     * updating its window and delegate factory attachments.
+     *
+     * @param tab The {@link Tab} to prepare.
+     * @param window The target foreground {@link WindowAndroid}.
+     * @param tabDelegateFactory The delegate factory for the target window.
+     */
+    public static void stopOffscreenAndAttachToWindow(
+            Tab tab,
+            @Nullable WindowAndroid window,
+            @Nullable TabDelegateFactory tabDelegateFactory) {
+        ThreadUtils.assertOnUiThread();
+        OffscreenRenderingManager.getInstance().stopOffscreenRendering(tab);
+        if (window != null && tabDelegateFactory != null) {
+            tab.updateAttachment(window, tabDelegateFactory);
+        }
+    }
+
+    /**
      * Symmetrically transfers the grouping and pinning properties from a source tab to a
      * destination tab within the TabModel.
      */
-    private static void transferGroupAndPinState(
+    public static void transferGroupAndPinState(
             Tab sourceTab, Tab destinationTab, TabModel model, int sourceIndex) {
         ThreadUtils.assertOnUiThread();
 
@@ -149,5 +218,304 @@ public class ActorTabStateHelper {
         Profile profile = model.getProfile();
         if (profile == null) return null;
         return ActorKeyedServiceFactory.getForProfile(profile.getOriginalProfile());
+    }
+
+    // TODO(crbug.com/558754457): Clean up TabGroupSync coordination and decouple Actor
+    // from TabGroupSyncService by attaching a UserData marker during restore.
+    public static @Nullable TabGroupSyncService getTabGroupSyncService(@Nullable TabModel model) {
+        if (!ActorUtils.isTabGroupSyncHandlingEnabled()) {
+            return null;
+        }
+        if (model == null) return null;
+        Profile profile = model.getProfile();
+        if (profile == null || profile.isOffTheRecord()) {
+            return null;
+        }
+        try {
+            if (!TabGroupSyncFeatures.isTabGroupSyncEnabled(profile)) {
+                return null;
+            }
+            return TabGroupSyncServiceFactory.getForProfile(profile);
+        } catch (RuntimeException | UnsatisfiedLinkError e) {
+            return null;
+        }
+    }
+
+    /**
+     * Sets whether local observation mode for {@link TabGroupSyncService} is paused. Pausing local
+     * observation prevents transient tab swaps (like placeholder replacement) from triggering sync
+     * deletions or mutations to remote devices.
+     *
+     * @param syncService The {@link TabGroupSyncService}, or null.
+     * @param isPaused True to pause sync observation; false to resume.
+     */
+    public static void setTabGroupSyncPaused(
+            @Nullable TabGroupSyncService syncService, boolean isPaused) {
+        if (syncService != null && ActorUtils.isTabGroupSyncHandlingEnabled()) {
+            syncService.setLocalObservationMode(!isPaused);
+        }
+    }
+
+    /**
+     * Updates the local Tab ID mapping in {@link TabGroupSyncService} when an in-group tab is
+     * swapped with another tab (e.g. placeholder tab replacing original tab, or vice versa).
+     *
+     * <p>Synced tab groups identify tabs by a persistent sync ID (GUID). On Android, this sync ID
+     * is mapped to a local integer tab ID. When an acting tab is swapped with a placeholder tab,
+     * its local tab ID changes while representing the same logical tab in the synced group. Without
+     * updating this local ID mapping, TabGroupSync would interpret the removal of the old tab ID as
+     * a user deletion and propagate that deletion to other synced devices, followed by adding a
+     * duplicate tab for the new ID.
+     *
+     * @param syncService The {@link TabGroupSyncService} instance, or null.
+     * @param model The {@link TabModel} containing the tab group.
+     * @param sourceTab The tab currently mapped in the sync group.
+     * @param destinationTabId The new local tab ID to associate with the existing sync ID.
+     */
+    public static void updateTabGroupSyncMapping(
+            @Nullable TabGroupSyncService syncService,
+            TabModel model,
+            Tab sourceTab,
+            int destinationTabId) {
+        if (syncService == null || !ActorUtils.isTabGroupSyncHandlingEnabled()) return;
+        Token tabGroupId = sourceTab.getTabGroupId();
+        if (tabGroupId == null) return;
+
+        LocalTabGroupId localTabGroupId = TabGroupSyncUtils.getLocalTabGroupId(model, tabGroupId);
+        if (localTabGroupId == null) return;
+
+        SavedTabGroup savedGroup = syncService.getGroup(localTabGroupId);
+        if (savedGroup == null) return;
+
+        for (SavedTabGroupTab savedTab : savedGroup.savedTabs) {
+            if (savedTab.localId != null
+                    && savedTab.localId == sourceTab.getId()
+                    && savedTab.syncId != null) {
+                syncService.updateLocalTabId(localTabGroupId, savedTab.syncId, destinationTabId);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Restores a background session tab to the foreground {@link TabModel}, stopping offscreen
+     * rendering, updating window attachment, transferring grouping and pinning properties, and
+     * destroying any existing placeholder tab.
+     */
+    public static void restoreSessionTabToForeground(
+            Tab originalTab,
+            @TabId int placeholderTabId,
+            int originalTabIndex,
+            TabModel model,
+            WindowAndroid window,
+            TabDelegateFactory tabDelegateFactory) {
+        stopOffscreenAndAttachToWindow(originalTab, window, tabDelegateFactory);
+
+        if (model.getTabById(originalTab.getId()) != null) {
+            return;
+        }
+
+        if (model.indexOf(originalTab) == TabModel.INVALID_TAB_INDEX) {
+            Tab placeholderTab =
+                    placeholderTabId != Tab.INVALID_TAB_ID
+                            ? model.getTabById(placeholderTabId)
+                            : null;
+
+            int targetIndex;
+            boolean wasActive = false;
+
+            if (placeholderTab != null) {
+                targetIndex = model.indexOf(placeholderTab);
+                assert targetIndex != TabModel.INVALID_TAB_INDEX;
+                wasActive = TabModelUtils.getCurrentTab(model) == placeholderTab;
+            } else {
+                int modelCount = model.getCount();
+                targetIndex =
+                        originalTabIndex != TabModel.INVALID_TAB_INDEX
+                                ? Math.min(originalTabIndex, modelCount)
+                                : modelCount;
+            }
+
+            TabGroupSyncService syncService = getTabGroupSyncService(model);
+            setTabGroupSyncPaused(syncService, /* isPaused= */ true);
+            try {
+                model.addTab(
+                        originalTab,
+                        targetIndex,
+                        TabLaunchType.FROM_RESTORE,
+                        TabCreationState.LIVE_IN_FOREGROUND);
+
+                if (placeholderTab != null) {
+                    transferGroupAndPinState(placeholderTab, originalTab, model, targetIndex);
+                    updateTabGroupSyncMapping(
+                            syncService, model, placeholderTab, originalTab.getId());
+                    model.getTabRemover().removeTab(placeholderTab, /* allowDialog= */ false);
+                    placeholderTab.destroy();
+
+                    if (wasActive) {
+                        TabModelUtils.setIndex(model, model.indexOf(originalTab));
+                    }
+                }
+            } finally {
+                setTabGroupSyncPaused(syncService, /* isPaused= */ false);
+            }
+        }
+    }
+
+    /**
+     * Removes and destroys a placeholder tab from the TabModel if it exists.
+     *
+     * @param model The {@link TabModel} containing the placeholder tab.
+     * @param placeholderTabId The tab ID of the placeholder tab to remove.
+     */
+    public static void removePlaceholderTab(@Nullable TabModel model, @TabId int placeholderTabId) {
+        if (model == null || placeholderTabId == Tab.INVALID_TAB_ID) return;
+        Tab placeholder = model.getTabById(placeholderTabId);
+        if (placeholder != null) {
+            model.getTabRemover().removeTab(placeholder, /* allowDialog= */ false);
+            if (!placeholder.isDestroyed()) {
+                placeholder.destroy();
+            }
+        }
+    }
+
+    /**
+     * Selects the tab if it is already present in the TabModelSelector and ensures the browsing
+     * layout is shown.
+     *
+     * @param selector The {@link TabModelSelector} to act on.
+     * @param layoutManager The {@link LayoutManager} for switching layouts.
+     * @param tabId The ID of the tab to select.
+     * @return The selected {@link Tab}, or null if not found.
+     */
+    public static @Nullable Tab selectTabAndShow(
+            @Nullable TabModelSelector selector, @Nullable LayoutManager layoutManager, int tabId) {
+        if (selector == null) return null;
+        Tab target = selector.getTabById(tabId);
+        if (target == null) return null;
+        selector.selectModel(target.isIncognito());
+        TabModel model = selector.getModel(target.isIncognito());
+        if (model != null) {
+            TabModelUtils.setIndex(model, model.indexOf(target));
+        }
+        if (layoutManager != null && layoutManager.isLayoutVisible(LayoutType.HUB)) {
+            layoutManager.showLayout(LayoutType.BROWSING, /* animate= */ false);
+        }
+        return target;
+    }
+
+    /**
+     * Listens for the tab with the specified ID to be added to the {@link TabModelSelector}, and
+     * selects it once added. Automatically cleans up the observer when the tab is added or when tab
+     * state initialization completes.
+     *
+     * @param selector The {@link TabModelSelector} to act on.
+     * @param layoutManager The {@link LayoutManager} for switching layouts.
+     * @param tabId The ID of the tab to select when added.
+     */
+    public static void listenAndSelectTabOnAdded(
+            @Nullable TabModelSelector selector, @Nullable LayoutManager layoutManager, int tabId) {
+        listenAndSelectTabOnAdded(selector, layoutManager, tabId, null);
+    }
+
+    /**
+     * Listens for the tab with the specified ID to be added to the {@link TabModelSelector}, and
+     * selects it once added. Automatically cleans up the observer when the tab is added or when tab
+     * state initialization completes.
+     *
+     * @param selector The {@link TabModelSelector} to act on.
+     * @param layoutManager The {@link LayoutManager} for switching layouts.
+     * @param tabId The ID of the tab to select when added.
+     * @param onTabSelected Optional callback invoked with the selected tab once added and shown, or
+     *     with null if initialization completes and the tab was not found.
+     */
+    public static void listenAndSelectTabOnAdded(
+            @Nullable TabModelSelector selector,
+            @Nullable LayoutManager layoutManager,
+            int tabId,
+            @Nullable Callback<@Nullable Tab> onTabSelected) {
+        if (selector == null || tabId == Tab.INVALID_TAB_ID) {
+            if (onTabSelected != null) {
+                onTabSelected.onResult(null);
+            }
+            return;
+        }
+        if (selector.getTabById(tabId) != null) {
+            Tab target = selectTabAndShow(selector, layoutManager, tabId);
+            if (onTabSelected != null) {
+                onTabSelected.onResult(target);
+            }
+            return;
+        }
+        AtomicBoolean isCompleted = new AtomicBoolean(false);
+        Callback<@Nullable Tab> completeOnce =
+                (selected) -> {
+                    if (isCompleted.getAndSet(true)) return;
+                    if (onTabSelected != null) {
+                        onTabSelected.onResult(selected);
+                    }
+                };
+        TabModelSelectorTabModelObserver observer =
+                new TabModelSelectorTabModelObserver(selector) {
+                    @Override
+                    public void didAddTab(
+                            Tab tab,
+                            @TabLaunchType int type,
+                            @TabCreationState int creationState,
+                            boolean markedForSelection) {
+                        if (isCompleted.get()) return;
+                        if (tab.getId() == tabId) {
+                            Tab selected = selectTabAndShow(selector, layoutManager, tabId);
+                            destroy();
+                            completeOnce.onResult(selected);
+                        }
+                    }
+                };
+        TabModelUtils.runOnTabStateInitialized(
+                selector,
+                (unused) -> {
+                    if (isCompleted.get()) return;
+                    if (selector.getTabById(tabId) != null) {
+                        Tab selected = selectTabAndShow(selector, layoutManager, tabId);
+                        observer.destroy();
+                        completeOnce.onResult(selected);
+                        return;
+                    }
+                    // Background tab restoration runs on tab state initialized as well. Post a task
+                    // to allow background restoration callbacks to finish adding the tab before
+                    // destroying this observer.
+                    PostTask.postTask(
+                            TaskTraits.UI_DEFAULT,
+                            () -> {
+                                if (isCompleted.get()) return;
+                                Tab selected = null;
+                                if (selector.getTabById(tabId) != null) {
+                                    selected = selectTabAndShow(selector, layoutManager, tabId);
+                                }
+                                observer.destroy();
+                                completeOnce.onResult(selected);
+                            });
+                });
+    }
+
+    /**
+     * Marks all tabs in the completed task's background session as dirty so they are asynchronously
+     * saved to disk by BackgroundTabPool.
+     *
+     * @param sessions The list of active background sessions.
+     * @param taskId The ID of the completed task.
+     */
+    public static void persistTabsForCompletedTask(List<BackgroundSession> sessions, int taskId) {
+        ThreadUtils.assertOnUiThread();
+        BackgroundSession session = BackgroundSession.getSessionForTask(sessions, taskId);
+        if (session == null) {
+            return;
+        }
+
+        for (Tab tab : session.getTabs()) {
+            if (tab != null) {
+                TabStateAttributes.setDirty(tab);
+            }
+        }
     }
 }

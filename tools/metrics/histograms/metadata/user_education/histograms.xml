@@ -35,6 +35,8 @@ chromium-metrics-reviews@google.com.
       summary="For Compose feature; shown on autofill popup."/>
   <variant name="CrossDeviceSigninFromDesktop"
       summary="Shown on the sign-in with your phone profile menu item."/>
+  <variant name="Dictation"
+      summary="Dictation entry point in the context menu."/>
   <variant name="Glic" summary="Glic toggle on settings page."/>
   <variant name="GlicAppMenuNewBadge"
       summary="Glic menu item in the three dot menu."/>
@@ -56,10 +58,10 @@ chromium-metrics-reviews@google.com.
       summary="Shown on the Line Focus menu item in Reading Mode settings
                menu."/>
   <variant name="SendTabToSelfEnhancedDesktopUI"
-      summary="Promotion for Send to Your Device in the tab and webpage
+      summary="Promotion for Send to your device in the tab and webpage
                context menus."/>
   <variant name="SendTabToSelfEnhancedDesktopUIv2"
-      summary="Promotion for Send to Your Device in the tab and webpage
+      summary="Promotion for Send to your device in the tab and webpage
                context menus."/>
   <variant name="SideBySide"
       summary="Promotion for Split View in the tab context menu"/>
@@ -69,9 +71,6 @@ chromium-metrics-reviews@google.com.
   <variant name="TabstripDeclutter"
       summary="Promotion for Close Unused Tabs in the app menu."/>
   <variant name="VerticalTabsNewBadge"
-      summary="Promotion for toggling to the vertical tab strip in the system
-               context menu."/>
-  <variant name="VerticalTabsPreviewBadge"
       summary="Promotion for toggling to the vertical tab strip in the system
                context menu."/>
 </variants>
@@ -107,6 +106,10 @@ chromium-metrics-reviews@google.com.
   <variant name="PasswordManager"
       summary="the tutorial for the password manager"/>
   <variant name="SavedTabGroup" summary="the tutorial for the saved tab group"/>
+  <variant name="SaveVideoFrame"
+      summary="the tutorial for the save video frame feature"/>
+  <variant name="SendTabToSelf"
+      summary="the tutorial for sending tabs to other devices"/>
   <variant name="SidePanelReadingList"
       summary="the tutorial for the side panel reading list"/>
   <variant name="SplitView" summary="the tutorial for the split view feature"/>

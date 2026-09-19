@@ -39,6 +39,9 @@ namespace context_hub {
 //                                      associated with the memory bank entry.
 //   selected_text                      TEXT The selected text from the page.
 //   tags                               TEXT (JSON-serialized string of tags)
+//   note                               TEXT User-provided notes for the entry.
+//   collection                         TEXT The collection name the entry
+//                                      belongs to.
 // -----------------------------------------------------------------------------
 class MemoryBankTable {
  public:
@@ -56,9 +59,20 @@ class MemoryBankTable {
   // from a clean state.
   bool MigrateFromCleanStateToVersion1();
 
+  // Migrates the memory_bank_entries table from version 1 to version 2 by
+  // adding the note and collection columns. Returns true on success.
+  bool MigrateToVersion2AddNoteAndCollectionColumns();
+
   // Inserts or replaces a record in memory_bank_entries. Returns true on
   // success.
   bool AddOrUpdateEntry(const MemoryBankEntry& entry);
+
+  // Updates the annotations (tags, note, collection) for an existing entry.
+  // Returns true on success, or false if not found or on error.
+  bool UpdateEntryAnnotations(int64_t id,
+                              const std::vector<std::string>& tags,
+                              const std::optional<std::string>& note,
+                              const std::optional<std::string>& collection);
 
   // Retrieves a single entry by ID. Returns std::nullopt if not found.
   std::optional<MemoryBankEntry> GetEntry(int64_t id);
@@ -68,6 +82,12 @@ class MemoryBankTable {
 
   // Retrieves all entries from memory_bank_entries ordered by timestamp DESC.
   std::vector<MemoryBankEntry> GetAllEntries();
+
+  // Retrieves all unique tags stored across memory bank entries.
+  std::vector<std::string> GetAllTags();
+
+  // Retrieves all unique collection names stored across memory bank entries.
+  std::vector<std::string> GetAllCollections();
 
   // Returns the total number of entries in memory_bank_entries.
   size_t GetEntryCount();

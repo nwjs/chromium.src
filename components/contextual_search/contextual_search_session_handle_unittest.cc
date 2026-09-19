@@ -49,7 +49,7 @@ class ContextualSearchSessionHandleTest : public testing::Test {
 
     service_ = std::make_unique<ContextualSearchService>(
         nullptr, nullptr, nullptr, nullptr, version_info::Channel::UNKNOWN, "",
-        /*tab_validator=*/nullptr);
+        /*tab_validator=*/nullptr, base::DoNothing());
 
     handle_ = service_->CreateSessionForTesting(std::move(mock_controller),
                                                 std::move(metrics_recorder));
@@ -260,7 +260,7 @@ TEST_F(ContextualSearchSessionHandleTest,
 
   auto local_service = std::make_unique<ContextualSearchService>(
       nullptr, nullptr, nullptr, nullptr, version_info::Channel::UNKNOWN, "",
-      std::move(mock_validator));
+      std::move(mock_validator), base::DoNothing());
 
   auto local_handle = local_service->CreateSessionForTesting(
       std::move(mock_controller), nullptr);
@@ -331,7 +331,7 @@ TEST_F(
 
   auto local_service = std::make_unique<ContextualSearchService>(
       nullptr, nullptr, nullptr, nullptr, version_info::Channel::UNKNOWN, "",
-      std::move(mock_validator));
+      std::move(mock_validator), base::DoNothing());
 
   auto local_handle = local_service->CreateSessionForTesting(
       std::move(mock_controller), nullptr);
@@ -427,7 +427,7 @@ TEST_F(
 
   auto local_service = std::make_unique<ContextualSearchService>(
       nullptr, nullptr, nullptr, nullptr, version_info::Channel::UNKNOWN, "",
-      std::move(mock_validator));
+      std::move(mock_validator), base::DoNothing());
 
   auto local_handle = local_service->CreateSessionForTesting(
       std::move(mock_controller), nullptr);
@@ -531,7 +531,7 @@ TEST_F(ContextualSearchSessionHandleTest,
 
   auto local_service = std::make_unique<ContextualSearchService>(
       nullptr, nullptr, nullptr, nullptr, version_info::Channel::UNKNOWN, "",
-      std::move(mock_validator));
+      std::move(mock_validator), base::DoNothing());
 
   auto local_handle = local_service->CreateSessionForTesting(
       std::move(mock_controller), nullptr);
@@ -606,7 +606,7 @@ TEST_F(ContextualSearchSessionHandleTest,
 
   auto local_service = std::make_unique<ContextualSearchService>(
       nullptr, nullptr, nullptr, nullptr, version_info::Channel::UNKNOWN, "",
-      std::move(mock_validator));
+      std::move(mock_validator), base::DoNothing());
 
   auto local_handle = local_service->CreateSessionForTesting(
       std::move(mock_controller), nullptr);
@@ -683,7 +683,7 @@ TEST_F(
 
   auto local_service = std::make_unique<ContextualSearchService>(
       nullptr, nullptr, nullptr, nullptr, version_info::Channel::UNKNOWN, "",
-      std::move(mock_validator));
+      std::move(mock_validator), base::DoNothing());
 
   auto local_handle = local_service->CreateSessionForTesting(
       std::move(mock_controller), nullptr);
@@ -793,7 +793,7 @@ TEST_F(ContextualSearchSessionHandleTest,
 
   auto local_service = std::make_unique<ContextualSearchService>(
       nullptr, nullptr, nullptr, nullptr, version_info::Channel::UNKNOWN, "",
-      std::move(mock_validator));
+      std::move(mock_validator), base::DoNothing());
 
   auto local_handle = local_service->CreateSessionForTesting(
       std::move(mock_controller), nullptr);
@@ -888,7 +888,7 @@ TEST_F(ContextualSearchSessionHandleTest,
 
   auto local_service = std::make_unique<ContextualSearchService>(
       nullptr, nullptr, nullptr, nullptr, version_info::Channel::UNKNOWN, "",
-      std::move(mock_validator));
+      std::move(mock_validator), base::DoNothing());
 
   auto local_handle = local_service->CreateSessionForTesting(
       std::move(mock_controller), nullptr);
@@ -1304,7 +1304,7 @@ TEST_F(ContextualSearchSessionHandleTest,
 
   auto local_service = std::make_unique<ContextualSearchService>(
       nullptr, nullptr, nullptr, nullptr, version_info::Channel::UNKNOWN, "",
-      std::move(mock_validator));
+      std::move(mock_validator), base::DoNothing());
 
   auto local_handle = local_service->CreateSessionForTesting(
       std::move(mock_controller), nullptr);
@@ -1387,7 +1387,7 @@ TEST_F(ContextualSearchSessionHandleTest,
   MockTabValidator* mock_validator_ptr = mock_validator.get();
   auto local_service = std::make_unique<ContextualSearchService>(
       nullptr, nullptr, nullptr, nullptr, version_info::Channel::UNKNOWN, "",
-      std::move(mock_validator));
+      std::move(mock_validator), base::DoNothing());
 
   auto local_handle = local_service->CreateSessionForTesting(
       std::move(mock_controller), nullptr);
@@ -1939,6 +1939,40 @@ TEST_F(ContextualSearchSessionHandleTest, HasSubmittedContext) {
   // Clearing submitted context tokens does not reset has_submitted_context.
   local_handle->ClearSubmittedContextTokens();
   EXPECT_TRUE(local_handle->has_submitted_context());
+}
+
+TEST_F(ContextualSearchSessionHandleTest,
+       CreateClientToAimRequest_PreservesTokenOrder) {
+  auto mock_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  MockContextualSearchContextController* mock_controller_ptr =
+      mock_controller.get();
+
+  auto local_handle =
+      service_->CreateSessionForTesting(std::move(mock_controller), nullptr);
+  local_handle->CheckSearchContentSharingSettings(&prefs_);
+
+  // Create multiple tokens in a specific sequence.
+  base::UnguessableToken token1 = local_handle->CreateContextToken();
+  base::UnguessableToken token2 = local_handle->CreateContextToken();
+  base::UnguessableToken token3 = local_handle->CreateContextToken();
+
+  auto request_info = std::make_unique<
+      ContextualSearchContextController::CreateClientToAimRequestInfo>();
+
+  EXPECT_CALL(*mock_controller_ptr, CreateClientToAimRequest(_))
+      .WillOnce(
+          [&](std::unique_ptr<
+              ContextualSearchContextController::CreateClientToAimRequestInfo>
+                  info) {
+            EXPECT_EQ(info->file_tokens.size(), 3u);
+            EXPECT_EQ(info->file_tokens[0], token1);
+            EXPECT_EQ(info->file_tokens[1], token2);
+            EXPECT_EQ(info->file_tokens[2], token3);
+            return lens::ClientToAimMessage();
+          });
+
+  local_handle->CreateClientToAimRequest(std::move(request_info));
 }
 
 }  // namespace contextual_search

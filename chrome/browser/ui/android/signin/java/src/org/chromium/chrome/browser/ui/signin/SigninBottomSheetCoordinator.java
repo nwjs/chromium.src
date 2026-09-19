@@ -29,6 +29,7 @@ import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.google_apis.gaia.CoreAccountId;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 
 /** Responsible of showing the sign-in bottom sheet. */
 @NullMarked
@@ -107,6 +108,7 @@ public class SigninBottomSheetCoordinator implements AccountPickerDelegate {
     public void show(
             WindowAndroid windowAndroid,
             Activity activity,
+            ModalDialogManager modalDialogManager,
             BottomSheetController bottomSheetController,
             DeviceLockActivityLauncher deviceLockActivityLauncher,
             SigninManager signinManager,
@@ -126,6 +128,7 @@ public class SigninBottomSheetCoordinator implements AccountPickerDelegate {
                             signinManager.getIdentityManager(),
                             signinManager,
                             accountPreviewDataService,
+                            modalDialogManager,
                             bottomSheetController,
                             this,
                             bottomSheetStrings,
@@ -141,6 +144,7 @@ public class SigninBottomSheetCoordinator implements AccountPickerDelegate {
                             signinManager.getIdentityManager(),
                             signinManager,
                             accountPreviewDataService,
+                            modalDialogManager,
                             bottomSheetController,
                             this,
                             bottomSheetStrings,
@@ -211,5 +215,9 @@ public class SigninBottomSheetCoordinator implements AccountPickerDelegate {
             mSigninUiCoordinator.dismiss();
             mSigninUiCoordinator = null;
         }
+    }
+
+    public @Nullable SigninBottomSheetUiCoordinator getSigninUiCoordinatorForTesting() {
+        return mSigninUiCoordinator;
     }
 }

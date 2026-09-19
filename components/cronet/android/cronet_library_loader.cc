@@ -18,7 +18,6 @@
 #include "base/android/android_info.h"
 #include "base/android/base_jni_init.h"
 #include "base/android/jni_android.h"
-#include "base/android/jni_array.h"
 #include "base/android/jni_registrar.h"
 #include "base/android/jni_string.h"
 #include "base/android/jni_utils.h"
@@ -63,7 +62,6 @@
 #include "third_party/boringssl/src/include/openssl/rsa.h"
 #include "third_party/boringssl/src/include/openssl/sha.h"
 #include "third_party/perfetto/include/perfetto/tracing/tracing.h"
-#include "third_party/zlib/zlib.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "components/cronet/android/cronet_jni_headers/CronetLibraryLoader_jni.h"
@@ -97,14 +95,11 @@ std::optional<net::NetLogCaptureMode> g_trace_net_log_capture_mode;
       cronet::Java_CronetLibraryLoader_getBaseFeatureOverrides(env);
   CHECK(serializedProto);
 
-  const int32_t serializedProtoSize = serializedProto.GetLength(env);
   ::org::chromium::net::httpflags::BaseFeatureOverrides overrides;
-  void* const serializedProtoArray =
-      env->GetPrimitiveArrayCritical(serializedProto.obj(), /*isCopy=*/nullptr);
-  CHECK(serializedProtoArray != nullptr);
-  CHECK(overrides.ParseFromArray(serializedProtoArray, serializedProtoSize));
-  env->ReleasePrimitiveArrayCritical(serializedProto.obj(),
-                                     serializedProtoArray, JNI_ABORT);
+  {
+    auto view = serializedProto.CreateViewCritical(env);
+    CHECK(overrides.ParseFromArray(view.data(), view.size()));
+  }
   return overrides;
 }
 
@@ -387,14 +382,6 @@ JNI_CronetLibraryLoader_GetTraceNetLogCaptureModeForTesting(JNIEnv* env) {
 
 static ScopedJavaLocalRef<jstring> JNI_CronetLibraryLoader_GetCronetVersion(
     JNIEnv* env) {
-#if defined(ARCH_CPU_ARM64)
-  // Attempt to avoid crashes on some ARM64 Marshmallow devices by
-  // prompting zlib ARM feature detection early on. https://crbug.com/853725
-  if (base::android::android_info::sdk_int() ==
-      base::android::android_info::SDK_VERSION_MARSHMALLOW) {
-    crc32(0, Z_NULL, 0);
-  }
-#endif
   return base::android::ConvertUTF8ToJavaString(env, CRONET_VERSION);
 }
 

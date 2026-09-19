@@ -29,6 +29,7 @@
 #import "ios/web/public/test/fakes/fake_web_state.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "net/base/apple/url_conversions.h"
+#import "net/base/url_util.h"
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
@@ -65,6 +66,7 @@ class TestFakeWebState : public web::FakeWebState {
 // A Mini map factory that filters out some handled URLs based on their queries.
 @interface MiniMapTabHelperTestMiniMapControllerFactory
     : NSObject <MiniMapControllerFactory>
+@property(nonatomic, copy) NSString* customCampaignToken;
 @end
 
 @implementation MiniMapTabHelperTestMiniMapControllerFactory
@@ -77,6 +79,25 @@ class TestFakeWebState : public web::FakeWebState {
   return [url.query containsString:kValidQuery];
 }
 
+- (GURL)URLByAppendingCampaignTokenIfNeeded:(const GURL&)url {
+  if (self.customCampaignToken) {
+    return net::AppendQueryParameter(
+        url, "utm_campaign", base::SysNSStringToUTF8(self.customCampaignToken));
+  }
+  return url;
+}
+
+- (BOOL)URLHasCampaignToken:(const GURL&)url {
+  if (self.customCampaignToken) {
+    std::string value;
+    if (net::GetValueForKeyInQuery(url, "utm_campaign", &value) &&
+        value == base::SysNSStringToUTF8(self.customCampaignToken)) {
+      return YES;
+    }
+  }
+  return NO;
+}
+
 @end
 
 class MiniMapTabHelperTest : public PlatformTest {
@@ -86,7 +107,6 @@ class MiniMapTabHelperTest : public PlatformTest {
   void SetUp() override {
     PlatformTest::SetUp();
     scoped_variations_service_.Get()->OverrideStoredPermanentCountry("us");
-    feature_list_.InitAndEnableFeature(kIOSMiniMapUniversalLink);
 
     factory_ = [[MiniMapTabHelperTestMiniMapControllerFactory alloc] init];
     ios::provider::test::SetMiniMapControllerFactory(factory_);
@@ -435,8 +455,7 @@ TEST_F(MiniMapTabHelperTest, TestReentrancy) {
 // Test that the counterfactual flag causes the URL to be modified and opened.
 TEST_F(MiniMapTabHelperTest, TestCounterfactualLogging) {
   feature_list_.Reset();
-  feature_list_.InitWithFeatures({kIOSMiniMapUniversalLinkCounterfactual},
-                                 {kIOSMiniMapUniversalLink});
+  feature_list_.InitAndEnableFeature(kIOSMiniMapUniversalLinkCounterfactual);
 
   NSString* const kGoogleMapsLink =
       @"https://www.google.com/maps/foo?valid=true";
@@ -474,8 +493,7 @@ TEST_F(MiniMapTabHelperTest, TestCounterfactualLogging) {
 // even when the transition type includes qualifiers (e.g. redirect).
 TEST_F(MiniMapTabHelperTest, TestCounterfactualLoggingWithRedirect) {
   feature_list_.Reset();
-  feature_list_.InitWithFeatures({kIOSMiniMapUniversalLinkCounterfactual},
-                                 {kIOSMiniMapUniversalLink});
+  feature_list_.InitAndEnableFeature(kIOSMiniMapUniversalLinkCounterfactual);
 
   NSString* const kGoogleMapsLink =
       @"https://www.google.com/maps/foo?valid=true";
@@ -500,14 +518,10 @@ TEST_F(MiniMapTabHelperTest, TestCounterfactualLoggingWithRedirect) {
       "https://www.google.com/maps/foo?valid=true&utm_campaign=as-npc-bling");
 }
 
-// Test that when both the experiment feature and counterfactual are disabled,
-// the request is not intercepted at all.
-TEST_F(MiniMapTabHelperTest, TestExperimentDisabled) {
-  feature_list_.Reset();
-  feature_list_.InitWithFeatures(
-      /*enabled_features=*/{},
-      /*disabled_features=*/{kIOSMiniMapUniversalLink,
-                             kIOSMiniMapUniversalLinkCounterfactual});
+// Test that when in an excluded country and counterfactual is disabled, the
+// request is not intercepted at all.
+TEST_F(MiniMapTabHelperTest, TestFeatureDisabledInExcludedCountry) {
+  scoped_variations_service_.Get()->OverrideStoredPermanentCountry("fr");
 
   NSString* const kGoogleMapsLink =
       @"https://www.google.com/maps/foo?valid=true";
@@ -519,4 +533,66 @@ TEST_F(MiniMapTabHelperTest, TestExperimentDisabled) {
 
   // Navigation should be allowed (returns true).
   EXPECT_TRUE(res);
+}
+
+// Test that dynamic campaign tokens configured by the provider are appended
+// to the URL presented to Native Preview in the treatment arm.
+TEST_F(MiniMapTabHelperTest, TestDynamicMendelCampaignTokenTreatment) {
+  factory_.customCampaignToken = @"as-npt-dynamic-123";
+  NSString* const kGoogleMapsLink =
+      @"https://www.google.com/maps/foo?valid=true";
+  NSString* const kExpectedURL =
+      @"https://www.google.com/maps/"
+      @"foo?valid=true&utm_campaign=as-npt-dynamic-123";
+
+  OCMExpect([mini_map_commands_handler_
+      presentMiniMapNativePreviewForURL:[NSURL URLWithString:kExpectedURL]]);
+
+  bool res = TestShouldAllowRequest(kGoogleSRPPage, kGoogleMapsLink,
+                                    /*feature_enabled=*/true,
+                                    /*google_maps_installed=*/false,
+                                    ui::PageTransition::PAGE_TRANSITION_LINK);
+
+  EXPECT_OCMOCK_VERIFY(mini_map_commands_handler_);
+  EXPECT_FALSE(res);
+}
+
+// Test that when a URL already contains the dynamic campaign token, it is
+// allowed immediately to prevent navigation loops.
+TEST_F(MiniMapTabHelperTest, TestDynamicCampaignTokenLoopPrevention) {
+  factory_.customCampaignToken = @"as-npt-dynamic-123";
+  NSString* const kDecoratedGoogleMapsLink =
+      @"https://www.google.com/maps/"
+      @"foo?valid=true&utm_campaign=as-npt-dynamic-123";
+
+  bool res = TestShouldAllowRequest(kGoogleSRPPage, kDecoratedGoogleMapsLink,
+                                    /*feature_enabled=*/true,
+                                    /*google_maps_installed=*/false,
+                                    ui::PageTransition::PAGE_TRANSITION_LINK);
+
+  EXPECT_TRUE(res);
+}
+
+// Test that dynamic campaign tokens configured by the provider are appended
+// to the URL when the feature is disabled by the user (opt-out).
+TEST_F(MiniMapTabHelperTest, TestDynamicCampaignTokenOptOut) {
+  factory_.customCampaignToken = @"as-npt-dynamic-789";
+
+  NSString* const kGoogleMapsLink =
+      @"https://www.google.com/maps/foo?valid=true";
+
+  bool res = TestShouldAllowRequest(kGoogleSRPPage, kGoogleMapsLink,
+                                    /*feature_enabled=*/false,
+                                    /*google_maps_installed=*/false,
+                                    ui::PageTransition::PAGE_TRANSITION_LINK);
+
+  // Navigation should be blocked (returns false).
+  EXPECT_FALSE(res);
+
+  // Check that a new URL was opened with the dynamic campaign parameter.
+  web::WebState::OpenURLParams* params = web_state_.last_open_url_params();
+  ASSERT_TRUE(params);
+  EXPECT_EQ(params->url.spec(),
+            "https://www.google.com/maps/"
+            "foo?valid=true&utm_campaign=as-npt-dynamic-789");
 }

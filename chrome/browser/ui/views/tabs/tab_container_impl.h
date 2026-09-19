@@ -11,6 +11,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/timer/timer.h"
+#include "chrome/browser/ui/tabs/tab_types.h"
 #include "chrome/browser/ui/views/frame/browser_root_view.h"
 #include "chrome/browser/ui/views/tabs/shared/drop_arrow.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
@@ -231,6 +232,18 @@ class TabContainerImpl : public TabContainer,
   // Updates `override_available_width_for_tabs_`, if necessary, to account for
   // the removal of the tab at `model_index`.
   void UpdateClosingModeOnRemovedTab(int model_index, bool was_active);
+
+  // Returns whether `tab` is visible, accounting for tab group focusing and
+  // collapsed groups.
+  bool IsTabVisible(const Tab* tab) const;
+
+  // Returns the number of visible tabs in `tabs_view_model_`, accounting for
+  // tab group focusing and collapsed groups.
+  int GetVisibleTabCount() const;
+
+  // Returns the model index of the trailingmost visible tab in
+  // `tabs_view_model_`, or -1 if no tabs are visible.
+  int GetLastVisibleTabModelIndex() const;
 
   // Perform an animated resize-relayout of the TabContainer immediately.
   void ResizeLayoutTabs();

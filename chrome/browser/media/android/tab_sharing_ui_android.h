@@ -20,7 +20,8 @@
 class TabSharingUIAndroid : public MediaStreamUI {
  public:
   explicit TabSharingUIAndroid(content::WebContents* capturer_web_contents,
-                               const content::DesktopMediaID& media_id);
+                               const content::DesktopMediaID& media_id,
+                               bool app_preferred_current_tab);
   ~TabSharingUIAndroid() override;
 
   // chrome::MediaStreamUI override.
@@ -42,7 +43,9 @@ class TabSharingUIAndroid : public MediaStreamUI {
  private:
   base::WeakPtr<content::WebContents> capturer_web_contents_;
   base::OnceClosure stop_callback_;
+  content::MediaStreamUI::SourceCallback source_callback_;
   const content::DesktopMediaID media_id_;
+  const bool app_preferred_current_tab_;
   std::unique_ptr<content::MediaStreamUI> tab_capture_indicator_ui_;
   base::android::ScopedJavaGlobalRef<jobject> java_bridge_;
 };

@@ -8,18 +8,19 @@
 
 #include "base/check_deref.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/notimplemented.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/autofill/autofill_bubble_base.h"
 #include "chrome/browser/ui/autofill/autofill_bubble_handler.h"
 #include "chrome/browser/ui/autofill/payments/payments_ui_constants.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/payments/offer_notification_options.h"
@@ -79,6 +80,10 @@ std::u16string OfferNotificationBubbleControllerImpl::GetWindowTitle() const {
     case AutofillOfferData::OfferType::GPAY_PROMO_CODE_OFFER:
       return l10n_util::GetStringUTF16(
           IDS_AUTOFILL_GPAY_PROMO_CODE_OFFERS_REMINDER_TITLE);
+    case AutofillOfferData::OfferType::WALLET_DIRECT_OFFER:
+      // TODO(crbug.com/546252995): Implement UI for Wallet Direct Offers.
+      NOTIMPLEMENTED();
+      return std::u16string();
     case AutofillOfferData::OfferType::UNKNOWN:
       NOTREACHED();
   }

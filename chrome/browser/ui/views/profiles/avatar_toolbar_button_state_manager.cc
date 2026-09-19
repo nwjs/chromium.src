@@ -366,6 +366,59 @@ class IncognitoStateProvider : public PrivateBaseStateProvider {
   }
 };
 
+class EnterpriseIsolatedStateProvider : public PrivateBaseStateProvider {
+ public:
+  explicit EnterpriseIsolatedStateProvider(Profile* profile,
+                                           StateObserver* state_observer)
+      : PrivateBaseStateProvider(profile, state_observer) {}
+
+  ~EnterpriseIsolatedStateProvider() override = default;
+
+  // StateProvider:
+  std::optional<base::RepeatingCallback<void(bool)>> GetButtonActionOverride()
+      override {
+    // TODO(b/548967433): Implement once IsolatedModeMenuView lands in follow-up
+    // CL.
+    return base::DoNothing();
+  }
+
+  std::u16string GetText() const override {
+    return l10n_util::GetPluralStringFUTF16(
+        IDS_AVATAR_BUTTON_ISOLATED_MODE,
+        static_cast<int>(ProfileBrowserCollection::GetForProfile(&profile())
+                             ->GetOffTheRecordBrowserCount()));
+  }
+
+  std::optional<SkColor> GetHighlightColor(
+      const ui::ColorProvider& color_provider) const override {
+    return color_provider.GetColor(kColorAvatarButtonHighlightDefault);
+  }
+
+  std::optional<SkColor> GetHighlightTextColor(
+      const ui::ColorProvider& color_provider) const override {
+    return color_provider.GetColor(
+        kColorAvatarButtonHighlightDefaultForeground);
+  }
+
+  std::pair<ui::ImageModel, AvatarIconType> GetAvatarIcon(
+      int icon_size,
+      SkColor /*icon_color*/,
+      const ui::ColorProvider& color_provider) const override {
+    auto [image, icon_type] = GetProfileAvatarImage(
+        *profile().GetOriginalProfile(), color_provider, icon_size);
+    ui::ImageModel avatar_model =
+        ui::ImageModel::FromImage(profiles::GetSizedAvatarIcon(
+            image, icon_size, icon_size, profiles::SHAPE_CIRCLE));
+    return {avatar_model, icon_type};
+  }
+
+  std::u16string GetAvatarTooltipText() const override {
+    return l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_ISOLATED_MODE_TOOLTIP);
+  }
+
+  bool ShouldPaintBorder() const override { return true; }
+};
+
 class ExplicitStateProvider : public StateProvider {
  public:
   explicit ExplicitStateProvider(
@@ -645,8 +698,7 @@ class OnSigninStateProvider : public StateProvider {
 
  private:
   void OnButtonClick(bool is_source_accelerator) {
-    browser_->GetFeatures().profile_menu_coordinator()->Show(
-        is_source_accelerator);
+    ProfileMenuCoordinator::From(&browser_.get())->Show(is_source_accelerator);
     coordinator_->Collapse();
   }
 
@@ -969,43 +1021,28 @@ class PromoStateProviderCoordinator
   // AvatarToolbarButtonStateManager::Observer:
   void OnButtonStateChanged(std::optional<ButtonState> old_state,
                             ButtonState new_state) override {
-    switch (new_state) {
-      case ButtonState::kPromo:
-        CHECK(promo_type_.has_value());
-        // Ensure that the promo can still be shown if it is not already shown.
-        // It is possible that events not allowing the promo to show anymore
-        // happened before reaching `this` notification. E.g. clearing primary
-        // account triggering an update request through another StateProvider
-        // while `this` is active.
-        if (!IsPromoShowing() &&
-            !promo_manager_.ShouldShowPromo(promo_type_.value())) {
-          // Resets the coordinator.
-          Collapse();
-          return;
-        }
-
-        PromoShown();
-        return;
-      case ButtonState::kUpgradeClientError:
-      case ButtonState::kPassphraseError:
-      case ButtonState::kBookmarksLimitExceeded:
-      case ButtonState::kSyncError:
-      case ButtonState::kSigninPending:
-      case ButtonState::kSyncPaused:
-      case ButtonState::kExplicitTextShowing:
-      case ButtonState::kPasskeysLockedError:
+    if (new_state == ButtonState::kPromo) {
+      CHECK(promo_type_.has_value());
+      // Ensure that the promo can still be shown if it is not already shown.
+      // It is possible that events not allowing the promo to show anymore
+      // happened before reaching `this` notification. E.g. clearing primary
+      // account triggering an update request through another StateProvider
+      // while `this` is active.
+      if (!IsPromoShowing() &&
+          !promo_manager_.ShouldShowPromo(promo_type_.value())) {
+        // Resets the coordinator.
         Collapse();
         return;
-      case ButtonState::kOnSignin:
-      case ButtonState::kShowIdentityName:
-      case ButtonState::kIncognitoProfile:
-      case ButtonState::kGuestSession:
-        break;
-      case ButtonState::kNormal:
-      case ButtonState::kManagement:
-        CHECK(!collapse_timer_.IsRunning());
-        break;
+      }
+
+      PromoShown();
+      return;
     }
+
+    // Collapse the promo state on any button state change to ensure that promo
+    // timers are stopped and promo state is cleaned up when higher-priority
+    // states (such as `kShowIdentityName` triggered by IPH) become active.
+    Collapse();
     if (!old_state.has_value()) {
       return;
     }
@@ -1017,6 +1054,7 @@ class PromoStateProviderCoordinator
       case ButtonState::kPasskeysLockedError:
       case ButtonState::kOnSignin:
       case ButtonState::kIncognitoProfile:
+      case ButtonState::kEnterpriseIsolatedProfile:
       case ButtonState::kGuestSession:
       case ButtonState::kNormal:
       case ButtonState::kExplicitTextShowing:
@@ -1195,19 +1233,26 @@ class PromoStateProviderCoordinator
       promo_type_ = promo_info.type;
     }
 
+    if (old_promo_type != promo_type_ || !promo_type_.has_value()) {
+      if (collapse_timer_.IsRunning()) {
+        collapse_timer_.Stop();
+      }
+      before_promo_used_elapsed_timer_.reset();
+    }
+
     if (old_promo_type != promo_type_) {
       promo_type_changed_callbacks_.Notify();
     }
   }
 
   void Collapse() {
-    if (!promo_type_.has_value()) {
-      return;
-    }
-    if (IsPromoShowing()) {
+    if (collapse_timer_.IsRunning()) {
       collapse_timer_.Stop();
     }
     before_promo_used_elapsed_timer_.reset();
+    if (!promo_type_.has_value()) {
+      return;
+    }
     promo_type_.reset();
     promo_type_changed_callbacks_.Notify();
   }
@@ -1374,8 +1419,9 @@ class PromoStateProvider : public StateProvider {
 
  private:
   void OnButtonClick(bool is_source_accelerator) {
-    browser_->GetFeatures().profile_menu_coordinator()->Show(
-        is_source_accelerator, /*from_avatar_promo=*/true);
+    ProfileMenuCoordinator::From(&browser_.get())
+        ->Show(is_source_accelerator,
+               /*from_avatar_promo=*/true);
     coordinator_->PromoUsed();
   }
 
@@ -2321,9 +2367,8 @@ void AvatarToolbarButtonStateManager::HandleButtonPressed(
   }
 
   // By default, show the profile menu.
-  if (browser_ && browser_->GetFeatures().profile_menu_coordinator()) {
-    browser_->GetFeatures().profile_menu_coordinator()->Show(
-        is_source_accelerator);
+  if (browser_ && ProfileMenuCoordinator::From(browser_)) {
+    ProfileMenuCoordinator::From(browser_)->Show(is_source_accelerator);
   }
 }
 
@@ -2506,6 +2551,12 @@ void AvatarToolbarButtonStateManager::CreateStatesAndListeners(
     states_[ButtonState::kGuestSession] =
         std::make_unique<GuestStateProvider>(profile,
                                              /*state_observer=*/this);
+  } else if (profile->IsEnterpriseIsolatedModeProfile()) {
+    // This state is always active.
+    states_[ButtonState::kEnterpriseIsolatedProfile] =
+        std::make_unique<EnterpriseIsolatedStateProvider>(
+            profile,
+            /*state_observer=*/this);
   } else if (profile->IsIncognitoProfile()) {
     // This state is always active.
     states_[ButtonState::kIncognitoProfile] =

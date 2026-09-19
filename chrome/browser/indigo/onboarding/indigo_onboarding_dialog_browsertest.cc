@@ -8,10 +8,11 @@
 #include "base/strings/escape.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/public/tab_dialog_manager.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/tabs/public/tab_interface.h"
@@ -269,7 +270,7 @@ IN_PROC_BROWSER_TEST_F(IndigoOnboardingDialogBrowserTest, CloseOnTabReload) {
                   WaitForShow(IndigoOnboardingDialog::kWebViewId),
                   Do(base::BindLambdaForTesting([&]() {
                     content::WaitForLoadStop(
-                        browser()->tab_strip_model()->GetActiveWebContents());
+                        browser()->GetTabStripModel()->GetActiveWebContents());
                   })),
                   PressButton(kReloadButtonElementId),
                   WaitForHide(IndigoOnboardingDialog::kWebViewId),

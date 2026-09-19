@@ -73,6 +73,7 @@
 #include "cc/trees/client_layer_tree_host_impl.h"
 #include "cc/trees/clip_node.h"
 #include "cc/trees/compositor_commit_data.h"
+#include "cc/trees/damage_tracker.h"
 #include "cc/trees/draw_property_utils.h"
 #include "cc/trees/effect_node.h"
 #include "cc/trees/frame_data.h"
@@ -1876,15 +1877,7 @@ TEST_P(LayerTreeHostImplTest, ScrollUpdateReturnsCorrectValue) {
           .did_scroll);
 }
 
-// TODO(crbug.com/487287578): Re-enable on Android once it's non-flaky.
-#if BUILDFLAG(IS_ANDROID)
-#define DISABLED_ON_ANDROID(test_name) DISABLED_##test_name
-#else
-#define DISABLED_ON_ANDROID(test_name) test_name
-#endif
-
-TEST_P(LayerTreeHostImplTest,
-       DISABLED_ON_ANDROID(ScrollEndMainThreadRepaintFastPathScroll)) {
+TEST_P(LayerTreeHostImplTest, ScrollEndMainThreadRepaintFastPathScroll) {
   SetupViewportLayersInnerScrolls(gfx::Size(100, 100), gfx::Size(200, 200));
   DrawFrame();
 
@@ -1901,8 +1894,7 @@ TEST_P(LayerTreeHostImplTest,
                    .updates_need_main_thread_repaint);
 }
 
-TEST_P(LayerTreeHostImplTest,
-       DISABLED_ON_ANDROID(ScrollEndMainThreadRepaintSlowPathScroll)) {
+TEST_P(LayerTreeHostImplTest, ScrollEndMainThreadRepaintSlowPathScroll) {
   SetupViewportLayersInnerScrolls(gfx::Size(100, 100), gfx::Size(200, 200));
   DrawFrame();
 
@@ -8757,7 +8749,7 @@ TEST_P(LayerTreeHostImplTest,
                      resourceless_software_draw, false);
 
   EXPECT_EQ(1u, last_on_draw_frame_->will_draw_layers.size());
-  EXPECT_EQ(host_impl_->active_tree()->root_layer(),
+  EXPECT_EQ(host_impl_->active_tree()->root_layer()->id(),
             last_on_draw_frame_->will_draw_layers[0]);
 }
 
@@ -13777,7 +13769,6 @@ class UnifiedScrollingTest : public LayerTreeHostImplTest {
   viz::BeginFrameArgs begin_frame_args_;
 
   std::unique_ptr<ScrollState> to_be_continued_scroll_begin_;
-  base::test::ScopedFeatureList scoped_feature_list;
 };
 
 INSTANTIATE_COMMIT_TO_TREE_TEST_P(UnifiedScrollingTest);
@@ -15122,7 +15113,6 @@ class ConcurrentImplOnlyScrollAnimationsTest : public LayerTreeHostImplTest {
   gfx::PointF target_offset2_ = gfx::PointF(0., 4.);
   raw_ptr<LayerImpl> scroller1_;
   raw_ptr<LayerImpl> scroller2_;
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 INSTANTIATE_COMMIT_TO_TREE_TEST_P(ConcurrentImplOnlyScrollAnimationsTest);
@@ -15323,7 +15313,6 @@ class ConcurrentSnapAnimationsTest : public LayerTreeHostImplTest {
   raw_ptr<ScrollNode> scroll_node2_ = nullptr;
   ElementId container1_id_;
   ElementId container2_id_;
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 INSTANTIATE_COMMIT_TO_TREE_TEST_P(ConcurrentSnapAnimationsTest);
@@ -15867,7 +15856,14 @@ TEST_P(OverscrollEffectTest, RespectsOverscrollBehaviorOnRoot) {
 
 // TODO(crbug.com/508672616): Unbounded element is not implemented for
 // TreesInViz yet.
-class UnboundedElementTest : public LayerTreeHostImplTest {};
+class UnboundedElementTest : public LayerTreeHostImplTest {
+ public:
+  LayerTreeSettings DefaultSettings() override {
+    LayerTreeSettings settings = LayerTreeHostImplTest::DefaultSettings();
+    settings.enable_unbounded_element = true;
+    return settings;
+  }
+};
 INSTANTIATE_COMMIT_TO_TREE_BASE_TEST_P(UnboundedElementTest,
                                        CommitToActiveTree,
                                        CommitToPendingTree);
@@ -15885,6 +15881,62 @@ TEST_P(UnboundedElementTest, UnboundedCompositorFrameExtraction) {
   EXPECT_TRUE(effect_tree.Node(effect_node_id).HasRenderSurface());
   EXPECT_EQ(RenderSurfaceReason::kUnboundedElement,
             effect_tree.Node(effect_node_id).render_surface_reason);
+}
+
+TEST_P(UnboundedElementTest, HasDamageWithUnboundedElementOutsideViewport) {
+  // Viewport is 100x100.
+  auto* root = SetupDefaultRootLayer(gfx::Size(100, 100));
+
+  LayerTreeImpl* active_tree = host_impl_->active_tree();
+
+  // Add a layer inside the unbounded element positioned at (0, 200, 50, 50),
+  // which is strictly outside the 100x100 viewport.
+  auto* unbounded_layer = AddLayerInActiveTree();
+  unbounded_layer->SetBounds(gfx::Size(50, 50));
+  unbounded_layer->SetOffsetToTransformParent(gfx::Vector2dF(0, 200));
+  unbounded_layer->SetDrawsContent(true);
+  unbounded_layer->SetHitTestOpaqueness(HitTestOpaqueness::kOpaque);
+  CopyProperties(root, unbounded_layer);
+
+  // Create an unbounded element effect node with a render surface.
+  EffectNode& effect_node = CreateEffectNode(unbounded_layer);
+  effect_node.render_surface_reason = RenderSurfaceReason::kUnboundedElement;
+
+  host_impl_->SetUnboundedFrameSink(nullptr, viz::LocalSurfaceId());
+
+  UpdateDrawProperties(active_tree);
+
+  // Initial draw clears local surface ID change and initial damage.
+  auto args1 = viz::CreateBeginFrameArgsForTesting(
+      BEGINFRAME_FROM_HERE, viz::BeginFrameArgs::kManualSourceId, 1,
+      base::TimeTicks() + base::Milliseconds(1));
+  host_impl_->WillBeginImplFrame(args1);
+  TestFrameData initial_frame;
+  EXPECT_EQ(DrawResult::kSuccess, host_impl_->PrepareToDraw(&initial_frame));
+  host_impl_->DrawLayers(&initial_frame);
+  host_impl_->DidDrawAllLayers(initial_frame);
+  host_impl_->DidFinishImplFrame(args1);
+
+  // Invalidate only the unbounded layer outside the viewport.
+  unbounded_layer->UnionUpdateRect(gfx::Rect(0, 0, 50, 50));
+  DamageTracker::UpdateDamageTracking(active_tree);
+
+  // The root surface damage rect does not intersect root surface content rect.
+  const RenderSurfaceImpl* root_surface = active_tree->RootRenderSurface();
+  EXPECT_FALSE(
+      root_surface->GetDamageRect().Intersects(root_surface->content_rect()));
+
+  auto args2 = viz::CreateBeginFrameArgsForTesting(
+      BEGINFRAME_FROM_HERE, viz::BeginFrameArgs::kManualSourceId, 2,
+      base::TimeTicks() + base::Milliseconds(2));
+  host_impl_->WillBeginImplFrame(args2);
+  TestFrameData damaged_frame;
+  damaged_frame.begin_frame_ack = viz::BeginFrameAck(args2, true);
+  EXPECT_EQ(DrawResult::kSuccess, host_impl_->PrepareToDraw(&damaged_frame));
+  EXPECT_FALSE(damaged_frame.has_no_damage);
+  host_impl_->DrawLayers(&damaged_frame);
+  host_impl_->DidDrawAllLayers(damaged_frame);
+  host_impl_->DidFinishImplFrame(args2);
 }
 
 TEST_P(LayerTreeHostImplTest, CollectTrackedElementRects) {

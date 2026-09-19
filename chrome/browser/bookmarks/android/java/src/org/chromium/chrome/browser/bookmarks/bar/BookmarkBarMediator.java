@@ -360,7 +360,7 @@ class BookmarkBarMediator
                                     mActivity,
                                     mCurrentTabSupplier.get(),
                                     profile,
-                                    model.getRootFolderId());
+                                    model.getDefaultFolderViewLocation());
                 });
     }
 
@@ -807,6 +807,9 @@ class BookmarkBarMediator
                 modelList.add(createListItemForBookmarkLeaf(childBookmarkItem));
             }
         }
+        if (modelList.isEmpty() && ChromeFeatureList.sFlyoutInBookmarksBar.isEnabled()) {
+            modelList.add(createEmptyFolderListItem());
+        }
         return modelList;
     }
 
@@ -871,6 +874,9 @@ class BookmarkBarMediator
         for (ListItem item : children) {
             childrenList.add(item);
         }
+        if (childrenList.isEmpty()) {
+            childrenList.add(createEmptyFolderListItem());
+        }
 
         View.OnClickListener clickListener = (v) -> handlePopupItemClick(bookmarkItem);
 
@@ -933,6 +939,20 @@ class BookmarkBarMediator
                 ListMenuItemProperties.KEY_LISTENER,
                 createPopupMenuItemKeyListener(model, bookmarkItem));
         return listItem;
+    }
+
+    private ListItem createEmptyFolderListItem() {
+        PropertyModel model =
+                new PropertyModel.Builder(ListMenuItemProperties.ALL_KEYS)
+                        .with(
+                                ListMenuItemProperties.TITLE,
+                                mActivity.getString(R.string.bookmarks_bar_empty_message))
+                        .with(
+                                ListMenuItemProperties.TEXT_APPEARANCE_ID,
+                                R.style.TextAppearance_TextMedium_Disabled)
+                        .with(ListMenuItemProperties.ENABLED, false)
+                        .build();
+        return new ListItem(ListItemType.MENU_ITEM, model);
     }
 
     // Start of popup event handlers
