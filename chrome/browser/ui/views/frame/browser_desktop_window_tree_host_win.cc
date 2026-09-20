@@ -529,7 +529,7 @@ bool BrowserDesktopWindowTreeHostWin::ShouldUseNativeFrame() const {
   if (browser_view_->browser()->GetBrowserForMigrationOnly()->is_transparent()) {
     return true;
   }
-  if (browser_view_->browser()->is_frameless()) {
+  if (browser_view_->browser()->GetBrowserForMigrationOnly()->is_frameless()) {
     return false;
   }
 
