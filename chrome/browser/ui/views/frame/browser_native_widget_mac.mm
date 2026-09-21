@@ -736,7 +736,7 @@ void BrowserNativeWidgetMac::PopulateCreateWindowParams(
     if (browser_view_->GetIsWebAppType()) {
       params->window_title_hidden = true;
     }
-  } else if (browser_view_->browser()->is_frameless()) {
+  } else if (browser_view_->browser()->GetBrowserForMigrationOnly()->is_frameless()) {
     params->window_class = remote_cocoa::mojom::WindowClass::kFrameless;
     params->style_mask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
                          NSWindowStyleMaskMiniaturizable |
