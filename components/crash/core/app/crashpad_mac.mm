@@ -161,8 +161,8 @@ bool PlatformCrashpadInitialization(
       std::string url = crash_reporter_client->GetUploadUrl();
 
       std::map<std::string, std::string> process_annotations;
-      process_annotations["prod"] = product_info.product_name;
-      process_annotations["ver"] = product_info.version;
+      process_annotations["prod"] = product_info.product_name();
+      process_annotations["ver"] = product_info.version();
       process_annotations["plat"] = std::string("OS X");
 
       std::vector<std::string> arguments;
