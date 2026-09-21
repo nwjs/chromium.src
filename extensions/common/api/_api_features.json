@@ -123,14 +123,16 @@
   },
   "bluetoothPrivate": [{
     "dependencies": ["permission:bluetoothPrivate"],
-    "contexts": ["privileged_extension"]
+    "contexts": ["privileged_extension"],
+    "platforms": ["chromeos"]
   }, {
     "channel": "stable",
     "contexts": ["webui"],
     "matches": [
       "chrome://bluetooth-pairing/*",
       "chrome://os-settings/*"
-    ]
+    ],
+    "platforms": ["chromeos"]
   }],
   "bluetoothSocket": {
     "dependencies": ["manifest:bluetooth"],
