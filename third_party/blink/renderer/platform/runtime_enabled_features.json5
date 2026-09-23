@@ -812,7 +812,7 @@
     {
       // Killswitch M153.
       name: "AvoidEmbeddedContentViewLocation",
-      status: "experimental",
+      status: "test",
     },
     {
       // Disables the synchronous focus blur behavior when a focused form control
@@ -1347,7 +1347,7 @@
     },
     {
       name: "ConstructableStylesheetCache",
-      status: "stable",
+      status: "test",
     },
     {
       name: "ContactsManager",
@@ -4271,7 +4271,7 @@
       // https://chromestatus.com/feature/5054329641893888
       // streamHTML, appendHTML, etc.
       name: "NewHTMLSettingMethods",
-      status: "stable",
+      status: "experimental",
       depends_on: ["SetHTMLCanRunScripts", "StreamingSanitizer", "TrustedTypesCreateParserOptions"]
     },
     {
@@ -6474,7 +6474,7 @@
       // For example, it can enforce that any HTML setter would go through a
       // sanitizer. See https://github.com/w3c/trusted-types/issues/594
       name: "TrustedTypesCreateParserOptions",
-      status: "stable",
+      status: "experimental",
       depends_on: ["SanitizerAPI", "SetHTMLCanRunScripts"],
     },
     {

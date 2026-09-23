@@ -5849,6 +5849,11 @@
     "expiry_milestone": 150
   },
   {
+    "name": "glic-contextual-cue-v2-active-user-backoff",
+    "owners": [ "iwells@chromium.org", "//chrome/browser/glic/OWNERS" ],
+    "expiry_milestone": 160
+  },
+  {
     "name": "glic-contextual-cueing-v2-auto-submit",
     "owners": [ "iwells@chromium.org", "sophiechang@chromium.org" ],
     "expiry_milestone": 152
@@ -10148,6 +10153,11 @@
     "name": "use-out-of-process-video-decoding",
     "owners": [ "pmolinalopez@chromium.org", "andrescj@chromium.org" ],
     "expiry_milestone": 128
+  },
+  {
+    "name": "use-p-link-in-help",
+    "owners": ["spdonghao@google.com", "clank-app-team@google.com"],
+    "expiry_milestone": 160
   },
   {
     "name": "use-passthrough-command-decoder",

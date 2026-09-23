@@ -2627,7 +2627,6 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="3000461861112256445">Mono audio</translation>
 <translation id="3001144475369593262">Child accounts</translation>
 <translation id="3001614333383288217">{COUNT,plural, =0{No keys customised}=1{1 customised key}other{{COUNT} customised keys}}</translation>
-<translation id="3002745665522516995">Select anything on the page to search</translation>
 <translation id="3002864108328203174">Gemini bottom sheet at half height.</translation>
 <translation id="3003144360685731741">Preferred networks</translation>
 <translation id="3003253259757197230">URLs that you visit are sent to Google to predict what sites you might visit next and to show you additional info about the page that you're visiting</translation>
@@ -5300,7 +5299,7 @@ Use Ctrl + Alt + Brightness down to zoom out.</translation>
 <translation id="5032430150487044192">Can't create QR code</translation>
 <translation id="5033137252639132982">Not allowed to use motion sensors</translation>
 <translation id="5035846135112863536">Choose 'More details' below to get more information from <ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" />.</translation>
-<translation id="5037676449506322593">Select All</translation>
+<translation id="5037676449506322593">Select all</translation>
 <translation id="5038621320029329200">Trusted certificates</translation>
 <translation id="5038818366306248416">You previously chose not to allow any extensions on <ph name="ORIGIN" /></translation>
 <translation id="5039071832298038564">Device network info</translation>
@@ -5479,7 +5478,6 @@ Use Ctrl + Alt + Brightness down to zoom out.</translation>
 <translation id="5173668317844998239">Add and delete fingerprints saved on your security key</translation>
 <translation id="5174169235862638850">Password copied to clipboard</translation>
 <translation id="517488401359338823">Unlock security device</translation>
-<translation id="5176671554021050278">Use Google Lens to learn more about specific images or text on a page.</translation>
 <translation id="5177479852722101802">Continue blocking camera and microphone access</translation>
 <translation id="5178667623289523808">Find Previous</translation>
 <translation id="5179428098696668914">Turn off AI Playback</translation>
@@ -9424,7 +9422,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="8251441930213048644">Refresh now</translation>
 <translation id="8251509999076836464">Pairing to <ph name="DEVICE_NAME" /></translation>
 <translation id="8251578425305135684">Thumbnail removed.</translation>
-<translation id="825238165904109940">Always Show Full URLs</translation>
+<translation id="825238165904109940">Always show full URLs</translation>
 <translation id="8252569384384439529">Uploading…</translation>
 <translation id="8253198102038551905">Click '+' to get network properties</translation>
 <translation id="8255212965098517578">Recent photos, notifications and apps</translation>
@@ -10739,7 +10737,7 @@ This can include information about installed software, files, your browser, the 
 <translation id="967624055006145463">Data stored</translation>
 <translation id="96774243435178359">Managed printers</translation>
 <translation id="968000525894980488">Turn on Google Play services.</translation>
-<translation id="968037381421390582">Paste and Search for '<ph name="SEARCH_TERMS" />'</translation>
+<translation id="968037381421390582">Paste and search for '<ph name="SEARCH_TERMS" />'</translation>
 <translation id="969096075394517431">Change languages</translation>
 <translation id="969574218206797926">Memory saver frees up memory from inactive tabs so it can be used by active tabs and other apps</translation>
 <translation id="970047733946999531">{NUM_TABS,plural, =1{1 Tab}other{# Tabs}}</translation>

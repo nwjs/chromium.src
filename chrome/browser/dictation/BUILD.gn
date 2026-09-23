@@ -21,6 +21,7 @@ source_set("dictation") {
     "dictation_keyed_service.h",
     "dictation_keyed_service_factory.h",
     "dictation_multiplexer.h",
+    "format_transcription.h",
     "local_hotkey_manager.h",
     "logging.h",
     "onboarding_manager.h",
@@ -57,6 +58,7 @@ source_set("impl") {
     "dictation_keyed_service.cc",
     "dictation_keyed_service_factory.cc",
     "dictation_multiplexer.cc",
+    "format_transcription.cc",
     "listener_stream_provider.cc",
     "listener_stream_provider.h",
     "local_hotkey_manager.cc",
@@ -73,11 +75,13 @@ source_set("impl") {
     ":dictation",
     ":metrics",
     "//base",
+    "//base:i18n",
     "//chrome/browser/component_updater",
     "//chrome/browser/extensions",
     "//chrome/browser/glic",
     "//chrome/browser/page_content_annotations:fetcher",
     "//chrome/browser/ui",
+    "//chrome/browser/ui:accelerator_table",
     "//chrome/browser/ui:browser_element_identifiers",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/tabs",
@@ -92,7 +96,9 @@ source_set("impl") {
     "//components/tabs:public",
     "//content/public/browser",
     "//extensions/browser",
+    "//third_party/icu",
     "//ui/base",
+    "//ui/events/blink",
     "//ui/views",
   ]
 }
@@ -132,6 +138,7 @@ source_set("unit_tests") {
   testonly = true
   sources = [
     "dictation_keyed_service_unittest.cc",
+    "format_transcription_unittest.cc",
     "local_hotkey_manager_unittest.cc",
     "logging_unittest.cc",
     "session_controller_unittest.cc",
@@ -143,11 +150,14 @@ source_set("unit_tests") {
     ":metrics",
     ":test_support",
     "//base/test:test_support",
+    "//chrome/browser/ui:accelerator_table",
     "//chrome/browser/ui:test_support",
     "//chrome/test:test_support",
     "//components/tabs:test_support",
     "//content/test:test_support",
     "//extensions/browser:test_support",
+    "//ui/base",
+    "//ui/events/blink",
   ]
 }
 

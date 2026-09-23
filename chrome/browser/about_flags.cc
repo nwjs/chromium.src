@@ -4873,6 +4873,8 @@ const FeatureEntry::FeatureParam
     kDictationWebSpeechApiBackendWithPartialsParam[] = {
         {"web_speech_api_backend", "true"},
         {"show_partials", "true"}};
+const FeatureEntry::FeatureParam kDictationConnectorSmoketestParam[] = {
+    {"connector_tag", "smoketest"}};
 const FeatureEntry::FeatureVariation kDictationVariations[] = {
     {"with close UI after output", kDictationSessionEndsOnStreamEndParam,
      nullptr},
@@ -4881,7 +4883,9 @@ const FeatureEntry::FeatureVariation kDictationVariations[] = {
     {"with Web Speech API backend", kDictationWebSpeechApiBackendParam,
      nullptr},
     {"with Web Speech API backend and partials",
-     kDictationWebSpeechApiBackendWithPartialsParam, nullptr}};
+     kDictationWebSpeechApiBackendWithPartialsParam, nullptr},
+    {"with smoketest connector tag", kDictationConnectorSmoketestParam,
+     nullptr}};
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 const FeatureEntry::FeatureParam
@@ -7838,6 +7842,10 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kAutoRevokeSuspiciousNotificationDescription,
      kOsAndroid,
      FEATURE_VALUE_TYPE(safe_browsing::kAutoRevokeSuspiciousNotification)},
+
+    {"use-p-link-in-help", flag_descriptions::kUsePLinkInHelpName,
+     flag_descriptions::kUsePLinkInHelpDescription, kOsAndroid,
+     FEATURE_VALUE_TYPE(chrome::android::kUsePLinkInHelp)},
 #endif  // BUILDFLAG(IS_ANDROID)
 
     {"gemini-antiscam-protections-metrics-only",
@@ -11251,6 +11259,11 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kGlicContextualCueingV2AutoSubmitDescription,
      kOsDesktop,
      FEATURE_VALUE_TYPE(features::kGlicContextualCueingV2AutoSubmit)},
+    {"glic-contextual-cue-v2-active-user-backoff",
+     flag_descriptions::kGlicContextualCueV2ActiveUserBackoffName,
+     flag_descriptions::kGlicContextualCueV2ActiveUserBackoffDescription,
+     kOsDesktop,
+     FEATURE_VALUE_TYPE(features::kGlicContextualCueV2ActiveUserBackoff)},
     {"glic-message-first-fre-for-contextual-cue",
      flag_descriptions::kGlicMessageFirstFreForContextualCueName,
      flag_descriptions::kGlicMessageFirstFreForContextualCueDescription,
